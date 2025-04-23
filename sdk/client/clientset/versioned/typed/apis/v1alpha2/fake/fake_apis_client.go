@@ -29,6 +29,10 @@ type FakeApisV1alpha2 struct {
 	*testing.Fake
 }
 
+func (c *FakeApisV1alpha2) APIBindings() v1alpha2.APIBindingInterface {
+	return newFakeAPIBindings(c)
+}
+
 func (c *FakeApisV1alpha2) APIExports() v1alpha2.APIExportInterface {
 	return newFakeAPIExports(c)
 }

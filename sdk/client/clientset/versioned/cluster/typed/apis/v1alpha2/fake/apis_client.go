@@ -41,6 +41,10 @@ func (c *ApisV1alpha2ClusterClient) Cluster(clusterPath logicalcluster.Path) api
 	return &ApisV1alpha2Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+func (c *ApisV1alpha2ClusterClient) APIBindings() kcpapisv1alpha2.APIBindingClusterInterface {
+	return newFakeAPIBindingClusterClient(c)
+}
+
 func (c *ApisV1alpha2ClusterClient) APIExports() kcpapisv1alpha2.APIExportClusterInterface {
 	return newFakeAPIExportClusterClient(c)
 }
@@ -48,6 +52,10 @@ func (c *ApisV1alpha2ClusterClient) APIExports() kcpapisv1alpha2.APIExportCluste
 type ApisV1alpha2Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
+}
+
+func (c *ApisV1alpha2Client) APIBindings() apisv1alpha2.APIBindingInterface {
+	return newFakeAPIBindingClient(c.Fake, c.ClusterPath)
 }
 
 func (c *ApisV1alpha2Client) APIExports() apisv1alpha2.APIExportInterface {

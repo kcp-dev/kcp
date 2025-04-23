@@ -110,12 +110,28 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha1.WebhookConversionApplyConfiguration{}
 
 		// Group=apis.kcp.io, Version=v1alpha2
+	case v1alpha2.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):
+		return &apisv1alpha2.AcceptablePermissionClaimApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIBinding"):
+		return &apisv1alpha2.APIBindingApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIBindingSpec"):
+		return &apisv1alpha2.APIBindingSpecApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIBindingStatus"):
+		return &apisv1alpha2.APIBindingStatusApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("APIExport"):
 		return &apisv1alpha2.APIExportApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("APIExportSpec"):
 		return &apisv1alpha2.APIExportSpecApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("APIExportStatus"):
 		return &apisv1alpha2.APIExportStatusApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("BindingReference"):
+		return &apisv1alpha2.BindingReferenceApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResource"):
+		return &apisv1alpha2.BoundAPIResourceApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResourceSchema"):
+		return &apisv1alpha2.BoundAPIResourceSchemaApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ExportBindingReference"):
+		return &apisv1alpha2.ExportBindingReferenceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("GroupResource"):
 		return &apisv1alpha2.GroupResourceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("Identity"):
