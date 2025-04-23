@@ -131,7 +131,8 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 // - has a valid type and it is not mutated
 // - the cluster is not removed
 // - the user is recorded in annotations on create
-// - the required groups match with the LogicalCluster.
+// - the required groups match with the LogicalCluster
+// - only system privileged users can set both spec.Type and spec.Mount.
 func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
@@ -164,30 +165,62 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
-		if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
-			return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
-		}
-		if old.Spec.Cluster != ws.Spec.Cluster && !isSystemPrivileged {
-			return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
-		}
-		if old.Spec.URL != ws.Spec.URL && !isSystemPrivileged {
-			return admission.NewForbidden(a, errors.New("spec.URL can only be changed by system privileged users"))
-		}
-
-		if errs := validation.ValidateImmutableField(ws.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
-			return admission.NewForbidden(a, errs.ToAggregate())
-		}
-		if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
-			return admission.NewForbidden(a, errors.New("spec.type is immutable"))
-		}
-
-		// If we're transitioning to "Ready", make sure that spec.cluster and spec.URL are set.
-		if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
-			if ws.Spec.Cluster == "" {
-				return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", ws.Status.Phase))
+		// Not a mountpoint - validate the spec fields
+		if old.Spec.Mount == nil {
+			if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
+				return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
 			}
-			if ws.Spec.URL == "" {
-				return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", ws.Status.Phase))
+			if old.Spec.Cluster != ws.Spec.Cluster && !isSystemPrivileged {
+				return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
+			}
+			if old.Spec.URL != ws.Spec.URL && !isSystemPrivileged {
+				return admission.NewForbidden(a, errors.New("spec.URL can only be changed by system privileged users"))
+			}
+
+			if errs := validation.ValidateImmutableField(ws.Spec.Type, old.Spec.Type, field.NewPath("spec", "type")); len(errs) > 0 {
+				return admission.NewForbidden(a, errs.ToAggregate())
+			}
+			if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
+				return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+			}
+			// If we're transitioning to "Ready", make sure that spec.cluster and spec.URL are set.
+			// This applies only for non-mounted workspaces.
+			if old.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+				if ws.Spec.Cluster == "" {
+					return admission.NewForbidden(a, fmt.Errorf("spec.cluster must be set for phase %s", ws.Status.Phase))
+				}
+				if ws.Spec.URL == "" {
+					return admission.NewForbidden(a, fmt.Errorf("spec.URL must be set for phase %s", ws.Status.Phase))
+				}
+			}
+		} else {
+			// Mounted - validate the mount fields
+			if old.Spec.Mount.Reference.Kind != ws.Spec.Mount.Reference.Kind {
+				return admission.NewForbidden(a, errors.New("spec.mount.kind is immutable"))
+			}
+			if old.Spec.Mount.Reference.Name != ws.Spec.Mount.Reference.Name {
+				return admission.NewForbidden(a, errors.New("spec.mount.name is immutable"))
+			}
+			if old.Spec.Mount.Reference.Namespace != ws.Spec.Mount.Reference.Namespace {
+				return admission.NewForbidden(a, errors.New("spec.mount.namespace is immutable"))
+			}
+			if old.Spec.Mount.Reference.APIVersion != ws.Spec.Mount.Reference.APIVersion {
+				return admission.NewForbidden(a, errors.New("spec.mount.apiVersion is immutable"))
+			}
+
+			// if not system privileged, disallow setting spec.type
+			if !isSystemPrivileged && ws.Spec.Type != nil {
+				return admission.NewForbidden(a, errors.New("spec.type cannot be set for mounted workspaces"))
+			}
+			// Check for immutability of spec.type via pointers checks first.
+			if !isSystemPrivileged && ((old.Spec.Type == nil && ws.Spec.Type != nil) || (old.Spec.Type != nil && ws.Spec.Type == nil)) {
+				return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+			}
+			// Check for immutability of spec.type via field checks.
+			if !isSystemPrivileged && old.Spec.Type != nil && ws.Spec.Type != nil {
+				if old.Spec.Type.Path != ws.Spec.Type.Path || old.Spec.Type.Name != ws.Spec.Type.Name {
+					return admission.NewForbidden(a, errors.New("spec.type is immutable"))
+				}
 			}
 		}
 	case admission.Create:
@@ -221,6 +254,22 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			expected := logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey]
 			if ws.Annotations[authorization.RequiredGroupsAnnotationKey] != expected {
 				return admission.NewForbidden(a, fmt.Errorf("missing required groups annotation %s=%s", authorization.RequiredGroupsAnnotationKey, expected))
+			}
+		}
+
+		if ws.Spec.Mount != nil {
+			if ws.Spec.Mount.Reference.Kind == "" {
+				return admission.NewForbidden(a, errors.New("spec.mount.kind must be set"))
+			}
+			if ws.Spec.Mount.Reference.Name == "" {
+				return admission.NewForbidden(a, errors.New("spec.mount.name must be set"))
+			}
+			if ws.Spec.Mount.Reference.APIVersion == "" {
+				return admission.NewForbidden(a, errors.New("spec.mount.apiVersion must be set"))
+			}
+
+			if !isSystemPrivileged && ws.Spec.Type != nil {
+				return admission.NewForbidden(a, errors.New("spec.type cannot be set for mounted workspaces"))
 			}
 		}
 	}

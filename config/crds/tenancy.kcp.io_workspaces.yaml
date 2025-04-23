@@ -27,7 +27,7 @@ spec:
       name: Region
       type: string
     - description: The current phase (e.g. Scheduling, Initializing, Ready, Deleting)
-      jsonPath: .metadata.labels['tenancy\.kcp\.io/phase']
+      jsonPath: .status.phase
       name: Phase
       type: string
     - description: URL to access the workspace
@@ -48,6 +48,10 @@ spec:
           depending on access pattern. All workspace implementations share the characteristic
           that the URL that serves a given workspace can be used with standard Kubernetes
           API machinery and client libraries and command line tools.
+
+          Workspaces supports mounting, by specifying an Mount object in the spec.
+          If a Mount is specified, the workspace will be mounted to the specified mount object and
+          LogicalCluster will not be created.
         properties:
           apiVersion:
             description: |-
@@ -147,6 +151,48 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                 type: object
+              mount:
+                description: |-
+                  Mount is a reference to an object implementing a mounting feature. It is used to orchestrate
+                  where the traffic, intended for the workspace, is sent.
+                  If specified, logicalcluster will not be created and the workspace will be mounted
+                  using reference mount object.
+                properties:
+                  ref:
+                    description: Reference is an ObjectReference to the object that
+                      is mounted.
+                    properties:
+                      apiVersion:
+                        description: APIVersion is the API group and version of the
+                          object.
+                        type: string
+                      kind:
+                        description: Kind is the kind of the object.
+                        type: string
+                      name:
+                        description: Name is the name of the object.
+                        type: string
+                      namespace:
+                        description: Namespace is the namespace of the object.
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-validations:
+                    - message: apiVersion is immutable
+                      rule: has(oldSelf.apiVersion) == has(self.apiVersion)
+                    - message: kind is immutable
+                      rule: has(oldSelf.kind) == has(self.kind)
+                    - message: name is immutable
+                      rule: has(oldSelf.name) == has(self.name)
+                required:
+                - ref
+                type: object
+                x-kubernetes-validations:
+                - message: mount is immutable
+                  rule: self == oldSelf
               type:
                 description: |-
                   type defines properties of the workspace both on creation (e.g. initial

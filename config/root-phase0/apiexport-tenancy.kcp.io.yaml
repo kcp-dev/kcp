@@ -9,7 +9,7 @@ spec:
   resources:
   - group: tenancy.kcp.io
     name: workspaces
-    schema: v241020-fce06d31d.workspaces.tenancy.kcp.io
+    schema: v250421-25d98218b.workspaces.tenancy.kcp.io
     storage:
       crd: {}
   - group: tenancy.kcp.io

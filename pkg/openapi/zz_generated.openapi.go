@@ -92,8 +92,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus":                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference":                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Mount":                                    schema_sdk_apis_tenancy_v1alpha1_Mount(ref),
-		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountSpec":                                schema_sdk_apis_tenancy_v1alpha1_MountSpec(ref),
-		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountStatus":                              schema_sdk_apis_tenancy_v1alpha1_MountStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ObjectReference":                          schema_sdk_apis_tenancy_v1alpha1_ObjectReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Workspace":                                schema_sdk_apis_tenancy_v1alpha1_Workspace(ref),
@@ -2799,91 +2797,22 @@ func schema_sdk_apis_tenancy_v1alpha1_Mount(ref common.ReferenceCallback) common
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Mount is a workspace mount that can be used to mount a workspace into another workspace or resource. Mounting itself is done at front proxy level.",
+				Description: "Mount is a reference to an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent.",
 				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MountSpec is the spec of the mount.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MountStatus is the status of the mount.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountSpec", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.MountStatus"},
-	}
-}
-
-func schema_sdk_apis_tenancy_v1alpha1_MountSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"ref": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Reference is an ObjectReference to the object that is mounted.",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ObjectReference"),
 						},
 					},
 				},
+				Required: []string{"ref"},
 			},
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ObjectReference"},
-	}
-}
-
-func schema_sdk_apis_tenancy_v1alpha1_MountStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "MountStatus is the status of a mount. It is used to indicate the status of a mount, potentially managed outside of the core API.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"phase": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Phase of the mount (Initializing, Connecting, Ready, Unknown).",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"conditions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Conditions is a list of conditions and their status. Current processing state of the Mount.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
-									},
-								},
-							},
-						},
-					},
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Description: "URL is the URL of the mount. Mount is considered mountable when URL is set.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -2956,7 +2885,7 @@ func schema_sdk_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.\n\nA workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves a given workspace can be used with standard Kubernetes API machinery and client libraries and command line tools.",
+				Description: "Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes discovery APIs, OpenAPI and resource API endpoints.\n\nA workspace can be backed by different concrete types of workspace implementation, depending on access pattern. All workspace implementations share the characteristic that the URL that serves a given workspace can be used with standard Kubernetes API machinery and client libraries and command line tools.\n\nWorkspaces supports mounting, by specifying an Mount object in the spec. If a Mount is specified, the workspace will be mounted to the specified mount object and LogicalCluster will not be created.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3079,7 +3008,6 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 					"type": {
 						SchemaProps: spec.SchemaProps{
 							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a WorkspaceType in the listed workspace, but lower-cased. The WorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC workspacetypes/use resource permission.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
 						},
 					},
@@ -3103,11 +3031,17 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"mount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mount is a reference to an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent. If specified, logicalcluster will not be created and the workspace will be mounted using reference mount object.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Mount"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceLocation", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Mount", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceLocation", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
 	}
 }
 

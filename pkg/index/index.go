@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -61,7 +63,7 @@ func New(rewriters []PathRewriter) *State {
 		// Experimental feature: allow mounts to be used with Workspaces
 		// structure: (shard, logical cluster, workspace name) -> string serialized mount objects
 		// This should be simplified once we promote this to workspace structure.
-		shardClusterWorkspaceMountAnnotation: map[string]map[logicalcluster.Name]map[string]string{},
+		shardClusterWorkspaceMount: map[string]map[logicalcluster.Name]map[string]tenancyv1alpha1.WorkspaceSpec{},
 
 		// shardClusterWorkspaceNameErrorCode is a map of shar,logical cluster, workspace to error code when we want to return an error code
 		// instead of a URL.
@@ -82,7 +84,7 @@ type State struct {
 	shardClusterParentCluster        map[string]map[logicalcluster.Name]logicalcluster.Name            // (shard name, logical cluster) -> parent logical cluster
 	shardBaseURLs                    map[string]string                                                 // shard name -> base URL
 	// Experimental feature: allow mounts to be used with Workspaces
-	shardClusterWorkspaceMountAnnotation map[string]map[logicalcluster.Name]map[string]string // (shard name, logical cluster, workspace name) -> mount object string
+	shardClusterWorkspaceMount map[string]map[logicalcluster.Name]map[string]tenancyv1alpha1.WorkspaceSpec // (shard name, logical cluster, workspace name) -> WorkspaceSpec
 
 	shardClusterWorkspaceNameErrorCode map[string]map[logicalcluster.Name]map[string]int // (shard name, logical cluster, workspace name) -> error code
 }
@@ -118,25 +120,32 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	if cluster := c.shardClusterWorkspaceNameCluster[shard][clusterName][ws.Name]; cluster.String() != ws.Spec.Cluster {
 		if c.shardClusterWorkspaceNameCluster[shard] == nil {
 			c.shardClusterWorkspaceNameCluster[shard] = map[logicalcluster.Name]map[string]logicalcluster.Name{}
+		}
+		if c.shardClusterWorkspaceName[shard] == nil {
 			c.shardClusterWorkspaceName[shard] = map[logicalcluster.Name]string{}
+		}
+		if c.shardClusterParentCluster[shard] == nil {
 			c.shardClusterParentCluster[shard] = map[logicalcluster.Name]logicalcluster.Name{}
 		}
 		if c.shardClusterWorkspaceNameCluster[shard][clusterName] == nil {
 			c.shardClusterWorkspaceNameCluster[shard][clusterName] = map[string]logicalcluster.Name{}
 		}
+
 		c.shardClusterWorkspaceNameCluster[shard][clusterName][ws.Name] = logicalcluster.Name(ws.Spec.Cluster)
 		c.shardClusterWorkspaceName[shard][logicalcluster.Name(ws.Spec.Cluster)] = ws.Name
 		c.shardClusterParentCluster[shard][logicalcluster.Name(ws.Spec.Cluster)] = clusterName
 	}
 
-	if mountObjString := c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name]; mountObjString != ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey] {
-		if c.shardClusterWorkspaceMountAnnotation[shard] == nil {
-			c.shardClusterWorkspaceMountAnnotation[shard] = map[logicalcluster.Name]map[string]string{}
+	if ws.Spec.Mount != nil {
+		if wsSpec := c.shardClusterWorkspaceMount[shard][clusterName][ws.Name]; !equality.Semantic.DeepEqual(wsSpec, ws.Spec) {
+			if c.shardClusterWorkspaceMount[shard] == nil {
+				c.shardClusterWorkspaceMount[shard] = map[logicalcluster.Name]map[string]tenancyv1alpha1.WorkspaceSpec{}
+			}
+			if c.shardClusterWorkspaceMount[shard][clusterName] == nil {
+				c.shardClusterWorkspaceMount[shard][clusterName] = map[string]tenancyv1alpha1.WorkspaceSpec{}
+			}
+			c.shardClusterWorkspaceMount[shard][clusterName][ws.Name] = ws.Spec
 		}
-		if c.shardClusterWorkspaceMountAnnotation[shard][clusterName] == nil {
-			c.shardClusterWorkspaceMountAnnotation[shard][clusterName] = map[string]string{}
-		}
-		c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name] = ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey]
 	}
 }
 
@@ -145,7 +154,7 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 
 	c.lock.RLock()
 	_, foundCluster := c.shardClusterWorkspaceNameCluster[shard][clusterName][ws.Name]
-	_, foundMount := c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name]
+	_, foundMount := c.shardClusterWorkspaceMount[shard][clusterName][ws.Name]
 	c.lock.RUnlock()
 
 	if !foundCluster && !foundMount {
@@ -175,15 +184,21 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		}
 	}
 
-	if _, foundMount = c.shardClusterWorkspaceMountAnnotation[shard][clusterName][ws.Name]; foundMount {
-		delete(c.shardClusterWorkspaceMountAnnotation[shard][clusterName], ws.Name)
-		if len(c.shardClusterWorkspaceMountAnnotation[shard][clusterName]) == 0 {
-			delete(c.shardClusterWorkspaceMountAnnotation[shard], clusterName)
+	if _, foundMount = c.shardClusterWorkspaceMount[shard][clusterName][ws.Name]; foundMount {
+		delete(c.shardClusterWorkspaceMount[shard][clusterName], ws.Name)
+		if len(c.shardClusterWorkspaceMount[shard][clusterName]) == 0 {
+			delete(c.shardClusterWorkspaceMount[shard], clusterName)
+			if len(c.shardClusterWorkspaceMount[shard]) == 0 {
+				delete(c.shardClusterWorkspaceName, shard)
+			}
 		}
 	}
 	delete(c.shardClusterWorkspaceNameErrorCode[shard][clusterName], ws.Name)
 	if len(c.shardClusterWorkspaceNameErrorCode[shard][clusterName]) == 0 {
 		delete(c.shardClusterWorkspaceNameErrorCode[shard], clusterName)
+		if len(c.shardClusterWorkspaceNameErrorCode[shard]) == 0 {
+			delete(c.shardClusterWorkspaceNameErrorCode, shard)
+		}
 	}
 }
 
@@ -271,28 +286,28 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 			continue
 		}
 
-		// check mounts, if found return url and true
-		val, foundMount := c.shardClusterWorkspaceMountAnnotation[shard][cluster][s] // experimental feature
-		if foundMount {
-			mount, err := tenancyv1alpha1.ParseTenancyMountAnnotation(val)
-			if !(err != nil || mount == nil || mount.MountStatus.URL == "") {
-				u, err := url.Parse(mount.MountStatus.URL)
-				if err != nil {
-					// default to workspace itself.
-				} else {
-					return Result{URL: u.String()}, true
-				}
-			}
-		}
-
 		if ec, found := c.shardClusterWorkspaceNameErrorCode[shard][cluster][s]; found {
 			errorCode = ec
 		}
 		var found bool
+		originalCluster := cluster
 		cluster, found = c.shardClusterWorkspaceNameCluster[shard][cluster][s]
 		if !found {
+			// We not gonna find the cluster if we using mounts and spec.cluster was never set.
+			// Lets check if we have a mount for this workspace, and if we do, we can return the URL from the mount.
+			// Else we get back to default behavior.
+			wsSpec, foundMount := c.shardClusterWorkspaceMount[shard][originalCluster][s] // experimental feature
+			if foundMount {
+				if wsSpec.Mount != nil && wsSpec.URL != "" {
+					u, err := url.Parse(wsSpec.URL)
+					if err == nil {
+						return Result{URL: u.String(), ErrorCode: errorCode}, true
+					}
+				}
+			}
 			return Result{}, false
 		}
+
 		shard, found = c.clusterShards[cluster]
 		if !found {
 			return Result{}, false
