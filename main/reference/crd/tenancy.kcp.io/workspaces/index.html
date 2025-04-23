@@ -13,6 +13,10 @@ A workspace can be backed by different concrete types of workspace implementatio
 depending on access pattern. All workspace implementations share the characteristic
 that the URL that serves a given workspace can be used with standard Kubernetes
 API machinery and client libraries and command line tools.
+
+Workspaces supports mounting, by specifying an Mount object in the spec.
+If a Mount is specified, the workspace will be mounted to the specified mount object and
+LogicalCluster will not be created.
 ">
       
       
@@ -3145,6 +3149,10 @@ A workspace can be backed by different concrete types of workspace implementatio
 depending on access pattern. All workspace implementations share the characteristic
 that the URL that serves a given workspace can be used with standard Kubernetes
 API machinery and client libraries and command line tools.
+
+Workspaces supports mounting, by specifying an Mount object in the spec.
+If a Mount is specified, the workspace will be mounted to the specified mount object and
+LogicalCluster will not be created.
 </div>
 
 <dl class="crd-meta">
@@ -3459,6 +3467,117 @@ merge patch.</p>
 <p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
 map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
 operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.mount">.spec.mount</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>Mount is a reference to an object implementing a mounting feature. It is used to orchestrate
+where the traffic, intended for the workspace, is sent.
+If specified, logicalcluster will not be created and the workspace will be mounted
+using reference mount object.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.mount.ref">.spec.mount.ref</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Reference is an ObjectReference to the object that is mounted.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.mount.ref.apiVersion">.spec.mount.ref.apiVersion</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>APIVersion is the API group and version of the object.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.mount.ref.kind">.spec.mount.ref.kind</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Kind is the kind of the object.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.mount.ref.name">.spec.mount.ref.name</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Name is the name of the object.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.mount.ref.namespace">.spec.mount.ref.namespace</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+<div class="property-description">
+<p>Namespace is the namespace of the object.</p>
 
 </div>
 
