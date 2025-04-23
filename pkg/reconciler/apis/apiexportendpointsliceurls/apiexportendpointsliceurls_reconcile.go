@@ -39,7 +39,7 @@ import (
 type endpointsReconciler struct {
 	getMyShard                  func() (*corev1alpha1.Shard, error)
 	getAPIExport                func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	patchAPIExportEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error
 	shardName                   string
 }

@@ -41,10 +41,10 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apibindingreconciler "github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
@@ -57,7 +57,7 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -76,7 +76,7 @@ func NewController(
 		listsCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 	}
@@ -104,13 +104,13 @@ func NewController(
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueFromAPIBinding(obj.(*apisv1alpha1.APIBinding))
+			c.enqueueFromAPIBinding(obj.(*apisv1alpha2.APIBinding))
 		},
 		DeleteFunc: func(obj interface{}) {
 			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = tombstone.Obj
 			}
-			c.enqueueFromAPIBinding(obj.(*apisv1alpha1.APIBinding))
+			c.enqueueFromAPIBinding(obj.(*apisv1alpha2.APIBinding))
 		},
 	}))
 
@@ -124,7 +124,7 @@ type controller struct {
 	getLogicalCluster    func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 	updateLogicalCluster func(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error
 	listsCRDs            func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
-	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 }
 
 // enqueueLogicalCluster enqueues a LogicalCluster.
@@ -153,7 +153,7 @@ func (c *controller) enqueueCRD(crd *apiextensionsv1.CustomResourceDefinition, d
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueFromAPIBinding(binding *apisv1alpha1.APIBinding) {
+func (c *controller) enqueueFromAPIBinding(binding *apisv1alpha2.APIBinding) {
 	key := kcpcache.ToClusterAwareKey(logicalcluster.From(binding).String(), "", corev1alpha1.LogicalClusterName)
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(4).Info("queueing LogicalCluster because of APIBinding", "APIBinding", binding.Name)

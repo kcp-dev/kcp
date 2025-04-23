@@ -28,25 +28,25 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func TestBoundCRDDeletion(t *testing.T) {
 	schemaUID := "f1249438-5c68-11ed-823e-f875a46c726b"
 
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test",
 		},
-		Status: apisv1alpha1.APIBindingStatus{
-			Phase: apisv1alpha1.APIBindingPhaseBound,
+		Status: apisv1alpha2.APIBindingStatus{
+			Phase: apisv1alpha2.APIBindingPhaseBound,
 			Conditions: conditionsv1alpha1.Conditions{{
-				Type:   apisv1alpha1.BindingUpToDate,
+				Type:   apisv1alpha2.BindingUpToDate,
 				Status: corev1.ConditionTrue,
 			}},
-			BoundResources: []apisv1alpha1.BoundAPIResource{{
-				Schema: apisv1alpha1.BoundAPIResourceSchema{
+			BoundResources: []apisv1alpha2.BoundAPIResource{{
+				Schema: apisv1alpha2.BoundAPIResourceSchema{
 					UID: schemaUID,
 				},
 			}},
@@ -120,13 +120,13 @@ func TestBoundCRDDeletion(t *testing.T) {
 				getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					return crd, nil
 				},
-				getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha1.APIBinding, error) {
+				getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha2.APIBinding, error) {
 					if !q.requeueHappened && tt.hasBindings {
-						return []*apisv1alpha1.APIBinding{apiBinding}, nil
+						return []*apisv1alpha2.APIBinding{apiBinding}, nil
 					} else if q.requeueHappened && tt.hasBindingsAfterRequeue {
-						return []*apisv1alpha1.APIBinding{apiBinding}, nil
+						return []*apisv1alpha2.APIBinding{apiBinding}, nil
 					}
-					return []*apisv1alpha1.APIBinding{}, nil
+					return []*apisv1alpha2.APIBinding{}, nil
 				},
 				deleteCRD: func(ctx context.Context, name string) error {
 					deleteHappened = true

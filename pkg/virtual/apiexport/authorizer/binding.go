@@ -30,24 +30,24 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 type boundAPIAuthorizer struct {
-	getAPIBindingByExport func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha1.APIBinding, error)
+	getAPIBindingByExport func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error)
 
 	delegate authorizer.Authorizer
 }
 
 var readOnlyVerbs = []string{"get", "list", "watch"}
 
-func NewBoundAPIAuthorizer(delegate authorizer.Authorizer, apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer, kubeClusterClient kcpkubernetesclientset.ClusterInterface) authorizer.Authorizer {
+func NewBoundAPIAuthorizer(delegate authorizer.Authorizer, apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer, kubeClusterClient kcpkubernetesclientset.ClusterInterface) authorizer.Authorizer {
 	apiBindingLister := apiBindingInformer.Lister()
 
 	return &boundAPIAuthorizer{
 		delegate: delegate,
-		getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error) {
 			bindings, err := apiBindingLister.Cluster(logicalcluster.Name(clusterName)).List(labels.Everything())
 			if err != nil {
 				return nil, err
@@ -101,7 +101,7 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 
 	// check if a resource claim for this resource has been accepted.
 	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
-		if permissionClaim.State != apisv1alpha1.ClaimAccepted {
+		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
 			continue
 		}
@@ -113,7 +113,7 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 
 	// special case: APIBindings are always available from an APIExport VW,
 	// but the provider should only be allowed to access them read-only to avoid privilege escalation.
-	if attr.GetAPIGroup() == apisv1alpha1.SchemeGroupVersion.Group && attr.GetResource() == "apibindings" {
+	if attr.GetAPIGroup() == apisv1alpha2.SchemeGroupVersion.Group && attr.GetResource() == "apibindings" {
 		if !slices.Contains(readOnlyVerbs, attr.GetVerb()) {
 			return authorizer.DecisionNoOpinion, "write access to APIBinding is not allowed from virtual workspace", nil
 		}

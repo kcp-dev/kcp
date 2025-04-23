@@ -38,7 +38,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -184,13 +183,13 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 
 	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Path, providerClusterName logicalcluster.Path) {
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumer1Path, rbacServiceProviderPath)
-		apiBinding := &apisv1alpha1.APIBinding{
+		apiBinding := &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cowboys",
 			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
 						Path: providerClusterName.String(),
 						Name: "today-cowboys",
 					},
@@ -200,7 +199,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 
 		// create API bindings in consumerWorkspace as user-3 with only bind permissions in serviceProviderWorkspace but not general access.
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			_, err = user3KcpClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+			_, err = user3KcpClient.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-3 to bind cowboys in %q", consumerWorkspace)
 
@@ -284,13 +283,13 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		}
 	}
 
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: "root:not-existent",
 					Name: "today-cowboys",
 				},
@@ -298,7 +297,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		},
 	}
 
-	_, err = user3KcpClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+	_, err = user3KcpClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 	require.ErrorContains(t, err, `no permission to bind to export root:not-existent:today-cowboys`)
 }
 

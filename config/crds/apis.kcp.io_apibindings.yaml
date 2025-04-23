@@ -5,6 +5,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.17.3
   name: apibindings.apis.kcp.io
 spec:
+  conversion:
+    strategy: None
   group: apis.kcp.io
   names:
     categories:

@@ -57,7 +57,7 @@ func TestReconcileNew(t *testing.T) {
 	t.Logf("Run only newReconciler because no phase is set")
 	requeue, err := c.reconcile(context.Background(), apiBinding)
 	require.NoError(t, err)
-	require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, apiBinding.Status.Phase)
+	require.Equal(t, apisv1alpha2.APIBindingPhaseBinding, apiBinding.Status.Phase)
 	require.False(t, requeue)
 	requireConditionMatches(t, apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
 }
@@ -66,14 +66,14 @@ func TestReconcileBinding(t *testing.T) {
 	var (
 		unbound = newBindingBuilder().
 			WithCondition(&conditionsv1alpha1.Condition{
-				Type:   apisv1alpha1.InitialBindingCompleted,
+				Type:   apisv1alpha2.InitialBindingCompleted,
 				Status: corev1.ConditionFalse,
 			}).
 			WithClusterName("org:ws").
 			WithName("my-binding").
 			WithExportReference(logicalcluster.NewPath("org:some-workspace"), "some-export")
 
-		binding = unbound.DeepCopy().WithPhase(apisv1alpha1.APIBindingPhaseBinding)
+		binding = unbound.DeepCopy().WithPhase(apisv1alpha2.APIBindingPhaseBinding)
 
 		rebinding = binding.DeepCopy().
 				WithBoundResources(new(boundAPIResourceBuilder).
@@ -86,7 +86,7 @@ func TestReconcileBinding(t *testing.T) {
 		invalidSchema = binding.DeepCopy().WithExportReference(logicalcluster.NewPath("org:some-workspace"), "invalid-schema")
 
 		bound = unbound.DeepCopy().
-			WithPhase(apisv1alpha1.APIBindingPhaseBound).
+			WithPhase(apisv1alpha2.APIBindingPhaseBound).
 			WithBoundResources(
 				new(boundAPIResourceBuilder).
 					WithGroupResource("mygroup", "someresources").
@@ -100,7 +100,7 @@ func TestReconcileBinding(t *testing.T) {
 
 		conflicting = unbound.DeepCopy().
 				WithName("conflicting").
-				WithPhase(apisv1alpha1.APIBindingPhaseBound).
+				WithPhase(apisv1alpha2.APIBindingPhaseBound).
 				WithExportReference(logicalcluster.NewPath("org:some-workspace"), "conflict").
 				WithBoundResources(new(boundAPIResourceBuilder).
 					WithGroupResource("kcp.io", "widgets").
@@ -188,10 +188,10 @@ func TestReconcileBinding(t *testing.T) {
 	}
 	tests := map[string]struct {
 		// input objects
-		apiBinding                *apisv1alpha1.APIBinding
+		apiBinding                *apisv1alpha2.APIBinding
 		getAPIExportError         error
 		getAPIResourceSchemaError error
-		existingAPIBindings       []*apisv1alpha1.APIBinding
+		existingAPIBindings       []*apisv1alpha2.APIBinding
 		logicalCluster            *corev1alpha1.LogicalCluster
 		updateLogicalClusterError error
 
@@ -214,7 +214,7 @@ func TestReconcileBinding(t *testing.T) {
 
 		// Bound resources
 		wantPhaseBound     bool
-		wantBoundResources []apisv1alpha1.BoundAPIResource
+		wantBoundResources []apisv1alpha2.BoundAPIResource
 	}{
 		"Update to nil workspace ref reports invalid APIExport": {
 			apiBinding: binding.DeepCopy().WithoutWorkspaceReference().Build(),
@@ -379,7 +379,7 @@ func TestReconcileBinding(t *testing.T) {
 		"create CRD - other bindings - no conflicts": {
 			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
 			apiBinding:     binding.Build(),
-			existingAPIBindings: []*apisv1alpha1.APIBinding{
+			existingAPIBindings: []*apisv1alpha2.APIBinding{
 				bound.Build(),
 			},
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
@@ -397,7 +397,7 @@ func TestReconcileBinding(t *testing.T) {
 		"create CRD - other bindings - conflicts": {
 			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
 			apiBinding:     binding.Build(),
-			existingAPIBindings: []*apisv1alpha1.APIBinding{
+			existingAPIBindings: []*apisv1alpha2.APIBinding{
 				conflicting.Build(),
 			},
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
@@ -416,7 +416,7 @@ func TestReconcileBinding(t *testing.T) {
 			crds: map[logicalcluster.Name][]*apiextensionsv1.CustomResourceDefinition{
 				SystemBoundCRDsClusterName: {todaywidgetsuid, anotherwidgetsuid},
 			},
-			existingAPIBindings: []*apisv1alpha1.APIBinding{
+			existingAPIBindings: []*apisv1alpha2.APIBinding{
 				conflicting.Build(),
 			},
 			wantInitialBindingComplete: wantInitialBindingComplete{
@@ -451,11 +451,11 @@ func TestReconcileBinding(t *testing.T) {
 				valid: true,
 			},
 			wantReady: true,
-			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+			wantBoundResources: []apisv1alpha2.BoundAPIResource{
 				{
 					Group:    "kcp.io",
 					Resource: "widgets",
-					Schema: apisv1alpha1.BoundAPIResourceSchema{
+					Schema: apisv1alpha2.BoundAPIResourceSchema{
 						Name:         "today.widgets.kcp.io",
 						UID:          "todaywidgetsuid",
 						IdentityHash: "hash1",
@@ -478,11 +478,11 @@ func TestReconcileBinding(t *testing.T) {
 				valid: true,
 			},
 			wantReady: true,
-			wantBoundResources: []apisv1alpha1.BoundAPIResource{
+			wantBoundResources: []apisv1alpha2.BoundAPIResource{
 				{
 					Group:    "kcp.io",
 					Resource: "widgets",
-					Schema: apisv1alpha1.BoundAPIResourceSchema{
+					Schema: apisv1alpha2.BoundAPIResourceSchema{
 						Name:         "today.widgets.kcp.io",
 						UID:          "todaywidgetsuid",
 						IdentityHash: "hash1",
@@ -610,7 +610,7 @@ func TestReconcileBinding(t *testing.T) {
 			}
 
 			c := &controller{
-				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 					return tc.existingAPIBindings, nil
 				},
 				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
@@ -682,84 +682,84 @@ func TestReconcileBinding(t *testing.T) {
 			// APIExportValid condition
 			if tc.wantAPIExportValid.invalidReference {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.APIExportValid,
+					Type:     apisv1alpha2.APIExportValid,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.APIExportInvalidReferenceReason,
+					Reason:   apisv1alpha2.APIExportInvalidReferenceReason,
 				})
 			}
 			if tc.wantAPIExportValid.notFound {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.APIExportValid,
+					Type:     apisv1alpha2.APIExportValid,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.APIExportNotFoundReason,
+					Reason:   apisv1alpha2.APIExportNotFoundReason,
 				})
 			}
 			if tc.wantAPIExportValid.internalError {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.APIExportValid,
+					Type:     apisv1alpha2.APIExportValid,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.InternalErrorReason,
+					Reason:   apisv1alpha2.InternalErrorReason,
 				})
 			}
 			if tc.wantAPIExportValid.valid {
-				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha1.APIExportValid))
+				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha2.APIExportValid))
 			}
 
 			// InitialBindingCompleted condition
 			if tc.wantInitialBindingComplete.waitingForEstablished {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.InitialBindingCompleted,
+					Type:     apisv1alpha2.InitialBindingCompleted,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityInfo,
-					Reason:   apisv1alpha1.WaitingForEstablishedReason,
+					Reason:   apisv1alpha2.WaitingForEstablishedReason,
 				})
 			}
 			if tc.wantInitialBindingComplete.internalError {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.InitialBindingCompleted,
+					Type:     apisv1alpha2.InitialBindingCompleted,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.InternalErrorReason,
+					Reason:   apisv1alpha2.InternalErrorReason,
 				})
 			}
 			if tc.wantInitialBindingComplete.schemaInvalid {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.InitialBindingCompleted,
+					Type:     apisv1alpha2.InitialBindingCompleted,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.APIResourceSchemaInvalidReason,
+					Reason:   apisv1alpha2.APIResourceSchemaInvalidReason,
 				})
 			}
 			if tc.wantInitialBindingComplete.logicalClusterNotFound {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.InitialBindingCompleted,
+					Type:     apisv1alpha2.InitialBindingCompleted,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.LogicalClusterNotFoundReason,
+					Reason:   apisv1alpha2.LogicalClusterNotFoundReason,
 				})
 			}
 			if tc.wantInitialBindingComplete.resourceConflict {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.InitialBindingCompleted,
+					Type:     apisv1alpha2.InitialBindingCompleted,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.NamingConflictsReason,
+					Reason:   apisv1alpha2.NamingConflictsReason,
 				})
 			}
 			if tc.wantInitialBindingComplete.namingConflict {
 				requireConditionMatches(t, tc.apiBinding, &conditionsv1alpha1.Condition{
-					Type:     apisv1alpha1.InitialBindingCompleted,
+					Type:     apisv1alpha2.InitialBindingCompleted,
 					Status:   corev1.ConditionFalse,
 					Severity: conditionsv1alpha1.ConditionSeverityError,
-					Reason:   apisv1alpha1.NamingConflictsReason,
+					Reason:   apisv1alpha2.NamingConflictsReason,
 					Message:  "naming conflict with APIBinding \"conflicting\" bound to APIExport org:some-workspace:conflict: spec.names.plural=widgets is forbidden",
 				})
 			}
 			if tc.wantInitialBindingComplete.completed {
-				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha1.InitialBindingCompleted))
+				requireConditionMatches(t, tc.apiBinding, conditions.TrueCondition(apisv1alpha2.InitialBindingCompleted))
 			}
 
 			// Ready condition
@@ -773,9 +773,9 @@ func TestReconcileBinding(t *testing.T) {
 
 			// Phase
 			if tc.wantPhaseBound {
-				require.Equal(t, apisv1alpha1.APIBindingPhaseBound, tc.apiBinding.Status.Phase)
+				require.Equal(t, apisv1alpha2.APIBindingPhaseBound, tc.apiBinding.Status.Phase)
 			} else {
-				require.Equal(t, apisv1alpha1.APIBindingPhaseBinding, tc.apiBinding.Status.Phase)
+				require.Equal(t, apisv1alpha2.APIBindingPhaseBinding, tc.apiBinding.Status.Phase)
 			}
 
 			// Bound resources
@@ -1111,7 +1111,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 
 // TODO(ncdc): this is a modified copy from apibinding admission. Unify these into a reusable package.
 type bindingBuilder struct {
-	apisv1alpha1.APIBinding
+	apisv1alpha2.APIBinding
 }
 
 func newBindingBuilder() *bindingBuilder {
@@ -1125,7 +1125,7 @@ func (b *bindingBuilder) DeepCopy() *bindingBuilder {
 	}
 }
 
-func (b *bindingBuilder) Build() *apisv1alpha1.APIBinding {
+func (b *bindingBuilder) Build() *apisv1alpha2.APIBinding {
 	return b.APIBinding.DeepCopy()
 }
 
@@ -1153,25 +1153,25 @@ func (b *bindingBuilder) WithoutWorkspaceReference() *bindingBuilder {
 }
 
 func (b *bindingBuilder) WithExportReference(path logicalcluster.Path, exportName string) *bindingBuilder {
-	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
+	b.Spec.Reference.Export = &apisv1alpha2.ExportBindingReference{
 		Path: path.String(),
 		Name: exportName,
 	}
 	return b
 }
 
-func (b *bindingBuilder) WithPhase(phase apisv1alpha1.APIBindingPhaseType) *bindingBuilder {
+func (b *bindingBuilder) WithPhase(phase apisv1alpha2.APIBindingPhaseType) *bindingBuilder {
 	b.Status.Phase = phase
 	return b
 }
 
-func (b *bindingBuilder) WithBoundResources(boundResources ...apisv1alpha1.BoundAPIResource) *bindingBuilder {
+func (b *bindingBuilder) WithBoundResources(boundResources ...apisv1alpha2.BoundAPIResource) *bindingBuilder {
 	b.Status.BoundResources = boundResources
 	return b
 }
 
 type boundAPIResourceBuilder struct {
-	apisv1alpha1.BoundAPIResource
+	apisv1alpha2.BoundAPIResource
 }
 
 func (b *boundAPIResourceBuilder) WithGroupResource(group, resource string) *boundAPIResourceBuilder {
@@ -1181,7 +1181,7 @@ func (b *boundAPIResourceBuilder) WithGroupResource(group, resource string) *bou
 }
 
 func (b *boundAPIResourceBuilder) WithSchema(name, uid string) *boundAPIResourceBuilder {
-	b.Schema = apisv1alpha1.BoundAPIResourceSchema{
+	b.Schema = apisv1alpha2.BoundAPIResourceSchema{
 		Name: name,
 		UID:  uid,
 	}

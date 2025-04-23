@@ -38,8 +38,8 @@ import (
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2/permissionclaims"
 )
 
 func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIExport, apiDomainKey dynamiccontext.APIDomainKey) error {
@@ -81,7 +81,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	clusterName := logicalcluster.From(apiExport)
 
 	// Find schemas for claimed resources
-	claims := map[schema.GroupResource]apisv1alpha1.PermissionClaim{}
+	claims := map[schema.GroupResource]apisv1alpha2.PermissionClaim{}
 	claimsAPIBindings := false
 	for _, pc := range apiExport.Spec.PermissionClaims {
 		logger := logger.WithValues("claim", pc.String())
@@ -99,15 +99,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			continue
 		}
 
-		// internal APIs have no identity and a fixed schema.
-		v1Claim := apisv1alpha1.PermissionClaim{}
-		err = apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&pc, &v1Claim, nil)
-		if err != nil {
-			return err
-		}
-
-		if apiexportbuiltin.IsBuiltInAPI(v1Claim.GroupResource) {
-			internalSchema, err := apiexportbuiltin.GetBuiltInAPISchema(v1Claim.GroupResource)
+		if apiexportbuiltin.IsBuiltInAPI(pc.GroupResource) {
+			internalSchema, err := apiexportbuiltin.GetBuiltInAPISchema(pc.GroupResource)
 			if err != nil {
 				return err
 			}
@@ -117,7 +110,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
-			claims[gr] = v1Claim
+			claims[gr] = pc
 			continue
 		}
 		if pc.Group == apis.GroupName {
@@ -132,7 +125,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			apiResourceSchemas[gr] = apisSchema
-			claims[gr] = v1Claim
+			claims[gr] = pc
 			continue
 		}
 		if pc.IdentityHash == "" {
@@ -182,7 +175,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				logger.V(4).Info("got a match!")
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = pc.IdentityHash
-				claims[gr] = v1Claim
+				claims[gr] = pc
 			}
 		}
 	}
@@ -221,7 +214,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 					return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", c, err)
 				}
 				claimLabels := []string{label}
-				if gvr.GroupResource() == apisv1alpha1.Resource("apibindings") {
+				if gvr.GroupResource() == apisv1alpha2.Resource("apibindings") {
 					_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name)
 					claimLabels = append(claimLabels, fallbackLabel)
 				}
@@ -257,7 +250,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			logger.Error(err, "error creating api definition for apibindings")
 		}
 
-		gvr := apisv1alpha1.SchemeGroupVersion.WithResource("apibindings")
+		gvr := apisv1alpha2.SchemeGroupVersion.WithResource("apibindings")
 		newSet[gvr] = apiResourceSchemaApiDefinition{
 			APIDefinition: d,
 		}
