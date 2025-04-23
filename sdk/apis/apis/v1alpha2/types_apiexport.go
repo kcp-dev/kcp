@@ -36,6 +36,8 @@ const (
 	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
 
 	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
+
+	APIExportPermissionClaimLabelPrefix = "claimed.internal.apis.kcp.io/"
 )
 
 // APIExport registers an API and implementation to allow consumption by others

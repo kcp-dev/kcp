@@ -40,8 +40,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
 const (
@@ -54,7 +54,7 @@ const (
 func NewController(
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -66,8 +66,8 @@ func NewController(
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha1.APIBinding, error) {
-			return indexers.ByIndex[*apisv1alpha1.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResourceUID, name)
+		getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha2.APIBinding, error) {
+			return indexers.ByIndex[*apisv1alpha2.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResourceUID, name)
 		},
 		deleteCRD: func(ctx context.Context, name string) error {
 			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDsClusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
@@ -94,10 +94,10 @@ func NewController(
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.enqueueFromAPIBinding(oldObj.(*apisv1alpha1.APIBinding), newObj.(*apisv1alpha1.APIBinding))
+			c.enqueueFromAPIBinding(oldObj.(*apisv1alpha2.APIBinding), newObj.(*apisv1alpha2.APIBinding))
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueFromAPIBinding(nil, obj.(*apisv1alpha1.APIBinding))
+			c.enqueueFromAPIBinding(nil, obj.(*apisv1alpha2.APIBinding))
 		},
 	}))
 
@@ -109,7 +109,7 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	getCRD                           func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	getAPIBindingsByBoundResourceUID func(name string) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBindingsByBoundResourceUID func(name string) ([]*apisv1alpha2.APIBinding, error)
 	deleteCRD                        func(ctx context.Context, name string) error
 }
 
@@ -126,7 +126,7 @@ func (c *controller) enqueueCRD(crd *apiextensionsv1.CustomResourceDefinition) {
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha1.APIBinding) {
+func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha2.APIBinding) {
 	logger := logging.WithObject(logging.WithReconciler(klog.Background(), ControllerName), newBinding)
 
 	// Looking at old and new versions in case a schema gets removed from an APIExport.
@@ -248,7 +248,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) {
+func InstallIndexers(apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer) {
 	indexers.AddIfNotPresentOrDie(
 		apiBindingInformer.Informer().GetIndexer(),
 		cache.Indexers{

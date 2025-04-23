@@ -35,7 +35,6 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -100,13 +99,13 @@ func TestAPIBindingDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerPath, providerPath)
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: providerPath.String(),
 					Name: "today-cowboys",
 				},
@@ -115,13 +114,13 @@ func TestAPIBindingDeletion(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Should have finalizer added in apibinding")
 	require.Eventually(t, func() bool {
-		apibinding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		apibinding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -173,7 +172,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumerPath)
 	require.NoError(t, err, "error getting apibinding in consumer workspace %q", consumerPath)
 
-	err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Delete(ctx, apiBinding.Name, metav1.DeleteOptions{})
+	err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Delete(ctx, apiBinding.Name, metav1.DeleteOptions{})
 	require.NoError(t, err)
 
 	t.Logf("There should left 1 cowboy CR in delete state")
@@ -192,8 +191,8 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("apibinding should have BindingResourceDeleteSuccess with false status")
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-	}, kcptestinghelpers.IsNot(apisv1alpha1.BindingResourceDeleteSuccess))
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	}, kcptestinghelpers.IsNot(apisv1alpha2.BindingResourceDeleteSuccess))
 
 	t.Logf("ensure resource does not have create verb when deleting")
 	require.Eventually(t, func() bool {
@@ -241,7 +240,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 
 	t.Logf("apibinding should be deleted")
 	require.Eventually(t, func() bool {
-		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 		return apierrors.IsNotFound(err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }

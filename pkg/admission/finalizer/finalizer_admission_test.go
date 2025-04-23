@@ -33,17 +33,17 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
-func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
+func createAttr(apiBinding *apisv1alpha2.APIBinding) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(apiBinding),
 		nil,
-		apisv1alpha1.Kind("APIBinding").WithVersion("v1alpha1"),
+		apisv1alpha2.Kind("APIBinding").WithVersion("v1alpha2"),
 		"",
 		apiBinding.Name,
-		apisv1alpha1.Resource("apibindings").WithVersion("v1alpha1"),
+		apisv1alpha2.Resource("apibindings").WithVersion("v1alpha2"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -51,18 +51,18 @@ func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
 		&user.DefaultInfo{},
 	)
 }
-func updateAttr(newAPIBinding, oldAPIBinding *apisv1alpha1.APIBinding) admission.Attributes {
+func updateAttr(newAPIBinding, oldAPIBinding *apisv1alpha2.APIBinding) admission.Attributes {
 	return updateAttrWithUserInfo(newAPIBinding, oldAPIBinding, &user.DefaultInfo{})
 }
 
-func updateAttrWithUserInfo(newAPIBinding, oldAPIBinding *apisv1alpha1.APIBinding, u *user.DefaultInfo) admission.Attributes {
+func updateAttrWithUserInfo(newAPIBinding, oldAPIBinding *apisv1alpha2.APIBinding, u *user.DefaultInfo) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(newAPIBinding),
 		helpers.ToUnstructuredOrDie(oldAPIBinding),
-		apisv1alpha1.Kind("APIBinding").WithVersion("v1alpha1"),
+		apisv1alpha2.Kind("APIBinding").WithVersion("v1alpha2"),
 		"",
 		newAPIBinding.Name,
-		apisv1alpha1.Resource("apibindings").WithVersion("v1alpha1"),
+		apisv1alpha2.Resource("apibindings").WithVersion("v1alpha2"),
 		"",
 		admission.Update,
 		&metav1.CreateOptions{},
@@ -109,7 +109,7 @@ func TestAdmit(t *testing.T) {
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 
 				FinalizerName: apibindingdeletion.APIBindingFinalizer,
-				Resource:      apisv1alpha1.Resource("apibindings"),
+				Resource:      apisv1alpha2.Resource("apibindings"),
 			}
 
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.From(tc.attr.GetObject().(metav1.Object))})
@@ -175,7 +175,7 @@ func TestValidate(t *testing.T) {
 			o := &FinalizerPlugin{
 				Handler:       admission.NewHandler(admission.Create, admission.Update),
 				FinalizerName: apibindingdeletion.APIBindingFinalizer,
-				Resource:      apisv1alpha1.Resource("apibindings"),
+				Resource:      apisv1alpha2.Resource("apibindings"),
 			}
 
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.From(tc.attr.GetObject().(metav1.Object))})
@@ -196,12 +196,12 @@ func TestValidate(t *testing.T) {
 }
 
 type bindingBuilder struct {
-	*apisv1alpha1.APIBinding
+	*apisv1alpha2.APIBinding
 }
 
 func newAPIBinding() *bindingBuilder {
 	return &bindingBuilder{
-		APIBinding: &apisv1alpha1.APIBinding{
+		APIBinding: &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					logicalcluster.AnnotationKey: "root:org:ws",

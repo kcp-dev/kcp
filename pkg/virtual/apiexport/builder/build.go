@@ -203,7 +203,7 @@ func BuildVirtualWorkspace(
 				for name, informer := range map[string]cache.SharedIndexInformer{
 					"apiresourceschemas": cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 					"apiexports":         cachedKcpInformers.Apis().V1alpha2().APIExports().Informer(),
-					"apibindings":        kcpInformers.Apis().V1alpha1().APIBindings().Informer(),
+					"apibindings":        kcpInformers.Apis().V1alpha2().APIBindings().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
 						klog.Background().Error(nil, "informer not synced")
@@ -299,7 +299,7 @@ func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.Clust
 	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
 	apiExportsContentAuth = authorization.NewDecorator("virtual.apiexport.content.authorization.kcp.io", apiExportsContentAuth).AddAuditLogging().AddAnonymization()
 
-	boundApiAuth := virtualapiexportauth.NewBoundAPIAuthorizer(apiExportsContentAuth, kcpInformers.Apis().V1alpha1().APIBindings(), kubeClusterClient)
+	boundApiAuth := virtualapiexportauth.NewBoundAPIAuthorizer(apiExportsContentAuth, kcpInformers.Apis().V1alpha2().APIBindings(), kubeClusterClient)
 	boundApiAuth = authorization.NewDecorator("virtual.apiexport.boundapi.authorization.kcp.io", boundApiAuth).AddAuditLogging().AddAnonymization()
 
 	return boundApiAuth

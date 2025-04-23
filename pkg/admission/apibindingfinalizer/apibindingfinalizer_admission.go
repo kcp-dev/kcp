@@ -23,7 +23,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/finalizer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 const (
@@ -36,7 +36,7 @@ func Register(plugins *admission.Plugins) {
 			return &finalizer.FinalizerPlugin{
 				Handler:       admission.NewHandler(admission.Create, admission.Update),
 				FinalizerName: apibindingdeletion.APIBindingFinalizer,
-				Resource:      apisv1alpha1.Resource("apibindings"),
+				Resource:      apisv1alpha2.Resource("apibindings"),
 			}, nil
 		})
 }

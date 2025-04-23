@@ -24,7 +24,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func TestIndexAPIBindingByAPIExport(t *testing.T) {
@@ -39,16 +39,16 @@ func TestIndexAPIBindingByAPIExport(t *testing.T) {
 			wantErr: true,
 		},
 		"has a export reference": {
-			obj: &apisv1alpha1.APIBinding{
+			obj: &apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:default",
 					},
 					Name: "foo",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: "root:workspace1",
 							Name: "export1",
 						},
@@ -59,16 +59,16 @@ func TestIndexAPIBindingByAPIExport(t *testing.T) {
 			wantErr: false,
 		},
 		"has a local export reference": {
-			obj: &apisv1alpha1.APIBinding{
+			obj: &apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "root:default",
 					},
 					Name: "foo",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Name: "export1",
 						},
 					},

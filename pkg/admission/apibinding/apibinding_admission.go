@@ -40,8 +40,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1/permissionclaims"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2/permissionclaims"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -92,7 +92,7 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apibindings") {
+	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apibindings") {
 		return nil
 	}
 
@@ -101,7 +101,7 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	apiBinding := &apisv1alpha1.APIBinding{}
+	apiBinding := &apisv1alpha2.APIBinding{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding); err != nil {
 		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 	}
@@ -111,14 +111,14 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		return nil
 	}
 
-	var oldAPIBinding *apisv1alpha1.APIBinding
+	var oldAPIBinding *apisv1alpha2.APIBinding
 	if a.GetOperation() == admission.Update {
 		u, ok := a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
 
-		oldAPIBinding = &apisv1alpha1.APIBinding{}
+		oldAPIBinding = &apisv1alpha2.APIBinding{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, oldAPIBinding); err != nil {
 			return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 		}
@@ -181,7 +181,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() != apisv1alpha1.Resource("apibindings") {
+	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apibindings") {
 		return nil
 	}
 
@@ -190,14 +190,14 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	apiBinding := &apisv1alpha1.APIBinding{}
+	apiBinding := &apisv1alpha2.APIBinding{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding); err != nil {
 		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 	}
 
 	// Object validation
 	var errs field.ErrorList
-	var oldAPIBinding *apisv1alpha1.APIBinding
+	var oldAPIBinding *apisv1alpha2.APIBinding
 	switch a.GetOperation() {
 	case admission.Create:
 		errs = ValidateAPIBinding(apiBinding)
@@ -206,7 +206,7 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
-		oldAPIBinding = &apisv1alpha1.APIBinding{}
+		oldAPIBinding = &apisv1alpha2.APIBinding{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, oldAPIBinding); err != nil {
 			return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 		}

@@ -32,7 +32,6 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -95,41 +94,41 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
-	apiBinding := apisv1alpha1.APIBinding{
+	apiBinding := apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: exportName,
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: providerPath.String(),
 					Name: exportName,
 				},
 			},
-			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha1.PermissionClaim{
-						GroupResource: apisv1alpha1.GroupResource{
+					PermissionClaim: apisv1alpha2.PermissionClaim{
+						GroupResource: apisv1alpha2.GroupResource{
 							Group:    "core.kcp.io",
 							Resource: "logicalclusters",
 						},
 						All: true,
 					},
-					State: apisv1alpha1.ClaimAccepted,
+					State: apisv1alpha2.ClaimAccepted,
 				},
 			},
 		},
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("failed to create api binding: %v", err)
 	}, wait.ForeverTestTimeout, time.Second*1, "failed to create api binding")
 
 	t.Logf("Validate that the permission claims are valid")
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-	}, kcptestinghelpers.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
 
 	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -226,41 +225,41 @@ func TestAPIBindingCRDs(t *testing.T) {
 		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
 
-	apiBinding := apisv1alpha1.APIBinding{
+	apiBinding := apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: exportName,
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: providerPath.String(),
 					Name: exportName,
 				},
 			},
-			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha1.PermissionClaim{
-						GroupResource: apisv1alpha1.GroupResource{
+					PermissionClaim: apisv1alpha2.PermissionClaim{
+						GroupResource: apisv1alpha2.GroupResource{
 							Group:    "apiextensions.k8s.io",
 							Resource: "customresourcedefinitions",
 						},
 						All: true,
 					},
-					State: apisv1alpha1.ClaimAccepted,
+					State: apisv1alpha2.ClaimAccepted,
 				},
 			},
 		},
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, &apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("failed to create api binding: %v", err)
 	}, wait.ForeverTestTimeout, time.Second*1, "failed to create api binding")
 
 	t.Logf("Validate that the permission claims are valid")
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-	}, kcptestinghelpers.Is(apisv1alpha1.PermissionClaimsValid), "unable to see valid claims")
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
 
 	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)

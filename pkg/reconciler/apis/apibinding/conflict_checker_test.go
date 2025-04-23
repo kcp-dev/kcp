@@ -29,6 +29,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
@@ -72,8 +73,8 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	}
 
 	ncc, err := newConflictChecker("root:org:ws",
-		func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-			return []*apisv1alpha1.APIBinding{
+		func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return []*apisv1alpha2.APIBinding{
 				newAPIBinding,
 				existingBinding1,
 				existingBinding2,
@@ -98,7 +99,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 	}
 	require.True(t, expectedCRDs.Equal(actualCRDs), "bound CRDs mismatch: %s", cmp.Diff(expectedCRDs, actualCRDs))
 
-	expectedMapping := map[string]*apisv1alpha1.APIBinding{
+	expectedMapping := map[string]*apisv1alpha2.APIBinding{
 		"e0-s1": newAPIBinding,
 		"e1-s1": existingBinding1,
 		"e1-s2": existingBinding1,
@@ -224,7 +225,7 @@ func TestCRDs(t *testing.T) {
 		name        string
 		initialCRDs []*apiextensionsv1.CustomResourceDefinition
 		schema      *apisv1alpha1.APIResourceSchema
-		binding     *apisv1alpha1.APIBinding
+		binding     *apisv1alpha2.APIBinding
 		wantErr     bool
 	}{
 		{
@@ -253,7 +254,7 @@ func TestCRDs(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			c, err := newConflictChecker(logicalcluster.From(scenario.binding),
-				func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 					return nil, nil
 				},
 				func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {

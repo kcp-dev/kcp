@@ -28,7 +28,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/projection"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 type gvrDeletionMetadata struct {
@@ -43,7 +43,7 @@ type gvrDeletionMetadataTotal struct {
 	finalizersToNumRemaining map[string]int
 }
 
-func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha1.APIBinding) (gvrDeletionMetadataTotal, error) {
+func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.APIBinding) (gvrDeletionMetadataTotal, error) {
 	logger := logging.WithObject(klog.FromContext(ctx), apibinding)
 	totalResourceRemaining := gvrDeletionMetadataTotal{
 		gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
