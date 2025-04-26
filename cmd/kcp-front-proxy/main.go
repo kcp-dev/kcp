@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	goflags "flag"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -28,8 +29,11 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
-	utilflag "k8s.io/component-base/cli/flag"
+	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/component-base/cli/globalflag"
+	"k8s.io/component-base/logs"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
+	"k8s.io/component-base/term"
 	"k8s.io/component-base/version"
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
@@ -42,7 +46,7 @@ import (
 func main() {
 	ctx := genericapiserver.SetupSignalContext()
 
-	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
+	pflag.CommandLine.SetNormalizeFunc(cliflag.WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(goflags.CommandLine)
 
 	cmd := NewProxyCommand(ctx)
@@ -96,7 +100,27 @@ routed based on paths.`,
 		},
 	}
 
-	options.AddFlags(cmd.Flags())
+	// add start named flag sets to start flags
+	fss := cliflag.NamedFlagSets{}
+	options.AddFlags(&fss)
+	globalflag.AddGlobalFlags(fss.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags())
+	startFlags := cmd.Flags()
+	for _, f := range fss.FlagSets {
+		startFlags.AddFlagSet(f)
+	}
+
+	// set usage and help function to print sectioned flags
+	usageFmt := "Usage:\n  %s\n"
+	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		fmt.Fprintf(cmd.OutOrStderr(), usageFmt, cmd.UseLine())
+		cliflag.PrintSections(cmd.OutOrStderr(), fss, cols)
+		return nil
+	})
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n\n"+usageFmt, cmd.Long, cmd.UseLine())
+		cliflag.PrintSections(cmd.OutOrStdout(), fss, cols)
+	})
 
 	if v := version.Get().String(); len(v) == 0 {
 		cmd.Version = "<unknown>"
