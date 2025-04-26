@@ -60,7 +60,9 @@ func NewAuthentication() *Authentication {
 			WithClientCert().
 			WithOIDC().
 			WithServiceAccounts().
-			WithTokenFile(),
+			WithTokenFile().
+			WithRequestHeader().
+			WithWebHook(),
 		// SystemLogicalClusterAdmin is privileged and only for internal traffic,
 		// SystemExternalLogicalClusterAdmin must be used for all logical-cluster-admin
 		// requests via the proxy, so we drop SystemLogicalClusterAdmin here
