@@ -17,8 +17,7 @@ limitations under the License.
 package options
 
 import (
-	"github.com/spf13/pflag"
-
+	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
@@ -41,9 +40,9 @@ func NewOptions() *Options {
 	return o
 }
 
-func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	o.Proxy.AddFlags(fs)
-	logsapiv1.AddFlags(o.Logs, fs)
+func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
+	o.Proxy.AddFlags(fss)
+	logsapiv1.AddFlags(o.Logs, fss.FlagSet("logging"))
 }
 
 func (o *Options) Complete() error {

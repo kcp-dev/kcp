@@ -21,9 +21,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/pflag"
-
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	cliflag "k8s.io/component-base/cli/flag"
 )
 
 type Options struct {
@@ -52,9 +51,11 @@ func NewOptions() *Options {
 	return o
 }
 
-func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	o.SecureServing.AddFlags(fs)
-	o.Authentication.AddFlags(fs)
+func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
+	o.SecureServing.AddFlags(fss.FlagSet("secure-serving"))
+	o.Authentication.AddFlags(fss.FlagSet("authentication"))
+
+	fs := fss.FlagSet("proxy")
 	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Config file mapping paths to backends")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
 	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
