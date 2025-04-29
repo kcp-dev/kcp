@@ -90,11 +90,11 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 		if len(cfg.DataDir) == 0 {
 			panic(fmt.Sprintf("provided kcpConfig for %s is incorrect, missing DataDir", cfg.Name))
 		}
-		srv, err := newKcpServer(t, cfg, cfg.ArtifactDir, cfg.DataDir, cfg.ClientCADir)
+		srv, err := newKcpServer(t, cfg)
 		require.NoError(t, err)
 
 		servers = append(servers, srv)
-		ret[srv.name] = srv
+		ret[srv.Name()] = srv
 	}
 
 	// Launch kcp servers and ensure they are ready before starting the test
@@ -104,14 +104,7 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 	t.Cleanup(cancel)
 	g, ctx := errgroup.WithContext(ctx)
 	for i, srv := range servers {
-		var opts []RunOption
-		if env.LogToConsoleEnvSet() || cfgs[i].LogToConsole {
-			opts = append(opts, WithLogStreaming)
-		}
-		if env.InProcessEnvSet() || cfgs[i].RunInProcess {
-			opts = append(opts, RunInProcess)
-		}
-		err := srv.Run(opts...)
+		err := srv.Run(t)
 		require.NoError(t, err)
 
 		// Wait for the server to become ready
@@ -151,8 +144,8 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 		defer cancel()
 
 		for _, s := range servers {
-			t.Log("Gathering metrics for kcp server", s.name)
-			gatherMetrics(ctx, t, s, s.artifactDir)
+			t.Log("Gathering metrics for kcp server", s.Name())
+			gatherMetrics(s.ctx, t, s, s.cfg.ArtifactDir)
 		}
 	})
 
@@ -167,22 +160,31 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 //   - all ports and data directories are unique to support
 //     concurrent execution within a test case and across tests
 type kcpServer struct {
-	name        string
-	args        []string
-	ctx         context.Context //nolint:containedctx
-	dataDir     string
-	artifactDir string
-	clientCADir string
-
-	lock           *sync.Mutex
-	cfg            clientcmd.ClientConfig
-	kubeconfigPath string
-
-	t TestingT
+	cfg              Config
+	lock             *sync.Mutex
+	clientCfg        clientcmd.ClientConfig
+	ctx              context.Context //nolint:containedctx
+	cancel           func()
+	shutdownComplete bool
 }
 
-func newKcpServer(t TestingT, cfg Config, artifactDir, dataDir, clientCADir string) (*kcpServer, error) {
+func newKcpServer(t TestingT, cfg Config) (*kcpServer, error) {
 	t.Helper()
+
+	s := &kcpServer{
+		cfg:  cfg,
+		lock: &sync.Mutex{},
+	}
+
+	s.cfg.ArtifactDir = filepath.Join(s.cfg.ArtifactDir, "kcp", cfg.Name)
+	if err := os.MkdirAll(s.cfg.ArtifactDir, 0755); err != nil {
+		return nil, fmt.Errorf("could not create artifact dir: %w", err)
+	}
+
+	s.cfg.DataDir = filepath.Join(s.cfg.DataDir, "kcp", cfg.Name)
+	if err := os.MkdirAll(s.cfg.DataDir, 0755); err != nil {
+		return nil, fmt.Errorf("could not create data dir: %w", err)
+	}
 
 	kcpListenPort, err := GetFreePort(t)
 	if err != nil {
@@ -196,51 +198,21 @@ func newKcpServer(t TestingT, cfg Config, artifactDir, dataDir, clientCADir stri
 	if err != nil {
 		return nil, err
 	}
-	artifactDir = filepath.Join(artifactDir, "kcp", cfg.Name)
-	if err := os.MkdirAll(artifactDir, 0755); err != nil {
-		return nil, fmt.Errorf("could not create artifact dir: %w", err)
-	}
-	dataDir = filepath.Join(dataDir, "kcp", cfg.Name)
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return nil, fmt.Errorf("could not create data dir: %w", err)
-	}
 
-	return &kcpServer{
-		name: cfg.Name,
-		args: append([]string{
-			"--root-directory",
-			dataDir,
-			"--secure-port=" + kcpListenPort,
-			"--embedded-etcd-client-port=" + etcdClientPort,
-			"--embedded-etcd-peer-port=" + etcdPeerPort,
-			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
-			"--kubeconfig-path=" + filepath.Join(dataDir, "admin.kubeconfig"),
-			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
-			"--audit-log-path", filepath.Join(artifactDir, "kcp.audit"),
-			"--v=4",
-		},
-			cfg.Args...),
-		dataDir:     dataDir,
-		artifactDir: artifactDir,
-		clientCADir: clientCADir,
-		t:           t,
-		lock:        &sync.Mutex{},
-	}, nil
-}
+	s.cfg.Args = append(s.cfg.Args,
+		"--root-directory",
+		s.cfg.DataDir,
+		"--secure-port="+kcpListenPort,
+		"--embedded-etcd-client-port="+etcdClientPort,
+		"--embedded-etcd-peer-port="+etcdPeerPort,
+		"--embedded-etcd-wal-size-bytes="+strconv.Itoa(5*1000), // 5KB
+		"--kubeconfig-path="+s.KubeconfigPath(),
+		"--feature-gates="+fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
+		"--audit-log-path", filepath.Join(s.cfg.ArtifactDir, "kcp.audit"),
+		"--v=4",
+	)
 
-type runOptions struct {
-	runInProcess bool
-	streamLogs   bool
-}
-
-type RunOption func(o *runOptions)
-
-func RunInProcess(o *runOptions) {
-	o.runInProcess = true
-}
-
-func WithLogStreaming(o *runOptions) {
-	o.streamLogs = true
+	return s, nil
 }
 
 // StartKcpCommand returns the string tokens required to start kcp in
@@ -283,126 +255,50 @@ func Command(executableName, identity string) []string {
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
 // callers should ensure that the server is Ready() before using it.
-func (c *kcpServer) Run(opts ...RunOption) error {
-	runOpts := runOptions{}
-	for _, opt := range opts {
-		opt(&runOpts)
+func (c *kcpServer) Run(t TestingT) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	var runner KcpRunner = runExternal
+	if c.cfg.RunInProcess {
+		if RunInProcessFunc == nil {
+			// No RunInProcessFunc set, can safely default to context
+			// variant
+			runner = ContextRunInProcessFunc
+		} else {
+			runner = func(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
+				t.Log("RunInProcessFunc is deprecated, please migrate to ContextRunInProcessFunc")
+				t.Log("RunInProcessFunc is deprecated, stopping the server will not work")
+				return RunInProcessFunc(t, cfg.DataDir, cfg.Args)
+			}
+		}
+	}
+	if runner == nil {
+		return fmt.Errorf("runner is nil")
 	}
 
-	// We close this channel when the kcp server has stopped
-	shutdownComplete := make(chan struct{})
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	cleanup := func() {
-		cancel()
-		close(shutdownComplete)
-	}
-
-	c.t.Cleanup(func() {
-		c.t.Log("cleanup: canceling context")
-		cancel()
-
-		// Wait for the kcp server to stop
-		c.t.Log("cleanup: waiting for shutdownComplete")
-
-		<-shutdownComplete
-
-		c.t.Log("cleanup: received shutdownComplete")
-	})
+	ctx, ctxCancel := context.WithCancel(context.Background())
 	c.ctx = ctx
 
-	// run kcp start in-process for easier debugging
-	if runOpts.runInProcess {
-		if RunInProcessFunc == nil {
-			return fmt.Errorf("RunInProcessFunc is not set")
-		}
-		rootDir := ".kcp"
-		if c.dataDir != "" {
-			rootDir = c.dataDir
-		}
-		stopCh, err := RunInProcessFunc(c.t, rootDir, c.args)
-		if err != nil {
-			cleanup()
-			return err
-		}
-		go func() {
-			defer cleanup()
-			<-stopCh
-		}()
-		return nil
-	}
-
-	commandLine := append(StartKcpCommand("KCP"), c.args...)
-	c.t.Logf("running: %v", strings.Join(commandLine, " "))
-
-	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
-	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
-	cmd := exec.Command(commandLine[0], commandLine[1:]...)
-
-	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
-	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the
-	// 'go run' variant - we have to work around this issue: https://github.com/golang/go/issues/40467.
-	// Thanks to
-	// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for
-	// the idea!
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	logFile, err := os.Create(filepath.Join(c.artifactDir, "kcp.log"))
+	shutdownComplete, err := runner(ctx, t, c.cfg)
 	if err != nil {
-		cleanup()
-		return fmt.Errorf("could not create log file: %w", err)
+		ctxCancel()
+		return err
 	}
 
-	// Closing the logfile is necessary so the cmd.Wait() call in the goroutine below can finish (it only finishes
-	// waiting when the internal io.Copy goroutines for stdin/stdout/stderr are done, and that doesn't happen if
-	// the log file remains open.
-	c.t.Cleanup(func() {
-		logFile.Close()
-	})
+	c.cancel = func() {
+		t.Log("cleanup: canceling context")
+		ctxCancel()
 
-	log := bytes.Buffer{}
-
-	writers := []io.Writer{&log, logFile}
-
-	if runOpts.streamLogs {
-		prefix := fmt.Sprintf("%s: ", c.name)
-		writers = append(writers, prefixer.New(os.Stdout, func() string { return prefix }))
+		// Wait for the kcp server to stop
+		t.Log("cleanup: waiting for shutdownComplete")
+		<-shutdownComplete
+		c.lock.Lock()
+		c.shutdownComplete = true
+		c.lock.Unlock()
+		t.Log("cleanup: received shutdownComplete")
 	}
-
-	mw := io.MultiWriter(writers...)
-	cmd.Stdout = mw
-	cmd.Stderr = mw
-
-	if err := cmd.Start(); err != nil {
-		cleanup()
-		if os.Getenv(kcpBinariesDirEnvDir) == "" && commandLine[0] == "kcp" {
-			c.t.Log("Consider setting KCP_BINARIES_DIR pointing to a directory with a kcp binary.")
-		}
-		return fmt.Errorf("failed to start kcp: %w", err)
-	}
-
-	c.t.Cleanup(func() {
-		// Ensure child process is killed on cleanup - send the negative of the pid, which is the process group id.
-		// See https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for details.
-		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
-			c.t.Errorf("Saw an error trying to kill `kcp`: %v", err)
-		}
-	})
-
-	go func() {
-		defer cleanup()
-
-		err := cmd.Wait()
-
-		if err != nil && ctx.Err() == nil {
-			// we care about errors in the process that did not result from the
-			// context expiring and us ending the process
-			data := c.filterKcpLogs(&log)
-			c.t.Errorf("`kcp` failed: %v logs:\n%v", err, data)
-			c.t.Errorf("`kcp` failed: %v", err)
-		}
-	}()
+	t.Cleanup(c.cancel)
 
 	return nil
 }
@@ -423,10 +319,88 @@ func (c *kcpServer) Stopped() bool {
 	return c.shutdownComplete
 }
 
+func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
+	commandLine := append(StartKcpCommand("KCP"), cfg.Args...)
+
+	t.Logf("running: %v", strings.Join(commandLine, " "))
+
+	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
+	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
+	cmd := exec.Command(commandLine[0], commandLine[1:]...)
+
+	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
+	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the
+	// 'go run' variant - we have to work around this issue: https://github.com/golang/go/issues/40467.
+	// Thanks to
+	// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for
+	// the idea!
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	logFile, err := os.Create(filepath.Join(cfg.ArtifactDir, "kcp.log"))
+	if err != nil {
+		return nil, fmt.Errorf("could not create log file: %w", err)
+	}
+
+	// Closing the logfile is necessary so the cmd.Wait() call in the goroutine below can finish (it only finishes
+	// waiting when the internal io.Copy goroutines for stdin/stdout/stderr are done, and that doesn't happen if
+	// the log file remains open.
+	t.Cleanup(func() {
+		logFile.Close()
+	})
+
+	log := bytes.Buffer{}
+
+	writers := []io.Writer{&log, logFile}
+
+	if cfg.LogToConsole {
+		prefix := fmt.Sprintf("%s: ", t.Name())
+		writers = append(writers, prefixer.New(os.Stdout, func() string { return prefix }))
+	}
+
+	mw := io.MultiWriter(writers...)
+	cmd.Stdout = mw
+	cmd.Stderr = mw
+
+	if err := cmd.Start(); err != nil {
+		if os.Getenv(kcpBinariesDirEnvDir) == "" && commandLine[0] == "kcp" {
+			t.Log("Consider setting KCP_BINARIES_DIR pointing to a directory with a kcp binary.")
+		}
+		return nil, fmt.Errorf("failed to start kcp: %w", err)
+	}
+
+	go func() {
+		<-ctx.Done()
+		if cmd.Process != nil && cmd.Process.Pid > 0 {
+			// Ensure child process is killed on cleanup - send the negative of the pid, which is the process group id.
+			// See https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773 for details.
+			if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
+				t.Errorf("Saw an error trying to kill `kcp`: %v", err)
+			}
+		}
+	}()
+
+	shutdownComplete := make(chan struct{})
+
+	go func() {
+		err := cmd.Wait()
+		close(shutdownComplete)
+
+		if err != nil && ctx.Err() == nil {
+			// we care about errors in the process that did not result from the
+			// context expiring and us ending the process
+			data := filterKcpLogs(t, &log)
+			t.Errorf("`kcp` failed: %v logs:\n%v", err, data)
+			t.Errorf("`kcp` failed: %v", err)
+		}
+	}()
+
+	return shutdownComplete, nil
+}
+
 // filterKcpLogs is a silly hack to get rid of the nonsense output that
 // currently plagues kcp. Yes, in the future we want to actually fix these
 // issues but until we do, there's no reason to force awful UX onto users.
-func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
+func filterKcpLogs(t TestingT, logs *bytes.Buffer) string {
 	output := strings.Builder{}
 	scanner := bufio.NewScanner(logs)
 	for scanner.Scan() {
@@ -446,7 +420,7 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 		}
 		_, err := output.Write(append(line, []byte("\n")...))
 		if err != nil {
-			c.t.Logf("failed to write log line: %v", err)
+			t.Logf("failed to write log line: %v", err)
 		}
 	}
 	return output.String()
@@ -454,22 +428,22 @@ func (c *kcpServer) filterKcpLogs(logs *bytes.Buffer) string {
 
 // Name exposes the name of this kcp server.
 func (c *kcpServer) Name() string {
-	return c.name
+	return c.cfg.Name
 }
 
 // KubeconfigPath exposes the path of the kubeconfig file of this kcp server.
 func (c *kcpServer) KubeconfigPath() string {
-	return c.kubeconfigPath
+	return filepath.Join(c.cfg.DataDir, "admin.kubeconfig")
 }
 
 // Config exposes a copy of the base client config for this server. Client-side throttling is disabled (QPS=-1).
 func (c *kcpServer) config(context string) (*rest.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if c.cfg == nil {
+	if c.clientCfg == nil {
 		return nil, fmt.Errorf("programmer error: kcpServer.Config() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
-	raw, err := c.cfg.RawConfig()
+	raw, err := c.clientCfg.RawConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +461,7 @@ func (c *kcpServer) config(context string) (*rest.Config, error) {
 }
 
 func (c *kcpServer) ClientCAUserConfig(t TestingT, config *rest.Config, name string, groups ...string) *rest.Config {
-	return clientCAUserConfig(t, config, c.clientCADir, name, groups...)
+	return clientCAUserConfig(t, config, c.cfg.ClientCADir, name, groups...)
 }
 
 // BaseConfig returns a rest.Config for the "base" context. Client-side throttling is disabled (QPS=-1).
@@ -529,17 +503,16 @@ func (c *kcpServer) ShardNames() []string {
 func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if c.cfg == nil {
+	if c.clientCfg == nil {
 		return clientcmdapi.Config{}, fmt.Errorf("programmer error: kcpServer.RawConfig() called before load succeeded. Stack: %s", string(debug.Stack()))
 	}
-	return c.cfg.RawConfig()
+	return c.clientCfg.RawConfig()
 }
 
 func (c *kcpServer) loadCfg() error {
 	var lastError error
 	if err := wait.PollUntilContextTimeout(c.ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		c.kubeconfigPath = filepath.Join(c.dataDir, "admin.kubeconfig")
-		config, err := loadKubeConfig(c.kubeconfigPath, "base")
+		config, err := loadKubeConfig(c.KubeconfigPath(), "base")
 		if err != nil {
 			// A missing file is likely caused by the server not
 			// having started up yet. Ignore these errors for the
@@ -552,7 +525,7 @@ func (c *kcpServer) loadCfg() error {
 		}
 
 		c.lock.Lock()
-		c.cfg = config
+		c.clientCfg = config
 		c.lock.Unlock()
 
 		return true, nil
@@ -566,7 +539,7 @@ func (c *kcpServer) loadCfg() error {
 }
 
 func (c *kcpServer) CADirectory() string {
-	return c.dataDir
+	return c.cfg.DataDir
 }
 
 func (c *kcpServer) Artifact(t TestingT, producer func() (runtime.Object, error)) {
