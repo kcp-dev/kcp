@@ -33,4 +33,10 @@ type RunningServer interface {
 	Artifact(t TestingT, producer func() (runtime.Object, error))
 	ClientCAUserConfig(t TestingT, config *rest.Config, name string, groups ...string) *rest.Config
 	CADirectory() string
+	// Stop signals the server to shutdown and waits until it finishes.
+	// Stop is a noop for external servers.
+	Stop()
+	// Stopped returns true if the server has ran and stopped.
+	// Stopped is a noop for external servers.
+	Stopped() bool
 }

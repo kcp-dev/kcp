@@ -159,6 +159,16 @@ func (s *externalKCPServer) Artifact(t TestingT, producer func() (runtime.Object
 	artifact(t, s, producer)
 }
 
+// Stop is a noop to satisfy the RunningServer interface.
+func (s *externalKCPServer) Stop() {
+	return
+}
+
+// Stopped is a noop to satisfy the RunningServer interface.
+func (s *externalKCPServer) Stopped() bool {
+	return false
+}
+
 // LoadKubeConfig loads a kubeconfig from disk. This method is
 // intended to be common between fixture for servers whose lifecycle
 // is test-managed and fixture for servers whose lifecycle is managed

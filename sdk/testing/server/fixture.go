@@ -407,6 +407,22 @@ func (c *kcpServer) Run(opts ...RunOption) error {
 	return nil
 }
 
+func (c *kcpServer) Stop() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.cancel == nil {
+		return
+	}
+	c.cancel()
+}
+
+func (c *kcpServer) Stopped() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.shutdownComplete
+}
+
 // filterKcpLogs is a silly hack to get rid of the nonsense output that
 // currently plagues kcp. Yes, in the future we want to actually fix these
 // issues but until we do, there's no reason to force awful UX onto users.
