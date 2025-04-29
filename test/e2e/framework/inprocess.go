@@ -32,18 +32,18 @@ import (
 )
 
 func init() {
-	kcptestingserver.RunInProcessFunc = func(t kcptestingserver.TestingT, rootDir string, args []string) (<-chan struct{}, error) {
-		ctx, cancel := context.WithCancel(context.Background())
+	kcptestingserver.ContextRunInProcessFunc = func(ctx context.Context, t kcptestingserver.TestingT, cfg kcptestingserver.Config) (<-chan struct{}, error) {
+		ctx, cancel := context.WithCancel(ctx)
 		t.Cleanup(cancel)
 
-		serverOptions := kcpoptions.NewOptions(rootDir)
+		serverOptions := kcpoptions.NewOptions(cfg.DataDir)
 		fss := flag.NamedFlagSets{}
 		serverOptions.AddFlags(&fss)
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
 		for _, fs := range fss.FlagSets {
 			all.AddFlagSet(fs)
 		}
-		if err := all.Parse(args); err != nil {
+		if err := all.Parse(cfg.Args); err != nil {
 			return nil, err
 		}
 
