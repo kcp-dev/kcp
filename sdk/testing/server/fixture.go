@@ -109,13 +109,18 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 
 		// Wait for the server to become ready
 		g.Go(func() error {
-			if err := srv.loadCfg(); err != nil {
+			if err := srv.loadCfg(ctx); err != nil {
+				// Cancel the context to kill all goroutines - if any
+				// server failed to setup properly the setup quits
+				// anyhow.
+				cancel()
 				return err
 			}
 
 			rootCfg := srv.RootShardSystemMasterBaseConfig(t)
 			t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
-			if err := WaitForReady(srv.ctx, rootCfg); err != nil {
+			if err := WaitForReady(ctx, rootCfg); err != nil {
+				cancel()
 				return err
 			}
 
@@ -163,7 +168,6 @@ type kcpServer struct {
 	cfg              Config
 	lock             *sync.Mutex
 	clientCfg        clientcmd.ClientConfig
-	ctx              context.Context //nolint:containedctx
 	cancel           func()
 	shutdownComplete bool
 }
@@ -281,7 +285,6 @@ func (c *kcpServer) Run(t TestingT) error {
 	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
-	c.ctx = ctx
 
 	shutdownComplete, err := runner(ctx, t, c.cfg)
 	if err != nil {
@@ -512,9 +515,13 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 	return c.clientCfg.RawConfig()
 }
 
-func (c *kcpServer) loadCfg() error {
+func (c *kcpServer) loadCfg(ctx context.Context) error {
 	var lastError error
-	if err := wait.PollUntilContextTimeout(c.ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		if c.Stopped() {
+			return false, fmt.Errorf("failed to load admin kubeconfig: server has stopped")
+		}
+
 		config, err := loadKubeConfig(c.KubeconfigPath(), "base")
 		if err != nil {
 			// A missing file is likely caused by the server not
