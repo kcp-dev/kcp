@@ -139,13 +139,13 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 	}
 
 	t.Cleanup(func() {
-		t.Logf("Stopping kcp servers...")
-		ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
+		t.Logf("Gathering metrics from kcp servers...")
+		ctx, cancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
 		defer cancel()
 
 		for _, s := range servers {
 			t.Log("Gathering metrics for kcp server", s.Name())
-			gatherMetrics(s.ctx, t, s, s.cfg.ArtifactDir)
+			gatherMetrics(ctx, t, s, s.cfg.ArtifactDir)
 		}
 	})
 
