@@ -29,7 +29,7 @@ type FakeApisV1alpha2 struct {
 }
 
 func (c *FakeApisV1alpha2) APIExports() v1alpha2.APIExportInterface {
-	return &FakeAPIExports{c}
+	return newFakeAPIExports(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

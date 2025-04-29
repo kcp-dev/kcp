@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -38,36 +38,37 @@ type LogicalClustersGetter interface {
 
 // LogicalClusterInterface has methods to work with LogicalCluster resources.
 type LogicalClusterInterface interface {
-	Create(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.CreateOptions) (*v1alpha1.LogicalCluster, error)
-	Update(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.UpdateOptions) (*v1alpha1.LogicalCluster, error)
+	Create(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster, opts v1.CreateOptions) (*corev1alpha1.LogicalCluster, error)
+	Update(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster, opts v1.UpdateOptions) (*corev1alpha1.LogicalCluster, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, logicalCluster *v1alpha1.LogicalCluster, opts v1.UpdateOptions) (*v1alpha1.LogicalCluster, error)
+	UpdateStatus(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster, opts v1.UpdateOptions) (*corev1alpha1.LogicalCluster, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.LogicalCluster, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.LogicalClusterList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1alpha1.LogicalCluster, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1alpha1.LogicalClusterList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LogicalCluster, err error)
-	Apply(ctx context.Context, logicalCluster *corev1alpha1.LogicalClusterApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.LogicalCluster, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1alpha1.LogicalCluster, err error)
+	Apply(ctx context.Context, logicalCluster *applyconfigurationcorev1alpha1.LogicalClusterApplyConfiguration, opts v1.ApplyOptions) (result *corev1alpha1.LogicalCluster, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, logicalCluster *corev1alpha1.LogicalClusterApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.LogicalCluster, err error)
+	ApplyStatus(ctx context.Context, logicalCluster *applyconfigurationcorev1alpha1.LogicalClusterApplyConfiguration, opts v1.ApplyOptions) (result *corev1alpha1.LogicalCluster, err error)
 	LogicalClusterExpansion
 }
 
 // logicalClusters implements LogicalClusterInterface
 type logicalClusters struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.LogicalCluster, *v1alpha1.LogicalClusterList, *corev1alpha1.LogicalClusterApplyConfiguration]
+	*gentype.ClientWithListAndApply[*corev1alpha1.LogicalCluster, *corev1alpha1.LogicalClusterList, *applyconfigurationcorev1alpha1.LogicalClusterApplyConfiguration]
 }
 
 // newLogicalClusters returns a LogicalClusters
 func newLogicalClusters(c *CoreV1alpha1Client) *logicalClusters {
 	return &logicalClusters{
-		gentype.NewClientWithListAndApply[*v1alpha1.LogicalCluster, *v1alpha1.LogicalClusterList, *corev1alpha1.LogicalClusterApplyConfiguration](
+		gentype.NewClientWithListAndApply[*corev1alpha1.LogicalCluster, *corev1alpha1.LogicalClusterList, *applyconfigurationcorev1alpha1.LogicalClusterApplyConfiguration](
 			"logicalclusters",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.LogicalCluster { return &v1alpha1.LogicalCluster{} },
-			func() *v1alpha1.LogicalClusterList { return &v1alpha1.LogicalClusterList{} }),
+			func() *corev1alpha1.LogicalCluster { return &corev1alpha1.LogicalCluster{} },
+			func() *corev1alpha1.LogicalClusterList { return &corev1alpha1.LogicalClusterList{} },
+		),
 	}
 }

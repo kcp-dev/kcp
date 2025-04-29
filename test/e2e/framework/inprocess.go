@@ -47,7 +47,7 @@ func init() {
 			return nil, err
 		}
 
-		completed, err := serverOptions.Complete()
+		completed, err := serverOptions.Complete(ctx)
 		if err != nil {
 			return nil, err
 		}

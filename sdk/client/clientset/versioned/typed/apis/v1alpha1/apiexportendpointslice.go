@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	applyconfigurationapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -38,36 +38,37 @@ type APIExportEndpointSlicesGetter interface {
 
 // APIExportEndpointSliceInterface has methods to work with APIExportEndpointSlice resources.
 type APIExportEndpointSliceInterface interface {
-	Create(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.CreateOptions) (*v1alpha1.APIExportEndpointSlice, error)
-	Update(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (*v1alpha1.APIExportEndpointSlice, error)
+	Create(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, opts v1.CreateOptions) (*apisv1alpha1.APIExportEndpointSlice, error)
+	Update(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (*apisv1alpha1.APIExportEndpointSlice, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (*v1alpha1.APIExportEndpointSlice, error)
+	UpdateStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (*apisv1alpha1.APIExportEndpointSlice, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.APIExportEndpointSlice, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.APIExportEndpointSliceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*apisv1alpha1.APIExportEndpointSlice, error)
+	List(ctx context.Context, opts v1.ListOptions) (*apisv1alpha1.APIExportEndpointSliceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExportEndpointSlice, err error)
-	Apply(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *apisv1alpha1.APIExportEndpointSlice, err error)
+	Apply(ctx context.Context, aPIExportEndpointSlice *applyconfigurationapisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIExportEndpointSlice, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error)
+	ApplyStatus(ctx context.Context, aPIExportEndpointSlice *applyconfigurationapisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *apisv1alpha1.APIExportEndpointSlice, err error)
 	APIExportEndpointSliceExpansion
 }
 
 // aPIExportEndpointSlices implements APIExportEndpointSliceInterface
 type aPIExportEndpointSlices struct {
-	*gentype.ClientWithListAndApply[*v1alpha1.APIExportEndpointSlice, *v1alpha1.APIExportEndpointSliceList, *apisv1alpha1.APIExportEndpointSliceApplyConfiguration]
+	*gentype.ClientWithListAndApply[*apisv1alpha1.APIExportEndpointSlice, *apisv1alpha1.APIExportEndpointSliceList, *applyconfigurationapisv1alpha1.APIExportEndpointSliceApplyConfiguration]
 }
 
 // newAPIExportEndpointSlices returns a APIExportEndpointSlices
 func newAPIExportEndpointSlices(c *ApisV1alpha1Client) *aPIExportEndpointSlices {
 	return &aPIExportEndpointSlices{
-		gentype.NewClientWithListAndApply[*v1alpha1.APIExportEndpointSlice, *v1alpha1.APIExportEndpointSliceList, *apisv1alpha1.APIExportEndpointSliceApplyConfiguration](
+		gentype.NewClientWithListAndApply[*apisv1alpha1.APIExportEndpointSlice, *apisv1alpha1.APIExportEndpointSliceList, *applyconfigurationapisv1alpha1.APIExportEndpointSliceApplyConfiguration](
 			"apiexportendpointslices",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.APIExportEndpointSlice { return &v1alpha1.APIExportEndpointSlice{} },
-			func() *v1alpha1.APIExportEndpointSliceList { return &v1alpha1.APIExportEndpointSliceList{} }),
+			func() *apisv1alpha1.APIExportEndpointSlice { return &apisv1alpha1.APIExportEndpointSlice{} },
+			func() *apisv1alpha1.APIExportEndpointSliceList { return &apisv1alpha1.APIExportEndpointSliceList{} },
+		),
 	}
 }

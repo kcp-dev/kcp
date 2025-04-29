@@ -19,168 +19,35 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-	json "encoding/json"
-	"fmt"
-
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	typedapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeAPIExportEndpointSlices implements APIExportEndpointSliceInterface
-type FakeAPIExportEndpointSlices struct {
+// fakeAPIExportEndpointSlices implements APIExportEndpointSliceInterface
+type fakeAPIExportEndpointSlices struct {
+	*gentype.FakeClientWithListAndApply[*v1alpha1.APIExportEndpointSlice, *v1alpha1.APIExportEndpointSliceList, *apisv1alpha1.APIExportEndpointSliceApplyConfiguration]
 	Fake *FakeApisV1alpha1
 }
 
-var apiexportendpointslicesResource = v1alpha1.SchemeGroupVersion.WithResource("apiexportendpointslices")
-
-var apiexportendpointslicesKind = v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSlice")
-
-// Get takes name of the aPIExportEndpointSlice, and returns the corresponding aPIExportEndpointSlice object, and an error if there is any.
-func (c *FakeAPIExportEndpointSlices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(apiexportendpointslicesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeAPIExportEndpointSlices(fake *FakeApisV1alpha1) typedapisv1alpha1.APIExportEndpointSliceInterface {
+	return &fakeAPIExportEndpointSlices{
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.APIExportEndpointSlice, *v1alpha1.APIExportEndpointSliceList, *apisv1alpha1.APIExportEndpointSliceApplyConfiguration](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("apiexportendpointslices"),
+			v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSlice"),
+			func() *v1alpha1.APIExportEndpointSlice { return &v1alpha1.APIExportEndpointSlice{} },
+			func() *v1alpha1.APIExportEndpointSliceList { return &v1alpha1.APIExportEndpointSliceList{} },
+			func(dst, src *v1alpha1.APIExportEndpointSliceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.APIExportEndpointSliceList) []*v1alpha1.APIExportEndpointSlice {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.APIExportEndpointSliceList, items []*v1alpha1.APIExportEndpointSlice) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
-}
-
-// List takes label and field selectors, and returns the list of APIExportEndpointSlices that match those selectors.
-func (c *FakeAPIExportEndpointSlices) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.APIExportEndpointSliceList, err error) {
-	emptyResult := &v1alpha1.APIExportEndpointSliceList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(apiexportendpointslicesResource, apiexportendpointslicesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.APIExportEndpointSliceList{ListMeta: obj.(*v1alpha1.APIExportEndpointSliceList).ListMeta}
-	for _, item := range obj.(*v1alpha1.APIExportEndpointSliceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested aPIExportEndpointSlices.
-func (c *FakeAPIExportEndpointSlices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(apiexportendpointslicesResource, opts))
-}
-
-// Create takes the representation of a aPIExportEndpointSlice and creates it.  Returns the server's representation of the aPIExportEndpointSlice, and an error, if there is any.
-func (c *FakeAPIExportEndpointSlices) Create(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.CreateOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(apiexportendpointslicesResource, aPIExportEndpointSlice, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
-}
-
-// Update takes the representation of a aPIExportEndpointSlice and updates it. Returns the server's representation of the aPIExportEndpointSlice, and an error, if there is any.
-func (c *FakeAPIExportEndpointSlices) Update(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(apiexportendpointslicesResource, aPIExportEndpointSlice, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeAPIExportEndpointSlices) UpdateStatus(ctx context.Context, aPIExportEndpointSlice *v1alpha1.APIExportEndpointSlice, opts v1.UpdateOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(apiexportendpointslicesResource, "status", aPIExportEndpointSlice, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
-}
-
-// Delete takes name of the aPIExportEndpointSlice and deletes it. Returns an error if one occurs.
-func (c *FakeAPIExportEndpointSlices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(apiexportendpointslicesResource, name, opts), &v1alpha1.APIExportEndpointSlice{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeAPIExportEndpointSlices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(apiexportendpointslicesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.APIExportEndpointSliceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched aPIExportEndpointSlice.
-func (c *FakeAPIExportEndpointSlices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportendpointslicesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied aPIExportEndpointSlice.
-func (c *FakeAPIExportEndpointSlices) Apply(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	if aPIExportEndpointSlice == nil {
-		return nil, fmt.Errorf("aPIExportEndpointSlice provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(aPIExportEndpointSlice)
-	if err != nil {
-		return nil, err
-	}
-	name := aPIExportEndpointSlice.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportendpointslicesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *FakeAPIExportEndpointSlices) ApplyStatus(ctx context.Context, aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.APIExportEndpointSlice, err error) {
-	if aPIExportEndpointSlice == nil {
-		return nil, fmt.Errorf("aPIExportEndpointSlice provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(aPIExportEndpointSlice)
-	if err != nil {
-		return nil, err
-	}
-	name := aPIExportEndpointSlice.Name
-	if name == nil {
-		return nil, fmt.Errorf("aPIExportEndpointSlice.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.APIExportEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(apiexportendpointslicesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.APIExportEndpointSlice), err
 }

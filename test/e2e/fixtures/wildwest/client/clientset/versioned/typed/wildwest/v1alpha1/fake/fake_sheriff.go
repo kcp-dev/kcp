@@ -19,168 +19,33 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-	json "encoding/json"
-	"fmt"
-
 	v1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/wildwest/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	typedwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeSherifves implements SheriffInterface
-type FakeSherifves struct {
+// fakeSherifves implements SheriffInterface
+type fakeSherifves struct {
+	*gentype.FakeClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration]
 	Fake *FakeWildwestV1alpha1
 }
 
-var sherifvesResource = v1alpha1.SchemeGroupVersion.WithResource("sherifves")
-
-var sherifvesKind = v1alpha1.SchemeGroupVersion.WithKind("Sheriff")
-
-// Get takes name of the sheriff, and returns the corresponding sheriff object, and an error if there is any.
-func (c *FakeSherifves) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Sheriff, err error) {
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(sherifvesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeSherifves(fake *FakeWildwestV1alpha1) typedwildwestv1alpha1.SheriffInterface {
+	return &fakeSherifves{
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("sherifves"),
+			v1alpha1.SchemeGroupVersion.WithKind("Sheriff"),
+			func() *v1alpha1.Sheriff { return &v1alpha1.Sheriff{} },
+			func() *v1alpha1.SheriffList { return &v1alpha1.SheriffList{} },
+			func(dst, src *v1alpha1.SheriffList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.SheriffList) []*v1alpha1.Sheriff { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1alpha1.SheriffList, items []*v1alpha1.Sheriff) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.Sheriff), err
-}
-
-// List takes label and field selectors, and returns the list of Sherifves that match those selectors.
-func (c *FakeSherifves) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.SheriffList, err error) {
-	emptyResult := &v1alpha1.SheriffList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(sherifvesResource, sherifvesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.SheriffList{ListMeta: obj.(*v1alpha1.SheriffList).ListMeta}
-	for _, item := range obj.(*v1alpha1.SheriffList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested sherifves.
-func (c *FakeSherifves) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(sherifvesResource, opts))
-}
-
-// Create takes the representation of a sheriff and creates it.  Returns the server's representation of the sheriff, and an error, if there is any.
-func (c *FakeSherifves) Create(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.CreateOptions) (result *v1alpha1.Sheriff, err error) {
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(sherifvesResource, sheriff, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Sheriff), err
-}
-
-// Update takes the representation of a sheriff and updates it. Returns the server's representation of the sheriff, and an error, if there is any.
-func (c *FakeSherifves) Update(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (result *v1alpha1.Sheriff, err error) {
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(sherifvesResource, sheriff, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Sheriff), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeSherifves) UpdateStatus(ctx context.Context, sheriff *v1alpha1.Sheriff, opts v1.UpdateOptions) (result *v1alpha1.Sheriff, err error) {
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(sherifvesResource, "status", sheriff, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Sheriff), err
-}
-
-// Delete takes name of the sheriff and deletes it. Returns an error if one occurs.
-func (c *FakeSherifves) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(sherifvesResource, name, opts), &v1alpha1.Sheriff{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeSherifves) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(sherifvesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.SheriffList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched sheriff.
-func (c *FakeSherifves) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Sheriff, err error) {
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(sherifvesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Sheriff), err
-}
-
-// Apply takes the given apply declarative configuration, applies it and returns the applied sheriff.
-func (c *FakeSherifves) Apply(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error) {
-	if sheriff == nil {
-		return nil, fmt.Errorf("sheriff provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(sheriff)
-	if err != nil {
-		return nil, err
-	}
-	name := sheriff.Name
-	if name == nil {
-		return nil, fmt.Errorf("sheriff.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(sherifvesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Sheriff), err
-}
-
-// ApplyStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-func (c *FakeSherifves) ApplyStatus(ctx context.Context, sheriff *wildwestv1alpha1.SheriffApplyConfiguration, opts v1.ApplyOptions) (result *v1alpha1.Sheriff, err error) {
-	if sheriff == nil {
-		return nil, fmt.Errorf("sheriff provided to Apply must not be nil")
-	}
-	data, err := json.Marshal(sheriff)
-	if err != nil {
-		return nil, err
-	}
-	name := sheriff.Name
-	if name == nil {
-		return nil, fmt.Errorf("sheriff.Name must be provided to Apply")
-	}
-	emptyResult := &v1alpha1.Sheriff{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(sherifvesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Sheriff), err
 }

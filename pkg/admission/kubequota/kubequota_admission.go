@@ -204,6 +204,7 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 
 	delegate.SetDrainedNotification(ctx.Done())
 	delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.Cluster(clusterName).Lister())
+	delegate.SetResourceQuotaInformer(k.scopingResourceQuotaInformer.Cluster(clusterName).Informer())
 	delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
 	delegate.SetQuotaConfiguration(k.quotaConfiguration)
 

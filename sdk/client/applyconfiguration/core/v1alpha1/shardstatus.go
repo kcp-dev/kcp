@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 )
 
 // ShardStatusApplyConfiguration represents a declarative configuration of the ShardStatus type for use
 // with apply.
 type ShardStatusApplyConfiguration struct {
-	Capacity   *v1.ResourceList     `json:"capacity,omitempty"`
-	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
+	Capacity   *v1.ResourceList               `json:"capacity,omitempty"`
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // ShardStatusApplyConfiguration constructs a declarative configuration of the ShardStatus type for use with
@@ -47,7 +47,7 @@ func (b *ShardStatusApplyConfiguration) WithCapacity(value v1.ResourceList) *Sha
 // WithConditions sets the Conditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Conditions field is set to the value of the last call.
-func (b *ShardStatusApplyConfiguration) WithConditions(value v1alpha1.Conditions) *ShardStatusApplyConfiguration {
+func (b *ShardStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *ShardStatusApplyConfiguration {
 	b.Conditions = &value
 	return b
 }
