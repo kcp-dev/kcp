@@ -199,17 +199,20 @@ func newKcpServer(t TestingT, cfg Config) (*kcpServer, error) {
 		return nil, err
 	}
 
-	s.cfg.Args = append(s.cfg.Args,
-		"--root-directory",
-		s.cfg.DataDir,
-		"--secure-port="+kcpListenPort,
-		"--embedded-etcd-client-port="+etcdClientPort,
-		"--embedded-etcd-peer-port="+etcdPeerPort,
-		"--embedded-etcd-wal-size-bytes="+strconv.Itoa(5*1000), // 5KB
-		"--kubeconfig-path="+s.KubeconfigPath(),
-		"--feature-gates="+fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
-		"--audit-log-path", filepath.Join(s.cfg.ArtifactDir, "kcp.audit"),
-		"--v=4",
+	s.cfg.Args = append(
+		[]string{
+			"--root-directory",
+			s.cfg.DataDir,
+			"--secure-port=" + kcpListenPort,
+			"--embedded-etcd-client-port=" + etcdClientPort,
+			"--embedded-etcd-peer-port=" + etcdPeerPort,
+			"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
+			"--kubeconfig-path=" + s.KubeconfigPath(),
+			"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
+			"--audit-log-path", filepath.Join(s.cfg.ArtifactDir, "kcp.audit"),
+			"--v=4",
+		},
+		s.cfg.Args...,
 	)
 
 	return s, nil
