@@ -22,7 +22,7 @@ import (
 	apisfuzzer "github.com/kcp-dev/kcp/sdk/apis/apis/fuzzer"
 )
 
-// FuzzerFuncs is a list of fuzzer functions
+// FuzzerFuncs is a list of fuzzer functions.
 var FuzzerFuncs = fuzzer.MergeFuzzerFuncs(
 	apisfuzzer.Funcs,
 )

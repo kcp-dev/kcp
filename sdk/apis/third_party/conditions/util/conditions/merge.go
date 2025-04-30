@@ -19,8 +19,9 @@ package conditions
 import (
 	"sort"
 
-	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // localizedCondition defines a condition with the information of the object the conditions
@@ -131,7 +132,7 @@ func (g conditionGroups) Swap(i, j int) {
 	g[i], g[j] = g[j], g[i]
 }
 
-// TopGroup returns the the condition group with the highest mergePriority.
+// TopGroup returns the condition group with the highest mergePriority.
 func (g conditionGroups) TopGroup() *conditionGroup {
 	if len(g) == 0 {
 		return nil
@@ -139,17 +140,17 @@ func (g conditionGroups) TopGroup() *conditionGroup {
 	return &g[0]
 }
 
-// TrueGroup returns the the condition group with status True, if any.
+// TrueGroup returns the condition group with status True, if any.
 func (g conditionGroups) TrueGroup() *conditionGroup {
 	return g.getByStatusAndSeverity(corev1.ConditionTrue, conditionsapi.ConditionSeverityNone)
 }
 
-// ErrorGroup returns the the condition group with status False and severity Error, if any.
+// ErrorGroup returns the condition group with status False and severity Error, if any.
 func (g conditionGroups) ErrorGroup() *conditionGroup {
 	return g.getByStatusAndSeverity(corev1.ConditionFalse, conditionsapi.ConditionSeverityError)
 }
 
-// WarningGroup returns the the condition group with status False and severity Warning, if any.
+// WarningGroup returns the condition group with status False and severity Warning, if any.
 func (g conditionGroups) WarningGroup() *conditionGroup {
 	return g.getByStatusAndSeverity(corev1.ConditionFalse, conditionsapi.ConditionSeverityWarning)
 }

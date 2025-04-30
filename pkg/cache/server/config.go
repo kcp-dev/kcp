@@ -175,11 +175,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			// to use the k8s library
 			parts := strings.Split(rq.URL.Path, "/")
 			if len(parts) < 4 {
-				//nolint:revive
 				return "", "", fmt.Errorf("RequestInfoResolver: got invalid path: %v", rq.URL.Path)
 			}
 			if parts[1] != "clusters" {
-				//nolint:revive
 				return "", "", fmt.Errorf("RequestInfoResolver: got path without cluster prefix: %v", rq.URL.Path)
 			}
 			// we clone the request here to safely mutate the URL path, but this cloned request is never realized

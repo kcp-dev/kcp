@@ -112,7 +112,7 @@ func SharedKcpServer(t TestingT) kcptestingserver.RunningServer {
 	if c.ClientCADir == "" {
 		var clientCAFile string
 		c.ClientCADir, clientCAFile = createClientCA(t)
-		args = append(args, "--client-ca-file", clientCAFile) //nolint:gocritic // no.
+		args = append(args, "--client-ca-file", clientCAFile)
 	}
 
 	c.Args = args

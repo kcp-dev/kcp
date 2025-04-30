@@ -19,9 +19,10 @@ package conditions
 import (
 	"fmt"
 
-	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // MatchConditions returns a custom matcher to check equality of conditionsapi.Conditions.
@@ -35,8 +36,8 @@ type matchConditions struct {
 	expected conditionsapi.Conditions
 }
 
-func (m matchConditions) Match(actual interface{}) (success bool, err error) {
-	elems := []interface{}{}
+func (m matchConditions) Match(actual any) (success bool, err error) {
+	elems := []any{}
 	for _, condition := range m.expected {
 		elems = append(elems, MatchCondition(condition))
 	}
@@ -44,11 +45,11 @@ func (m matchConditions) Match(actual interface{}) (success bool, err error) {
 	return gomega.ConsistOf(elems).Match(actual)
 }
 
-func (m matchConditions) FailureMessage(actual interface{}) (message string) {
+func (m matchConditions) FailureMessage(actual any) (message string) {
 	return fmt.Sprintf("expected\n\t%#v\nto match\n\t%#v\n", actual, m.expected)
 }
 
-func (m matchConditions) NegatedFailureMessage(actual interface{}) (message string) {
+func (m matchConditions) NegatedFailureMessage(actual any) (message string) {
 	return fmt.Sprintf("expected\n\t%#v\nto not match\n\t%#v\n", actual, m.expected)
 }
 
@@ -63,7 +64,7 @@ type matchCondition struct {
 	expected conditionsapi.Condition
 }
 
-func (m matchCondition) Match(actual interface{}) (success bool, err error) {
+func (m matchCondition) Match(actual any) (success bool, err error) {
 	actualCondition, ok := actual.(conditionsapi.Condition)
 	if !ok {
 		return false, fmt.Errorf("actual should be of type Condition")
@@ -93,10 +94,10 @@ func (m matchCondition) Match(actual interface{}) (success bool, err error) {
 	return ok, err
 }
 
-func (m matchCondition) FailureMessage(actual interface{}) (message string) {
+func (m matchCondition) FailureMessage(actual any) (message string) {
 	return fmt.Sprintf("expected\n\t%#v\nto match\n\t%#v\n", actual, m.expected)
 }
 
-func (m matchCondition) NegatedFailureMessage(actual interface{}) (message string) {
+func (m matchCondition) NegatedFailureMessage(actual any) (message string) {
 	return fmt.Sprintf("expected\n\t%#v\nto not match\n\t%#v\n", actual, m.expected)
 }

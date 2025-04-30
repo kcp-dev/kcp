@@ -19,9 +19,11 @@ package conditions
 import (
 	"testing"
 
-	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
-	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+
+	. "github.com/onsi/gomega"
 )
 
 func TestGetStepCounterMessage(t *testing.T) {
