@@ -50,7 +50,7 @@ YAML_PATCH_BIN := yaml-patch
 YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
 export YAML_PATCH # so hack scripts can use it
 
-GOLANGCI_LINT_VER := v1.62.2
+GOLANGCI_LINT_VER := v2.1.4
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
@@ -133,7 +133,7 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 .PHONY: install
 
 $(GOLANGCI_LINT):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/v2/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
 $(HTTEST):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) go.xrstf.de/httest $(HTTEST_BIN) $(HTTEST_VER)
@@ -235,10 +235,10 @@ verify-codegen: ## Verify codegen
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
 	@if [ -n "$(WHAT)" ]; then \
-	  $(GOLANGCI_LINT) run --enable-only=gci --fix --fast $(WHAT); \
+	  $(GOLANGCI_LINT) run  --fix --fast-only $(WHAT); \
 	else \
 	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(cd $$MOD; $(GOLANGCI_LINT) run --enable-only=gci --fix --fast); \
+		(cd $$MOD; $(GOLANGCI_LINT) run  --fix --fast-only); \
 	  done; \
 	fi
 
