@@ -1,18 +1,10 @@
-apiVersion: apis.kcp.io/v1alpha2
+apiVersion: apis.kcp.io/v1alpha1
 kind: APIExport
 metadata:
   creationTimestamp: null
   name: topology.kcp.io
 spec:
-  resources:
-  - group: topology.kcp.io
-    name: partitions
-    schema: v240903-d6797056a.partitions.topology.kcp.io
-    storage:
-      crd: {}
-  - group: topology.kcp.io
-    name: partitionsets
-    schema: v240903-d6797056a.partitionsets.topology.kcp.io
-    storage:
-      crd: {}
+  latestResourceSchemas:
+  - v240903-d6797056a.partitions.topology.kcp.io
+  - v240903-d6797056a.partitionsets.topology.kcp.io
 status: {}

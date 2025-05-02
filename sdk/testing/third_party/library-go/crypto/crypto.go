@@ -63,7 +63,7 @@ var supportedVersions = map[string]uint16{
 	"VersionTLS13": tls.VersionTLS13,
 }
 
-// TLSVersionToNameOrDie given a tls version as an int, return its readable name
+// TLSVersionToNameOrDie given a tls version as an int, return its readable name.
 func TLSVersionToNameOrDie(intVal uint16) string {
 	matches := []string{}
 	for key, version := range versions {
@@ -124,9 +124,7 @@ func DefaultTLSVersion() uint16 {
 	return tls.VersionTLS12
 }
 
-// ciphersTLS13 copies golang 1.13 implementation, where TLS1.3 suites are not
-// configurable (cipherSuites field is ignored for TLS1.3 flows and all of the
-// below three - and none other - are used)
+// below three - and none other - are used).
 var ciphersTLS13 = map[string]uint16{
 	"TLS_AES_128_GCM_SHA256":       tls.TLS_AES_128_GCM_SHA256,
 	"TLS_AES_256_GCM_SHA384":       tls.TLS_AES_256_GCM_SHA384,
@@ -193,7 +191,7 @@ var openSSLToIANACiphersMap = map[string]string{
 	"DES-CBC3-SHA": "TLS_RSA_WITH_3DES_EDE_CBC_SHA", // 0x00,0x0A
 }
 
-// CipherSuitesToNamesOrDie given a list of cipher suites as ints, return their readable names
+// CipherSuitesToNamesOrDie given a list of cipher suites as ints, return their readable names.
 func CipherSuitesToNamesOrDie(intVals []uint16) []string {
 	ret := []string{}
 	for _, intVal := range intVals {
@@ -203,7 +201,7 @@ func CipherSuitesToNamesOrDie(intVals []uint16) []string {
 	return ret
 }
 
-// CipherSuiteToNameOrDie given a cipher suite as an int, return its readable name
+// CipherSuiteToNameOrDie given a cipher suite as an int, return its readable name.
 func CipherSuiteToNameOrDie(intVal uint16) string {
 	// The following suite ids appear twice in the cipher map (with
 	// and without the _SHA256 suffix) for the purposes of backwards
@@ -449,7 +447,7 @@ const (
 	DefaultCertificateLifetimeInDays   = 365 * 2 // 2 years
 	DefaultCACertificateLifetimeInDays = 365 * 5 // 5 years
 
-	// Default keys are 2048 bits
+	// Default keys are 2048 bits.
 	keyBits = 2048
 )
 
@@ -548,7 +546,7 @@ func fileToSerial(serialFile string) (int64, error) {
 	return serial, nil
 }
 
-// RandomSerialGenerator returns a serial based on time.Now and the subject
+// RandomSerialGenerator returns a serial based on time.Now and the subject.
 type RandomSerialGenerator struct {
 }
 
@@ -565,8 +563,7 @@ func randomSerialNumber() int64 {
 	return r.Int63()
 }
 
-// EnsureCA returns a CA, whether it was created (as opposed to pre-existing), and any error
-// if serialFile is empty, a RandomSerialGenerator will be used
+// if serialFile is empty, a RandomSerialGenerator will be used.
 func EnsureCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, bool, error) {
 	if ca, err := GetCA(certFile, keyFile, serialFile); err == nil {
 		return ca, false, err
@@ -575,7 +572,7 @@ func EnsureCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, 
 	return ca, true, err
 }
 
-// if serialFile is empty, a RandomSerialGenerator will be used
+// if serialFile is empty, a RandomSerialGenerator will be used.
 func GetCA(certFile, keyFile, serialFile string) (*CA, error) {
 	caConfig, err := GetTLSCertificateConfig(certFile, keyFile)
 	if err != nil {
@@ -610,7 +607,7 @@ func GetCAFromBytes(certBytes, keyBytes []byte) (*CA, error) {
 	}, nil
 }
 
-// if serialFile is empty, a RandomSerialGenerator will be used
+// if serialFile is empty, a RandomSerialGenerator will be used.
 func MakeSelfSignedCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, error) {
 	klog.Background().V(2).WithValues("certName", name, "certFile", certFile, "keyFile", keyFile).Info("generating new CA for cert")
 
@@ -936,7 +933,7 @@ func newRSAKeyPair() (*rsa.PublicKey, *rsa.PrivateKey, error) {
 	return &privateKey.PublicKey, privateKey, nil
 }
 
-// Can be used for CA or intermediate signing certs
+// Can be used for CA or intermediate signing certs.
 func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
 	return &x509.Certificate{
 		Subject: subject,
@@ -960,7 +957,7 @@ func newSigningCertificateTemplateForDuration(subject pkix.Name, caLifetime time
 	}
 }
 
-// Can be used for ListenAndServeTLS
+// Can be used for ListenAndServeTLS.
 func newServerCertificateTemplate(subject pkix.Name, hosts []string, expireDays int, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
 	var lifetimeInDays = DefaultCertificateLifetimeInDays
 	if expireDays > 0 {
@@ -976,7 +973,7 @@ func newServerCertificateTemplate(subject pkix.Name, hosts []string, expireDays 
 	return newServerCertificateTemplateForDuration(subject, hosts, lifetime, currentTime, authorityKeyId, subjectKeyId)
 }
 
-// Can be used for ListenAndServeTLS
+// Can be used for ListenAndServeTLS.
 func newServerCertificateTemplateForDuration(subject pkix.Name, hosts []string, lifetime time.Duration, currentTime func() time.Time, authorityKeyId, subjectKeyId []byte) *x509.Certificate {
 	template := &x509.Certificate{
 		Subject: subject,
@@ -1049,7 +1046,7 @@ func CertsFromPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-// Can be used as a certificate in http.Transport TLSClientConfig
+// Can be used as a certificate in http.Transport TLSClientConfig.
 func newClientCertificateTemplate(subject pkix.Name, expireDays int, currentTime func() time.Time) *x509.Certificate {
 	var lifetimeInDays = DefaultCertificateLifetimeInDays
 	if expireDays > 0 {
@@ -1065,7 +1062,7 @@ func newClientCertificateTemplate(subject pkix.Name, expireDays int, currentTime
 	return newClientCertificateTemplateForDuration(subject, lifetime, currentTime)
 }
 
-// Can be used as a certificate in http.Transport TLSClientConfig
+// Can be used as a certificate in http.Transport TLSClientConfig.
 func newClientCertificateTemplateForDuration(subject pkix.Name, lifetime time.Duration, currentTime func() time.Time) *x509.Certificate {
 	return &x509.Certificate{
 		Subject: subject,
@@ -1129,7 +1126,6 @@ func encodeKey(key crypto.PrivateKey) ([]byte, error) {
 		}
 	default:
 		return []byte{}, errors.New("unrecognized key type")
-
 	}
 	return b.Bytes(), nil
 }
