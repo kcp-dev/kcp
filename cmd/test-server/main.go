@@ -48,6 +48,7 @@ import (
 //
 //	$ go test -v --use-default-kcp-server
 func main() {
+	workDirPath := flag.String("work-dir-path", "", "Directory for work files. If empty, .kcp is used.")
 	logDirPath := flag.String("log-dir-path", "", "Directory for log files. If empty, .kcp is used.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 
@@ -70,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := start(shardFlags, *logDirPath, *quiet); err != nil {
+	if err := start(shardFlags, *workDirPath, *logDirPath, *quiet); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
@@ -80,7 +81,7 @@ func main() {
 	}
 }
 
-func start(shardFlags []string, logDirPath string, quiet bool) error {
+func start(shardFlags []string, workDirPath, logDirPath string, quiet bool) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shard
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -91,9 +92,9 @@ func start(shardFlags []string, logDirPath string, quiet bool) error {
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
 	_, err := crypto.MakeSelfSignedCA(
-		filepath.Join(".kcp", "/client-ca.crt"),
-		filepath.Join(".kcp", "/client-ca.key"),
-		filepath.Join(".kcp", "/client-ca-serial.txt"),
+		filepath.Join(workDirPath, ".kcp", "/client-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "/client-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "/client-ca-serial.txt"),
 		"kcp-client-ca",
 		365,
 	)
@@ -101,18 +102,18 @@ func start(shardFlags []string, logDirPath string, quiet bool) error {
 		return fmt.Errorf("failed to create client-ca: %w", err)
 	}
 
-	logFilePath := filepath.Join(".kcp", "kcp.log")
+	logFilePath := filepath.Join(workDirPath, ".kcp", "kcp.log")
 	if logDirPath != "" {
 		logFilePath = filepath.Join(logDirPath, "kcp.log")
 	}
 
 	s := shard.NewShard(
 		"kcp",
-		".kcp",
+		filepath.Join(workDirPath, ".kcp"),
 		logFilePath,
 		append(shardFlags,
 			"--audit-log-path", filepath.Join(filepath.Dir(logFilePath), "audit.log"),
-			"--client-ca-file", filepath.Join(".kcp", "client-ca.crt"),
+			"--client-ca-file", filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
 		),
 	)
 	if err := s.Start(ctx, quiet); err != nil {
@@ -129,7 +130,7 @@ func start(shardFlags []string, logDirPath string, quiet bool) error {
 		return err
 	}
 
-	readyToTestFile, err := os.Create(filepath.Join(".kcp", "ready-to-test"))
+	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
 	if err != nil {
 		return fmt.Errorf("error creating ready-to-test file: %w", err)
 	}

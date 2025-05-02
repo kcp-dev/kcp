@@ -307,13 +307,13 @@ test-e2e-shared-minimal: build-all
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 \
-		./bin/test-server --quiet --log-dir-path="$(LOG_DIR)" $(TEST_SERVER_ARGS) -- --feature-gates=$(TEST_FEATURE_GATES) 2>&1 & PID=$$! && echo "PID $$PID" && \
+		./bin/test-server --quiet --work-dir-path="$(WORK_DIR)" --log-dir-path="$(LOG_DIR)" $(TEST_SERVER_ARGS) -- --feature-gates=$(TEST_FEATURE_GATES) 2>&1 & PID=$$! && echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server $(SUITES_ARG) \
+		-args --kcp-kubeconfig=$(WORK_DIR)/.kcp/admin.kubeconfig $(SUITES_ARGS) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 .PHONY: test-e2e-sharded-minimal
