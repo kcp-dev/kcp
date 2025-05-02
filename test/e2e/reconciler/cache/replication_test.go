@@ -754,7 +754,7 @@ func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kc
 	}
 
 	// assume multi-shard env created by the sharded-test-server
-	cacheServerKubeConfigPath := filepath.Join(kcptestinghelpers.RepositoryDir(), ".kcp-cache", "cache.kubeconfig")
+	cacheServerKubeConfigPath := filepath.Join(filepath.Dir(kcptesting.KubeconfigPath()), "..", ".kcp-cache", "cache.kubeconfig")
 	cacheServerKubeConfig, err := kcptestinghelpers.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
 	require.NoError(t, err)
 	cacheServerRestConfig, err := cacheServerKubeConfig.ClientConfig()
