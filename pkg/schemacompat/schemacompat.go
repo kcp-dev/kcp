@@ -312,11 +312,11 @@ func lcdForArray(fldPath *field.Path, existing, new *schema.Structural, lcd *sch
 		checkTypesAreTheSame(fldPath, existing, new),
 		lcdForArrayValidation(fldPath, existing.ValueValidation, new.ValueValidation, lcd.ValueValidation, narrowExisting),
 		lcdForStructural(fldPath.Child("Items"), existing.Items, new.Items, lcd.Items, narrowExisting))
-	if !stringPointersEqual(existing.Extensions.XListType, new.Extensions.XListType) {
-		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-list-type"), new.Extensions.XListType, "x-kubernetes-list-type value has been changed in an incompatible way"))
+	if !stringPointersEqual(existing.XListType, new.XListType) {
+		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-list-type"), new.XListType, "x-kubernetes-list-type value has been changed in an incompatible way"))
 	}
-	if !sets.New[string](existing.Extensions.XListMapKeys...).Equal(sets.New[string](new.Extensions.XListMapKeys...)) {
-		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-list-map-keys"), new.Extensions.XListType, "x-kubernetes-list-map-keys value has been changed in an incompatible way"))
+	if !sets.New[string](existing.Extensions.XListMapKeys...).Equal(sets.New[string](new.XListMapKeys...)) {
+		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-list-map-keys"), new.XListType, "x-kubernetes-list-map-keys value has been changed in an incompatible way"))
 	}
 	return err
 }
@@ -332,8 +332,8 @@ func lcdForObjectValidation(fldPath *field.Path, existing, new, lcd *schema.Valu
 func lcdForObject(fldPath *field.Path, existing, new *schema.Structural, lcd *schema.Structural, narrowExisting bool) error {
 	err := checkTypesAreTheSame(fldPath, existing, new)
 
-	if !stringPointersEqual(existing.Extensions.XMapType, new.Extensions.XMapType) {
-		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-map-type"), new.Extensions.XListType, "x-kubernetes-map-type value has been changed in an incompatible way"))
+	if !stringPointersEqual(existing.XMapType, new.XMapType) {
+		multierr.AppendInto(&err, field.Invalid(fldPath.Child("x-kubernetes-map-type"), new.XListType, "x-kubernetes-map-type value has been changed in an incompatible way"))
 	}
 
 	// Let's keep in mind that, in structural schemas, properties and additionalProperties are mutually exclusive,

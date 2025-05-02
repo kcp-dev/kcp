@@ -490,7 +490,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// quotaConfiguration := quotainstall.NewQuotaConfigurationForAdmission()
 	quotaConfiguration := generic.NewConfiguration(nil, quotainstall.DefaultIgnoredResources())
 
-	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
+	c.quotaAdmissionStopCh = make(chan struct{})
 
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),

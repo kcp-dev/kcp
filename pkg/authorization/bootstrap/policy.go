@@ -113,7 +113,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 }
 
 func clusterRoleBindingCustomName(b rbacv1.ClusterRoleBinding, name string) rbacv1.ClusterRoleBinding {
-	b.ObjectMeta.Name = name
+	b.Name = name
 	return b
 }
 

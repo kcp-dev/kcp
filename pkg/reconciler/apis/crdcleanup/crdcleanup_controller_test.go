@@ -135,7 +135,7 @@ func TestBoundCRDDeletion(t *testing.T) {
 			}
 
 			testController := func(creationTimestamp time.Time, expectDeletion bool) {
-				crd.ObjectMeta.CreationTimestamp = metav1.NewTime(creationTimestamp)
+				crd.CreationTimestamp = metav1.NewTime(creationTimestamp)
 				err := controller.process(context.Background(), schemaUID)
 				if err != nil {
 					t.Errorf("Unexpected error: %q", err)

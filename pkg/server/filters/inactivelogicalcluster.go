@@ -56,7 +56,7 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient cor
 		if cluster != nil && !cluster.Name.Empty() && !isException {
 			logicalCluster, err := kcpClusterClient.Cluster(cluster.Name).Lister().Get(corev1alpha1.LogicalClusterName)
 			if err == nil {
-				if ann, ok := logicalCluster.ObjectMeta.Annotations[inactiveAnnotation]; ok && ann == "true" {
+				if ann, ok := logicalCluster.Annotations[inactiveAnnotation]; ok && ann == "true" {
 					responsewriters.ErrorNegotiated(
 						apierrors.NewForbidden(corev1alpha1.Resource("logicalclusters"), cluster.Name.String(), errors.New("logical cluster is marked inactive")),
 						errorCodecs, schema.GroupVersion{}, w, req,

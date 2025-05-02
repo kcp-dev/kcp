@@ -391,7 +391,7 @@ func (o *UseWorkspaceOptions) currentRootURL() (*url.URL, error) {
 		return nil, err
 	}
 
-	hasParent := true
+	var hasParent bool
 	var root, current logicalcluster.Path
 	root = *currentClusterName
 	for {

@@ -840,21 +840,21 @@ func (b builder) withDefault(qualifiedName string) builder {
 }
 
 func (b builder) disallowingChildren() builder {
-	b.WorkspaceType.Spec.LimitAllowedChildren = &tenancyv1alpha1.WorkspaceTypeSelector{
+	b.Spec.LimitAllowedChildren = &tenancyv1alpha1.WorkspaceTypeSelector{
 		None: true,
 	}
 	return b
 }
 
 func (b builder) disallowingParent() builder {
-	b.WorkspaceType.Spec.LimitAllowedParents = &tenancyv1alpha1.WorkspaceTypeSelector{
+	b.Spec.LimitAllowedParents = &tenancyv1alpha1.WorkspaceTypeSelector{
 		None: true,
 	}
 	return b
 }
 
 func (b builder) withAdditionalLabel(labels map[string]string) builder {
-	b.WorkspaceType.Spec.AdditionalWorkspaceLabels = labels
+	b.Spec.AdditionalWorkspaceLabels = labels
 	return b
 }
 

@@ -189,15 +189,14 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	case admission.Delete:
 		logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		if err != nil {
-			//nolint:revive
 			return fmt.Errorf("LogicalCluster cannot be deleted: %w", err)
 		}
 		if !logicalCluster.Spec.DirectlyDeletable {
-			return admission.NewForbidden(a, errors.New("LogicalCluster cannot be deleted")) //nolint:revive
+			return admission.NewForbidden(a, errors.New("LogicalCluster cannot be deleted"))
 		}
 
 	case admission.Create:
-		return admission.NewForbidden(a, errors.New("LogicalCluster cannot be created")) //nolint:revive
+		return admission.NewForbidden(a, errors.New("LogicalCluster cannot be created"))
 	}
 
 	return nil

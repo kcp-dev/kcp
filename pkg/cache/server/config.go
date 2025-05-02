@@ -116,19 +116,19 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		return nil, err
 	}
 	if optionalLocalShardRestConfig == nil {
-		if err := opts.SecureServing.ApplyTo(&serverConfig.Config.SecureServing, &serverConfig.Config.LoopbackClientConfig); err != nil {
+		if err := opts.SecureServing.ApplyTo(&serverConfig.SecureServing, &serverConfig.LoopbackClientConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := opts.SecureServing.ApplyTo(&serverConfig.Config.SecureServing, nil); err != nil {
+		if err := opts.SecureServing.ApplyTo(&serverConfig.SecureServing, nil); err != nil {
 			return nil, err
 		}
 		serverConfig.LoopbackClientConfig = rest.CopyConfig(optionalLocalShardRestConfig)
 	}
-	if err := opts.Authentication.ApplyTo(&serverConfig.Config.Authentication, serverConfig.SecureServing, serverConfig.OpenAPIConfig); err != nil {
+	if err := opts.Authentication.ApplyTo(&serverConfig.Authentication, serverConfig.SecureServing, serverConfig.OpenAPIConfig); err != nil {
 		return nil, err
 	}
-	if err := opts.Authorization.ApplyTo(&serverConfig.Config.Authorization); err != nil {
+	if err := opts.Authorization.ApplyTo(&serverConfig.Authorization); err != nil {
 		return nil, err
 	}
 
@@ -136,7 +136,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		return nil, err
 	}
 
-	serverConfig.Config.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
+	serverConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthzToCompletion(apiHandler, genericConfig)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
@@ -167,7 +167,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	rt = cacheclient.WithShardNameFromObjectRoundTripper(
 		rt,
 		func(rq *http.Request) (string, string, error) {
-			if serverConfig.Config.RequestInfoResolver == nil {
+			if serverConfig.RequestInfoResolver == nil {
 				return "", "", errors.New("no RequestInfoResolver provided")
 			}
 			// the k8s request info resolver expects a cluster-less path, but the client we're using knows how to
@@ -175,18 +175,16 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			// to use the k8s library
 			parts := strings.Split(rq.URL.Path, "/")
 			if len(parts) < 4 {
-				//nolint:revive
 				return "", "", fmt.Errorf("RequestInfoResolver: got invalid path: %v", rq.URL.Path)
 			}
 			if parts[1] != "clusters" {
-				//nolint:revive
 				return "", "", fmt.Errorf("RequestInfoResolver: got path without cluster prefix: %v", rq.URL.Path)
 			}
 			// we clone the request here to safely mutate the URL path, but this cloned request is never realized
 			// into anything on the network, just inspected by the k8s request info libraries
 			clone := rq.Clone(rq.Context())
 			clone.URL.Path = strings.Join(parts[3:], "/")
-			requestInfo, err := serverConfig.Config.RequestInfoResolver.NewRequestInfo(clone)
+			requestInfo, err := serverConfig.RequestInfoResolver.NewRequestInfo(clone)
 			if err != nil {
 				return "", "", err
 			}

@@ -311,11 +311,11 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 			if apihelpers.IsProtectedCommunityGroup(gv.Group) {
 				value := "https://github.com/kcp-dev/kubernetes/pull/4"
 				if crd != nil {
-					if existing := crd.ObjectMeta.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; existing != "" {
+					if existing := crd.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation]; existing != "" {
 						value = existing
 					}
 				}
-				publishedCRD.ObjectMeta.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
+				publishedCRD.Annotations[apiextensionsv1.KubeAPIApprovedAnnotation] = value
 			}
 			crds[groupResource] = publishedCRD
 		}
