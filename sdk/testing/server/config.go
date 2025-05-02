@@ -16,6 +16,8 @@ limitations under the License.
 
 package server
 
+import "path/filepath"
+
 // Config qualify a kcp server to start
 //
 // Deprecated for use outside this package. Prefer PrivateKcpServer().
@@ -32,6 +34,17 @@ type Config struct {
 
 // Option a function that wish to modify a given kcp configuration.
 type Option func(*Config)
+
+// WithDefaultsFrom sets defaults on Config based off of the passed
+// TestingT.
+func WithDefaultsFrom(t TestingT) Option {
+	return func(cfg *Config) {
+		cfg.Name = t.Name()
+		cfg.ArtifactDir = filepath.Join(t.TempDir(), "artifacts")
+		cfg.DataDir = filepath.Join(t.TempDir(), "artifacts")
+		cfg.ClientCADir = filepath.Join(t.TempDir(), "certs")
+	}
+}
 
 // WithScratchDirectories adds custom scratch directories to a kcp configuration.
 func WithScratchDirectories(artifactDir, dataDir string) Option {
