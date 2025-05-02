@@ -338,13 +338,13 @@ test-e2e-sharded-minimal: build-all
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
-		-args --use-default-kcp-server --shard-kubeconfigs=root=$(PWD)/.kcp-0/admin.kubeconfig$(shell if [ $(SHARDS) -gt 1 ]; then seq 1 $$[$(SHARDS) - 1]; fi | while read n; do echo -n ",shard-$$n=$(PWD)/.kcp-$$n/admin.kubeconfig"; done) \
+		-args --kcp-kubeconfig=$(WORK_DIR)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(WORK_DIR)/.kcp-0/admin.kubeconfig$(shell if [ $(SHARDS) -gt 1 ]; then seq 1 $$[$(SHARDS) - 1]; fi | while read n; do echo -n ",shard-$$n=$(WORK_DIR)/.kcp-$$n/admin.kubeconfig"; done) \
 		$(SUITES_ARGS) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 # This is just easy target to run 2 shard test server locally until manually killed.
 # You can targer test to it by running:
-# go test ./test/e2e/apibinding/... --kcp-kubeconfig=$(pwd)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(pwd)/.kcp-0/admin.kubeconfig -run=^TestAPIBindingEndpointSlicesSharded$
+# go test ./test/e2e/apibinding/... --kcp-kubeconfig=${WORK_DIR:-.}/.kcp/admin.kubeconfig --shard-kubeconfigs=root=${WORK_DIR:-.}/.kcp-0/admin.kubeconfig -run=^TestAPIBindingEndpointSlicesSharded$
 test-run-sharded-server: WORK_DIR ?= .
 test-run-sharded-server: LOG_DIR ?= $(WORK_DIR)/.kcp
 test-run-sharded-server:
