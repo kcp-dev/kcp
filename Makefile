@@ -235,10 +235,10 @@ verify-codegen: ## Verify codegen
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
 	@if [ -n "$(WHAT)" ]; then \
-	  $(GOLANGCI_LINT) run  --fix --fast-only $(WHAT); \
+	  $(GOLANGCI_LINT) run --fix --fast-only $(WHAT); \
 	else \
 	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(cd $$MOD; $(GOLANGCI_LINT) run  --fix --fast-only); \
+		(cd $$MOD; $(GOLANGCI_LINT) run --fix --fast-only); \
 	  done; \
 	fi
 

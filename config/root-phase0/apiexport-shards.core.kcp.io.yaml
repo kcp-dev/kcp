@@ -1,9 +1,13 @@
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   creationTimestamp: null
   name: shards.core.kcp.io
 spec:
-  latestResourceSchemas:
-  - v240903-d6797056a.shards.core.kcp.io
+  resources:
+  - group: core.kcp.io
+    name: shards
+    schema: v240903-d6797056a.shards.core.kcp.io
+    storage:
+      crd: {}
 status: {}
