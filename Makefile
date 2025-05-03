@@ -297,7 +297,7 @@ endif
 test-e2e-shared-minimal: $(HTTEST)
 test-e2e-shared-minimal: TEST_ARGS ?=
 test-e2e-shared-minimal: WHAT ?= ./test/e2e...
-test-e2e-shared-minimal: WORK_DIR ?= .
+test-e2e-shared-minimal: WORK_DIR ?= $(PWD)
 ifdef ARTIFACT_DIR
 test-e2e-shared-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
@@ -323,7 +323,7 @@ endif
 test-e2e-sharded-minimal: $(HTTEST)
 test-e2e-sharded-minimal: TEST_ARGS ?=
 test-e2e-sharded-minimal: WHAT ?= ./test/e2e...
-test-e2e-sharded-minimal: WORK_DIR ?= .
+test-e2e-sharded-minimal: WORK_DIR ?= $(PWD)
 test-e2e-sharded-minimal: SHARDS ?= 2
 ifdef ARTIFACT_DIR
 test-e2e-sharded-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
@@ -345,7 +345,7 @@ test-e2e-sharded-minimal: build-all
 # This is just easy target to run 2 shard test server locally until manually killed.
 # You can targer test to it by running:
 # go test ./test/e2e/apibinding/... --kcp-kubeconfig=${WORK_DIR:-.}/.kcp/admin.kubeconfig --shard-kubeconfigs=root=${WORK_DIR:-.}/.kcp-0/admin.kubeconfig -run=^TestAPIBindingEndpointSlicesSharded$
-test-run-sharded-server: WORK_DIR ?= .
+test-run-sharded-server: WORK_DIR ?= $(PWD)
 test-run-sharded-server: LOG_DIR ?= $(WORK_DIR)/.kcp
 test-run-sharded-server:
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
@@ -392,7 +392,7 @@ clean: clean-workdir ## Clean all
 	rm -f $(GOBIN_DIR)/*
 
 .PHONY: clean-workdir
-clean-workdir: WORK_DIR ?= .
+clean-workdir: WORK_DIR ?= $(PWD)
 clean-workdir: ## Clean workdir
 	rm -fr $(WORK_DIR)/.kcp*
 
