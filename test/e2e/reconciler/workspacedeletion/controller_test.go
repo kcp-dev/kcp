@@ -235,8 +235,10 @@ func TestWorkspaceDeletion(t *testing.T) {
 				require.NoError(t, err, "failed to create kube client for root shard")
 
 				t.Logf("Delete org workspace")
-				err = server.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Delete(ctx, orgPath.Base(), metav1.DeleteOptions{})
-				require.NoError(t, err, "failed to delete workspace %s", orgPath)
+				kcptestinghelpers.Eventually(t, func() (bool, string) {
+					err = server.kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Delete(ctx, orgPath.Base(), metav1.DeleteOptions{})
+					return err == nil, fmt.Sprintf("failed to delete workspace %s: %v", orgPath, err)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure namespace %q in the workspace is deleted", ns.Name)
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
