@@ -148,11 +148,14 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(time.Second*30))
 		defer cancelFn()
 
-		err := clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Delete(ctx, wsName, metav1.DeleteOptions{})
-		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
-			return // ignore not found and forbidden because this probably means the parent has been deleted
-		}
-		require.NoErrorf(t, err, "failed to delete workspace %s", wsName)
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			err := clusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Delete(ctx, wsName, metav1.DeleteOptions{})
+			// ignore not found and forbidden because this probably means the parent has been deleted
+			if err == nil || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+				return true, ""
+			}
+			return false, err.Error()
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to delete workspace %s", wsName)
 	})
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
