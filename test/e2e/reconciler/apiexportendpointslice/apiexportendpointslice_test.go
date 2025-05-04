@@ -285,7 +285,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		require.NoError(t, err)
 
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		require.Len(t, apiExport.Status.VirtualWorkspaces, 2)
+		require.Len(t, apiExport.Status.VirtualWorkspaces, len(shards.Items))
 	}
 
 	t.Logf("Create a topology PartitionSet for the providers")
