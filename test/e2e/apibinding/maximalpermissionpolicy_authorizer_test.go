@@ -413,8 +413,14 @@ func testCRUDOperations(ctx context.Context, t *testing.T, consumer1Workspace lo
 			Namespace: "default",
 		},
 	}
-	_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating cowboy in consumer workspace %q", consumer1Workspace)
+
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := cowboyClient.Create(ctx, cowboy, metav1.CreateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to create cowboy in consumer workspace %q", consumer1Workspace)
 }
 
 func toYAML(t *testing.T, binding interface{}) string {

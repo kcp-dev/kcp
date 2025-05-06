@@ -237,12 +237,12 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 		if strings.Contains(txt, "apiserver_cache_list_total") {
 			totalCacheHits++
 			if strings.Contains(txt, fmt.Sprintf(`resource_prefix="%v`, metricResourcePrefix)) {
-				var err error
 				re := regexp.MustCompile(`\b\d+\b`)
-				prefixCacheHit, err = strconv.Atoi(string(re.Find([]byte(txt))))
+				prefixCacheHitInstance, err := strconv.Atoi(string(re.Find([]byte(txt))))
 				if err != nil {
 					t.Fatalf("unable to extract the number of cache hits from %v", txt)
 				}
+				prefixCacheHit += prefixCacheHitInstance
 			}
 		}
 	}

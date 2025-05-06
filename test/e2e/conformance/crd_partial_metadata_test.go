@@ -226,7 +226,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 			return nil, err
 		}
 		return &crdConditionsAdapter{CustomResourceDefinition: crd}, nil
-	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
+	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)))
 
 	// Create ws2. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
 	workspace2Path, workspace2 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
@@ -245,7 +245,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 			return nil, err
 		}
 		return &crdConditionsAdapter{CustomResourceDefinition: crd}, nil
-	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)), wait.ForeverTestTimeout, 100*time.Millisecond)
+	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)))
 
 	dynamicClusterClient, err := dynamic.NewForConfig(cfg)
 	require.NoError(t, err)

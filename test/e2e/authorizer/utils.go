@@ -69,7 +69,8 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 	return func() {
 		t.Log("Stopping webhook...")
 		cancel()
-		// give it some time to shutdown
-		time.Sleep(2 * time.Second)
+		if err := cmd.Wait(); err != nil {
+			t.Logf("error waiting for webhook to finish: %v", err)
+		}
 	}
 }
