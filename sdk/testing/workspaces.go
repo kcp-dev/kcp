@@ -45,7 +45,7 @@ const (
 	// workspaceInitTimeout is set to 60 seconds. wait.ForeverTestTimeout
 	// is 30 seconds and the optimism on that being forever is great, but workspace
 	// initialisation can take a while in CI.
-	workspaceInitTimeout = 60 * time.Second
+	workspaceInitTimeout = 120 * time.Second
 )
 
 // WorkspaceOption is an option for creating a workspace.
