@@ -219,10 +219,18 @@ func permitAccessToWorkspace(t *testing.T, ctx context.Context, kubeClusterClien
 				},
 			},
 		}
-		_, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
-		require.NoError(t, err)
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			if _, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{}); err != nil {
+				return false, err.Error()
+			}
+			return true, ""
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create cluster roel")
 	}
 
-	_, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := kubeClusterClient.Cluster(clusterName).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{}); err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create cluster role binding")
 }
