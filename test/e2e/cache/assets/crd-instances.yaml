@@ -1,0 +1,68 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: instances.machines.svm.io
+spec:
+  group: machines.svm.io
+  names:
+    kind: Instance
+    listKind: InstanceList
+    plural: instances
+    singular: instance
+    shortNames:
+    - inst
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - instanceType
+            - name
+            - tier
+            properties:
+              instanceType:
+                type: string
+                description: The type of the instance (e.g. small, medium, large)
+              name:
+                type: string
+                description: The name of the instance
+              tier:
+                type: string
+                description: The tier of the instance (e.g. basic, premium)
+                enum:
+                - basic
+                - premium
+                - enterprise
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                description: The current phase of the instance
+                enum:
+                - Pending
+                - Running
+                - Terminated
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string

@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 )
@@ -42,9 +43,20 @@ var fs embed.FS
 // This is blocking, i.e. it only returns (with error) when the context is closed or with nil when
 // the bootstrapping is successfully completed.
 func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, batteriesIncluded sets.Set[string]) error {
-	if err := confighelpers.BindRootAPIs(ctx, kcpClient, "shards.core.kcp.io", "tenancy.kcp.io", "topology.kcp.io"); err != nil {
+	coreAPIExports := []string{
+		"shards.core.kcp.io",
+		"tenancy.kcp.io",
+		"topology.kcp.io",
+	}
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		coreAPIExports = append(coreAPIExports, "cache.kcp.io")
+	}
+
+	if err := confighelpers.BindRootAPIs(ctx, kcpClient, coreAPIExports...); err != nil {
 		return err
 	}
+
 	err := confighelpers.Bootstrap(ctx, rootDiscoveryClient, rootDynamicClient, batteriesIncluded, fs)
 	if err != nil {
 		return err

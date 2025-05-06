@@ -42,6 +42,11 @@ const (
 	// alpha: v0.1
 	// Enables workspace mounts via frontProxy.
 	WorkspaceMounts featuregate.Feature = "WorkspaceMounts"
+
+	// owner: @mjudeikis
+	// alpha: v0.1
+	// Enables cache apis and controllers.
+	CacheAPIs featuregate.Feature = "CacheAPIs"
 )
 
 // DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
@@ -112,10 +117,12 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 	WorkspaceMounts: {
 		{Version: version.MustParse("1.28"), Default: false, PreRelease: featuregate.Alpha},
 	},
+	CacheAPIs: {
+		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
 
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
-
 	genericfeatures.APIResponseCompression: {
 		{Version: version.MustParse("1.8"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("1.16"), Default: true, PreRelease: featuregate.Beta},
