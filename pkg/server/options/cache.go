@@ -34,7 +34,7 @@ func (c cacheCompleted) Validate() []error {
 	if err := c.Server.Validate(); err != nil {
 		errs = append(errs, err...)
 	}
-	errs = append(errs, c.Extra.Client.Validate()...)
+	errs = append(errs, c.Client.Validate()...)
 
 	return errs
 }

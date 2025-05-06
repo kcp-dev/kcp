@@ -143,7 +143,7 @@ func TestBuildVirtualWorkspace(t *testing.T) {
 			assert.Implements(t, (*framework.RootPathResolver)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement RootPathResolver")
 			assert.Implements(t, (*authorizer.Authorizer)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement Authorizer")
 			assert.Implements(t, (*framework.ReadyChecker)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement ReadyChecker")
-			assert.NotNil(t, vw.VirtualWorkspace.Register, "Register should not be nil")
+			assert.NotNil(t, vw.Register, "Register should not be nil")
 
 			_, exists := expectedNames[vw.Name]
 			assert.True(t, exists, "VirtualWorkspace name should be one of the expected names")

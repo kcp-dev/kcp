@@ -154,7 +154,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
 	codecs := serializer.NewCodecFactory(scheme)
 	recommendedConfig := genericapiserver.NewRecommendedConfig(codecs)
-	if err := o.SecureServing.ApplyTo(&recommendedConfig.Config.SecureServing); err != nil {
+	if err := o.SecureServing.ApplyTo(&recommendedConfig.SecureServing); err != nil {
 		return err
 	}
 	if err := o.Authentication.ApplyTo(&recommendedConfig.Authentication, recommendedConfig.SecureServing, recommendedConfig.OpenAPIConfig); err != nil {

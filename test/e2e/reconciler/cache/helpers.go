@@ -136,7 +136,7 @@ func ClientRoundTrippersFor(cfg *rest.Config) *rest.Config {
 	cacheClientRT := cacheclient.WithCacheServiceRoundTripper(rest.CopyConfig(cfg))
 	cacheClientRT = cacheclient.WithShardNameFromContextRoundTripper(cacheClientRT)
 	cacheClientRT = cacheclient.WithDefaultShardRoundTripper(cacheClientRT, shard.Wildcard)
-	cacheClientRT.ContentConfig.ContentType = "application/json"
+	cacheClientRT.ContentType = "application/json"
 	return cacheClientRT
 }
 

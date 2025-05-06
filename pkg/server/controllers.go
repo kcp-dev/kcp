@@ -328,7 +328,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 	// TODO(jmprusi): We should make the CA loading dynamic when the file changes on disk.
 	caDataPath := s.Options.Controllers.SAController.RootCAFile
 	if caDataPath == "" {
-		caDataPath = s.Options.GenericControlPlane.SecureServing.SecureServingOptions.ServerCert.CertKey.CertFile
+		caDataPath = s.Options.GenericControlPlane.SecureServing.ServerCert.CertKey.CertFile
 	}
 
 	caData, err := os.ReadFile(caDataPath)
@@ -708,7 +708,7 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 	}
 
 	logicalClusterController, err := logicalclusterctrl.NewController(
-		s.CompletedConfig.ShardExternalURL,
+		s.ShardExternalURL,
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
@@ -912,9 +912,9 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 			// TODO move verification up
 			return fmt.Errorf("s.Options.Extra.ShardClientKeyFile is required")
 		}
-		config.TLSClientConfig.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
-		config.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
-		config.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
+		config.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
+		config.CertFile = s.Options.Extra.ShardClientCertFile
+		config.KeyFile = s.Options.Extra.ShardClientKeyFile
 		config.Host = fmt.Sprintf("%v%v", vwURL, initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer))
 	}
 

@@ -161,7 +161,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	if apiExportPath.Empty() {
 		apiExportPath = logicalcluster.From(apiBinding).Path()
 	}
-	apiExport, err := r.controller.getAPIExportByPath(apiExportPath, workspaceRef.Name)
+	apiExport, err := r.getAPIExportByPath(apiExportPath, workspaceRef.Name)
 	if apierrors.IsNotFound(err) {
 		conditions.MarkFalse(
 			apiBinding,

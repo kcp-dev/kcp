@@ -180,7 +180,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				t.Logf("Finally check if all resources has been removed")
 
 				// Note: we have to access the shard direction to access a logical cluster without workspace
-				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 
 				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list namespaces in workspace %s", workspace.Name)
@@ -229,9 +229,9 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				// get clients for the right shards. We have to access the shards directly to see object (Namespace and Workspace) deletion
 				// without being stopped at the (front-proxy) gate because the parent workspace is already gone.
-				rootShardKcpClusterClient, err := kcpclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				rootShardKcpClusterClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kcp client for root shard")
-				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 				require.NoError(t, err, "failed to create kube client for root shard")
 
 				t.Logf("Delete org workspace")

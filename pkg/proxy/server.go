@@ -52,7 +52,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
 	}
-	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
+	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.RootShardConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
@@ -61,7 +61,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		ctx,
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
-			shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)
+			shardConfig := restclient.CopyConfig(s.ShardsConfig)
 			shardConfig.Host = shard.Spec.BaseURL
 			shardClient, err := kcpclientset.NewForConfig(shardConfig)
 			if err != nil {
@@ -71,7 +71,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		},
 	)
 
-	handler, err := NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
+	handler, err := NewHandler(ctx, s.Options, s.IndexController)
 	if err != nil {
 		return s, err
 	}
@@ -80,8 +80,8 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = frontproxyfilters.WithOptionalAuthentication(
 		handler,
 		failedHandler,
-		s.CompletedConfig.AuthenticationInfo.Authenticator,
-		s.CompletedConfig.AdditionalAuthEnabled)
+		s.AuthenticationInfo.Authenticator,
+		s.AdditionalAuthEnabled)
 
 	requestInfoFactory := requestinfo.NewFactory()
 	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
@@ -123,7 +123,7 @@ func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-		if err := s.CompletedConfig.ResolveIdentities(ctx); err != nil {
+		if err := s.ResolveIdentities(ctx); err != nil {
 			logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 			return false, nil
 		}
@@ -138,7 +138,7 @@ func (s preparedServer) Run(ctx context.Context) error {
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 
-	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
+	doneCh, _, err := s.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {
 		return err
 	}

@@ -489,9 +489,9 @@ func (s *Server) Run(ctx context.Context) error {
 				},
 			},
 			Spec: corev1alpha1.ShardSpec{
-				BaseURL:             s.CompletedConfig.ShardBaseURL(),
-				ExternalURL:         s.CompletedConfig.ShardExternalURL(),
-				VirtualWorkspaceURL: s.CompletedConfig.ShardVirtualWorkspaceURL(),
+				BaseURL:             s.ShardBaseURL(),
+				ExternalURL:         s.ShardExternalURL(),
+				VirtualWorkspaceURL: s.ShardVirtualWorkspaceURL(),
 			},
 		}
 		logger.Info("Creating or updating Shard", "shard", s.Options.Extra.ShardName)

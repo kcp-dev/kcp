@@ -25,7 +25,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
-// Install registers the API group and adds types to a scheme
+// Install registers the API group and adds types to a scheme.
 func Install(scheme *runtime.Scheme) {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 }

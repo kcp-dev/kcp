@@ -46,7 +46,7 @@ func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs author
 
 	for _, vw := range a.virtualWorkspaces() {
 		if vw.Name == virtualWorkspaceName {
-			return vw.VirtualWorkspace.Authorize(ctx, attrs)
+			return vw.Authorize(ctx, attrs)
 		}
 	}
 

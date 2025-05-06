@@ -131,7 +131,7 @@ func (c CompletedVirtualConfig) NewServer(preHandlerChainMux mux) (*virtualroota
 		return nil, err
 	}
 
-	preHandlerChainMux.Handle(virtualcommandoptions.DefaultRootPathPrefix+"/", preparedRootAPIServer.GenericAPIServer.Handler)
+	preHandlerChainMux.Handle(virtualcommandoptions.DefaultRootPathPrefix+"/", preparedRootAPIServer.Handler)
 
 	return s, nil
 }

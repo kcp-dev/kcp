@@ -102,7 +102,7 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 	t.Log("Starting kcp servers...")
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	g, ctx := errgroup.WithContext(ctx)
+	g, _ := errgroup.WithContext(ctx)
 	for i, srv := range servers {
 		err := srv.Run(t)
 		require.NoError(t, err)

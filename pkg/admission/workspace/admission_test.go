@@ -770,7 +770,7 @@ func newLogicalCluster(clusterName logicalcluster.Path) thisBuilder {
 
 func (b thisBuilder) WithRequiredGroups(groups ...string) thisBuilder {
 	if len(groups) > 0 {
-		b.LogicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
+		b.Annotations[authorization.RequiredGroupsAnnotationKey] = strings.Join(groups, ",")
 	}
 	return b
 }

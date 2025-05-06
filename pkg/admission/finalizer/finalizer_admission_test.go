@@ -212,11 +212,11 @@ func newAPIBinding() *bindingBuilder {
 }
 
 func (b *bindingBuilder) withFinalizer(name string) *bindingBuilder {
-	b.APIBinding.Finalizers = append(b.APIBinding.Finalizers, name)
+	b.Finalizers = append(b.Finalizers, name)
 	return b
 }
 
 func (b *bindingBuilder) withDeletionTimestamp(t time.Time) *bindingBuilder {
-	b.APIBinding.DeletionTimestamp = &metav1.Time{Time: t}
+	b.DeletionTimestamp = &metav1.Time{Time: t}
 	return b
 }
