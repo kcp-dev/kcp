@@ -61,3 +61,11 @@ func setupExternal() {
 		}
 	})
 }
+
+func KubeconfigPath() string {
+	return externalConfig.kubeconfigPath
+}
+
+func ShardKubeconfigPaths(shard string) string {
+	return externalConfig.shardKubeconfigPaths[shard]
+}

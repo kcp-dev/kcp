@@ -98,6 +98,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	commandLine = append(commandLine, kcptestingserver.StartKcpCommand(s.name)...)
 	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
+		"--root-directory", s.runtimeDir,
 		"--token-auth-file", framework.DefaultTokenAuthFile,
 		"--audit-log-maxsize", "1024",
 		"--audit-log-mode=batch",

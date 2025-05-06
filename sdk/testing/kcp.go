@@ -23,7 +23,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
@@ -78,7 +77,7 @@ func SharedKcpServer(t TestingT) kcptestingserver.RunningServer {
 		// Use a pre-existing external server
 
 		t.Logf("Shared kcp server will target configuration %q", externalConfig.kubeconfigPath)
-		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, filepath.Join(kcptestinghelpers.RepositoryDir(), ".kcp"))
+		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, filepath.Dir(KubeconfigPath()))
 		require.NoError(t, err, "failed to create persistent server fixture")
 
 		ctx, cancel := context.WithCancel(context.Background())
