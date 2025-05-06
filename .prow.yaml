@@ -177,6 +177,8 @@ presubmits:
               value: '1'
             - name: KUBE_CACHE_MUTATION_DETECTOR
               value: '1'
+            - name: E2E_PARALLELISM
+              value: '3'
           resources:
             requests:
               memory: 6Gi
@@ -204,6 +206,8 @@ presubmits:
               value: '1'
             - name: KUBE_CACHE_MUTATION_DETECTOR
               value: '1'
+            - name: E2E_PARALLELISM
+              value: '3'
           resources:
             requests:
               memory: 6Gi
