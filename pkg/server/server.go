@@ -47,6 +47,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
+	configrootidentities "github.com/kcp-dev/kcp/config/root-identities"
+	configrootidentitiesns "github.com/kcp-dev/kcp/config/root-identities/namespace"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
@@ -433,6 +435,36 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
 			s.RootShardKcpClusterClient = s.KcpClusterClient
+
+			if s.Options.Extra.RootIdentitiesFile != "" {
+				logger.Info("bootstrapping identities into root workspace", "file", s.Options.Extra.RootIdentitiesFile)
+				logger.Info("creating system namespace in root workspace")
+				if err := configrootidentitiesns.Bootstrap(hookCtx,
+					s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
+					s.DynamicClusterClient.Cluster(core.RootCluster.Path()),
+					s.KubeClusterClient.Cluster(core.RootCluster.Path()),
+				); err != nil {
+					logger.Error(err, "failed to bootstrap identity secrets namespace")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				logger.Info("created system namespace in root workspace")
+				logger.Info("bootstrapping root workspace with identities", "file", s.Options.Extra.RootIdentitiesFile)
+				identitiesBytes, err := os.ReadFile(s.Options.Extra.RootIdentitiesFile)
+				if err != nil {
+					logger.Error(err, "failed to read root identities file")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				if err := configrootidentities.Bootstrap(hookCtx,
+					s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
+					s.DynamicClusterClient.Cluster(core.RootCluster.Path()),
+					s.KubeClusterClient.Cluster(core.RootCluster.Path()),
+					identitiesBytes,
+				); err != nil {
+					logger.Error(err, "failed to bootstrap root workspace with identities")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				logger.Info("bootstrapped root workspace with identities", "file", s.Options.Extra.RootIdentitiesFile)
+			}
 
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(hookCtx,
