@@ -67,6 +67,7 @@ type ExtraOptions struct {
 	LogicalClusterAdminKubeconfig         string
 	ExternalLogicalClusterAdminKubeconfig string
 	ConversionCELTransformationTimeout    time.Duration
+	CoreIdentitiesFile                    string
 	BatteriesIncluded                     []string
 	// DEVELOPMENT ONLY. AdditionalMappingsFile is the path to a file that contains additional mappings
 	// for the mini-front-proxy to use. The file should be in the format of the
@@ -166,6 +167,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.ShardClientKeyFile, "shard-client-key-file", o.Extra.ShardClientKeyFile, "Path to a client certificate key file the shard uses to communicate with other system components.")
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:logical-cluster-admin credentials for connecting to other shards. Defaults to the loopback client")
 	fs.StringVar(&o.Extra.ExternalLogicalClusterAdminKubeconfig, "external-logical-cluster-admin-kubeconfig", o.Extra.ExternalLogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:external-logical-cluster-admin credentials for connecting to the external address (e.g. the front-proxy). Defaults to the loopback client")
+	fs.StringVar(&o.Extra.CoreIdentitiesFile, "core-identities-file", "", "Path to a YAML file with APIExport - Identity secret Identity key pairs. Defaults to empty, i.e. all identities are generated.")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
