@@ -47,6 +47,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
+	configrootcoreidentities "github.com/kcp-dev/kcp/config/root-core-identities"
+	configrootidentitysecretns "github.com/kcp-dev/kcp/config/root-core-identities/identity-secret-namespace"
 	configrootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
@@ -433,6 +435,31 @@ func (s *Server) Run(ctx context.Context) error {
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
 			s.RootShardKcpClusterClient = s.KcpClusterClient
+
+			if s.Options.Extra.CoreIdentitiesFile != "" {
+				logger.Info("injecting core identities to root workspace", "file", s.Options.Extra.CoreIdentitiesFile)
+				logger.Info("bootstrapping system namespace into root workspace", "file", s.Options.Extra.CoreIdentitiesFile)
+				if err := configrootidentitysecretns.Bootstrap(hookCtx,
+					s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
+					s.DynamicClusterClient.Cluster(core.RootCluster.Path()),
+					s.KubeClusterClient.Cluster(core.RootCluster.Path()),
+				); err != nil {
+					logger.Error(err, "failed to bootstrap identity secrets namespace")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				logger.Info("bootstrapped system namespace into root workspace", "file", s.Options.Extra.CoreIdentitiesFile)
+				logger.Info("injecting core identities into root workspace", "file", s.Options.Extra.CoreIdentitiesFile)
+				if err := configrootcoreidentities.Bootstrap(hookCtx,
+					s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
+					s.DynamicClusterClient.Cluster(core.RootCluster.Path()),
+					s.KubeClusterClient.Cluster(core.RootCluster.Path()),
+					s.Options.Extra.CoreIdentitiesFile,
+				); err != nil {
+					logger.Error(err, "failed to inject core identities")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				logger.Info("injected core identities into root workspace", "file", s.Options.Extra.CoreIdentitiesFile)
+			}
 
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
 			if err := configrootphase0.Bootstrap(hookCtx,
