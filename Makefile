@@ -54,6 +54,10 @@ GOLANGCI_LINT_VER := v1.62.2
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
+GOIMPORTS_VER := v0.31.0
+GOIMPORTS_BIN := goimports
+GOIMPORTS := $(TOOLS_GOBIN_DIR)/$(GOIMPORTS_BIN)-$(GOIMPORTS_VER)
+
 HTTEST_VER := v0.3.2
 HTTEST_BIN := httest
 HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)-$(HTTEST_VER)
@@ -135,6 +139,9 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 $(GOLANGCI_LINT):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
+$(GOIMPORTS):
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) golang.org/x/tools/cmd/goimports $(GOIMPORTS_BIN) $(GOIMPORTS_VER)
+
 $(HTTEST):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) go.xrstf.de/httest $(HTTEST_BIN) $(HTTEST_VER)
 
@@ -190,7 +197,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(CODE_GENERATOR) ## Install tools
+tools: $(GOLANGCI_LINT) $(GOIMPORTS) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(CODE_GENERATOR) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -206,10 +213,11 @@ crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen:  $(KCP_APIGEN_GEN) $(CODE_GENERATOR) crds ## Generate all
+codegen:  $(KCP_APIGEN_GEN) $(CODE_GENERATOR) $(GOIMPORTS) crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	$(MAKE) imports
+	./hack/gen-patch-defaultrestmapper.sh
 .PHONY: codegen
 
 # Note, running this locally if you have any modified files, even those that are not generated,
