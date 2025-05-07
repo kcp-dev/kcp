@@ -61,6 +61,20 @@ type ExpirableLock struct {
 // to prevent races of multiple bindings or CRDs owning the same resource.
 type ResourceBindingsAnnotation map[string]ExpirableLock
 
+// UnmarshalResourceBindingsAnnotation unmarshals JSON-formatted string
+// into ResourceBindingsAnnotation map.
+func UnmarshalResourceBindingsAnnotation(ann string) (ResourceBindingsAnnotation, error) {
+	rbs := make(ResourceBindingsAnnotation)
+	if err := json.Unmarshal([]byte(ann), &rbs); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ResourceBindings annotation: %w", err)
+	}
+	if rbs == nil {
+		rbs = make(ResourceBindingsAnnotation)
+	}
+
+	return rbs, nil
+}
+
 // WithLockedResources tries to lock the resources for the given binding. It
 // returns those resources that got successfully locked. If a resource is already
 // locked by another binding, it is skipped and returned in the second return
@@ -73,12 +87,9 @@ func WithLockedResources(crds []*apiextensionsv1.CustomResourceDefinition, now t
 		return nil, nil, nil, fmt.Errorf("%s annotation not found, migration has to happen first", ResourceBindingsAnnotationKey)
 	}
 
-	rbs := make(ResourceBindingsAnnotation)
-	if err := json.Unmarshal([]byte(v), &rbs); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to unmarshal ResourceBindings annotation: %w", err)
-	}
-	if rbs == nil {
-		rbs = make(ResourceBindingsAnnotation)
+	rbs, err := UnmarshalResourceBindingsAnnotation(v)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
 	crdNames := make(map[string]bool, len(crds))
