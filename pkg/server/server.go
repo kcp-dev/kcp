@@ -56,6 +56,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
@@ -74,6 +75,7 @@ type Server struct {
 	Apis           *controlplaneapiserver.Server
 	MiniAggregator *miniaggregator.MiniAggregatorServer
 	virtual        *virtualrootapiserver.Server
+	DynRESTMapper  *dynamicrestmapper.DynamicRESTMapper
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
@@ -180,6 +182,9 @@ func NewServer(c CompletedConfig) (*Server, error) {
 			return nil, err
 		}
 	}
+
+	// Controllers are free to pull in DynRESTMapper and query for types.
+	s.DynRESTMapper = dynamicrestmapper.NewDynamicRESTMapper(nil)
 
 	return s, nil
 }
@@ -345,6 +350,12 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 
 	if s.Options.Controllers.EnableAll || enabled.Has("garbagecollector") {
 		if err := s.installGarbageCollectorController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Controllers.EnableAll || enabled.Has("dynamicrestmapper") {
+		if err := s.installDynamicRESTMapper(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}

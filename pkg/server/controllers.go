@@ -79,6 +79,7 @@ import (
 	coresreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrole"
 	corereplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
@@ -1587,6 +1588,39 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 					return false, nil
 				}
 				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Config) error {
+	c, err := dynamicrestmapper.NewController(ctx, s.DynRESTMapper,
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: dynamicrestmapper.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
