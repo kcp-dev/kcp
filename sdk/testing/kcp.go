@@ -35,12 +35,12 @@ var fs embed.FS
 func PrivateKcpServer(t TestingT, options ...kcptestingserver.Option) kcptestingserver.RunningServer {
 	t.Helper()
 
-	serverName := "main"
-
-	cfg := &kcptestingserver.Config{Name: serverName}
+	cfg := &kcptestingserver.Config{Name: "main"}
 	for _, opt := range options {
 		opt(cfg)
 	}
+
+	serverName := cfg.Name
 
 	auditPolicyArg := false
 	for _, arg := range cfg.Args {
