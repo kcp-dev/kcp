@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"sync"
 
 	"github.com/spf13/pflag"
 
@@ -32,11 +33,18 @@ import (
 )
 
 func init() {
+	globalOptionsLock := &sync.Mutex{}
+
 	kcptestingserver.ContextRunInProcessFunc = func(ctx context.Context, t kcptestingserver.TestingT, cfg kcptestingserver.Config) (<-chan struct{}, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		t.Cleanup(cancel)
 
+		// During the setups global values (e.g. feature gates) are
+		// initialized. This can produce data races as well as panics.
+		globalOptionsLock.Lock()
 		serverOptions := kcpoptions.NewOptions(cfg.DataDir)
+		globalOptionsLock.Unlock()
+
 		fss := flag.NamedFlagSets{}
 		serverOptions.AddFlags(&fss)
 		all := pflag.NewFlagSet("kcp", pflag.ContinueOnError)
