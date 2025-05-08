@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
