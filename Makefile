@@ -372,7 +372,7 @@ test-integration: $(GOTESTSUM)
 endif
 test-integration: WHAT ?= ./test/integration...
 test-integration: ## Run integration tests
-	$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS)
+	$(GO_TEST) $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps: ## Verify kubernetes deps
