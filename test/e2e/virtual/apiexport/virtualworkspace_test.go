@@ -129,7 +129,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("Verify that the virtual workspace includes apibindings")
 	discoveryVCClusterClient, err := kcpdiscovery.NewForConfig(apiExportVWCfg)
 	require.NoError(t, err)
-	resources, err := discoveryVCClusterClient.ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
+	resources, err := discoveryVCClusterClient.ServerResourcesForGroupVersion(apisv1alpha2.SchemeGroupVersion.String())
 	require.NoError(t, err, "error retrieving APIExport discovery")
 	require.True(t, resourceExists(resources, "apibindings"), "missing apibindings")
 
@@ -374,7 +374,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	create(ws1Path, "APIBinding referencing APIExport 2", "apibindings_access_binding2.yaml")
 
 	create(ws2Path, "APIBinding referencing APIExport 1", "apibindings_access_binding1.yaml", func(bs []byte) ([]byte, error) {
-		var binding apisv1alpha1.APIBinding
+		var binding apisv1alpha2.APIBinding
 		err := yaml.Unmarshal(bs, &binding)
 		require.NoError(t, err, "error unmarshalling binding")
 		binding.Spec.Reference.Export.Path = ws1Path.String()
@@ -388,7 +388,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 
 	exportURLs := make(map[string]string)
 
-	verifyBindings := func(clusterName logicalcluster.Path, exportName string, isValid func(bindings []apisv1alpha1.APIBinding) error) {
+	verifyBindings := func(clusterName logicalcluster.Path, exportName string, isValid func(bindings []apisv1alpha2.APIBinding) error) {
 		t.Helper()
 
 		apiExportCfg := rest.CopyConfig(cfg)
@@ -398,7 +398,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		require.NoError(t, err, "error creating wildcard kcp client for %s|%s", clusterName, exportName)
 
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			bindings, err := apiExportKCPClient.ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+			bindings, err := apiExportKCPClient.ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
 			require.NoError(t, err, "error listing bindings for %s|%s", clusterName, exportName)
 
 			if err := isValid(bindings.Items); err != nil {
@@ -409,7 +409,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "did not see expected bindings for %s|%s", clusterName, exportName)
 	}
 	t.Logf("Verifying APIExport 1 only serves APIBinding 1|1 and 2|1")
-	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha1.APIBinding) error {
+	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha2.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
 			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding1" {
@@ -426,7 +426,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	})
 
 	t.Logf("Verifying APIExport 2 only serves APIBinding 2")
-	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha1.APIBinding) error {
+	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha2.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
 			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding2" {
@@ -455,15 +455,15 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Updating APIBinding 1 to accept APIBindings claim")
-	binding1, err := kcpClusterClient.Cluster(ws1Path).ApisV1alpha1().APIBindings().Get(ctx, "binding1", metav1.GetOptions{})
+	binding1, err := kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Get(ctx, "binding1", metav1.GetOptions{})
 	require.NoError(t, err)
-	oldData := toJSON(t, apisv1alpha1.APIBinding{})
-	newData := toJSON(t, apisv1alpha1.APIBinding{
-		Spec: apisv1alpha1.APIBindingSpec{
-			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+	oldData := toJSON(t, apisv1alpha2.APIBinding{})
+	newData := toJSON(t, apisv1alpha2.APIBinding{
+		Spec: apisv1alpha2.APIBindingSpec{
+			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: convertPermissionClaim(t, export1.Spec.PermissionClaims[0]),
-					State:           apisv1alpha1.ClaimAccepted,
+					PermissionClaim: export1.Spec.PermissionClaims[0],
+					State:           apisv1alpha2.ClaimAccepted,
 				},
 			},
 		},
@@ -471,7 +471,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	patchBytes, err := jsonpatch.CreateMergePatch([]byte(oldData), []byte(newData))
 	require.NoError(t, err, "error creating patch")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha1().APIBindings().Patch(ctx, binding1.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		_, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Patch(ctx, binding1.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err == nil {
 			return true, ""
 		}
@@ -480,7 +480,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating %s|%s to accept claims", ws1Path, binding1.Name)
 
 	t.Logf("Verifying APIExport 1 serves APIBindings 1|1, 1|2, and 2|1")
-	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha1.APIBinding) error {
+	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha2.APIBinding) error {
 		// "workspace1|binding1", "workspace2|binding1", "workspace1|binding2")
 		actualWorkspace1 := sets.New[string]()
 
@@ -506,7 +506,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	})
 
 	t.Logf("Verifying APIExport 2 still only serves APIBinding 2")
-	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha1.APIBinding) error {
+	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha2.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
 			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding2" {
@@ -520,7 +520,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	})
 
 	t.Logf("Updating APIBinding 1 to reject APIBindings claim")
-	binding1, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha1().APIBindings().Get(ctx, "binding1", metav1.GetOptions{})
+	binding1, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Get(ctx, "binding1", metav1.GetOptions{})
 	require.NoError(t, err)
 	oldData = toJSON(t, binding1)
 	binding1.Spec.PermissionClaims = nil
@@ -528,7 +528,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	patchBytes, err = jsonpatch.CreateMergePatch([]byte(oldData), []byte(newData))
 	require.NoError(t, err, "error creating patch")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha1().APIBindings().Patch(ctx, binding1.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		_, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Patch(ctx, binding1.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err == nil {
 			return true, ""
 		}
@@ -537,7 +537,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating %s|%s to no longer accept claims", ws1Path, binding1.Name)
 
 	t.Logf("Verifying APIExport 1 back to only serving its own bindings")
-	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha1.APIBinding) error {
+	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha2.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
 			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding1" {
@@ -642,7 +642,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		{Group: "authorization.k8s.io", Version: "v1", Resource: "subjectaccessreviews"},
 		{Group: "authorization.k8s.io", Version: "v1", Resource: "localsubjectaccessreviews"},
 		sheriffsGVR,
-		apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"),
+		apisv1alpha2.SchemeGroupVersion.WithResource("apibindings"),
 	}
 	for _, gvr := range claimedGVRs {
 		if _, notPersisted := permissionclaim.NonPersistedResourcesClaimable[gvr.GroupResource()]; notPersisted {
@@ -653,7 +653,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		t.Logf("Trying to wildcard list %q", gvr)
 		list, err := dynamicVWClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err, "error listing %q", gvr)
-		if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") {
+		if gvr == apisv1alpha2.SchemeGroupVersion.WithResource("apibindings") {
 			// for this one we always see the reflexive objects
 			require.Equal(t, 1, len(list.Items), "expected to find 1 apibinding, got %#v", list.Items)
 			for _, binding := range list.Items {
@@ -666,21 +666,21 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	t.Logf("Patching apibinding to accept all permission claims")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		apiBinding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		apiBinding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err, "error getting cowboys apibinding")
 		bindingWithClaims := apiBinding.DeepCopy()
 		for i := range apiBinding.Status.ExportPermissionClaims {
 			claim := apiBinding.Status.ExportPermissionClaims[i]
-			bindingWithClaims.Spec.PermissionClaims = append(bindingWithClaims.Spec.PermissionClaims, apisv1alpha1.AcceptablePermissionClaim{
+			bindingWithClaims.Spec.PermissionClaims = append(bindingWithClaims.Spec.PermissionClaims, apisv1alpha2.AcceptablePermissionClaim{
 				PermissionClaim: claim,
-				State:           apisv1alpha1.ClaimAccepted,
+				State:           apisv1alpha2.ClaimAccepted,
 			})
 		}
 		oldJSON := toJSON(t, apiBinding)
 		newJSON := toJSON(t, bindingWithClaims)
 		patchBytes, err := jsonpatch.CreateMergePatch([]byte(oldJSON), []byte(newJSON))
 		require.NoError(t, err, "error creating patch")
-		_, err = kcpClusterClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		_, err = kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 	require.NoError(t, err, "error patching apibinding to accept all claims")
@@ -688,7 +688,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Logf("Waiting for apibinding status to show applied claims for the sheriff's identity")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		// Get the binding and make sure that observed permission claims are all set.
-		binding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		binding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		for _, claim := range binding.Status.AppliedPermissionClaims {
 			if claim.IdentityHash == identityHash {
@@ -700,7 +700,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	t.Logf("Expecting to eventually see all bindings")
 	require.Eventually(t, func() bool {
-		bindings, err := dynamicVWClusterClient.Resource(apisv1alpha1.SchemeGroupVersion.WithResource("apibindings")).List(ctx, metav1.ListOptions{})
+		bindings, err := dynamicVWClusterClient.Resource(apisv1alpha2.SchemeGroupVersion.WithResource("apibindings")).List(ctx, metav1.ListOptions{})
 		require.NoError(t, err)
 		return len(bindings.Items) > 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to see more than 1 binding")
@@ -732,16 +732,16 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		apiExport, err := kcpClusterClient.Cluster(claimerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
-		newClaims := make([]apisv1alpha1.PermissionClaim, 0, len(apiExport.Spec.PermissionClaims))
+		newClaims := make([]apisv1alpha2.PermissionClaim, 0, len(apiExport.Spec.PermissionClaims))
 		for i := range apiExport.Spec.PermissionClaims {
 			claim := apiExport.Spec.PermissionClaims[i]
 			if claim.Group == "" && claim.Resource == "configmaps" {
 				continue
 			}
-			newClaims = append(newClaims, convertPermissionClaim(t, claim))
+			newClaims = append(newClaims, claim)
 		}
 		updatedExport := apiExport.DeepCopy()
-		updatedExport.Spec.PermissionClaims = convertPermissionClaims(t, newClaims)
+		updatedExport.Spec.PermissionClaims = newClaims
 
 		oldJSON := toJSON(t, apiExport)
 		newJSON := toJSON(t, updatedExport)
@@ -761,14 +761,14 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	t.Logf("Rejecting the sheriffs claim")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		apiBinding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		apiBinding, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 
 		updatedAPIBinding := apiBinding.DeepCopy()
 		for i := range updatedAPIBinding.Spec.PermissionClaims {
 			claim := &updatedAPIBinding.Spec.PermissionClaims[i]
 			if claim.Group == sheriffsGVR.Group && claim.Resource == sheriffsGVR.Resource {
-				claim.State = apisv1alpha1.ClaimRejected
+				claim.State = apisv1alpha2.ClaimRejected
 				break
 			}
 		}
@@ -778,7 +778,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		patchBytes, err := jsonpatch.CreateMergePatch([]byte(oldJSON), []byte(newJSON))
 		require.NoError(t, err, "error creating patch")
 
-		_, err = kcpClusterClient.Cluster(consumer1Path).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		_, err = kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 	require.NoError(t, err, "error patching apibinding")
@@ -946,41 +946,41 @@ func gatherClaimableBuiltInAPIs(t *testing.T, discoveryClient discovery.Discover
 func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string) {
 	t.Helper()
 
-	claims := []apisv1alpha1.PermissionClaim{
+	claims := []apisv1alpha2.PermissionClaim{
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "secrets"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "serviceaccounts"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
 			All:           true,
 		},
 		{
-			GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			IdentityHash:  identityHash,
 			All:           true,
 		},
@@ -988,7 +988,7 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, claims...)
 }
 
-func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, claims ...apisv1alpha1.PermissionClaim) {
+func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, claims ...apisv1alpha2.PermissionClaim) {
 	t.Helper()
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
@@ -1015,7 +1015,7 @@ func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClien
 					},
 				},
 			},
-			PermissionClaims: convertPermissionClaims(t, claims),
+			PermissionClaims: claims,
 		},
 	}
 	_, err = kcpClients.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
@@ -1025,13 +1025,13 @@ func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClien
 func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path, kcpClients kcpclientset.ClusterInterface, cfg *rest.Config) {
 	t.Helper()
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerPath)
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: providerPath.String(),
 					Name: "today-cowboys",
 				},
@@ -1043,7 +1043,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 	require.NoError(t, err)
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err = kcpClients.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -1158,29 +1158,4 @@ func toJSON(t *testing.T, obj interface{}) string {
 	ret, err := json.Marshal(obj)
 	require.NoError(t, err)
 	return string(ret)
-}
-
-func convertPermissionClaim(t *testing.T, v1Claim apisv1alpha2.PermissionClaim) apisv1alpha1.PermissionClaim {
-	v2Claim := apisv1alpha1.PermissionClaim{}
-	err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&v1Claim, &v2Claim, nil)
-	if err != nil {
-		t.Fatalf("Failed to convert PermissionClaim: %v", err)
-	}
-
-	return v2Claim
-}
-
-func convertPermissionClaims(t *testing.T, v1Claims []apisv1alpha1.PermissionClaim) []apisv1alpha2.PermissionClaim {
-	v2Claims := []apisv1alpha2.PermissionClaim{}
-
-	for _, v1Claim := range v1Claims {
-		v2Claim := apisv1alpha2.PermissionClaim{}
-		err := apisv1alpha2.Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&v1Claim, &v2Claim, nil)
-		if err != nil {
-			t.Fatalf("Failed to convert PermissionClaim: %v", err)
-		}
-		v2Claims = append(v2Claims, v2Claim)
-	}
-
-	return v2Claims
 }

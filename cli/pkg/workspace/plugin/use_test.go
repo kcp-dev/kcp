@@ -37,7 +37,7 @@ import (
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -68,7 +68,7 @@ func TestUse(t *testing.T) {
 		discovery          map[logicalcluster.Path][]*metav1.APIResourceList
 		discoveryErrors    map[logicalcluster.Path]error
 		unready            map[logicalcluster.Path]map[string]bool // unready workspaces
-		apiBindings        []apisv1alpha1.APIBinding               // APIBindings that exist in the destination workspace, if any
+		apiBindings        []apisv1alpha2.APIBinding               // APIBindings that exist in the destination workspace, if any
 		destination        string                                  // workspace set to 'current' at the end of execution
 		short              bool
 
@@ -468,9 +468,9 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
-					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha2.ClaimAccepted).
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					Build(),
 			},
@@ -486,7 +486,7 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
 					WithPermissionClaim("test.kcp.io", "test", "abcdef", "").
 					WithExportClaim("test.kcp.io", "test", "abcdef").
@@ -508,9 +508,9 @@ func TestUse(t *testing.T) {
 			param:       "~",
 			expected:    NewKubeconfig().WithKcpCurrent(homeWorkspace.String()).WithKcpPrevious("root:foo").Build(),
 			destination: homeWorkspace.String(),
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
-					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha2.ClaimAccepted).
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					WithExportClaim("", "configmaps", "").
 					Build(),
@@ -530,9 +530,9 @@ func TestUse(t *testing.T) {
 			param:       "-",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
-					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha2.ClaimAccepted).
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					WithExportClaim("", "configmaps", "").
 					Build(),
@@ -553,9 +553,9 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
-					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimRejected).
+					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha2.ClaimRejected).
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					Build(),
 			},
@@ -573,9 +573,9 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
-					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha2.ClaimAccepted).
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					Build(),
 			},
@@ -593,9 +593,9 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
-					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha1.ClaimAccepted).
+					WithPermissionClaim("test.kcp.io", "test", "abcdef", apisv1alpha2.ClaimAccepted).
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					WithExportClaim("", "configmaps", "").
 					Build(),
@@ -616,7 +616,7 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
 					WithPermissionClaim("test.kcp.io", "test", "abcdef", "").
 					WithExportClaim("test.kcp.io", "test", "abcdef").
@@ -638,7 +638,7 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
 					WithPermissionClaim("test.kcp.io", "test", "abcdef", "").
 					WithExportClaim("test.kcp.io", "test", "abcdef").
@@ -662,7 +662,7 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
 					WithPermissionClaim("test.kcp.io", "test", "abcdef", "").
 					WithExportClaim("test.kcp.io", "test", "abcdef").
@@ -686,7 +686,7 @@ func TestUse(t *testing.T) {
 			param:       "bar",
 			expected:    NewKubeconfig().WithKcpCurrent("root:foo:bar").WithKcpPrevious("root:foo").Build(),
 			destination: "root:foo:bar",
-			apiBindings: []apisv1alpha1.APIBinding{
+			apiBindings: []apisv1alpha2.APIBinding{
 				newBindingBuilder("a").
 					WithExportClaim("test.kcp.io", "test", "abcdef").
 					WithExportClaim("", "configmaps", "").
@@ -791,14 +791,14 @@ func TestUse(t *testing.T) {
 			})
 
 			// return nothing in the default case.
-			getAPIBindings := func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+			getAPIBindings := func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error) {
 				return nil, nil
 			}
 
 			if tt.destination != "" {
 				// Add APIBindings to our Clientset if we have them
 				if len(tt.apiBindings) > 0 {
-					getAPIBindings = func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+					getAPIBindings = func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error) {
 						return tt.apiBindings, nil
 					}
 				}
@@ -946,7 +946,7 @@ func (c errorDiscoveryClient) ServerGroups() (*metav1.APIGroupList, error) {
 }
 
 type bindingBuilder struct {
-	apisv1alpha1.APIBinding
+	apisv1alpha2.APIBinding
 }
 
 func newBindingBuilder(name string) *bindingBuilder {
@@ -957,14 +957,14 @@ func newBindingBuilder(name string) *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) WithPermissionClaim(group, resource, identityHash string, state apisv1alpha1.AcceptablePermissionClaimState) *bindingBuilder {
+func (b *bindingBuilder) WithPermissionClaim(group, resource, identityHash string, state apisv1alpha2.AcceptablePermissionClaimState) *bindingBuilder {
 	if len(b.Spec.PermissionClaims) == 0 {
-		b.Spec.PermissionClaims = make([]apisv1alpha1.AcceptablePermissionClaim, 0)
+		b.Spec.PermissionClaims = make([]apisv1alpha2.AcceptablePermissionClaim, 0)
 	}
 
-	pc := apisv1alpha1.AcceptablePermissionClaim{
-		PermissionClaim: apisv1alpha1.PermissionClaim{
-			GroupResource: apisv1alpha1.GroupResource{
+	pc := apisv1alpha2.AcceptablePermissionClaim{
+		PermissionClaim: apisv1alpha2.PermissionClaim{
+			GroupResource: apisv1alpha2.GroupResource{
 				Group:    group,
 				Resource: resource,
 			},
@@ -982,11 +982,11 @@ func (b *bindingBuilder) WithPermissionClaim(group, resource, identityHash strin
 
 func (b *bindingBuilder) WithExportClaim(group, resource, identityHash string) *bindingBuilder {
 	if len(b.Status.ExportPermissionClaims) == 0 {
-		b.Status.ExportPermissionClaims = make([]apisv1alpha1.PermissionClaim, 0)
+		b.Status.ExportPermissionClaims = make([]apisv1alpha2.PermissionClaim, 0)
 	}
 
-	pc := apisv1alpha1.PermissionClaim{
-		GroupResource: apisv1alpha1.GroupResource{
+	pc := apisv1alpha2.PermissionClaim{
+		GroupResource: apisv1alpha2.GroupResource{
 			Group:    group,
 			Resource: resource,
 		},
@@ -997,6 +997,6 @@ func (b *bindingBuilder) WithExportClaim(group, resource, identityHash string) *
 	return b
 }
 
-func (b *bindingBuilder) Build() apisv1alpha1.APIBinding {
+func (b *bindingBuilder) Build() apisv1alpha2.APIBinding {
 	return b.APIBinding
 }

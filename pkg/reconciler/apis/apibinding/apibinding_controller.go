@@ -52,7 +52,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
+	apisv1alpha2client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
@@ -71,7 +71,7 @@ var (
 func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
@@ -91,10 +91,10 @@ func NewController(
 		crdClusterClient: crdClusterClient,
 		kcpClusterClient: kcpClusterClient,
 
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		listAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
 			// binding keys by full path
 			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -111,7 +111,7 @@ func NewController(
 			}
 			keys.Insert(clusterKeys...)
 
-			bindings := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
+			bindings := make([]*apisv1alpha2.APIBinding, 0, keys.Len())
 			for _, key := range sets.List[string](keys) {
 				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil {
@@ -121,11 +121,11 @@ func NewController(
 					utilruntime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
 					continue
 				}
-				bindings = append(bindings, binding.(*apisv1alpha1.APIBinding))
+				bindings = append(bindings, binding.(*apisv1alpha2.APIBinding))
 			}
 			return bindings, nil
 		},
-		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
@@ -160,18 +160,18 @@ func NewController(
 			return err
 		},
 		deletedCRDTracker: newLockedStringSet(),
-		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
+		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
 	// APIBinding handlers
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "") },
+		AddFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger, "") },
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "")
+			c.enqueueAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger, "")
 		},
-		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger, "") },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger, "") },
 	})
 
 	// CRD handlers
@@ -281,10 +281,10 @@ func objOrTombstone[T runtime.Object](obj any) T {
 	panic(fmt.Errorf("%T is not a %T", obj, new(T)))
 }
 
-type APIBinding = apisv1alpha1.APIBinding
-type APIBindingSpec = apisv1alpha1.APIBindingSpec
-type APIBindingStatus = apisv1alpha1.APIBindingStatus
-type Patcher = apisv1alpha1client.APIBindingInterface
+type APIBinding = apisv1alpha2.APIBinding
+type APIBindingSpec = apisv1alpha2.APIBindingSpec
+type APIBindingStatus = apisv1alpha2.APIBindingStatus
+type Patcher = apisv1alpha2client.APIBindingInterface
 type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
@@ -297,9 +297,9 @@ type controller struct {
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	listAPIBindings            func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	listAPIBindingsByAPIExport func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
-	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
+	listAPIBindings            func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	listAPIBindingsByAPIExport func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
+	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 
 	getAPIExportByPath    func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getAPIExportsBySchema func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error)
@@ -320,7 +320,7 @@ type controller struct {
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
-func (c *controller) enqueueAPIBinding(apiBinding *apisv1alpha1.APIBinding, logger logr.Logger, logSuffix string) {
+func (c *controller) enqueueAPIBinding(apiBinding *apisv1alpha2.APIBinding, logger logr.Logger, logSuffix string) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(apiBinding)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -502,7 +502,7 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
 func InstallIndexers(
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) {

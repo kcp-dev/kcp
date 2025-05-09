@@ -29,20 +29,20 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 func TestMutateResourceRemainingStatus(t *testing.T) {
 	now := metav1.Now()
-	apibinding := &apisv1alpha1.APIBinding{
+	apibinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test",
 			DeletionTimestamp: &now,
 			Finalizers:        []string{APIBindingFinalizer},
 		},
-		Status: apisv1alpha1.APIBindingStatus{},
+		Status: apisv1alpha2.APIBindingStatus{},
 	}
 
 	tests := []struct {
@@ -60,7 +60,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 			expectErrorOnDelete: nil,
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
-					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
+					Type:   apisv1alpha2.BindingResourceDeleteSuccess,
 					Status: corev1.ConditionTrue,
 				},
 			},
@@ -78,7 +78,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5, Message: "finalizers dev.kcp.io/test in 1 resource instances remaining"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
-					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
+					Type:   apisv1alpha2.BindingResourceDeleteSuccess,
 					Status: corev1.ConditionFalse,
 					Reason: ResourceFinalizersRemainReason,
 				},
@@ -95,7 +95,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 			expectErrorOnDelete: &deletion.ResourcesRemainingError{Estimate: 5, Message: "resources pods. has 1 resource instances remaining"},
 			expectConditions: conditionsv1alpha1.Conditions{
 				{
-					Type:   apisv1alpha1.BindingResourceDeleteSuccess,
+					Type:   apisv1alpha2.BindingResourceDeleteSuccess,
 					Status: corev1.ConditionFalse,
 					Reason: ResourceRemainingReason,
 				},
@@ -131,14 +131,14 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 
 func TestAPIBindingTerminating(t *testing.T) {
 	now := metav1.Now()
-	apibinding := &apisv1alpha1.APIBinding{
+	apibinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test",
 			DeletionTimestamp: &now,
 			Finalizers:        []string{APIBindingFinalizer},
 		},
-		Status: apisv1alpha1.APIBindingStatus{
-			BoundResources: []apisv1alpha1.BoundAPIResource{
+		Status: apisv1alpha2.APIBindingStatus{
+			BoundResources: []apisv1alpha2.BoundAPIResource{
 				{
 					Group:           "",
 					Resource:        "pods",

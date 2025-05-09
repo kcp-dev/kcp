@@ -35,7 +35,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
@@ -55,9 +55,9 @@ type BindOptions struct {
 	RejectedPermissionClaims []string
 
 	// acceptedPermissionClaims is the parsed list of accepted permission claims for the APIBinding parsed from AcceptedPermissionClaims.
-	acceptedPermissionClaims []apisv1alpha1.AcceptablePermissionClaim
+	acceptedPermissionClaims []apisv1alpha2.AcceptablePermissionClaim
 	// rejectedPermissionClaims is the parsed list of rejected permission claims for the APIBinding parsed from RejectedPermissionClaims.
-	rejectedPermissionClaims []apisv1alpha1.AcceptablePermissionClaim
+	rejectedPermissionClaims []apisv1alpha2.AcceptablePermissionClaim
 }
 
 // NewBindOptions returns new BindOptions.
@@ -156,13 +156,13 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to workspace", config.Host)
 	}
 
-	binding := &apisv1alpha1.APIBinding{
+	binding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: apiBindingName,
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: path.String(),
 					Name: apiExportName,
 				},
@@ -182,7 +182,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return err
 	}
 
-	createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -192,13 +192,13 @@ func (b *BindOptions) Run(ctx context.Context) error {
 	}
 
 	// wait for phase to be bound
-	if createdBinding.Status.Phase != apisv1alpha1.APIBindingPhaseBound {
+	if createdBinding.Status.Phase != apisv1alpha2.APIBindingPhaseBound {
 		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, b.BindWaitTimeout, true, func(ctx context.Context) (done bool, err error) {
-			createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
-			if createdBinding.Status.Phase == apisv1alpha1.APIBindingPhaseBound {
+			if createdBinding.Status.Phase == apisv1alpha2.APIBindingPhaseBound {
 				return true, nil
 			}
 			return false, nil
@@ -220,7 +220,7 @@ func (b *BindOptions) parsePermissionClaim(claim string, accepted bool) error {
 		return fmt.Errorf("invalid permission claim %q", claim)
 	}
 
-	parsedClaim := apisv1alpha1.AcceptablePermissionClaim{}
+	parsedClaim := apisv1alpha2.AcceptablePermissionClaim{}
 	resource := claimParts[0]
 	group := claimParts[1]
 	if group == "core" {
@@ -230,9 +230,9 @@ func (b *BindOptions) parsePermissionClaim(claim string, accepted bool) error {
 	parsedClaim.Group = group
 	parsedClaim.Resource = resource
 	if accepted {
-		parsedClaim.State = apisv1alpha1.ClaimAccepted
+		parsedClaim.State = apisv1alpha2.ClaimAccepted
 	} else {
-		parsedClaim.State = apisv1alpha1.ClaimRejected
+		parsedClaim.State = apisv1alpha2.ClaimRejected
 	}
 	// TODO(mjudeikis): Once we add support for selectors/
 	parsedClaim.All = true

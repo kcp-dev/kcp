@@ -32,7 +32,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func createAttr(obj *apiextensions.CustomResourceDefinition) admission.Attributes {
@@ -51,14 +51,14 @@ func createAttr(obj *apiextensions.CustomResourceDefinition) admission.Attribute
 	)
 }
 
-func createAttrAPIBinding(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
+func createAttrAPIBinding(apiBinding *apisv1alpha2.APIBinding) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(apiBinding),
 		nil,
-		apisv1alpha1.Kind("APIBinding").WithVersion("v1alpha1"),
+		apisv1alpha2.Kind("APIBinding").WithVersion("v1alpha2"),
 		"",
 		apiBinding.Name,
-		apisv1alpha1.Resource("apibindings").WithVersion("v1alpha1"),
+		apisv1alpha2.Resource("apibindings").WithVersion("v1alpha2"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -130,7 +130,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "passes not a CRD",
-			attr: createAttrAPIBinding(&apisv1alpha1.APIBinding{
+			attr: createAttrAPIBinding(&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},

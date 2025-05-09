@@ -24,6 +24,8 @@ import (
 )
 
 type ClusterInterface interface {
+// APIBindings returns a APIBindingClusterInformer
+	APIBindings() APIBindingClusterInformer
 // APIExports returns a APIExportClusterInformer
 	APIExports() APIExportClusterInformer
 }
@@ -38,11 +40,17 @@ func New(f internalinterfaces.SharedInformerFactory, tweakListOptions internalin
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
+// APIBindings returns a APIBindingClusterInformer
+func (v *version) APIBindings() APIBindingClusterInformer {
+	return &aPIBindingClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
 // APIExports returns a APIExportClusterInformer
 func (v *version) APIExports() APIExportClusterInformer {
 	return &aPIExportClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 type Interface interface {
+// APIBindings returns a APIBindingInformer
+	APIBindings() APIBindingInformer
 // APIExports returns a APIExportInformer
 	APIExports() APIExportInformer
 }
@@ -58,6 +66,10 @@ func NewScoped(f internalinterfaces.SharedScopedInformerFactory, namespace strin
 	return &scopedVersion{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// APIBindings returns a APIBindingInformer
+func (v *scopedVersion) APIBindings() APIBindingInformer {
+	return &aPIBindingScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
 // APIExports returns a APIExportInformer
 func (v *scopedVersion) APIExports() APIExportInformer {
 	return &aPIExportScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
