@@ -67,11 +67,6 @@ LOGCHECK_BIN := logcheck
 LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
-CODE_GENERATOR_VER := 572c29375f0e63c13b31c70931914c420a0a9d59
-CODE_GENERATOR_BIN := code-generator
-CODE_GENERATOR := $(TOOLS_GOBIN_DIR)/$(CODE_GENERATOR_BIN)-$(CODE_GENERATOR_VER)
-export CODE_GENERATOR # so hack scripts can use it
-
 KCP_APIGEN_BIN := apigen
 KCP_APIGEN_GEN := $(TOOLS_DIR)/$(KCP_APIGEN_BIN)
 export KCP_APIGEN_GEN # so hack scripts can use it
@@ -141,9 +136,6 @@ $(HTTEST):
 $(LOGCHECK):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/logtools/logcheck $(LOGCHECK_BIN) $(LOGCHECK_VER)
 
-$(CODE_GENERATOR):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/kcp-dev/code-generator/v2 $(CODE_GENERATOR_BIN) $(CODE_GENERATOR_VER)
-
 $(KCP_APIGEN_GEN):
 	pushd . && cd sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
 
@@ -190,7 +182,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) $(CODE_GENERATOR) ## Install tools
+tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -206,7 +198,7 @@ crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen:  $(KCP_APIGEN_GEN) $(CODE_GENERATOR) crds ## Generate all
+codegen:  $(KCP_APIGEN_GEN) crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	$(MAKE) imports
