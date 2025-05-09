@@ -22,17 +22,17 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func TestClaimSetKeys(t *testing.T) {
 	tests := map[string]struct {
-		claim apisv1alpha1.PermissionClaim
+		claim apisv1alpha2.PermissionClaim
 		key   string
 	}{
 		"core gr": {
-			claim: apisv1alpha1.PermissionClaim{
-				GroupResource: apisv1alpha1.GroupResource{
+			claim: apisv1alpha2.PermissionClaim{
+				GroupResource: apisv1alpha2.GroupResource{
 					Group:    "",
 					Resource: "configmaps",
 				},
@@ -41,8 +41,8 @@ func TestClaimSetKeys(t *testing.T) {
 			key: "configmaps//",
 		},
 		"non-core built-in gr": {
-			claim: apisv1alpha1.PermissionClaim{
-				GroupResource: apisv1alpha1.GroupResource{
+			claim: apisv1alpha2.PermissionClaim{
+				GroupResource: apisv1alpha2.GroupResource{
 					Group:    "rbac.authorization.k8s.io",
 					Resource: "roles",
 				},
@@ -51,8 +51,8 @@ func TestClaimSetKeys(t *testing.T) {
 			key: "roles/rbac.authorization.k8s.io/",
 		},
 		"3rd party gr + hash": {
-			claim: apisv1alpha1.PermissionClaim{
-				GroupResource: apisv1alpha1.GroupResource{
+			claim: apisv1alpha2.PermissionClaim{
+				GroupResource: apisv1alpha2.GroupResource{
 					Group:    "apis.kcp.io",
 					Resource: "apibindings",
 				},

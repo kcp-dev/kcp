@@ -46,7 +46,6 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
 
@@ -58,7 +57,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -70,11 +69,11 @@ func NewController(
 
 		kcpClusterClient: kcpClusterClient,
 
-		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
-		getAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+		getAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
 			// APIBinding keys by full path
 			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -91,7 +90,7 @@ func NewController(
 			}
 			keys.Insert(clusterKeys...)
 
-			ret := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
+			ret := make([]*apisv1alpha2.APIBinding, 0, keys.Len())
 			for _, key := range sets.List[string](keys) {
 				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil {
@@ -101,7 +100,7 @@ func NewController(
 					utilruntime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
 					continue
 				}
-				ret = append(ret, binding.(*apisv1alpha1.APIBinding))
+				ret = append(ret, binding.(*apisv1alpha2.APIBinding))
 			}
 
 			return ret, nil
@@ -135,8 +134,8 @@ type controller struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	getAPIBinding             func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
-	getAPIBindingsByAPIExport func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBinding             func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	getAPIBindingsByAPIExport func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	getAPIExport              func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
 
@@ -265,7 +264,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	}
 
 	logger.V(2).Info("patching APIBinding extra annotations", "patch", string(patchBytes))
-	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha1().APIBindings().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	_, err = c.kcpClusterClient.Cluster(clusterName.Path()).ApisV1alpha2().APIBindings().Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
 
@@ -304,7 +303,7 @@ func syncExtraAnnotationPatch(a1, a2 map[string]string) ([]byte, error) {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer, apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) {
+func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer, apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer) {
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})

@@ -36,6 +36,8 @@ const (
 	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
 
 	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
+
+	APIExportPermissionClaimLabelPrefix = "claimed.internal.apis.kcp.io/"
 )
 
 // APIExport registers an API and implementation to allow consumption by others
@@ -217,6 +219,14 @@ type PermissionClaim struct {
 	// This is mutually exclusive with resourceSelector.
 	// +optional
 	All bool `json:"all,omitempty"`
+
+	// verbs is a list of supported API operation types (this includes
+	// but is not limited to get, list, watch, create, update, patch,
+	// delete, deletecollection, and proxy).
+	// +required
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	Verbs []string `json:"verbs"`
 
 	// resourceSelector is a list of claimed resource selectors.
 	//

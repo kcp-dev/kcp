@@ -54,13 +54,13 @@ func TestReconcile(t *testing.T) {
 	}{
 		"APIExportValid set to false when APIExport is missing": {
 			apiExportMissing:      true,
-			errorReason:           apisv1alpha1.APIExportNotFoundReason,
+			errorReason:           apisv1alpha2.APIExportNotFoundReason,
 			wantAPIExportNotValid: true,
 		},
 		"APIExportValid set to false if an internal error happens when fetching the APIExport": {
 			apiExportInternalErr:  true,
 			wantError:             true,
-			errorReason:           apisv1alpha1.InternalErrorReason,
+			errorReason:           apisv1alpha2.InternalErrorReason,
 			wantAPIExportNotValid: true,
 		},
 		"PartitionValid set to false when the Partition is missing": {
@@ -137,7 +137,7 @@ func TestReconcile(t *testing.T) {
 			if tc.wantAPIExportNotValid {
 				requireConditionMatches(t, apiExportEndpointSlice,
 					conditions.FalseCondition(
-						apisv1alpha1.APIExportValid,
+						apisv1alpha2.APIExportValid,
 						tc.errorReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"",
@@ -158,7 +158,7 @@ func TestReconcile(t *testing.T) {
 
 			if tc.wantAPIExportValid {
 				requireConditionMatches(t, apiExportEndpointSlice,
-					conditions.TrueCondition(apisv1alpha1.APIExportValid),
+					conditions.TrueCondition(apisv1alpha2.APIExportValid),
 				)
 			}
 

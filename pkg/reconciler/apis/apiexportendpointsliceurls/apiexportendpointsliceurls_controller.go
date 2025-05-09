@@ -60,7 +60,7 @@ const (
 func NewController(
 	shardName string,
 	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	globalAPIExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 	globalShardClusterInformer corev1alpha1informers.ShardClusterInformer,
 	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
@@ -88,7 +88,7 @@ func NewController(
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndName[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), globalAPIExportClusterInformer.Informer().GetIndexer(), path, name)
 		},
-		listAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindingsByAPIExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
 			// binding keys by full path
 			keys := sets.New[string]()
 			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -105,7 +105,7 @@ func NewController(
 			}
 			keys.Insert(clusterKeys...)
 
-			bindings := make([]*apisv1alpha1.APIBinding, 0, keys.Len())
+			bindings := make([]*apisv1alpha2.APIBinding, 0, keys.Len())
 			for _, key := range sets.List[string](keys) {
 				binding, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil {
@@ -115,7 +115,7 @@ func NewController(
 					utilruntime.HandleError(fmt.Errorf("APIBinding %q does not exist", key))
 					continue
 				}
-				bindings = append(bindings, binding.(*apisv1alpha1.APIBinding))
+				bindings = append(bindings, binding.(*apisv1alpha2.APIBinding))
 			}
 			return bindings, nil
 		},
@@ -145,13 +145,13 @@ func NewController(
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](newObj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha1.APIBinding](obj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
 		},
 	})
 
@@ -180,14 +180,14 @@ type controller struct {
 	getMyShard                  func() (*corev1alpha1.Shard, error)
 	getAPIExportEndpointSlice   func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
 	getAPIExport                func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	patchAPIExportEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error
 
 	apiExportEndpointSliceClusterInformer       apisv1alpha1informers.APIExportEndpointSliceClusterInformer
 	globalApiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer
 }
 
-func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1alpha1.APIBinding, logger logr.Logger) {
+func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1alpha2.APIBinding, logger logr.Logger) {
 	{ // local to shard
 		keys := sets.New[string]()
 		if path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path); !path.Empty() { // This is remote apibinding.
@@ -345,7 +345,7 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 func InstallIndexers(
 	globalAPIExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 ) {
 	indexers.AddIfNotPresentOrDie(apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,

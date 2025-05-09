@@ -32,7 +32,7 @@ import (
 	"github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
@@ -43,7 +43,7 @@ func TestReconciler(t *testing.T) {
 	tests := map[string]struct {
 		logicalCluster *corev1alpha1.LogicalCluster
 		crds           []*apiextensionsv1.CustomResourceDefinition
-		apiBindings    []*apisv1alpha1.APIBinding
+		apiBindings    []*apisv1alpha2.APIBinding
 		updateError    error
 
 		want    *corev1alpha1.LogicalCluster
@@ -68,7 +68,7 @@ func TestReconciler(t *testing.T) {
 				withEstablished(newCRD("group", "crd1s")),
 				withEstablished(newCRD("group", "crd2s")),
 			},
-			apiBindings: []*apisv1alpha1.APIBinding{
+			apiBindings: []*apisv1alpha2.APIBinding{
 				&newAPIBinding().WithName("binding1").WithBoundResources("group", "as", "group", "bs").APIBinding,
 				&newAPIBinding().WithName("binding2").WithBoundResources("group", "cs", "group", "ds").APIBinding,
 			},
@@ -85,7 +85,7 @@ func TestReconciler(t *testing.T) {
 				withEstablished(newCRD("group", "crd1s")),
 				withEstablished(newCRD("group", "crd2s")),
 			},
-			apiBindings: []*apisv1alpha1.APIBinding{
+			apiBindings: []*apisv1alpha2.APIBinding{
 				&newAPIBinding().WithName("binding1").WithBoundResources("group", "as", "group", "bs").APIBinding,
 				&newAPIBinding().WithName("binding2").WithBoundResources("group", "cs", "group", "ds").APIBinding,
 			},
@@ -97,7 +97,7 @@ func TestReconciler(t *testing.T) {
 			logicalCluster: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"bs.group":{"n":"binding1"},"crd1s.group":{"c":true},"crd2s.group":{"c":true},"cs.group":{"n":"binding2"},"ds.group":{"n":"binding2"}}`,
 			}}},
-			apiBindings: []*apisv1alpha1.APIBinding{
+			apiBindings: []*apisv1alpha2.APIBinding{
 				&newAPIBinding().WithName("binding1").WithBoundResources("group", "as", "group", "bs").APIBinding,
 			},
 			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
@@ -136,7 +136,7 @@ func TestReconciler(t *testing.T) {
 				listsCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
 					return tt.crds, nil
 				},
-				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 					return tt.apiBindings, nil
 				},
 			}
@@ -151,7 +151,7 @@ func TestReconciler(t *testing.T) {
 }
 
 type bindingBuilder struct {
-	apisv1alpha1.APIBinding
+	apisv1alpha2.APIBinding
 }
 
 func newAPIBinding() *bindingBuilder {
@@ -167,7 +167,7 @@ func (b *bindingBuilder) WithName(name string) *bindingBuilder {
 func (b *bindingBuilder) WithBoundResources(boundResources ...string) *bindingBuilder {
 	for i := 0; i < len(boundResources); i += 2 {
 		group, resource := boundResources[i], boundResources[i+1]
-		b.Status.BoundResources = append(b.Status.BoundResources, apisv1alpha1.BoundAPIResource{
+		b.Status.BoundResources = append(b.Status.BoundResources, apisv1alpha2.BoundAPIResource{
 			Group:    group,
 			Resource: resource,
 		})
