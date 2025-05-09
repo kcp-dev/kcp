@@ -23,6 +23,7 @@ package v1alpha2
 type PermissionClaimApplyConfiguration struct {
 	GroupResourceApplyConfiguration `json:",inline"`
 	All                             *bool                                `json:"all,omitempty"`
+	Verbs                           []string                             `json:"verbs,omitempty"`
 	ResourceSelector                []ResourceSelectorApplyConfiguration `json:"resourceSelector,omitempty"`
 	IdentityHash                    *string                              `json:"identityHash,omitempty"`
 }
@@ -54,6 +55,16 @@ func (b *PermissionClaimApplyConfiguration) WithResource(value string) *Permissi
 // If called multiple times, the All field is set to the value of the last call.
 func (b *PermissionClaimApplyConfiguration) WithAll(value bool) *PermissionClaimApplyConfiguration {
 	b.All = &value
+	return b
+}
+
+// WithVerbs adds the given value to the Verbs field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Verbs field.
+func (b *PermissionClaimApplyConfiguration) WithVerbs(values ...string) *PermissionClaimApplyConfiguration {
+	for i := range values {
+		b.Verbs = append(b.Verbs, values[i])
+	}
 	return b
 }
 

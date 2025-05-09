@@ -30,6 +30,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -424,19 +425,26 @@ func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterIn
 func findUnresolvedPermissionClaims(out io.Writer, apiBindings []apisv1alpha2.APIBinding) error {
 	for _, binding := range apiBindings {
 		for _, exportedClaim := range binding.Status.ExportPermissionClaims {
-			var found, ack bool
+			var found, ack, verbsMatch bool
+			var verbsExpected, verbsActual sets.Set[string]
 			for _, specClaim := range binding.Spec.PermissionClaims {
 				if !exportedClaim.Equal(specClaim.PermissionClaim) {
 					continue
 				}
 				found = true
 				ack = (specClaim.State == apisv1alpha2.ClaimAccepted) || specClaim.State == apisv1alpha2.ClaimRejected
+				verbsExpected = sets.New(exportedClaim.Verbs...)
+				verbsActual = sets.New(specClaim.Verbs...)
+				verbsMatch = verbsActual.Difference(verbsExpected).Len() == 0 && verbsExpected.Difference(verbsActual).Len() == 0
 			}
 			if !found {
 				fmt.Fprintf(out, "Warning: claim for %s exported but not specified on APIBinding %s\nAdd this claim to the APIBinding's Spec.\n", exportedClaim.String(), binding.Name)
 			}
 			if !ack {
 				fmt.Fprintf(out, "Warning: claim for %s specified on APIBinding %s but not accepted or rejected.\n", exportedClaim.String(), binding.Name)
+			}
+			if !verbsMatch {
+				fmt.Fprintf(out, "Warning: allowed verbs (%s) on claim for %s on APIBinding %s do not match expected verbs (%s).\n", strings.Join(verbsActual.UnsortedList(), ","), exportedClaim.String(), binding.Name, strings.Join(verbsExpected.UnsortedList(), ","))
 			}
 		}
 	}
