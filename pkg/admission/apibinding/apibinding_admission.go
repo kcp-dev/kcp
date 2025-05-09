@@ -18,6 +18,7 @@ package apibinding
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -90,6 +91,13 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return apierrors.NewInternalError(err)
+	}
+
+	if a.GetResource().GroupResource() == apisv1alpha1.Resource("apibindings") {
+		ab := &apisv1alpha1.APIBinding{}
+		if err := validateOverhangingPermissionClaims(ctx, a, ab); err != nil {
+			return admission.NewForbidden(a, err)
+		}
 	}
 
 	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apibindings") {
@@ -311,4 +319,44 @@ func (o *apiBindingAdmission) SetKcpInformers(local, global kcpinformers.SharedI
 	indexers.AddIfNotPresentOrDie(global.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
+}
+
+func validateOverhangingPermissionClaims(_ context.Context, _ admission.Attributes, ab *apisv1alpha1.APIBinding) error {
+	// TODO(xmudrii): Remove this once we are sure that all APIExport objects are
+	// converted to v1alpha2.
+	if _, ok := ab.Annotations[apisv1alpha2.PermissionClaimsAnnotation]; ok {
+		// validate if we can decode overhanging permission claims. If not, we will fail.
+		var overhanging []apisv1alpha2.PermissionClaim
+		if err := json.Unmarshal([]byte(ab.Annotations[apisv1alpha2.PermissionClaimsAnnotation]), &overhanging); err != nil {
+			return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.PermissionClaimsAnnotation), ab.Annotations[apisv1alpha2.PermissionClaimsAnnotation], "failed to decode overhanging permission claims")
+		}
+
+		// validate mismatches. We could have mismatches between the spec and the annotation
+		// (e.g. a resource present in the annotation, but not in the spec).
+		// We convert to v2 to check for mismatches.
+		v2Claims := make([]apisv1alpha2.PermissionClaim, len(ab.Spec.PermissionClaims))
+		for i, v1pc := range ab.Spec.PermissionClaims {
+			var v2pc apisv1alpha2.PermissionClaim
+			err := apisv1alpha2.Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&v1pc.PermissionClaim, &v2pc, nil)
+			if err != nil {
+				return field.Invalid(field.NewPath("spec").Child("permissionClaims").Index(i), ab.Spec.PermissionClaims, "failed to convert spec.PermissionClaims")
+			}
+			v2Claims = append(v2Claims, v2pc)
+		}
+
+		for _, o := range overhanging {
+			var found bool
+			for _, pc := range v2Claims {
+				if pc.Equal(o) {
+					found = true
+
+					break
+				}
+			}
+			if !found {
+				return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.PermissionClaimsAnnotation), ab.Annotations[apisv1alpha2.PermissionClaimsAnnotation], "permission claims defined in annotation do not match permission claims defined in spec")
+			}
+		}
+	}
+	return nil
 }

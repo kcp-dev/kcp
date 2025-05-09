@@ -2311,6 +2311,26 @@ func schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"verbs": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "verbs is a list of supported API operation types (this includes but is not limited to get, list, watch, create, update, patch, delete, deletecollection, and proxy).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"resourceSelector": {
 						SchemaProps: spec.SchemaProps{
 							Description: "resourceSelector is a list of claimed resource selectors.",
@@ -2340,7 +2360,7 @@ func schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"resource", "state"},
+				Required: []string{"resource", "verbs", "state"},
 			},
 		},
 		Dependencies: []string{
@@ -2606,6 +2626,26 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"verbs": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "verbs is a list of supported API operation types (this includes but is not limited to get, list, watch, create, update, patch, delete, deletecollection, and proxy).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"resourceSelector": {
 						SchemaProps: spec.SchemaProps{
 							Description: "resourceSelector is a list of claimed resource selectors.",
@@ -2628,7 +2668,7 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"resource"},
+				Required: []string{"resource", "verbs"},
 			},
 		},
 		Dependencies: []string{

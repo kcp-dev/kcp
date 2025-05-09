@@ -78,15 +78,16 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
 	require.NoError(t, err)
 	identityHash := sheriffExport.Status.IdentityHash
+	wildcardVerb := []string{"*"}
 
 	t.Logf("Found identity hash: %v", identityHash)
 	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
 
 	t.Logf("set up service provider with permission claims")
-	setUpServiceProviderWithPermissionClaims(ctx, t, dynamicClusterClient, kcpClusterClient, providerPath, cfg, identityHash)
+	setUpServiceProviderWithPermissionClaims(ctx, t, dynamicClusterClient, kcpClusterClient, providerPath, cfg, identityHash, wildcardVerb)
 
 	t.Logf("set up binding, with invalid accepted claims hash")
-	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, "xxxxxxx")
+	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, "xxxxxxx", wildcardVerb)
 
 	// validate the invalid claims condition occurs
 	t.Logf("validate that the permission claim's conditions are false and invalid claims is the reason")
@@ -99,7 +100,7 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
-		binding.Spec.PermissionClaims = getAcceptedPermissionClaims(identityHash)
+		binding.Spec.PermissionClaims = getAcceptedPermissionClaims(identityHash, wildcardVerb)
 		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()
@@ -113,8 +114,8 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
 	binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 	require.NoError(t, err)
-	if !reflect.DeepEqual(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims) {
-		require.Emptyf(t, cmp.Diff(makePermissionClaims(identityHash), binding.Status.ExportPermissionClaims), "ExportPermissionClaims incorrect")
+	if !reflect.DeepEqual(makePermissionClaims(identityHash, wildcardVerb), binding.Status.ExportPermissionClaims) {
+		require.Emptyf(t, cmp.Diff(makePermissionClaims(identityHash, wildcardVerb), binding.Status.ExportPermissionClaims), "ExportPermissionClaims incorrect")
 	}
 
 	t.Logf("Validate that the permission claims were all applied")
@@ -123,37 +124,43 @@ func TestAPIBindingPermissionClaimsConditions(t *testing.T) {
 	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsApplied), "unable to see claims applied")
 }
 
-func makePermissionClaims(identityHash string) []apisv1alpha2.PermissionClaim {
+func makePermissionClaims(identityHash string, verbs []string) []apisv1alpha2.PermissionClaim {
 	return []apisv1alpha2.PermissionClaim{
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
+			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
+			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
+			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			All:           true,
 			IdentityHash:  identityHash,
+			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
 			All:           true,
+			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
 			All:           true,
+			Verbs:         verbs,
 		},
 	}
 }
 
-func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClusterClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string) {
+func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClusterClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string, verbs []string) {
 	t.Helper()
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
@@ -180,19 +187,20 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 					},
 				},
 			},
-			PermissionClaims: makePermissionClaims(identityHash),
+			PermissionClaims: makePermissionClaims(identityHash, verbs),
 		},
 	}
 	_, err = kcpClusterClients.Cluster(serviceProviderWorkspace).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 
-func getAcceptedPermissionClaims(identityHash string) []apisv1alpha2.AcceptablePermissionClaim {
+func getAcceptedPermissionClaims(identityHash string, verbs []string) []apisv1alpha2.AcceptablePermissionClaim {
 	return []apisv1alpha2.AcceptablePermissionClaim{
 		{
 			PermissionClaim: apisv1alpha2.PermissionClaim{
 				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
 				All:           true,
+				Verbs:         verbs,
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
@@ -200,6 +208,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha2.AcceptableP
 			PermissionClaim: apisv1alpha2.PermissionClaim{
 				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
 				All:           true,
+				Verbs:         verbs,
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
@@ -207,6 +216,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha2.AcceptableP
 			PermissionClaim: apisv1alpha2.PermissionClaim{
 				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
 				All:           true,
+				Verbs:         verbs,
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
@@ -215,6 +225,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha2.AcceptableP
 				GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 				IdentityHash:  identityHash,
 				All:           true,
+				Verbs:         verbs,
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
@@ -222,6 +233,7 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha2.AcceptableP
 			PermissionClaim: apisv1alpha2.PermissionClaim{
 				GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
 				All:           true,
+				Verbs:         verbs,
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
@@ -229,13 +241,14 @@ func getAcceptedPermissionClaims(identityHash string) []apisv1alpha2.AcceptableP
 			PermissionClaim: apisv1alpha2.PermissionClaim{
 				GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
 				All:           true,
+				Verbs:         verbs,
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
 	}
 }
 
-func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string) {
+func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path, kcpClusterClients kcpclientset.ClusterInterface, cfg *rest.Config, identityHash string, verbs []string) {
 	t.Helper()
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerPath)
 	apiBinding := &apisv1alpha2.APIBinding{
@@ -249,7 +262,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 					Name: "today-cowboys",
 				},
 			},
-			PermissionClaims: getAcceptedPermissionClaims(identityHash),
+			PermissionClaims: getAcceptedPermissionClaims(identityHash, verbs),
 		},
 	}
 

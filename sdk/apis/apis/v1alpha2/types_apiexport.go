@@ -220,6 +220,14 @@ type PermissionClaim struct {
 	// +optional
 	All bool `json:"all,omitempty"`
 
+	// verbs is a list of supported API operation types (this includes
+	// but is not limited to get, list, watch, create, update, patch,
+	// delete, deletecollection, and proxy).
+	// +required
+	// +listType=set
+	// +kubebuilder:validation:MinItems=1
+	Verbs []string `json:"verbs"`
+
 	// resourceSelector is a list of claimed resource selectors.
 	//
 	// +optional

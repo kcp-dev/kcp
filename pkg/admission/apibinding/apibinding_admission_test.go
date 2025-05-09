@@ -19,6 +19,7 @@ package apibinding
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"strings"
@@ -554,4 +555,155 @@ func newExport(path logicalcluster.Path, name string) apiExportBuilder {
 			},
 		},
 	}}
+}
+
+func TestValidateOverhangingPermissionClaims(t *testing.T) {
+	tests := map[string]struct {
+		annotations      func() map[string]string
+		permissionClaims []apisv1alpha1.AcceptablePermissionClaim
+		expectedError    string
+	}{
+		"NoAnnotations": {
+			annotations:      func() map[string]string { return nil },
+			permissionClaims: nil,
+			expectedError:    "",
+		},
+		"EmptyJSON": {
+			annotations: func() map[string]string {
+				pc := apisv1alpha2.PermissionClaim{}
+				data, err := json.Marshal(pc)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: string(data),
+				}
+			},
+			permissionClaims: nil,
+			expectedError:    "failed to decode overhanging permission claims",
+		},
+		"EmptyPermissionClaimsAndAnnotation": {
+			annotations: func() map[string]string {
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: "[]",
+				}
+			},
+			permissionClaims: []apisv1alpha1.AcceptablePermissionClaim{},
+			expectedError:    "",
+		},
+		"ValidJSON": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.PermissionClaim{{
+					GroupResource: apisv1alpha2.GroupResource{
+						Group:    "foo",
+						Resource: "bar",
+					},
+					All:          true,
+					IdentityHash: "baz",
+					Verbs:        []string{"get", "list"},
+				}}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: string(data),
+				}
+			},
+			permissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Group:    "foo",
+							Resource: "bar",
+						},
+						All:          true,
+						IdentityHash: "baz",
+					},
+				},
+			},
+			expectedError: "",
+		},
+		"MismatchInAnnotations": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.PermissionClaim{
+					{
+						GroupResource: apisv1alpha2.GroupResource{
+							Group:    "foo",
+							Resource: "bar",
+						},
+						All:          true,
+						IdentityHash: "baz",
+						Verbs:        []string{"get", "list"},
+					},
+					{
+						GroupResource: apisv1alpha2.GroupResource{
+							Group:    "foo",
+							Resource: "baz",
+						},
+						All:          true,
+						IdentityHash: "bar",
+						Verbs:        []string{"get"},
+					},
+				}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: string(data),
+				}
+			},
+			permissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Group:    "foo",
+							Resource: "bar",
+						},
+						All:          true,
+						IdentityHash: "baz",
+					},
+				},
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Group:    "test",
+							Resource: "schema",
+						},
+						All:          true,
+						IdentityHash: "random",
+					},
+				},
+			},
+			expectedError: "permission claims defined in annotation do not match permission claims defined in spec",
+		},
+		"InvalidJSON": {
+			annotations: func() map[string]string {
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: "invalid json",
+				}
+			},
+			permissionClaims: nil,
+			expectedError:    "failed to decode overhanging permission claims",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ae := &apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations(),
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					PermissionClaims: tc.permissionClaims,
+				},
+			}
+			err := validateOverhangingPermissionClaims(context.TODO(), nil, ae)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedError)
+			}
+		})
+	}
 }

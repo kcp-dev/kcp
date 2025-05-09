@@ -456,6 +456,11 @@ func (in *MaximalPermissionPolicy) DeepCopy() *MaximalPermissionPolicy {
 func (in *PermissionClaim) DeepCopyInto(out *PermissionClaim) {
 	*out = *in
 	out.GroupResource = in.GroupResource
+	if in.Verbs != nil {
+		in, out := &in.Verbs, &out.Verbs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.ResourceSelector != nil {
 		in, out := &in.ResourceSelector, &out.ResourceSelector
 		*out = make([]ResourceSelector, len(*in))
