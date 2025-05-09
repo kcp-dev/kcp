@@ -950,39 +950,48 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			IdentityHash:  identityHash,
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 	}
 	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, claims...)

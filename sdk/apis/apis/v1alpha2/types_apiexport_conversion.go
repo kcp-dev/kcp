@@ -27,7 +27,8 @@ import (
 )
 
 const (
-	ResourceSchemasAnnotation = "apis.v1alpha2.kcp.io/resource-schemas"
+	ResourceSchemasAnnotation  = "apis.v1alpha2.kcp.io/resource-schemas"
+	PermissionClaimsAnnotation = "apis.v1alpha2.kcp.io/permission-claims"
 )
 
 func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1alpha1.APIExport, s kubeconversion.Scope) error {
@@ -45,6 +46,18 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 			out.Annotations = map[string]string{}
 		}
 		out.Annotations[ResourceSchemasAnnotation] = string(encoded)
+	}
+
+	if len(in.Spec.PermissionClaims) > 0 {
+		encoded, err := json.Marshal(in.Spec.PermissionClaims)
+		if err != nil {
+			return fmt.Errorf("failed to encode claims as JSON: %w", err)
+		}
+
+		if out.Annotations == nil {
+			out.Annotations = map[string]string{}
+		}
+		out.Annotations[PermissionClaimsAnnotation] = string(encoded)
 	}
 
 	if err := Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(&in.Spec, &out.Spec, s); err != nil {
@@ -132,11 +145,40 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 		}
 
 		delete(out.Annotations, ResourceSchemasAnnotation)
+	}
 
-		// make tests for equality easier to write by turning []string into nil
-		if len(out.Annotations) == 0 {
-			out.Annotations = nil
+	if claims, ok := in.Annotations[PermissionClaimsAnnotation]; ok {
+		permissionClaims := []PermissionClaim{}
+		if err := json.Unmarshal([]byte(claims), &permissionClaims); err != nil {
+			return fmt.Errorf("failed to decode claims from JSON: %w", err)
 		}
+
+		if len(permissionClaims) > 0 {
+			if out.Spec.PermissionClaims == nil {
+				out.Spec.PermissionClaims = []PermissionClaim{}
+			}
+
+			for _, pc := range permissionClaims {
+				for i, opc := range out.Spec.PermissionClaims {
+					if pc.Equal(opc) {
+						out.Spec.PermissionClaims[i].Verbs = pc.Verbs
+					}
+				}
+			}
+		}
+
+		delete(out.Annotations, PermissionClaimsAnnotation)
+	}
+
+	for i, opc := range out.Spec.PermissionClaims {
+		if len(opc.Verbs) == 0 {
+			out.Spec.PermissionClaims[i].Verbs = []string{"*"}
+		}
+	}
+
+	// make tests for equality easier to write by turning []string into nil
+	if len(out.Annotations) == 0 {
+		out.Annotations = nil
 	}
 
 	return nil
@@ -238,4 +280,72 @@ func Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(in []strin
 		return nil
 	}
 	return nil
+}
+
+func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *apisv1alpha1.APIBinding, s kubeconversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+
+	if len(in.Spec.PermissionClaims) > 0 {
+		encoded, err := json.Marshal(in.Spec.PermissionClaims)
+		if err != nil {
+			return fmt.Errorf("failed to encode claims as JSON: %w", err)
+		}
+
+		if out.Annotations == nil {
+			out.Annotations = map[string]string{}
+		}
+		out.Annotations[PermissionClaimsAnnotation] = string(encoded)
+	}
+
+	if err := Convert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBinding, out *APIBinding, s kubeconversion.Scope) error {
+	if err := autoConvert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in, out, s); err != nil {
+		return err
+	}
+
+	if claims, ok := in.Annotations[PermissionClaimsAnnotation]; ok {
+		permissionClaims := []AcceptablePermissionClaim{}
+		if err := json.Unmarshal([]byte(claims), &permissionClaims); err != nil {
+			return fmt.Errorf("failed to decode claims from JSON: %w", err)
+		}
+
+		for _, pc := range permissionClaims {
+			for i, opc := range out.Spec.PermissionClaims {
+				if pc.Equal(opc.PermissionClaim) {
+					out.Spec.PermissionClaims[i].PermissionClaim.Verbs = pc.Verbs
+				}
+			}
+		}
+
+		delete(out.Annotations, PermissionClaimsAnnotation)
+	}
+
+	for i, opc := range out.Spec.PermissionClaims {
+		if len(opc.PermissionClaim.Verbs) == 0 {
+			out.Spec.PermissionClaims[i].PermissionClaim.Verbs = []string{"*"}
+		}
+	}
+
+	// make tests for equality easier to write by turning []string into nil
+	if len(out.Annotations) == 0 {
+		out.Annotations = nil
+	}
+
+	return nil
+}
+
+// Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim ensures we do the default conversion for
+// PermissionClaims. Verbs are ignored in this phase and are handled in
+// Convert_v1alpha2_APIExport_To_v1alpha1_APIExport
+func Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in *PermissionClaim, out *apisv1alpha1.PermissionClaim, s kubeconversion.Scope) error {
+	return autoConvert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in, out, s)
 }

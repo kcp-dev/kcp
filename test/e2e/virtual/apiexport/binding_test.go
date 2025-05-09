@@ -75,6 +75,7 @@ spec:
     - group: "apis.kcp.io"
       resource: "apibindings"
       all: true
+      verbs: ["*"]
 `))
 
 	t.Logf("Creating APIExport in restricted workspace without anybody allowed to bind")
