@@ -21,7 +21,6 @@ import (
 	"reflect"
 
 	"github.com/google/go-cmp/cmp"
-
 	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
