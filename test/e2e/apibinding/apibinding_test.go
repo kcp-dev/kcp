@@ -442,29 +442,46 @@ func TestAPIBinding(t *testing.T) {
 	export2, err := kcpClusterClient.Cluster(provider2Path).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
 
-	foundOnShards := 0
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	for _, vw := range export2.Status.VirtualWorkspaces {
-		vw2ClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
-		require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		foundOnShards := 0
+		var listErrs []error
 
-		t.Logf("Listing %s|%s cowboys via virtual workspace %s/clusters/%s", provider2Path, exportName, vw.URL, consumer3ClusterName)
-		gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
-		list, err := vw2ClusterClient.Cluster(consumer3ClusterName.Path()).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("Error: %v", err)
-			continue
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		for _, vw := range export2.Status.VirtualWorkspaces {
+			vw2ClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
+			require.NoError(t, err)
+
+			t.Logf("Listing %s|%s cowboys via virtual workspace %s/clusters/%s", provider2Path, exportName, vw.URL, consumer3ClusterName)
+			gvr := wildwestv1alpha1.SchemeGroupVersion.WithResource("cowboys")
+			list, err := vw2ClusterClient.Cluster(consumer3ClusterName.Path()).Resource(gvr).Namespace("").List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Logf("Error: %v", err)
+				listErrs = append(listErrs, err)
+				continue
+			}
+			require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
+			foundOnShards++
+
+			t.Logf("Listing %s|%s cowboys via virtual workspace wildcard list", provider2Path, exportName)
+			list, err = vw2ClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+			require.NoError(t, err, "error listing through virtual workspace wildcard")
+			require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
 		}
-		require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
-		foundOnShards++
 
-		t.Logf("Listing %s|%s cowboys via virtual workspace wildcard list", provider2Path, exportName)
-		list, err = vw2ClusterClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-		require.NoError(t, err, "error listing through virtual workspace wildcard")
-		require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
-	}
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	require.Equal(t, 1, foundOnShards, "cowboys not found exactly on one shard, but on %d/%d", foundOnShards, len(export2.Status.VirtualWorkspaces))
+		if foundOnShards == 0 {
+			for i := range listErrs {
+				if !errors.IsForbidden(listErrs[i]) {
+					t.Fatalf("cowboys not found on any shards, with unexpected error: %v", listErrs[i])
+				}
+			}
+			return false, "couldn't list via virtual workspaces because the user is not ready yet"
+		}
+
+		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		require.Equal(t, 1, foundOnShards, "cowboys not found exactly on one shard, but on %d/%d", foundOnShards, len(export2.Status.VirtualWorkspaces))
+
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to have cowboys exactly on one shard")
 }
 
 func apiexportVWConfig(t *testing.T, kubeconfig clientcmdapi.Config, url string) *rest.Config {
