@@ -62,58 +62,10 @@ var (
 		goleak.IgnoreTopFunction("sync.runtime_notifyListWait"),
 
 		// etcd
-		// created by: go.etcd.io/etcd/server/v3/embed.(*Etcd).servePeers
-		goleak.IgnoreTopFunction("github.com/soheilhy/cmux.muxListener.Accept"),
-		// created by: go.etcd.io/etcd/client/pkg/v3/fileutil.purgeFile
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/client/pkg/v3/fileutil.purgeFile.func1"),
-		// created by: go.etcd.io/etcd/server/v3/embed.(*Etcd).servePeers
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/client/pkg/v3/transport.(*tlsListener).Accept"),
-		// created by: go.etcd.io/etcd/client/v3.(*watcher).newWatcherGrpcStream
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/client/v3.(*watchGrpcStream).run"),
-		// created by: go.etcd.io/etcd/client/v3.(*watchGrpcStream).newWatchClient
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/client/v3.(*watchGrpcStream).serveSubstream.func1"),
 		// created by: go.etcd.io/etcd/client/v3.(*watchGrpcStream).waitCancelSubstreams.func1
 		goleak.IgnoreTopFunction("go.etcd.io/etcd/client/v3.(*watchGrpcStream).waitCancelSubstreams.func1.1"),
-		// created by: go.etcd.io/etcd/pkg/v3/schedule.NewFIFOScheduler
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/pkg/v3/schedule.(*fifo).run"),
-		// created by: go.etcd.io/etcd/raft/v3.StartNode
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/raft/v3.(*node).run"),
-		// created by: go.etcd.io/etcd/server/v3/embed.(*serveCtx).registerGateway
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/embed.(*serveCtx).registerGateway.func1"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).GoAttach
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).linearizableReadLoop"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).GoAttach
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).monitorDowngrade"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).GoAttach
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).monitorVersions"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).GoAttach
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).purgeFile"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).start
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).run"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*raftNode).start
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver.(*raftNode).start.func1"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver/api/v3rpc.(*watchServer).Watch
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver/api/v3rpc.(*serverWatchStream).sendLoop"),
-		// created by: google.golang.org/grpc.(*Server).serveStreams.func2
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver/api/v3rpc.(*watchServer).Watch"),
-		// created by: go.etcd.io/etcd/server/v3/etcdserver.(*EtcdServer).GoAttach
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/etcdserver/api/v3rpc.monitorLeader.func1"),
-		// created by: go.etcd.io/etcd/server/v3/lease.newLessor
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/lease.(*lessor).runLoop"),
-		// created by: go.etcd.io/etcd/server/v3/mvcc.newWatchableStore
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/mvcc.(*watchableStore).syncVictimsLoop"),
-		// created by: go.etcd.io/etcd/server/v3/mvcc.newWatchableStore
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/mvcc.(*watchableStore).syncWatchersLoop"),
-		// created by: go.etcd.io/etcd/server/v3/mvcc/backend.newBackend
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/mvcc/backend.(*backend).run"),
-		// created by: go.etcd.io/etcd/server/v3/wal.newFilePipeline
-		goleak.IgnoreTopFunction("go.etcd.io/etcd/server/v3/wal.(*filePipeline).run"),
-		// created by: go.etcd.io/etcd/client/pkg/v3/transport.newTLSListener
-		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
-		// created by: go.etcd.io/etcd/server/v3/embed.(*Etcd).serveClients
-		goleak.IgnoreTopFunction("sync.runtime_notifyListWait"),
-		// created by: github.com/kcp-dev/embeddedetcd.(*Server).Run
-		goleak.IgnoreTopFunction("net/http.(*Server).Shutdown"),
+		// created by: go.etcd.io/etcd/client/v3.(*watchGrpcStream).newWatchClient
+		goleak.IgnoreTopFunction("go.etcd.io/etcd/client/v3.(*watchGrpcStream).serveSubstream.func1"),
 
 		// kcp / kube
 		// created by k8s.io/apiserver/pkg/registry/generic/registry.(*Store).startObservingCount
@@ -140,7 +92,11 @@ var (
 		goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
 	}
 
-	WaitTime = 3 * time.Second
+	// 14s as etcd sets a client request timeout of up to 7 seconds when
+	// shutting down the server and then starts shutting down everything
+	// else.
+	// A shorter timestan d would lead to false positives in the tests.
+	WaitTime = 14 * time.Second
 )
 
 // GoleakWithDefaults verifies that there are no goroutine leaks.
