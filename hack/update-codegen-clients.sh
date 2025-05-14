@@ -39,6 +39,9 @@ chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
 source "${CODEGEN_PKG}/kube_codegen.sh"
 source "${CLUSTER_CODEGEN_PKG}/cluster_codegen.sh"
 
+rm -rf ${SCRIPT_ROOT}/sdk/client/{clientset,applyconfiguration,listers,informers}
+mkdir -p ${SCRIPT_ROOT}/sdk/client/{clientset,applyconfiguration,listers,informers}
+
 "$GOPATH"/bin/applyconfiguration-gen \
   --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
   --output-pkg github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
