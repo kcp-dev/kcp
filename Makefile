@@ -244,7 +244,7 @@ imports: $(GOLANGCI_LINT) verify-go-versions
 
 $(TOOLS_DIR)/verify_boilerplate.py:
 	mkdir -p $(TOOLS_DIR)
-	curl --fail --retry 3 -L -o $(TOOLS_DIR)/verify_boilerplate.py https://raw.githubusercontent.com/kubernetes/repo-infra/master/hack/verify_boilerplate.py
+	curl --fail --retry 3 -L -o $(TOOLS_DIR)/verify_boilerplate.py https://raw.githubusercontent.com/kubernetes/repo-infra/201dcad9616c117927232ee0bc499ff38a27023e/hack/verify_boilerplate.py
 	chmod +x $(TOOLS_DIR)/verify_boilerplate.py
 
 .PHONY: verify-boilerplate
