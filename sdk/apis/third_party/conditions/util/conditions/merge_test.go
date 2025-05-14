@@ -19,11 +19,9 @@ package conditions
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
-
-	corev1 "k8s.io/api/core/v1"
-
 	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestNewConditionsGroup(t *testing.T) {

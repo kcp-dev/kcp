@@ -77,7 +77,7 @@ onto v1.31.0
    4. Run `go mod tidy`.
    5. Update the kcp code-generator tooling version in the `Makefile`:
       1. Look up the latest commit from the main branch in https://github.com/kcp-dev/code-generator.
-      2. Adjust `CODE_GENERATOR_VER` to match accordingly.
+      2. Adjust `go.mod` accordingly.
 3. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that
    changed upstream.
 4. Run `make codegen`. You'll probably want to commit these changes as a standalone commit.

@@ -19,9 +19,8 @@ package conditions
 import (
 	"sort"
 
-	corev1 "k8s.io/api/core/v1"
-
 	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // localizedCondition defines a condition with the information of the object the conditions
