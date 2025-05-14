@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kcp-system
+  annotations:
+    bootstrap.kcp.io/create-only: "true"
+    kcp.io/cluster: root
