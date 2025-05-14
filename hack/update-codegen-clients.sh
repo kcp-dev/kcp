@@ -23,7 +23,7 @@ export GOPATH=$(go env GOPATH)
 
 SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 pushd "${SCRIPT_ROOT}"
-BOILERPLATE_HEADER="$( pwd )/hack/boilerplate/boilerplate.go.txt"
+BOILERPLATE_HEADER="$( pwd )/hack/boilerplate/boilerplate.generatego.txt"
 popd
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.io/code-generator)}
 CLUSTER_CODEGEN_PKG=${CLUSTER_CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m github.com/kcp-dev/code-generator/v3)}
@@ -43,7 +43,7 @@ rm -rf ${SCRIPT_ROOT}/sdk/client/{clientset,applyconfiguration,listers,informers
 mkdir -p ${SCRIPT_ROOT}/sdk/client/{clientset,applyconfiguration,listers,informers}
 
 "$GOPATH"/bin/applyconfiguration-gen \
-  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
+  --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/kcp/sdk/client/applyconfiguration \
   --output-dir "${SCRIPT_ROOT}/sdk/client/applyconfiguration" \
   github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
@@ -57,7 +57,7 @@ mkdir -p ${SCRIPT_ROOT}/sdk/client/{clientset,applyconfiguration,listers,informe
   k8s.io/apimachinery/pkg/version
 
 "$GOPATH"/bin/client-gen \
-  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
+  --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/kcp/sdk/client/clientset \
   --output-dir "${SCRIPT_ROOT}/sdk/client/clientset" \
   --input github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1 \
@@ -70,7 +70,7 @@ mkdir -p ${SCRIPT_ROOT}/sdk/client/{clientset,applyconfiguration,listers,informe
   --clientset-name "versioned"
 
 kube::codegen::gen_helpers \
-  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --boilerplate "${BOILERPLATE_HEADER}" \
   ./sdk/apis
 
 cd sdk
@@ -89,27 +89,27 @@ cluster::codegen::gen_client \
 cd -
 
 "$GOPATH"/bin/applyconfiguration-gen \
+  --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
   --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client/applyconfiguration" \
   github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
   k8s.io/apimachinery/pkg/apis/meta/v1
 
 "$GOPATH"/bin/client-gen \
+  --go-header-file "${BOILERPLATE_HEADER}" \
+  --output-pkg github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset \
+  --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client/clientset" \
   --input github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1 \
   --input-base="" \
   --apply-configuration-package=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
-  --clientset-name "versioned"  \
-  --output-pkg github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset \
-  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
-  --output-dir "${SCRIPT_ROOT}/test/e2e/fixtures/wildwest/client/clientset"
+  --clientset-name "versioned"
 
 kube::codegen::gen_helpers \
-  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --boilerplate "${BOILERPLATE_HEADER}" \
   ./sdk/third_party/conditions/apis
 
 kube::codegen::gen_helpers \
-  --boilerplate "${SCRIPT_ROOT}"/hack/boilerplate/boilerplate.generatego.txt \
+  --boilerplate "${BOILERPLATE_HEADER}" \
   ./test/e2e/fixtures/wildwest/apis
 
 cd ./test/e2e/fixtures/wildwest
@@ -130,7 +130,7 @@ cd -
 go install "${OPENAPI_PKG}"/cmd/openapi-gen
 
 "$GOPATH"/bin/openapi-gen \
-  --go-header-file ./hack/../hack/boilerplate/boilerplate.generatego.txt \
+  --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
   --output-file zz_generated.openapi.go \
   --output-dir "${SCRIPT_ROOT}/pkg/openapi" \
