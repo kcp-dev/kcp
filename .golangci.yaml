@@ -92,7 +92,7 @@ linters-settings:
     - prefix(github.com/kcp-dev/kcp)
     - blank
     - dot
-    skip-generated: true
+    skip-generated: false
   gosec:
     excludes:
     - G307 # Deferring unsafe method "Close" on type "\*os.File"

@@ -226,11 +226,11 @@ verify-codegen: ## Verify codegen
 .PHONY: imports
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
-	@if [ -n "$(WHAT)" ]; then \
-	  $(GOLANGCI_LINT) run --enable-only=gci --fix --fast $(WHAT); \
+	if [ -n "$(WHAT)" ]; then \
+	  $(GOLANGCI_LINT) run --enable-only=gci --fix --exclude-generated disable $(WHAT); \
 	else \
 	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(cd $$MOD; $(GOLANGCI_LINT) run --enable-only=gci --fix --fast); \
+		(set -x; cd $$MOD; $(GOLANGCI_LINT) run --enable-only=gci --fix --exclude-generated disable); \
 	  done; \
 	fi
 
