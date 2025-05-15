@@ -75,7 +75,11 @@ type Server struct {
 	Apis           *controlplaneapiserver.Server
 	MiniAggregator *miniaggregator.MiniAggregatorServer
 	virtual        *virtualrootapiserver.Server
-	DynRESTMapper  *dynamicrestmapper.DynamicRESTMapper
+	// DynRESTMapper is a workspace-aware REST mapper, backed by a reconciler,
+	// which dynamically loads all bound resources through every type associated
+	// with an APIBinding in the workspace into the mapper. Another controller can
+	// use this to resolve the Kind/Resource of the objects.
+	DynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
