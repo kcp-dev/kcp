@@ -56,7 +56,11 @@ touch "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
 # after its `package meta` declaration.
 
 cat "${REPO_ROOT}/hack/boilerplate/boilerplate.go.txt" > "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
-sed -i "s/YEAR/$(date +'%Y')/" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' "s/YEAR/$(date +'%Y')/" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+else
+  sed -i "s/YEAR/$(date +'%Y')/" "${DEFAULTRESTMAPPER_PATCH_FILEPATH}"
+fi
 cat >> "${DEFAULTRESTMAPPER_PATCH_FILEPATH}" << Header_EOF
 
 package dynamicrestmapper
