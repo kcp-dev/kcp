@@ -124,6 +124,8 @@ func DefaultTLSVersion() uint16 {
 	return tls.VersionTLS12
 }
 
+// ciphersTLS13 copies golang 1.13 implementation, where TLS1.3 suites are not
+// configurable (cipherSuites field is ignored for TLS1.3 flows and all of the
 // below three - and none other - are used).
 var ciphersTLS13 = map[string]uint16{
 	"TLS_AES_128_GCM_SHA256":       tls.TLS_AES_128_GCM_SHA256,
@@ -557,6 +559,7 @@ func randomSerialNumber() int64 {
 	return r.Int63()
 }
 
+// EnsureCA returns a CA, whether it was created (as opposed to pre-existing), and any error
 // if serialFile is empty, a RandomSerialGenerator will be used.
 func EnsureCA(certFile, keyFile, serialFile, name string, expireDays int) (*CA, bool, error) {
 	if ca, err := GetCA(certFile, keyFile, serialFile); err == nil {

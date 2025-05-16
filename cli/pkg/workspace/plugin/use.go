@@ -257,6 +257,8 @@ func resolveDots(pth string) (logicalcluster.Path, error) {
 	return ret, nil
 }
 
+// swapContexts moves to previous context from the config.
+// It will update existing configuration by swapping current & previous configurations.
 // This method already commits. Do not use with commitConfig.
 func (o *UseWorkspaceOptions) swapContexts(ctx context.Context, currentContext *clientcmdapi.Context) (string, error) {
 	currentContext = currentContext.DeepCopy()

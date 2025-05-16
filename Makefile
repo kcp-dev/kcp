@@ -150,10 +150,11 @@ lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 		fi; \
 	done
 	./hack/verify-contextual-logging.sh
+.PHONY: lint
 
-.PHONY: fix-lint
 fix-lint: $(GOLANGCI_LINT)
 	GOLANGCI_LINT_FLAGS="--fix" $(MAKE) lint
+.PHONY: fix-lint
 
 update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 	UPDATE=true ./hack/verify-contextual-logging.sh
@@ -238,11 +239,11 @@ verify-codegen: ## Verify codegen
 .PHONY: imports
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
-	@if [ -n "$(WHAT)" ]; then \
+	if [ -n "$(WHAT)" ]; then \
 	  $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml $(WHAT); \
 	else \
 	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(cd $$MOD; $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml); \
+		(set -x; cd $$MOD; $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml); \
 	  done; \
 	fi
 
