@@ -134,6 +134,9 @@ linters:
       - linters:
           - goconst
         path: (.+)_test\.go
+      - linters:
+          - staticcheck
+        text: QF1008
     paths:
       - third_party$
       - builtin$

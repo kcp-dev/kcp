@@ -19,9 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
-
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // ShardStatusApplyConfiguration represents a declarative configuration of the ShardStatus type for use

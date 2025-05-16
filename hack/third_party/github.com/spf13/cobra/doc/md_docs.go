@@ -70,12 +70,12 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 	}
 
 	if cmd.Runnable() {
-		buf.WriteString(fmt.Sprintf("```\n%s\n```\n\n", cmd.UseLine()))
+		fmt.Fprintf(buf, "```\n%s\n```\n\n", cmd.UseLine())
 	}
 
 	if len(cmd.Example) > 0 {
 		buf.WriteString("### Examples\n\n")
-		buf.WriteString(fmt.Sprintf("```\n%s\n```\n\n", cmd.Example))
+		fmt.Fprintf(buf, "```\n%s\n```\n\n", cmd.Example)
 	}
 
 	if err := printOptions(buf, cmd, name); err != nil {
@@ -88,7 +88,7 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 			pname := parent.CommandPath()
 			link := pname + ".md"
 			link = strings.ReplaceAll(link, " ", "_")
-			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", pname, linkHandler(link), parent.Short))
+			fmt.Fprintf(buf, "* [%s](%s)\t - %s\n", pname, linkHandler(link), parent.Short)
 			cmd.VisitParents(func(c *cobra.Command) {
 				if c.DisableAutoGenTag {
 					cmd.DisableAutoGenTag = c.DisableAutoGenTag
@@ -105,8 +105,8 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 			}
 			cname := name + " " + child.Name()
 			link := cname + ".md"
-			link = strings.Replace(link, " ", "_", -1)
-			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", cname, linkHandler(link), child.Short))
+			link = strings.ReplaceAll(link, " ", "_")
+			fmt.Fprintf(buf, "* [%s](%s)\t - %s\n", cname, linkHandler(link), child.Short)
 		}
 		buf.WriteString("\n")
 	}
@@ -127,7 +127,7 @@ func GenMarkdownTree(cmd *cobra.Command, dir string) error {
 	return GenMarkdownTreeCustom(cmd, dir, emptyStr, identity)
 }
 
-// GenMarkdownTreeCustom is the the same as GenMarkdownTree, but
+// GenMarkdownTreeCustom is the same as GenMarkdownTree, but
 // with custom filePrepender and linkHandler.
 func GenMarkdownTreeCustom(cmd *cobra.Command, dir string, filePrepender, linkHandler func(string) string) error {
 	for _, c := range cmd.Commands() {
@@ -147,11 +147,8 @@ func GenMarkdownTreeCustom(cmd *cobra.Command, dir string, filePrepender, linkHa
 	}
 	defer f.Close()
 
-	if _, err := io.WriteString(f, filePrepender(filename)); err != nil {
+	if _, err := f.WriteString(filePrepender(filename)); err != nil {
 		return err
 	}
-	if err := GenMarkdownCustom(cmd, f, linkHandler); err != nil {
-		return err
-	}
-	return nil
+	return GenMarkdownCustom(cmd, f, linkHandler)
 }

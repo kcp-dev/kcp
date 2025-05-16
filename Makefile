@@ -140,7 +140,14 @@ $(KCP_APIGEN_GEN):
 	pushd . && cd sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
 
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
-	$(GOLANGCI_LINT) run --timeout 20m ./...
+	echo "Linting root module..."; \
+	$(GOLANGCI_LINT) run -c $(ROOT_DIR)/.golangci.yaml --timeout 20m ./...
+	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+		if [ "$$MOD" != "." ]; then \
+			echo "Linting $$MOD module..."; \
+			(cd $$MOD && $(GOLANGCI_LINT) run -c $(ROOT_DIR)/.golangci.yaml --timeout 20m ./...); \
+		fi; \
+	done
 	./hack/verify-contextual-logging.sh
 .PHONY: lint
 
@@ -227,19 +234,11 @@ verify-codegen: ## Verify codegen
 .PHONY: imports
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
-<<<<<<< HEAD
-	if [ -n "$(WHAT)" ]; then \
-	  $(GOLANGCI_LINT) run --enable-only=gci --fix --exclude-generated disable $(WHAT); \
-	else \
-	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(set -x; cd $$MOD; $(GOLANGCI_LINT) run --enable-only=gci --fix --exclude-generated disable); \
-=======
 	@if [ -n "$(WHAT)" ]; then \
-	  $(GOLANGCI_LINT) run  --fix --fast-only $(WHAT); \
+	  $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml $(WHAT); \
 	else \
 	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(cd $$MOD; $(GOLANGCI_LINT) run  --fix --fast-only); \
->>>>>>> 69a6b6ecb (update golangci-lint to v2)
+		(cd $$MOD; $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml); \
 	  done; \
 	fi
 

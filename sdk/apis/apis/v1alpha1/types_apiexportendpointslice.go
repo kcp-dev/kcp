@@ -116,7 +116,7 @@ const (
 	PartitionValid conditionsv1alpha1.ConditionType = "PartitionValid"
 
 	// EndpointURLsReady is a condition for APIExportEndpointSlice that reflects the readiness of the URLs.
-	// DEPRECATED: This condition is deprecated and will be removed in a future release.
+	// Deprecated: This condition is deprecated and will be removed in a future release.
 	APIExportEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
 
 	// PartitionInvalidReferenceReason is a reason for the PartitionValid condition of APIExportEndpointSlice that the

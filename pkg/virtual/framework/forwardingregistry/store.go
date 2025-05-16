@@ -124,10 +124,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, false, err
 		}
 
-		deletedImmediately := true
-		if status == http.StatusAccepted {
-			deletedImmediately = false
-		}
+		deletedImmediately := status != http.StatusAccepted
 
 		if obj.GetObjectKind().GroupVersionKind() == metav1.Unversioned.WithKind("Status") {
 			// The DELETE request made to the downstream API server can either return the full object,
@@ -191,7 +188,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 				// for non-existent objects can still be processed.
 				if !apierrors.IsNotFound(err) ||
 					!forceAllowCreate &&
-						!(requestInfo != nil && requestInfo.Verb == "patch") {
+						(requestInfo == nil || requestInfo.Verb != "patch") {
 					return nil, err
 				}
 

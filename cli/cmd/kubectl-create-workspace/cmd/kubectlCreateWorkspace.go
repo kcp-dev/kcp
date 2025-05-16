@@ -41,5 +41,4 @@ func KubectlCreateWorkspaceCommand() *cobra.Command {
 	klog.InitFlags(fs)
 	createWorkspaceCommand.PersistentFlags().AddGoFlagSet(fs)
 	return createWorkspaceCommand
-
 }

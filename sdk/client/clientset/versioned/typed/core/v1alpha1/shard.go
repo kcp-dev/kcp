@@ -21,14 +21,13 @@ package v1alpha1
 import (
 	context "context"
 
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
+	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	applyconfigurationcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
-	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 // ShardsGetter has a method to return a ShardInterface.

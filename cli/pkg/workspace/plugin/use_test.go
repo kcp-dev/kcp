@@ -429,7 +429,7 @@ func TestUse(t *testing.T) {
 			param:       "~/..",
 			expected:    NewKubeconfig().WithKcpCurrent("root:users:ab:cd").WithKcpPrevious("root:foo").Build(),
 			destination: homeWorkspace.String(),
-			wantStdout:  []string{fmt.Sprintf("Current workspace is 'root:users:ab:cd'")},
+			wantStdout:  []string{"Current workspace is 'root:users:ab:cd'"},
 		},
 		{
 			name:   "~ unfolded",
@@ -736,8 +736,6 @@ func TestUse(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
 			var got *clientcmdapi.Config
 

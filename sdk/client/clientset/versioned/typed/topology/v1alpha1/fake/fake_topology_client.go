@@ -19,10 +19,9 @@ limitations under the License.
 package fake
 
 import (
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 )
 
 type FakeTopologyV1alpha1 struct {

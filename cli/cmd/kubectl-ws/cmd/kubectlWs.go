@@ -41,5 +41,4 @@ func KubectlWsCommand() *cobra.Command {
 	klog.InitFlags(fs)
 	wsCommand.PersistentFlags().AddGoFlagSet(fs)
 	return wsCommand
-
 }
