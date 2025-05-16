@@ -39,6 +39,46 @@ func init() {
 // RegisterConversions adds conversion functions to the given scheme.
 // Public to allow building arbitrary schemes.
 func RegisterConversions(s *runtime.Scheme) error {
+	if err := s.AddGeneratedConversionFunc((*APIBinding)(nil), (*v1alpha1.APIBinding)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(a.(*APIBinding), b.(*v1alpha1.APIBinding), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.APIBinding)(nil), (*APIBinding)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(a.(*v1alpha1.APIBinding), b.(*APIBinding), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*APIBindingList)(nil), (*v1alpha1.APIBindingList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList(a.(*APIBindingList), b.(*v1alpha1.APIBindingList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.APIBindingList)(nil), (*APIBindingList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList(a.(*v1alpha1.APIBindingList), b.(*APIBindingList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*APIBindingSpec)(nil), (*v1alpha1.APIBindingSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(a.(*APIBindingSpec), b.(*v1alpha1.APIBindingSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.APIBindingSpec)(nil), (*APIBindingSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec(a.(*v1alpha1.APIBindingSpec), b.(*APIBindingSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*APIBindingStatus)(nil), (*v1alpha1.APIBindingStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(a.(*APIBindingStatus), b.(*v1alpha1.APIBindingStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.APIBindingStatus)(nil), (*APIBindingStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(a.(*v1alpha1.APIBindingStatus), b.(*APIBindingStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*APIExportList)(nil), (*v1alpha1.APIExportList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_APIExportList_To_v1alpha1_APIExportList(a.(*APIExportList), b.(*v1alpha1.APIExportList), scope)
 	}); err != nil {
@@ -56,6 +96,56 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*v1alpha1.APIExportStatus)(nil), (*APIExportStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(a.(*v1alpha1.APIExportStatus), b.(*APIExportStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*AcceptablePermissionClaim)(nil), (*v1alpha1.AcceptablePermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(a.(*AcceptablePermissionClaim), b.(*v1alpha1.AcceptablePermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.AcceptablePermissionClaim)(nil), (*AcceptablePermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(a.(*v1alpha1.AcceptablePermissionClaim), b.(*AcceptablePermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*BindingReference)(nil), (*v1alpha1.BindingReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(a.(*BindingReference), b.(*v1alpha1.BindingReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.BindingReference)(nil), (*BindingReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(a.(*v1alpha1.BindingReference), b.(*BindingReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*BoundAPIResource)(nil), (*v1alpha1.BoundAPIResource)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(a.(*BoundAPIResource), b.(*v1alpha1.BoundAPIResource), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.BoundAPIResource)(nil), (*BoundAPIResource)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(a.(*v1alpha1.BoundAPIResource), b.(*BoundAPIResource), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*BoundAPIResourceSchema)(nil), (*v1alpha1.BoundAPIResourceSchema)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(a.(*BoundAPIResourceSchema), b.(*v1alpha1.BoundAPIResourceSchema), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.BoundAPIResourceSchema)(nil), (*BoundAPIResourceSchema)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(a.(*v1alpha1.BoundAPIResourceSchema), b.(*BoundAPIResourceSchema), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*ExportBindingReference)(nil), (*v1alpha1.ExportBindingReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference(a.(*ExportBindingReference), b.(*v1alpha1.ExportBindingReference), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.ExportBindingReference)(nil), (*ExportBindingReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference(a.(*v1alpha1.ExportBindingReference), b.(*ExportBindingReference), scope)
 	}); err != nil {
 		return err
 	}
@@ -150,6 +240,116 @@ func RegisterConversions(s *runtime.Scheme) error {
 		return err
 	}
 	return nil
+}
+
+func autoConvert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *v1alpha1.APIBinding, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding is an autogenerated conversion function.
+func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *v1alpha1.APIBinding, s conversion.Scope) error {
+	return autoConvert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in, out, s)
+}
+
+func autoConvert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *v1alpha1.APIBinding, out *APIBinding, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding is an autogenerated conversion function.
+func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *v1alpha1.APIBinding, out *APIBinding, s conversion.Scope) error {
+	return autoConvert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in, out, s)
+}
+
+func autoConvert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList(in *APIBindingList, out *v1alpha1.APIBindingList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]v1alpha1.APIBinding)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList is an autogenerated conversion function.
+func Convert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList(in *APIBindingList, out *v1alpha1.APIBindingList, s conversion.Scope) error {
+	return autoConvert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList(in, out, s)
+}
+
+func autoConvert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList(in *v1alpha1.APIBindingList, out *APIBindingList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]APIBinding)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList is an autogenerated conversion function.
+func Convert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList(in *v1alpha1.APIBindingList, out *APIBindingList, s conversion.Scope) error {
+	return autoConvert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList(in, out, s)
+}
+
+func autoConvert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(in *APIBindingSpec, out *v1alpha1.APIBindingSpec, s conversion.Scope) error {
+	if err := Convert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(&in.Reference, &out.Reference, s); err != nil {
+		return err
+	}
+	out.PermissionClaims = *(*[]v1alpha1.AcceptablePermissionClaim)(unsafe.Pointer(&in.PermissionClaims))
+	return nil
+}
+
+// Convert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec is an autogenerated conversion function.
+func Convert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(in *APIBindingSpec, out *v1alpha1.APIBindingSpec, s conversion.Scope) error {
+	return autoConvert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(in, out, s)
+}
+
+func autoConvert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec(in *v1alpha1.APIBindingSpec, out *APIBindingSpec, s conversion.Scope) error {
+	if err := Convert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(&in.Reference, &out.Reference, s); err != nil {
+		return err
+	}
+	out.PermissionClaims = *(*[]AcceptablePermissionClaim)(unsafe.Pointer(&in.PermissionClaims))
+	return nil
+}
+
+// Convert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec is an autogenerated conversion function.
+func Convert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec(in *v1alpha1.APIBindingSpec, out *APIBindingSpec, s conversion.Scope) error {
+	return autoConvert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec(in, out, s)
+}
+
+func autoConvert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(in *APIBindingStatus, out *v1alpha1.APIBindingStatus, s conversion.Scope) error {
+	out.APIExportClusterName = in.APIExportClusterName
+	out.BoundResources = *(*[]v1alpha1.BoundAPIResource)(unsafe.Pointer(&in.BoundResources))
+	out.Phase = v1alpha1.APIBindingPhaseType(in.Phase)
+	out.Conditions = *(*conditionsv1alpha1.Conditions)(unsafe.Pointer(&in.Conditions))
+	out.AppliedPermissionClaims = *(*[]v1alpha1.PermissionClaim)(unsafe.Pointer(&in.AppliedPermissionClaims))
+	out.ExportPermissionClaims = *(*[]v1alpha1.PermissionClaim)(unsafe.Pointer(&in.ExportPermissionClaims))
+	return nil
+}
+
+// Convert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus is an autogenerated conversion function.
+func Convert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(in *APIBindingStatus, out *v1alpha1.APIBindingStatus, s conversion.Scope) error {
+	return autoConvert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(in, out, s)
+}
+
+func autoConvert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(in *v1alpha1.APIBindingStatus, out *APIBindingStatus, s conversion.Scope) error {
+	out.APIExportClusterName = in.APIExportClusterName
+	out.BoundResources = *(*[]BoundAPIResource)(unsafe.Pointer(&in.BoundResources))
+	out.Phase = APIBindingPhaseType(in.Phase)
+	out.Conditions = *(*conditionsv1alpha1.Conditions)(unsafe.Pointer(&in.Conditions))
+	out.AppliedPermissionClaims = *(*[]PermissionClaim)(unsafe.Pointer(&in.AppliedPermissionClaims))
+	out.ExportPermissionClaims = *(*[]PermissionClaim)(unsafe.Pointer(&in.ExportPermissionClaims))
+	return nil
+}
+
+// Convert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus is an autogenerated conversion function.
+func Convert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(in *v1alpha1.APIBindingStatus, out *APIBindingStatus, s conversion.Scope) error {
+	return autoConvert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(in, out, s)
 }
 
 func autoConvert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *v1alpha1.APIExport, s conversion.Scope) error {
@@ -254,6 +454,128 @@ func autoConvert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(in *v1alph
 // Convert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus is an autogenerated conversion function.
 func Convert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(in *v1alpha1.APIExportStatus, out *APIExportStatus, s conversion.Scope) error {
 	return autoConvert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(in, out, s)
+}
+
+func autoConvert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in *AcceptablePermissionClaim, out *v1alpha1.AcceptablePermissionClaim, s conversion.Scope) error {
+	if err := Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&in.PermissionClaim, &out.PermissionClaim, s); err != nil {
+		return err
+	}
+	out.State = v1alpha1.AcceptablePermissionClaimState(in.State)
+	return nil
+}
+
+// Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim is an autogenerated conversion function.
+func Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in *AcceptablePermissionClaim, out *v1alpha1.AcceptablePermissionClaim, s conversion.Scope) error {
+	return autoConvert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in, out, s)
+}
+
+func autoConvert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in *v1alpha1.AcceptablePermissionClaim, out *AcceptablePermissionClaim, s conversion.Scope) error {
+	if err := Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&in.PermissionClaim, &out.PermissionClaim, s); err != nil {
+		return err
+	}
+	out.State = AcceptablePermissionClaimState(in.State)
+	return nil
+}
+
+// Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim is an autogenerated conversion function.
+func Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in *v1alpha1.AcceptablePermissionClaim, out *AcceptablePermissionClaim, s conversion.Scope) error {
+	return autoConvert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in, out, s)
+}
+
+func autoConvert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(in *BindingReference, out *v1alpha1.BindingReference, s conversion.Scope) error {
+	out.Export = (*v1alpha1.ExportBindingReference)(unsafe.Pointer(in.Export))
+	return nil
+}
+
+// Convert_v1alpha2_BindingReference_To_v1alpha1_BindingReference is an autogenerated conversion function.
+func Convert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(in *BindingReference, out *v1alpha1.BindingReference, s conversion.Scope) error {
+	return autoConvert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(in, out, s)
+}
+
+func autoConvert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(in *v1alpha1.BindingReference, out *BindingReference, s conversion.Scope) error {
+	out.Export = (*ExportBindingReference)(unsafe.Pointer(in.Export))
+	return nil
+}
+
+// Convert_v1alpha1_BindingReference_To_v1alpha2_BindingReference is an autogenerated conversion function.
+func Convert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(in *v1alpha1.BindingReference, out *BindingReference, s conversion.Scope) error {
+	return autoConvert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(in, out, s)
+}
+
+func autoConvert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPIResource, out *v1alpha1.BoundAPIResource, s conversion.Scope) error {
+	out.Group = in.Group
+	out.Resource = in.Resource
+	if err := Convert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(&in.Schema, &out.Schema, s); err != nil {
+		return err
+	}
+	out.StorageVersions = *(*[]string)(unsafe.Pointer(&in.StorageVersions))
+	return nil
+}
+
+// Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource is an autogenerated conversion function.
+func Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPIResource, out *v1alpha1.BoundAPIResource, s conversion.Scope) error {
+	return autoConvert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in, out, s)
+}
+
+func autoConvert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(in *v1alpha1.BoundAPIResource, out *BoundAPIResource, s conversion.Scope) error {
+	out.Group = in.Group
+	out.Resource = in.Resource
+	if err := Convert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(&in.Schema, &out.Schema, s); err != nil {
+		return err
+	}
+	out.StorageVersions = *(*[]string)(unsafe.Pointer(&in.StorageVersions))
+	return nil
+}
+
+// Convert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource is an autogenerated conversion function.
+func Convert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(in *v1alpha1.BoundAPIResource, out *BoundAPIResource, s conversion.Scope) error {
+	return autoConvert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(in, out, s)
+}
+
+func autoConvert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(in *BoundAPIResourceSchema, out *v1alpha1.BoundAPIResourceSchema, s conversion.Scope) error {
+	out.Name = in.Name
+	out.UID = in.UID
+	out.IdentityHash = in.IdentityHash
+	return nil
+}
+
+// Convert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema is an autogenerated conversion function.
+func Convert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(in *BoundAPIResourceSchema, out *v1alpha1.BoundAPIResourceSchema, s conversion.Scope) error {
+	return autoConvert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(in, out, s)
+}
+
+func autoConvert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(in *v1alpha1.BoundAPIResourceSchema, out *BoundAPIResourceSchema, s conversion.Scope) error {
+	out.Name = in.Name
+	out.UID = in.UID
+	out.IdentityHash = in.IdentityHash
+	return nil
+}
+
+// Convert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema is an autogenerated conversion function.
+func Convert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(in *v1alpha1.BoundAPIResourceSchema, out *BoundAPIResourceSchema, s conversion.Scope) error {
+	return autoConvert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(in, out, s)
+}
+
+func autoConvert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference(in *ExportBindingReference, out *v1alpha1.ExportBindingReference, s conversion.Scope) error {
+	out.Path = in.Path
+	out.Name = in.Name
+	return nil
+}
+
+// Convert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference is an autogenerated conversion function.
+func Convert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference(in *ExportBindingReference, out *v1alpha1.ExportBindingReference, s conversion.Scope) error {
+	return autoConvert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference(in, out, s)
+}
+
+func autoConvert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference(in *v1alpha1.ExportBindingReference, out *ExportBindingReference, s conversion.Scope) error {
+	out.Path = in.Path
+	out.Name = in.Name
+	return nil
+}
+
+// Convert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference is an autogenerated conversion function.
+func Convert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference(in *v1alpha1.ExportBindingReference, out *ExportBindingReference, s conversion.Scope) error {
+	return autoConvert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference(in, out, s)
 }
 
 func autoConvert_v1alpha2_GroupResource_To_v1alpha1_GroupResource(in *GroupResource, out *v1alpha1.GroupResource, s conversion.Scope) error {

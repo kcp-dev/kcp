@@ -37,7 +37,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -48,7 +47,7 @@ import (
 // It also updates the status if it finds an invalid permission claim.
 // Permission claims are considered invalid when the identity hashes are mismatched, and when there is no dynamic informer
 // for the group resource.
-func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) error {
+func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) error {
 	logger := klog.FromContext(ctx)
 
 	clusterName := logicalcluster.From(apiBinding)
@@ -70,20 +69,14 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 	logger = logging.WithObject(logger, apiExport)
 
 	exportedClaims := sets.New[string]()
-	for _, v2Claim := range apiExport.Spec.PermissionClaims {
-		v1Claim := apisv1alpha1.PermissionClaim{}
-		err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&v2Claim, &v1Claim, nil)
-		if err != nil {
-			return fmt.Errorf("failed to convert PermissionClaim: %w", err)
-		}
-
-		exportedClaims.Insert(setKeyForClaim(v1Claim))
+	for _, claim := range apiExport.Spec.PermissionClaims {
+		exportedClaims.Insert(setKeyForClaim(claim))
 	}
 
 	acceptedClaims := sets.New[string]()
-	acceptedClaimsMap := make(map[string]apisv1alpha1.PermissionClaim)
+	acceptedClaimsMap := make(map[string]apisv1alpha2.PermissionClaim)
 	for _, claim := range apiBinding.Spec.PermissionClaims {
-		if claim.State == apisv1alpha1.ClaimAccepted {
+		if claim.State == apisv1alpha2.ClaimAccepted {
 			key := setKeyForClaim(claim.PermissionClaim)
 			acceptedClaims.Insert(key)
 			acceptedClaimsMap[key] = claim.PermissionClaim
@@ -152,7 +145,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 			logger := logging.WithObject(logger, u)
 
-			if gvr == apisv1alpha1.SchemeGroupVersion.WithResource("apibindings") && logicalcluster.From(u) == clusterName && u.GetName() == apiBinding.Name {
+			if gvr == apisv1alpha2.SchemeGroupVersion.WithResource("apibindings") && logicalcluster.From(u) == clusterName && u.GetName() == apiBinding.Name {
 				// Don't issue a generic patch when obj == the APIBinding being reconciled. That will be covered when
 				// this call to reconcile exits and the controller patches this APIBinding. Otherwise, the generic patch
 				// here will conflict with the controller's attempt to update the APIBinding's status.
@@ -206,8 +199,8 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.PermissionClaimsValid,
-			apisv1alpha1.InvalidPermissionClaimsReason,
+			apisv1alpha2.PermissionClaimsValid,
+			apisv1alpha2.InvalidPermissionClaimsReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"%d unexpected and/or invalid permission claims (showing first %d): %s",
 			len(unexpectedOrInvalidErrors),
@@ -215,11 +208,11 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			errsToDisplay,
 		)
 	} else {
-		conditions.MarkTrue(apiBinding, apisv1alpha1.PermissionClaimsValid)
+		conditions.MarkTrue(apiBinding, apisv1alpha2.PermissionClaimsValid)
 	}
 
 	fullyApplied := expectedClaims.Difference(applyErrors)
-	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha1.PermissionClaim{}
+	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha2.PermissionClaim{}
 	for _, s := range sets.List[string](fullyApplied) {
 		// fullyApplied = (exportedClaims ∩ acceptedClaims) ⊖ applyErrors,
 		// hence s must be in acceptedClaims (and exportedClaims).
@@ -235,8 +228,8 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.PermissionClaimsApplied,
-			apisv1alpha1.InternalErrorReason,
+			apisv1alpha2.PermissionClaimsApplied,
+			apisv1alpha2.InternalErrorReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Permission claims have not been fully applied: %v",
 			errsToDisplay,
@@ -250,20 +243,20 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.API
 			errsToDisplay,
 		)
 	} else {
-		conditions.MarkTrue(apiBinding, apisv1alpha1.PermissionClaimsApplied)
+		conditions.MarkTrue(apiBinding, apisv1alpha2.PermissionClaimsApplied)
 	}
 
 	return nil
 }
 
-func setKeyForClaim(claim apisv1alpha1.PermissionClaim) string {
+func setKeyForClaim(claim apisv1alpha2.PermissionClaim) string {
 	return fmt.Sprintf("%s/%s/%s", claim.Resource, claim.Group, claim.IdentityHash)
 }
 
-func claimFromSetKey(key string) apisv1alpha1.PermissionClaim {
+func claimFromSetKey(key string) apisv1alpha2.PermissionClaim {
 	parts := strings.SplitN(key, "/", 3)
-	return apisv1alpha1.PermissionClaim{
-		GroupResource: apisv1alpha1.GroupResource{
+	return apisv1alpha2.PermissionClaim{
+		GroupResource: apisv1alpha2.GroupResource{
 			Group:    parts[1],
 			Resource: parts[0],
 		},

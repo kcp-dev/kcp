@@ -41,13 +41,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy/v1alpha1"
@@ -63,7 +61,7 @@ func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
-	apiBindingsInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingsInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportsInformer, globalAPIExportsInformer apisv1alpha2informers.APIExportClusterInformer,
 ) (*APIBinder, error) {
 	c := &APIBinder{
@@ -84,14 +82,14 @@ func NewAPIBinder(
 			return logicalClusterInformer.Lister().List(labels.Everything())
 		},
 
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error) {
-			return kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error) {
+			return kcpClusterClient.Cluster(clusterName).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
@@ -155,9 +153,9 @@ type APIBinder struct {
 	getWorkspaceType    func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
 	listLogicalClusters func() ([]*corev1alpha1.LogicalCluster, error)
 
-	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
-	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error)
-	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha1.APIBinding) (*apisv1alpha1.APIBinding, error)
+	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error)
 
 	getAPIExport func(clusterName logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
@@ -183,7 +181,7 @@ func (b *APIBinder) enqueueLogicalCluster(obj interface{}, logger logr.Logger) {
 }
 
 func (b *APIBinder) enqueueAPIBinding(obj interface{}, logger logr.Logger) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
 		utilruntime.HandleError(fmt.Errorf("expected APIBinding, got %T", obj))
 		return

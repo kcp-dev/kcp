@@ -76,7 +76,7 @@ func NewController(
 	ctx context.Context,
 	state *DynamicRESTMapper,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
@@ -112,7 +112,7 @@ func NewController(
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
 
-		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIBinding, error) {
+		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
 	}
@@ -321,7 +321,7 @@ func (c *Controller) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefini
 	return gvkrs
 }
 
-func (c *Controller) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha1.APIBinding) ([]typeMeta, error) {
+func (c *Controller) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha2.APIBinding) ([]typeMeta, error) {
 	apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
 	if apiExportPath.Empty() {
 		apiExportPath = logicalcluster.From(apiBinding).Path()

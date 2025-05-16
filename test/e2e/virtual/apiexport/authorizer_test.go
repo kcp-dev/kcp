@@ -222,43 +222,43 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	t.Logf("bind cowboys and claimed sherriffs in the tenant workspace %q", tenantPath)
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err := apply(t, ctx, tenantPath, tenantUser,
-			&apisv1alpha1.APIBinding{
+			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: serviceProvider1Path.String(),
 							Name: "wild.wild.west",
 						},
 					},
 				},
 			},
-			&apisv1alpha1.APIBinding{
+			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cowboys",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				Spec: apisv1alpha2.APIBindingSpec{
+					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimAccepted,
+							State: apisv1alpha2.ClaimAccepted,
 						},
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 								IdentityHash:  sherriffsIdentityHash,
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimAccepted,
+							State: apisv1alpha2.ClaimAccepted,
 						},
 					},
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: serviceProvider2Path.String(),
 							Name: "today-cowboys",
 						},
@@ -321,30 +321,30 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	t.Logf("Create a cowboys APIBinding in consumer workspace %q that points to the today-cowboys export from %q but shadows a local cowboys CRD at the same time", tenantShadowCRDPath, serviceProvider2Path)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		err := apply(t, ctx, tenantShadowCRDPath, tenantUser,
-			&apisv1alpha1.APIBinding{
+			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cowboys",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				Spec: apisv1alpha2.APIBindingSpec{
+					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimAccepted,
+							State: apisv1alpha2.ClaimAccepted,
 						},
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 								IdentityHash:  sherriffsIdentityHash,
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimAccepted,
+							State: apisv1alpha2.ClaimAccepted,
 						},
 					},
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: serviceProvider2Path.String(),
 							Name: "today-cowboys",
 						},
@@ -358,12 +358,12 @@ func TestAPIExportAuthorizers(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
-	t.Logf("Waiting for cowboys APIBinding in consumer workspace %q to have the condition %q mentioning the conflict with the shadowing local cowboys CRD", tenantShadowCRDPath, apisv1alpha1.BindingUpToDate)
+	t.Logf("Waiting for cowboys APIBinding in consumer workspace %q to have the condition %q mentioning the conflict with the shadowing local cowboys CRD", tenantShadowCRDPath, apisv1alpha2.BindingUpToDate)
 	tenantUserKcpClient, err := kcpclientset.NewForConfig(tenantUser)
 	require.NoError(t, err)
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return tenantUserKcpClient.Cluster(tenantShadowCRDPath).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
-	}, kcptestinghelpers.IsNot(apisv1alpha1.BindingUpToDate).WithReason(apisv1alpha1.NamingConflictsReason))
+		return tenantUserKcpClient.Cluster(tenantShadowCRDPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.IsNot(apisv1alpha2.BindingUpToDate).WithReason(apisv1alpha2.NamingConflictsReason))
 
 	// Have to do this with Eventually because the RBAC for the maximal permission policy can be slow to propagate via
 	// the cache server.
@@ -625,22 +625,22 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	t.Logf("bind sherriffs with ConfigMaps PermissionClaim rejected in the tenant workspace %q", tenantPath)
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err := apply(t, ctx, tenantPath, tenantUser,
-			&apisv1alpha1.APIBinding{
+			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				Spec: apisv1alpha2.APIBindingSpec{
+					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimRejected,
+							State: apisv1alpha2.ClaimRejected,
 						},
 					},
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: serviceProviderPath.String(),
 							Name: "wild.wild.west",
 						},
@@ -662,22 +662,22 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	t.Logf("update sherriffs APIBinding to accept the ConfigMaps PermissionClaim")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err := apply(t, ctx, tenantPath, tenantUser,
-			&apisv1alpha1.APIBinding{
+			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				Spec: apisv1alpha2.APIBindingSpec{
+					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimAccepted,
+							State: apisv1alpha2.ClaimAccepted,
 						},
 					},
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: serviceProviderPath.String(),
 							Name: "wild.wild.west",
 						},
@@ -723,22 +723,22 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	t.Logf("update sherriffs APIBinding to reject the ConfigMaps PermissionClaim again")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		err := apply(t, ctx, tenantPath, tenantUser,
-			&apisv1alpha1.APIBinding{
+			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				Spec: apisv1alpha2.APIBindingSpec{
+					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha1.PermissionClaim{
-								GroupResource: apisv1alpha1.GroupResource{Resource: "configmaps"},
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
 								All:           true,
 							},
-							State: apisv1alpha1.ClaimRejected,
+							State: apisv1alpha2.ClaimRejected,
 						},
 					},
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: serviceProviderPath.String(),
 							Name: "wild.wild.west",
 						},
@@ -927,38 +927,38 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the service APIExport from %q", userPath, servicePath)
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: servicePath.String(),
 					Name: apiExport.Name,
 				},
 			},
-			PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha1.PermissionClaim{
-						GroupResource: apisv1alpha1.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
+					PermissionClaim: apisv1alpha2.PermissionClaim{
+						GroupResource: apisv1alpha2.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
 						IdentityHash:  identityHash,
 						All:           true,
 					},
-					State: apisv1alpha1.ClaimAccepted,
+					State: apisv1alpha2.ClaimAccepted,
 				},
 			},
 		},
 	}
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := userKcpClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := userKcpClient.Cluster(userPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "api binding creation failed")
 
 	t.Logf("Wait for the binding to be ready")
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return userKcpClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
-	}, kcptestinghelpers.Is(apisv1alpha1.InitialBindingCompleted))
+		return userKcpClient.Cluster(userPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 
 	t.Logf("Get virtual workspace client for service APIExport in workspace %q", servicePath)
 	serviceAPIExportVWCfg := framework.StaticTokenUserConfig(providerUser, rest.CopyConfig(cfg))

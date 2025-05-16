@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha2
 
+// APIBindingClusterListerExpansion allows custom methods to be added to
+// APIBindingClusterLister.
+type APIBindingClusterListerExpansion interface{}
+
+// APIBindingListerExpansion allows custom methods to be added to
+// APIBindingLister.
+type APIBindingListerExpansion interface{}
+
 // APIExportClusterListerExpansion allows custom methods to be added to
 // APIExportClusterLister.
 type APIExportClusterListerExpansion interface{}

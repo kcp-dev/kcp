@@ -53,10 +53,10 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, this *apisv1alpha1.APIBinding) (reconcileStatus, error)
+	reconcile(ctx context.Context, this *apisv1alpha2.APIBinding) (reconcileStatus, error)
 }
 
-func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (bool, error) {
+func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (bool, error) {
 	reconcilers := []reconciler{
 		&phaseReconciler{
 			newReconciler:     &newReconciler{controller: c},
@@ -88,14 +88,14 @@ type summaryReconciler struct {
 	*controller
 }
 
-func (r *summaryReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
+func (r *summaryReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (reconcileStatus, error) {
 	// The only condition that reflects if the APIBinding is Ready is InitialBindingCompleted. Other conditions
 	// (e.g. APIExportValid) may revert to false after the initial binding has completed, but those must not affect
 	// the readiness.
 	conditions.SetSummary(
 		apiBinding,
 		conditions.WithConditions(
-			apisv1alpha1.InitialBindingCompleted,
+			apisv1alpha2.InitialBindingCompleted,
 		),
 	)
 
@@ -107,11 +107,11 @@ type phaseReconciler struct {
 	bindingReconciler reconciler
 }
 
-func (r *phaseReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
+func (r *phaseReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (reconcileStatus, error) {
 	switch apiBinding.Status.Phase {
 	case "":
 		return r.newReconciler.reconcile(ctx, apiBinding)
-	case apisv1alpha1.APIBindingPhaseBinding, apisv1alpha1.APIBindingPhaseBound:
+	case apisv1alpha2.APIBindingPhaseBinding, apisv1alpha2.APIBindingPhaseBound:
 		return r.bindingReconciler.reconcile(ctx, apiBinding)
 	}
 
@@ -123,13 +123,13 @@ type newReconciler struct {
 	*controller
 }
 
-func (r *newReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
-	apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBinding
+func (r *newReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (reconcileStatus, error) {
+	apiBinding.Status.Phase = apisv1alpha2.APIBindingPhaseBinding
 
 	conditions.MarkFalse(
 		apiBinding,
-		apisv1alpha1.InitialBindingCompleted,
-		apisv1alpha1.WaitingForEstablishedReason,
+		apisv1alpha2.InitialBindingCompleted,
+		apisv1alpha2.WaitingForEstablishedReason,
 		conditionsv1alpha1.ConditionSeverityInfo,
 		"Waiting for API(s) to be established",
 	)
@@ -141,7 +141,7 @@ type bindingReconciler struct {
 	*controller
 }
 
-func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha1.APIBinding) (reconcileStatus, error) {
+func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 
 	// Check for valid APIExport reference
@@ -150,8 +150,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		// this should not happen because of validation.
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.APIExportValid,
-			apisv1alpha1.APIExportInvalidReferenceReason,
+			apisv1alpha2.APIExportValid,
+			apisv1alpha2.APIExportInvalidReferenceReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Missing APIExport reference",
 		)
@@ -165,8 +165,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	if apierrors.IsNotFound(err) {
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.APIExportValid,
-			apisv1alpha1.APIExportNotFoundReason,
+			apisv1alpha2.APIExportValid,
+			apisv1alpha2.APIExportNotFoundReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"APIExport %s|%s not found",
 			apiExportPath,
@@ -177,8 +177,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	if err != nil {
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.APIExportValid,
-			apisv1alpha1.InternalErrorReason,
+			apisv1alpha2.APIExportValid,
+			apisv1alpha2.InternalErrorReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Error getting APIExport %s|%s: %v",
 			apiExportPath,
@@ -190,22 +190,13 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	logger = logging.WithObject(logger, apiExport)
 
 	// Record the export's permission claims
-	v1PermissionClaims := []apisv1alpha1.PermissionClaim{}
-	for _, v2Claim := range apiExport.Spec.PermissionClaims {
-		v1Claim := apisv1alpha1.PermissionClaim{}
-		err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&v2Claim, &v1Claim, nil)
-		if err != nil {
-			return reconcileStatusContinue, fmt.Errorf("failed to convert PermissionClaim: %w", err)
-		}
-		v1PermissionClaims = append(v1PermissionClaims, v1Claim)
-	}
-	apiBinding.Status.ExportPermissionClaims = v1PermissionClaims
+	apiBinding.Status.ExportPermissionClaims = apiExport.Spec.PermissionClaims
 
 	// Make sure the APIExport has an identity
 	if apiExport.Status.IdentityHash == "" {
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.APIExportValid,
+			apisv1alpha2.APIExportValid,
 			"MissingIdentityHash",
 			conditionsv1alpha1.ConditionSeverityWarning,
 			"APIExport %s|%s is missing status.identityHash",
@@ -229,8 +220,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.InternalErrorReason,
+				apisv1alpha2.APIExportValid,
+				apisv1alpha2.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Invalid APIExport. Please contact the APIExport owner to resolve: APIResourceSchema %q not found", resourceSchema.Schema,
 			)
@@ -258,19 +249,19 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		if err != nil {
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.BindingUpToDate,
-				apisv1alpha1.LogicalClusterNotFoundReason,
+				apisv1alpha2.BindingUpToDate,
+				apisv1alpha2.LogicalClusterNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Unable to bind APIs: %v",
 				err,
 			)
 
 			// Only change InitialBindingCompleted if it's false.
-			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+			if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 				conditions.MarkFalse(
 					apiBinding,
-					apisv1alpha1.InitialBindingCompleted,
-					apisv1alpha1.LogicalClusterNotFoundReason,
+					apisv1alpha2.InitialBindingCompleted,
+					apisv1alpha2.LogicalClusterNotFoundReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Unable to bind APIs: %v",
 					err,
@@ -294,19 +285,19 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.BindingUpToDate,
-				apisv1alpha1.NamingConflictsReason,
+				apisv1alpha2.BindingUpToDate,
+				apisv1alpha2.NamingConflictsReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Unable to bind APIs: %v",
 				err,
 			)
 
 			// Only change InitialBindingCompleted if it's false.
-			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+			if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 				conditions.MarkFalse(
 					apiBinding,
-					apisv1alpha1.InitialBindingCompleted,
-					apisv1alpha1.NamingConflictsReason,
+					apisv1alpha2.InitialBindingCompleted,
+					apisv1alpha2.NamingConflictsReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Unable to bind APIs: %v",
 					err,
@@ -349,19 +340,19 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		if err := checker.Check(apiBinding, sch); err != nil {
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.BindingUpToDate,
-				apisv1alpha1.NamingConflictsReason,
+				apisv1alpha2.BindingUpToDate,
+				apisv1alpha2.NamingConflictsReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Unable to bind APIs: %v",
 				err,
 			)
 
 			// Only change InitialBindingCompleted if it's false.
-			if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+			if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 				conditions.MarkFalse(
 					apiBinding,
-					apisv1alpha1.InitialBindingCompleted,
-					apisv1alpha1.NamingConflictsReason,
+					apisv1alpha2.InitialBindingCompleted,
+					apisv1alpha2.NamingConflictsReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Unable to bind APIs: %v",
 					err,
@@ -374,8 +365,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		if len(sch.Spec.Versions) > 1 && sch.Spec.Conversion == nil {
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.InternalErrorReason,
+				apisv1alpha2.APIExportValid,
+				apisv1alpha2.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Invalid APIExport. Please contact the APIExport owner to resolve",
 			)
@@ -395,8 +386,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		if err != nil && !apierrors.IsNotFound(err) {
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.InternalErrorReason,
+				apisv1alpha2.APIExportValid,
+				apisv1alpha2.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Invalid APIExport. Please contact the APIExport owner to resolve",
 			)
@@ -430,8 +421,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 				conditions.MarkFalse(
 					apiBinding,
-					apisv1alpha1.APIExportValid,
-					apisv1alpha1.InternalErrorReason,
+					apisv1alpha2.APIExportValid,
+					apisv1alpha2.InternalErrorReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Invalid APIExport. Please contact the APIExport owner to resolve",
 				)
@@ -459,18 +450,18 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					errors.As(err, &status)
 					conditions.MarkFalse(
 						apiBinding,
-						apisv1alpha1.BindingUpToDate,
-						apisv1alpha1.APIResourceSchemaInvalidReason,
+						apisv1alpha2.BindingUpToDate,
+						apisv1alpha2.APIResourceSchemaInvalidReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"APIResourceSchema %s|%s is invalid: %v",
 						schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
 					)
 					// Only change InitialBindingCompleted if it's false
-					if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+					if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 						conditions.MarkFalse(
 							apiBinding,
-							apisv1alpha1.InitialBindingCompleted,
-							apisv1alpha1.APIResourceSchemaInvalidReason,
+							apisv1alpha2.InitialBindingCompleted,
+							apisv1alpha2.APIResourceSchemaInvalidReason,
 							conditionsv1alpha1.ConditionSeverityError,
 							"APIResourceSchema %s|%s is invalid: %v",
 							schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
@@ -484,17 +475,17 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 				conditions.MarkFalse(
 					apiBinding,
-					apisv1alpha1.BindingUpToDate,
-					apisv1alpha1.InternalErrorReason,
+					apisv1alpha2.BindingUpToDate,
+					apisv1alpha2.InternalErrorReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
 				)
 				// Only change InitialBindingCompleted if it's false
-				if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+				if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 					conditions.MarkFalse(
 						apiBinding,
-						apisv1alpha1.InitialBindingCompleted,
-						apisv1alpha1.InternalErrorReason,
+						apisv1alpha2.InitialBindingCompleted,
+						apisv1alpha2.InternalErrorReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
 					)
@@ -526,10 +517,10 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		sort.Strings(sortedStorageVersions)
 
 		// Upsert the BoundAPIResource for this APIResourceSchema
-		newBoundResource := apisv1alpha1.BoundAPIResource{
+		newBoundResource := apisv1alpha2.BoundAPIResource{
 			Group:    sch.Spec.Group,
 			Resource: sch.Spec.Names.Plural,
-			Schema: apisv1alpha1.BoundAPIResourceSchema{
+			Schema: apisv1alpha2.BoundAPIResourceSchema{
 				Name:         sch.Name,
 				UID:          string(sch.UID),
 				IdentityHash: apiExport.Status.IdentityHash,
@@ -550,26 +541,26 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 	}
 
-	conditions.MarkTrue(apiBinding, apisv1alpha1.APIExportValid)
+	conditions.MarkTrue(apiBinding, apisv1alpha2.APIExportValid)
 
 	if len(needToWaitForRequeueWhenEstablished) > 0 {
 		sort.Strings(needToWaitForRequeueWhenEstablished)
 
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.BindingUpToDate,
-			apisv1alpha1.WaitingForEstablishedReason,
+			apisv1alpha2.BindingUpToDate,
+			apisv1alpha2.WaitingForEstablishedReason,
 			conditionsv1alpha1.ConditionSeverityInfo,
 			"Waiting for API(s) to be established: %s",
 			strings.Join(needToWaitForRequeueWhenEstablished, ", "),
 		)
 
 		// Only change InitialBindingCompleted if it's false
-		if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+		if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.InitialBindingCompleted,
-				apisv1alpha1.WaitingForEstablishedReason,
+				apisv1alpha2.InitialBindingCompleted,
+				apisv1alpha2.WaitingForEstablishedReason,
 				conditionsv1alpha1.ConditionSeverityInfo,
 				"Waiting for API(s) to be established: %s",
 				strings.Join(needToWaitForRequeueWhenEstablished, ", "),
@@ -578,26 +569,26 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	} else if len(skipped) > 0 {
 		conditions.MarkFalse(
 			apiBinding,
-			apisv1alpha1.BindingUpToDate,
-			apisv1alpha1.NamingConflictsReason,
+			apisv1alpha2.BindingUpToDate,
+			apisv1alpha2.NamingConflictsReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"Unable to bind APIs because they are bound by other APIBindings or CRDs: %v", skipped,
 		)
 
 		// Only change InitialBindingCompleted if it's false
-		if conditions.IsFalse(apiBinding, apisv1alpha1.InitialBindingCompleted) {
+		if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 			conditions.MarkFalse(
 				apiBinding,
-				apisv1alpha1.InitialBindingCompleted,
-				apisv1alpha1.NamingConflictsReason,
+				apisv1alpha2.InitialBindingCompleted,
+				apisv1alpha2.NamingConflictsReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Unable to bind APIs because they are bound by other APIBindings or CRDs: %v", skipped,
 			)
 		}
 	} else {
-		conditions.MarkTrue(apiBinding, apisv1alpha1.InitialBindingCompleted)
-		conditions.MarkTrue(apiBinding, apisv1alpha1.BindingUpToDate)
-		apiBinding.Status.Phase = apisv1alpha1.APIBindingPhaseBound
+		conditions.MarkTrue(apiBinding, apisv1alpha2.InitialBindingCompleted)
+		conditions.MarkTrue(apiBinding, apisv1alpha2.BindingUpToDate)
+		apiBinding.Status.Phase = apisv1alpha2.APIBindingPhaseBound
 	}
 
 	return reconcileStatusContinue, nil

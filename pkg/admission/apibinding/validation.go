@@ -21,11 +21,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // ValidateAPIBinding validates an APIBinding.
-func ValidateAPIBinding(apiBinding *apisv1alpha1.APIBinding) field.ErrorList {
+func ValidateAPIBinding(apiBinding *apisv1alpha2.APIBinding) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateAPIBindingReference(apiBinding.Spec.Reference, field.NewPath("spec", "reference"))...)
@@ -34,7 +34,7 @@ func ValidateAPIBinding(apiBinding *apisv1alpha1.APIBinding) field.ErrorList {
 }
 
 // ValidateAPIBindingUpdate validates an updated APIBinding.
-func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha1.APIBinding) field.ErrorList {
+func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha2.APIBinding) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateAPIBinding(newBinding)...)
@@ -52,7 +52,7 @@ func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha1.APIBinding) f
 }
 
 // ValidateAPIBindingReference validates an APIBinding's BindingReference.
-func ValidateAPIBindingReference(reference apisv1alpha1.BindingReference, path *field.Path) field.ErrorList {
+func ValidateAPIBindingReference(reference apisv1alpha2.BindingReference, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if reference.Export == nil {

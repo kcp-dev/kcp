@@ -18,4 +18,6 @@ limitations under the License.
 
 package v1alpha2
 
+type APIBindingClusterExpansion interface{}
+
 type APIExportClusterExpansion interface{}

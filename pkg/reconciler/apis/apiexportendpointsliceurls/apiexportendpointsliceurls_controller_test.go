@@ -50,7 +50,7 @@ func TestReconcile(t *testing.T) {
 				Status: apisv1alpha1.APIExportEndpointSliceStatus{
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionFalse,
 						},
 					},
@@ -69,7 +69,7 @@ func TestReconcile(t *testing.T) {
 				Status: apisv1alpha1.APIExportEndpointSliceStatus{
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -98,7 +98,7 @@ func TestReconcile(t *testing.T) {
 					ShardSelector: ",",
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -113,7 +113,7 @@ func TestReconcile(t *testing.T) {
 					ShardSelector: "shared=foo",
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -138,7 +138,7 @@ func TestReconcile(t *testing.T) {
 					ShardSelector: "shared=foo",
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -176,7 +176,7 @@ func TestReconcile(t *testing.T) {
 					ShardSelector: "shared=foo",
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -197,7 +197,7 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
 					return nil, nil
 				},
 				patchAPIExportEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error {
@@ -220,7 +220,7 @@ func TestReconcile(t *testing.T) {
 					ShardSelector: "shared=foo",
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -246,7 +246,7 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
+				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
 					return nil, nil
 				},
 				patchAPIExportEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error {
@@ -269,7 +269,7 @@ func TestReconcile(t *testing.T) {
 					ShardSelector: "shared=foo",
 					Conditions: []conditionsv1alpha1.Condition{
 						{
-							Type:   apisv1alpha1.APIExportValid,
+							Type:   apisv1alpha2.APIExportValid,
 							Status: corev1.ConditionTrue,
 						},
 					},
@@ -294,8 +294,8 @@ func TestReconcile(t *testing.T) {
 						},
 					}, nil
 				},
-				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha1.APIBinding, error) {
-					return []*apisv1alpha1.APIBinding{
+				listAPIBindingsByAPIExport: func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
+					return []*apisv1alpha2.APIBinding{
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "my-binding",
