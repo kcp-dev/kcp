@@ -18,16 +18,21 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+)
+
 // WorkspaceTypeSpecApplyConfiguration represents a declarative configuration of the WorkspaceTypeSpec type for use
 // with apply.
 type WorkspaceTypeSpecApplyConfiguration struct {
-	Initializer               *bool                                     `json:"initializer,omitempty"`
-	Extend                    *WorkspaceTypeExtensionApplyConfiguration `json:"extend,omitempty"`
-	AdditionalWorkspaceLabels map[string]string                         `json:"additionalWorkspaceLabels,omitempty"`
-	DefaultChildWorkspaceType *WorkspaceTypeReferenceApplyConfiguration `json:"defaultChildWorkspaceType,omitempty"`
-	LimitAllowedChildren      *WorkspaceTypeSelectorApplyConfiguration  `json:"limitAllowedChildren,omitempty"`
-	LimitAllowedParents       *WorkspaceTypeSelectorApplyConfiguration  `json:"limitAllowedParents,omitempty"`
-	DefaultAPIBindings        []APIExportReferenceApplyConfiguration    `json:"defaultAPIBindings,omitempty"`
+	Initializer                *bool                                     `json:"initializer,omitempty"`
+	Extend                     *WorkspaceTypeExtensionApplyConfiguration `json:"extend,omitempty"`
+	AdditionalWorkspaceLabels  map[string]string                         `json:"additionalWorkspaceLabels,omitempty"`
+	DefaultChildWorkspaceType  *WorkspaceTypeReferenceApplyConfiguration `json:"defaultChildWorkspaceType,omitempty"`
+	LimitAllowedChildren       *WorkspaceTypeSelectorApplyConfiguration  `json:"limitAllowedChildren,omitempty"`
+	LimitAllowedParents        *WorkspaceTypeSelectorApplyConfiguration  `json:"limitAllowedParents,omitempty"`
+	DefaultAPIBindings         []APIExportReferenceApplyConfiguration    `json:"defaultAPIBindings,omitempty"`
+	DefaultAPIBindingLifecycle *tenancyv1alpha1.APIBindingLifecycleMode  `json:"defaultAPIBindingLifecycle,omitempty"`
 }
 
 // WorkspaceTypeSpecApplyConfiguration constructs a declarative configuration of the WorkspaceTypeSpec type for use with
@@ -100,5 +105,13 @@ func (b *WorkspaceTypeSpecApplyConfiguration) WithDefaultAPIBindings(values ...*
 		}
 		b.DefaultAPIBindings = append(b.DefaultAPIBindings, *values[i])
 	}
+	return b
+}
+
+// WithDefaultAPIBindingLifecycle sets the DefaultAPIBindingLifecycle field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DefaultAPIBindingLifecycle field is set to the value of the last call.
+func (b *WorkspaceTypeSpecApplyConfiguration) WithDefaultAPIBindingLifecycle(value tenancyv1alpha1.APIBindingLifecycleMode) *WorkspaceTypeSpecApplyConfiguration {
+	b.DefaultAPIBindingLifecycle = &value
 	return b
 }
