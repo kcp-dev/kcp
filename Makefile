@@ -53,6 +53,7 @@ export YAML_PATCH # so hack scripts can use it
 GOLANGCI_LINT_VER := v2.1.4
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
+GOLANGCI_LINT_FLAGS ?=
 
 HTTEST_VER := v0.3.2
 HTTEST_BIN := httest
@@ -141,15 +142,18 @@ $(KCP_APIGEN_GEN):
 
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 	echo "Linting root module..."; \
-	$(GOLANGCI_LINT) run -c $(ROOT_DIR)/.golangci.yaml --timeout 20m ./...
+	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
 	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Linting $$MOD module..."; \
-			(cd $$MOD && $(GOLANGCI_LINT) run -c $(ROOT_DIR)/.golangci.yaml --timeout 20m ./...); \
+			(cd $$MOD && $(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m); \
 		fi; \
 	done
 	./hack/verify-contextual-logging.sh
-.PHONY: lint
+
+.PHONY: fix-lint
+fix-lint: $(GOLANGCI_LINT)
+	GOLANGCI_LINT_FLAGS="--fix" $(MAKE) lint
 
 update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 	UPDATE=true ./hack/verify-contextual-logging.sh
