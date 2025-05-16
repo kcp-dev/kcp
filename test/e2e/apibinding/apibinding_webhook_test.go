@@ -22,6 +22,7 @@ import (
 	"fmt"
 	gohttp "net/http"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -65,7 +66,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -141,10 +142,12 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	t.Logf("Create test server and create mutating webhook for cowboys in both source and target cluster")
+	var clusterInReviewObject atomic.Value
 	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
 	for _, cluster := range []logicalcluster.Path{sourcePath, targetPath} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
-			ResponseFn: func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+			ResponseFn: func(obj runtime.Object, review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+				clusterInReviewObject.Store(logicalcluster.From(obj.(*v1alpha1.Cowboy)).String())
 				return &admissionv1.AdmissionResponse{Allowed: true}, nil
 			},
 			ObjectGVK: schema.GroupVersionKind{
@@ -207,6 +210,9 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	t.Logf("Check that the in-workspace webhook was NOT called")
 	require.Zero(t, testWebhooks[targetPath].Calls(), "in-workspace webhook should not have been called")
+
+	t.Logf("Check that the logicalcluster annotation on the object that triggered webhook is matching the target cluster")
+	require.Equal(t, targetWS.Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has correct kcp.io/cluster annotation set")
 }
 
 func TestAPIBindingValidatingWebhook(t *testing.T) {
@@ -220,7 +226,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -297,9 +303,11 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Create test server and create validating webhook for cowboys in both source and target cluster")
 	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
+	var clusterInReviewObject atomic.Value
 	for _, cluster := range []logicalcluster.Path{sourcePath, targetPath} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
-			ResponseFn: func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+			ResponseFn: func(obj runtime.Object, review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+				clusterInReviewObject.Store(logicalcluster.From(obj.(*v1alpha1.Cowboy)).String())
 				return &admissionv1.AdmissionResponse{Allowed: true}, nil
 			},
 			ObjectGVK: schema.GroupVersionKind{
@@ -375,4 +383,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Check that the in-workspace webhook was NOT called")
 	require.Zero(t, testWebhooks[targetPath].Calls(), "in-workspace webhook should not have been called")
+
+	t.Logf("Check that the logicalcluster annotation on the object that triggered webhook is matching the target cluster")
+	require.Equal(t, targetWS.Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has correct kcp.io/cluster annotation set")
 }
