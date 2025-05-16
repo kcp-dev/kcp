@@ -19,9 +19,10 @@ package conditions
 import (
 	"errors"
 
-	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
+
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // HaveSameStateOf matches a condition to have the same state of another.

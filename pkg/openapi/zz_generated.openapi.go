@@ -1784,7 +1784,7 @@ func schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "WebhookConversion describes how to call a conversion webhook",
+				Description: "WebhookConversion describes how to call a conversion webhook.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"clientConfig": {

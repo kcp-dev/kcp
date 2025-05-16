@@ -50,9 +50,10 @@ YAML_PATCH_BIN := yaml-patch
 YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
 export YAML_PATCH # so hack scripts can use it
 
-GOLANGCI_LINT_VER := v1.62.2
+GOLANGCI_LINT_VER := v2.1.6
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
+GOLANGCI_LINT_FLAGS ?=
 
 HTTEST_VER := v0.3.2
 HTTEST_BIN := httest
@@ -128,7 +129,7 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 .PHONY: install
 
 $(GOLANGCI_LINT):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/v2/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
 $(HTTEST):
 	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) go.xrstf.de/httest $(HTTEST_BIN) $(HTTEST_VER)
@@ -140,9 +141,20 @@ $(KCP_APIGEN_GEN):
 	pushd . && cd sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
 
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
-	$(GOLANGCI_LINT) run --timeout 20m ./...
+	echo "Linting root module..."; \
+	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
+	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+		if [ "$$MOD" != "." ]; then \
+			echo "Linting $$MOD module..."; \
+			(cd $$MOD && $(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m); \
+		fi; \
+	done
 	./hack/verify-contextual-logging.sh
 .PHONY: lint
+
+fix-lint: $(GOLANGCI_LINT)
+	GOLANGCI_LINT_FLAGS="--fix" $(MAKE) lint
+.PHONY: fix-lint
 
 update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 	UPDATE=true ./hack/verify-contextual-logging.sh
@@ -198,7 +210,7 @@ crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen:  $(KCP_APIGEN_GEN) crds ## Generate all
+codegen: $(KCP_APIGEN_GEN) crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	./hack/gen-patch-defaultrestmapper.sh
@@ -228,10 +240,10 @@ verify-codegen: ## Verify codegen
 imports: WHAT ?=
 imports: $(GOLANGCI_LINT) verify-go-versions
 	if [ -n "$(WHAT)" ]; then \
-	  $(GOLANGCI_LINT) run --enable-only=gci --fix --exclude-generated disable $(WHAT); \
+	  $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml $(WHAT); \
 	else \
 	  for MOD in . $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		(set -x; cd $$MOD; $(GOLANGCI_LINT) run --enable-only=gci --fix --exclude-generated disable); \
+		(set -x; cd $$MOD; $(GOLANGCI_LINT) fmt --enable gci -c $(ROOT_DIR)/.golangci.yaml); \
 	  done; \
 	fi
 

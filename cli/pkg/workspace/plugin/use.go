@@ -206,10 +206,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
 	if err != nil && !apierrors.IsForbidden(err) {
 		return err
 	}
-	denied := false
-	if apierrors.IsForbidden(err) || len(groups.Groups) == 0 {
-		denied = true
-	}
+	denied := apierrors.IsForbidden(err) || len(groups.Groups) == 0
 
 	// first try to get Workspace from parent to potentially get a 404. A 403 in the parent though is
 	// not a blocker to enter the workspace. We do discovery as a final check.
@@ -262,7 +259,7 @@ func resolveDots(pth string) (logicalcluster.Path, error) {
 
 // swapContexts moves to previous context from the config.
 // It will update existing configuration by swapping current & previous configurations.
-// This method already commits. Do not use with commitConfig
+// This method already commits. Do not use with commitConfig.
 func (o *UseWorkspaceOptions) swapContexts(ctx context.Context, currentContext *clientcmdapi.Context) (string, error) {
 	currentContext = currentContext.DeepCopy()
 
@@ -370,28 +367,13 @@ func (o *UseWorkspaceOptions) homePath(ctx context.Context) (logicalcluster.Path
 	return logicalcluster.NewPath(strings.TrimPrefix(uh.Path, "/clusters/")), nil
 }
 
-func (o *UseWorkspaceOptions) legacyRootURL() (*url.URL, error) {
-	cluster := logicalcluster.NewPath(o.Name)
-	if !cluster.IsValid() {
-		return nil, fmt.Errorf("invalid workspace name format: %s", o.Name)
-	}
-
-	u, _, err := o.parseCurrentLogicalCluster()
-	if err != nil {
-		return nil, err
-	}
-	// root workspace
-	u.Path = path.Join(u.Path, cluster.RequestPath())
-	return u, nil
-}
-
 func (o *UseWorkspaceOptions) currentRootURL() (*url.URL, error) {
 	u, currentClusterName, err := o.parseCurrentLogicalCluster()
 	if err != nil {
 		return nil, err
 	}
 
-	hasParent := true
+	var hasParent bool
 	var root, current logicalcluster.Path
 	root = *currentClusterName
 	for {

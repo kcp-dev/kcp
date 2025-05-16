@@ -170,7 +170,7 @@ type CustomResourceConversion struct {
 // ConversionStrategyType describes different conversion types.
 type ConversionStrategyType string
 
-// WebhookConversion describes how to call a conversion webhook
+// WebhookConversion describes how to call a conversion webhook.
 type WebhookConversion struct {
 	// clientConfig is the instructions for how to call the webhook if strategy is `Webhook`.
 	// +optional

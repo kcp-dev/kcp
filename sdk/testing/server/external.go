@@ -161,7 +161,7 @@ func (s *externalKCPServer) Artifact(t TestingT, producer func() (runtime.Object
 
 // Stop is a noop to satisfy the RunningServer interface.
 func (s *externalKCPServer) Stop() {
-	return
+	// no-op
 }
 
 // Stopped is a noop to satisfy the RunningServer interface.
