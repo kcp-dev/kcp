@@ -205,7 +205,7 @@ crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen:  $(KCP_APIGEN_GEN) crds ## Generate all
+codegen: $(KCP_APIGEN_GEN) crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	./hack/gen-patch-defaultrestmapper.sh

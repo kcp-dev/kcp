@@ -21,9 +21,10 @@ package v1alpha1
 import (
 	http "net/http"
 
+	rest "k8s.io/client-go/rest"
+
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
-	rest "k8s.io/client-go/rest"
 )
 
 type TenancyV1alpha1Interface interface {

@@ -21,12 +21,14 @@ package v1alpha1
 import (
 	http "net/http"
 
+	rest "k8s.io/client-go/rest"
+
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/scheme"
 	kcpv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v3"
-	rest "k8s.io/client-go/rest"
 )
 
 type TopologyV1alpha1ClusterInterface interface {

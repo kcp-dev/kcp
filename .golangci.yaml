@@ -160,7 +160,7 @@ formatters:
         - dot
       custom-order: true
   exclusions:
-    generated: lax
+    generated: disable
     paths:
       - third_party$
       - builtin$
