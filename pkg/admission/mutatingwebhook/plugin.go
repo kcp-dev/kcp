@@ -39,7 +39,7 @@ import (
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -56,7 +56,7 @@ type Plugin struct {
 	localKubeSharedInformerFactory  kcpkubernetesinformers.SharedInformerFactory
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 
-	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 
 	managerLock   sync.Mutex
 	managersCache map[logicalcluster.Name]generic.Source
@@ -197,7 +197,7 @@ func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInf
 }
 
 func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	p.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-		return local.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
+	p.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+		return local.Apis().V1alpha2().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 	}
 }

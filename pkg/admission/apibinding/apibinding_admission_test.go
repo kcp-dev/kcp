@@ -19,6 +19,7 @@ package apibinding
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"strings"
@@ -44,14 +45,14 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
-func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
+func createAttr(apiBinding *apisv1alpha2.APIBinding) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(apiBinding),
 		nil,
-		apisv1alpha1.Kind("APIBinding").WithVersion("v1alpha1"),
+		apisv1alpha2.Kind("APIBinding").WithVersion("v1alpha2"),
 		"",
 		apiBinding.Name,
-		apisv1alpha1.Resource("apibindings").WithVersion("v1alpha1"),
+		apisv1alpha2.Resource("apibindings").WithVersion("v1alpha2"),
 		"",
 		admission.Create,
 		&metav1.CreateOptions{},
@@ -60,14 +61,14 @@ func createAttr(apiBinding *apisv1alpha1.APIBinding) admission.Attributes {
 	)
 }
 
-func updateAttr(newAPIBinding, oldAPIBinding *apisv1alpha1.APIBinding) admission.Attributes {
+func updateAttr(newAPIBinding, oldAPIBinding *apisv1alpha2.APIBinding) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(newAPIBinding),
 		helpers.ToUnstructuredOrDie(oldAPIBinding),
-		apisv1alpha1.Kind("APIBinding").WithVersion("v1alpha1"),
+		apisv1alpha2.Kind("APIBinding").WithVersion("v1alpha2"),
 		"",
 		newAPIBinding.Name,
-		apisv1alpha1.Resource("apibindings").WithVersion("v1alpha1"),
+		apisv1alpha2.Resource("apibindings").WithVersion("v1alpha2"),
 		"",
 		admission.Update,
 		&metav1.CreateOptions{},
@@ -364,7 +365,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBinding).APIBinding,
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
@@ -378,11 +379,11 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBound).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBound).APIBinding,
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBinding).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
 		},
@@ -396,7 +397,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBinding).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
 			expectedErrors: []string{`cannot transition from "Binding" to ""`},
@@ -411,7 +412,7 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBound).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBound).APIBinding,
 			),
 			authzDecision:  authorizer.DecisionAllow,
 			expectedErrors: []string{`cannot transition from "Bound" to ""`},
@@ -422,11 +423,11 @@ func TestValidate(t *testing.T) {
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBinding).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBinding).APIBinding,
 				newAPIBinding().
 					withReference(logicalcluster.NewPath("root:org:workspaceName"), "someExport").
 					withLabel(apisv1alpha1.InternalAPIBindingExportLabelKey, toSha224Base62("root-org-workspaceName:someExport")).
-					withPhase(apisv1alpha1.APIBindingPhaseBound).APIBinding,
+					withPhase(apisv1alpha2.APIBindingPhaseBound).APIBinding,
 			),
 			authzDecision: authorizer.DecisionAllow,
 		},
@@ -488,12 +489,12 @@ func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribut
 }
 
 type bindingBuilder struct {
-	*apisv1alpha1.APIBinding
+	*apisv1alpha2.APIBinding
 }
 
 func newAPIBinding() *bindingBuilder {
 	return &bindingBuilder{
-		APIBinding: &apisv1alpha1.APIBinding{
+		APIBinding: &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					logicalcluster.AnnotationKey: "root-org-ws",
@@ -509,7 +510,7 @@ func (b *bindingBuilder) withName(name string) *bindingBuilder {
 }
 
 func (b *bindingBuilder) withReference(path logicalcluster.Path, exportName string) *bindingBuilder {
-	b.Spec.Reference.Export = &apisv1alpha1.ExportBindingReference{
+	b.Spec.Reference.Export = &apisv1alpha2.ExportBindingReference{
 		Path: path.String(),
 		Name: exportName,
 	}
@@ -524,7 +525,7 @@ func (b *bindingBuilder) withLabel(k, v string) *bindingBuilder {
 	return b
 }
 
-func (b *bindingBuilder) withPhase(phase apisv1alpha1.APIBindingPhaseType) *bindingBuilder {
+func (b *bindingBuilder) withPhase(phase apisv1alpha2.APIBindingPhaseType) *bindingBuilder {
 	b.Status.Phase = phase
 	return b
 }
@@ -554,4 +555,155 @@ func newExport(path logicalcluster.Path, name string) apiExportBuilder {
 			},
 		},
 	}}
+}
+
+func TestValidateOverhangingPermissionClaims(t *testing.T) {
+	tests := map[string]struct {
+		annotations      func() map[string]string
+		permissionClaims []apisv1alpha1.AcceptablePermissionClaim
+		expectedError    string
+	}{
+		"NoAnnotations": {
+			annotations:      func() map[string]string { return nil },
+			permissionClaims: nil,
+			expectedError:    "",
+		},
+		"EmptyJSON": {
+			annotations: func() map[string]string {
+				pc := apisv1alpha2.PermissionClaim{}
+				data, err := json.Marshal(pc)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: string(data),
+				}
+			},
+			permissionClaims: nil,
+			expectedError:    "failed to decode overhanging permission claims",
+		},
+		"EmptyPermissionClaimsAndAnnotation": {
+			annotations: func() map[string]string {
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: "[]",
+				}
+			},
+			permissionClaims: []apisv1alpha1.AcceptablePermissionClaim{},
+			expectedError:    "",
+		},
+		"ValidJSON": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.PermissionClaim{{
+					GroupResource: apisv1alpha2.GroupResource{
+						Group:    "foo",
+						Resource: "bar",
+					},
+					All:          true,
+					IdentityHash: "baz",
+					Verbs:        []string{"get", "list"},
+				}}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.ResourceSchemasAnnotation: string(data),
+				}
+			},
+			permissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Group:    "foo",
+							Resource: "bar",
+						},
+						All:          true,
+						IdentityHash: "baz",
+					},
+				},
+			},
+			expectedError: "",
+		},
+		"MismatchInAnnotations": {
+			annotations: func() map[string]string {
+				s := []apisv1alpha2.PermissionClaim{
+					{
+						GroupResource: apisv1alpha2.GroupResource{
+							Group:    "foo",
+							Resource: "bar",
+						},
+						All:          true,
+						IdentityHash: "baz",
+						Verbs:        []string{"get", "list"},
+					},
+					{
+						GroupResource: apisv1alpha2.GroupResource{
+							Group:    "foo",
+							Resource: "baz",
+						},
+						All:          true,
+						IdentityHash: "bar",
+						Verbs:        []string{"get"},
+					},
+				}
+				data, err := json.Marshal(s)
+				if err != nil {
+					t.Fatalf("failed to marshal: %v", err)
+				}
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: string(data),
+				}
+			},
+			permissionClaims: []apisv1alpha1.AcceptablePermissionClaim{
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Group:    "foo",
+							Resource: "bar",
+						},
+						All:          true,
+						IdentityHash: "baz",
+					},
+				},
+				{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Group:    "test",
+							Resource: "schema",
+						},
+						All:          true,
+						IdentityHash: "random",
+					},
+				},
+			},
+			expectedError: "permission claims defined in annotation do not match permission claims defined in spec",
+		},
+		"InvalidJSON": {
+			annotations: func() map[string]string {
+				return map[string]string{
+					apisv1alpha2.PermissionClaimsAnnotation: "invalid json",
+				}
+			},
+			permissionClaims: nil,
+			expectedError:    "failed to decode overhanging permission claims",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ae := &apisv1alpha1.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations(),
+				},
+				Spec: apisv1alpha1.APIBindingSpec{
+					PermissionClaims: tc.permissionClaims,
+				},
+			}
+			err := validateOverhangingPermissionClaims(context.TODO(), nil, ae)
+			if tc.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedError)
+			}
+		})
+	}
 }

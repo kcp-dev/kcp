@@ -30,6 +30,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -38,7 +39,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -63,7 +64,7 @@ type UseWorkspaceOptions struct {
 
 	// for testing
 	modifyConfig   func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
-	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error)
+	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error)
 	userHomeDir    func() (string, error)
 }
 
@@ -420,13 +421,13 @@ func (o *UseWorkspaceOptions) parseCurrentLogicalCluster() (*url.URL, *logicalcl
 }
 
 // getAPIBindings retrieves APIBindings within the workspace.
-func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha1.APIBinding, error) {
+func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error) {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		return nil, err
 	}
 
-	apiBindings, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+	apiBindings, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
 	// If the user is not allowed to view APIBindings in the workspace, there's nothing to show.
 	if apierrors.IsForbidden(err) {
 		return nil, nil
@@ -439,22 +440,29 @@ func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterIn
 }
 
 // findUnresolvedPermissionClaims finds and reports any APIBindings that do not specify permission claims matching those on the target APIExport.
-func findUnresolvedPermissionClaims(out io.Writer, apiBindings []apisv1alpha1.APIBinding) error {
+func findUnresolvedPermissionClaims(out io.Writer, apiBindings []apisv1alpha2.APIBinding) error {
 	for _, binding := range apiBindings {
 		for _, exportedClaim := range binding.Status.ExportPermissionClaims {
-			var found, ack bool
+			var found, ack, verbsMatch bool
+			var verbsExpected, verbsActual sets.Set[string]
 			for _, specClaim := range binding.Spec.PermissionClaims {
 				if !exportedClaim.Equal(specClaim.PermissionClaim) {
 					continue
 				}
 				found = true
-				ack = (specClaim.State == apisv1alpha1.ClaimAccepted) || specClaim.State == apisv1alpha1.ClaimRejected
+				ack = (specClaim.State == apisv1alpha2.ClaimAccepted) || specClaim.State == apisv1alpha2.ClaimRejected
+				verbsExpected = sets.New(exportedClaim.Verbs...)
+				verbsActual = sets.New(specClaim.Verbs...)
+				verbsMatch = verbsActual.Difference(verbsExpected).Len() == 0 && verbsExpected.Difference(verbsActual).Len() == 0
 			}
 			if !found {
 				fmt.Fprintf(out, "Warning: claim for %s exported but not specified on APIBinding %s\nAdd this claim to the APIBinding's Spec.\n", exportedClaim.String(), binding.Name)
 			}
 			if !ack {
 				fmt.Fprintf(out, "Warning: claim for %s specified on APIBinding %s but not accepted or rejected.\n", exportedClaim.String(), binding.Name)
+			}
+			if !verbsMatch {
+				fmt.Fprintf(out, "Warning: allowed verbs (%s) on claim for %s on APIBinding %s do not match expected verbs (%s).\n", strings.Join(verbsActual.UnsortedList(), ","), exportedClaim.String(), binding.Name, strings.Join(verbsExpected.UnsortedList(), ","))
 			}
 		}
 	}

@@ -71,6 +71,26 @@ func Funcs(codecs runtimeserializer.CodecFactory) []interface{} {
 					},
 				})
 			}
+			r.PermissionClaims = nil
+			for i := 0; i < c.Intn(5); i++ {
+				group := nonEmptyString(c.RandString)
+				resource := nonEmptyString(c.RandString)
+				identityHash := nonEmptyString(c.RandString)
+				verbs := []string{}
+				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
+				for j := 0; j < numVerbs; j++ {
+					verbs = append(verbs, nonEmptyString(c.RandString))
+				}
+				r.PermissionClaims = append(r.PermissionClaims, v1alpha2.PermissionClaim{
+					GroupResource: v1alpha2.GroupResource{
+						Group:    group,
+						Resource: resource,
+					},
+					All:          true,
+					IdentityHash: identityHash,
+					Verbs:        verbs,
+				})
+			}
 		},
 		func(r *v1alpha1.Identity, c fuzz.Continue) {
 			c.FuzzNoCustom(r)

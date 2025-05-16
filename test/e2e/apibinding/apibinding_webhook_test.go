@@ -43,7 +43,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -110,13 +109,13 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetPath)
 	require.NoError(t, err)
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: sourcePath.String(),
 					Name: cowboysAPIExport.Name,
 				},
@@ -125,7 +124,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(targetPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClusterClient.Cluster(targetPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -266,13 +265,13 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetPath)
 	require.NoError(t, err)
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: sourcePath.String(),
 					Name: cowboysAPIExport.Name,
 				},
@@ -281,7 +280,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClients.Cluster(targetPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClients.Cluster(targetPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 

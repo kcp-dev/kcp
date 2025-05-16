@@ -44,7 +44,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyhelper "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
@@ -242,13 +242,13 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 	logger := klog.FromContext(ctx)
 
 	for _, exportName := range exportNames {
-		binding := &apisv1alpha1.APIBinding{
+		binding := &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: exportName,
 			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
 						Path: core.RootCluster.Path().String(),
 						Name: exportName,
 					},
@@ -256,7 +256,7 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 			},
 		}
 
-		created, err := kcpClient.ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+		created, err := kcpClient.ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		if err == nil {
 			logger := logging.WithObject(logger, created)
 			logger.V(2).Info("Created API binding")
@@ -267,7 +267,7 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 		}
 
 		if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-			existing, err := kcpClient.ApisV1alpha1().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+			existing, err := kcpClient.ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
 			if err != nil {
 				logger.Error(err, "error getting APIBinding", "name", exportName)
 				// Always keep trying. Don't ever return an error out of this function.
@@ -279,7 +279,7 @@ func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportName
 
 			existing.Spec = binding.Spec
 
-			_, err = kcpClient.ApisV1alpha1().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
+			_, err = kcpClient.ApisV1alpha2().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
 			if err == nil {
 				return true, nil
 			}

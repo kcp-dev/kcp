@@ -71,8 +71,8 @@ func NewMaximalPermissionPolicyAuthorizer(
 
 	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
 		return &MaximalPermissionPolicyAuthorizer{
-			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error) {
-				return kcpInformers.Apis().V1alpha1().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
+			getAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+				return kcpInformers.Apis().V1alpha2().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 			},
 			getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 				return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), kcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), path, name)
@@ -106,7 +106,7 @@ func NewMaximalPermissionPolicyAuthorizer(
 }
 
 type MaximalPermissionPolicyAuthorizer struct {
-	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 	getAPIExport   func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
 	newAuthorizer func(clusterName logicalcluster.Name) authorizer.Authorizer
@@ -131,7 +131,7 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 	if err != nil {
 		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting APIBindings: %w", err)
 	}
-	var relevantBinding *apisv1alpha1.APIBinding
+	var relevantBinding *apisv1alpha2.APIBinding
 	for _, binding := range bindings {
 		for _, br := range binding.Status.BoundResources {
 			if br.Group == attr.GetAPIGroup() && br.Resource == attr.GetResource() {

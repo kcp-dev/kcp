@@ -46,7 +46,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -121,13 +120,13 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
-	apiBinding := &apisv1alpha1.APIBinding{
+	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cowboys",
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: providerPath.String(),
 					Name: "today-cowboys",
 				},
@@ -136,12 +135,12 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Make sure we can get the APIBinding we just created")
-	apiBinding, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+	apiBinding, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	patchedBinding := apiBinding.DeepCopy()
@@ -151,7 +150,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 
 	t.Logf("Try to patch the APIBinding to point at other-export and make sure we get the expected error")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha1().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Patch(ctx, apiBinding.Name, types.MergePatchType, mergePatch, metav1.PatchOptions{})
 		expected := "APIExport reference must not be changed"
 		if strings.Contains(err.Error(), expected) {
 			return true, ""
@@ -245,13 +244,13 @@ func TestAPIBinding(t *testing.T) {
 
 	bindConsumerToProvider := func(consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path) {
 		t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerWorkspace, providerPath)
-		apiBinding := &apisv1alpha1.APIBinding{
+		apiBinding := &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cowboys",
 			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
 						Path: providerPath.String(),
 						Name: "today-cowboys",
 					},
@@ -260,7 +259,7 @@ func TestAPIBinding(t *testing.T) {
 		}
 
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -332,13 +331,13 @@ func TestAPIBinding(t *testing.T) {
 		require.Equal(t, cowboyName, cowboys.Items[0].Name, "unexpected name for cowboy in %q", consumerWorkspace)
 
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider2 (which should conflict)", consumerWorkspace)
-		apiBinding = &apisv1alpha1.APIBinding{
+		apiBinding = &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cowboys2",
 			},
-			Spec: apisv1alpha1.APIBindingSpec{
-				Reference: apisv1alpha1.BindingReference{
-					Export: &apisv1alpha1.ExportBindingReference{
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
 						Path: provider2Path.String(),
 						Name: "today-cowboys",
 					},
@@ -347,14 +346,14 @@ func TestAPIBinding(t *testing.T) {
 		}
 
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+			_, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 		t.Logf("Make sure %s cowboys2 conflict with already bound %s cowboys", provider2Path, providerPath)
 		kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-			return kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys2", metav1.GetOptions{})
-		}, kcptestinghelpers.IsNot(apisv1alpha1.InitialBindingCompleted).WithReason(apisv1alpha1.NamingConflictsReason), "expected naming conflict")
+			return kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Get(ctx, "cowboys2", metav1.GetOptions{})
+		}, kcptestinghelpers.IsNot(apisv1alpha2.InitialBindingCompleted).WithReason(apisv1alpha2.NamingConflictsReason), "expected naming conflict")
 	}
 
 	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name) {
@@ -402,7 +401,7 @@ func TestAPIBinding(t *testing.T) {
 
 	verifyWildcardList := func(consumerWorkspace logicalcluster.Path, expectedItems int) {
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
-		apiBinding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha1().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		apiBinding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
 		require.NoError(t, err, "error getting apibinding")
 
 		identity := apiBinding.Status.BoundResources[0].Schema.IdentityHash

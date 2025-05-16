@@ -23,7 +23,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // ClusterAndGroupResourceValue returns the index value for use with
@@ -35,14 +35,14 @@ func ClusterAndGroupResourceValue(clusterName logicalcluster.Name, groupResource
 // IndexAPIBindingByClusterAndAcceptedClaimedGroupResources is an index function that indexes an APIBinding by its
 // accepted permission claims' group resources.
 func IndexAPIBindingByClusterAndAcceptedClaimedGroupResources(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
 
 	ret := make([]string, 0, len(apiBinding.Spec.PermissionClaims))
 	for _, c := range apiBinding.Spec.PermissionClaims {
-		if c.State != apisv1alpha1.ClaimAccepted {
+		if c.State != apisv1alpha2.ClaimAccepted {
 			continue
 		}
 
@@ -56,7 +56,7 @@ func IndexAPIBindingByClusterAndAcceptedClaimedGroupResources(obj interface{}) (
 const APIBindingByBoundResourceUID = "byBoundResourceUID"
 
 func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
@@ -72,7 +72,7 @@ func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
 const APIBindingByBoundResources = "byBoundResources"
 
 func IndexAPIBindingByBoundResources(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}
@@ -95,7 +95,7 @@ const APIBindingsByAPIExport = "APIBindingByAPIExport"
 
 // IndexAPIBindingByAPIExport indexes the APIBindings by their APIExport's Reference Path and Name.
 func IndexAPIBindingByAPIExport(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
 	}

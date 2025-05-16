@@ -23,6 +23,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // SystemCRDAuthorizer protects the system CRDs from users who are admins in their workspaces.
@@ -41,7 +42,8 @@ func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Att
 	}
 
 	switch {
-	case attr.GetAPIGroup() == apisv1alpha1.SchemeGroupVersion.Group:
+	case attr.GetAPIGroup() == apisv1alpha1.SchemeGroupVersion.Group,
+		attr.GetAPIGroup() == apisv1alpha2.SchemeGroupVersion.Group:
 		switch {
 		case attr.GetResource() == "apibindings" && attr.GetSubresource() == "status":
 			return authorizer.DecisionDeny, "apibinding status updates not permitted", nil

@@ -21,7 +21,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 const (
@@ -43,7 +43,7 @@ func indexCRDByGroupResourceName(obj interface{}) ([]string, error) {
 }
 
 func indexAPIBindingByIdentityGroupResource(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha1.APIBinding)
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
 		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
 	}

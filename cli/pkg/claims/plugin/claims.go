@@ -34,7 +34,7 @@ import (
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
-	apiv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apiv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
@@ -104,16 +104,16 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 	}
 
 	allErrors := []error{}
-	apibindings := []apiv1alpha1.APIBinding{}
+	apibindings := []apiv1alpha2.APIBinding{}
 	// List permission claims for all bindings in current workspace.
 	if g.allBindings {
-		bindings, err := kcpClusterClient.Cluster(currentClusterName).ApisV1alpha1().APIBindings().List(ctx, metav1.ListOptions{})
+		bindings, err := kcpClusterClient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("error listing apibindings in %q workspace: %w", currentClusterName, err)
 		}
 		apibindings = append(apibindings, bindings.Items...)
 	} else {
-		binding, err := kcpClusterClient.Cluster(currentClusterName).ApisV1alpha1().APIBindings().Get(ctx, g.APIBindingName, metav1.GetOptions{})
+		binding, err := kcpClusterClient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().Get(ctx, g.APIBindingName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("error finding apibinding: %w", err)
 		}
