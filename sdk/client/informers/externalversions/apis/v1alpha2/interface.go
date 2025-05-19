@@ -23,6 +23,8 @@ import (
 )
 
 type ClusterInterface interface {
+	// APIBindings returns a APIBindingClusterInformer.
+	APIBindings() APIBindingClusterInformer
 	// APIExports returns a APIExportClusterInformer.
 	APIExports() APIExportClusterInformer
 }
@@ -37,12 +39,19 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
+// APIBindings returns a APIBindingClusterInformer.
+func (v *version) APIBindings() APIBindingClusterInformer {
+	return &aPIBindingClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // APIExports returns a APIExportClusterInformer.
 func (v *version) APIExports() APIExportClusterInformer {
 	return &aPIExportClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
+	// APIBindings returns a APIBindingInformer.
+	APIBindings() APIBindingInformer
 	// APIExports returns a APIExportInformer.
 	APIExports() APIExportInformer
 }
@@ -56,6 +65,11 @@ type scopedVersion struct {
 // New returns a new Interface.
 func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
+}
+
+// APIBindings returns a APIBindingInformer.
+func (v *scopedVersion) APIBindings() APIBindingInformer {
+	return &aPIBindingScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // APIExports returns a APIExportInformer.

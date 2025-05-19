@@ -5,6 +5,8 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.17.3
   name: apibindings.apis.kcp.io
 spec:
+  conversion:
+    strategy: None
   group: apis.kcp.io
   names:
     categories:
@@ -130,6 +132,420 @@ spec:
                 oneOf:
                 - required:
                   - export
+                properties:
+                  export:
+                    description: |-
+                      export is a reference to an APIExport by cluster name and export name.
+                      The creator of the APIBinding needs to have access to the APIExport with the
+                      verb `bind` in order to bind to it.
+                    properties:
+                      name:
+                        description: name is the name of the APIExport that describes
+                          the API.
+                        type: string
+                      path:
+                        description: |-
+                          path is a logical cluster path where the APIExport is defined.
+                          If the path is unset, the logical cluster of the APIBinding is used.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: APIExport reference must not be changed
+                  rule: self == oldSelf
+            required:
+            - reference
+            type: object
+          status:
+            description: Status communicates the observed state.
+            properties:
+              apiExportClusterName:
+                description: APIExportClusterName records the name (not path) of the
+                  logical cluster that contains the APIExport.
+                type: string
+              appliedPermissionClaims:
+                description: |-
+                  appliedPermissionClaims is a list of the permission claims the system has seen and applied,
+                  according to the requests of the API service provider in the APIExport and the acceptance
+                  state in spec.permissionClaims.
+                items:
+                  description: |-
+                    PermissionClaim identifies an object by GR and identity hash.
+                    Its purpose is to determine the added permissions that a service provider may
+                    request and that a consumer may accept and allow the service provider access to.
+                  properties:
+                    all:
+                      description: |-
+                        all claims all resources for the given group/resource.
+                        This is mutually exclusive with resourceSelector.
+                      type: boolean
+                    group:
+                      description: |-
+                        group is the name of an API group.
+                        For core groups this is the empty string '""'.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: |-
+                        This is the identity for a given APIExport that the APIResourceSchema belongs to.
+                        The hash can be found on APIExport and APIResourceSchema's status.
+                        It will be empty for core types.
+                        Note that one must look this up for a particular KCP instance.
+                      type: string
+                    resource:
+                      description: |-
+                        resource is the name of the resource.
+                        Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                        not provided by an api export.
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      type: string
+                    resourceSelector:
+                      description: resourceSelector is a list of claimed resource
+                        selectors.
+                      items:
+                        properties:
+                          name:
+                            description: |-
+                              name of an object within a claimed group/resource.
+                              It matches the metadata.name field of the underlying object.
+                              If namespace is unset, all objects matching that name will be claimed.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
+                            type: string
+                          namespace:
+                            description: |-
+                              namespace containing the named object. Matches metadata.namespace field.
+                              If "name" is unset, all objects from the namespace are being claimed.
+                            minLength: 1
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: at least one field must be set
+                          rule: has(self.__namespace__) || has(self.name)
+                      type: array
+                  required:
+                  - resource
+                  type: object
+                  x-kubernetes-validations:
+                  - message: either "all" or "resourceSelector" must be set
+                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
+                      && size(self.resourceSelector) > 0)
+                type: array
+              boundResources:
+                description: boundResources records the state of bound APIs.
+                items:
+                  description: BoundAPIResource describes a bound GroupVersionResource
+                    through an APIResourceSchema of an APIExport..
+                  properties:
+                    group:
+                      description: group is the group of the bound API. Empty string
+                        for the core API group.
+                      type: string
+                    resource:
+                      description: |-
+                        resource is the resource of the bound API.
+
+                        kubebuilder:validation:MinLength=1
+                      type: string
+                    schema:
+                      description: Schema references the APIResourceSchema that is
+                        bound to this API.
+                      properties:
+                        UID:
+                          description: UID is the UID of the APIResourceSchema that
+                            is bound to this API.
+                          minLength: 1
+                          type: string
+                        identityHash:
+                          description: |-
+                            identityHash is the hash of the API identity that this schema is bound to.
+                            The API identity determines the etcd prefix used to persist the object.
+                            Different identity means that the objects are effectively served and stored
+                            under a distinct resource. A CRD of the same GroupVersionResource uses a
+                            different identity and hence a separate etcd prefix.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: name is the bound APIResourceSchema name.
+                          minLength: 1
+                          type: string
+                      required:
+                      - UID
+                      - identityHash
+                      - name
+                      type: object
+                    storageVersions:
+                      description: |-
+                        storageVersions lists all versions of a resource that were ever persisted. Tracking these
+                        versions allows a migration path for stored versions in etcd. The field is mutable
+                        so a migration controller can finish a migration to another version (ensuring
+                        no old objects are left in storage), and then remove the rest of the
+                        versions from this list.
+
+                        Versions may not be removed while they exist in this list.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - group
+                  - resource
+                  - schema
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                x-kubernetes-list-type: map
+              conditions:
+                description: conditions is a list of conditions that apply to the
+                  APIBinding.
+                items:
+                  description: Condition defines an observation of a object operational
+                    state.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
+                      type: string
+                    reason:
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
+                      type: string
+                    severity:
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              exportPermissionClaims:
+                description: |-
+                  exportPermissionClaims records the permissions that the export provider is asking for
+                  the binding to grant.
+                items:
+                  description: |-
+                    PermissionClaim identifies an object by GR and identity hash.
+                    Its purpose is to determine the added permissions that a service provider may
+                    request and that a consumer may accept and allow the service provider access to.
+                  properties:
+                    all:
+                      description: |-
+                        all claims all resources for the given group/resource.
+                        This is mutually exclusive with resourceSelector.
+                      type: boolean
+                    group:
+                      description: |-
+                        group is the name of an API group.
+                        For core groups this is the empty string '""'.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: |-
+                        This is the identity for a given APIExport that the APIResourceSchema belongs to.
+                        The hash can be found on APIExport and APIResourceSchema's status.
+                        It will be empty for core types.
+                        Note that one must look this up for a particular KCP instance.
+                      type: string
+                    resource:
+                      description: |-
+                        resource is the name of the resource.
+                        Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                        not provided by an api export.
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      type: string
+                    resourceSelector:
+                      description: resourceSelector is a list of claimed resource
+                        selectors.
+                      items:
+                        properties:
+                          name:
+                            description: |-
+                              name of an object within a claimed group/resource.
+                              It matches the metadata.name field of the underlying object.
+                              If namespace is unset, all objects matching that name will be claimed.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
+                            type: string
+                          namespace:
+                            description: |-
+                              namespace containing the named object. Matches metadata.namespace field.
+                              If "name" is unset, all objects from the namespace are being claimed.
+                            minLength: 1
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: at least one field must be set
+                          rule: has(self.__namespace__) || has(self.name)
+                      type: array
+                  required:
+                  - resource
+                  type: object
+                  x-kubernetes-validations:
+                  - message: either "all" or "resourceSelector" must be set
+                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
+                      && size(self.resourceSelector) > 0)
+                type: array
+              phase:
+                description: |-
+                  phase is the current phase of the APIBinding:
+                  - "": the APIBinding has just been created, waiting to be bound.
+                  - Binding: the APIBinding is being bound.
+                  - Bound: the APIBinding is bound and the referenced APIs are available in the workspace.
+                enum:
+                - ""
+                - Binding
+                - Bound
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: |-
+          APIBinding enables a set of resources and their behaviour through an external
+          service provider in this workspace.
+
+          The service provider uses an APIExport to expose the API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec holds the desired state.
+            properties:
+              permissionClaims:
+                description: |-
+                  permissionClaims records decisions about permission claims requested by the API service provider.
+                  Individual claims can be accepted or rejected. If accepted, the API service provider gets the
+                  requested access to the specified resources in this workspace. Access is granted per
+                  GroupResource, identity, and other properties.
+                items:
+                  description: AcceptablePermissionClaim is a PermissionClaim that
+                    records if the user accepts or rejects it.
+                  properties:
+                    all:
+                      description: |-
+                        all claims all resources for the given group/resource.
+                        This is mutually exclusive with resourceSelector.
+                      type: boolean
+                    group:
+                      description: |-
+                        group is the name of an API group.
+                        For core groups this is the empty string '""'.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: |-
+                        This is the identity for a given APIExport that the APIResourceSchema belongs to.
+                        The hash can be found on APIExport and APIResourceSchema's status.
+                        It will be empty for core types.
+                        Note that one must look this up for a particular KCP instance.
+                      type: string
+                    resource:
+                      description: |-
+                        resource is the name of the resource.
+                        Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                        not provided by an api export.
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      type: string
+                    resourceSelector:
+                      description: resourceSelector is a list of claimed resource
+                        selectors.
+                      items:
+                        properties:
+                          name:
+                            description: |-
+                              name of an object within a claimed group/resource.
+                              It matches the metadata.name field of the underlying object.
+                              If namespace is unset, all objects matching that name will be claimed.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
+                            type: string
+                          namespace:
+                            description: |-
+                              namespace containing the named object. Matches metadata.namespace field.
+                              If "name" is unset, all objects from the namespace are being claimed.
+                            minLength: 1
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: at least one field must be set
+                          rule: has(self.__namespace__) || has(self.name)
+                      type: array
+                    state:
+                      enum:
+                      - Accepted
+                      - Rejected
+                      type: string
+                  required:
+                  - resource
+                  - state
+                  type: object
+                  x-kubernetes-validations:
+                  - message: either "all" or "resourceSelector" must be set
+                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
+                      && size(self.resourceSelector) > 0)
+                type: array
+              reference:
+                description: reference uniquely identifies an API to bind to.
                 properties:
                   export:
                     description: |-

@@ -33,6 +33,7 @@ import (
 
 type ApisV1alpha2ClusterInterface interface {
 	ApisV1alpha2ClusterScoper
+	APIBindingsClusterGetter
 	APIExportsClusterGetter
 }
 
@@ -50,6 +51,10 @@ func (c *ApisV1alpha2ClusterClient) Cluster(clusterPath logicalcluster.Path) kcp
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+func (c *ApisV1alpha2ClusterClient) APIBindings() APIBindingClusterInterface {
+	return &aPIBindingsClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *ApisV1alpha2ClusterClient) APIExports() APIExportClusterInterface {

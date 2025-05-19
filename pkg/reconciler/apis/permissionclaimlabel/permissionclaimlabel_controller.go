@@ -39,13 +39,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
-	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
+	apisv1alpha2listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha2"
 )
 
 const (
@@ -58,7 +56,7 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
-	apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) (*controller, error) {
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -81,7 +79,7 @@ func NewController(
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
 
-		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha1().APIBindings()),
+		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
 	}
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -95,10 +93,10 @@ func NewController(
 	return c, nil
 }
 
-type APIBinding = apisv1alpha1.APIBinding
-type APIBindingSpec = apisv1alpha1.APIBindingSpec
-type APIBindingStatus = apisv1alpha1.APIBindingStatus
-type Patcher = apisv1alpha1client.APIBindingInterface
+type APIBinding = apisv1alpha2.APIBinding
+type APIBindingSpec = apisv1alpha2.APIBindingSpec
+type APIBindingStatus = apisv1alpha2.APIBindingStatus
+type Patcher = apisv1alpha2client.APIBindingInterface
 type Resource = committer.Resource[*APIBindingSpec, *APIBindingStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
@@ -113,7 +111,7 @@ type controller struct {
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	ddsif                *informer.DiscoveringDynamicSharedInformerFactory
 
-	apiBindingsLister apisv1alpha1listers.APIBindingClusterLister
+	apiBindingsLister apisv1alpha2listers.APIBindingClusterLister
 	getAPIExport      func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
 	commit CommitFunc
@@ -219,7 +217,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer, apiBindingInformer apisv1alpha1informers.APIBindingClusterInformer) {
+func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer, apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer) {
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})

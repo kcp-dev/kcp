@@ -33,7 +33,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
@@ -101,7 +100,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	}
 
 	// This keeps track of which APIBindings have been created for which APIExports
-	exportToBinding := map[apisv1alpha1.ExportBindingReference]*apisv1alpha1.APIBinding{}
+	exportToBinding := map[apisv1alpha2.ExportBindingReference]*apisv1alpha2.APIBinding{}
 
 	for i := range bindings {
 		binding := bindings[i]
@@ -149,13 +148,13 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				continue
 			}
 
-			apiBinding := &apisv1alpha1.APIBinding{
+			apiBinding := &apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: apiBindingName,
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: exportRef.Path,
 							Name: apiExport.Name,
 						},
@@ -164,15 +163,9 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			}
 
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
-				v1Claim := apisv1alpha1.PermissionClaim{}
-				err := apisv1alpha2.Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&exportClaim, &v1Claim, nil)
-				if err != nil {
-					return fmt.Errorf("failed to convert PermissionClaim: %w", err)
-				}
-
-				acceptedClaim := apisv1alpha1.AcceptablePermissionClaim{
-					PermissionClaim: v1Claim,
-					State:           apisv1alpha1.ClaimAccepted,
+				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
+					PermissionClaim: exportClaim,
+					State:           apisv1alpha2.ClaimAccepted,
 				}
 
 				apiBinding.Spec.PermissionClaims = append(apiBinding.Spec.PermissionClaims, acceptedClaim)
@@ -220,7 +213,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	var incomplete []string
 
 	for exportRef := range requiredExportRefs {
-		binding, exists := exportToBinding[apisv1alpha1.ExportBindingReference{
+		binding, exists := exportToBinding[apisv1alpha2.ExportBindingReference{
 			Path: exportRef.Path,
 			Name: exportRef.Export,
 		}]
@@ -229,7 +222,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			continue
 		}
 
-		if !conditions.IsTrue(binding, apisv1alpha1.InitialBindingCompleted) {
+		if !conditions.IsTrue(binding, apisv1alpha2.InitialBindingCompleted) {
 			incomplete = append(incomplete, binding.Name)
 		}
 	}

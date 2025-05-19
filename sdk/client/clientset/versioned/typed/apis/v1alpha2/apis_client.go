@@ -29,12 +29,17 @@ import (
 
 type ApisV1alpha2Interface interface {
 	RESTClient() rest.Interface
+	APIBindingsGetter
 	APIExportsGetter
 }
 
 // ApisV1alpha2Client is used to interact with features provided by the apis.kcp.io group.
 type ApisV1alpha2Client struct {
 	restClient rest.Interface
+}
+
+func (c *ApisV1alpha2Client) APIBindings() APIBindingInterface {
+	return newAPIBindings(c)
 }
 
 func (c *ApisV1alpha2Client) APIExports() APIExportInterface {

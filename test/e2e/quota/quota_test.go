@@ -173,13 +173,13 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "error creating APIExport")
 
 			t.Logf("Create a binding in the user workspace")
-			binding := &apisv1alpha1.APIBinding{
+			binding := &apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "services",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: apiProviderPath.String(),
 							Name: servicesAPIExport.Name,
 						},
@@ -188,14 +188,14 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			}
 
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err := kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+				_, err := kcpClusterClient.Cluster(userPath).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for binding to be ready")
 			kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-				return kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-			}, kcptestinghelpers.Is(apisv1alpha1.InitialBindingCompleted))
+				return kcpClusterClient.Cluster(userPath).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 
 			t.Logf("Wait for being able to list Services in the user workspace")
 			kcptestinghelpers.Eventually(t, func() (bool, string) {

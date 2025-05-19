@@ -38,7 +38,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
 )
@@ -68,7 +68,7 @@ func TestValidate(t *testing.T) {
 				},
 			}),
 			clusterName:    "root:acme",
-			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha1.BoundAPIResource{{Group: "acme.dev", Resource: "foo"}})},
+			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha2.BoundAPIResource{{Group: "acme.dev", Resource: "foo"}})},
 			wantErr:        true,
 			wantAnnotation: `{"foo.acme.dev":{"n":"foo1"}}`,
 		},
@@ -82,7 +82,7 @@ func TestValidate(t *testing.T) {
 				},
 			}),
 			clusterName:    "root:acme",
-			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha1.BoundAPIResource{{Group: "acme.dev", Resource: "foo"}})},
+			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha2.BoundAPIResource{{Group: "acme.dev", Resource: "foo"}})},
 		},
 		{
 			name: "deleting a CRD is always allowed",
@@ -94,7 +94,7 @@ func TestValidate(t *testing.T) {
 				},
 			}),
 			clusterName:    "root:acme",
-			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha1.BoundAPIResource{{Group: "acme.dev", Resource: "foo"}})},
+			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha2.BoundAPIResource{{Group: "acme.dev", Resource: "foo"}})},
 		},
 
 		{
@@ -120,7 +120,7 @@ func TestValidate(t *testing.T) {
 				},
 			}),
 			clusterName:    "root:acme",
-			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha1.BoundAPIResource{{Group: "acme.dev", Resource: "bar"}})},
+			initialObjects: []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha2.BoundAPIResource{{Group: "acme.dev", Resource: "bar"}})},
 			wantAnnotation: `{"bar.acme.dev":{"n":"foo1"},"foo.acme.dev":{"c":true,"e":"2022-01-01T00:00:00Z"}}`,
 		},
 
@@ -134,7 +134,7 @@ func TestValidate(t *testing.T) {
 				},
 			}),
 			clusterName:                  "root:acme",
-			initialObjects:               []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha1.BoundAPIResource{{Group: "acme.dev", Resource: "bar"}})},
+			initialObjects:               []runtime.Object{withBinding(createLogicalCluster("root:acme"), "foo1", []apisv1alpha2.BoundAPIResource{{Group: "acme.dev", Resource: "bar"}})},
 			logicalClusterUpdateConflict: true,
 			wantErr:                      true,
 		},
@@ -329,7 +329,7 @@ func withCRD(lc *corev1alpha1.LogicalCluster, gr schema.GroupResource, expiry *m
 	return lc
 }
 
-func withBinding(lc *corev1alpha1.LogicalCluster, binding string, boundResources []apisv1alpha1.BoundAPIResource) *corev1alpha1.LogicalCluster {
+func withBinding(lc *corev1alpha1.LogicalCluster, binding string, boundResources []apisv1alpha2.BoundAPIResource) *corev1alpha1.LogicalCluster {
 	rbs := make(apibinding.ResourceBindingsAnnotation)
 	if v := lc.Annotations[apibinding.ResourceBindingsAnnotationKey]; v != "" {
 		if err := json.Unmarshal([]byte(v), &rbs); err != nil {

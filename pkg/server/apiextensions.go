@@ -40,8 +40,9 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	apisv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha1"
+	apisv1alpha2listers "github.com/kcp-dev/kcp/sdk/client/listers/apis/v1alpha2"
 	tenancyv1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/tenancy/v1alpha1"
 
 	_ "net/http/pprof"
@@ -60,7 +61,7 @@ type apiBindingAwareCRDClusterLister struct {
 	workspaceLister tenancyv1alpha1listers.WorkspaceClusterLister
 
 	apiBindingIndexer cache.Indexer
-	apiBindingLister  apisv1alpha1listers.APIBindingClusterLister
+	apiBindingLister  apisv1alpha2listers.APIBindingClusterLister
 
 	apiExportIndexer cache.Indexer
 
@@ -323,7 +324,7 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(name, identity string)
 
 	// TODO(ncdc): if there are multiple bindings that match on identity/group/resource, do we need to consider some
 	// sort of greatest-common-denominator for the CRD/schema?
-	apiBinding := apiBindings[0].(*apisv1alpha1.APIBinding)
+	apiBinding := apiBindings[0].(*apisv1alpha2.APIBinding)
 
 	var boundCRDName string
 

@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // byUID implements sort.Interface based on the UID field of CustomResourceDefinition.
@@ -36,19 +37,19 @@ func (u byUID) Less(i, j int) bool { return u[i].UID < u[j].UID }
 func (u byUID) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 type conflictChecker struct {
-	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error)
+	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	listCRDs             func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
 
 	clusterName  logicalcluster.Name
 	crds         []*apiextensionsv1.CustomResourceDefinition
-	crdToBinding map[string]*apisv1alpha1.APIBinding
+	crdToBinding map[string]*apisv1alpha2.APIBinding
 }
 
 // newConflictChecker creates a CRD conflict checker for the given cluster.
 func newConflictChecker(clusterName logicalcluster.Name,
-	listAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha1.APIBinding, error),
+	listAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error),
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error),
 	getCRD func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error),
 	listCRDs func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error),
@@ -59,7 +60,7 @@ func newConflictChecker(clusterName logicalcluster.Name,
 		getCRD:               getCRD,
 		listCRDs:             listCRDs,
 		clusterName:          clusterName,
-		crdToBinding:         map[string]*apisv1alpha1.APIBinding{},
+		crdToBinding:         map[string]*apisv1alpha2.APIBinding{},
 	}
 
 	// get bound CRDs
@@ -93,7 +94,7 @@ func newConflictChecker(clusterName logicalcluster.Name,
 
 // Check checks if the given schema from the given APIBinding conflicts with any
 // CRD or any other APIBinding.
-func (ncc *conflictChecker) Check(binding *apisv1alpha1.APIBinding, s *apisv1alpha1.APIResourceSchema) error {
+func (ncc *conflictChecker) Check(binding *apisv1alpha2.APIBinding, s *apisv1alpha1.APIResourceSchema) error {
 	for _, crd := range ncc.crds {
 		if other, found := ncc.crdToBinding[crd.Name]; found && other.Name == binding.Name {
 			// don't check binding against itself

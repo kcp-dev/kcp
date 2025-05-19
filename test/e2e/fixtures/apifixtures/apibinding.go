@@ -27,14 +27,14 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
 // BindToExport creates an APIBinding in bindingClusterName that points at apiExportName in exportClusterName. It waits
-// up to wait.ForeverTestTimeout for the APIBinding to have its apisv1alpha1.InitialBindingCompleted status.
+// up to wait.ForeverTestTimeout for the APIBinding to have its apisv1alpha2.InitialBindingCompleted status.
 func BindToExport(
 	ctx context.Context,
 	t *testing.T,
@@ -45,13 +45,13 @@ func BindToExport(
 ) {
 	t.Helper()
 
-	binding := &apisv1alpha1.APIBinding{
+	binding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: apiExportName,
 		},
-		Spec: apisv1alpha1.APIBindingSpec{
-			Reference: apisv1alpha1.BindingReference{
-				Export: &apisv1alpha1.ExportBindingReference{
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
 					Path: exportPath.String(),
 					Name: apiExportName,
 				},
@@ -61,7 +61,7 @@ func BindToExport(
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		t.Logf("Creating APIBinding %s|%s", bindingClusterName, binding.Name)
-		_, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+		_, err := clusterClient.Cluster(bindingClusterName).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("error creating APIBinding %s|%s: %v", bindingClusterName, binding.Name, err)
 		}
@@ -69,6 +69,6 @@ func BindToExport(
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return clusterClient.Cluster(bindingClusterName).ApisV1alpha1().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-	}, kcptestinghelpers.Is(apisv1alpha1.InitialBindingCompleted))
+		return clusterClient.Cluster(bindingClusterName).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 }

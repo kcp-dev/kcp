@@ -73,7 +73,7 @@ var _ = initializers.WantsKcpClusterClient(&crdNoOverlappingGVRAdmission{})
 
 // SetKcpInformers sets the informer for kcp resources. It's part of WantsKcpInformers.
 func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	p.SetReadyFunc(local.Apis().V1alpha1().APIBindings().Informer().HasSynced)
+	p.SetReadyFunc(local.Apis().V1alpha2().APIBindings().Informer().HasSynced)
 	p.logicalclusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
 }
 

@@ -46,7 +46,6 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/config/helpers"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -164,13 +163,13 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			userPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-api-binding-%d", i))
 
 			t.Logf("Create a binding in the user workspace")
-			binding := &apisv1alpha1.APIBinding{
+			binding := &apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cowboys",
 				},
-				Spec: apisv1alpha1.APIBindingSpec{
-					Reference: apisv1alpha1.BindingReference{
-						Export: &apisv1alpha1.ExportBindingReference{
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
 							Path: apiProviderPath.String(),
 							Name: cowboysAPIExport.Name,
 						},
@@ -185,14 +184,14 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 			require.NoError(t, err, "error creating kcp cluster client")
 
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err = kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Create(c, binding, metav1.CreateOptions{})
+				_, err = kcpClusterClient.Cluster(userPath).ApisV1alpha2().APIBindings().Create(c, binding, metav1.CreateOptions{})
 				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "error creating APIBinding")
 
 			t.Logf("Wait for the binding to be ready")
 			kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-				return kcpClusterClient.Cluster(userPath).ApisV1alpha1().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
-			}, kcptestinghelpers.Is(apisv1alpha1.InitialBindingCompleted))
+				return kcpClusterClient.Cluster(userPath).ApisV1alpha2().APIBindings().Get(c, binding.Name, metav1.GetOptions{})
+			}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 
 			wildwestClusterClient, err := wildwestclientset.NewForConfig(server.BaseConfig(t))
 			require.NoError(t, err, "failed to construct wildwest cluster client for server")

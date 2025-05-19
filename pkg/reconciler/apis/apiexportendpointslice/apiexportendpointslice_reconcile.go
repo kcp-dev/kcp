@@ -60,14 +60,14 @@ func (r *endpointsReconciler) reconcile(_ context.Context, apiExportEndpointSlic
 	}
 	_, err := r.getAPIExport(apiExportPath, apiExportEndpointSlice.Spec.APIExport.Name)
 	if err != nil {
-		reason := apisv1alpha1.InternalErrorReason
+		reason := apisv1alpha2.InternalErrorReason
 		if errors.IsNotFound(err) {
 			// Don't keep the endpoints if the APIExport has been deleted
 			apiExportEndpointSlice.Status.APIExportEndpoints = nil
 			conditions.MarkFalse(
 				apiExportEndpointSlice,
-				apisv1alpha1.APIExportValid,
-				apisv1alpha1.APIExportNotFoundReason,
+				apisv1alpha2.APIExportValid,
+				apisv1alpha2.APIExportNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Error getting APIExport %s|%s",
 				apiExportPath,
@@ -78,7 +78,7 @@ func (r *endpointsReconciler) reconcile(_ context.Context, apiExportEndpointSlic
 		} else {
 			conditions.MarkFalse(
 				apiExportEndpointSlice,
-				apisv1alpha1.APIExportValid,
+				apisv1alpha2.APIExportValid,
 				reason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Error getting APIExport %s|%s",
@@ -88,7 +88,7 @@ func (r *endpointsReconciler) reconcile(_ context.Context, apiExportEndpointSlic
 			return err
 		}
 	}
-	conditions.MarkTrue(apiExportEndpointSlice, apisv1alpha1.APIExportValid)
+	conditions.MarkTrue(apiExportEndpointSlice, apisv1alpha2.APIExportValid)
 
 	// Get selector from Partition
 	var selector labels.Selector
@@ -113,7 +113,7 @@ func (r *endpointsReconciler) reconcile(_ context.Context, apiExportEndpointSlic
 				conditions.MarkFalse(
 					apiExportEndpointSlice,
 					apisv1alpha1.PartitionValid,
-					apisv1alpha1.InternalErrorReason,
+					apisv1alpha2.InternalErrorReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"%v",
 					err,
