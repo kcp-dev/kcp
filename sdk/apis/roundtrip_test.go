@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	kubeconversion "k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -130,8 +131,8 @@ func testGenericConversion[V1 runtime.Object, V2 runtime.Object](
 		err = toV1(intermediate, result, nil)
 		require.NoError(t, err)
 
-		require.Equal(t, original, result)
-		require.Equal(t, originalCopy, original)
+		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")
+		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expects originalCopy to equal original")
 	})
 
 	t.Run("V2->V1->V2", func(t *testing.T) {
@@ -148,8 +149,8 @@ func testGenericConversion[V1 runtime.Object, V2 runtime.Object](
 		err = toV2(intermediate, result, nil)
 		require.NoError(t, err)
 
-		require.Equal(t, original, result)
-		require.Equal(t, originalCopy, original)
+		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")
+		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expects originalCopy to equal original")
 	})
 }
 

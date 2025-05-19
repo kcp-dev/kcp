@@ -103,7 +103,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
 
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderPath, cfg)
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderPath, cfg, nil)
 	bindConsumerToProvider(ctx, t, consumerPath, serviceProviderPath, kcpClients, cfg)
 	createCowboyInConsumer(ctx, t, consumerPath, wildwestClusterClient)
 
@@ -943,52 +943,70 @@ func gatherClaimableBuiltInAPIs(t *testing.T, discoveryClient discovery.Discover
 	return internalAPIs, nil
 }
 
-func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string) {
-	t.Helper()
-
+func defaultPermissionsClaims(identityHash string, modifiers ...func([]apisv1alpha2.PermissionClaim)) []apisv1alpha2.PermissionClaim {
 	claims := []apisv1alpha2.PermissionClaim{
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			IdentityHash:  identityHash,
 			All:           true,
+			Verbs:         []string{"*"},
 		},
 	}
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, claims...)
+
+	for _, mod := range modifiers {
+		mod(claims)
+	}
+
+	return claims
 }
 
-func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, claims ...apisv1alpha2.PermissionClaim) {
+func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, identityHash string) {
+	t.Helper()
+
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, defaultPermissionsClaims(identityHash))
+}
+
+func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, claims []apisv1alpha2.PermissionClaim) {
 	t.Helper()
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
@@ -1022,7 +1040,7 @@ func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClien
 	require.NoError(t, err)
 }
 
-func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path, kcpClients kcpclientset.ClusterInterface, cfg *rest.Config) {
+func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace logicalcluster.Path, providerPath logicalcluster.Path, kcpClients kcpclientset.ClusterInterface, cfg *rest.Config, permissionClaims ...apisv1alpha2.AcceptablePermissionClaim) {
 	t.Helper()
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from %q", consumerWorkspace, providerPath)
 	apiBinding := &apisv1alpha2.APIBinding{
@@ -1036,6 +1054,7 @@ func bindConsumerToProvider(ctx context.Context, t *testing.T, consumerWorkspace
 					Name: "today-cowboys",
 				},
 			},
+			PermissionClaims: permissionClaims,
 		},
 	}
 

@@ -74,6 +74,25 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 				}},
 			},
 		},
+		{
+			Spec: APIExportSpec{
+				Resources: []ResourceSchema{{
+					Group:  "bar",
+					Name:   "foo",
+					Schema: "v1.foo.bar",
+					Storage: ResourceSchemaStorage{
+						CRD: &ResourceSchemaStorageCRD{},
+					},
+				}},
+				PermissionClaims: []PermissionClaim{{
+					GroupResource: GroupResource{
+						Resource: "configmaps",
+					},
+					All:   true,
+					Verbs: []string{"get"},
+				}},
+			},
+		},
 	}
 
 	scheme := runtime.NewScheme()
@@ -116,6 +135,151 @@ func TestConvertV1Alpha1APIExports(t *testing.T) {
 					"v1.foo.org",
 					"v1.bar.org",
 				},
+			},
+		},
+		{
+			Spec: apisv1alpha1.APIExportSpec{
+				LatestResourceSchemas: []string{
+					"v1.foo.org",
+					"v1.bar.org",
+				},
+				PermissionClaims: []apisv1alpha1.PermissionClaim{{
+					GroupResource: apisv1alpha1.GroupResource{
+						Resource: "configmaps",
+					},
+					All: true,
+				}},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, testcase := range testcases {
+		t.Run("", func(t *testing.T) {
+			v2, err := scheme.ConvertToVersion(&testcase, SchemeGroupVersion)
+			if err != nil {
+				t.Fatalf("Failed to convert v1alpha2 to v1alpha1: %v", err)
+			}
+
+			v1, err := scheme.ConvertToVersion(v2, apisv1alpha1.SchemeGroupVersion)
+			if err != nil {
+				t.Fatalf("Failed to convert v1alpha1 back to v1alpha2: %v", err)
+			}
+
+			v1.GetObjectKind().SetGroupVersionKind(testcase.GroupVersionKind())
+
+			if changes := cmp.Diff(v1, &testcase); changes != "" {
+				t.Fatalf("unexpected diff:\n%s", changes)
+			}
+		})
+	}
+}
+
+func TestConvertV1Alpha2APIBindings(t *testing.T) {
+	testcases := []APIBinding{
+		{
+			Spec: APIBindingSpec{},
+		},
+		{
+			Spec: APIBindingSpec{
+				Reference: BindingReference{
+					Export: &ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+			},
+		},
+		{
+			Spec: APIBindingSpec{
+				Reference: BindingReference{
+					Export: &ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+				PermissionClaims: []AcceptablePermissionClaim{{
+					PermissionClaim: PermissionClaim{
+						GroupResource: GroupResource{
+							Resource: "configmaps",
+						},
+						All:   true,
+						Verbs: []string{"get"},
+					},
+					State: ClaimAccepted,
+				}},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := apisv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, testcase := range testcases {
+		t.Run("", func(t *testing.T) {
+			v1, err := scheme.ConvertToVersion(&testcase, apisv1alpha1.SchemeGroupVersion)
+			if err != nil {
+				t.Fatalf("Failed to convert v1alpha2 to v1alpha1: %v", err)
+			}
+
+			v2, err := scheme.ConvertToVersion(v1, SchemeGroupVersion)
+			if err != nil {
+				t.Fatalf("Failed to convert v1alpha1 back to v1alpha2: %v", err)
+			}
+
+			v2.GetObjectKind().SetGroupVersionKind(testcase.GroupVersionKind())
+
+			if changes := cmp.Diff(v2, &testcase); changes != "" {
+				t.Fatalf("unexpected diff:\n%s", changes)
+			}
+		})
+	}
+}
+
+func TestConvertV1Alpha1APIBinding(t *testing.T) {
+	testcases := []apisv1alpha1.APIBinding{
+		{
+			Spec: apisv1alpha1.APIBindingSpec{},
+		},
+		{
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+			},
+		},
+		{
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+				PermissionClaims: []apisv1alpha1.AcceptablePermissionClaim{{
+					PermissionClaim: apisv1alpha1.PermissionClaim{
+						GroupResource: apisv1alpha1.GroupResource{
+							Resource: "configmaps",
+						},
+						All: true,
+					},
+					State: apisv1alpha1.ClaimAccepted,
+				}},
 			},
 		},
 	}

@@ -535,9 +535,20 @@ spec:
                       - Accepted
                       - Rejected
                       type: string
+                    verbs:
+                      description: |-
+                        verbs is a list of supported API operation types (this includes
+                        but is not limited to get, list, watch, create, update, patch,
+                        delete, deletecollection, and proxy).
+                      items:
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
                   required:
                   - resource
                   - state
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
@@ -641,8 +652,19 @@ spec:
                         - message: at least one field must be set
                           rule: has(self.__namespace__) || has(self.name)
                       type: array
+                    verbs:
+                      description: |-
+                        verbs is a list of supported API operation types (this includes
+                        but is not limited to get, list, watch, create, update, patch,
+                        delete, deletecollection, and proxy).
+                      items:
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
                   required:
                   - resource
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set
@@ -821,8 +843,19 @@ spec:
                         - message: at least one field must be set
                           rule: has(self.__namespace__) || has(self.name)
                       type: array
+                    verbs:
+                      description: |-
+                        verbs is a list of supported API operation types (this includes
+                        but is not limited to get, list, watch, create, update, patch,
+                        delete, deletecollection, and proxy).
+                      items:
+                        type: string
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
                   required:
                   - resource
+                  - verbs
                   type: object
                   x-kubernetes-validations:
                   - message: either "all" or "resourceSelector" must be set

@@ -87,7 +87,10 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 		}
 
 		// Before we convert to v1alpha2, we need to validate the annotations overhanging:
-		if err := validateOverhangingAnnotations(ctx, a, ae); err != nil {
+		if err := validateOverhangingResourceSchemas(ctx, a, ae); err != nil {
+			return admission.NewForbidden(a, err)
+		}
+		if err := validateOverhangingPermissionClaims(ctx, a, ae); err != nil {
 			return admission.NewForbidden(a, err)
 		}
 
@@ -159,7 +162,7 @@ func validateResourceSchema(resourceSchema apisv1alpha2.ResourceSchema, path *fi
 	return nil
 }
 
-func validateOverhangingAnnotations(_ context.Context, _ admission.Attributes, ae *apisv1alpha1.APIExport) error {
+func validateOverhangingResourceSchemas(_ context.Context, _ admission.Attributes, ae *apisv1alpha1.APIExport) error {
 	// TODO(mjudeikis): Remove this once we are sure that all APIExport objects are
 	// converted to v1alpha2.
 	if _, ok := ae.Annotations[apisv1alpha2.ResourceSchemasAnnotation]; ok {
@@ -184,6 +187,46 @@ func validateOverhangingAnnotations(_ context.Context, _ admission.Attributes, a
 				return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.ResourceSchemasAnnotation), ae.Annotations[apisv1alpha2.ResourceSchemasAnnotation], "duplicate resource schema")
 			}
 			seen[rs.Schema] = struct{}{}
+		}
+	}
+	return nil
+}
+
+func validateOverhangingPermissionClaims(_ context.Context, _ admission.Attributes, ae *apisv1alpha1.APIExport) error {
+	// TODO(xmudrii): Remove this once we are sure that all APIExport objects are
+	// converted to v1alpha2.
+	if _, ok := ae.Annotations[apisv1alpha2.PermissionClaimsAnnotation]; ok {
+		// validate if we can decode overhanging permission claims. If not, we will fail.
+		var overhanging []apisv1alpha2.PermissionClaim
+		if err := json.Unmarshal([]byte(ae.Annotations[apisv1alpha2.PermissionClaimsAnnotation]), &overhanging); err != nil {
+			return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.PermissionClaimsAnnotation), ae.Annotations[apisv1alpha2.PermissionClaimsAnnotation], "failed to decode overhanging permission claims")
+		}
+
+		// validate mismatches. We could have mismatches between the spec and the annotation
+		// (e.g. a resource present in the annotation, but not in the spec).
+		// We convert to v2 to check for mismatches.
+		v2Claims := make([]apisv1alpha2.PermissionClaim, len(ae.Spec.PermissionClaims))
+		for i, v1pc := range ae.Spec.PermissionClaims {
+			var v2pc apisv1alpha2.PermissionClaim
+			err := apisv1alpha2.Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&v1pc, &v2pc, nil)
+			if err != nil {
+				return field.Invalid(field.NewPath("spec").Child("permissionClaims").Index(i), ae.Spec.PermissionClaims, "failed to convert spec.PermissionClaims")
+			}
+			v2Claims = append(v2Claims, v2pc)
+		}
+
+		for _, o := range overhanging {
+			var found bool
+			for _, pc := range v2Claims {
+				if pc.Equal(o) {
+					found = true
+
+					break
+				}
+			}
+			if !found {
+				return field.Invalid(field.NewPath("metadata").Child("annotations").Key(apisv1alpha2.PermissionClaimsAnnotation), ae.Annotations[apisv1alpha2.PermissionClaimsAnnotation], "permission claims defined in annotation do not match permission claims defined in spec")
+			}
 		}
 	}
 	return nil

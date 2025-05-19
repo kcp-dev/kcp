@@ -299,7 +299,7 @@ func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.Clust
 	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
 	apiExportsContentAuth = authorization.NewDecorator("virtual.apiexport.content.authorization.kcp.io", apiExportsContentAuth).AddAuditLogging().AddAnonymization()
 
-	boundApiAuth := virtualapiexportauth.NewBoundAPIAuthorizer(apiExportsContentAuth, kcpInformers.Apis().V1alpha2().APIBindings(), kubeClusterClient)
+	boundApiAuth := virtualapiexportauth.NewBoundAPIAuthorizer(apiExportsContentAuth, kcpInformers.Apis().V1alpha2().APIBindings(), cachedKcpInformers.Apis().V1alpha2().APIExports(), kubeClusterClient)
 	boundApiAuth = authorization.NewDecorator("virtual.apiexport.boundapi.authorization.kcp.io", boundApiAuth).AddAuditLogging().AddAnonymization()
 
 	return boundApiAuth
