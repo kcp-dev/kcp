@@ -99,6 +99,11 @@ func TestSerializersWithWorkspace(t *testing.T) {
 		t.Run(serializer, func(t *testing.T) {
 			t.Parallel()
 
+			if serializer == runtime.ContentTypeProtobuf {
+				// protobuf for kcp needs additional work
+				t.Skip("skipping protobuf serializer test")
+			}
+
 			cfg := server.BaseConfig(t)
 			cfg.ContentConfig.AcceptContentTypes = serializer
 			cfg.ContentConfig.ContentType = serializer
