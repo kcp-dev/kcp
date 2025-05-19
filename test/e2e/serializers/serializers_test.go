@@ -30,6 +30,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -71,6 +72,62 @@ func TestSerializers(t *testing.T) {
 			}
 
 			cmi := kubeClient.Cluster(core.RootCluster.Path()).
+				CoreV1().
+				ConfigMaps(metav1.NamespaceDefault)
+
+			_, err = cmi.Create(context.Background(), configmap, metav1.CreateOptions{})
+			require.Nil(t, err)
+
+			cm, err := cmi.Get(context.Background(), configmap.ObjectMeta.Name, metav1.GetOptions{})
+			require.Nil(t, err)
+			require.NotNil(t, cm)
+			require.Equal(t, configmap.Data, cm.Data)
+
+			err = cmi.Delete(context.Background(), configmap.ObjectMeta.Name, metav1.DeleteOptions{})
+			require.Nil(t, err)
+		})
+	}
+}
+
+func TestSerializersWithWorkspace(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	for _, serializer := range serializers {
+		t.Run(serializer, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := server.BaseConfig(t)
+			cfg.ContentConfig.AcceptContentTypes = serializer
+			cfg.ContentConfig.ContentType = serializer
+
+			kcpClient, err := kcpclientset.NewForConfig(cfg)
+			require.NoError(t, err, "error creating kcp cluster client")
+
+			ws := kcptesting.NewLowLevelWorkspaceFixture(t,
+				kcpClient, kcpClient,
+				core.RootCluster.Path(),
+				kcptesting.WithType(core.RootCluster.Path(), "organization"),
+			)
+
+			orgPath := core.RootCluster.Path().Join(ws.Name)
+
+			kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+			require.NoError(t, err, "error creating kube cluster client")
+
+			configmap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      strings.TrimPrefix(serializer, "application/"),
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: map[string]string{
+					"serializer": serializer,
+				},
+			}
+
+			cmi := kubeClient.Cluster(orgPath).
 				CoreV1().
 				ConfigMaps(metav1.NamespaceDefault)
 
