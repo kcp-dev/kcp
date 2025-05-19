@@ -368,8 +368,16 @@ endif
 test: WHAT ?= ./...
 # We will need to move into the sub package, of sdk to run those tests.
 test: ## Run tests
-	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v ./test/e2e/)
+	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration')
 	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
+
+.PHONY: test-integration
+ifdef USE_GOTESTSUM
+test-integration: $(GOTESTSUM)
+endif
+test-integration: WHAT ?= ./test/integration...
+test-integration: ## Run integration tests
+	$(GO_TEST) $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps: ## Verify kubernetes deps

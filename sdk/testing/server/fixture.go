@@ -310,9 +310,6 @@ func (c *kcpServer) Run(t TestingT) error {
 }
 
 func (c *kcpServer) Stop() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
 	if c.cancel == nil {
 		return
 	}
