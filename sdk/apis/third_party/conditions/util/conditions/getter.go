@@ -17,10 +17,11 @@ limitations under the License.
 package conditions
 
 import (
-	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	conditionsapi "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 // Getter interface defines methods that an object should implement in order to
@@ -234,7 +235,7 @@ func mirror(from Getter, targetCondition conditionsapi.ConditionType, options ..
 	return condition
 }
 
-// Aggregates all the the Ready condition from a list of dependent objects into the target object;
+// Aggregates all the Ready condition from a list of dependent objects into the target object;
 // if the Ready condition does not exists in one of the source object, the object is excluded from
 // the aggregation; if none of the source object have ready condition, no target conditions is generated.
 func aggregate(from []Getter, targetCondition conditionsapi.ConditionType, options ...MergeOption) *conditionsapi.Condition {

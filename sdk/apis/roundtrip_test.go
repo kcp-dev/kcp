@@ -36,7 +36,7 @@ import (
 	sdktesting "github.com/kcp-dev/kcp/sdk/testing"
 )
 
-// in non-race-detection mode, a higher number of iterations is reasonable
+// in non-race-detection mode, a higher number of iterations is reasonable.
 const defaultFuzzIters = 200
 
 var FuzzIters = flag.Int("fuzz-iters", defaultFuzzIters, "How many fuzzing iterations to do.")
@@ -56,7 +56,6 @@ func TestRoundTripTypes(t *testing.T) {
 	seed := rand.Int63()
 	fuzzer := fuzzer.FuzzerFor(sdktesting.FuzzerFuncs, rand.NewSource(seed), codecs)
 	roundtrip.RoundTripExternalTypesWithoutProtobuf(t, scheme, codecs, fuzzer, nil)
-
 }
 
 type ConvertionTests struct {

@@ -509,7 +509,7 @@ func (ngr isNotGroupResource) Match(groupVersion string, r *metav1.APIResource) 
 	if len(comps) == 1 {
 		group = ""
 	}
-	return !(group == ngr.group && r.Name == ngr.resource)
+	return group != ngr.group || r.Name != ngr.resource
 }
 
 type isNotVirtualResource struct{}
