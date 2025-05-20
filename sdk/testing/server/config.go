@@ -27,6 +27,7 @@ type Config struct {
 	ArtifactDir string
 	DataDir     string
 	ClientCADir string
+	BindAddress string
 
 	LogToConsole bool
 	RunInProcess bool
@@ -82,5 +83,12 @@ func WithRunInProcess() Option {
 func WithLogToConsole() Option {
 	return func(cfg *Config) {
 		cfg.LogToConsole = true
+	}
+}
+
+// WithBindAddress sets the kcp server to log to console.
+func WithBindAddress(addr string) Option {
+	return func(cfg *Config) {
+		cfg.BindAddress = addr
 	}
 }

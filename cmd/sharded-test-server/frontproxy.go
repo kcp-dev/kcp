@@ -132,6 +132,7 @@ func startFrontProxy(
 
 	// run front-proxy command
 	commandLine := append(kcptestingserver.Command("kcp-front-proxy", "front-proxy"),
+		"--bind-address="+hostIP,
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy/mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
 		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/root.kubeconfig")),

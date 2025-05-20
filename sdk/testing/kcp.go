@@ -35,7 +35,10 @@ var fs embed.FS
 func PrivateKcpServer(t TestingT, options ...kcptestingserver.Option) kcptestingserver.RunningServer {
 	t.Helper()
 
-	cfg := &kcptestingserver.Config{Name: "main"}
+	cfg := &kcptestingserver.Config{
+		Name:        "main",
+		BindAddress: "127.0.0.1",
+	}
 	for _, opt := range options {
 		opt(cfg)
 	}

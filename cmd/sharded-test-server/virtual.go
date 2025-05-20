@@ -142,8 +142,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		return nil, err
 	}
 
-	var args []string
-	args = append(args,
+	args := []string{
 		fmt.Sprintf("--kubeconfig=%s", kubeconfigPath),
 		fmt.Sprintf("--shard-external-url=https://%s:%d", hostIP, 6443),
 		fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath),
@@ -151,6 +150,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
 		fmt.Sprintf("--tls-private-key-file=%s", servingKeyFile),
 		fmt.Sprintf("--tls-cert-file=%s", servingCertFile),
+		fmt.Sprintf("--bind-address=%s", hostIP),
 		fmt.Sprintf("--secure-port=%s", virtualWorkspacePort(index)),
 		"--audit-log-maxsize=1024",
 		"--audit-log-mode=batch",
@@ -161,7 +161,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		"--audit-log-batch-throttle-enable=true",
 		"--audit-log-batch-throttle-qps=10",
 		fmt.Sprintf("--audit-policy-file=%s", auditPolicyFile),
-	)
+	}
 
 	return &VirtualWorkspace{
 		index:       index,

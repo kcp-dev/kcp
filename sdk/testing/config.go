@@ -28,7 +28,8 @@ type SharedKcpOption func()
 
 var (
 	sharedConfig = kcptestingserver.Config{
-		Name: "shared",
+		Name:        "shared",
+		BindAddress: "127.0.0.1",
 	}
 	externalConfig = struct {
 		kubeconfigPath       string
