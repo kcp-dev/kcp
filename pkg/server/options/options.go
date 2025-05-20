@@ -287,6 +287,22 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 		}
 	}
 
+	// ExternalAddress is the address used e.g. when generating
+	// kubeconfigs. It defaults to the default interface, usually the
+	// first non-loopback interface, e.g. 192.168.0.1.
+	// BindAddress is the address the server binds to, it defaults to
+	// 0.0.0.0 or ::.
+	//
+	// If BindAddress is set to a specific address, e.g. the loopback
+	// 127.0.0.1 the ExternalAddress is invalid and all URLs generated
+	// from it will not work.
+	//
+	// To prevent this ExternalAddress is set to the value of
+	// BindAddress if it wasn't set to a specific address.
+	if o.GenericControlPlane.GenericServerRunOptions.ExternalHost == "" && !o.GenericControlPlane.SecureServing.BindAddress.IsUnspecified() {
+		o.GenericControlPlane.GenericServerRunOptions.ExternalHost = o.GenericControlPlane.SecureServing.BindAddress.String()
+	}
+
 	if o.Extra.ExperimentalBindFreePort {
 		listener, _, err := genericapiserveroptions.CreateListener("tcp", fmt.Sprintf("%s:0", o.GenericControlPlane.SecureServing.BindAddress), net.ListenConfig{})
 		if err != nil {

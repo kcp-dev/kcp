@@ -155,6 +155,7 @@ type CompletedConfig struct {
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
 func (c *Config) Complete() (CompletedConfig, error) {
 	miniAggregator := c.MiniAggregator.Complete()
+
 	return CompletedConfig{&completedConfig{
 		Options: c.Options,
 
