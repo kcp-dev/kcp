@@ -94,7 +94,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	port, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err, "failed to get free port for test webhook")
 	dirPath := filepath.Dir(server.KubeconfigPath())
-	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
+	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -212,7 +212,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	port, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err, "failed to get free port for test webhook")
 	dirPath := filepath.Dir(server.KubeconfigPath())
-	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
+	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	ws1, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)

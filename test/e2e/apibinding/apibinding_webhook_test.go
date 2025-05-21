@@ -157,7 +157,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		port, err := kcptestingserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
-		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
+		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
 		sideEffect := admissionregistrationv1.SideEffectClassNone
 		url := testWebhooks[cluster].GetURL()
@@ -312,7 +312,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		port, err := kcptestingserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
-		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
+		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			cl := gohttp.Client{Transport: &gohttp.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}

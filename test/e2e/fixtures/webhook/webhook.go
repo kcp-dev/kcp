@@ -22,7 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"sync"
 	"testing"
 
@@ -38,18 +40,29 @@ type AdmissionWebhookServer struct {
 
 	t *testing.T
 
-	port  string
-	lock  sync.Mutex
-	calls int
+	host, port string
+	lock       sync.Mutex
+	calls      int
 }
 
-func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string, port string) {
+func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile, host, port string) {
 	t.Helper()
 
 	s.t = t
+	// The host passed to StartTLS is the Host of the rest.Config, which
+	// can be just host, host:port or a full URL.
+	u, err := url.Parse(host)
+	if err != nil {
+		t.Fatalf("error parsing host %q: %v", host, err)
+	}
+	host, _, err = net.SplitHostPort(u.Host)
+	if err != nil {
+		t.Fatalf("error splitting host %q: %v", u.Host, err)
+	}
+	s.host = host
 	s.port = port
 
-	serv := &http.Server{Addr: fmt.Sprintf(":%v", port), Handler: s}
+	serv := &http.Server{Addr: net.JoinHostPort(s.host, s.port), Handler: s}
 	t.Cleanup(func() {
 		t.Log("Shutting down the HTTP server")
 		err := serv.Shutdown(context.TODO())
@@ -67,7 +80,12 @@ func (s *AdmissionWebhookServer) StartTLS(t *testing.T, certFile, keyFile string
 }
 
 func (s *AdmissionWebhookServer) GetURL() string {
-	return fmt.Sprintf("https://localhost:%v/hello", s.port)
+	u := &url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(s.host, s.port),
+		Path:   "/hello",
+	}
+	return u.String()
 }
 
 func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
