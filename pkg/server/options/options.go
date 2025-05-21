@@ -327,7 +327,34 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericOptions, err := o.GenericControlPlane.Complete(ctx, nil, nil)
+	// o.GenericControlPlane.Complete creates self-signed certificates
+	// with the advertise address by default. This can cause spurious
+	// errors if the server binds on multiple interfaces.
+	possibleIPs := []net.IP{
+		o.GenericControlPlane.GenericServerRunOptions.AdvertiseAddress,
+		o.GenericControlPlane.SecureServing.BindAddress,
+		o.GenericControlPlane.SecureServing.ExternalAddress,
+	}
+	if o.GenericControlPlane.SecureServing.Listener != nil {
+		host, _, err := net.SplitHostPort(o.GenericControlPlane.SecureServing.Listener.Addr().String())
+		if err != nil {
+			return nil, err
+		}
+		possibleIPs = append(possibleIPs, net.ParseIP(host))
+	}
+
+	alternateIPs := []net.IP{}
+	alternateDNS := []string{}
+
+	for _, ip := range possibleIPs {
+		if ip == nil || ip.IsUnspecified() {
+			continue
+		}
+		alternateIPs = append(alternateIPs, ip)
+		alternateDNS = append(alternateDNS, ip.String())
+	}
+
+	completedGenericOptions, err := o.GenericControlPlane.Complete(ctx, alternateDNS, alternateIPs)
 	if err != nil {
 		return nil, err
 	}
