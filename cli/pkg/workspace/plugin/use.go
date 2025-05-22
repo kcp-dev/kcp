@@ -127,17 +127,19 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
 		name = "~" + strings.TrimPrefix(name, home)
 	}
 	name = strings.ReplaceAll(name, "/", ":")
-	if name == core.RootCluster.String() || strings.HasPrefix(name, core.RootCluster.String()+":") {
+	if name == core.RootCluster.String() || strings.HasPrefix(name, core.RootCluster.String()+":") && !o.ShortWorkspaceOutput {
 		// LEGACY(mjudeikis): Remove once everybody gets used to this
 		name = ":" + name
 		fmt.Fprintf(o.ErrOut, "Note: Using 'root:' to define an absolute path is no longer supported. Instead, use ':root' to specify an absolute path.\n")
 	}
 	if name == "" {
-		defer func() {
-			if err == nil {
-				_, err = fmt.Fprintf(o.ErrOut, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
-			}
-		}()
+		if !o.ShortWorkspaceOutput {
+			defer func() {
+				if err == nil {
+					_, err = fmt.Fprintf(o.ErrOut, "Note: 'kubectl ws' now matches 'cd' semantics: go to home workspace. 'kubectl ws -' to go back. 'kubectl ws .' to print current workspace.\n")
+				}
+			}()
+		}
 		name = "~"
 	}
 
