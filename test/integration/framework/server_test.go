@@ -34,6 +34,12 @@ func TestServer(t *testing.T) {
 	server.Stop()
 }
 
+func TestServerServer(t *testing.T) {
+	t.Parallel()
+	server, _, _ := StartTestServer(t)
+	require.NotNil(t, server.Server().Apis)
+}
+
 func TestServerCreateConfigMap(t *testing.T) {
 	t.Parallel()
 	_, _, kubeClient := StartTestServer(t)

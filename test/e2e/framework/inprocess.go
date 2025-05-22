@@ -35,7 +35,7 @@ import (
 func init() {
 	globalOptionsLock := &sync.Mutex{}
 
-	kcptestingserver.ContextRunInProcessFunc = func(ctx context.Context, t kcptestingserver.TestingT, cfg kcptestingserver.Config) (<-chan struct{}, error) {
+	kcptestingserver.ContextRunInProcessFunc = func(ctx context.Context, t kcptestingserver.TestingT, cfg kcptestingserver.Config) (*server.Server, <-chan struct{}, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		t.Cleanup(cancel)
 
@@ -52,38 +52,38 @@ func init() {
 			all.AddFlagSet(fs)
 		}
 		if err := all.Parse(cfg.Args); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		completed, err := serverOptions.Complete(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if errs := completed.Validate(); len(errs) > 0 {
-			return nil, utilerrors.NewAggregate(errs)
+			return nil, nil, utilerrors.NewAggregate(errs)
 		}
 
 		config, err := server.NewConfig(ctx, completed.Server)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		completedConfig, err := config.Complete()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// the etcd server must be up before NewServer because storage decorators access it right away
 		if completedConfig.EmbeddedEtcd.Config != nil {
 			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 
 		stopCh := make(chan struct{})
 		s, err := server.NewServer(completedConfig)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		go func() {
 			defer close(stopCh)
@@ -92,6 +92,6 @@ func init() {
 			}
 		}()
 
-		return stopCh, nil
+		return s, stopCh, nil
 	}
 }

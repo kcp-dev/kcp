@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"github.com/kcp-dev/kcp/pkg/server"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -39,4 +40,7 @@ type RunningServer interface {
 	// Stopped returns true if the server has ran and stopped.
 	// Stopped is a noop for external servers.
 	Stopped() bool
+	// Server returns the underlying server struct.
+	// It may be nil. Nil does not indicate an error.
+	Server() *server.Server
 }
