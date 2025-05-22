@@ -287,6 +287,22 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 		}
 	}
 
+	// ExternalAddress is the address used e.g. when generating
+	// kubeconfigs. It defaults to the default interface, usually the
+	// first non-loopback interface, e.g. 192.168.0.1.
+	// BindAddress is the address the server binds to, it defaults to
+	// 0.0.0.0 or ::.
+	//
+	// If BindAddress is set to a specific address, e.g. the loopback
+	// 127.0.0.1 the ExternalAddress is invalid and all URLs generated
+	// from it will not work.
+	//
+	// To prevent this ExternalAddress is set to the value of
+	// BindAddress if it wasn't set to a specific address.
+	if o.GenericControlPlane.GenericServerRunOptions.ExternalHost == "" && !o.GenericControlPlane.SecureServing.BindAddress.IsUnspecified() {
+		o.GenericControlPlane.GenericServerRunOptions.ExternalHost = o.GenericControlPlane.SecureServing.BindAddress.String()
+	}
+
 	if o.Extra.ExperimentalBindFreePort {
 		listener, _, err := genericapiserveroptions.CreateListener("tcp", fmt.Sprintf("%s:0", o.GenericControlPlane.SecureServing.BindAddress), net.ListenConfig{})
 		if err != nil {
@@ -311,7 +327,34 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 		o.GenericControlPlane.ServiceAccountSigningKeyFile = o.Controllers.SAController.ServiceAccountKeyFile
 	}
 
-	completedGenericOptions, err := o.GenericControlPlane.Complete(ctx, nil, nil)
+	// o.GenericControlPlane.Complete creates self-signed certificates
+	// with the advertise address by default. This can cause spurious
+	// errors if the server binds on multiple interfaces.
+	possibleIPs := []net.IP{
+		o.GenericControlPlane.GenericServerRunOptions.AdvertiseAddress,
+		o.GenericControlPlane.SecureServing.BindAddress,
+		o.GenericControlPlane.SecureServing.ExternalAddress,
+	}
+	if o.GenericControlPlane.SecureServing.Listener != nil {
+		host, _, err := net.SplitHostPort(o.GenericControlPlane.SecureServing.Listener.Addr().String())
+		if err != nil {
+			return nil, err
+		}
+		possibleIPs = append(possibleIPs, net.ParseIP(host))
+	}
+
+	alternateIPs := []net.IP{}
+	alternateDNS := []string{}
+
+	for _, ip := range possibleIPs {
+		if ip == nil || ip.IsUnspecified() {
+			continue
+		}
+		alternateIPs = append(alternateIPs, ip)
+		alternateDNS = append(alternateDNS, ip.String())
+	}
+
+	completedGenericOptions, err := o.GenericControlPlane.Complete(ctx, alternateDNS, alternateIPs)
 	if err != nil {
 		return nil, err
 	}

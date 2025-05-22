@@ -28,7 +28,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	machineryutilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -192,17 +191,13 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("failed to create service-account-signing-ca: %w", err)
 	}
 
-	// find external IP to put into certs as valid IPs
-	hostIP, err := machineryutilnet.ResolveBindAddress(net.IPv4(0, 0, 0, 0))
-	if err != nil {
-		return err
-	}
+	hostIP := net.IPv4(127, 0, 0, 1)
 
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
-	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, cacheSyntheticDelay)
+	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay)
 	if err != nil {
 		return fmt.Errorf("error starting the cache server: %w", err)
 	}

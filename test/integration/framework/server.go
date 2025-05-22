@@ -44,6 +44,7 @@ func StartTestServer(tb testing.TB, opts ...kcptestingserver.Option) (kcptesting
 			[]kcptestingserver.Option{
 				kcptestingserver.WithDefaultsFrom(tb),
 				kcptestingserver.WithRunInProcess(),
+				kcptestingserver.WithBindAddress("127.0.0.1"),
 			},
 			opts...,
 		)...,

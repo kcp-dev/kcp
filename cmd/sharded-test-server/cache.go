@@ -39,7 +39,7 @@ import (
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
-func startCacheServer(ctx context.Context, logDirPath, workingDir string, syntheticDelay time.Duration) (<-chan error, string, error) {
+func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string, syntheticDelay time.Duration) (<-chan error, string, error) {
 	cyan := color.New(color.BgHiCyan, color.FgHiWhite).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgHiCyan).SprintFunc()
 	out := lineprefix.New(
@@ -56,6 +56,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir string, synthe
 	commandLine = append(
 		commandLine,
 		fmt.Sprintf("--root-directory=%s", cacheWorkingDir),
+		"--bind-address="+hostIP,
 		"--embedded-etcd-client-port=8010",
 		"--embedded-etcd-peer-port=8011",
 		fmt.Sprintf("--secure-port=%d", cachePort),

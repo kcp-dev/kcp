@@ -29,7 +29,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -157,7 +157,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		port, err := kcptestingserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
-		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
+		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
 		sideEffect := admissionregistrationv1.SideEffectClassNone
 		url := testWebhooks[cluster].GetURL()
@@ -197,14 +197,13 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in target logical cluster")
-	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
-		t.Log(err)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return false
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return false, err.Error()
 		}
-		return testWebhooks[sourcePath].Calls() >= 1
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+		return testWebhooks[sourcePath].Calls() >= 1, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create cowboy resource")
 
 	t.Logf("Check that the in-workspace webhook was NOT called")
 	require.Zero(t, testWebhooks[targetPath].Calls(), "in-workspace webhook should not have been called")
@@ -313,7 +312,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		port, err := kcptestingserver.GetFreePort(t)
 		require.NoError(t, err, "failed to get free port for test webhook")
 		dirPath := filepath.Dir(server.KubeconfigPath())
-		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), port)
+		testWebhooks[cluster].StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			cl := gohttp.Client{Transport: &gohttp.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
