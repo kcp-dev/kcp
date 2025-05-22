@@ -73,9 +73,12 @@ func init() {
 			return nil, err
 		}
 
+		etcdCtx, etcdCancel := context.WithCancel(context.Background())
+
 		// the etcd server must be up before NewServer because storage decorators access it right away
 		if completedConfig.EmbeddedEtcd.Config != nil {
-			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+			if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(etcdCtx); err != nil {
+				etcdCancel()
 				return nil, err
 			}
 		}
@@ -83,10 +86,12 @@ func init() {
 		stopCh := make(chan struct{})
 		s, err := server.NewServer(completedConfig)
 		if err != nil {
+			etcdCancel()
 			return nil, err
 		}
 		go func() {
 			defer close(stopCh)
+			defer etcdCancel()
 			if err := s.Run(ctx); err != nil && ctx.Err() == nil {
 				t.Errorf("`kcp` failed: %v", err)
 			}
