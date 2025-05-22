@@ -49,6 +49,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpscheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	"github.com/kcp-dev/kcp/sdk/testing/env"
@@ -61,14 +62,14 @@ const kcpBinariesDirEnvDir = "KCP_BINARIES_DIR"
 // RunInProcessFunc instantiates the kcp server in process for easier debugging.
 // It is here to decouple the rest of the code from kcp core dependencies.
 // Deprecated: Use ContextRunInProcessFunc instead.
-var RunInProcessFunc func(t TestingT, dataDir string, args []string) (<-chan struct{}, error)
+var RunInProcessFunc func(t TestingT, dataDir string, args []string) (*server.Server, <-chan struct{}, error)
 
-type KcpRunner func(context.Context, TestingT, Config) (<-chan struct{}, error)
+type KcpRunner func(context.Context, TestingT, Config) (*server.Server, <-chan struct{}, error)
 
 // ContextRunInProcessFunc instantiates the kcp server in process for easier debugging.
 // It is here to decouple the rest of the code from kcp core dependencies.
-var ContextRunInProcessFunc KcpRunner = func(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
-	return nil, fmt.Errorf("not implemented")
+var ContextRunInProcessFunc KcpRunner = func(ctx context.Context, t TestingT, cfg Config) (*server.Server, <-chan struct{}, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 // Fixture manages the lifecycle of a set of kcp servers.
@@ -168,6 +169,7 @@ type kcpServer struct {
 	cfg              Config
 	lock             *sync.Mutex
 	clientCfg        clientcmd.ClientConfig
+	server           *server.Server
 	cancel           func()
 	shutdownComplete bool
 }
@@ -273,7 +275,7 @@ func (c *kcpServer) Run(t TestingT) error {
 			// variant
 			runner = ContextRunInProcessFunc
 		} else {
-			runner = func(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
+			runner = func(ctx context.Context, t TestingT, cfg Config) (*server.Server, <-chan struct{}, error) {
 				t.Log("RunInProcessFunc is deprecated, please migrate to ContextRunInProcessFunc")
 				t.Log("RunInProcessFunc is deprecated, stopping the server will not work")
 				return RunInProcessFunc(t, cfg.DataDir, cfg.Args)
@@ -286,11 +288,12 @@ func (c *kcpServer) Run(t TestingT) error {
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
-	shutdownComplete, err := runner(ctx, t, c.cfg)
+	s, shutdownComplete, err := runner(ctx, t, c.cfg)
 	if err != nil {
 		ctxCancel()
 		return err
 	}
+	c.server = s
 
 	c.cancel = func() {
 		t.Log("cleanup: canceling context")
@@ -309,6 +312,12 @@ func (c *kcpServer) Run(t TestingT) error {
 	return nil
 }
 
+func (c *kcpServer) Server() *server.Server {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.server
+}
+
 func (c *kcpServer) Stop() {
 	if c.cancel == nil {
 		return
@@ -322,7 +331,7 @@ func (c *kcpServer) Stopped() bool {
 	return c.shutdownComplete
 }
 
-func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
+func runExternal(ctx context.Context, t TestingT, cfg Config) (*server.Server, <-chan struct{}, error) {
 	commandLine := append(StartKcpCommand("KCP"), cfg.Args...)
 
 	t.Logf("running: %v", strings.Join(commandLine, " "))
@@ -341,7 +350,7 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 
 	logFile, err := os.Create(filepath.Join(cfg.ArtifactDir, "kcp.log"))
 	if err != nil {
-		return nil, fmt.Errorf("could not create log file: %w", err)
+		return nil, nil, fmt.Errorf("could not create log file: %w", err)
 	}
 
 	// Closing the logfile is necessary so the cmd.Wait() call in the goroutine below can finish (it only finishes
@@ -368,7 +377,7 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 		if os.Getenv(kcpBinariesDirEnvDir) == "" && commandLine[0] == "kcp" {
 			t.Log("Consider setting KCP_BINARIES_DIR pointing to a directory with a kcp binary.")
 		}
-		return nil, fmt.Errorf("failed to start kcp: %w", err)
+		return nil, nil, fmt.Errorf("failed to start kcp: %w", err)
 	}
 
 	go func() {
@@ -397,7 +406,7 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 		}
 	}()
 
-	return shutdownComplete, nil
+	return nil, shutdownComplete, nil
 }
 
 // filterKcpLogs is a silly hack to get rid of the nonsense output that

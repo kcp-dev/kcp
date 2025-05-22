@@ -39,6 +39,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/cert"
 
+	"github.com/kcp-dev/kcp/pkg/server"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
@@ -96,6 +97,10 @@ func (s *externalKCPServer) Name() string {
 
 func (s *externalKCPServer) KubeconfigPath() string {
 	return s.kubeconfigPath
+}
+
+func (s *externalKCPServer) Server() *server.Server {
+	return nil
 }
 
 func (s *externalKCPServer) RawConfig() (clientcmdapi.Config, error) {
