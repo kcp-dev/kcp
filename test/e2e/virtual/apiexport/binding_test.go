@@ -230,7 +230,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
-	providerPath, providerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
@@ -288,7 +288,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 		apiExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, providerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
 		require.NoError(t, err)
 		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
