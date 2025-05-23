@@ -110,13 +110,12 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerWorkspace.Name)
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExportEndpointSlice, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Verifying that the virtual workspace includes the cowboy resource")
@@ -611,13 +610,12 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Logf("Waiting for cowboy APIExport to have a virtual workspace URL for the bound workspaces %q", consumer1Path)
 	consumer1VWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClusterClient.Cluster(claimerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(claimerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		consumer1VWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumer1, framework.ExportVirtualWorkspaceURLs(apiExport))
+		consumer1VWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumer1, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Verify that the exported resource is retrievable")
