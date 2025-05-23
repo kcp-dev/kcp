@@ -1,0 +1,11 @@
+apiVersion: cache.kcp.io/v1alpha1
+kind: CachedResource
+metadata:
+  name: instances
+spec:
+  resource: instances
+  group: machines.svm.io
+  version: v1alpha1
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: instances

@@ -17,6 +17,7 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)
 DEFAULTRESTMAPPER_FILEPATH="${DEFAULTRESTMAPPER_FILEPATH:-$( go list -m -json k8s.io/apimachinery | jq -r .Dir )/pkg/api/meta/restmapper.go}"

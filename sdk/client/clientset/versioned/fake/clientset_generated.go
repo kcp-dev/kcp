@@ -31,6 +31,8 @@ import (
 	fakeapisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1/fake"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	fakeapisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2/fake"
+	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
+	fakecachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1/fake"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	fakecorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
@@ -133,6 +135,11 @@ func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {
 // ApisV1alpha2 retrieves the ApisV1alpha2Client
 func (c *Clientset) ApisV1alpha2() apisv1alpha2.ApisV1alpha2Interface {
 	return &fakeapisv1alpha2.FakeApisV1alpha2{Fake: &c.Fake}
+}
+
+// CacheV1alpha1 retrieves the CacheV1alpha1Client
+func (c *Clientset) CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface {
+	return &fakecachev1alpha1.FakeCacheV1alpha1{Fake: &c.Fake}
 }
 
 // CoreV1alpha1 retrieves the CoreV1alpha1Client
