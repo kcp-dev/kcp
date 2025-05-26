@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/kube-openapi/pkg/util/sets"
 
 	builtinapiexport "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
@@ -135,12 +136,94 @@ func (e *APIExportAdmission) validatev1alpha2(_ context.Context, a admission.Att
 					"",
 					"identityHash is required for API types that are not built-in"))
 		}
+		if err := validateVerbsBundle(pc.Verbs, field.NewPath("spec").Child("permissionClaims").Index(i).Child("verbs")); err != nil {
+			return admission.NewForbidden(a, err)
+		}
 	}
 
 	for i, rs := range ae.Spec.Resources {
 		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resources").Index(i)); err != nil {
 			return admission.NewForbidden(a, err)
 		}
+	}
+
+	return nil
+}
+
+// validateVerbsBundle validates that the verbs are a valid bundle according
+// to the following rules:
+// get | possible standalone
+// list -> get, watch  | if list requested, always requires get and watch too
+// watch -> list, get | watch always required list and get
+// delete | possible standalone
+// create | possible standalone
+// update | possible standalone
+// patch -> update, create | if patch requested, always required update & create too
+//
+// The function returns a single field.Error if any rules are violated,
+// consolidating all error messages. It returns nil if all rules pass.
+// fldPath is the field path to be used in the field.Error.
+func validateVerbsBundle(verbs []string, fldPath *field.Path) *field.Error {
+	verbSet := sets.NewString(verbs...)
+	var errorMessages []string
+
+	// Helper function to format missing dependency messages
+	formatMissingDepsMessage := func(primaryVerb string, missingDeps []string) string {
+		if len(missingDeps) == 0 {
+			return ""
+		}
+		quotedDeps := make([]string, len(missingDeps))
+		for i, dep := range missingDeps {
+			quotedDeps[i] = fmt.Sprintf("'%s'", dep)
+		}
+		return fmt.Sprintf("if '%s' verb is present, the following dependent verbs are missing: %s", primaryVerb, strings.Join(quotedDeps, ", "))
+	}
+
+	// Rule: 'list' requires 'get' and 'watch'
+	if verbSet.Has("list") {
+		var missingListDeps []string
+		if !verbSet.Has("get") {
+			missingListDeps = append(missingListDeps, "get")
+		}
+		if !verbSet.Has("watch") {
+			missingListDeps = append(missingListDeps, "watch")
+		}
+		if msg := formatMissingDepsMessage("list", missingListDeps); msg != "" {
+			errorMessages = append(errorMessages, msg)
+		}
+	}
+
+	// Rule: 'watch' requires 'list' and 'get'
+	if verbSet.Has("watch") {
+		var missingWatchDeps []string
+		if !verbSet.Has("list") {
+			missingWatchDeps = append(missingWatchDeps, "list")
+		}
+		if !verbSet.Has("get") {
+			missingWatchDeps = append(missingWatchDeps, "get")
+		}
+		if msg := formatMissingDepsMessage("watch", missingWatchDeps); msg != "" {
+			errorMessages = append(errorMessages, msg)
+		}
+	}
+
+	// Rule: 'patch' requires 'update' and 'create'
+	if verbSet.Has("patch") {
+		var missingPatchDeps []string
+		if !verbSet.Has("update") {
+			missingPatchDeps = append(missingPatchDeps, "update")
+		}
+		if !verbSet.Has("create") {
+			missingPatchDeps = append(missingPatchDeps, "create")
+		}
+		if msg := formatMissingDepsMessage("patch", missingPatchDeps); msg != "" {
+			errorMessages = append(errorMessages, msg)
+		}
+	}
+
+	// If any error messages were collected, join them into a single string.
+	if len(errorMessages) > 0 {
+		return field.Invalid(fldPath, verbs, strings.Join(errorMessages, "; "))
 	}
 
 	return nil

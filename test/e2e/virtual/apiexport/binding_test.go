@@ -408,7 +408,7 @@ func readonlyVerbsForResource(group, resource, identityHash string) func([]apisv
 	return func(pcs []apisv1alpha2.PermissionClaim) {
 		for i, pc := range pcs {
 			if pc.GroupResource.Group == group && pc.GroupResource.Resource == resource && pc.IdentityHash == identityHash {
-				pcs[i].Verbs = []string{"list", "get"}
+				pcs[i].Verbs = []string{"list", "get", "watch"}
 			}
 		}
 	}
@@ -418,7 +418,7 @@ func readwriteVerbsForResource(group, resource, identityHash string) func([]apis
 	return func(pcs []apisv1alpha2.PermissionClaim) {
 		for i, pc := range pcs {
 			if pc.GroupResource.Group == group && pc.GroupResource.Resource == resource && pc.IdentityHash == identityHash {
-				pcs[i].Verbs = []string{"list", "get", "create", "update", "patch"}
+				pcs[i].Verbs = []string{"list", "get", "create", "update", "patch", "watch"}
 			}
 		}
 	}
