@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	// workspaceInitTimeout is set to 60 seconds. wait.ForeverTestTimeout
+	// workspaceInitTimeout is set to 180 seconds. wait.ForeverTestTimeout
 	// is 30 seconds and the optimism on that being forever is great, but workspace
 	// initialisation can take a while in CI.
 	workspaceInitTimeout = 120 * time.Second

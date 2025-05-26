@@ -1,0 +1,124 @@
+# Example 1: Basic tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: web-server-1
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: small
+  name: web-server-1
+  tier: basic
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "True"
+    lastTransitionTime: "2024-04-18T10:00:00Z"
+    reason: InstanceReady
+    message: Instance is running and ready
+
+---
+# Example 2: Premium tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: database-1
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: large
+  name: database-1
+  tier: premium
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "True"
+    lastTransitionTime: "2024-04-18T10:00:00Z"
+    reason: InstanceReady
+    message: Instance is running and ready
+
+---
+# Example 3: Enterprise tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: analytics-1
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: xlarge
+  name: analytics-1
+  tier: enterprise
+status:
+  phase: Pending
+  conditions:
+  - type: Ready
+    status: "False"
+    lastTransitionTime: "2024-04-18T10:00:00Z"
+    reason: InstanceProvisioning
+    message: Instance is being provisioned
+---
+# Example 4: Enterprise tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: analytics-2
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: xlarge
+  name: analytics-1
+  tier: enterprise
+status:
+---
+# Example 5: Enterprise tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: analytics-3
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: xlarge
+  name: analytics-3
+  tier: enterprise
+status:
+---
+# Example 6: Enterprise tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: analytics-4
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: xlarge
+  name: analytics-4
+  tier: enterprise
+status:
+---
+# Example 7: Enterprise tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: analytics-5
+  labels:
+    app.kubernetes.io/part-of: instances
+spec:
+  instanceType: xlarge
+  name: analytics-5
+  tier: enterprise
+status:
+---
+# Example 8: Enterprise tier instance
+apiVersion: machines.svm.io/v1alpha1
+kind: Instance
+metadata:
+  name: not-analytics
+spec:
+  instanceType: xlarge
+  name: not-analytics
+  tier: enterprise
+status:

@@ -25,7 +25,7 @@ import (
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
-// ensureMeta changes unstructuredCacheObject's metadata to match unstructuredLocalObject's metadata except the ResourceVersion and the shard annotation fields.
+// ensureMeta changes cacheObject's metadata to match localObject's metadata except the ResourceVersion and the shard annotation fields.
 func ensureMeta(cacheObject *unstructured.Unstructured, localObject *unstructured.Unstructured) (changed bool, err error) {
 	cacheObjMetaRaw, hasCacheObjMetaRaw, err := unstructured.NestedFieldNoCopy(cacheObject.Object, "metadata")
 	if err != nil {

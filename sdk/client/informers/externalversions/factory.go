@@ -34,6 +34,7 @@ import (
 	kcpversioned "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	kcpcluster "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpapis "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis"
+	kcpexternalversionscache "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache"
 	kcpcore "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core"
 	kcpinternalinterfaces "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/internalinterfaces"
 	kcptenancy "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy"
@@ -280,6 +281,7 @@ type SharedInformerFactory interface {
 	InformerFor(obj runtime.Object, newFunc kcpinternalinterfaces.NewInformerFunc) kcpcache.ScopeableSharedIndexInformer
 
 	Apis() kcpapis.ClusterInterface
+	Cache() kcpexternalversionscache.ClusterInterface
 	Core() kcpcore.ClusterInterface
 	Tenancy() kcptenancy.ClusterInterface
 	Topology() kcptopology.ClusterInterface
@@ -287,6 +289,10 @@ type SharedInformerFactory interface {
 
 func (f *sharedInformerFactory) Apis() kcpapis.ClusterInterface {
 	return kcpapis.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Cache() kcpexternalversionscache.ClusterInterface {
+	return kcpexternalversionscache.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Core() kcpcore.ClusterInterface {
@@ -446,6 +452,7 @@ type SharedScopedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Apis() kcpapis.Interface
+	Cache() kcpexternalversionscache.Interface
 	Core() kcpcore.Interface
 	Tenancy() kcptenancy.Interface
 	Topology() kcptopology.Interface
@@ -453,6 +460,10 @@ type SharedScopedInformerFactory interface {
 
 func (f *sharedScopedInformerFactory) Apis() kcpapis.Interface {
 	return kcpapis.NewScoped(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedScopedInformerFactory) Cache() kcpexternalversionscache.Interface {
+	return kcpexternalversionscache.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Core() kcpcore.Interface {

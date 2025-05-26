@@ -114,6 +114,7 @@ func (c *controller) enqueueCacheObject(obj interface{}, gvr schema.GroupVersion
 		utilruntime.HandleError(err)
 		return
 	}
+
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
 	c.queue.Add(gvrKey)
 }

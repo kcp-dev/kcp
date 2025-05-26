@@ -65,8 +65,6 @@ func TestMountsMachinery(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	fmt.Println(server.KubeconfigPath())
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
