@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -72,46 +73,59 @@ func TestBinding(t *testing.T) {
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClient, consumerWorkspacePath, []string{"service-provider"}, nil, true)
 
 	t.Logf("Creating 'api-manager' APIExport in service-provider workspace with apibindings permission claim")
-	require.NoError(t, apply(t, ctx, serviceWorkspacePath, cfg, `
-apiVersion: apis.kcp.io/v1alpha2
-kind: APIExport
-metadata:
-  name: api-manager
-spec:
-  permissionClaims:
-    - group: "apis.kcp.io"
-      resource: "apibindings"
-      all: true
-      verbs: ["*"]
-`))
-
+	require.NoError(t, apply(t, ctx, serviceWorkspacePath, cfg,
+		&apisv1alpha2.APIExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "api-manager"},
+			Spec: apisv1alpha2.APIExportSpec{
+				PermissionClaims: []apisv1alpha2.PermissionClaim{
+					{
+						GroupResource: apisv1alpha2.GroupResource{
+							Group:    "apis.kcp.io",
+							Resource: "apibindings",
+						},
+						All:   true,
+						Verbs: []string{"*"},
+					},
+				},
+			},
+		},
+	))
 	t.Logf("Creating APIExport in restricted workspace without anybody allowed to bind")
-	require.NoError(t, apply(t, ctx, restrictedWorkspacePath, cfg, `
-apiVersion: apis.kcp.io/v1alpha2
-kind: APIExport
-metadata:
-  name: restricted-service
-spec: {}
-`))
+	require.NoError(t, apply(t, ctx, restrictedWorkspacePath, cfg,
+		&apisv1alpha2.APIExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "restricted-service"},
+			Spec:       apisv1alpha2.APIExportSpec{},
+		},
+	))
 
 	t.Logf("Binding to 'api-manager' APIExport succeeds because service-provider user is admin in 'service-provider' workspace")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, ctx, consumerWorkspacePath, serviceProviderUser, fmt.Sprintf(`
-apiVersion: apis.kcp.io/v1alpha1
-kind: APIBinding
-metadata:
-  name: api-manager
-spec:
-  permissionClaims:
-  - group: apis.kcp.io
-    resource: apibindings
-    state: Accepted
-    all: true
-  reference:
-    export:
-      name: api-manager
-      path: %v
-`, serviceWorkspacePath.String()))
+		err = apply(t, ctx, consumerWorkspacePath, serviceProviderUser,
+			&apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "api-manager"},
+				Spec: apisv1alpha2.APIBindingSpec{
+					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
+						{
+							PermissionClaim: apisv1alpha2.PermissionClaim{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "apis.kcp.io",
+									Resource: "apibindings",
+								},
+								All:   true,
+								Verbs: []string{"*"},
+							},
+							State: apisv1alpha2.ClaimAccepted,
+						},
+					},
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "api-manager",
+							Path: serviceWorkspacePath.String(),
+						},
+					},
+				},
+			},
+		)
 		if err != nil {
 			return false, fmt.Sprintf("Waiting on binding 'api-manager' export: %v", err.Error())
 		}
@@ -120,16 +134,19 @@ spec:
 
 	t.Logf("Binding directly to 'restricted-service' APIExport should be forbidden")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, ctx, consumerWorkspacePath, serviceProviderUser, fmt.Sprintf(`
-apiVersion: apis.kcp.io/v1alpha1
-kind: APIBinding
-metadata:
-  name: should-fail
-spec:
-  reference:
-    export:
-      name: restricted-service
-      path: %v`, restrictedWorkspacePath.String()))
+		err = apply(t, ctx, consumerWorkspacePath, serviceProviderUser,
+			&apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "should-fail"},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "restricted-service",
+							Path: restrictedWorkspacePath.String(),
+						},
+					},
+				},
+			},
+		)
 		require.Error(t, err)
 		want := "unable to create APIBinding: no permission to bind to export"
 		if got := err.Error(); !strings.Contains(got, want) {
@@ -141,29 +158,31 @@ spec:
 	t.Logf("Waiting for 'api-manager' APIExport virtual workspace URL")
 	serviceProviderVirtualWorkspaceConfig := rest.CopyConfig(serviceProviderUser)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha2().APIExports().Get(ctx, "api-manager", metav1.GetOptions{})
+		apiExportEndpointSlice, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "api-manager", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
 		}
 		var found bool
-		serviceProviderVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		serviceProviderVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
 
 	t.Logf("Binding to 'restricted-service' APIExport through 'api-manager' APIExport virtual workspace is forbidden")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
-apiVersion: apis.kcp.io/v1alpha1
-kind: APIBinding
-metadata:
-  name: should-fail
-spec:
-  reference:
-    export:
-      name: restricted-service
-      path: %v`, restrictedWorkspacePath.String()))
+		err = apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig,
+			&apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "should-fail"},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "restricted-service",
+							Path: restrictedWorkspacePath.String(),
+						},
+					},
+				},
+			},
+		)
 		require.Error(t, err)
 		want := "unable to create APIBinding: no permission to bind to export"
 		if got := err.Error(); !strings.Contains(got, want) {
@@ -173,46 +192,51 @@ spec:
 	}, wait.ForeverTestTimeout, 1000*time.Millisecond, "waiting on binding to 'restricted-service' APIExport to fail because it is forbidden")
 
 	t.Logf("Giving service-provider 'bind' access to 'restricted-service' APIExport")
-	require.NoError(t, apply(t, ctx, restrictedWorkspacePath, cfg, `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: restricted-service:bind
-rules:
-- apiGroups:
-  - apis.kcp.io
-  resources:
-  - apiexports
-  verbs:
-  - 'bind'
-  resourceNames:
-  - 'restricted-service'
-`, `
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: service-provider:restricted-service:bind
-subjects:
-- kind: User
-  name: service-provider
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: restricted-service:bind
-`))
+	require.NoError(t, apply(t, ctx, restrictedWorkspacePath, cfg,
+		&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "restricted-service:bind"},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"apis.kcp.io"},
+					Resources: []string{"apiexports"},
+					Verbs:     []string{"bind"},
+					ResourceNames: []string{
+						"restricted-service",
+					},
+				},
+			},
+		},
+		&rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "service-provider:restricted-service:bind"},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind: "User",
+					Name: "service-provider",
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "ClusterRole",
+				Name:     "restricted-service:bind",
+			},
+		},
+	))
 
 	t.Logf("Binding to 'restricted-service' APIExport through 'api-manager' APIExport virtual workspace succeeds, proving that the service provider identity is used through the APIExport virtual workspace")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		err := apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig, fmt.Sprintf(`
-apiVersion: apis.kcp.io/v1alpha1
-kind: APIBinding
-metadata:
-  name: should-not-fail
-spec:
-  reference:
-    export:
-      name: restricted-service
-      path: %v`, restrictedWorkspacePath.String()))
+		err := apply(t, ctx, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig,
+			&apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "should-not-fail"},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "restricted-service",
+							Path: restrictedWorkspacePath.String(),
+						},
+					},
+				},
+			},
+		)
 		if err != nil {
 			return false, fmt.Sprintf("waiting on being able to bind: %v", err.Error())
 		}
@@ -285,13 +309,12 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerPath)
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(apiExportVWCfg)

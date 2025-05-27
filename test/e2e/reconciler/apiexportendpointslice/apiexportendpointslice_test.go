@@ -275,19 +275,6 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		}
 	}
 
-	// TODO(mjudeikis): This will be deprecated when we deperecate APIExport urls.
-	t.Logf("Check that APIExport has 2 virtual workspaces")
-	{
-		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
-		require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-		apiExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
-
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		require.Len(t, apiExport.Status.VirtualWorkspaces, len(shards.Items))
-	}
-
 	t.Logf("Create a topology PartitionSet for the providers")
 	var partition *topologyv1alpha1.Partition
 	{
