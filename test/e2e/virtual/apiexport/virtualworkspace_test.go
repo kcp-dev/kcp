@@ -133,6 +133,10 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err, "error retrieving APIExport discovery")
 	require.True(t, resourceExists(resources, "apibindings"), "missing apibindings")
 
+	resources, err = discoveryVCClusterClient.ServerResourcesForGroupVersion(apisv1alpha1.SchemeGroupVersion.String())
+	require.NoError(t, err, "error retrieving APIExport discovery")
+	require.True(t, resourceExists(resources, "apibindings"), "missing apibindings")
+
 	user1VWCfg := framework.StaticTokenUserConfig("user-1", apiExportVWCfg)
 	wwUser1VC, err := wildwestclientset.NewForConfig(user1VWCfg)
 	require.NoError(t, err)

@@ -179,7 +179,7 @@ func BuildVirtualWorkspace(
 						cancelFn:      cancelFn,
 					}, nil
 				},
-				func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
+				func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
 					restProvider, err := provideAPIExportFilteredRestStorage(ctx, impersonatedDynamicClientGetter, clusterName, apiExportName)
 					if err != nil {
 						return nil, err
@@ -188,7 +188,7 @@ func BuildVirtualWorkspace(
 					return apiserver.CreateServingInfoFor(
 						mainConfig,
 						schemas.ApisKcpDevSchemas["apibindings"],
-						apisv1alpha1.SchemeGroupVersion.Version,
+						apibindingVersion,
 						restProvider,
 					)
 				},

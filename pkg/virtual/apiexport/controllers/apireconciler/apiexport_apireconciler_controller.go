@@ -62,7 +62,7 @@ func NewAPIReconciler(
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
-	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
+	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
@@ -138,7 +138,7 @@ type APIReconciler struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	createAPIDefinition           CreateAPIDefinitionFunc
-	createAPIBindingAPIDefinition func(ctx context.Context, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
+	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
 
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
