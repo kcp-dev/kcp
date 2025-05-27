@@ -101,26 +101,36 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 	}
 
 	// Ensure the APIExportEndpointSlice exists
-	_, err := c.getAPIExportEndpointSlice(clusterName, apiExport.Name)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Create the APIExportEndpointSlice
-			apiExportEndpointSlice := &apisv1alpha1.APIExportEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: apiExport.Name,
-				},
-				Spec: apisv1alpha1.APIExportEndpointSliceSpec{
-					APIExport: apisv1alpha1.ExportBindingReference{
+	if _, ok := apiExport.Annotations[apisv1alpha2.APIExportEndpointSliceSkipAnnotation]; !ok {
+		_, err := c.getAPIExportEndpointSlice(clusterName, apiExport.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Create the APIExportEndpointSlice
+				apiExportEndpointSlice := &apisv1alpha1.APIExportEndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: apiExport.Name,
-						Path: clusterPath,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: apisv1alpha1.SchemeGroupVersion.String(),
+								Kind:       "APIExport",
+								Name:       apiExport.Name,
+								UID:        apiExport.UID,
+							},
+						},
 					},
-				},
+					Spec: apisv1alpha1.APIExportEndpointSliceSpec{
+						APIExport: apisv1alpha1.ExportBindingReference{
+							Name: apiExport.Name,
+							Path: clusterPath,
+						},
+					},
+				}
+				if err := c.createAPIExportEndpointSlice(ctx, clusterName.Path(), apiExportEndpointSlice); err != nil {
+					return fmt.Errorf("error creating APIExportEndpointSlice for APIExport %s|%s: %w", clusterName, apiExport.Name, err)
+				}
+			} else {
+				return fmt.Errorf("error getting APIExportEndpointSlice for APIExport %s|%s: %w", clusterName, apiExport.Name, err)
 			}
-			if err := c.createAPIExportEndpointSlice(ctx, clusterName.Path(), apiExportEndpointSlice); err != nil {
-				return fmt.Errorf("error creating APIExportEndpointSlice for APIExport %s|%s: %w", clusterName, apiExport.Name, err)
-			}
-		} else {
-			return fmt.Errorf("error getting APIExportEndpointSlice for APIExport %s|%s: %w", clusterName, apiExport.Name, err)
 		}
 	}
 

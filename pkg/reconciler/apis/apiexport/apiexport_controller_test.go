@@ -50,6 +50,7 @@ func TestReconcile(t *testing.T) {
 		hasPreexistingVerifyFailure          bool
 		listShardsError                      error
 		apiExportEndpointSliceNotFound       bool
+		skipEndpointSliceAnnotation          bool
 
 		apiBindings []interface{}
 
@@ -133,11 +134,22 @@ func TestReconcile(t *testing.T) {
 			wantCreateAPIExportEndpointSlice: true,
 			wantIdentityValid:                true,
 		},
+		"skip APIExportEndpointSlice creation when skip annotation is present": {
+			secretRefSet: true,
+			secretExists: true,
+
+			wantStatusHashSet:                true,
+			apiExportEndpointSliceNotFound:   true,
+			wantCreateAPIExportEndpointSlice: false,
+			wantIdentityValid:                true,
+			skipEndpointSliceAnnotation:      true,
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			createSecretCalled := false
+			createEndpointSliceCalled := false
 
 			expectedKey := "abc"
 			expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(expectedKey)))
@@ -158,6 +170,7 @@ func TestReconcile(t *testing.T) {
 					return &apisv1alpha1.APIExportEndpointSlice{}, nil
 				},
 				createAPIExportEndpointSlice: func(ctx context.Context, clusterName logicalcluster.Path, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
+					createEndpointSliceCalled = true
 					return nil
 				},
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
@@ -242,6 +255,10 @@ func TestReconcile(t *testing.T) {
 				conditions.MarkFalse(apiExport, apisv1alpha2.APIExportIdentityValid, apisv1alpha2.IdentityVerificationFailedReason, conditionsv1alpha1.ConditionSeverityError, "")
 			}
 
+			if tc.skipEndpointSliceAnnotation {
+				apiExport.Annotations[apisv1alpha2.APIExportEndpointSliceSkipAnnotation] = "true"
+			}
+
 			err := c.reconcile(context.Background(), apiExport)
 			if tc.wantError {
 				require.Error(t, err, "expected an error")
@@ -292,6 +309,8 @@ func TestReconcile(t *testing.T) {
 			if tc.wantIdentityValid {
 				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha2.APIExportIdentityValid))
 			}
+
+			require.Equal(t, tc.wantCreateAPIExportEndpointSlice, createEndpointSliceCalled, "expected createEndpointSliceCalled to be %v", tc.wantCreateAPIExportEndpointSlice)
 		})
 	}
 }
