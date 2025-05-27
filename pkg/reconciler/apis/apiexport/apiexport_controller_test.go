@@ -31,6 +31,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -39,6 +40,9 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	// Save original feature gate value
+	originalFeatureGate := kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.EnableDeprecatedAPIExportVirtualWorkspacesUrls)
+
 	tests := map[string]struct {
 		secretRefSet                         bool
 		secretExists                         bool
@@ -50,6 +54,7 @@ func TestReconcile(t *testing.T) {
 		hasPreexistingVerifyFailure          bool
 		listShardsError                      error
 		apiExportEndpointSliceNotFound       bool
+		skipEndpointSliceAnnotation          bool
 
 		apiBindings []interface{}
 
@@ -62,6 +67,7 @@ func TestReconcile(t *testing.T) {
 		wantVerifyFailure                bool
 		wantIdentityValid                bool
 		wantCreateAPIExportEndpointSlice bool
+		wantVirtualWorkspaceURLs         bool
 	}{
 		"create secret when ref is nil and secret doesn't exist": {
 			secretExists: false,
@@ -133,11 +139,44 @@ func TestReconcile(t *testing.T) {
 			wantCreateAPIExportEndpointSlice: true,
 			wantIdentityValid:                true,
 		},
+		"skip APIExportEndpointSlice creation when skip annotation is present": {
+			secretRefSet: true,
+			secretExists: true,
+
+			wantStatusHashSet:                true,
+			apiExportEndpointSliceNotFound:   true,
+			wantCreateAPIExportEndpointSlice: false,
+			wantIdentityValid:                true,
+			skipEndpointSliceAnnotation:      true,
+		},
+		"virtual workspace URLs when feature gate enabled": {
+			secretRefSet: true,
+			secretExists: true,
+
+			wantStatusHashSet:        true,
+			wantIdentityValid:        true,
+			wantVirtualWorkspaceURLs: true,
+		},
+		"error listing shards with feature gate enabled": {
+			secretRefSet: true,
+			secretExists: true,
+
+			wantStatusHashSet:        true,
+			wantIdentityValid:        true,
+			wantVirtualWorkspaceURLs: false,
+			listShardsError:          errors.New("foo"),
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			// Skip virtual workspace URL tests if feature gate is not enabled
+			if tc.wantVirtualWorkspaceURLs && !originalFeatureGate {
+				t.Skip("Skipping test that requires EnableDeprecatedAPIExportVirtualWorkspacesUrls feature gate")
+			}
+
 			createSecretCalled := false
+			createEndpointSliceCalled := false
 
 			expectedKey := "abc"
 			expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(expectedKey)))
@@ -158,6 +197,7 @@ func TestReconcile(t *testing.T) {
 					return &apisv1alpha1.APIExportEndpointSlice{}, nil
 				},
 				createAPIExportEndpointSlice: func(ctx context.Context, clusterName logicalcluster.Path, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
+					createEndpointSliceCalled = true
 					return nil
 				},
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
@@ -242,6 +282,10 @@ func TestReconcile(t *testing.T) {
 				conditions.MarkFalse(apiExport, apisv1alpha2.APIExportIdentityValid, apisv1alpha2.IdentityVerificationFailedReason, conditionsv1alpha1.ConditionSeverityError, "")
 			}
 
+			if tc.skipEndpointSliceAnnotation {
+				apiExport.Annotations[apisv1alpha2.APIExportEndpointSliceSkipAnnotation] = "true"
+			}
+
 			err := c.reconcile(context.Background(), apiExport)
 			if tc.wantError {
 				require.Error(t, err, "expected an error")
@@ -291,6 +335,20 @@ func TestReconcile(t *testing.T) {
 
 			if tc.wantIdentityValid {
 				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha2.APIExportIdentityValid))
+			}
+
+			require.Equal(t, tc.wantCreateAPIExportEndpointSlice, createEndpointSliceCalled, "expected createEndpointSliceCalled to be %v", tc.wantCreateAPIExportEndpointSlice)
+
+			if tc.wantVirtualWorkspaceURLs {
+				//nolint:staticcheck
+				require.NotNil(t, apiExport.Status.VirtualWorkspaces, "expected virtual workspace URLs to be set")
+				//nolint:staticcheck
+				require.Len(t, apiExport.Status.VirtualWorkspaces, 2, "expected 2 virtual workspace URLs")
+				require.True(t, conditions.IsTrue(apiExport, apisv1alpha2.APIExportVirtualWorkspaceURLsReady), "expected virtual workspace URLs to be ready")
+			} else {
+				//nolint:staticcheck
+				require.Nil(t, apiExport.Status.VirtualWorkspaces, "expected virtual workspace URLs to be nil")
+				require.False(t, conditions.Has(apiExport, apisv1alpha2.APIExportVirtualWorkspaceURLsReady), "expected virtual workspace URLs condition to not exist")
 			}
 		})
 	}
