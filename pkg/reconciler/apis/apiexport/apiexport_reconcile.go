@@ -31,10 +31,12 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
@@ -46,6 +48,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 	}
 
 	clusterName := logicalcluster.From(apiExport)
+	clusterPath := apiExport.Annotations[core.LogicalClusterPathAnnotationKey]
 
 	if identity.SecretRef == nil {
 		c.ensureSecretNamespaceExists(ctx, clusterName)
@@ -97,29 +100,43 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 		)
 	}
 
-	// TODO(sttts): reactivate this with multi-shard support eventually
-	/*
-		// check if any APIBindings are bound to this APIExport. If so, add a virtualworkspaceURL
-		apiBindings, err := c.getAPIBindingsForAPIExport(clusterName, apiExport.Name)
-		if err != nil {
-			return fmt.Errorf("error checking for APIBindings with APIExport %s|%s: %w", clusterName, apiExport.Name, err)
+	// Ensure the APIExportEndpointSlice exists
+	_, err := c.getAPIExportEndpointSlice(clusterName, apiExport.Name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Create the APIExportEndpointSlice
+			apiExportEndpointSlice := &apisv1alpha1.APIExportEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: apiExport.Name,
+				},
+				Spec: apisv1alpha1.APIExportEndpointSliceSpec{
+					APIExport: apisv1alpha1.ExportBindingReference{
+						Name: apiExport.Name,
+						Path: clusterPath,
+					},
+				},
+			}
+			if err := c.createAPIExportEndpointSlice(ctx, clusterName.Path(), apiExportEndpointSlice); err != nil {
+				return fmt.Errorf("error creating APIExportEndpointSlice for APIExport %s|%s: %w", clusterName, apiExport.Name, err)
+			}
+		} else {
+			return fmt.Errorf("error getting APIExportEndpointSlice for APIExport %s|%s: %w", clusterName, apiExport.Name, err)
 		}
+	}
 
-		// If there are no bindings, then we can't create a URL yet.
-		if len(apiBindings) == 0 {
-			return nil
+	// Ensure the APIExportEndpointSlice has a virtual workspace URL
+	// TODO(mjudeikis): Remove this and move to batteries.
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.EnableDeprecatedAPIExportVirtualWorkspacesUrls) {
+		if err := c.updateVirtualWorkspaceURLs(ctx, apiExport); err != nil {
+			conditions.MarkFalse(
+				apiExport,
+				apisv1alpha2.APIExportVirtualWorkspaceURLsReady,
+				apisv1alpha2.ErrorGeneratingURLsReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"%v",
+				err,
+			)
 		}
-	*/
-
-	if err := c.updateVirtualWorkspaceURLs(ctx, apiExport); err != nil {
-		conditions.MarkFalse(
-			apiExport,
-			apisv1alpha2.APIExportVirtualWorkspaceURLsReady,
-			apisv1alpha2.ErrorGeneratingURLsReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			"%v",
-			err,
-		)
 	}
 
 	return nil
@@ -216,11 +233,11 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *
 		desiredURLs.Insert(u.String())
 	}
 
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+	//nolint:staticcheck
 	apiExport.Status.VirtualWorkspaces = nil
 
 	for _, u := range sets.List[string](desiredURLs) {
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
+		//nolint:staticcheck
 		apiExport.Status.VirtualWorkspaces = append(apiExport.Status.VirtualWorkspaces, apisv1alpha2.VirtualWorkspace{
 			URL: u,
 		})

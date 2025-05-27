@@ -49,19 +49,19 @@ func TestReconcile(t *testing.T) {
 		apiExportHasSomeOtherHash            bool
 		hasPreexistingVerifyFailure          bool
 		listShardsError                      error
+		apiExportEndpointSliceNotFound       bool
 
 		apiBindings []interface{}
 
-		wantGenerationFailed          bool
-		wantError                     bool
-		wantCreateSecretCalled        bool
-		wantUnsetIdentity             bool
-		wantDefaultSecretRef          bool
-		wantStatusHashSet             bool
-		wantVerifyFailure             bool
-		wantIdentityValid             bool
-		wantVirtualWorkspaceURLsError bool
-		wantVirtualWorkspaceURLsReady bool
+		wantGenerationFailed             bool
+		wantError                        bool
+		wantCreateSecretCalled           bool
+		wantUnsetIdentity                bool
+		wantDefaultSecretRef             bool
+		wantStatusHashSet                bool
+		wantVerifyFailure                bool
+		wantIdentityValid                bool
+		wantCreateAPIExportEndpointSlice bool
 	}{
 		"create secret when ref is nil and secret doesn't exist": {
 			secretExists: false,
@@ -122,20 +122,16 @@ func TestReconcile(t *testing.T) {
 			apiBindings: []interface{}{
 				"something",
 			},
-			listShardsError:               errors.New("foo"),
-			wantVirtualWorkspaceURLsError: true,
+			listShardsError: errors.New("foo"),
 		},
-		"virtualWorkspaceURLs set when APIBindings present": {
+		"create APIExportEndpointSlice when APIBindings present": {
 			secretRefSet: true,
 			secretExists: true,
 
-			wantStatusHashSet: true,
-			wantIdentityValid: true,
-
-			apiBindings: []interface{}{
-				"something",
-			},
-			wantVirtualWorkspaceURLsReady: true,
+			wantStatusHashSet:                true,
+			apiExportEndpointSliceNotFound:   true,
+			wantCreateAPIExportEndpointSlice: true,
+			wantIdentityValid:                true,
 		},
 	}
 
@@ -155,6 +151,15 @@ func TestReconcile(t *testing.T) {
 					return nil
 				},
 				secretNamespace: "default-ns",
+				getAPIExportEndpointSlice: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
+					if tc.apiExportEndpointSliceNotFound {
+						return nil, apierrors.NewNotFound(corev1.Resource("apiexportendpointslices"), name)
+					}
+					return &apisv1alpha1.APIExportEndpointSlice{}, nil
+				},
+				createAPIExportEndpointSlice: func(ctx context.Context, clusterName logicalcluster.Path, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
+					return nil
+				},
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
 					if tc.secretExists {
 						secret := &corev1.Secret{
@@ -286,21 +291,6 @@ func TestReconcile(t *testing.T) {
 
 			if tc.wantIdentityValid {
 				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha2.APIExportIdentityValid))
-			}
-
-			if tc.wantVirtualWorkspaceURLsError {
-				requireConditionMatches(t, apiExport,
-					conditions.FalseCondition(
-						apisv1alpha2.APIExportVirtualWorkspaceURLsReady,
-						apisv1alpha2.ErrorGeneratingURLsReason,
-						conditionsv1alpha1.ConditionSeverityError,
-						"",
-					),
-				)
-			}
-
-			if tc.wantVirtualWorkspaceURLsReady {
-				requireConditionMatches(t, apiExport, conditions.TrueCondition(apisv1alpha2.APIExportVirtualWorkspaceURLsReady))
 			}
 		})
 	}
