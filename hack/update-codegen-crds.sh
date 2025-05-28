@@ -46,10 +46,12 @@ for CRD in "${REPO_ROOT}"/config/crds/*.yaml; do
 done
 
 (
-  ${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0 \
-  --ignore-export-schemas cachedobjects.cache.kcp.io
+  cd sdk
+  go run ./cmd/apigen \
+    --input-dir "${REPO_ROOT}"/config/crds \
+    --output-dir "${REPO_ROOT}"/config/root-phase0 \
+    --ignore-export-schemas cachedobjects.cache.kcp.io
 )
-
 
 # Tests CRDs
 

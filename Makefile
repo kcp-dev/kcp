@@ -23,8 +23,6 @@ ifeq ($(CI),true)
    $(shell git config --global --add safe.directory '*')
 endif
 
-GO_INSTALL = ./hack/go-install.sh
-
 TOOLS_DIR=hack/tools
 ROOT_DIR=$(abspath .)
 TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
@@ -42,35 +40,35 @@ endif
 
 CONTROLLER_GEN_VER := v0.17.3
 CONTROLLER_GEN_BIN := controller-gen
-CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
+CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)
 export CONTROLLER_GEN # so hack scripts can use it
 
 YAML_PATCH_VER ?= v0.0.11
 YAML_PATCH_BIN := yaml-patch
-YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
+YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)
 export YAML_PATCH # so hack scripts can use it
 
-GOLANGCI_LINT_VER := v2.1.6
+GOLANGCI_LINT_VER := 2.1.6
 GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)
 GOLANGCI_LINT_FLAGS ?=
 
-HTTEST_VER := v0.3.2
+HTTEST_VER := 0.3.4
 HTTEST_BIN := httest
-HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)-$(HTTEST_VER)
+HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)
 
-GOTESTSUM_VER := v1.8.1
+GOTESTSUM_VER := 1.12.2
 GOTESTSUM_BIN := gotestsum
-GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
+GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)
 
 LOGCHECK_VER := v0.8.2
 LOGCHECK_BIN := logcheck
-LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
+LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)
 export LOGCHECK # so hack scripts can use it
 
-KCP_APIGEN_BIN := apigen
-KCP_APIGEN_GEN := $(TOOLS_DIR)/$(KCP_APIGEN_BIN)
-export KCP_APIGEN_GEN # so hack scripts can use it
+BOILERPLATE_BIN := verify_boilerplate.py
+BOILERPLATE_VER := 201dcad9616c117927232ee0bc499ff38a27023e
+BOILERPLATE := $(TOOLS_DIR)/$(BOILERPLATE_BIN)
 
 ARCH := $(shell go env GOARCH)
 OS := $(shell go env GOOS)
@@ -129,36 +127,44 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 .PHONY: install
 
 $(GOLANGCI_LINT):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/v2/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+	@hack/download-tool.sh \
+	  https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VER}/golangci-lint-${GOLANGCI_LINT_VER}-${OS}-${ARCH}.tar.gz \
+	  ${GOLANGCI_LINT_BIN} \
+	  ${GOLANGCI_LINT_VER}
 
 $(HTTEST):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) go.xrstf.de/httest $(HTTEST_BIN) $(HTTEST_VER)
+	@hack/download-tool.sh \
+	  https://codeberg.org/xrstf/httest/releases/download/v$(HTTEST_VER)/httest_$(HTTEST_VER)_${OS}_${ARCH}.tar.gz \
+	  ${HTTEST_BIN} \
+	  ${HTTEST_VER}
 
 $(LOGCHECK):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/logtools/logcheck $(LOGCHECK_BIN) $(LOGCHECK_VER)
+	@GO_MODULE=true hack/download-tool.sh \
+	  sigs.k8s.io/logtools/logcheck \
+	  ${LOGCHECK_BIN} \
+	  $(LOGCHECK_VER)
 
-$(KCP_APIGEN_GEN):
-	pushd . && cd sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
-
+.PHONY: lint
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
-	echo "Linting root module..."; \
+	@echo "Linting root module..."; \
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
-	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+
+	@for MOD in $$(git ls-files '**/go.mod' | xargs dirname); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Linting $$MOD module..."; \
 			(cd $$MOD && $(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m); \
 		fi; \
 	done
-	./hack/verify-contextual-logging.sh
-.PHONY: lint
 
+	./hack/verify-contextual-logging.sh
+
+.PHONY: fix-lint
 fix-lint: $(GOLANGCI_LINT)
 	GOLANGCI_LINT_FLAGS="--fix" $(MAKE) lint
-.PHONY: fix-lint
 
+.PHONY: update-contextual-logging
 update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 	UPDATE=true ./hack/verify-contextual-logging.sh
-.PHONY: update-contextual-logging
 
 .PHONY: generate-cli-docs
 generate-cli-docs: ## Generate cli docs
@@ -189,33 +195,41 @@ deploy-docs: venv ## Deploy docs
 	. $(VENV)/activate; \
 	REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/deploy-docs.sh
 
+.PHONY: vendor
 vendor: ## Vendor the dependencies
 	go mod tidy
 	go mod vendor
-.PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
 .PHONY: tools
+tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
 
 $(CONTROLLER_GEN):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
+	@UNCOMPRESSED=true hack/download-tool.sh \
+	  https://github.com/kubernetes-sigs/controller-tools/releases/download/$(CONTROLLER_GEN_VER)/controller-gen-${OS}-${ARCH} \
+	  $(CONTROLLER_GEN_BIN) \
+	  $(CONTROLLER_GEN_VER) \
+	  'controller-gen-*'
 
 $(YAML_PATCH):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
+	@GO_MODULE=true hack/download-tool.sh github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
 $(GOTESTSUM):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
+	@hack/download-tool.sh \
+	  https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VER}/gotestsum_${GOTESTSUM_VER}_${OS}_${ARCH}.tar.gz \
+	  $(GOTESTSUM_BIN) \
+	  $(GOTESTSUM_VER) \
+	  $(GOTESTSUM_BIN)
 
+.PHONY: crds
 crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
-.PHONY: crds
 
-codegen: $(KCP_APIGEN_GEN) crds ## Generate all
+.PHONY: codegen
+codegen: crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	./hack/gen-patch-defaultrestmapper.sh
 	$(MAKE) imports
-.PHONY: codegen
 
 # Note, running this locally if you have any modified files, even those that are not generated,
 # will result in an error. This target is mostly for CI jobs.
@@ -247,14 +261,16 @@ imports: $(GOLANGCI_LINT) verify-go-versions
 	  done; \
 	fi
 
-$(TOOLS_DIR)/verify_boilerplate.py:
-	mkdir -p $(TOOLS_DIR)
-	curl --fail --retry 3 -L -o $(TOOLS_DIR)/verify_boilerplate.py https://raw.githubusercontent.com/kubernetes/repo-infra/201dcad9616c117927232ee0bc499ff38a27023e/hack/verify_boilerplate.py
-	chmod +x $(TOOLS_DIR)/verify_boilerplate.py
+$(BOILERPLATE):
+	@UNCOMPRESSED=true hack/download-tool.sh \
+	  https://raw.githubusercontent.com/kubernetes/repo-infra/$(BOILERPLATE_VER)/hack/verify_boilerplate.py \
+	  $(BOILERPLATE_BIN) \
+	  $(BOILERPLATE_VER) \
+	  $(BOILERPLATE_BIN)
 
 .PHONY: verify-boilerplate
-verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py ## Verify boilerplate
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer
+verify-boilerplate: $(BOILERPLATE) ## Verify boilerplate
+	$(BOILERPLATE) --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer
 
 ifdef ARTIFACT_DIR
 GOTESTSUM_ARGS += --junitfile=$(ARTIFACT_DIR)/junit.xml
@@ -293,7 +309,6 @@ test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all ## Run e2e tests
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
-
 
 .PHONY: test-e2e-shared-minimal
 ifdef USE_GOTESTSUM
