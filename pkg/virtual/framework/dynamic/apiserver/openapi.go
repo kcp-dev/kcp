@@ -228,7 +228,9 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 		}
 
 		groupPath := "apis/" + gv.Group
-		webservices[groupPath] = append(webservices[groupPath], discovery.NewAPIGroupHandler(codecs, apiGroup).WebService())
+		if _, ok := webservices[groupPath]; !ok {
+			webservices[groupPath] = append(webservices[groupPath], discovery.NewAPIGroupHandler(codecs, apiGroup).WebService())
+		}
 	}
 
 	// Build OpenAPI v3 spec for /apis/<group> webservices

@@ -102,7 +102,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
 
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderPath, cfg)
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, false, serviceProviderPath, cfg, nil)
 	bindConsumerToProvider(ctx, t, consumerPath, serviceProviderPath, kcpClients, cfg)
 	createCowboyInConsumer(ctx, t, consumerPath, wildwestClusterClient)
 
@@ -984,18 +984,23 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 			All:           true,
 		},
 	}
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderWorkspace, cfg, claims...)
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, false, serviceProviderWorkspace, cfg, claims)
 }
 
-func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, claims ...apisv1alpha1.PermissionClaim) {
+func setUpServiceProvider(ctx context.Context, t *testing.T, dynamicClusterClient kcpdynamic.ClusterInterface, kcpClients kcpclientset.ClusterInterface, multipleVersions bool, serviceProviderWorkspace logicalcluster.Path, cfg *rest.Config, claims []apisv1alpha1.PermissionClaim) {
 	t.Helper()
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", serviceProviderWorkspace)
 
 	serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
+	apiResPath := "apiresourceschema_cowboys.yaml"
+	if multipleVersions {
+		apiResPath = "apiresourceschema_cowboys_versions.yaml"
+	}
+
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Cluster(serviceProviderWorkspace).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(serviceProviderWorkspace), mapper, nil, apiResPath, testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
