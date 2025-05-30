@@ -19,6 +19,7 @@ package apiexport
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -534,5 +535,129 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 				require.Contains(t, err.Error(), tc.expectedError)
 			}
 		})
+	}
+}
+
+func TestValidateVerbsBundle(t *testing.T) {
+	path := field.NewPath("spec", "rules", "verbs")
+
+	// Test cases to demonstrate the function's behavior.
+	testCases := []struct {
+		name        string
+		verbs       []string
+		expectError bool
+		expectedMsg string
+	}{
+		{
+			name:        "valid standalone get",
+			verbs:       []string{"get"},
+			expectError: false,
+		},
+		{
+			name:        "valid list, get, watch",
+			verbs:       []string{"list", "get", "watch"},
+			expectError: false,
+		},
+		{
+			name:        "list missing get",
+			verbs:       []string{"list", "watch"},
+			expectError: true,
+			expectedMsg: "if 'list' verb is present, the following dependent verbs are missing: 'get'",
+		},
+		{
+			name:        "list missing watch",
+			verbs:       []string{"list", "get"},
+			expectError: true,
+			expectedMsg: "if 'list' verb is present, the following dependent verbs are missing: 'watch'",
+		},
+		{
+			name:        "list missing get and watch",
+			verbs:       []string{"list"},
+			expectError: true,
+			expectedMsg: "if 'list' verb is present, the following dependent verbs are missing: 'get', 'watch'",
+		},
+		{
+			name:        "watch missing list",
+			verbs:       []string{"watch", "get"},
+			expectError: true,
+			expectedMsg: "if 'watch' verb is present, the following dependent verbs are missing: 'list'",
+		},
+		{
+			name:        "watch missing get",
+			verbs:       []string{"watch", "list"},
+			expectError: true,
+			expectedMsg: "if 'watch' verb is present, the following dependent verbs are missing: 'get'",
+		},
+		{
+			name:        "watch missing list and get",
+			verbs:       []string{"watch"},
+			expectError: true,
+			expectedMsg: "if 'watch' verb is present, the following dependent verbs are missing: 'list', 'get'",
+		},
+		{
+			name:        "patch missing update",
+			verbs:       []string{"patch", "create"},
+			expectError: true,
+			expectedMsg: "if 'patch' verb is present, the following dependent verbs are missing: 'update'",
+		},
+		{
+			name:        "patch missing create",
+			verbs:       []string{"patch", "update"},
+			expectError: true,
+			expectedMsg: "if 'patch' verb is present, the following dependent verbs are missing: 'create'",
+		},
+		{
+			name:        "patch missing update and create",
+			verbs:       []string{"patch"},
+			expectError: true,
+			expectedMsg: "if 'patch' verb is present, the following dependent verbs are missing: 'update', 'create'",
+		},
+		{
+			name:        "valid patch, update, create",
+			verbs:       []string{"patch", "update", "create"},
+			expectError: false,
+		},
+		{
+			name:        "list and watch both missing get",
+			verbs:       []string{"list", "watch"},
+			expectError: true,
+			expectedMsg: "if 'list' verb is present, the following dependent verbs are missing: 'get'; if 'watch' verb is present, the following dependent verbs are missing: 'get'",
+		},
+		{
+			name:        "empty verbs list",
+			verbs:       []string{},
+			expectError: false,
+		},
+		{
+			name:        "all verbs valid bundle",
+			verbs:       []string{"get", "list", "watch", "create", "update", "delete", "patch"},
+			expectError: false,
+		},
+		{
+			name:        "complex scenario: list, patch, missing dependencies",
+			verbs:       []string{"list", "patch", "get"}, // list needs watch; patch needs update & create
+			expectError: true,
+			expectedMsg: "if 'list' verb is present, the following dependent verbs are missing: 'watch'; if 'patch' verb is present, the following dependent verbs are missing: 'update', 'create'",
+		},
+		{
+			name:        "list (missing get, watch) and patch (missing update, create)",
+			verbs:       []string{"list", "patch"},
+			expectError: true,
+			expectedMsg: "if 'list' verb is present, the following dependent verbs are missing: 'get', 'watch'; if 'patch' verb is present, the following dependent verbs are missing: 'update', 'create'",
+		},
+	}
+
+	for _, tc := range testCases {
+		err := validateVerbsBundle(tc.verbs, path)
+
+		if len(tc.expectedMsg) > 0 {
+			if err == nil {
+				t.Errorf("Expected an error, but got nil.")
+			} else if !strings.Contains(err.Error(), tc.expectedMsg) {
+				t.Errorf("Expected error message to contain '%s', but got: %s", tc.expectedMsg, err.Error())
+			}
+		} else if err != nil {
+			t.Errorf("Expected no error, but got: %s", err.Error())
+		}
 	}
 }
