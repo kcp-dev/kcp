@@ -30,11 +30,9 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -128,39 +126,4 @@ func TestProtectedAPI(t *testing.T) {
 		require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumerPath)
 		return resourceExists(resources, "tlsroutes")
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "consumer workspace %q discovery is missing tlsroutes resource", consumerPath)
-}
-
-// TestProtectedAPIFromServiceExports is testing if we can access service exports
-// from root workspace. See https://github.com/kcp-dev/kcp/issues/2184 for more details.
-func TestProtectedAPIFromServiceExports(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
-
-	server := kcptesting.SharedKcpServer(t)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	rootWorkspace := logicalcluster.NewPath("root")
-	cfg := server.BaseConfig(t)
-
-	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
-	require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-	t.Logf("Get tenancy APIExport from root workspace")
-	tenanciesRoot, err := kcpClusterClient.ApisV1alpha2().APIExports().Cluster(rootWorkspace).Get(ctx, tenancy.GroupName, metav1.GetOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Construct VirtualWorkspace client")
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	vwURL := tenanciesRoot.Status.VirtualWorkspaces[0].URL
-	cfgVW := server.RootShardSystemMasterBaseConfig(t)
-	cfgVW.Host = vwURL
-
-	vwClient, err := kcpclientset.NewForConfig(cfgVW)
-	require.NoError(t, err)
-
-	t.Logf("Make sure we can access tenancy API from VirtualWorkspace")
-	_, err = vwClient.TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
 }

@@ -41,10 +41,12 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
+	apisv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 )
@@ -59,6 +61,7 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	apiExportEndpointSliceInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
@@ -88,6 +91,13 @@ func NewController(
 		},
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
+		},
+		getAPIExportEndpointSlice: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
+			return apiExportEndpointSliceInformer.Lister().Cluster(clusterName).Get(name)
+		},
+		createAPIExportEndpointSlice: func(ctx context.Context, clusterName logicalcluster.Path, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error {
+			_, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha1().APIExportEndpointSlices().Create(ctx, apiExportEndpointSlice, metav1.CreateOptions{})
+			return err
 		},
 
 		getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
@@ -182,6 +192,9 @@ type controller struct {
 	listAPIExports          func() ([]*apisv1alpha2.APIExport, error)
 	listAPIExportsForSecret func(secret *corev1.Secret) ([]*apisv1alpha2.APIExport, error)
 	getAPIExport            func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error)
+
+	getAPIExportEndpointSlice    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
+	createAPIExportEndpointSlice func(ctx context.Context, clusterName logicalcluster.Path, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error
 
 	getNamespace    func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error)
 	createNamespace func(ctx context.Context, clusterName logicalcluster.Path, ns *corev1.Namespace) error
