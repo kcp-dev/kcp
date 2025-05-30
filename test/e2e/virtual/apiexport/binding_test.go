@@ -262,7 +262,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	permissionClaims := defaultPermissionsClaims(identityHash, pcModifiers...)
 
 	t.Logf("set up service provider with permission claims")
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, providerPath, cfg, permissionClaims)
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, false, providerPath, cfg, permissionClaims)
 
 	t.Logf("set up binding")
 	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, permissionClaimsToAcceptable(permissionClaims)...)
