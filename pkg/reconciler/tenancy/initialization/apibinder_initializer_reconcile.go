@@ -252,6 +252,10 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 // hash length.
 const maxExportNamePrefixLength = validation.DNS1123SubdomainMaxLength - 1 - 5
 
+func GenerateAPIBindingName(clusterName logicalcluster.Name, exportPath, exportName string) string {
+	return generateAPIBindingName(clusterName, exportPath, exportName)
+}
+
 func generateAPIBindingName(clusterName logicalcluster.Name, exportPath, exportName string) string {
 	maxLen := len(exportName)
 	if maxLen > maxExportNamePrefixLength {
