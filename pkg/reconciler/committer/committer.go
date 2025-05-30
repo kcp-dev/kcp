@@ -51,7 +51,7 @@ type Patcher[R runtime.Object] interface {
 }
 
 // CommitFunc is an alias to clean up type declarations.
-type CommitFunc[Sp any, St any] func(context.Context, *Resource[Sp, St], *Resource[Sp, St]) error
+type CommitFunc[Sp any, St any] func(_ context.Context, old *Resource[Sp, St], new *Resource[Sp, St]) error
 
 // NewCommitter returns a function that can patch instances of R based on meta,
 // spec or status changes using a cluster-aware patcher.
