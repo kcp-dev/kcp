@@ -22,6 +22,7 @@ import (
 	"fmt"
 	gohttp "net/http"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -64,8 +65,8 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
-	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -141,10 +142,12 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	deserializer := codecs.UniversalDeserializer()
 
 	t.Logf("Create test server and create mutating webhook for cowboys in both source and target cluster")
+	var clusterInReviewObject atomic.Value
 	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
 	for _, cluster := range []logicalcluster.Path{sourcePath, targetPath} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
-			ResponseFn: func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+			ResponseFn: func(obj runtime.Object, review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+				clusterInReviewObject.Store(logicalcluster.From(obj.(*v1alpha1.Cowboy)).String())
 				return &admissionv1.AdmissionResponse{Allowed: true}, nil
 			},
 			ObjectGVK: schema.GroupVersionKind{
@@ -205,6 +208,34 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 		return testWebhooks[sourcePath].Calls() >= 1, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create cowboy resource")
 
+	t.Logf("Check that the logicalcluster annotation on the object that triggered webhook is matching the target cluster")
+	require.Equal(t, targetWS.Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has correct kcp.io/cluster annotation set")
+
+	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", sourcePath)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Ensure cowboys are served in %q", sourcePath)
+	require.Eventually(t, func() bool {
+		_, err := cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	t.Logf("Cowboys are served")
+
+	sourceWHCalls := testWebhooks[sourcePath].Calls()
+
+	t.Logf("Creating cowboy resource in source logical cluster, eventually going through admission webhook")
+	require.Eventually(t, func() bool {
+		_, err = cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		require.NoError(t, err)
+		return testWebhooks[sourcePath].Calls() > sourceWHCalls
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Check that the logicalcluster annotation on the object that triggered webhook is matching the source cluster")
+	require.Equal(t, sourceWS.Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has correct kcp.io/cluster annotation set")
+
 	t.Logf("Check that the in-workspace webhook was NOT called")
 	require.Zero(t, testWebhooks[targetPath].Calls(), "in-workspace webhook should not have been called")
 }
@@ -219,8 +250,8 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	t.Cleanup(cancel)
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
-	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	targetPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 
@@ -297,9 +328,11 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Create test server and create validating webhook for cowboys in both source and target cluster")
 	testWebhooks := map[logicalcluster.Path]*webhookserver.AdmissionWebhookServer{}
+	var clusterInReviewObject atomic.Value
 	for _, cluster := range []logicalcluster.Path{sourcePath, targetPath} {
 		testWebhooks[cluster] = &webhookserver.AdmissionWebhookServer{
-			ResponseFn: func(review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+			ResponseFn: func(obj runtime.Object, review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+				clusterInReviewObject.Store(logicalcluster.From(obj.(*v1alpha1.Cowboy)).String())
 				return &admissionv1.AdmissionResponse{Allowed: true}, nil
 			},
 			ObjectGVK: schema.GroupVersionKind{
@@ -372,6 +405,34 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 		require.NoError(t, err)
 		return testWebhooks[sourcePath].Calls() >= 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Check that the logicalcluster annotation on the object that triggered webhook is matching the target cluster")
+	require.Equal(t, targetWS.Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has correct kcp.io/cluster annotation set")
+
+	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", sourcePath)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClients.Cluster(sourcePath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("Ensure cowboys are served in %q", sourcePath)
+	require.Eventually(t, func() bool {
+		_, err := cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	t.Logf("Cowboys are served")
+
+	sourceWHCalls := testWebhooks[sourcePath].Calls()
+
+	t.Logf("Creating cowboy resource in source logical cluster, eventually going through admission webhook")
+	require.Eventually(t, func() bool {
+		_, err = cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		require.NoError(t, err)
+		return testWebhooks[sourcePath].Calls() > sourceWHCalls
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Check that the logicalcluster annotation on the object that triggered webhook is matching the source cluster")
+	require.Equal(t, sourceWS.Spec.Cluster, clusterInReviewObject.Load(), "expected that the object passed to the webhook has correct kcp.io/cluster annotation set")
 
 	t.Logf("Check that the in-workspace webhook was NOT called")
 	require.Zero(t, testWebhooks[targetPath].Calls(), "in-workspace webhook should not have been called")
