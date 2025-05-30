@@ -244,19 +244,20 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 
 	// always serve apibindings, either through a claim, or with this fallback
 	if !claimsAPIBindings {
-		d, err := c.createAPIBindingAPIDefinition(ctx, clusterName, apiExport.Name)
-		if err != nil {
-			// TODO(ncdc): would be nice to expose some sort of user-visible error
-			logger.Error(err, "error creating api definition for apibindings")
-		}
+		for _, gvr := range []schema.GroupVersionResource{apisv1alpha1.SchemeGroupVersion.WithResource("apibindings"), apisv1alpha2.SchemeGroupVersion.WithResource("apibindings")} {
+			d, err := c.createAPIBindingAPIDefinition(ctx, gvr.Version, clusterName, apiExport.Name)
+			if err != nil {
+				// TODO(ncdc): would be nice to expose some sort of user-visible error
+				logger.Error(err, "error creating api definition for apibindings")
+			}
 
-		gvr := apisv1alpha2.SchemeGroupVersion.WithResource("apibindings")
-		newSet[gvr] = apiResourceSchemaApiDefinition{
-			APIDefinition: d,
-		}
-		newGVRs = append(newGVRs, gvrString(gvr))
-		if _, ok := oldSet[gvr]; ok {
-			preservedGVR = append(preservedGVR, gvrString(gvr))
+			newSet[gvr] = apiResourceSchemaApiDefinition{
+				APIDefinition: d,
+			}
+			newGVRs = append(newGVRs, gvrString(gvr))
+			if _, ok := oldSet[gvr]; ok {
+				preservedGVR = append(preservedGVR, gvrString(gvr))
+			}
 		}
 	}
 

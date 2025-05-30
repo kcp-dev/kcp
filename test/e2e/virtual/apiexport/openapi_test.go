@@ -67,7 +67,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
 
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, serviceProviderPath, cfg, nil)
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, true, serviceProviderPath, cfg, nil)
 
 	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerWorkspace.Name)
 	apiExportVWCfg := rest.CopyConfig(cfg)
