@@ -168,7 +168,7 @@ generate-cli-docs: ## Generate cli docs
 
 .PHONY: generate-api-docs
 generate-api-docs: ## Generate api docs
-	git clean -fdX docs/content/reference/api
+	git clean -fdX docs/content/reference/crd
 	docs/generators/crd-ref/run-crd-ref-gen.sh
 
 VENVDIR=$(abspath docs/venv)

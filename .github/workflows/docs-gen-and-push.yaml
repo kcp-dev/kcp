@@ -1,4 +1,4 @@
-name: Generate and push docs
+name: Documentation
 
 on:
   # So we can trigger manually if needed
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   generate-and-push:
-    name: Generate and push docs
+    name: Generate and push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # tag=v4.2.2
@@ -41,5 +41,11 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
+
+      # mike does not support giving CLI flags for mkdocs, but we also do not
+      # want to permanently enable strict mode, so here we enable it just for this
+      # task
+      - run: |
+          echo "strict: true" >> docs/mkdocs.yml
 
       - run: make generate-cli-docs generate-api-docs deploy-docs

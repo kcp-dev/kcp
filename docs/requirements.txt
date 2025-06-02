@@ -1,7 +1,7 @@
 mike==2.1.3
 mkdocs==1.5.3
 mkdocs-awesome-pages-plugin==2.9.2
-mkdocs-macros-plugin==1.0.5
+mkdocs-macros-plugin==1.3.7
 mkdocs-material==9.5.17
 mkdocs-material-extensions==1.3.1
 mkdocs-static-i18n==1.2.2
