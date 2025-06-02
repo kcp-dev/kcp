@@ -27,7 +27,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,7 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -493,35 +491,13 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 }
 
 func (c *kcpServer) loadCfg(ctx context.Context) error {
-	var lastError error
-	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		if c.Stopped() {
-			return false, fmt.Errorf("failed to load admin kubeconfig: server has stopped")
-		}
-
-		config, err := loadKubeConfig(c.KubeconfigPath(), "base")
-		if err != nil {
-			// A missing file is likely caused by the server not
-			// having started up yet. Ignore these errors for the
-			// purposes of logging.
-			if !os.IsNotExist(err) {
-				lastError = err
-			}
-
-			return false, nil
-		}
-
-		c.lock.Lock()
-		c.clientCfg = config
-		c.lock.Unlock()
-
-		return true, nil
-	}); err != nil && lastError != nil {
-		return fmt.Errorf("failed to load admin kubeconfig: %w", lastError)
-	} else if err != nil {
-		// should never happen
-		return fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	config, err := WaitLoadKubeConfig(ctx, c.KubeconfigPath(), "base")
+	if err != nil {
+		return err
 	}
+	c.lock.Lock()
+	c.clientCfg = config
+	c.lock.Unlock()
 	return nil
 }
 

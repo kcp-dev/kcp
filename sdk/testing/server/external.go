@@ -18,12 +18,14 @@ package server
 
 import (
 	"bytes"
+	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -34,6 +36,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -48,14 +51,14 @@ import (
 // the configuration can be loaded synchronously and no locking is
 // required to subsequently access it.
 func NewExternalKCPServer(name, kubeconfigPath string, shardKubeconfigPaths map[string]string, clientCADir string) (RunningServer, error) {
-	cfg, err := loadKubeConfig(kubeconfigPath, "base")
+	cfg, err := LoadKubeConfig(kubeconfigPath, "base")
 	if err != nil {
 		return nil, err
 	}
 
 	shardCfgs := map[string]clientcmd.ClientConfig{}
 	for shard, path := range shardKubeconfigPaths {
-		shardCfg, err := loadKubeConfig(path, "base")
+		shardCfg, err := LoadKubeConfig(path, "base")
 		if err != nil {
 			return nil, err
 		}
@@ -169,17 +172,19 @@ func (s *externalKCPServer) Stopped() bool {
 	return false
 }
 
+var ErrEmptyKubeConfig = fmt.Errorf("kubeconfig is empty")
+
 // LoadKubeConfig loads a kubeconfig from disk. This method is
 // intended to be common between fixture for servers whose lifecycle
 // is test-managed and fixture for servers whose lifecycle is managed
 // separately from a test run.
-func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
+func LoadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
 	fs, err := os.Stat(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
 	if fs.Size() == 0 {
-		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
+		return nil, ErrEmptyKubeConfig
 	}
 
 	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
@@ -188,6 +193,29 @@ func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig,
 	}
 
 	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
+}
+
+// WaitLoadKubeConfig wraps LoadKubeConfig and waits until the context
+// is cancelled, two minutes have passed, or the kubeconfig file is
+// loaded without error.
+func WaitLoadKubeConfig(ctx context.Context, kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
+	var config clientcmd.ClientConfig
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			loaded, err := LoadKubeConfig(kubeconfigPath, contextName)
+			if err != nil {
+				if os.IsNotExist(err) || errors.Is(ErrEmptyKubeConfig, err) {
+					return false, nil
+				}
+				return false, err
+			}
+			config = loaded
+			return true, nil
+		},
+	); err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 // clientCAUserConfig returns a config based on a dynamically created client certificate.
