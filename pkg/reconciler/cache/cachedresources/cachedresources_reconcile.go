@@ -121,9 +121,12 @@ func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster log
 		Resource: cachedResource.Spec.Resource,
 	}
 
-	resources, err := c.dynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels).String(),
-	})
+	listOpts := metav1.ListOptions{}
+	if cachedResource.Spec.LabelSelector != nil {
+		listOpts.LabelSelector = labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels).String()
+	}
+
+	resources, err := c.dynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, listOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +143,7 @@ func (c *Controller) deleteSelectedCacheResources(ctx context.Context, cluster l
 	selector := labels.SelectorFromSet(labels.Set{
 		replicationcontroller.LabelKeyObjectSchema: gvr.Version + "." + gvr.Resource + "." + gvr.Group,
 	})
-	if len(cachedResource.Spec.LabelSelector.MatchLabels) > 0 {
+	if cachedResource.Spec.LabelSelector != nil && len(cachedResource.Spec.LabelSelector.MatchLabels) > 0 {
 		l := labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels)
 		r, _ := selector.Requirements()
 		selector = l.Add(r...)
@@ -162,7 +165,7 @@ func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster log
 	selector := labels.SelectorFromSet(labels.Set{
 		replicationcontroller.LabelKeyObjectSchema: gvr.Version + "." + gvr.Resource + "." + gvr.Group,
 	})
-	if len(cachedResource.Spec.LabelSelector.MatchLabels) > 0 {
+	if cachedResource.Spec.LabelSelector != nil && len(cachedResource.Spec.LabelSelector.MatchLabels) > 0 {
 		l := labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels)
 		r, _ := selector.Requirements()
 		selector = l.Add(r...)
