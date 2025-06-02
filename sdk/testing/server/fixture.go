@@ -438,7 +438,7 @@ func (c *kcpServer) Name() string {
 
 // KubeconfigPath exposes the path of the kubeconfig file of this kcp server.
 func (c *kcpServer) KubeconfigPath() string {
-	return filepath.Join(c.cfg.DataDir, "admin.kubeconfig")
+	return c.cfg.KubeconfigPath()
 }
 
 // Config exposes a copy of the base client config for this server. Client-side throttling is disabled (QPS=-1).

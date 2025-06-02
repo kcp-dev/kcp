@@ -33,6 +33,10 @@ type Config struct {
 	RunInProcess bool
 }
 
+func (c Config) KubeconfigPath() string {
+	return filepath.Join(c.DataDir, "admin.kubeconfig")
+}
+
 // Option a function that wish to modify a given kcp configuration.
 type Option func(*Config)
 
