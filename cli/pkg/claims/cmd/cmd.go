@@ -30,12 +30,12 @@ import (
 // TODO: Add examples for edit and update claims.
 var (
 	claimsExample = `
-	# Lists the permission claims and their respective status related to a specific APIBinding.
-	%[1]s claims get apibinding cert-manager
+# Lists the permission claims and their respective status related to a specific APIBinding.
+%[1]s claims get apibinding cert-manager
 
-	# List permission claims and their respective status for all APIBindings in current workspace.
-	%[1]s claims get apibinding
-	`
+# List permission claims and their respective status for all APIBindings in current workspace.
+%[1]s claims get apibinding
+`
 )
 
 // New returns a cobra.Command for claims related actions.
