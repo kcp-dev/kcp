@@ -16,7 +16,13 @@ limitations under the License.
 
 package server
 
-import "path/filepath"
+import (
+	"fmt"
+	"path/filepath"
+	"strconv"
+
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+)
 
 // Config qualify a kcp server to start
 //
@@ -35,6 +41,39 @@ type Config struct {
 
 func (c Config) KubeconfigPath() string {
 	return filepath.Join(c.DataDir, "admin.kubeconfig")
+}
+
+func (c Config) BuildArgs(t TestingT) ([]string, error) {
+	kcpListenPort, err := GetFreePort(t)
+	if err != nil {
+		return nil, err
+	}
+	etcdClientPort, err := GetFreePort(t)
+	if err != nil {
+		return nil, err
+	}
+	etcdPeerPort, err := GetFreePort(t)
+	if err != nil {
+		return nil, err
+	}
+
+	args := []string{
+		"--root-directory", c.DataDir,
+		"--secure-port=" + kcpListenPort,
+		"--embedded-etcd-client-port=" + etcdClientPort,
+		"--embedded-etcd-peer-port=" + etcdPeerPort,
+		"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
+		"--kubeconfig-path=" + c.KubeconfigPath(),
+		"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
+		"--audit-log-path", filepath.Join(c.ArtifactDir, "kcp.audit"),
+		"--v=4",
+	}
+
+	if c.BindAddress != "" {
+		args = append(args, "--bind-address="+c.BindAddress)
+	}
+
+	return append(args, c.Args...), nil
 }
 
 // Option a function that wish to modify a given kcp configuration.

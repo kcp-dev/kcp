@@ -190,37 +190,6 @@ func newKcpServer(t TestingT, cfg Config) (*kcpServer, error) {
 		return nil, fmt.Errorf("could not create data dir: %w", err)
 	}
 
-	kcpListenPort, err := GetFreePort(t)
-	if err != nil {
-		return nil, err
-	}
-	etcdClientPort, err := GetFreePort(t)
-	if err != nil {
-		return nil, err
-	}
-	etcdPeerPort, err := GetFreePort(t)
-	if err != nil {
-		return nil, err
-	}
-
-	args := []string{
-		"--root-directory", s.cfg.DataDir,
-		"--secure-port=" + kcpListenPort,
-		"--embedded-etcd-client-port=" + etcdClientPort,
-		"--embedded-etcd-peer-port=" + etcdPeerPort,
-		"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
-		"--kubeconfig-path=" + s.KubeconfigPath(),
-		"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
-		"--audit-log-path", filepath.Join(s.cfg.ArtifactDir, "kcp.audit"),
-		"--v=4",
-	}
-
-	if cfg.BindAddress != "" {
-		args = append(args, "--bind-address="+cfg.BindAddress)
-	}
-
-	s.cfg.Args = append(args, s.cfg.Args...)
-
 	return s, nil
 }
 
@@ -278,7 +247,11 @@ func (c *kcpServer) Run(t TestingT) error {
 			runner = func(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
 				t.Log("RunInProcessFunc is deprecated, please migrate to ContextRunInProcessFunc")
 				t.Log("RunInProcessFunc is deprecated, stopping the server will not work")
-				return RunInProcessFunc(t, cfg.DataDir, cfg.Args)
+				args, err := cfg.BuildArgs(t)
+				if err != nil {
+					return nil, err
+				}
+				return RunInProcessFunc(t, cfg.DataDir, args)
 			}
 		}
 	}
@@ -325,7 +298,12 @@ func (c *kcpServer) Stopped() bool {
 }
 
 func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
-	commandLine := append(StartKcpCommand("KCP"), cfg.Args...)
+	args, err := cfg.BuildArgs(t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build kcp args: %w", err)
+	}
+
+	commandLine := append(StartKcpCommand("KCP"), args...)
 
 	t.Logf("running: %v", strings.Join(commandLine, " "))
 
