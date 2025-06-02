@@ -159,16 +159,16 @@ exported APIs need to know and reference it.
 
 Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.kcp.io`, kcp uses the identity hash (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate `APIResourceSchema` are
-served to clients. See [Run Your Controller](#Run-Your-Controller) for more information.
+served to clients. See [Build Your Controller](#build-your-controller) for more information.
 
 ### Permission Claims
 
 When a consumer creates an `APIBinding` that binds to an `APIExport`, the API provider who owns the `APIExport`
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
-APIExports the consumer has created `APIBindings` for, or from APIs that are built in to kcp. The API provider 
-requests access to these additional resources by adding `PermissionClaims` for the desired API's group, resource, and 
-identity hash to their `APIExport`. Let's take the example `APIExport` from above and add permission claims for 
+APIExports the consumer has created `APIBindings` for, or from APIs that are built in to kcp. The API provider
+requests access to these additional resources by adding `PermissionClaims` for the desired API's group, resource, and
+identity hash to their `APIExport`. Let's take the example `APIExport` from above and add permission claims for
 `ConfigMaps` and `Things`:
 
 ```yaml
@@ -196,9 +196,9 @@ spec:
 3. To claim another exported API, you must include its `identityHash`
 4. If you aren't claiming access to individual instances, you must specify `all` instead
 
-This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed 
+This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed
 resources. If the consumer does not accept a permission claim, the API Provider is not allowed to access the claimed
-resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. For more details, see the 
+resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. For more details, see the
 section on [APIBindings](#apibinding).
 
 ### Maximal Permission Policy
@@ -207,7 +207,7 @@ If you want to set an upper bound on what is allowed for a consumer of your expo
 permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
 and a consuming user is authorized based on the RBAC configuration in the consuming workspace.
 
-The maximal permission policy consists of RBAC `(Cluster)Roles` and `(Cluster)RoleBindings`. Incoming requests to a 
+The maximal permission policy consists of RBAC `(Cluster)Roles` and `(Cluster)RoleBindings`. Incoming requests to a
 workspace that binds to an APIExport are additionally checked against
 these rules, with the username and groups prefixed with `apis.kcp.io:binding:`.
 
@@ -227,7 +227,7 @@ spec:
     local: {} # (1)
 ```
 
-1. `local` is the only supported option at the moment. "Local" means the RBAC policy is defined in the same 
+1. `local` is the only supported option at the moment. "Local" means the RBAC policy is defined in the same
    workspace as the `APIExport`.
 
 We don't want users to be able to mutate the `status` subresource, so we set up
@@ -269,14 +269,14 @@ subjects:
   name: apis.kcp.io:binding:system:authenticated # (1)
 ```
 
-1. Note the `apis.kcp.io:binding:` prefix; this identifies this `ClusterRoleBinding` as part of the maximal 
+1. Note the `apis.kcp.io:binding:` prefix; this identifies this `ClusterRoleBinding` as part of the maximal
    permission policy. It applies to `system:authenticated`.
 
-Now imagine a user named `unicorn` with group `system:authenticated`. They create a workspace named 
-`magic` and bind to the `tenancy.kcp.io` APIExport from the workspace `root`. What actions `unicorn` is allowed to 
+Now imagine a user named `unicorn` with group `system:authenticated`. They create a workspace named
+`magic` and bind to the `tenancy.kcp.io` APIExport from the workspace `root`. What actions `unicorn` is allowed to
 perform in the `magic` workspace must be granted by **both**:
 
-1. the standard RBAC authorization flow in the `magic` workspace; i.e., `(Cluster)Roles` and `(Cluster)RoleBindings` 
+1. the standard RBAC authorization flow in the `magic` workspace; i.e., `(Cluster)Roles` and `(Cluster)RoleBindings`
    in the `magic` workspace itself, **and**
 2. the maximal permission policy RBAC settings configured in the `root` workspace for the `tenancy` APIExport
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import os.path
 
 def define_env(env):
     """
@@ -55,10 +56,10 @@ def define_env(env):
 
             # Copy so we don't modify the original
             child = copy.deepcopy(child)
-            
-            # Subsection nesting that works across any level of nesting
-            # Replaced mkdocs fix_url function
-            child.file.url = child.url.replace(page.url, "./")
+
+            # mkdocs hates if a link in the generated Markdown (!) is already a fully-fledged URL
+            # and not a link to a file anymore, so we replace the URL with the file path here.
+            child.file.url = os.path.basename(child.file.src_uri)
             siblings.append(child)
 
         return siblings
