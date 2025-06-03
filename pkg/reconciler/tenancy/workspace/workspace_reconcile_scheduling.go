@@ -247,9 +247,8 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 		ObjectMeta: metav1.ObjectMeta{
 			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
-				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey],
-				tenancyv1alpha1.LogicalClusterTypeAnnotationKey:         logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
-				core.LogicalClusterPathAnnotationKey:                    canonicalPath.String(),
+				tenancyv1alpha1.LogicalClusterTypeAnnotationKey: logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
+				core.LogicalClusterPathAnnotationKey:            canonicalPath.String(),
 			},
 		},
 		Spec: corev1alpha1.LogicalClusterSpec{

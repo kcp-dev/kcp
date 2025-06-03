@@ -201,9 +201,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	// need to create
-	ownerAnnotation, found := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
-	if !found {
+	// need to create ClusterRoleBinding for owner.
+	ownerAnnotation := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
+	// some older installations of kcp might have produced an annotation with empty value, so we should
+	// not care whether the annotation is set or if it's empty.
+	if ownerAnnotation == "" {
 		// no owner - can't create
 		return nil
 	}
