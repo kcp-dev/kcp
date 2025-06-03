@@ -168,8 +168,9 @@ implicitly has access to instances of the exported APIs in the consuming workspa
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
 APIExports the consumer has created `APIBindings` for, or from APIs that are built in to kcp. The API provider
 requests access to these additional resources by adding `PermissionClaims` for the desired API's group, resource, and
-identity hash to their `APIExport`. Let's take the example `APIExport` from above and add permission claims for
-`ConfigMaps` and `Things`:
+identity hash to their `APIExport`. The API provider is responsible for specifying what operations are required for the
+requested resource by setting the appropriate [API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs).
+Let's take the example `APIExport` from above and add permission claims for `ConfigMaps` and `Things`:
 
 ```yaml
 apiVersion: apis.kcp.io/v1alpha1
@@ -185,21 +186,26 @@ spec:
     resourceSelector: # (2)
     - namespace: example-system
       name: my-setup
+    verbs: ["get", "list", "create"] # (4)
   - group: somegroup.kcp.io
     resource: things
     identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6 # (3)
-    all: true # (4)
+    all: true # (5)
+    verbs: ["*"] # (6)
 ```
 
 1. This is how you specify the core API group
 2. You can claim access to one or more resource instances by namespace and/or name
 3. To claim another exported API, you must include its `identityHash`
-4. If you aren't claiming access to individual instances, you must specify `all` instead
+4. Verbs is a list of the [API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs)
+5. If you aren't claiming access to individual instances, you must specify `all` instead
+6. `"*"` is a special "verb" that matches any possible verb
 
 This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed
 resources. If the consumer does not accept a permission claim, the API Provider is not allowed to access the claimed
-resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. For more details, see the
-section on [APIBindings](#apibinding).
+resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. The operations allowed on the
+resource are the intersection of the verbs defined in the `APIExport` and the verbs accepted in the appropriate
+`APIBinding`. For more details, see the section on [APIBindings](#apibinding).
 
 ### Maximal Permission Policy
 
@@ -411,15 +417,20 @@ spec:
     resourceSelector:
     - name: my-setup
       namespace: example-system
+    verbs: ["get", "list", "create"]
     state: Accepted
   - resource: things
     group: somegroup.kcp.io
     all: true
     identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
+    verbs: ["*"]
     state: Accepted
 ```
 
 It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.
+
+Operations allowed on the resources for which permission claims are accepted is defined as the intersection of
+the verbs in the APIBinding and the verbs in the appropriate APIExport.
 
 In practice, bound APIs behave similarly to other resources in kcp or Kubernetes. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
 

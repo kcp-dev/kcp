@@ -238,7 +238,7 @@ cowboy.wildwest.dev/one created
 
 Besides publishing APIs and reconciliating the related resources service providers' controllers may need access to core resources or resources exported by other services in the user workspaces as part of their duties. This access needs for security reason to get authorized. `permissionClaims` address this need.
 
-A service provider wanting to access `ConfigMaps` needs to specify such a claim in the `APIExport`:
+A service provider wanting to access `ConfigMaps` needs to specify such a claim in the `APIExport`. They also need to specify what operations they need/request via `verbs`.
 
 ```yaml
 spec:
@@ -246,8 +246,9 @@ spec:
   permissionClaims:
     - group: ""
       resource: "configmaps"
+      verbs: ["*"]
 ```
-Users can then authorize access to this resource type in their workspace by accepting the claim in the `APIBinding`:
+Users can then authorize access to this resource type in their workspace by accepting the claim in the `APIBinding`, including what verbs are they permitting:
 
 ```yaml
 spec:
@@ -255,10 +256,11 @@ spec:
   permissionClaims:
     - group: ""
       resource: "configmaps"
+      verbs: ["*"]
       state: Accepted
 ```
 
-There is the possibility to further limit the access claim to single resources.
+Operations allowed on the resources for which permission claim is accepted is defined as the intersection of the verbs in the `APIBinding` and the verbs in the `APIExport`. Verbs in this case are matching the verbs used by the [Kubernetes API](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs). There is the possibility to further limit the access claim to single resources.
 
 ## Dig Deeper into APIExports
 
