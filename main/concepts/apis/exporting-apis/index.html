@@ -3486,14 +3486,14 @@ the <code>APIExport</code>.</p>
 exported APIs need to know and reference it.</p>
 <p>Given 2 Workspaces, each with its own <code>APIExport</code> that exports <code>widgets.example.kcp.io</code>, kcp uses the identity hash (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate <code>APIResourceSchema</code> are
-served to clients. See <a href="#Run-Your-Controller">Run Your Controller</a> for more information.</p>
+served to clients. See <a href="#build-your-controller">Build Your Controller</a> for more information.</p>
 <h3 id="permission-claims">Permission Claims</h3>
 <p>When a consumer creates an <code>APIBinding</code> that binds to an <code>APIExport</code>, the API provider who owns the <code>APIExport</code>
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
-APIExports the consumer has created <code>APIBindings</code> for, or from APIs that are built in to kcp. The API provider 
-requests access to these additional resources by adding <code>PermissionClaims</code> for the desired API's group, resource, and 
-identity hash to their <code>APIExport</code>. Let's take the example <code>APIExport</code> from above and add permission claims for 
+APIExports the consumer has created <code>APIBindings</code> for, or from APIs that are built in to kcp. The API provider
+requests access to these additional resources by adding <code>PermissionClaims</code> for the desired API's group, resource, and
+identity hash to their <code>APIExport</code>. Let's take the example <code>APIExport</code> from above and add permission claims for
 <code>ConfigMaps</code> and <code>Things</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha1</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
@@ -3519,15 +3519,15 @@ identity hash to their <code>APIExport</code>. Let's take the example <code>APIE
 <li>To claim another exported API, you must include its <code>identityHash</code></li>
 <li>If you aren't claiming access to individual instances, you must specify <code>all</code> instead</li>
 </ol>
-<p>This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed 
+<p>This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed
 resources. If the consumer does not accept a permission claim, the API Provider is not allowed to access the claimed
-resources. Consumer acceptance of permission claims is part of the <code>APIBinding</code> spec. For more details, see the 
+resources. Consumer acceptance of permission claims is part of the <code>APIBinding</code> spec. For more details, see the
 section on <a href="#apibinding">APIBindings</a>.</p>
 <h3 id="maximal-permission-policy">Maximal Permission Policy</h3>
 <p>If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
 permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
 and a consuming user is authorized based on the RBAC configuration in the consuming workspace.</p>
-<p>The maximal permission policy consists of RBAC <code>(Cluster)Roles</code> and <code>(Cluster)RoleBindings</code>. Incoming requests to a 
+<p>The maximal permission policy consists of RBAC <code>(Cluster)Roles</code> and <code>(Cluster)RoleBindings</code>. Incoming requests to a
 workspace that binds to an APIExport are additionally checked against
 these rules, with the username and groups prefixed with <code>apis.kcp.io:binding:</code>.</p>
 <p>For example: we have an <code>APIExport</code> in the <code>root</code> workspace called <code>tenancy.kcp.io</code> that provides APIs
@@ -3544,7 +3544,7 @@ for <code>workspaces</code> and <code>workspacetypes</code>:</p>
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">local</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="c1"># (1)</span>
 </code></pre></div>
 <ol>
-<li><code>local</code> is the only supported option at the moment. "Local" means the RBAC policy is defined in the same 
+<li><code>local</code> is the only supported option at the moment. "Local" means the RBAC policy is defined in the same
    workspace as the <code>APIExport</code>.</li>
 </ol>
 <p>We don't want users to be able to mutate the <code>status</code> subresource, so we set up
@@ -3583,14 +3583,14 @@ a maximal permission policy to limit what users can do:</p>
 <a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io:binding:system:authenticated</span><span class="w"> </span><span class="c1"># (1)</span>
 </code></pre></div>
 <ol>
-<li>Note the <code>apis.kcp.io:binding:</code> prefix; this identifies this <code>ClusterRoleBinding</code> as part of the maximal 
+<li>Note the <code>apis.kcp.io:binding:</code> prefix; this identifies this <code>ClusterRoleBinding</code> as part of the maximal
    permission policy. It applies to <code>system:authenticated</code>.</li>
 </ol>
-<p>Now imagine a user named <code>unicorn</code> with group <code>system:authenticated</code>. They create a workspace named 
-<code>magic</code> and bind to the <code>tenancy.kcp.io</code> APIExport from the workspace <code>root</code>. What actions <code>unicorn</code> is allowed to 
+<p>Now imagine a user named <code>unicorn</code> with group <code>system:authenticated</code>. They create a workspace named
+<code>magic</code> and bind to the <code>tenancy.kcp.io</code> APIExport from the workspace <code>root</code>. What actions <code>unicorn</code> is allowed to
 perform in the <code>magic</code> workspace must be granted by <strong>both</strong>:</p>
 <ol>
-<li>the standard RBAC authorization flow in the <code>magic</code> workspace; i.e., <code>(Cluster)Roles</code> and <code>(Cluster)RoleBindings</code> 
+<li>the standard RBAC authorization flow in the <code>magic</code> workspace; i.e., <code>(Cluster)Roles</code> and <code>(Cluster)RoleBindings</code>
    in the <code>magic</code> workspace itself, <strong>and</strong></li>
 <li>the maximal permission policy RBAC settings configured in the <code>root</code> workspace for the <code>tenancy</code> APIExport</li>
 </ol>

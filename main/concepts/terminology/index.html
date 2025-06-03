@@ -3323,7 +3323,7 @@ where different logical clusters can be used by different users in the organizat
 <p>The kcp server only provides resources to accomplish this, such as <code>LogicalCluster</code>, <code>Workspace</code>, <code>APIBinding</code> and
 <code>APIExport</code>, on top of some core Kubernetes resources, like <code>ConfigMap</code> and <code>Secret</code>. It doesn't provide Kubernetes
 resources for managing and orchestrating workloads, such as Pods and Deployments. The list of resources provided by
-default can be found in the <a href="../apis/built-in">Built-in APIs document</a>.</p>
+default can be found in the <a href="../apis/built-in/">Built-in APIs document</a>.</p>
 <p>kcp follows the Kubernetes API semantics in each logical cluster, i.e. kcp should be conformant to the subset of the
 Kubernetes conformance suite that applies to the APIs available in kcp. In other words, if you're building a platform
 on top of kcp, you'll be required to build Kubernetes-like resources and APIs, think of CustomResourceDefinitions
@@ -3394,7 +3394,7 @@ relationship is allowed if and only if the parent allows the child and the child
 <li><code>root:foo:bar</code> for the <code>bar</code> workspace</li>
 </ul>
 <p>The workspace path is used for building the workspace URL and for accessing the workspace via the <code>ws</code> kubectl plugin.</p>
-<p>More information, including examples, can be found in the the <a href="../workspaces">Workspaces document</a>.</p>
+<p>More information, including examples, can be found in the the <a href="../workspaces/">Workspaces document</a>.</p>
 <h3 id="workspace-types">Workspace Types</h3>
 <p>Workspaces have types, which are mostly oriented around a set of default or optional APIs exposed. For example:</p>
 <ul>
@@ -3403,7 +3403,7 @@ relationship is allowed if and only if the parent allows the child and the child
 <li>a workspace intended for building Knative functions might expose only the Knative serving APIs, ConfigMaps, Secrets,
   and optionally enable Knative Eventing APIs.</li>
 </ul>
-<p>By default, each workspace has the <a href="./apis/built-in">built-in APIs installed and available to its users</a>.</p>
+<p>By default, each workspace has the <a href="../apis/built-in/">built-in APIs installed and available to its users</a>.</p>
 <p>More information, including a list of Workspace Types and examples, can be found in the
 <a href="../workspaces/workspace-types/">Workspace Types document</a>.</p>
 <h2 id="virtual-workspaces">Virtual Workspaces</h2>
@@ -3412,7 +3412,7 @@ more precisely Virtual Logical Clusters. The API surface looks very similar to t
 HTTP path structure, with each (virtual) logical cluster having its own HTTP endpoint under <code>/clusters/&lt;logical cluster&gt;</code>.
 As with kcp itself, each of these endpoints looks like a Kubernetes cluster on its own, i.e. with <code>/api/v1</code> and API
 groups under <code>/apis/&lt;group&gt;/&lt;version&gt;</code>.</p>
-<p>The Virtual Logical Clusters are called virtual because they don’t actually have their own storage, i.e. they are not 
+<p>The Virtual Logical Clusters are called virtual because they don’t actually have their own storage, i.e. they are not
 a source of truth, instead they are just proxied representations of the real logical clusters from kcp. In the process
 of proxying, the Virtual Workspace API server might filter the visible objects, hide certain API groups completely, or
 even transform objects depending on the use case (e.g. strip the sensitive data). Also, the permission semantics might
@@ -3434,7 +3434,7 @@ or even see the user's workspace at all. But when a user uses the service provid
 the objects for the resources they provide and potentially other related objects through the Virtual Workspaces.</p>
 <p>It's important to note that the Virtual Workspaces are not necessarily read-only, but that they can also mutate
 resources in the corresponding real logical cluster.</p>
-<p><strong>Finally, for brevity, the Virtual Workspace API server is often simply called the Virtual Workspace.</strong> 
+<p><strong>Finally, for brevity, the Virtual Workspace API server is often simply called the Virtual Workspace.</strong>
 The Virtual Workspace doesn't exist as a resource in kcp, it's purely a very flexible API (server) that can connect to
 the kcp server for the sake of gathering and mutating the needed objects.</p>
 <p>While kcp provides a set of default Virtual Workspaces, you can also build and run your own. The Virtual Workspaces
@@ -3476,7 +3476,7 @@ better define their applications not to fail.</p>
 </ul>
 <p>A shard hosts its own set of Workspaces. The sharding mechanism in kcp allows you to make the workspace hierarchy span
 many shards transparently, while ensuring you can bind APIs from logical clusters running in different shards.
-The <a href="./sharding/shards/">Sharding documentation</a> has more details about possibilities of sharding, and we strongly
+The <a href="../sharding/shards/">Sharding documentation</a> has more details about possibilities of sharding, and we strongly
 recommend reading this document if you want to shard your kcp setup.</p>
 <p>In a sharded setup, you'll be sending requests to a component called Front Proxy (<code>kcp-front-proxy</code>) instead to a
 specific shard (kcp server). Front Proxy is a shard-aware stateless proxy that's running in front of kcp API servers.
