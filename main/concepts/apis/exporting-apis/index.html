@@ -3493,8 +3493,9 @@ implicitly has access to instances of the exported APIs in the consuming workspa
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
 APIExports the consumer has created <code>APIBindings</code> for, or from APIs that are built in to kcp. The API provider
 requests access to these additional resources by adding <code>PermissionClaims</code> for the desired API's group, resource, and
-identity hash to their <code>APIExport</code>. Let's take the example <code>APIExport</code> from above and add permission claims for
-<code>ConfigMaps</code> and <code>Things</code>:</p>
+identity hash to their <code>APIExport</code>. The API provider is responsible for specifying what operations are required for the
+requested resource by setting the appropriate <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs">API verbs</a>.
+Let's take the example <code>APIExport</code> from above and add permission claims for <code>ConfigMaps</code> and <code>Things</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha1</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -3508,21 +3509,26 @@ identity hash to their <code>APIExport</code>. Let's take the example <code>APIE
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">resourceSelector</span><span class="p">:</span><span class="w"> </span><span class="c1"># (2)</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-system</span>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-setup</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span><span class="w"> </span><span class="c1"># (3)</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># (4)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;get&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;list&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;create&quot;</span><span class="p p-Indicator">]</span><span class="w"> </span><span class="c1"># (4)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span><span class="w"> </span><span class="c1"># (3)</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># (5)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span><span class="w"> </span><span class="c1"># (6)</span>
 </code></pre></div>
 <ol>
 <li>This is how you specify the core API group</li>
 <li>You can claim access to one or more resource instances by namespace and/or name</li>
 <li>To claim another exported API, you must include its <code>identityHash</code></li>
+<li>Verbs is a list of the <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs">API verbs</a></li>
 <li>If you aren't claiming access to individual instances, you must specify <code>all</code> instead</li>
+<li><code>"*"</code> is a special "verb" that matches any possible verb</li>
 </ol>
 <p>This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed
 resources. If the consumer does not accept a permission claim, the API Provider is not allowed to access the claimed
-resources. Consumer acceptance of permission claims is part of the <code>APIBinding</code> spec. For more details, see the
-section on <a href="#apibinding">APIBindings</a>.</p>
+resources. Consumer acceptance of permission claims is part of the <code>APIBinding</code> spec. The operations allowed on the
+resource are the intersection of the verbs defined in the <code>APIExport</code> and the verbs accepted in the appropriate
+<code>APIBinding</code>. For more details, see the section on <a href="#apibinding">APIBindings</a>.</p>
 <h3 id="maximal-permission-policy">Maximal Permission Policy</h3>
 <p>If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
 permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
@@ -3698,14 +3704,18 @@ When an <code>APIExport</code> is changed after workspaces have bound to it, new
 <a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">resourceSelector</span><span class="p">:</span>
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-setup</span>
 <a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-system</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">    </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;get&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;list&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;create&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">    </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
 </code></pre></div>
 <p>It should be noted that <code>APIBindings</code> do not create <code>CRDs</code> or <code>APIResourceSchemas</code>in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.</p>
+<p>Operations allowed on the resources for which permission claims are accepted is defined as the intersection of
+the verbs in the APIBinding and the verbs in the appropriate APIExport.</p>
 <p>In practice, bound APIs behave similarly to other resources in kcp or Kubernetes. This means you can query for imported APIs using <code>kubectl api-resources</code>. Additionally you can use <code>kubectl explain</code> to get a detailed view on all fields of the API.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># inside consumer workspace</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>api-resources<span class="w"> </span>--api-group<span class="o">=</span><span class="s1">&#39;example.kcp.io&#39;</span>
