@@ -2,42 +2,39 @@
 
 kcp extends the vanilla [admission plugins](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/) for webhooks, and makes them cluster-aware.
 
-```
-                                                          ┌────────────────────────┐
-                                                          │ Consumer Workspace ws2 │
-                                                          ├────────────────────────┤
-                                                          │                        │
-                                                     ┌────┼─ Widgets APIBinding    │
-                                                     │    │                        │
-                                                     │    │  Widget a              │
-┌───────────────────────────────────────────────┐    │    │  Widget b              │
-│            API Provider Workspace ws1         │    │    │  Widget c              │
-├───────────────────────────────────────────────┤    │    │                        │
-│                                               │    │    └────────────────────────┘
-│              Widgets APIExport ◄──────────────┼────┤                              
-│                      │                        │    │                              
-│                      ▼                        │    │                              
-│          Widgets APIResourceSchema            │    │    ┌────────────────────────┐
-│           (widgets.v1.example.org)            │    │    │ Consumer Workspace ws3 │
-│                      ▲                        │    │    ├────────────────────────┤
-│                      │                        │    │    │                        │
-│  ┌───────────────────┴─────────────────────┐  │    └────┼─ Widgets APIBinding    │
-│  │ Mutating/ValidatingWebhookConfiguration │  │         │                        │
-│  │   for widgets.v1.example.org            │  │         │  Widget a              │
-│  │                                         │  │         │  Widget b              │
-│  │   Handle a from ws2 (APIResourceSchema) │  │         │  Widget c              │
-│  │   Handle b from ws3 (APIResourceSchema) │  │         │                        │
-│  │   Handle a from ws1 (CRD)               │  │         └────────────────────────┘
-│  │   ...                                   │  │                                   
-│  └───────────────────┬─────────────────────┘  │                                   
-│                      │                        │                                   
-│                      ▼                        │                                   
-│       Widgets CustomResourceDefinition        │                                   
-│        (widgets.v1.example.org)               │
-│                                               │                                   
-│       Widget a                                │                                   
-│                                               │                                   
-└───────────────────────────────────────────────┘                                   
+```mermaid
+flowchart TD
+    subgraph ws1["API Provider Workspace ws1"]
+        export["Widgets APIExport"]
+        schema["Widgets APIResourceSchema<br/>(widgets.v1.example.org)"]
+        webhook["Mutating/ValidatingWebhookConfiguration<br/>for widgets.v1.example.org<br/><br/>Handle a from ws2 (APIResourceSchema)<br/>Handle b from ws3 (APIResourceSchema)<br/>Handle a from ws1 (CRD)"]
+        crd["Widgets CustomResourceDefinition<br/>(widgets.v1.example.org)"]
+        
+        export --> schema
+        schema --> webhook
+        webhook --> crd
+    end
+
+    subgraph ws2["Consumer Workspace ws2"]
+        binding1["Widgets APIBinding"]
+        widgetA1["Widget a"]
+        widgetB1["Widget b"]
+        widgetC1["Widget c"]
+    end
+
+    subgraph ws3["Consumer Workspace ws3"]
+        binding2["Widgets APIBinding"]
+        widgetA2["Widget a"]
+        widgetB2["Widget b"]
+        widgetC2["Widget c"]
+    end
+
+    export --> binding1
+    export --> binding2
+
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef resource fill:#e1f3d8,stroke:#82c91e,stroke-width:2px;
+    class export,schema,webhook,crd,binding1,binding2 resource;
 ```
 
 When an object is to be mutated or validated, the webhook admission plugin ([`apis.kcp.io/MutatingWebhook`](https://github.com/kcp-dev/kcp/tree/main/pkg/admission/mutatingwebhook) and [`apis.kcp.io/ValidatingWebhook`](https://github.com/kcp-dev/kcp/tree/main/pkg/admission/validatingwebhook) respectively) looks for the owner of the resource schema. Once found, it then dispatches the handling for that object in the owner's workspace. There are two such cases in the diagram above:
