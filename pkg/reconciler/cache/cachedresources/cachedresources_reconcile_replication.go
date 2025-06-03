@@ -60,6 +60,11 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 	}
 	cluster := logicalcluster.From(cachedResource)
 
+	var resourceLabelSelector labels.Selector
+	if cachedResource.Spec.LabelSelector != nil {
+		resourceLabelSelector = labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels)
+	}
+
 	clusterName := logicalcluster.From(cachedResource)
 	controllerName := fmt.Sprintf("%s.%s.%s.%s.%s", clusterName, gvr.Version, gvr.Resource, gvr.Group, cachedResource.Name)
 	// TODO: Add locking here when multiple workers are supported.
@@ -98,7 +103,7 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			gvr,
 			replicated,
 			callback,
-			labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels),
+			resourceLabelSelector,
 		)
 		if err != nil {
 			cancel()
@@ -124,7 +129,7 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		}
 		return reconcileStatusStopAndRequeue, nil // Once controller is started, we requeue to check if we need to delete it.
 	}
-	controller.SetLabelSelector(labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels))
+	controller.SetLabelSelector(resourceLabelSelector)
 
 	// Check if we need to wait for cleaning. This can be few cases:
 	// 1. We are in deleting phase, but nothing to delete - we are good.
