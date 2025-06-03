@@ -203,7 +203,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	// need to create
 	ownerAnnotation, found := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
-	if !found {
+	// some older installations of kcp might have produced an annotation with empty value.
+	if !found || ownerAnnotation == "" {
 		// no owner - can't create
 		return nil
 	}
