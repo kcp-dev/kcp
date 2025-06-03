@@ -219,6 +219,13 @@ func DefaultDynamicDelegatedStoreFuncs(
 				// The object does not currently exist.
 				// We switch to calling a create operation on the forwarding registry.
 				// This enables support for server-side apply requests, to create non-existent objects.
+				//
+				// Before creating the object, we want to run the admission chain (including the authorization)
+				// to make sure that we're allowed to create objects.
+				if err := createValidation(ctx, obj); err != nil {
+					return nil, err
+				}
+
 				return delegate.Create(ctx, unstructuredObj, updateToCreateOptions(options), subResources...)
 			}
 			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
