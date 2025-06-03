@@ -30,44 +30,44 @@ import (
 
 var (
 	workspaceExample = `
-	# shows the workspace you are currently using
-	%[1]s workspace .
+# shows the workspace you are currently using
+%[1]s workspace .
 
-	# enter a given workspace (this will change the current-context of your current KUBECONFIG)
-	%[1]s workspace use my-workspace
+# enter a given workspace (this will change the current-context of your current KUBECONFIG)
+%[1]s workspace use my-workspace
 
-	# short-hand for the use syntax
-	%[1]s workspace my-workspace
+# short-hand for the use syntax
+%[1]s workspace my-workspace
 
-	# enter a given absolute workspace
-	%[1]s workspace :root:default:my-workspace
+# enter a given absolute workspace
+%[1]s workspace :root:default:my-workspace
 
-	# short-hand for the current root workspace
-	%[1]s workspace :
+# short-hand for the current root workspace
+%[1]s workspace :
 
-	# enter a given relative workspace
-	%[1]s workspace some:nested:workspace
+# enter a given relative workspace
+%[1]s workspace some:nested:workspace
 
-	# enter the parent workspace
-	%[1]s workspace ..
+# enter the parent workspace
+%[1]s workspace ..
 
-	# enter the grand parent workspace
-	%[1]s workspace ..:..
+# enter the grand parent workspace
+%[1]s workspace ..:..
 
-	# enter the previous workspace
-	%[1]s workspace -
+# enter the previous workspace
+%[1]s workspace -
 
-	# go to your home workspace
-	%[1]s workspace
+# go to your home workspace
+%[1]s workspace
 
-	# create a workspace and immediately enter it
-	%[1]s workspace create my-workspace --enter
+# create a workspace and immediately enter it
+%[1]s workspace create my-workspace --enter
 
-	# create a context with the current workspace, e.g. root:default:my-workspace
-	%[1]s workspace create-context
+# create a context with the current workspace, e.g. root:default:my-workspace
+%[1]s workspace create-context
 
-	# create a context with the current workspace, named context-name
-	%[1]s workspace create-context context-name
+# create a context with the current workspace, named context-name
+%[1]s workspace create-context context-name
 `
 )
 

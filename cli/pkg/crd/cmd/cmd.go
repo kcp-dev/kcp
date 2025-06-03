@@ -28,12 +28,12 @@ import (
 
 var (
 	crdExample = `
-	# Convert a CRD in a yaml file to an APIResourceSchema. For a CRD named widgets.example.io, and a prefix value of
-	# 'today', the new APIResourceSchema's name will be today.widgets.example.io.
-	%[1]s crd snapshot -f crd.yaml --prefix 2022-05-07 > api-resource-schema.yaml
+# Convert a CRD in a yaml file to an APIResourceSchema. For a CRD named widgets.example.io, and a prefix value of
+# 'today', the new APIResourceSchema's name will be today.widgets.example.io.
+%[1]s crd snapshot -f crd.yaml --prefix 2022-05-07 > api-resource-schema.yaml
 
-	# Convert a CRD from STDIN
-	kubectl get crd foo -o yaml | %[1]s crd snapshot -f - --prefix today > output.yaml
+# Convert a CRD from STDIN
+kubectl get crd foo -o yaml | %[1]s crd snapshot -f - --prefix today > output.yaml
 `
 )
 

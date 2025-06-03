@@ -23,7 +23,7 @@ where different logical clusters can be used by different users in the organizat
 The kcp server only provides resources to accomplish this, such as `LogicalCluster`, `Workspace`, `APIBinding` and
 `APIExport`, on top of some core Kubernetes resources, like `ConfigMap` and `Secret`. It doesn't provide Kubernetes
 resources for managing and orchestrating workloads, such as Pods and Deployments. The list of resources provided by
-default can be found in the [Built-in APIs document](../apis/built-in).
+default can be found in the [Built-in APIs document](apis/built-in.md).
 
 kcp follows the Kubernetes API semantics in each logical cluster, i.e. kcp should be conformant to the subset of the
 Kubernetes conformance suite that applies to the APIs available in kcp. In other words, if you're building a platform
@@ -107,7 +107,7 @@ A Workspace's path is based on the hierarchy and the user provided name. For exa
 
 The workspace path is used for building the workspace URL and for accessing the workspace via the `ws` kubectl plugin.
 
-More information, including examples, can be found in the the [Workspaces document](../workspaces).
+More information, including examples, can be found in the the [Workspaces document](workspaces/index.md).
 
 ### Workspace Types
 
@@ -118,10 +118,10 @@ Workspaces have types, which are mostly oriented around a set of default or opti
 - a workspace intended for building Knative functions might expose only the Knative serving APIs, ConfigMaps, Secrets,
   and optionally enable Knative Eventing APIs.
 
-By default, each workspace has the [built-in APIs installed and available to its users](./apis/built-in).
+By default, each workspace has the [built-in APIs installed and available to its users](apis/built-in.md).
 
 More information, including a list of Workspace Types and examples, can be found in the
-[Workspace Types document](../workspaces/workspace-types/).
+[Workspace Types document](workspaces/workspace-types.md).
 
 ## Virtual Workspaces
 
@@ -131,7 +131,7 @@ HTTP path structure, with each (virtual) logical cluster having its own HTTP end
 As with kcp itself, each of these endpoints looks like a Kubernetes cluster on its own, i.e. with `/api/v1` and API
 groups under `/apis/<group>/<version>`.
 
-The Virtual Logical Clusters are called virtual because they don’t actually have their own storage, i.e. they are not 
+The Virtual Logical Clusters are called virtual because they don’t actually have their own storage, i.e. they are not
 a source of truth, instead they are just proxied representations of the real logical clusters from kcp. In the process
 of proxying, the Virtual Workspace API server might filter the visible objects, hide certain API groups completely, or
 even transform objects depending on the use case (e.g. strip the sensitive data). Also, the permission semantics might
@@ -157,7 +157,7 @@ the objects for the resources they provide and potentially other related objects
 It's important to note that the Virtual Workspaces are not necessarily read-only, but that they can also mutate
 resources in the corresponding real logical cluster.
 
-**Finally, for brevity, the Virtual Workspace API server is often simply called the Virtual Workspace.** 
+**Finally, for brevity, the Virtual Workspace API server is often simply called the Virtual Workspace.**
 The Virtual Workspace doesn't exist as a resource in kcp, it's purely a very flexible API (server) that can connect to
 the kcp server for the sake of gathering and mutating the needed objects.
 
@@ -170,7 +170,7 @@ binary alongside the kcp server.
     In a sharded setup, you need to run the Virtual Workspace (API server) for each kcp shard/server that you have.
 
 More information, including concrete examples and a list of frequently asked questions, can be found in the
-[Virtual Workspaces document](../workspaces/virtual-workspaces/).
+[Virtual Workspaces document](workspaces/virtual-workspaces.md).
 
 ## Exporting/Binding APIs
 
@@ -207,7 +207,7 @@ In the sense of kcp, sharding involves:
 
 A shard hosts its own set of Workspaces. The sharding mechanism in kcp allows you to make the workspace hierarchy span
 many shards transparently, while ensuring you can bind APIs from logical clusters running in different shards.
-The [Sharding documentation](./sharding/shards/) has more details about possibilities of sharding, and we strongly
+The [Sharding documentation](sharding/shards.md) has more details about possibilities of sharding, and we strongly
 recommend reading this document if you want to shard your kcp setup.
 
 In a sharded setup, you'll be sending requests to a component called Front Proxy (`kcp-front-proxy`) instead to a

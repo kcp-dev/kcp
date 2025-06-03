@@ -163,12 +163,11 @@ update-contextual-logging: $(LOGCHECK) ## Update contextual logging
 .PHONY: generate-cli-docs
 generate-cli-docs: ## Generate cli docs
 	git clean -fdX docs/content/reference/cli
-	pushd . && cd docs/generators/cli-doc && go build . && popd
-	./docs/generators/cli-doc/cli-doc -output docs/content/reference/cli
+	cd ./docs/generators/cli-doc && go run . -output ../../content/reference/cli
 
 .PHONY: generate-api-docs
 generate-api-docs: ## Generate api docs
-	git clean -fdX docs/content/reference/api
+	git clean -fdX docs/content/reference/crd
 	docs/generators/crd-ref/run-crd-ref-gen.sh
 
 VENVDIR=$(abspath docs/venv)

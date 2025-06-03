@@ -75,25 +75,31 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 
 	if len(cmd.Example) > 0 {
 		buf.WriteString("### Examples\n\n")
-		fmt.Fprintf(buf, "```\n%s\n```\n\n", cmd.Example)
+		fmt.Fprintf(buf, "```\n%s\n```\n\n", strings.TrimSpace(cmd.Example))
 	}
 
 	if err := printOptions(buf, cmd, name); err != nil {
 		return err
 	}
 	if hasSeeAlso(cmd) {
-		buf.WriteString("### SEE ALSO\n\n")
+		var links []string
+
 		if cmd.HasParent() {
 			parent := cmd.Parent()
 			pname := parent.CommandPath()
-			link := pname + ".md"
-			link = strings.ReplaceAll(link, " ", "_")
-			fmt.Fprintf(buf, "* [%s](%s)\t - %s\n", pname, linkHandler(link), parent.Short)
-			cmd.VisitParents(func(c *cobra.Command) {
-				if c.DisableAutoGenTag {
-					cmd.DisableAutoGenTag = c.DisableAutoGenTag
-				}
-			})
+
+			// skip "create" plugins
+			if pname != "create" {
+				link := pname + ".md"
+				link = strings.ReplaceAll(link, " ", "_")
+				links = append(links, fmt.Sprintf("* [%s](%s) – %s\n", pname, linkHandler(link), parent.Short))
+
+				cmd.VisitParents(func(c *cobra.Command) {
+					if c.DisableAutoGenTag {
+						cmd.DisableAutoGenTag = c.DisableAutoGenTag
+					}
+				})
+			}
 		}
 
 		children := cmd.Commands()
@@ -106,9 +112,16 @@ func GenMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
 			cname := name + " " + child.Name()
 			link := cname + ".md"
 			link = strings.ReplaceAll(link, " ", "_")
-			fmt.Fprintf(buf, "* [%s](%s)\t - %s\n", cname, linkHandler(link), child.Short)
+			links = append(links, fmt.Sprintf("* [%s](%s) – %s\n", cname, linkHandler(link), child.Short))
 		}
-		buf.WriteString("\n")
+
+		if len(links) > 0 {
+			buf.WriteString("### See Also\n\n")
+			for _, link := range links {
+				buf.WriteString(link)
+			}
+			buf.WriteString("\n")
+		}
 	}
 
 	_, err := buf.WriteTo(w)
