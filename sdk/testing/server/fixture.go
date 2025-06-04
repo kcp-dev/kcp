@@ -27,7 +27,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,7 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -190,37 +188,6 @@ func newKcpServer(t TestingT, cfg Config) (*kcpServer, error) {
 		return nil, fmt.Errorf("could not create data dir: %w", err)
 	}
 
-	kcpListenPort, err := GetFreePort(t)
-	if err != nil {
-		return nil, err
-	}
-	etcdClientPort, err := GetFreePort(t)
-	if err != nil {
-		return nil, err
-	}
-	etcdPeerPort, err := GetFreePort(t)
-	if err != nil {
-		return nil, err
-	}
-
-	args := []string{
-		"--root-directory", s.cfg.DataDir,
-		"--secure-port=" + kcpListenPort,
-		"--embedded-etcd-client-port=" + etcdClientPort,
-		"--embedded-etcd-peer-port=" + etcdPeerPort,
-		"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
-		"--kubeconfig-path=" + s.KubeconfigPath(),
-		"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
-		"--audit-log-path", filepath.Join(s.cfg.ArtifactDir, "kcp.audit"),
-		"--v=4",
-	}
-
-	if cfg.BindAddress != "" {
-		args = append(args, "--bind-address="+cfg.BindAddress)
-	}
-
-	s.cfg.Args = append(args, s.cfg.Args...)
-
 	return s, nil
 }
 
@@ -278,7 +245,11 @@ func (c *kcpServer) Run(t TestingT) error {
 			runner = func(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
 				t.Log("RunInProcessFunc is deprecated, please migrate to ContextRunInProcessFunc")
 				t.Log("RunInProcessFunc is deprecated, stopping the server will not work")
-				return RunInProcessFunc(t, cfg.DataDir, cfg.Args)
+				args, err := cfg.BuildArgs(t)
+				if err != nil {
+					return nil, err
+				}
+				return RunInProcessFunc(t, cfg.DataDir, args)
 			}
 		}
 	}
@@ -325,7 +296,12 @@ func (c *kcpServer) Stopped() bool {
 }
 
 func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, error) {
-	commandLine := append(StartKcpCommand("KCP"), cfg.Args...)
+	args, err := cfg.BuildArgs(t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build kcp args: %w", err)
+	}
+
+	commandLine := append(StartKcpCommand("KCP"), args...)
 
 	t.Logf("running: %v", strings.Join(commandLine, " "))
 
@@ -438,7 +414,7 @@ func (c *kcpServer) Name() string {
 
 // KubeconfigPath exposes the path of the kubeconfig file of this kcp server.
 func (c *kcpServer) KubeconfigPath() string {
-	return filepath.Join(c.cfg.DataDir, "admin.kubeconfig")
+	return c.cfg.KubeconfigPath()
 }
 
 // Config exposes a copy of the base client config for this server. Client-side throttling is disabled (QPS=-1).
@@ -515,35 +491,13 @@ func (c *kcpServer) RawConfig() (clientcmdapi.Config, error) {
 }
 
 func (c *kcpServer) loadCfg(ctx context.Context) error {
-	var lastError error
-	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		if c.Stopped() {
-			return false, fmt.Errorf("failed to load admin kubeconfig: server has stopped")
-		}
-
-		config, err := loadKubeConfig(c.KubeconfigPath(), "base")
-		if err != nil {
-			// A missing file is likely caused by the server not
-			// having started up yet. Ignore these errors for the
-			// purposes of logging.
-			if !os.IsNotExist(err) {
-				lastError = err
-			}
-
-			return false, nil
-		}
-
-		c.lock.Lock()
-		c.clientCfg = config
-		c.lock.Unlock()
-
-		return true, nil
-	}); err != nil && lastError != nil {
-		return fmt.Errorf("failed to load admin kubeconfig: %w", lastError)
-	} else if err != nil {
-		// should never happen
-		return fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	config, err := WaitLoadKubeConfig(ctx, c.KubeconfigPath(), "base")
+	if err != nil {
+		return err
 	}
+	c.lock.Lock()
+	c.clientCfg = config
+	c.lock.Unlock()
 	return nil
 }
 

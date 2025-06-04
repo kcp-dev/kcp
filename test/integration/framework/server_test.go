@@ -31,6 +31,7 @@ import (
 func TestServer(t *testing.T) {
 	t.Parallel()
 	server, _, _ := StartTestServer(t)
+	require.NotNil(t, server.Server.Apis)
 	server.Stop()
 }
 
