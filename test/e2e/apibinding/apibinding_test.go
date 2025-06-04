@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -163,21 +165,47 @@ func TestAPIBinding(t *testing.T) {
 	t.Parallel()
 
 	server := kcptesting.SharedKcpServer(t)
+	cfg := server.BaseConfig(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
-	provider1Path, provider1 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
-	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
-	provider2Path, provider2 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"))
-	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
-	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
-	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"))
-	consumer3Path, consumer3Workspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"))
-	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
+	t.Logf("Check if we can access shards")
+	var shards *corev1alpha1.ShardList
+	{
+		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+		require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	cfg := server.BaseConfig(t)
+		shards, err = kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "failed to list shards")
+	}
+
+	t.Logf("Shards: %v", shards.Items)
+
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	var provider1Path, provider2Path logicalcluster.Path
+	var provider1, provider2 *tenancyv1alpha1.Workspace
+	if len(shards.Items) == 1 {
+		provider1Path, provider1 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"), kcptesting.WithShard(shards.Items[0].Name))
+		provider2Path, provider2 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"), kcptesting.WithShard(shards.Items[0].Name))
+	} else {
+		provider1Path, provider1 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"), kcptesting.WithShard(shards.Items[0].Name))
+		provider2Path, provider2 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"), kcptesting.WithShard(shards.Items[1].Name))
+	}
+	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
+	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
+
+	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"), kcptesting.WithShard(shards.Items[0].Name))
+	var consumer2Path, consumer3Path logicalcluster.Path
+	var consumer3Workspace *tenancyv1alpha1.Workspace
+	if len(shards.Items) == 1 {
+		consumer2Path, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"), kcptesting.WithShard(shards.Items[0].Name))
+		consumer3Path, consumer3Workspace = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"), kcptesting.WithShard(shards.Items[0].Name))
+	} else {
+		consumer2Path, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"), kcptesting.WithShard(shards.Items[1].Name))
+		consumer3Path, consumer3Workspace = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"), kcptesting.WithShard(shards.Items[1].Name))
+	}
+	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
@@ -187,8 +215,6 @@ func TestAPIBinding(t *testing.T) {
 
 	shardVirtualWorkspaceURLs := sets.New[string]()
 	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
-	shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
 	// Filtering out shards that are not schedulable
 	var shardItems []corev1alpha1.Shard
 	for _, s := range shards.Items {
@@ -365,25 +391,27 @@ func TestAPIBinding(t *testing.T) {
 			expectedURLs = append(expectedURLs, u.String())
 		}
 
-		t.Logf("Make sure the APIExport gets status.virtualWorkspaceURLs set")
+		t.Logf("Make sure the APIExportEndpointSlice gets status.virtualWorkspaceURLs set")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			e, err := kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+			apiExportEndpointSlice, err := kcpClusterClient.Cluster(serviceProviderClusterName.Path()).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, exportName, metav1.GetOptions{})
 			if err != nil {
-				t.Logf("Unexpected error getting APIExport %s|%s: %v", serviceProviderClusterName.Path(), exportName, err)
+				t.Logf("Unexpected error getting APIExportEndpointSlice %s|%s: %v", serviceProviderClusterName.Path(), exportName, err)
 			}
 
 			var actualURLs []string
-			//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-			for _, u := range e.Status.VirtualWorkspaces {
+			for _, u := range apiExportEndpointSlice.Status.APIExportEndpoints {
 				actualURLs = append(actualURLs, u.URL)
 			}
-
+			sort.Strings(expectedURLs)
+			sort.Strings(actualURLs)
+			t.Logf("Expected URLs: %v", expectedURLs)
+			t.Logf("Actual URLs: %v", actualURLs)
 			if !reflect.DeepEqual(expectedURLs, actualURLs) {
 				return false, fmt.Sprintf("Unexpected URLs. Diff: %s", cmp.Diff(expectedURLs, actualURLs))
 			}
 
 			return true, ""
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExport %s|%s didn't get status.virtualWorkspaceURLs set correctly",
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExportEndpointSlices %s|%s didn't get status.virtualWorkspaceURLs set correctly",
 			serviceProviderClusterName, exportName)
 	}
 
@@ -438,15 +466,14 @@ func TestAPIBinding(t *testing.T) {
 	t.Logf("=== Verify that %s|%s export virtual workspace shows cowboys", provider2Path, exportName)
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
-	export2, err := kcpClusterClient.Cluster(provider2Path).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+	apiExportEndpointSlice2, err := kcpClusterClient.Cluster(provider2Path).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, exportName, metav1.GetOptions{})
 	require.NoError(t, err)
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		foundOnShards := 0
 		var listErrs []error
 
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		for _, vw := range export2.Status.VirtualWorkspaces {
+		for _, vw := range apiExportEndpointSlice2.Status.APIExportEndpoints {
 			vw2ClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
 			require.NoError(t, err)
 
@@ -476,8 +503,7 @@ func TestAPIBinding(t *testing.T) {
 			return false, "couldn't list via virtual workspaces because the user is not ready yet"
 		}
 
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		require.Equal(t, 1, foundOnShards, "cowboys not found exactly on one shard, but on %d/%d", foundOnShards, len(export2.Status.VirtualWorkspaces))
+		require.Equal(t, 1, foundOnShards, "cowboys not found exactly on one shard, but on %d/%d", foundOnShards, len(apiExportEndpointSlice2.Status.APIExportEndpoints))
 
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to have cowboys exactly on one shard")

@@ -1050,6 +1050,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
@@ -1068,6 +1069,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
 					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced() &&
 					s.KubeSharedInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
 			})

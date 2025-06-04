@@ -62,23 +62,25 @@ func TestAPIExportOpenAPI(t *testing.T) {
 
 	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	_, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
 	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
 
 	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, true, serviceProviderPath, cfg, nil)
 
+	t.Logf("set up binding")
+	bindConsumerToProvider(ctx, t, consumerPath, serviceProviderPath, kcpClients, cfg)
+
 	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerWorkspace.Name)
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExport, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExportEndpointSlice, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExport))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExport.Status.VirtualWorkspaces)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Checking /openapi/v3 paths for %q", orgPath)

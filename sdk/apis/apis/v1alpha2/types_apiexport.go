@@ -26,6 +26,11 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+const (
+	// APIExportEndpointSliceSkipAnnotation is an annotation that can be set on an APIExport to skip the creation of default APIExportEndpointSlice.
+	APIExportEndpointSliceSkipAnnotation = "apiexports.apis.kcp.io/skip-endpointslice"
+)
+
 // These are valid conditions of APIExport.
 const (
 	APIExportIdentityValid conditionsv1alpha1.ConditionType = "IdentityValid"

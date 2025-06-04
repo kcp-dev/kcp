@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -32,6 +33,7 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 
+	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -132,8 +134,13 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
 
-	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
-	require.NoError(t, err)
+	t.Logf("Waiting for APIExportEndpointSlice to be available")
+	var exportEndpointSlice *v1alpha1.APIExportEndpointSlice
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		var err error
+		exportEndpointSlice, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, exportName, metav1.GetOptions{})
+		return err == nil && len(exportEndpointSlice.Status.APIExportEndpoints) > 0, fmt.Sprintf("failed to get APIExportEndpointSlice: %v, %s", err, spew.Sdump(exportEndpointSlice))
+	}, wait.ForeverTestTimeout, time.Second*1)
 
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
@@ -143,8 +150,7 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		items := []unstructured.Unstructured{}
 
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		for _, vw := range export.Status.VirtualWorkspaces {
+		for _, vw := range exportEndpointSlice.Status.APIExportEndpoints {
 			vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
 			require.NoError(t, err)
 
@@ -265,8 +271,13 @@ func TestAPIBindingCRDs(t *testing.T) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
 
-	export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
-	require.NoError(t, err)
+	t.Logf("Waiting for APIExportEndpointSlice to be available")
+	var exportEndpointSlice *v1alpha1.APIExportEndpointSlice
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		var err error
+		exportEndpointSlice, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, exportName, metav1.GetOptions{})
+		return err == nil && len(exportEndpointSlice.Status.APIExportEndpoints) > 0, fmt.Sprintf("failed to get APIExportEndpointSlice: %v. %s", err, spew.Sdump(exportEndpointSlice))
+	}, time.Second*60, time.Second*1)
 
 	rawConfig, err := server.RawConfig()
 	require.NoError(t, err)
@@ -276,8 +287,7 @@ func TestAPIBindingCRDs(t *testing.T) {
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		items := []unstructured.Unstructured{}
 
-		//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-		for _, vw := range export.Status.VirtualWorkspaces {
+		for _, vw := range exportEndpointSlice.Status.APIExportEndpoints {
 			vwClusterClient, err := kcpdynamic.NewForConfig(apiexportVWConfig(t, rawConfig, vw.URL))
 			require.NoError(t, err)
 

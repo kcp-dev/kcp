@@ -32,7 +32,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/server"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	testing2 "github.com/kcp-dev/kcp/sdk/testing"
@@ -84,12 +84,10 @@ func VirtualWorkspaceURL(ctx context.Context, kcpClusterClient kcpclientset.Clus
 }
 
 // ExportVirtualWorkspaceURLs returns the URLs of the virtual workspaces of the
-// given APIExport.
-func ExportVirtualWorkspaceURLs(export *apisv1alpha2.APIExport) []string {
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	urls := make([]string, 0, len(export.Status.VirtualWorkspaces))
-	//nolint:staticcheck // SA1019 VirtualWorkspaces is deprecated but not removed yet
-	for _, vw := range export.Status.VirtualWorkspaces {
+// given APIExportEndpointSlice.
+func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExportEndpointSlice) []string {
+	urls := make([]string, 0, len(export.Status.APIExportEndpoints))
+	for _, vw := range export.Status.APIExportEndpoints {
 		urls = append(urls, vw.URL)
 	}
 	return urls
