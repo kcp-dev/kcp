@@ -122,6 +122,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 		},
 		createObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
 			gvr := obj.GroupVersionKind()
+			if gvr.Group == "" {
+				gvr.Group = "core"
+			}
 
 			objBytes, err := json.Marshal(obj)
 			if err != nil {
@@ -159,6 +162,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 		},
 		updateObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
 			gvr := obj.GroupVersionKind()
+			if gvr.Group == "" {
+				gvr.Group = "core"
+			}
 
 			objBytes, err := json.Marshal(obj)
 			if err != nil {

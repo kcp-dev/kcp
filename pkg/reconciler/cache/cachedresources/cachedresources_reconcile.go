@@ -140,6 +140,10 @@ func (c *Controller) deleteSelectedCacheResources(ctx context.Context, cluster l
 		Version:  cachedResource.Spec.Version,
 		Resource: cachedResource.Spec.Resource,
 	}
+	if gvr.Group == "" {
+		gvr.Group = "core"
+	}
+
 	selector := labels.SelectorFromSet(labels.Set{
 		replicationcontroller.LabelKeyObjectSchema: gvr.Version + "." + gvr.Resource + "." + gvr.Group,
 	})
@@ -160,6 +164,9 @@ func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster log
 		Group:    cachedResource.Spec.Group,
 		Version:  cachedResource.Spec.Version,
 		Resource: cachedResource.Spec.Resource,
+	}
+	if gvr.Group == "" {
+		gvr.Group = "core"
 	}
 
 	selector := labels.SelectorFromSet(labels.Set{
