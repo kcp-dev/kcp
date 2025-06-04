@@ -18,6 +18,7 @@ package apiexport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -29,7 +30,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
@@ -427,6 +430,161 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	require.Error(t, err, "error creating configmap expected")
 }
 
+func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
+
+	cfg := server.BaseConfig(t)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
+
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+
+	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	require.NoError(t, err)
+	identityHash := sheriffExport.Status.IdentityHash
+
+	t.Logf("Found identity hash: %v", identityHash)
+	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
+
+	pcModifiers := []func([]apisv1alpha2.PermissionClaim){
+		verbsForResource("", "configmaps", "", []string{"get", "patch"}),
+	}
+	permissionClaims := defaultPermissionsClaims(identityHash, pcModifiers...)
+
+	t.Logf("set up service provider with permission claims")
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, false, providerPath, cfg, permissionClaims)
+
+	t.Logf("set up binding")
+	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, permissionClaimsToAcceptable(permissionClaims)...)
+
+	t.Logf("Validate that the permission claims are valid")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
+	binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	require.NoError(t, err)
+	if !reflect.DeepEqual(permissionClaims, binding.Status.ExportPermissionClaims) {
+		require.Emptyf(t, cmp.Diff(permissionClaims, binding.Status.ExportPermissionClaims), "ExportPermissionClaims incorrect")
+	}
+
+	t.Logf("Validate that the permission claims were all applied")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsApplied), "unable to see claims applied")
+
+	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerPath)
+	apiExportVWCfg := rest.CopyConfig(cfg)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		var found bool
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		require.NoError(t, err)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(apiExportVWCfg)
+	require.NoError(t, err, "error building kube client for %q", consumerPath)
+
+	// ConfigMap's name used through the test
+	configMapName := fmt.Sprintf("configmap-%s", consumerPath.Base())
+
+	t.Logf("Ensure the ConfigMap does not exist before server-side applying it")
+	_, err = kubeClusterClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapName, metav1.GetOptions{})
+	require.True(t, kerrors.IsNotFound(err), "found configmap, but expected not found")
+
+	t.Logf("Ensure sever-side applying the ConfigMap fails without the create permission")
+	// We'll send the whole ConfigMap as a JSON with the PATCH request
+	configMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: "default",
+		},
+	}
+	configMapJson, err := json.Marshal(configMap)
+	require.NoError(t, err)
+
+	_, err = kubeClusterClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Patch(ctx, configMapName, types.ApplyYAMLPatchType, configMapJson, metav1.PatchOptions{
+		FieldManager: "test-manager",
+		// FieldValidation depends on OpenAPI v2 which we do not support
+		FieldValidation: "Ignore",
+	})
+	require.True(t, kerrors.IsForbidden(err), "expected forbidden configmap server-side apply")
+
+	// Allow patch and create on ConfigMaps
+	pcModifiers = []func([]apisv1alpha2.PermissionClaim){
+		verbsForResource("", "configmaps", "", []string{"get", "patch", "create"}),
+	}
+	permissionClaims = defaultPermissionsClaims(identityHash, pcModifiers...)
+
+	t.Logf("update permission claims verbs in APIExport")
+	// have to use eventually because controllers may be modifying the APIBinding
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		export.Spec.PermissionClaims = permissionClaims
+		_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Update(ctx, export, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error apiexport updating to new allowed verbs")
+
+	t.Logf("update permission claims verbs in APIBinding")
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		binding.Spec.PermissionClaims = permissionClaimsToAcceptable(permissionClaims)
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error apibinding updating to new allowed verbs")
+
+	t.Logf("Server-side apply a ConfigMap in consumer workspace %q after allowing create", consumerPath)
+	// have to use eventually because updating permission claims might take a while to get into the effect
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		configMap, err = kubeClusterClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Patch(ctx, configMapName, types.ApplyYAMLPatchType, configMapJson, metav1.PatchOptions{
+			FieldManager:    "test-manager",
+			FieldValidation: "Ignore",
+		})
+		if err != nil {
+			return false, err.Error()
+		}
+		require.NotNil(t, configMap)
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error server-side applying configmap")
+
+	t.Logf("Ensure the ConfigMap exists after server-side applying it")
+	configMap, err = kubeClusterClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, configMap)
+}
+
 func readonlyVerbsForResource(group, resource, identityHash string) func([]apisv1alpha2.PermissionClaim) {
 	return func(pcs []apisv1alpha2.PermissionClaim) {
 		for i, pc := range pcs {
@@ -442,6 +600,16 @@ func readwriteVerbsForResource(group, resource, identityHash string) func([]apis
 		for i, pc := range pcs {
 			if pc.GroupResource.Group == group && pc.GroupResource.Resource == resource && pc.IdentityHash == identityHash {
 				pcs[i].Verbs = []string{"list", "get", "create", "update", "patch"}
+			}
+		}
+	}
+}
+
+func verbsForResource(group, resource, identityHash string, verbs []string) func([]apisv1alpha2.PermissionClaim) {
+	return func(pcs []apisv1alpha2.PermissionClaim) {
+		for i, pc := range pcs {
+			if pc.GroupResource.Group == group && pc.GroupResource.Resource == resource && pc.IdentityHash == identityHash {
+				pcs[i].Verbs = verbs
 			}
 		}
 	}
