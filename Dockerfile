@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Build the binary
-FROM --platform=${BUILDPLATFORM} docker.io/golang:1.23.7 AS builder
+FROM --platform=${BUILDPLATFORM} docker.io/golang:1.23.10 AS builder
 WORKDIR /workspace
 
 # Install dependencies.
