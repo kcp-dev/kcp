@@ -20,13 +20,17 @@ jobs:
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # tag=v4.2.2
       with:
         fetch-depth: 0
+
     - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # tag=v5.5.0
       with:
-        go-version: v1.23.7
+        go-version: v1.23.10
+
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
+
     - name: Set LDFLAGS
       run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
+
     - name: Run GoReleaser on tag
       if: github.event_name != 'pull_request'
       uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # tag=v6.3.0
@@ -37,6 +41,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
+
     - name: Run GoReleaser on pull request
       if: github.event_name == 'pull_request'
       uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # tag=v6.3.0
@@ -47,6 +52,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
+
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # tag=v4.6.2
       if: ${{ always() }}
       with:
