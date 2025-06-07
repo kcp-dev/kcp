@@ -385,6 +385,11 @@ func (in *WorkspaceTypeSpec) DeepCopyInto(out *WorkspaceTypeSpec) {
 		*out = make([]APIExportReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.DefaultAPIBindingLifecycle != nil {
+		in, out := &in.DefaultAPIBindingLifecycle, &out.DefaultAPIBindingLifecycle
+		*out = new(APIBindingLifecycleMode)
+		**out = **in
+	}
 	return
 }
 

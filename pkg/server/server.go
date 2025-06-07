@@ -340,6 +340,12 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("defaultapibindinglifecycle") {
+		if err := s.installDefaultAPIBindingController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("partition") {
 		if err := s.installPartitionSetController(ctx, controllerConfig); err != nil {
 			return err

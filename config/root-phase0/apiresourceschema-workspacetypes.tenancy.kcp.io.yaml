@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250325-c1864de17.workspacetypes.tenancy.kcp.io
+  name: v250603-d4d365c8e.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -54,6 +54,12 @@ spec:
                 additionalWorkspaceLabels are a set of labels that will be added to a
                 Workspace on creation.
               type: object
+            defaultAPIBindingLifecycle:
+              description: Configure the lifecycle behaviour of defaultAPIBindings.
+              enum:
+              - InitializeOnly
+              - Maintain
+              type: string
             defaultAPIBindings:
               description: |-
                 defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type.
