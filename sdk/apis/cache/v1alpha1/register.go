@@ -47,6 +47,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CachedResource{},
 		&CachedResourceList{},
+		&CachedResourceEndpointSlice{},
+		&CachedResourceEndpointSliceList{},
 		&CachedObject{},
 		&CachedObjectList{},
 	)

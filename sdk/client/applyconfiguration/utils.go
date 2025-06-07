@@ -158,6 +158,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationcachev1alpha1.CachedObjectSpecApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResource"):
 		return &applyconfigurationcachev1alpha1.CachedResourceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpoint"):
+		return &applyconfigurationcachev1alpha1.CachedResourceEndpointApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSlice"):
+		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSliceSpec"):
+		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceSpecApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSliceStatus"):
+		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceStatusApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceReference"):
+		return &applyconfigurationcachev1alpha1.CachedResourceReferenceApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceSpec"):
 		return &applyconfigurationcachev1alpha1.CachedResourceSpecApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceStatus"):

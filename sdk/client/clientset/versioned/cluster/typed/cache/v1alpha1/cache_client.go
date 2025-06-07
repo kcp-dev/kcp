@@ -35,6 +35,7 @@ type CacheV1alpha1ClusterInterface interface {
 	CacheV1alpha1ClusterScoper
 	CachedObjectsClusterGetter
 	CachedResourcesClusterGetter
+	CachedResourceEndpointSlicesClusterGetter
 }
 
 type CacheV1alpha1ClusterScoper interface {
@@ -59,6 +60,10 @@ func (c *CacheV1alpha1ClusterClient) CachedObjects() CachedObjectClusterInterfac
 
 func (c *CacheV1alpha1ClusterClient) CachedResources() CachedResourceClusterInterface {
 	return &cachedResourcesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *CacheV1alpha1ClusterClient) CachedResourceEndpointSlices() CachedResourceEndpointSliceClusterInterface {
+	return &cachedResourceEndpointSlicesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new CacheV1alpha1ClusterClient for the given config.

@@ -94,7 +94,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedObjectList":                           schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedObjectSpec":                           schema_sdk_apis_cache_v1alpha1_CachedObjectSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResource":                             schema_sdk_apis_cache_v1alpha1_CachedResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpoint":                     schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSlice":                schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceList":            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceSpec":            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceStatus":          schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceList":                         schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceReference":                    schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceSpec":                         schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceStatus":                       schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.GroupVersionResource":                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
@@ -2993,6 +2999,186 @@ func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback)
 	}
 }
 
+func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is an CachedResource virtual workspace URL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CachedResourceEndpointSlice is a sink for the endpoints of CachedResource virtual workspaces.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "spec holds the desired state: - the targeted CachedResource",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "status communicates the observed state: the filtered list of endpoints for the Replication service.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceSpec", "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CachedResourceEndpointSliceList is a list of CachedResourceEndpointSlice resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSlice"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpointSlice", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CachedResourceEndpointSliceSpec defines the desired state of the CachedResourceEndpointSlice.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cachedResource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CachedResource points to the real CachedResource the slice is created for.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceReference"),
+						},
+					},
+				},
+				Required: []string{"cachedResource"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceReference"},
+	}
+}
+
+func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"url",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "endpoints contains all the URLs of the Replication service.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpoint"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpoint"},
+	}
+}
+
 func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3039,6 +3225,28 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResource", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CachedResourceReference is a reference to a CachedResource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the CachedResource the reference points to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
 	}
 }
 

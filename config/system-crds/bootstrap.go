@@ -58,6 +58,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: core.GroupName, Resource: "logicalclusters"},
 		{Group: apis.GroupName, Resource: "apiconversions"},
 		{Group: cache.GroupName, Resource: "cachedresources"},
+		{Group: cache.GroupName, Resource: "cachedresourceendpointslices"},
 	}
 
 	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {

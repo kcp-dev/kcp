@@ -6,6 +6,11 @@ metadata:
 spec:
   resources:
   - group: cache.kcp.io
+    name: cachedresourceendpointslices
+    schema: v250604-36e6abf17.cachedresourceendpointslices.cache.kcp.io
+    storage:
+      crd: {}
+  - group: cache.kcp.io
     name: cachedresources
     schema: v250523-2b8c1d3c5.cachedresources.cache.kcp.io
     storage:

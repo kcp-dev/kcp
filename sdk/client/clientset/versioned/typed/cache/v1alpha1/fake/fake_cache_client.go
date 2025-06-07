@@ -37,6 +37,10 @@ func (c *FakeCacheV1alpha1) CachedResources() v1alpha1.CachedResourceInterface {
 	return newFakeCachedResources(c)
 }
 
+func (c *FakeCacheV1alpha1) CachedResourceEndpointSlices() v1alpha1.CachedResourceEndpointSliceInterface {
+	return newFakeCachedResourceEndpointSlices(c)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCacheV1alpha1) RESTClient() rest.Interface {

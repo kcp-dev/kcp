@@ -27,6 +27,8 @@ type ClusterInterface interface {
 	CachedObjects() CachedObjectClusterInformer
 	// CachedResources returns a CachedResourceClusterInformer.
 	CachedResources() CachedResourceClusterInformer
+	// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceClusterInformer.
+	CachedResourceEndpointSlices() CachedResourceEndpointSliceClusterInformer
 }
 
 type version struct {
@@ -49,11 +51,18 @@ func (v *version) CachedResources() CachedResourceClusterInformer {
 	return &cachedResourceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceClusterInformer.
+func (v *version) CachedResourceEndpointSlices() CachedResourceEndpointSliceClusterInformer {
+	return &cachedResourceEndpointSliceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// CachedObjects returns a CachedObjectInformer.
 	CachedObjects() CachedObjectInformer
 	// CachedResources returns a CachedResourceInformer.
 	CachedResources() CachedResourceInformer
+	// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceInformer.
+	CachedResourceEndpointSlices() CachedResourceEndpointSliceInformer
 }
 
 type scopedVersion struct {
@@ -75,4 +84,9 @@ func (v *scopedVersion) CachedObjects() CachedObjectInformer {
 // CachedResources returns a CachedResourceInformer.
 func (v *scopedVersion) CachedResources() CachedResourceInformer {
 	return &cachedResourceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceInformer.
+func (v *scopedVersion) CachedResourceEndpointSlices() CachedResourceEndpointSliceInformer {
+	return &cachedResourceEndpointSliceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

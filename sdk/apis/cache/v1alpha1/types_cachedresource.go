@@ -161,6 +161,16 @@ type ResourceCount struct {
 	Local int `json:"local"`
 }
 
+// CachedResourceReference is a reference to a CachedResource.
+type CachedResourceReference struct {
+	// name is the name of the CachedResource the reference points to.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kube:validation:MinLength=1
+	Name string `json:"name"`
+}
+
 // CachedResourceList contains a list of CachedResource
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

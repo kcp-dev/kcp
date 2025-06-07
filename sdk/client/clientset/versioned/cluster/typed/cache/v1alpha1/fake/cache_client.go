@@ -49,6 +49,10 @@ func (c *CacheV1alpha1ClusterClient) CachedResources() kcpcachev1alpha1.CachedRe
 	return newFakeCachedResourceClusterClient(c)
 }
 
+func (c *CacheV1alpha1ClusterClient) CachedResourceEndpointSlices() kcpcachev1alpha1.CachedResourceEndpointSliceClusterInterface {
+	return newFakeCachedResourceEndpointSliceClusterClient(c)
+}
+
 type CacheV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -60,6 +64,10 @@ func (c *CacheV1alpha1Client) CachedObjects() cachev1alpha1.CachedObjectInterfac
 
 func (c *CacheV1alpha1Client) CachedResources() cachev1alpha1.CachedResourceInterface {
 	return newFakeCachedResourceClient(c.Fake, c.ClusterPath)
+}
+
+func (c *CacheV1alpha1Client) CachedResourceEndpointSlices() cachev1alpha1.CachedResourceEndpointSliceInterface {
+	return newFakeCachedResourceEndpointSliceClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
