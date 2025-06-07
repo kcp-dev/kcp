@@ -52,6 +52,24 @@ const (
 	ControllerName = "kcp-dynamicrestmapper"
 )
 
+// When we detect a new LogicalCluster, we add builtinGVKRs mappings to it.
+// Since they are always the same, we stash them away to be reused.
+var builtinGVKRs []typeMeta
+
+func init() {
+	builtinGVKRs = make([]typeMeta, len(builtinschemas.BuiltInAPIs))
+	for i := range builtinschemas.BuiltInAPIs {
+		builtinGVKRs[i] = newTypeMeta(
+			builtinschemas.BuiltInAPIs[i].GroupVersion.Group,
+			builtinschemas.BuiltInAPIs[i].GroupVersion.Version,
+			builtinschemas.BuiltInAPIs[i].Names.Kind,
+			builtinschemas.BuiltInAPIs[i].Names.Singular,
+			builtinschemas.BuiltInAPIs[i].Names.Plural,
+			resourceScopeToRESTScope(builtinschemas.BuiltInAPIs[i].ResourceScope),
+		)
+	}
+}
+
 // Describes which handler triggered enqueueLogicalCluster.
 type ctrlOp string
 
@@ -150,24 +168,6 @@ type Controller struct {
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	getAPIBinding        func(clusterName logicalcluster.Name, name string) (*apibinding.APIBinding, error)
-}
-
-// When we detect a new LogicalCluster, we add builtinGVKRs mappings to it.
-// Since they are always the same, we stash them away to be reused.
-var builtinGVKRs []typeMeta
-
-func init() {
-	builtinGVKRs = make([]typeMeta, len(builtinschemas.BuiltInAPIs))
-	for i := range builtinschemas.BuiltInAPIs {
-		builtinGVKRs[i] = newTypeMeta(
-			builtinschemas.BuiltInAPIs[i].GroupVersion.Group,
-			builtinschemas.BuiltInAPIs[i].GroupVersion.Version,
-			builtinschemas.BuiltInAPIs[i].Names.Kind,
-			builtinschemas.BuiltInAPIs[i].Names.Singular,
-			builtinschemas.BuiltInAPIs[i].Names.Plural,
-			resourceScopeToRESTScope(builtinschemas.BuiltInAPIs[i].ResourceScope),
-		)
-	}
 }
 
 func getResourceBindingsAnnJSON(lc *corev1alpha1.LogicalCluster) string {

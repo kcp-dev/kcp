@@ -1,0 +1,144 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: kubeclusters.contrib.kcp.io
+spec:
+  group: contrib.kcp.io
+  names:
+    kind: KubeCluster
+    listKind: KubeClusterList
+    plural: kubeclusters
+    singular: kubecluster
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="KubeClusterReady")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: KubeCluster describes the current KubeCluster proxy object.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KubeClusterSpec is the specification of the Kube cluster
+              proxy resource.
+            properties:
+              workspaceURL:
+                description: workspaceURL is the address under which the workspace
+                  can be found.
+                type: string
+            type: object
+          status:
+            description: KubeClusterStatus communicates the observed state of the
+              Kube cluster proxy.
+            properties:
+              URL:
+                description: |-
+                  url is the address under which the Kubernetes-cluster-like endpoint
+                  can be found. This URL can be used to access the cluster with standard Kubernetes
+                  client libraries and command line tools via proxy.
+                type: string
+              conditions:
+                description: Current processing state of the Cluster proxy.
+                items:
+                  description: Condition defines an observation of a object operational
+                    state.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
+                      type: string
+                    reason:
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
+                      type: string
+                    severity:
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastProxyHeartbeatTime:
+                description: A timestamp indicating when the proxy last reported status.
+                format: date-time
+                type: string
+              phase:
+                default: Initializing
+                description: Phase of the cluster proxy (Initializing, Ready).
+                enum:
+                - Initializing
+                - Connecting
+                - Ready
+                - Unknown
+                type: string
+              tunnelWorkspaces:
+                description: |-
+                  TunnelWorkspaces contains all URLs (one per shard) that is being used
+                  by the proxy to connect to the tunnel for a given shard.
+                items:
+                  properties:
+                    url:
+                      description: |-
+                        url is the URL the Proxy should use to connect
+                        to the Proxy tunnel for a given shard.
+                      minLength: 1
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

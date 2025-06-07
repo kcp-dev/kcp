@@ -94,6 +94,9 @@ func NewController(
 		AddFunc: func(obj interface{}) {
 			c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition), false)
 		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition), false)
+		},
 		DeleteFunc: func(obj interface{}) {
 			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = tombstone.Obj
@@ -282,6 +285,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		crdNames[crd.Name] = true
 
 		if !apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
+			logger.V(4).Info("CRD is not established, skipping", "crd", crd.Name)
 			continue
 		}
 

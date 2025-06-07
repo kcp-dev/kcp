@@ -17,10 +17,13 @@ limitations under the License.
 package workspacemounts
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -28,16 +31,18 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy/v1alpha1"
 )
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
 func InstallIndexers(
+	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper,
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 ) {
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
-		workspaceMountsReferenceIndex: indexWorkspaceByMountObject,
+		workspaceMountsReferenceIndex: newIndexWorkspaceByMountObject(dynamicRESTMapper),
 	})
 }
 
@@ -51,33 +56,72 @@ type workspaceMountsReferenceKey struct {
 	Namespace   string `json:"namespace,omitempty"`
 }
 
-func indexWorkspaceByMountObject(obj interface{}) ([]string, error) {
-	ws, ok := obj.(*tenancyv1alpha1.Workspace)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be a Workspace, but is %T", obj)
+func retryRESTMapping(forCluster *dynamicrestmapper.ForCluster, gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return schema.GroupVersionResource{}, fmt.Errorf("timeout while retrying REST mapping for %s", gvk)
+		default:
+			mapping, err := forCluster.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err == nil {
+				return mapping.Resource, nil
+			}
+			if meta.IsNoMatchError(err) {
+				// If the error is a NoMatchError, we can retry the mapping
+				// after a short delay.
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+		}
 	}
+}
 
-	if ws.Spec.Mount == nil {
-		return nil, nil
-	}
+func newIndexWorkspaceByMountObject(dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper) cache.IndexFunc {
+	return func(obj interface{}) ([]string, error) {
+		ws, ok := obj.(*tenancyv1alpha1.Workspace)
+		if !ok {
+			return []string{}, fmt.Errorf("obj is supposed to be a Workspace, but is %T", obj)
+		}
 
-	key := workspaceMountsReferenceKey{
-		ClusterName: logicalcluster.From(ws).String(),
-		// TODO(sttts): do proper REST mapping
-		Resource:  strings.ToLower(ws.Spec.Mount.Reference.Kind) + "s",
-		Name:      ws.Spec.Mount.Reference.Name,
-		Namespace: ws.Spec.Mount.Reference.Namespace,
-	}
-	cs := strings.SplitN(ws.Spec.Mount.Reference.APIVersion, "/", 2)
-	if len(cs) == 2 {
-		key.Group = cs[0]
-	}
-	bs, err := json.Marshal(key)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal mount reference: %w", err)
-	}
+		if ws.Spec.Mount == nil {
+			return nil, nil
+		}
 
-	return []string{string(bs)}, nil
+		gv, err := schema.ParseGroupVersion(ws.Spec.Mount.Reference.APIVersion)
+		if err != nil {
+			return nil, err // TODO flesh out error
+		}
+		gvk := schema.GroupVersionKind{
+			Group:   gv.Group,
+			Version: gv.Version,
+			Kind:    ws.Spec.Mount.Reference.Kind,
+		}
+
+		forCluster := dynamicRESTMapper.ForCluster(logicalcluster.From(ws))
+		gvr, err := retryRESTMapping(forCluster, gvk)
+		if err != nil {
+			return nil, err // TODO flesh out error
+		}
+
+		key := workspaceMountsReferenceKey{
+			ClusterName: logicalcluster.From(ws).String(),
+			Resource:    gvr.Resource,
+			Name:        ws.Spec.Mount.Reference.Name,
+			Namespace:   ws.Spec.Mount.Reference.Namespace,
+		}
+		cs := strings.SplitN(ws.Spec.Mount.Reference.APIVersion, "/", 2)
+		if len(cs) == 2 {
+			key.Group = cs[0]
+		}
+		bs, err := json.Marshal(key)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal mount reference: %w", err)
+		}
+
+		return []string{string(bs)}, nil
+	}
 }
 
 func indexWorkspaceByMountObjectValue(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) (string, error) {
