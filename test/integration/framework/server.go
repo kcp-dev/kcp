@@ -18,13 +18,16 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/component-base/cli/flag"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -32,6 +35,7 @@ import (
 
 	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
 	kcpserver "github.com/kcp-dev/kcp/pkg/server"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
@@ -47,6 +51,8 @@ var ContextRunInProcess kcptestingserver.KcpRunner = func(ctx context.Context, t
 func init() {
 	kcptestingserver.ContextRunInProcessFunc = ContextRunInProcess
 }
+
+var _ kcptestingserver.RunningServer = (*InProcessServer)(nil)
 
 type InProcessServer struct {
 	Config kcptestingserver.Config
@@ -175,6 +181,23 @@ func (s *InProcessServer) Stop() {
 	<-s.StopCh
 }
 
+func (s *InProcessServer) Stopped() bool {
+	select {
+	case <-s.StopCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *InProcessServer) Name() string {
+	return s.Config.Name
+}
+
+func (s *InProcessServer) KubeconfigPath() string {
+	return s.Config.KubeconfigPath()
+}
+
 func (s *InProcessServer) loadCfg(t kcptestingserver.TestingT) {
 	t.Helper()
 	s.loadCfgOnce.Do(func() {
@@ -190,22 +213,73 @@ func (s *InProcessServer) loadCfg(t kcptestingserver.TestingT) {
 	})
 }
 
-func (s *InProcessServer) RESTConfig(t kcptestingserver.TestingT, context string) *rest.Config {
+func (s *InProcessServer) RawConfig() (clientcmdapi.Config, error) {
+	// This might trigger a race detection in concurrent tests on the
+	// same server. RunningServer.RawConfig doesn't accept a TestingT
+	// though, so loadCfg cannot be called to prevent races.
+	// If this becomes a problem a mutex will be needed to guard the
+	// config.
+	if s.ClientConfig == nil {
+		return clientcmdapi.Config{}, fmt.Errorf("client config not loaded, call another config method first")
+	}
+	return s.ClientConfig.RawConfig()
+}
+
+func (s *InProcessServer) RawConfigFatal(t kcptestingserver.TestingT) clientcmdapi.Config {
 	t.Helper()
 	s.loadCfg(t)
-	raw, err := s.ClientConfig.RawConfig()
+	cfg, err := s.RawConfig()
 	if err != nil {
 		t.Fatalf("failed to get raw config: %v", err)
 	}
+	return cfg
+}
 
-	restConfig, err := clientcmd.NewNonInteractiveClientConfig(raw, context, nil, nil).ClientConfig()
+func (s *InProcessServer) RESTConfig(t kcptestingserver.TestingT, context string) *rest.Config {
+	t.Helper()
+	restConfig, err := clientcmd.NewNonInteractiveClientConfig(
+		s.RawConfigFatal(t),
+		context,
+		nil,
+		nil,
+	).ClientConfig()
 	if err != nil {
 		t.Fatalf("failed to get client config for context %q: %v", context, err)
 	}
-
 	restConfig.QPS = -1
-
 	return restConfig
+}
+
+func (s *InProcessServer) BaseConfig(t kcptestingserver.TestingT) *rest.Config {
+	return s.RESTConfig(t, "base")
+}
+
+func (s *InProcessServer) RootShardSystemMasterBaseConfig(t kcptestingserver.TestingT) *rest.Config {
+	return s.RESTConfig(t, "shard-base")
+}
+
+func (s *InProcessServer) ShardSystemMasterBaseConfig(t kcptestingserver.TestingT, shard string) *rest.Config {
+	if shard != corev1alpha1.RootShard {
+		t.Fatalf("only root shard is supported for now")
+	}
+	return s.RootShardSystemMasterBaseConfig(t)
+}
+
+func (s *InProcessServer) ShardNames() []string {
+	return []string{corev1alpha1.RootShard}
+}
+
+func (s *InProcessServer) Artifact(t kcptestingserver.TestingT, producer func() (runtime.Object, error)) {
+	t.Logf("%T does not support artifacts", s)
+}
+
+func (s *InProcessServer) ClientCAUserConfig(t kcptestingserver.TestingT, config *rest.Config, name string, groups ...string) *rest.Config {
+	t.Logf("%T does not support client CA user config", s)
+	return nil
+}
+
+func (s *InProcessServer) CADirectory() string {
+	return s.Config.DataDir
 }
 
 // StartTestServer starts a KCP server for testing purposes.
