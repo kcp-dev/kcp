@@ -75,7 +75,7 @@ func (v *ForCluster) ResourcesFor(input schema.GroupVersionResource) ([]schema.G
 func (v *ForCluster) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
-	return v.clusterMappingOrEmpty(v.clusterName).RESTMapping(gk)
+	return v.clusterMappingOrEmpty(v.clusterName).RESTMapping(gk, versions...)
 }
 
 // RESTMappings returns all resource mappings for the provided group kind if no
