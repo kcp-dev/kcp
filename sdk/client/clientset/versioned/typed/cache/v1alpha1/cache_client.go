@@ -31,6 +31,7 @@ type CacheV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CachedObjectsGetter
 	CachedResourcesGetter
+	CachedResourceEndpointSlicesGetter
 }
 
 // CacheV1alpha1Client is used to interact with features provided by the cache.kcp.io group.
@@ -44,6 +45,10 @@ func (c *CacheV1alpha1Client) CachedObjects() CachedObjectInterface {
 
 func (c *CacheV1alpha1Client) CachedResources() CachedResourceInterface {
 	return newCachedResources(c)
+}
+
+func (c *CacheV1alpha1Client) CachedResourceEndpointSlices() CachedResourceEndpointSliceInterface {
+	return newCachedResourceEndpointSlices(c)
 }
 
 // NewForConfig creates a new CacheV1alpha1Client for the given config.

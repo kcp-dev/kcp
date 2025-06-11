@@ -33,3 +33,11 @@ type CachedResourceClusterListerExpansion interface{}
 // CachedResourceListerExpansion allows custom methods to be added to
 // CachedResourceLister.
 type CachedResourceListerExpansion interface{}
+
+// CachedResourceEndpointSliceClusterListerExpansion allows custom methods to be added to
+// CachedResourceEndpointSliceClusterLister.
+type CachedResourceEndpointSliceClusterListerExpansion interface{}
+
+// CachedResourceEndpointSliceListerExpansion allows custom methods to be added to
+// CachedResourceEndpointSliceLister.
+type CachedResourceEndpointSliceListerExpansion interface{}
