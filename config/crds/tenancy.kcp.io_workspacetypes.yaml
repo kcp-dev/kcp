@@ -56,6 +56,12 @@ spec:
                   additionalWorkspaceLabels are a set of labels that will be added to a
                   Workspace on creation.
                 type: object
+              defaultAPIBindingLifecycle:
+                description: Configure the lifecycle behaviour of defaultAPIBindings.
+                enum:
+                - InitializeOnly
+                - Maintain
+                type: string
               defaultAPIBindings:
                 description: |-
                   defaultAPIBindings are the APIs to bind during initialization of workspaces created from this type.
