@@ -24,7 +24,7 @@ grep -w "go-version:" .github/workflows/*.yaml | { ! grep -v "go-version: v${VER
 
 shopt -s dotglob
 # Note CONTRIBUTING.md isn't copied in the Dockerfile
-for f in docs/content/contributing/index.md; do
+for f in docs/content/contributing/getting-started.md; do
   grep "golang.org/doc/install" "$f" | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in $f; expected ${VERSION}"; exit 1; }
 done
 
