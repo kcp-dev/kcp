@@ -35,7 +35,9 @@ The kcp and its leadership embrace the following values:
    submit contributions, which will be considered on their merits.
  * *Community over Product or Company*: Sustaining and growing our community
    takes priority over shipping code or sponsors' organizational goals. Each
-   contributor participates in the project as an individual.
+   contributor participates in the project as an individual. To be explicit,
+   this means that all maintainers pledge to act in a [vendor-neutral](https://contribute.cncf.io/maintainers/community/vendor-neutrality/)
+   way while participating in kcp development.
  * *Inclusivity*: We innovate through different perspectives and skill sets,
    which can only be accomplished in a welcoming and respectful environment.
  * *Participation*: Responsibilities within the project are earned through
@@ -128,9 +130,10 @@ Maintainer who is accused of a CoC violation.
 Committee; most maintainer-run projects do not.  Remember to place a link
 to the private Maintainer mailing list or alias in the code-of-conduct file.-->
 
-[Code of Conduct](./code-of-conduct.md)
-violations by community members will be discussed and resolved
-on the [private Maintainer mailing list](https://groups.google.com/g/kcp-dev-private).
+kcp has adopted the CNCF [Code of Conduct](./code-of-conduct.md). Reporting of
+Code of Conduct violations happen through the [CNCF Code of Conduct committee](./code-of-conduct.md#reporting)
+and kcp maintainers pledge to work with the committee to resolve any incidents
+occuring in the kcp community.
 
 ## Security Response Team
 
