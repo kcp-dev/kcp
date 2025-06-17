@@ -19,7 +19,6 @@ package cachedresources
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/informer"
 	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -43,6 +43,7 @@ type replication struct {
 	shardName                      string
 	dynamicCacheClient             kcpdynamic.ClusterInterface
 	kcpCacheClient                 kcpclientset.ClusterInterface
+	dynRESTMapper                  *dynamicrestmapper.DynamicRESTMapper
 	cacheKcpInformers              kcpinformers.SharedInformerFactory
 	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
 	callback                       func(obj interface{})
@@ -85,9 +86,14 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			cancel()
 			return reconcileStatusStopAndRequeue, err
 		}
-		// TODO(mjudeikis): dynamic RestMapper!
+		replicatedKind, err := r.dynRESTMapper.ForCluster(clusterName).KindFor(gvr)
+		if err != nil {
+			logger.Error(err, "Failed to get Kind for resource", "resource", gvr)
+			cancel()
+			return reconcileStatusStopAndRequeue, err
+		}
 		replicated := &replicationcontroller.ReplicatedGVR{
-			Kind:   strings.TrimSuffix(strings.Title(gvr.Resource), "s"), //nolint:staticcheck
+			Kind:   replicatedKind.Kind,
 			Local:  local.Informer(),
 			Global: global.Informer(),
 		}

@@ -42,6 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	cachev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
@@ -73,6 +74,8 @@ func NewController(
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
 
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper,
+
 	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
 	cacheKcpInformers kcpinformers.SharedInformerFactory,
 
@@ -91,6 +94,8 @@ func NewController(
 
 		dynamicClient:      dynamicClient,
 		cacheDynamicClient: cacheDynamicClient,
+
+		dynRESTMapper: dynRESTMapper,
 
 		discoveringDynamicKcpInformers: discoveringDynamicKcpInformers,
 		cacheKcpInformers:              cacheKcpInformers,
@@ -150,6 +155,8 @@ type Controller struct {
 
 	dynamicClient      kcpdynamic.ClusterInterface
 	cacheDynamicClient kcpdynamic.ClusterInterface
+
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
 	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
 	cacheKcpInformers              kcpinformers.SharedInformerFactory
