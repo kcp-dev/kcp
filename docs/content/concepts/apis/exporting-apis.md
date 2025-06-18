@@ -10,31 +10,40 @@ define the schema for `widgets`, and the new `APIExport` type to export `widgets
 then proceed to CRUD `widgets` in their workspaces, just like any other API type (e.g. `namespaces`, `configmaps`,
 etc.).
 
-```
-                                     ┌───────────────────────┐
-                                     │  Consumer Workspace   │
-                                     ├───────────────────────┤
-                                     │                       │
-                                ┌────┼─ Widgets APIBinding   |
-                                │    │                       │
-                                │    │  Widget A             │
-┌───────────────────────────┐   │    │  Widget B             │
-│  API Provider Workspace   │   │    │  Widget C             │
-├───────────────────────────┤   │    └───────────────────────┘
-│                           │   │
-│     Widgets APIExport ◄───┼───┤
-│             │             │   │
-│             ▼             │   │
-│ Widgets APIResourceSchema │   │    ┌───────────────────────┐
-└───────────────────────────┘   │    │  Consumer Workspace   │
-                                │    ├───────────────────────┤
-                                │    │                       │
-                                └────┼─ Widgets APIBinding   │
-                                     │                       │
-                                     │  Widget A             │
-                                     │  Widget B             │
-                                     │  Widget C             │
-                                     └───────────────────────┘
+```mermaid
+flowchart TD
+    subgraph provider["API Provider Workspace"]
+        export["Widgets APIExport"]
+        schema["Widgets APIResourceSchema"]
+        export --> schema
+    end
+
+    subgraph consumer1["Consumer Workspace"]
+        binding1["Widgets APIBinding"]
+        widgetsA1["Widget A"]
+        widgetsB1["Widget B"]
+        widgetsC1["Widget C"]
+        binding1 --> widgetsA1
+        binding1 --> widgetsB1
+        binding1 --> widgetsC1
+    end
+
+    subgraph consumer2["Consumer Workspace"]
+        binding2["Widgets APIBinding"]
+        widgetsA2["Widget A"]
+        widgetsB2["Widget B"]
+        widgetsC2["Widget C"]
+        binding2 --> widgetsA2
+        binding2 --> widgetsB2
+        binding2 --> widgetsC2
+    end
+
+    export --> binding1
+    export --> binding2
+
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef resource fill:#e1f3d8,stroke:#82c91e,stroke-width:2px;
+    class export,schema,binding1,binding2 resource;
 ```
 
 **Diagram: 1 APIExport consumed by 2 different workspaces** ([source][diagram1])
