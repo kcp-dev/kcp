@@ -112,7 +112,7 @@ func (c *resourceController) Start(ctx context.Context, numThreads int) {
 	logger.Info("starting controller")
 	defer logger.Info("shutting down controller")
 
-	for i := 0; i < numThreads; i++ {
+	for range numThreads {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
 

@@ -93,7 +93,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	})
 
 	t.Log("Getting wildwest.dev.cowboys 10 times from the watch cache")
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		res, err := wildwestClusterClient.Cluster(wsPath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
@@ -145,7 +145,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 		return nil
 	})
 	t.Log("Getting sheriffs.newyork.io 10 times from the watch cache")
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		res, err := dynamicKcpClusterClient.Cluster(wsConsume1aPath).Resource(sheriffsGVR).Namespace("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
@@ -194,7 +194,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 
 	// since secrets might be common resources to LIST, try to get them an odd number of times
 	t.Logf("Getting core.secret 115 times from the watch cache for %q cluster", wsPath)
-	for i := 0; i < 115; i++ {
+	for range 115 {
 		res, err := kubeClusterClient.Cluster(wsPath).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(res.Items), 1, "expected to get at least one secret")

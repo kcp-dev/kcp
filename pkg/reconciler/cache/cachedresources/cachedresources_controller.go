@@ -200,7 +200,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
-	for i := 0; i < numThreads; i++ {
+	for range numThreads {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 	}
 	c.started = true

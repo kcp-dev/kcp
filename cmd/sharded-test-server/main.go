@@ -217,7 +217,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// start shards
 	var shards []*testshard.Shard
-	for i := 0; i < numberOfShards; i++ {
+	for i := range numberOfShards {
 		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA)
 		if err != nil {
 			return err
@@ -235,7 +235,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
 		vwPort = "7444"
 
-		for i := 0; i < numberOfShards; i++ {
+		for i := range numberOfShards {
 			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheServerConfigPath)
 			if err != nil {
 				return err

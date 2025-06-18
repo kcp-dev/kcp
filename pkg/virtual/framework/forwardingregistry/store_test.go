@@ -31,7 +31,7 @@ func TestUpdateToCreateOptions(t *testing.T) {
 	require.Equalf(t, 4, numField, "UpdateOptions is expected to have 4 fields")
 
 	var fields []string
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		fields = append(fields, updateOptions.Field(i).Name)
 	}
 

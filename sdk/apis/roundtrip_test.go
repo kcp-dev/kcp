@@ -95,7 +95,7 @@ func TestConversion(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			for i := 0; i < *FuzzIters; i++ {
+			for range *FuzzIters {
 				testGenericConversion(t, test.v1.DeepCopyObject, test.v2.DeepCopyObject, test.toV1, test.toV2)
 			}
 		})
