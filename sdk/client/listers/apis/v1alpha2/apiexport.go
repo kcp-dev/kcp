@@ -20,7 +20,6 @@ package v1alpha2
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type APIExportClusterLister interface {
 // aPIExportClusterLister implements the APIExportClusterLister interface.
 type aPIExportClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha2.APIExport]
-	indexer cache.Indexer
 }
 
 var _ APIExportClusterLister = new(aPIExportClusterLister)
@@ -54,19 +52,16 @@ var _ APIExportClusterLister = new(aPIExportClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewAPIExportClusterLister(indexer cache.Indexer) *aPIExportClusterLister {
+func NewAPIExportClusterLister(indexer cache.Indexer) APIExportClusterLister {
 	return &aPIExportClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha2.APIExport](indexer, kcpv1alpha2.Resource("apiexport")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIExports.
 func (l *aPIExportClusterLister) Cluster(clusterName logicalcluster.Name) APIExportLister {
 	return &aPIExportLister{
-		kcplisters.New[*kcpv1alpha2.APIExport](l.indexer, clusterName, kcpv1alpha2.Resource("apiexport")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *aPIExportClusterLister) Cluster(clusterName logicalcluster.Name) APIExp
 // or scope down to a APIExportNamespaceLister for one namespace.
 type aPIExportLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha2.APIExport]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ APIExportLister = new(aPIExportLister)
@@ -94,18 +87,17 @@ type APIExportLister interface {
 
 // NewAPIExportLister returns a new APIExportLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIExportLister(indexer cache.Indexer) APIExportLister {
-	return &aPIExportScopedLister{
-		listers.New[*kcpv1alpha2.APIExport](indexer, kcpv1alpha2.Resource("apiexport")),
-		indexer,
+	return &aPIExportLister{
+		kcplisters.New[*kcpv1alpha2.APIExport](indexer, kcpv1alpha2.Resource("apiexport")),
 	}
 }
 
 // aPIExportScopedLister can list all APIExports inside a workspace
 // or scope down to a APIExportNamespaceLister.
 type aPIExportScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha2.APIExport]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha2.APIExport]
 }

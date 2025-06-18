@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type CachedResourceEndpointSliceClusterLister interface {
 // cachedResourceEndpointSliceClusterLister implements the CachedResourceEndpointSliceClusterLister interface.
 type cachedResourceEndpointSliceClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.CachedResourceEndpointSlice]
-	indexer cache.Indexer
 }
 
 var _ CachedResourceEndpointSliceClusterLister = new(cachedResourceEndpointSliceClusterLister)
@@ -54,19 +52,16 @@ var _ CachedResourceEndpointSliceClusterLister = new(cachedResourceEndpointSlice
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewCachedResourceEndpointSliceClusterLister(indexer cache.Indexer) *cachedResourceEndpointSliceClusterLister {
+func NewCachedResourceEndpointSliceClusterLister(indexer cache.Indexer) CachedResourceEndpointSliceClusterLister {
 	return &cachedResourceEndpointSliceClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.CachedResourceEndpointSlice](indexer, kcpv1alpha1.Resource("cachedresourceendpointslice")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get CachedResourceEndpointSlices.
 func (l *cachedResourceEndpointSliceClusterLister) Cluster(clusterName logicalcluster.Name) CachedResourceEndpointSliceLister {
 	return &cachedResourceEndpointSliceLister{
-		kcplisters.New[*kcpv1alpha1.CachedResourceEndpointSlice](l.indexer, clusterName, kcpv1alpha1.Resource("cachedresourceendpointslice")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *cachedResourceEndpointSliceClusterLister) Cluster(clusterName logicalcl
 // or scope down to a CachedResourceEndpointSliceNamespaceLister for one namespace.
 type cachedResourceEndpointSliceLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.CachedResourceEndpointSlice]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ CachedResourceEndpointSliceLister = new(cachedResourceEndpointSliceLister)
@@ -94,18 +87,17 @@ type CachedResourceEndpointSliceLister interface {
 
 // NewCachedResourceEndpointSliceLister returns a new CachedResourceEndpointSliceLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewCachedResourceEndpointSliceLister(indexer cache.Indexer) CachedResourceEndpointSliceLister {
-	return &cachedResourceEndpointSliceScopedLister{
-		listers.New[*kcpv1alpha1.CachedResourceEndpointSlice](indexer, kcpv1alpha1.Resource("cachedresourceendpointslice")),
-		indexer,
+	return &cachedResourceEndpointSliceLister{
+		kcplisters.New[*kcpv1alpha1.CachedResourceEndpointSlice](indexer, kcpv1alpha1.Resource("cachedresourceendpointslice")),
 	}
 }
 
 // cachedResourceEndpointSliceScopedLister can list all CachedResourceEndpointSlices inside a workspace
 // or scope down to a CachedResourceEndpointSliceNamespaceLister.
 type cachedResourceEndpointSliceScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.CachedResourceEndpointSlice]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.CachedResourceEndpointSlice]
 }

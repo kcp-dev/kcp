@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type APIExportEndpointSliceClusterLister interface {
 // aPIExportEndpointSliceClusterLister implements the APIExportEndpointSliceClusterLister interface.
 type aPIExportEndpointSliceClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.APIExportEndpointSlice]
-	indexer cache.Indexer
 }
 
 var _ APIExportEndpointSliceClusterLister = new(aPIExportEndpointSliceClusterLister)
@@ -54,19 +52,16 @@ var _ APIExportEndpointSliceClusterLister = new(aPIExportEndpointSliceClusterLis
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewAPIExportEndpointSliceClusterLister(indexer cache.Indexer) *aPIExportEndpointSliceClusterLister {
+func NewAPIExportEndpointSliceClusterLister(indexer cache.Indexer) APIExportEndpointSliceClusterLister {
 	return &aPIExportEndpointSliceClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.APIExportEndpointSlice](indexer, kcpv1alpha1.Resource("apiexportendpointslice")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIExportEndpointSlices.
 func (l *aPIExportEndpointSliceClusterLister) Cluster(clusterName logicalcluster.Name) APIExportEndpointSliceLister {
 	return &aPIExportEndpointSliceLister{
-		kcplisters.New[*kcpv1alpha1.APIExportEndpointSlice](l.indexer, clusterName, kcpv1alpha1.Resource("apiexportendpointslice")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *aPIExportEndpointSliceClusterLister) Cluster(clusterName logicalcluster
 // or scope down to a APIExportEndpointSliceNamespaceLister for one namespace.
 type aPIExportEndpointSliceLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.APIExportEndpointSlice]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ APIExportEndpointSliceLister = new(aPIExportEndpointSliceLister)
@@ -94,18 +87,17 @@ type APIExportEndpointSliceLister interface {
 
 // NewAPIExportEndpointSliceLister returns a new APIExportEndpointSliceLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIExportEndpointSliceLister(indexer cache.Indexer) APIExportEndpointSliceLister {
-	return &aPIExportEndpointSliceScopedLister{
-		listers.New[*kcpv1alpha1.APIExportEndpointSlice](indexer, kcpv1alpha1.Resource("apiexportendpointslice")),
-		indexer,
+	return &aPIExportEndpointSliceLister{
+		kcplisters.New[*kcpv1alpha1.APIExportEndpointSlice](indexer, kcpv1alpha1.Resource("apiexportendpointslice")),
 	}
 }
 
 // aPIExportEndpointSliceScopedLister can list all APIExportEndpointSlices inside a workspace
 // or scope down to a APIExportEndpointSliceNamespaceLister.
 type aPIExportEndpointSliceScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.APIExportEndpointSlice]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.APIExportEndpointSlice]
 }

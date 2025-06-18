@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type APIBindingClusterLister interface {
 // aPIBindingClusterLister implements the APIBindingClusterLister interface.
 type aPIBindingClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.APIBinding]
-	indexer cache.Indexer
 }
 
 var _ APIBindingClusterLister = new(aPIBindingClusterLister)
@@ -54,19 +52,16 @@ var _ APIBindingClusterLister = new(aPIBindingClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewAPIBindingClusterLister(indexer cache.Indexer) *aPIBindingClusterLister {
+func NewAPIBindingClusterLister(indexer cache.Indexer) APIBindingClusterLister {
 	return &aPIBindingClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.APIBinding](indexer, kcpv1alpha1.Resource("apibinding")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIBindings.
 func (l *aPIBindingClusterLister) Cluster(clusterName logicalcluster.Name) APIBindingLister {
 	return &aPIBindingLister{
-		kcplisters.New[*kcpv1alpha1.APIBinding](l.indexer, clusterName, kcpv1alpha1.Resource("apibinding")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *aPIBindingClusterLister) Cluster(clusterName logicalcluster.Name) APIBi
 // or scope down to a APIBindingNamespaceLister for one namespace.
 type aPIBindingLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.APIBinding]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ APIBindingLister = new(aPIBindingLister)
@@ -94,18 +87,17 @@ type APIBindingLister interface {
 
 // NewAPIBindingLister returns a new APIBindingLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIBindingLister(indexer cache.Indexer) APIBindingLister {
-	return &aPIBindingScopedLister{
-		listers.New[*kcpv1alpha1.APIBinding](indexer, kcpv1alpha1.Resource("apibinding")),
-		indexer,
+	return &aPIBindingLister{
+		kcplisters.New[*kcpv1alpha1.APIBinding](indexer, kcpv1alpha1.Resource("apibinding")),
 	}
 }
 
 // aPIBindingScopedLister can list all APIBindings inside a workspace
 // or scope down to a APIBindingNamespaceLister.
 type aPIBindingScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.APIBinding]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.APIBinding]
 }

@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type WorkspaceTypeClusterLister interface {
 // workspaceTypeClusterLister implements the WorkspaceTypeClusterLister interface.
 type workspaceTypeClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.WorkspaceType]
-	indexer cache.Indexer
 }
 
 var _ WorkspaceTypeClusterLister = new(workspaceTypeClusterLister)
@@ -54,19 +52,16 @@ var _ WorkspaceTypeClusterLister = new(workspaceTypeClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewWorkspaceTypeClusterLister(indexer cache.Indexer) *workspaceTypeClusterLister {
+func NewWorkspaceTypeClusterLister(indexer cache.Indexer) WorkspaceTypeClusterLister {
 	return &workspaceTypeClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.WorkspaceType](indexer, kcpv1alpha1.Resource("workspacetype")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get WorkspaceTypes.
 func (l *workspaceTypeClusterLister) Cluster(clusterName logicalcluster.Name) WorkspaceTypeLister {
 	return &workspaceTypeLister{
-		kcplisters.New[*kcpv1alpha1.WorkspaceType](l.indexer, clusterName, kcpv1alpha1.Resource("workspacetype")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *workspaceTypeClusterLister) Cluster(clusterName logicalcluster.Name) Wo
 // or scope down to a WorkspaceTypeNamespaceLister for one namespace.
 type workspaceTypeLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.WorkspaceType]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ WorkspaceTypeLister = new(workspaceTypeLister)
@@ -94,18 +87,17 @@ type WorkspaceTypeLister interface {
 
 // NewWorkspaceTypeLister returns a new WorkspaceTypeLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewWorkspaceTypeLister(indexer cache.Indexer) WorkspaceTypeLister {
-	return &workspaceTypeScopedLister{
-		listers.New[*kcpv1alpha1.WorkspaceType](indexer, kcpv1alpha1.Resource("workspacetype")),
-		indexer,
+	return &workspaceTypeLister{
+		kcplisters.New[*kcpv1alpha1.WorkspaceType](indexer, kcpv1alpha1.Resource("workspacetype")),
 	}
 }
 
 // workspaceTypeScopedLister can list all WorkspaceTypes inside a workspace
 // or scope down to a WorkspaceTypeNamespaceLister.
 type workspaceTypeScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.WorkspaceType]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.WorkspaceType]
 }

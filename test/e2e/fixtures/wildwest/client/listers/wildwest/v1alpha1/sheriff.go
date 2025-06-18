@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type SheriffClusterLister interface {
 // sheriffClusterLister implements the SheriffClusterLister interface.
 type sheriffClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.Sheriff]
-	indexer cache.Indexer
 }
 
 var _ SheriffClusterLister = new(sheriffClusterLister)
@@ -54,19 +52,16 @@ var _ SheriffClusterLister = new(sheriffClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewSheriffClusterLister(indexer cache.Indexer) *sheriffClusterLister {
+func NewSheriffClusterLister(indexer cache.Indexer) SheriffClusterLister {
 	return &sheriffClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.Sheriff](indexer, kcpv1alpha1.Resource("sheriff")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get Sherifves.
 func (l *sheriffClusterLister) Cluster(clusterName logicalcluster.Name) SheriffLister {
 	return &sheriffLister{
-		kcplisters.New[*kcpv1alpha1.Sheriff](l.indexer, clusterName, kcpv1alpha1.Resource("sheriff")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *sheriffClusterLister) Cluster(clusterName logicalcluster.Name) SheriffL
 // or scope down to a SheriffNamespaceLister for one namespace.
 type sheriffLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.Sheriff]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ SheriffLister = new(sheriffLister)
@@ -94,18 +87,17 @@ type SheriffLister interface {
 
 // NewSheriffLister returns a new SheriffLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewSheriffLister(indexer cache.Indexer) SheriffLister {
-	return &sheriffScopedLister{
-		listers.New[*kcpv1alpha1.Sheriff](indexer, kcpv1alpha1.Resource("sheriff")),
-		indexer,
+	return &sheriffLister{
+		kcplisters.New[*kcpv1alpha1.Sheriff](indexer, kcpv1alpha1.Resource("sheriff")),
 	}
 }
 
 // sheriffScopedLister can list all Sherifves inside a workspace
 // or scope down to a SheriffNamespaceLister.
 type sheriffScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.Sheriff]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.Sheriff]
 }

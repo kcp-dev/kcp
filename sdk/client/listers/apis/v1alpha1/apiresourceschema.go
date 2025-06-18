@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type APIResourceSchemaClusterLister interface {
 // aPIResourceSchemaClusterLister implements the APIResourceSchemaClusterLister interface.
 type aPIResourceSchemaClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.APIResourceSchema]
-	indexer cache.Indexer
 }
 
 var _ APIResourceSchemaClusterLister = new(aPIResourceSchemaClusterLister)
@@ -54,19 +52,16 @@ var _ APIResourceSchemaClusterLister = new(aPIResourceSchemaClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewAPIResourceSchemaClusterLister(indexer cache.Indexer) *aPIResourceSchemaClusterLister {
+func NewAPIResourceSchemaClusterLister(indexer cache.Indexer) APIResourceSchemaClusterLister {
 	return &aPIResourceSchemaClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.APIResourceSchema](indexer, kcpv1alpha1.Resource("apiresourceschema")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIResourceSchemas.
 func (l *aPIResourceSchemaClusterLister) Cluster(clusterName logicalcluster.Name) APIResourceSchemaLister {
 	return &aPIResourceSchemaLister{
-		kcplisters.New[*kcpv1alpha1.APIResourceSchema](l.indexer, clusterName, kcpv1alpha1.Resource("apiresourceschema")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *aPIResourceSchemaClusterLister) Cluster(clusterName logicalcluster.Name
 // or scope down to a APIResourceSchemaNamespaceLister for one namespace.
 type aPIResourceSchemaLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.APIResourceSchema]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ APIResourceSchemaLister = new(aPIResourceSchemaLister)
@@ -94,18 +87,17 @@ type APIResourceSchemaLister interface {
 
 // NewAPIResourceSchemaLister returns a new APIResourceSchemaLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIResourceSchemaLister(indexer cache.Indexer) APIResourceSchemaLister {
-	return &aPIResourceSchemaScopedLister{
-		listers.New[*kcpv1alpha1.APIResourceSchema](indexer, kcpv1alpha1.Resource("apiresourceschema")),
-		indexer,
+	return &aPIResourceSchemaLister{
+		kcplisters.New[*kcpv1alpha1.APIResourceSchema](indexer, kcpv1alpha1.Resource("apiresourceschema")),
 	}
 }
 
 // aPIResourceSchemaScopedLister can list all APIResourceSchemas inside a workspace
 // or scope down to a APIResourceSchemaNamespaceLister.
 type aPIResourceSchemaScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.APIResourceSchema]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.APIResourceSchema]
 }
