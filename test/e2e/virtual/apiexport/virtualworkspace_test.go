@@ -1125,9 +1125,11 @@ func newCowboy(namespace, name string) *wildwestv1alpha1.Cowboy {
 }
 
 func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs []string, resources ...string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
-	var rules []rbacv1.PolicyRule
+	var total = len(resources) / 3
 
-	for i := range len(resources) / 3 {
+	rules := make([]rbacv1.PolicyRule, total)
+
+	for i := range total {
 		group := resources[i*3]
 		resource := resources[i*3+1]
 		resourceName := resources[i*3+2]
@@ -1142,7 +1144,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 			r.ResourceNames = []string{resourceName}
 		}
 
-		rules = append(rules, r)
+		rules[i] = r
 	}
 
 	return &rbacv1.ClusterRole{

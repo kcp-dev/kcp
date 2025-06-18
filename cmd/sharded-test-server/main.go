@@ -216,7 +216,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// start shards
-	var shards []*testshard.Shard
+	shards := make([]*testshard.Shard, numberOfShards)
 	for i := range numberOfShards {
 		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA)
 		if err != nil {
@@ -225,7 +225,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		if err := shard.Start(ctx, quiet); err != nil {
 			return err
 		}
-		shards = append(shards, shard)
+		shards[i] = shard
 	}
 
 	// Start virtual-workspace servers

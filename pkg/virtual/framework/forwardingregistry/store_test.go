@@ -30,9 +30,9 @@ func TestUpdateToCreateOptions(t *testing.T) {
 	numField := updateOptions.NumField()
 	require.Equalf(t, 4, numField, "UpdateOptions is expected to have 4 fields")
 
-	var fields []string
+	fields := make([]string, numField)
 	for i := range numField {
-		fields = append(fields, updateOptions.Field(i).Name)
+		fields[i] = updateOptions.Field(i).Name
 	}
 
 	// Assert the UpdateOptions struct fields set has not changed
