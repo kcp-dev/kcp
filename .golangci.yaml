@@ -14,6 +14,7 @@ linters:
     - durationcheck
     - errcheck
     - errchkjson
+    - fatcontext
     - gocritic
     - godot
     - goprintffuncname
