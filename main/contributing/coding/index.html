@@ -6,15 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Coding guidelines for kcp projects.
+">
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/sharding/">
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/coding/">
       
       
-        <link rel="prev" href="../authorization/authorizers/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="shards/">
+        <link rel="next" href="../getting-started/">
       
       
       <link rel="icon" href="../../favicons/favicon.ico">
@@ -22,7 +25,7 @@
     
     
       
-        <title>Sharding - docs.kcp.io</title>
+        <title>Coding Guidelines & Conventions - docs.kcp.io</title>
       
     
     
@@ -76,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#sharding" class="md-skip">
+        <a href="#coding-guidelines-conventions" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Sharding
+              Coding Guidelines & Conventions
             
           </span>
         </div>
@@ -268,13 +271,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../concepts/" class="md-tabs__link">
           
   
     
@@ -310,11 +311,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
     
@@ -613,8 +616,6 @@
       
   
   
-    
-  
   
   
     
@@ -643,22 +644,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -669,13 +669,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -691,7 +691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../terminology/" class="md-nav__link">
+      <a href="../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -712,7 +712,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -762,7 +762,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../workspaces/" class="md-nav__link ">
+            <a href="../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -795,7 +795,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -816,7 +816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -837,7 +837,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -897,7 +897,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../apis/" class="md-nav__link ">
+            <a href="../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -930,7 +930,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -951,7 +951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/built-in/" class="md-nav__link">
+      <a href="../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -972,7 +972,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/exporting-apis/" class="md-nav__link">
+      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -993,7 +993,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1047,7 +1047,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../authentication/" class="md-nav__link ">
+            <a href="../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1080,7 +1080,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/oidc/" class="md-nav__link">
+      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1134,7 +1134,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../authorization/" class="md-nav__link ">
+            <a href="../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1167,7 +1167,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authorization/authorizers/" class="md-nav__link">
+      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1193,8 +1193,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1216,16 +1214,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_8" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1236,13 +1236,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             Sharding
@@ -1258,7 +1258,7 @@
   
   
     <li class="md-nav__item">
-      <a href="shards/" class="md-nav__link">
+      <a href="../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1279,7 +1279,7 @@
   
   
     <li class="md-nav__item">
-      <a href="partitions/" class="md-nav__link">
+      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1300,7 +1300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="cache-server/" class="md-nav__link">
+      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1354,7 +1354,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../miscellaneous/" class="md-nav__link ">
+            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1387,7 +1387,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1837,6 +1837,8 @@
       
   
   
+    
+  
   
   
     
@@ -1857,21 +1859,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1882,13 +1885,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             Contributing
@@ -1901,10 +1904,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../contributing/coding/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Coding Guidelines & Conventions
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1913,6 +1936,44 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-kubebuilder-crd-validation-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Kubebuilder CRD Validation Annotations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replicated-data-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replicated Data Types
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1925,7 +1986,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/getting-started/" class="md-nav__link">
+      <a href="../getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1971,7 +2032,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/continuous-integration/" class="md-nav__link ">
+            <a href="../continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2004,7 +2065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2081,7 +2142,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2102,7 +2163,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../guides/rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2123,7 +2184,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+      <a href="../guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3244,44 +3305,20 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#pages" class="md-nav__link">
+  <a href="#using-kubebuilder-crd-validation-annotations" class="md-nav__link">
     <span class="md-ellipsis">
-      Pages
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Pages">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#shards" class="md-nav__link">
-    <span class="md-ellipsis">
-      Shards
+      Using Kubebuilder CRD Validation Annotations
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#partitions" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#replicated-data-types" class="md-nav__link">
     <span class="md-ellipsis">
-      Partitions
+      Replicated Data Types
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#cache-server" class="md-nav__link">
-    <span class="md-ellipsis">
-      Cache Server
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3303,20 +3340,92 @@
   
 
 
-<h1 id="sharding">Sharding</h1>
-<h2 id="pages">Pages</h2>
-<h3 id="shards"><a href="shards/">Shards</a></h3>
-<p>Horizontal Scaling of kcp through sharding</p>
-<h3 id="partitions"><a href="partitions/">Partitions</a></h3>
-<p>How to create shard partitions.</p>
-<h3 id="cache-server"><a href="cache-server/">Cache Server</a></h3>
-<p>The cache server is a regular, Kubernetes-style CRUD API server with support of LIST/WATCH semantics.</p>
+<h1 id="coding-guidelines-conventions">Coding Guidelines &amp; Conventions</h1>
+<ul>
+<li>Always be clear about what clients or client configs target. Never use an unqualified <code>client</code>. Instead, always qualify. For example:<ul>
+<li><code>rootClient</code></li>
+<li><code>orgClient</code></li>
+<li><code>pclusterClient</code></li>
+<li><code>rootKcpClient</code></li>
+<li><code>orgKubeClient</code></li>
+</ul>
+</li>
+<li>Configs intended for <code>NewForConfig</code> (i.e. today often called "admin workspace config") should uniformly be called <code>clusterConfig</code><ul>
+<li>Note: with org workspaces, <code>kcp</code> will no longer default clients to the "root" ("admin") logical cluster</li>
+<li>Note 2: sometimes we use clients for same purpose, but this can be harder to read</li>
+</ul>
+</li>
+<li>Cluster-aware clients should follow similar naming conventions:<ul>
+<li><code>crdClusterClient</code></li>
+<li><code>kcpClusterClient</code></li>
+<li><code>kubeClusterClient</code></li>
+</ul>
+</li>
+<li><code>clusterName</code> is a kcp term. It is <strong>NOT</strong> a name of a physical cluster. If we mean the latter, use <code>pclusterName</code> or similar.</li>
+<li>Qualify "namespace"s in code that handle up- and downstream, e.g. <code>upstreamNamespace</code>, <code>downstreamNamespace</code>, and also <code>upstreamObj</code>, <code>downstreamObj</code>.</li>
+<li>Logging:</li>
+<li>Use the <code>fmt.Sprintf("%s|%s/%s", clusterName, namespace, name</code> syntax.</li>
+<li>Default log-level is 2.</li>
+<li>Controllers should generally log (a) <strong>one</strong> line (not more) non-error progress per item with <code>klog.V(2)</code> (b) actions like create/update/delete via <code>klog.V(3)</code> and (c) skipped actions, i.e. what was not done for reasons via <code>klog.V(4)</code>.</li>
+<li>When orgs land: <code>clusterName</code> or <code>fooClusterName</code> is always the fully qualified value that you can stick into obj.ObjectMeta.ClusterName. It's not necessarily the <code>(Cluster)Workspace.Name</code> from the object. For the latter, use <code>workspaceName</code> or <code>orgName</code>.</li>
+<li>Generally do <code>klog.Errorf</code> or <code>return err</code>, but not both together. If you need to make it clear where an error came from, you can wrap it.</li>
+<li>New features start under a feature-gate (<code>--feature-gate GateName=true</code>). (At some point in the future), new feature-gates are off by default <em>at least</em> until the APIs are promoted to beta (we are not there before we have reached MVP).</li>
+<li>Feature-gated code can be incomplete. Also their e2e coverage can be incomplete. <strong>We do not compromise on unit tests</strong>. Every feature-gated code needs full unit tests as every other code-path.</li>
+<li>Go Proverbs are good guidelines for style: https://go-proverbs.github.io/ – watch https://www.youtube.com/watch?v=PAAkCSZUG1c.</li>
+<li>We use Testify's <a href="https://pkg.go.dev/github.com/stretchr/testify/require">require</a> a
+  lot in tests, and avoid
+  <a href="https://pkg.go.dev/github.com/stretchr/testify/assert">assert</a>.</li>
+</ul>
+<p>Note this subtle distinction of nested <code>require</code> statements:
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">require</span><span class="p">.</span><span class="nx">Eventually</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nx">foos</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">List</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nx">require</span><span class="p">.</span><span class="nx">NoError</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="c1">// fail fast, including failing require.Eventually immediately</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">someCondition</span><span class="p">(</span><span class="nx">foos</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">},</span><span class="w"> </span><span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+  and
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">require</span><span class="p">.</span><span class="nx">Eventually</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nx">foos</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">List</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">     </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="c1">// keep trying</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">someCondition</span><span class="p">(</span><span class="nx">foos</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">},</span><span class="w"> </span><span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+  The first fails fast on every client error. The second ignores client errors and keeps trying. Either
+  has its place, depending on whether the client error is to be expected (e.g. because of asynchronicity making the resource available),
+  or signals a real test problem.</p>
+<h3 id="using-kubebuilder-crd-validation-annotations">Using Kubebuilder CRD Validation Annotations</h3>
+<p>All of the built-in types for <code>kcp</code> are <code>CustomResourceDefinitions</code>, and we generate YAML spec for them from our Go types using <a href="https://github.com/kubernetes-sigs/kubebuilder">kubebuilder</a>.</p>
+<p>When adding a field that requires validation, custom annotations are used to translate this logic into the generated OpenAPI spec. <a href="https://book.kubebuilder.io/reference/markers/crd-validation.html">This doc</a> gives an overview of possible validations. These annotations map directly to concepts in the <a href="https://swagger.io/specification/#data-type-format">OpenAPI Spec</a> so, for instance, the <code>format</code> of strings is defined there, not in kubebuilder. Furthermore, Kubernetes has forked the OpenAPI project <a href="https://github.com/kubernetes/kube-openapi/tree/master/pkg/validation">here</a> and extends more formats in the extensions-apiserver <a href="https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/types_jsonschema.go#L27">here</a>.</p>
+<h3 id="replicated-data-types">Replicated Data Types</h3>
+<p>Some objects are replicated and cached amongst shards when <code>kcp</code> is run in a sharded configuration. When writing code to list or get these objects, be sure to reference both shard-local and cache informers. To make this more convenient, wrap the look up in a function pointer.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewController</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nx">localAPIExportInformer</span><span class="p">,</span><span class="w"> </span><span class="nx">cacheAPIExportInformer</span><span class="w"> </span><span class="nx">apisinformers</span><span class="p">.</span><span class="nx">APIExportClusterInformer</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">controller</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="o">...</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">controller</span><span class="p">{</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nx">listAPIExports</span><span class="p">:</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">clusterName</span><span class="w"> </span><span class="nx">logicalcluster</span><span class="p">.</span><span class="nx">Name</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="nx">apisv1apha1</span><span class="p">.</span><span class="nx">APIExport</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nx">exports</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">localAPIExportInformer</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">clusterName</span><span class="p">).</span><span class="nx">Lister</span><span class="p">().</span><span class="nx">List</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">Everything</span><span class="p">())</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="nx">cacheAPIExportInformer</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">clusterName</span><span class="p">).</span><span class="nx">Lister</span><span class="p">().</span><span class="nx">List</span><span class="p">(</span><span class="nx">labels</span><span class="p">.</span><span class="nx">Everything</span><span class="p">())</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">exports</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="o">...</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+</code></pre></div>
+<p>A full list of replicated resources is currently outlined in the <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/replication/replication_controller.go">replication controller</a>.</p>
 
 
 
 
 
 
+
+  
+  
 
 
 

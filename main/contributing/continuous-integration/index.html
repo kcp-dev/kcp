@@ -6,18 +6,15 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Inspecting Prometheus metrics of e2e runs.
-">
       
       
-      
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/inspecting-e2e-metrics/">
-      
-      
-        <link rel="prev" href="../">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/continuous-integration/">
       
       
-        <link rel="next" href="../publishing-a-new-kcp-release/">
+        <link rel="prev" href="../getting-started/">
+      
+      
+        <link rel="next" href="inspecting-e2e-metrics/">
       
       
       <link rel="icon" href="../../favicons/favicon.ico">
@@ -25,7 +22,7 @@
     
     
       
-        <title>Inspecting Prometheus Metrics for e2e Runs - docs.kcp.io</title>
+        <title>Continuous Integration (CI) - docs.kcp.io</title>
       
     
     
@@ -79,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#inspecting-prometheus-metrics-for-e2e-runs" class="md-skip">
+        <a href="#continuous-integration-ci" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Inspecting Prometheus Metrics for e2e Runs
+              Continuous Integration (CI)
             
           </span>
         </div>
@@ -1904,109 +1901,18 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Inspecting Prometheus Metrics for e2e Runs
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Inspecting Prometheus Metrics for e2e Runs
+    Coding Guidelines & Conventions
   </span>
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#metrics-gathering-during-e2e-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Metrics Gathering During e2e Runs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inspecting-metrics-of-e2e-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Inspecting Metrics of e2e Runs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Inspecting Metrics of e2e Runs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#github" class="md-nav__link">
-    <span class="md-ellipsis">
-      GitHub
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#prow" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prow
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#collecting-metrics-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      Collecting Metrics Locally
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2019,7 +1925,163 @@
   
   
     <li class="md-nav__item">
-      <a href="../publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" checked>
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./" class="md-nav__link md-nav__link--active">
+              
+  
+  <span class="md-ellipsis">
+    Continuous integration
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Continuous integration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="inspecting-e2e-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inspecting Prometheus Metrics for e2e Runs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2040,7 +2102,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rebasing-kubernetes/" class="md-nav__link">
+      <a href="../guides/rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2061,7 +2123,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../replicate-new-resource/" class="md-nav__link">
+      <a href="../guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2070,6 +2132,14 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3174,37 +3244,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#metrics-gathering-during-e2e-runs" class="md-nav__link">
+  <a href="#debugging-flakes" class="md-nav__link">
     <span class="md-ellipsis">
-      Metrics Gathering During e2e Runs
+      Debugging Flakes
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inspecting-metrics-of-e2e-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Inspecting Metrics of e2e Runs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Inspecting Metrics of e2e Runs">
+    <nav class="md-nav" aria-label="Debugging Flakes">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#github" class="md-nav__link">
+  <a href="#unit-test-flakes" class="md-nav__link">
     <span class="md-ellipsis">
-      GitHub
+      Unit Test Flakes
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#prow" class="md-nav__link">
+  <a href="#end-to-end-test-flakes" class="md-nav__link">
     <span class="md-ellipsis">
-      Prow
+      End to End Test Flakes
     </span>
   </a>
   
@@ -3212,15 +3273,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#collecting-metrics-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      Collecting Metrics Locally
-    </span>
-  </a>
   
 </li>
       
@@ -3242,52 +3294,53 @@
   
 
 
-<h1 id="inspecting-prometheus-metrics-for-e2e-runs">Inspecting Prometheus Metrics for e2e Runs</h1>
-<h2 id="metrics-gathering-during-e2e-runs">Metrics Gathering During e2e Runs</h2>
-<p>kcp internally exposes the same metrics as kube api-server.
-These are being gathered during e2e runs if the <code>PROMETHEUS_URL</code> variable is set.
-Here, any e2e spawned kcp server will publish a scraping configuration to prometheus
-for the given Prometheus URL environment variable.</p>
-<p>For e2e tests, the above environment variable is respected by the following test servers:</p>
+<h1 id="continuous-integration-ci">Continuous Integration (CI)</h1>
+<p>kcp uses a combination of <a href="https://help.github.com/en/actions/automating-your-workflow-with-github-actions">GitHub Actions</a> and
+and <a href="https://github.com/kubernetes/test-infra/tree/master/prow">prow</a> to automate the build process.</p>
+<p>Here are the most important links:</p>
 <ul>
-<li>when a shared kcp server is spawned using <code>SharedKcpServer</code> or <code>PrivateKcpServer</code> in the <code>kcp.test.e2e.framework</code> package.</li>
-<li><code>cmd/sharded-test-server</code></li>
-<li><code>cmd/test-server/kcp</code></li>
+<li><a href="https://github.com/kcp-dev/kcp/blob/main/.github/workflows/">.github/workflows/</a> defines the Github Actions based jobs.</li>
+<li><a href="https://github.com/kcp-dev/kcp/blob/main/.prow.yaml">kcp-dev/kcp/.prow.yaml</a> defines the prow based jobs.</li>
 </ul>
-<h2 id="inspecting-metrics-of-e2e-runs">Inspecting Metrics of e2e Runs</h2>
-<h3 id="github">GitHub</h3>
-<p>To inspect metrics from GitHub e2e test runs, download the metrics from the GitHub summary page:</p>
-<p><img alt="GitHub summary page" src="../github_summary.png" /></p>
-<p>And execute Prometheus locally to inspect metrics:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>metrics<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>unzip<span class="w"> </span>-p<span class="w"> </span>e2e-sharded-metrics.zip<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>xvzf<span class="w"> </span>-<span class="w"> </span>-C<span class="w"> </span>metrics
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>$<span class="w"> </span>prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>metrics<span class="w"> </span>--config.file<span class="w"> </span>/dev/null
-</code></pre></div></p>
-<h3 id="prow">Prow</h3>
-<p>To inspect e2e metrics from prow runs, just copy-paste the prow link from the pull request:</p>
-<p><img alt="PR prow link" src="../prow_link.png" /></p>
-<p>And paste it into <a href="https://promecieus.dptools.openshift.org/">PromeCIeus</a>:</p>
-<p><img alt="promecieus" src="../promecieus.png" /></p>
-<p>Once the Prometheus pod is ready, the provisioned link can be called to inspect gathered metrics.
-Alternatively, download the prometheus tarball from the gcsweb frontend locally
-and start a Prometheus instance as described above.</p>
-<h2 id="collecting-metrics-locally">Collecting Metrics Locally</h2>
-<p>To collect metrics locally, a convenience script is available to download and execute a Prometheus instance.
-Calling <code>... ./hack/run-in-prometheus make ...</code> will download, start, collect metrics, and stop Prometheus during the test run.</p>
-<p>Example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span><span class="nv">WHAT</span><span class="o">=</span>./test/e2e/virtual/apiexport<span class="w"> </span><span class="nv">TEST_ARGS</span><span class="o">=</span><span class="s2">&quot;-v -run TestAPIExportAuthorizers&quot;</span><span class="w"> </span>./hack/run-with-prometheus.sh<span class="w"> </span>make<span class="w"> </span>test-e2e
+<h2 id="debugging-flakes">Debugging Flakes</h2>
+<p>Tests that sometimes pass and sometimes fail are known as flakes. Sometimes, there is only an issue with the test, while
+other times, there is an actual bug in the main code. Regardless of the root cause, it's important to try to eliminate
+as many flakes as possible.</p>
+<h3 id="unit-test-flakes">Unit Test Flakes</h3>
+<p>If you're trying to debug a unit test flake, you can try to do something like this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./pkg/reconciler/apis/apibinding<span class="w"> </span>-run<span class="w"> </span>TestReconcileBinding<span class="w"> </span>-count<span class="w"> </span><span class="m">100</span><span class="w"> </span>-failfast
 </code></pre></div>
-A local Prometheus can then be started to inspect gathered metrics:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>./hack/tools/prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>.prometheus_data<span class="w"> </span>--config.file<span class="w"> </span>/dev/null
-</code></pre></div></p>
+<p>This tests one specific package, running only a single test case by name, 100 times in a row. It fails as soon as it
+encounters any failure. If this passes, it may still be possible there is a flake somewhere, so you may need to run
+it a few times to be certain. If it fails, that's a great sign - you've been able to reproduce it locally. Now you
+need to dig into the test condition that is failing. Work backwards from the condition and try to determine if the
+condition is correct, and if it should be that way all the time. Look at the code under test and see if there are any
+reasons things might not be deterministic.</p>
+<h3 id="end-to-end-test-flakes">End to End Test Flakes</h3>
+<p>Debugging an end-to-end (e2e) test that is flaky can be a bit trickier than a unit test. Our e2e tests run in one of
+two modes:</p>
+<ol>
+<li>Tests share a single kcp server</li>
+<li>Tests in a package share a single kcp server</li>
+</ol>
+<p>The <code>e2e-shared-server</code> CI job uses mode 1, and the <code>e2e</code> CI job uses mode 2.</p>
+<p>There are also a handful of tests that require a fully isolated kcp server, because they manipulate some configuration
+aspects that are system-wide and would break all the other tests. These tests run in both <code>e2e</code> and <code>e2e-shared-server</code>,
+separate from the other kcp instance(s).</p>
+<p>You can use the same <code>run</code>, <code>-count</code>, and <code>-failfast</code> settings from the unit test section above for trying to reproduce
+e2e flakes locally. Additionally, if you would like to operate in mode 1 (all tests share a single kcp server), you can
+start a kcp instance locally in a separate terminal or tab:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>bin/test-server
+</code></pre></div>
+<p>Then, to have your test use that shared kcp server, you add <code>-args --use-default-kcp-server</code> to your <code>go test</code> run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./test/e2e/apibinding<span class="w"> </span>-count<span class="w"> </span><span class="m">20</span><span class="w"> </span>-failfast<span class="w"> </span>-args<span class="w"> </span>--use-default-kcp-server
+</code></pre></div>
 
 
 
 
 
 
-
-  
-  
 
 
 

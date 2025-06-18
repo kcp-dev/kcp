@@ -6,30 +6,33 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Information on the kcp release process.
+">
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/rebasing-kubernetes/">
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/guides/publishing-a-new-kcp-release/">
       
       
-        <link rel="prev" href="../publishing-a-new-kcp-release/">
+        <link rel="prev" href="../../continuous-integration/inspecting-e2e-metrics/">
       
       
-        <link rel="next" href="../replicate-new-resource/">
+        <link rel="next" href="../rebasing-kubernetes/">
       
       
-      <link rel="icon" href="../../favicons/favicon.ico">
+      <link rel="icon" href="../../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>Rebasing Kubernetes - docs.kcp.io</title>
+        <title>Publishing a New kcp Release - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -48,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/crd.css">
+      <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -76,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#rebasing-kubernetes" class="md-skip">
+        <a href="#publishing-a-new-kcp-release" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +97,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Rebasing Kubernetes
+              Publishing a New kcp Release
             
           </span>
         </div>
@@ -232,7 +235,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../.." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
     
@@ -252,7 +255,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../setup/" class="md-tabs__link">
+        <a href="../../../setup/" class="md-tabs__link">
           
   
     
@@ -272,7 +275,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../concepts/" class="md-tabs__link">
+        <a href="../../../concepts/" class="md-tabs__link">
           
   
     
@@ -292,7 +295,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../developers/" class="md-tabs__link">
+        <a href="../../../developers/" class="md-tabs__link">
           
   
     
@@ -314,7 +317,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -334,7 +337,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reference/" class="md-tabs__link">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -369,9 +372,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -423,7 +426,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../.." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -456,7 +459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../GOALS/" class="md-nav__link">
+      <a href="../../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -513,7 +516,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../setup/" class="md-nav__link ">
+            <a href="../../../setup/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -546,7 +549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/quickstart/" class="md-nav__link">
+      <a href="../../../setup/quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -567,7 +570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/helm/" class="md-nav__link">
+      <a href="../../../setup/helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -588,7 +591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -655,7 +658,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/" class="md-nav__link ">
+            <a href="../../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -688,7 +691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/terminology/" class="md-nav__link">
+      <a href="../../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -709,7 +712,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -759,7 +762,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -792,7 +795,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -813,7 +816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -834,7 +837,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -894,7 +897,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/apis/" class="md-nav__link ">
+            <a href="../../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -927,7 +930,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -948,7 +951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -969,7 +972,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -990,7 +993,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1044,7 +1047,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/authentication/" class="md-nav__link ">
+            <a href="../../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1077,7 +1080,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1131,7 +1134,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1164,7 +1167,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1222,7 +1225,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1255,7 +1258,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1276,7 +1279,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1297,7 +1300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1351,7 +1354,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1384,7 +1387,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1451,7 +1454,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../developers/" class="md-nav__link ">
+            <a href="../../../developers/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1484,7 +1487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/storage-to-rest-patterns/" class="md-nav__link">
+      <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1549,7 +1552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1624,7 +1627,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/internals/etcd-structure/" class="md-nav__link">
+      <a href="../../../developers/internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1645,7 +1648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1705,7 +1708,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../developers/investigations/" class="md-nav__link ">
+            <a href="../../../developers/investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1738,7 +1741,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../../developers/investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1759,7 +1762,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../../developers/investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1780,7 +1783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../../developers/investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1801,7 +1804,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1871,7 +1874,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1904,11 +1907,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Inspecting Prometheus Metrics for e2e Runs
+    Coding Guidelines & Conventions
   </span>
   
 
@@ -1925,11 +1928,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Publishing a New kcp Release
+    Getting Started
   </span>
   
 
@@ -1938,6 +1941,141 @@
   
 
               
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../continuous-integration/" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Continuous integration
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            Continuous integration
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Inspecting Prometheus Metrics for e2e Runs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -1955,7 +2093,161 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Publishing a New kcp Release
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New kcp Release
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#create-git-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create git Tags
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Create git Tags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisite-make-sure-you-have-a-gpg-signing-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisite - Make Sure You Have a GPG Signing Key
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-the-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create the Tags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-the-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Push the Tags
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#if-its-a-new-minor-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      If it's a New Minor Version
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="If it's a New Minor Version">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-a-release-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create a Release Branch
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generate-release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate Release Notes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#revieweditpublish-the-release-in-github" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review/Edit/Publish the Release in GitHub
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trigger-documentation-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trigger Documentation Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notify" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notify
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1964,7 +2256,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -1986,6 +2277,14 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2032,7 +2331,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../reference/" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2145,7 +2444,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2166,7 +2465,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2187,7 +2486,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2208,7 +2507,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2229,7 +2528,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2250,7 +2549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2271,7 +2570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2292,7 +2591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2313,7 +2612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2334,7 +2633,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2355,7 +2654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2376,7 +2675,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2397,7 +2696,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2418,7 +2717,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2439,7 +2738,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2460,7 +2759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2481,7 +2780,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2502,7 +2801,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2523,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2654,7 +2953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2675,7 +2974,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2696,7 +2995,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2717,7 +3016,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2738,7 +3037,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2813,7 +3112,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2834,7 +3133,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2909,7 +3208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2930,7 +3229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3005,7 +3304,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3026,7 +3325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3083,6 +3382,116 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#create-git-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create git Tags
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Create git Tags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisite-make-sure-you-have-a-gpg-signing-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisite - Make Sure You Have a GPG Signing Key
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-the-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create the Tags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-the-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Push the Tags
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#if-its-a-new-minor-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      If it's a New Minor Version
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="If it's a New Minor Version">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-a-release-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create a Release Branch
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generate-release-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate Release Notes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#revieweditpublish-the-release-in-github" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review/Edit/Publish the Release in GitHub
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trigger-documentation-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trigger Documentation Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notify" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notify
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -3099,334 +3508,107 @@
   
 
 
-<h1 id="rebasing-kubernetes">Rebasing Kubernetes</h1>
-<p>This describes the process of rebasing kcp onto a new Kubernetes version. For the examples below, we'll be rebasing
-onto v1.31.0</p>
-<h1 id="1-update-kcp-devapimachinery">1. Update kcp-dev/apimachinery</h1>
+<h1 id="publishing-a-new-kcp-release">Publishing a New kcp Release</h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You currently need write access to the <a href="https://github.com/kcp-dev/kcp">kcp-dev/kcp</a> repository to perform these
+tasks.</p>
+</div>
+<h2 id="create-git-tags">Create git Tags</h2>
+<h3 id="prerequisite-make-sure-you-have-a-gpg-signing-key">Prerequisite - Make Sure You Have a GPG Signing Key</h3>
 <ol>
-<li>Create a new branch for the update, such as <code>1.31-prep</code>.</li>
-<li>Update go.mod:</li>
-<li>You may need to change the go version at the top of the file to match what's in go.mod in the root of the
-      Kubernetes repo. This is not required, but probably a good idea.</li>
-<li>Update the primary Kubernetes dependencies:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go get -u k8s.io/api@v0.31.0  k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0
-</code></pre></div></li>
-<li>Run <code>go mod tidy</code>.</li>
-<li>Manually review the code that is upstream from <code>third_party</code> and make the same/similar edits to anything that
-   changed upstream. For example, we maintain a slightly modified copy of the
-   <a href="https://github.com/kubernetes/kubernetes/blob/v1.30.1/staging/src/k8s.io/client-go/tools/cache/shared_informer.go">shared informer code</a>.</li>
-<li>Run <code>make lint test</code>. Fix any issues you encounter.</li>
-<li>Commit your changes.</li>
-<li>Push to your fork.</li>
-<li>Open a PR; get it reviewed and merged.</li>
+<li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key">https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key</a></li>
+<li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account">https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account</a></li>
+<li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key">https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key</a></li>
 </ol>
-<h1 id="2-update-kcp-devcode-generator">2. Update kcp-dev/code-generator</h1>
+<h3 id="create-the-tags">Create the Tags</h3>
+<p>kcp has 2 go modules, and a unique tag is needed for each module every time we create a new release.</p>
 <ol>
-<li>Create a new branch for the update, such as <code>1.26-prep</code>.</li>
-<li>Update go.mod:</li>
-<li>You may need to change the go version at the top of the file to match what's in go.mod in the root of the
-      Kubernetes repo. This is not required, but probably a good idea.</li>
-<li>Update the primary Kubernetes dependencies:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>go get -u k8s.io/apimachinery@v0.31.0 k8s.io/code-generator@v0.31.0
-</code></pre></div></li>
-<li>Run <code>go mod tidy</code>.</li>
-<li>Update Kubernetes tooling versions in the <code>Makefile</code>:</li>
-<li><code>KUBE_CLIENT_GEN_VER := v0.31.0</code></li>
-<li><code>KUBE_LISTER_GEN_VER := v0.31.0</code></li>
-<li><code>KUBE_INFORMER_GEN_VER := v0.31.0</code></li>
-<li><code>KUBE_APPLYCONFIGURATION_GEN_VER := v0.31.0</code></li>
-<li>Update generators, if needed:</li>
-<li>Manually review upstream to check for any changes to these generators in the <code>kubernetes</code> repository:<ol>
-<li>staging/src/k8s.io/code-generator/cmd/client-gen</li>
-<li>staging/src/k8s.io/code-generator/cmd/informer-gen</li>
-<li>staging/src/k8s.io/code-generator/cmd/lister-gen</li>
-</ol>
-</li>
-<li>If there were any substantive changes, make the corresponding edits to our generators.</li>
-<li>You'll probably want to commit your changes at this point.</li>
-<li>Run <code>make codegen</code>. You'll probably want to commit these changes as a standalone commit.</li>
-<li>Note: <code>examples</code> is separate go module, so you may need to run <code>go mod tidy</code> in that directory and update the
-      go.mod file accordingly if you make changes to the code-generator.</li>
-<li>Run <code>make lint test build</code> and fix any issues you encounter.</li>
-<li>Commit any remaining changes.</li>
-<li>Push to your fork.<ol>
-<li>Open a PR; get it reviewed and merged.</li>
-</ol>
-</li>
-<li>Push release:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>REF=upstream/main
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>REMOTE=upstream
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>TAG=v2.3.0
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>git tag --sign --message &quot;$TAG&quot; &quot;$TAG&quot; &quot;$REF&quot;
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>git push &quot;$REMOTE&quot; &quot;$TAG&quot;
-</code></pre></div></li>
-</ol>
-<h1 id="3-update-kcp-devclient-go">3. Update kcp-dev/client-go</h1>
-<ol>
-<li>Create a new branch for the update, such as <code>1.26-prep</code>.</li>
-<li>Update go.mod:</li>
-<li>You may need to change the go version at the top of the file to match what's in go.mod in the root of the
-      Kubernetes repo. This is not required, but probably a good idea.</li>
-<li>Update the <code>kcp-dev/apimachinery</code> dependency:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>go get -u github.com/kcp-dev/apimachinery@main
-</code></pre></div></li>
-<li>That should have updated the primary Kubernetes dependencies, but in case it didn't, you can do so manually:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>go get -u k8s.io/api@v0.31.0 k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0 k8s.io/apiextensions-apiserver@v0.31.0
-</code></pre></div></li>
-<li>Run <code>go mod tidy</code>.</li>
-<li>Update the kcp code-generator tooling version in the <code>Makefile</code>:<ol>
-<li>Look up the latest commit from the main branch in https://github.com/kcp-dev/code-generator.</li>
-<li>Adjust <code>go.mod</code> accordingly.</li>
-</ol>
-</li>
-<li>Manually review the code that is upstream from <code>third_party</code> and make the same/similar edits to anything that
-   changed upstream.</li>
-<li>Run <code>make codegen</code>. You'll probably want to commit these changes as a standalone commit.</li>
-<li>Run <code>make lint</code> and fix any issues you encounter.</li>
-<li>Commit any remaining changes.</li>
-<li>Push to your fork.</li>
-<li>Open a PR; get it reviewed and merged.</li>
-</ol>
-<h1 id="4-update-kcp-devkubernetes">4. Update kcp-dev/kubernetes</h1>
-<h2 id="terminology">Terminology</h2>
-<p>Commits merged into <code>kcp-dev/kubernetes</code> follow this commit message format:</p>
-<ul>
-<li><code>UPSTREAM: &lt;UPSTREAM PR ID&gt;</code></li>
-<li>The number identifies a PR in upstream kubernetes
-    (i.e. <code>https://github.com/kubernetes/kubernetes/pull/&lt;pr id&gt;</code>)</li>
-<li>A commit with this message should only be picked into the subsequent rebase branch
-    if the commits of the referenced PR are not included in the upstream branch.</li>
-<li>To check if a given commit is included in the upstream branch, open the referenced
-    upstream PR and check any of its commits for the release tag (e.g. <code>v.1.26.3</code>)
-    targeted by the new rebase branch. For example:
-    <img src="commit-tag.png"></li>
-<li><code>UPSTREAM: &lt;carry&gt;:</code></li>
-<li>A persistent carry that should probably be picked for the subsequent rebase branch.</li>
-<li>In general, these commits are used to modify behavior for consistency or
-    compatibility with kcp.</li>
-<li><code>UPSTREAM: &lt;drop&gt;:</code></li>
-<li>A carry that should probably not be picked for the subsequent rebase branch.</li>
-<li>In general, these commits are used to maintain the codebase in ways that are
-    branch-specific, like the update of generated files or dependencies.</li>
-</ul>
-<h2 id="spreadsheet-of-carry-commits-from-previous-release">Spreadsheet of Carry Commits from Previous Release</h2>
-<p>If the old branch (generally also the default branch) is <code>upstream/kcp-feature-logical-cluster-1.24-v3</code>
-and the old version is <code>v1.24.3</code>, then a tsv file containing the set of carry commits that need to be
-considered for cherry-picking later can be generated using:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># create column headers</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;Comment Sha\tSummary\tCommit link\tPR link\tAction&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>~/Documents/v1.24.3.tsv
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># populate the sheet</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>git<span class="w"> </span>log<span class="w"> </span><span class="k">$(</span><span class="w"> </span>git<span class="w"> </span>merge-base<span class="w"> </span>upstream/kcp-feature-logical-clusters-1.24-v3<span class="w"> </span>v1.24.3<span class="w"> </span><span class="k">)</span>..upstream/kcp-feature-logical-clusters-1.24-v3<span class="w"> </span>--ancestry-path<span class="w"> </span>--reverse<span class="w"> </span>--no-merges<span class="w"> </span>--pretty<span class="o">=</span><span class="s1">&#39;tformat:%h%x09%s%x09https://github.com/kcp-dev/kubernetes/commit/%h?w=1&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">$&#39;\t&#39;&#39;UPSTREAM: .&#39;$&#39;\t&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;s~UPSTREAM: ([0-9]+)(:.)~UPSTREAM: \1\2\thttps://github.com/kubernetes/kubernetes/pull/\1~&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/Documents/v1.24.3.tsv
+<li><code>git fetch</code> from the main kcp repository (kcp-dev/kcp) to ensure you have the latest commits</li>
+<li>Tag the main module</li>
+<li>If your git remote for kcp-dev/kcp is named something other than <code>upstream</code>, change <code>REF</code> accordingly</li>
+<li>
+<p>If you are creating a release from a release branch, change <code>main</code> in <code>REF</code> accordingly, or you can
+      make <code>REF</code> a commit hash.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 </code></pre></div>
-<p>The tsv file can be imported into a google sheets spreadsheet to track the progress of picking commits
-to the new rebase branch. The spreadsheet can also be a way of communicating with rebase reviewers.
-For an example, please see the <a href="https://docs.google.com/spreadsheets/d/15k9sih-xBKICuLUHj4HMrqYf60mliaslImqqv6fGSJI/edit?usp=sharing">spreadsheet used for the v1.27.3 rebase</a>.</p>
-<h2 id="rebase-process">Rebase Process</h2>
-<ol>
-<li>First and foremost, take notes of what worked/didn't work well. Update this guide based on your experiences!</li>
-<li>Remember, if you mess up, <code>git rebase --abort</code> and <code>git reflog</code> are your very good friends!</li>
-<li>Terminology:</li>
-<li>"Old" version: the current version of Kubernetes that kcp is using</li>
-<li>"New" version: the new Kubernetes version on top of which you are rebasing</li>
-<li>The <code>upstream</code> in e.g. <code>upstream/kcp-feature-logical-cluster-1.24-v3</code> is the name of the git remote that points
-   to github.com/kcp-dev/kubernetes. Please adjust the commands below if your remote is named differently.</li>
-<li>Prepare the old branch for rebasing:</li>
-<li>In this example, the old version is 1.31.0, and the new version is 1.31.0</li>
-<li>Create a new temporary branch to clean up the accumulated commits on the old branch:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>git checkout -b kcp-1.31-clean upstream/kcp-feature-logical-cluster-1.31-v3
-</code></pre></div></li>
-<li>Start by doing a soft git reset so your working directory contains all the changes from the branch in an
-      uncommitted state:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>git reset v1.31.1 # this must be whatever upstream commit was the starting point for the old branch
-</code></pre></div></li>
-<li>Revert the following types of changes:<ul>
-<li>go.mod/go.sum</li>
-<li>Generated clients, listers, informers, applyconfigurations</li>
-<li>vendor/*
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>git checkout go.mod go.sum vendor
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a># for any untracked files
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>git clean -n -d vendor/* # to check what files would be removed
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>git clean -f vendor/* # actually remove the new untracked files
-</code></pre></div></li>
-</ul>
 </li>
-<li>Create a single baseline commit:
-      <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>git add .
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>git commit -m &#39;UPSTREAM: &lt;carry&gt;: baseline for kcp 1.31&#39;
-</code></pre></div></li>
-<li>Create a baseline branch that starts from the new version. We'll use this to cherry-pick any commits from
-   upstream that we need to continue carrying (i.e., they have not yet merged into the new version).
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>git checkout -b kcp-1.31-baseline v1.31.1
-</code></pre></div></li>
-<li>Review the list of carry commits in the spreadsheet generated above. Look
-   for commit messages of the format
-   <code>UPSTREAM: 12345: ...</code>. The number indicates the upstream pull request. You'll need to inspect each pull request
-   to determine when it was merged. Anything that merged <strong>before</strong> the rebase version can be ignored and omitted
-   from the baseline branch. Anything that merged <strong>after</strong> the rebase version as well as anything not yet merged
-   must be cherry-picked to the baseline branch. For example, in 1.24, we have <code>UPSTREAM: 111898: Reflector: support
-   logging Unstructured type</code>. This was added in 1.31, and therefore needs to be cherry-picked to the
-   <code>kcp-1.31-baseline</code> branch.</li>
-<li>Create a branch where you'll attempt to do the rebase. This will start from the cleaned up old version branch:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>git checkout -b kcp-1.31-rebase kcp-1.31-clean
-</code></pre></div></li>
-<li>Rebase onto the baseline branch you created above:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git rebase kcp-1.31-baseline
-</code></pre></div></li>
-</ol>
-<p>You will likely encounter numerous conflicts. This is 100% normal! Go through each file and resolve them as best
-   as you can. Make notes of any particular changes you have questions about, so you don't forget them.
-10. Update kcp dependencies, for all kcp repositories that changed. For example:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>hack/pin-dependency.sh github.com/kcp-dev/logicalcluster/v3 v3.0.4
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>hack/pin-dependency.sh github.com/kcp-dev/apimachinery/v2 767ac05aebce82530dee46e9dab8c7bb47f1c823
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>hack/pin-dependency.sh github.com/kcp-dev/client-go 654321d8cac56f9944e8cf801dc15e37b3a582f3
+<li>
+<p>Tag the <code>sdk</code> module, following the same logic as above for <code>REF</code> and <code>TAG</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 </code></pre></div>
-11. Review changes to the origins of pkg/genericcontrolplane to see if similar changes are needed in the new version:</p>
-<table>
-<thead>
-<tr>
-<th>Destination</th>
-<th>Source(s)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>pkg/genericcontrolplane</td>
-<td>cmd/kube-apiserver/app, pkg/kubeapiserver/admission</td>
-</tr>
-<tr>
-<td>pkg/genericcontrolplane/apis/apis.go</td>
-<td>pkg/controlplane/instance.go</td>
-</tr>
-<tr>
-<td>pkg/genericcontrolplane/options.go</td>
-<td>cmd/kube-apiserver/app/options/options.go</td>
-</tr>
-<tr>
-<td>pkg/api/genericcontrolplane/scheme.go</td>
-<td>pkg/api/legacyscheme/scheme.go</td>
-</tr>
-<tr>
-<td>pkg/apis/core/install/genericcontrolplane/install.go</td>
-<td>pkg/apis/core/install/install.go</td>
-</tr>
-<tr>
-<td>pkg/apis/core/register_generic_control_plane.go</td>
-<td>pkg/apis/core/register.go</td>
-</tr>
-<tr>
-<td>pkg/apis/core/v1/register_generic_control_plane.go</td>
-<td>pkg/apis/core/v1/register.go</td>
-</tr>
-<tr>
-<td>staging/src/k8s.io/api/core/v1/register_generic_control_plane.go</td>
-<td>staging/src/k8s.io/api/core/v1/register.go</td>
-</tr>
-<tr>
-<td>pkg/registry/core/rest/genericcontrolplane/storage_core.go</td>
-<td>pkg/registry/core/rest/storage_core.go</td>
-</tr>
-<tr>
-<td>pkg/kubeapiserver/legacy_storage_factory_builder.go</td>
-<td>pkg/kubeapiserver/default_storage_factory_builder.go</td>
-</tr>
-</tbody>
-</table>
-<ol>
-<li>
-<p>Update generated clients, informers, listers, etc. because we generate logical cluster aware versions of these
-   for Kubernetes to use:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>hack/update-codegen.sh
-</code></pre></div></p>
 </li>
 <li>
-<p>Check if any new controllers were added to Kubernetes. If so, determine if they are relevant to the control
-    plane, or if they're specific to workloads (anything related to pods/nodes/etc.). If they're for the control
-    plane and you think they should be enabled in kcp, you have 1 of 2 choices:</p>
-<ol>
-<li>Modify the controller in Kubernetes to be logical cluster aware</li>
-<li>Add code to kcp to spawn a new controller instance scoped to a single logical cluster</li>
-</ol>
-<p>For option 1, follow what we did in pkg/controller/namespace/namespace_controller.go.</p>
-<p>For option 2, follow what we did in kcp in either the garbage collector or quota controllers.</p>
-</li>
-<li>
-<p>Check if any new admission plugins were added to Kubernetes. Decide if we need them in kcp. If so, make a note
-    of them, and we'll add them to kcp below.</p>
-</li>
-<li>
-<p>Push your commits to your fork of Kubernetes in GitHub.</p>
-</li>
-<li>
-<p>Open a pull request for review <strong>against the baseline branch, e.g. kcp-1.26-baseline</strong>, but mark it <code>WIP</code> and maybe
-    even open it in draft mode - you don't want to merge anything just yet.</p>
-</li>
-</ol>
-<h1 id="5-update-kcp-devkcp">5. Update kcp-dev/kcp</h1>
-<ol>
-<li>At this point, you're ready to try to integrate the updates into kcp proper. There is still likely a good
-   amount of work to do, so don't get discouraged if you encounter dozens or hundreds of compilation issues at
-   this point. That's totally normal!</li>
-<li>Update go.mod:</li>
-<li>You'll need to adjust the versions of kcp-dev/apimachinery, client-go, and logicalcluster to match any changes
-      you made in previous steps. Make sure the versions that are in the Kubernetes go.mod match the versions used here.</li>
-<li>If any new staging repositories were added in between the old and new Kubernetes versions, you'll need to add
-      those in the <code>replace</code> directive at the bottom of go.mod. For example, in the 1.31 rebase, we had to add 4:<ul>
-<li>k8s.io/dynamic-resource-allocation</li>
-<li>k8s.io/kms</li>
-<li>k8s.io/sample-cli-plugin</li>
-<li>k8s.io/sample-controller</li>
-</ul>
-</li>
-<li>Go ahead and make a commit here, as the next change we'll be making is to point kcp at your local checkout of
-      Kubernetes.</li>
-<li>Point kcp at your local checkout of Kubernetes:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a># Change KUBE per your local setup
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>KUBE=../../../go/src/k8s.io/kubernetes
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>gsed -i &quot;s,k8s.io/\(.*\) =&gt; .*/kubernetes/.*,k8s.io/\1 =&gt; $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes =&gt; .*,k8s.io/kubernetes =&gt; $KUBE,&quot; go.mod
+<p>Tag the <code>cli</code> module, following the same logic as above for <code>REF</code> and <code>TAG</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 </code></pre></div>
-   !!! warning
-      Don't commit your changes to go.mod/go.sum. They point to your local file system.</li>
-<li>Resolve any conflicts</li>
-<li>Run <code>make modules</code></li>
-<li>Run <code>make codegen</code></li>
-<li>Keep iterating to get all the code to compile</li>
-<li>Get the <code>lint</code> and <code>test</code> make targets to pass</li>
-<li>Get the <code>e2e-*</code> make targets to pass.</li>
+</li>
 </ol>
-<h1 id="6-test-ci">6. Test CI</h1>
+<h3 id="push-the-tags">Push the Tags</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
+</code></pre></div>
+<h2 id="if-its-a-new-minor-version">If it's a New Minor Version</h2>
+<p>If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
+0.8.x version), follow the following steps.</p>
+<p>Otherwise, you can skip to <a href="#generate-release-notes">Generate release notes</a></p>
+<h3 id="create-a-release-branch">Create a Release Branch</h3>
+<p>Set <code>REMOTE</code>, <code>REF</code>, and <code>VERSION</code> as appropriate.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">REF</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">/main&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">VERSION</span><span class="o">=</span><span class="m">1</span>.2
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
+</code></pre></div>
+<h2 id="generate-release-notes">Generate Release Notes</h2>
+<p>To generate release notes from the information in PR descriptions you should use Kubernetes' <a href="https://github.com/kubernetes/release/tree/master/cmd/release-notes">release-notes</a> tool.
+This tool will use the <code>release-notes</code> blocks in PR descriptions and the <code>kind/</code> labels on those PRs to find user-facing changes and categorize them.
+You can run the command below to install the latest version of it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
+</code></pre></div>
+<p>To use <code>release-notes</code> you will need to generate a GitHub API token (Settings -&gt; Developers settings -&gt; Personal access tokens -&gt; Fine-grained tokens). A token with <em>Public Repositories (read-only)</em> repository access and no further permissions is sufficient. Store the token somewhere safe and export it as <code>GITHUB_TOKEN</code> environment variable.</p>
+<p>Then, run run the <code>release-notes</code> tool (set <code>PREV_VERSION</code> to the version released before the one you have just released).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
+</code></pre></div>
+<p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
+<h2 id="revieweditpublish-the-release-in-github">Review/Edit/Publish the Release in GitHub</h2>
+<p>The <a href="https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml">goreleaser</a> workflow automatically creates a draft GitHub release for each tag.</p>
 <ol>
-<li>Undo your changes to go.mod and go.sum that point to your local checkout:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>git checkout -- go.mod go.sum
-</code></pre></div></li>
-<li>Update go.mod to point to your rebase branch in your Kubernetes fork:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>GITHUB_USER=&lt;your username here&gt; BRANCH=kcp-1.31-rebase hack/bump-k8s.sh
-</code></pre></div></li>
-<li>Commit this change with a message such as <code>UNDO: my Kubernetes</code>. We won't be using this commit when it's time to
-   merge, so we make it easy to find.</li>
-<li>Open a pull request in kcp. Wait for CI results. The <code>deps</code> job will always fail at this point because it's
-   pointing to your fork of Kubernetes. This is expected, so don't worry. Your job at this point is to get all the
-   other CI jobs to pass.</li>
+<li>Navigate to the draft release for the tag you just pushed. You'll be able to find it under the <a href="https://github.com/kcp-dev/kcp/releases">releases</a> page.</li>
+<li>If the release notes have been pre-populated, delete them.</li>
+<li>Copy release notes from the <code>CHANGELOG.md</code> file you generated in the previous step.</li>
+<li>Publish the release.</li>
 </ol>
-<h1 id="7-get-it-merged">7. Get it Merged!</h1>
+<h2 id="trigger-documentation-deployment">Trigger Documentation Deployment</h2>
+<p>Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.</p>
 <ol>
-<li>Once CI is passing (except for the <code>deps</code> job, as expected), we're ready to merge!</li>
-<li>Coordinate with another project member - show them the test results, then get them to approve your rebase PR in
-   kcp-dev/kubernetes. Get the PR merged (this is something that currently must be done manually - ask someone with
-   merge rights to do it for you if you need help).</li>
-<li>Rename/create a new branch in kcp-dev/kubernetes based off what you just merged into kcp-1.31-baseline - this is
-   the actual rebase! The new branch could be named something like <code>kcp-1.31</code>.</li>
-<li>Back in your local checkout of kcp, update to the kcp-dev/kubernetes rebase branch:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>BRANCH=kcp-1.31 hack/bump-k8s.sh
-</code></pre></div></li>
-<li>Commit this change. You can either squash this with your previous <code>UNDO</code> commit (reword it so it's not an <code>UNDO</code>
-   any more), or drop the <code>UNDO</code> commit and replace it with this one.</li>
-<li>Check on CI. Hopefully everything is green. If not, keep iterating on it.</li>
+<li>Navigate to the <a href="https://github.com/kcp-dev/kcp/actions/workflows/docs-gen-and-push.yaml">Generate and push docs</a> GitHub Action.</li>
+<li>Hit the "Run forkflow" button, run workflow against <code>release-$VERSION</code>.</li>
+<li>Make sure the triggered workflow ran and deployed a new version of the documentation to <a href="https://docs.kcp.io">docs.kcp.io</a>.</li>
 </ol>
-<h1 id="7-update-the-default-branch-in-kcp-devkubernetes">7. Update the Default Branch in kcp-dev/kubernetes</h1>
+<h2 id="notify">Notify</h2>
 <ol>
-<li>Change it to your new rebase branch, e.g. <code>kcp-1.31</code></li>
+<li>Create an email addressed to kcp-dev@googlegroups.com and kcp-users@googlegroups.com</li>
+<li>Subject: <code>[release] &lt;version&gt;</code> e.g. <code>[release] v0.8.0</code></li>
+<li>In the body, include noteworthy changes</li>
+<li>Provide a link to the release in GitHub for the full release notes</li>
+<li>Post a message in the <a href="https://kubernetes.slack.com/archives/C021U8WSAFK">#kcp-dev</a> Slack channel</li>
 </ol>
 
 
@@ -3434,6 +3616,9 @@ For an example, please see the <a href="https://docs.google.com/spreadsheets/d/1
 
 
 
+
+  
+  
 
 
 
@@ -3506,10 +3691,10 @@ For an example, please see the <a href="https://docs.google.com/spreadsheets/d/1
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
     
   </body>
