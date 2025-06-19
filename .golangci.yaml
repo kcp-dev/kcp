@@ -117,21 +117,11 @@ linters:
       - std-error-handling
     rules:
       - linters:
-          - unparam
-        text: always receives
-      - linters:
-          - gosec
-        path: _test\.go
-        text: 'G112: Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server'
-      - linters:
           - gosec
         path: test/e2e/*
       - linters:
-          - goconst
-        path: (.+)_test\.go
-      - linters:
           - staticcheck
-        text: QF1008
+        text: QF1008 # "could remove embedded field" often impedes readability and clarity
     paths:
       - third_party$
       - builtin$
