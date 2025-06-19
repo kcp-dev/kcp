@@ -92,9 +92,9 @@ func start(shardFlags []string, workDirPath, logDirPath string, quiet bool) erro
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
 	_, err := crypto.MakeSelfSignedCA(
-		filepath.Join(workDirPath, ".kcp", "/client-ca.crt"),
-		filepath.Join(workDirPath, ".kcp", "/client-ca.key"),
-		filepath.Join(workDirPath, ".kcp", "/client-ca-serial.txt"),
+		filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "client-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "client-ca-serial.txt"),
 		"kcp-client-ca",
 		365,
 	)

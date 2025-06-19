@@ -25,7 +25,7 @@ import (
 )
 
 // DefaultTokenAuthFile returns the default auth tokens file.
-var DefaultTokenAuthFile = filepath.Join(kcptestinghelpers.RepositoryDir(), "test/e2e/framework/auth-tokens.csv")
+var DefaultTokenAuthFile = filepath.Join(kcptestinghelpers.RepositoryDir(), "test", "e2e", "framework", "auth-tokens.csv")
 
 func init() {
 	var args []string

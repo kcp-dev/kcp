@@ -80,9 +80,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// create request header CA and client cert for front-proxy to connect to shards
 	requestHeaderCA, _, err := crypto.EnsureCA(
-		filepath.Join(workDirPath, ".kcp/requestheader-ca.crt"),
-		filepath.Join(workDirPath, ".kcp/requestheader-ca.key"),
-		filepath.Join(workDirPath, ".kcp/requestheader-ca-serial.txt"),
+		filepath.Join(workDirPath, ".kcp", "requestheader-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "requestheader-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "requestheader-ca-serial.txt"),
 		"kcp-front-proxy-requestheader-ca",
 		365,
 	)
@@ -90,8 +90,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("failed to create requestheader-ca: %w", err)
 	}
 	_, _, err = requestHeaderCA.EnsureClientCertificate(
-		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.crt"),
-		filepath.Join(workDirPath, ".kcp-front-proxy/requestheader.key"),
+		filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
+		filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
 		&kuser.DefaultInfo{Name: "kcp-front-proxy"},
 		365,
 	)
@@ -101,9 +101,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// create client CA and kcp-admin client cert to connect through front-proxy
 	clientCA, _, err := crypto.EnsureCA(
-		filepath.Join(workDirPath, ".kcp/client-ca.crt"),
-		filepath.Join(workDirPath, ".kcp/client-ca.key"),
-		filepath.Join(workDirPath, ".kcp/client-ca-serial.txt"),
+		filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "client-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "client-ca-serial.txt"),
 		"kcp-client-ca",
 		365,
 	)
@@ -111,8 +111,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("failed to create client-ca: %w", err)
 	}
 	_, _, err = clientCA.EnsureClientCertificate(
-		filepath.Join(workDirPath, ".kcp/kcp-admin.crt"),
-		filepath.Join(workDirPath, ".kcp/kcp-admin.key"),
+		filepath.Join(workDirPath, ".kcp", "kcp-admin.crt"),
+		filepath.Join(workDirPath, ".kcp", "kcp-admin.key"),
 		&kuser.DefaultInfo{
 			Name:   "kcp-admin",
 			Groups: []string{bootstrap.SystemKcpAdminGroup},
@@ -125,8 +125,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// client cert for logical-cluster-admin
 	_, _, err = clientCA.EnsureClientCertificate(
-		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.crt"),
-		filepath.Join(workDirPath, ".kcp/logical-cluster-admin.key"),
+		filepath.Join(workDirPath, ".kcp", "logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp", "logical-cluster-admin.key"),
 		&kuser.DefaultInfo{
 			Name:   "logical-cluster-admin",
 			Groups: []string{bootstrap.SystemLogicalClusterAdmin},
@@ -139,8 +139,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// client cert for external-logical-cluster-admin
 	_, _, err = clientCA.EnsureClientCertificate(
-		filepath.Join(workDirPath, ".kcp/external-logical-cluster-admin.crt"),
-		filepath.Join(workDirPath, ".kcp/external-logical-cluster-admin.key"),
+		filepath.Join(workDirPath, ".kcp", "external-logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp", "external-logical-cluster-admin.key"),
 		&kuser.DefaultInfo{
 			Name:   "external-logical-cluster-admin",
 			Groups: []string{bootstrap.SystemExternalLogicalClusterAdmin},
@@ -156,8 +156,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// for now we will use the privileged system group to bypass the authz stack
 	// create privileged system user client cert to connect to shards
 	_, _, err = clientCA.EnsureClientCertificate(
-		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.crt"),
-		filepath.Join(workDirPath, ".kcp-front-proxy/shard-admin.key"),
+		filepath.Join(workDirPath, ".kcp-front-proxy", "shard-admin.crt"),
+		filepath.Join(workDirPath, ".kcp-front-proxy", "shard-admin.key"),
 		&kuser.DefaultInfo{
 			Name:   "shard-admin",
 			Groups: []string{kuser.SystemPrivilegedGroup},
@@ -170,9 +170,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// create server CA to be used to sign shard serving certs
 	servingCA, _, err := crypto.EnsureCA(
-		filepath.Join(workDirPath, ".kcp/serving-ca.crt"),
-		filepath.Join(workDirPath, ".kcp/serving-ca.key"),
-		filepath.Join(workDirPath, ".kcp/serving-ca-serial.txt"),
+		filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "serving-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "serving-ca-serial.txt"),
 		"kcp-serving-ca",
 		365,
 	)
@@ -182,9 +182,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// create service account signing and verification key
 	if _, _, err := crypto.EnsureCA(
-		filepath.Join(workDirPath, ".kcp/service-account.crt"),
-		filepath.Join(workDirPath, ".kcp/service-account.key"),
-		filepath.Join(workDirPath, ".kcp/service-account-serial.txt"),
+		filepath.Join(workDirPath, ".kcp", "service-account.crt"),
+		filepath.Join(workDirPath, ".kcp", "service-account.key"),
+		filepath.Join(workDirPath, ".kcp", "service-account-serial.txt"),
 		"kcp-service-account-signing-ca",
 		365,
 	); err != nil {
@@ -294,7 +294,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// Label region of shards
-	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp/admin.kubeconfig"), "base")
+	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
 	if err != nil {
 		return err
 	}

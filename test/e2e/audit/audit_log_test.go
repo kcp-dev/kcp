@@ -62,7 +62,7 @@ func TestAuditLogs(t *testing.T) {
 	_, err = workspaceKubeClient.Cluster(wsPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "Error listing configmaps")
 
-	auditLogPath := filepath.Join(artifactDir, "kcp/main/kcp.audit")
+	auditLogPath := filepath.Join(artifactDir, "kcp", "main", "kcp.audit")
 	t.Logf("Reading audit log at %s", auditLogPath)
 	data, err := os.ReadFile(auditLogPath)
 	require.NoError(t, err, "Error reading auditfile")
