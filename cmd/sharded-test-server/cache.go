@@ -136,7 +136,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 				},
 				CurrentContext: "cache",
 			}
-			if err = clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath); err != nil {
+			if err := clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath); err != nil {
 				return nil, "", err
 			}
 		}
