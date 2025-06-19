@@ -95,7 +95,7 @@ var (
 	// 14s as etcd sets a client request timeout of up to 7 seconds when
 	// shutting down the server and then starts shutting down everything
 	// else.
-	// A shorter timestan d would lead to false positives in the tests.
+	// A shorter timespan d would lead to false positives in the tests.
 	WaitTime = 14 * time.Second
 )
 

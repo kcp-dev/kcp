@@ -41,20 +41,20 @@ linters:
   settings:
     gocritic:
       disabled-checks:
-        # - appendAssign
+        - appendAssign
         - dupImport # https://github.com/go-critic/go-critic/issues/845
         - ifElseChain
         - octalLiteral
         - typeDefFirst
         - unnamedResult
         - whyNoLint
-        # - unnecessaryBlock
+        - unnecessaryBlock
         - rangeValCopy
         - hugeParam
         - commentedOutCode
         - emptyStringTest
         - singleCaseSwitch
-        # - nestingReduce
+        - nestingReduce
         - tooManyResultsChecker
       enabled-tags:
         - diagnostic
@@ -78,7 +78,7 @@ linters:
       require-specific: true
       allow-unused: false
     revive:
-    # make sure error-strings issues actually surface (default confidence is 0.8)
+      # make sure error-strings issues actually surface (default confidence is 0.8)
       confidence: 0.6
       rules:
         - name: context-keys-type
