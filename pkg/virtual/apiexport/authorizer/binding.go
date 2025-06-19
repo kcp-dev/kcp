@@ -84,7 +84,7 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 	}
 
 	if targetCluster.Wildcard || attr.GetResource() == "" {
-		// if the target is the wildcard cluster or it's a non-resurce URL request,
+		// if the target is the wildcard cluster or it's a non-resource URL request,
 		// we can skip checking the APIBinding in the target cluster.
 		return a.delegate.Authorize(ctx, attr)
 	}

@@ -48,7 +48,7 @@ func DefaultTransportWrapper(rt http.RoundTripper) http.RoundTripper {
 
 	// This function may be called from different goroutines on the same
 	// `rt` at the same time, causing a data race.
-	// To preven this race .DialContext is swapped atomically.
+	// To prevent this race .DialContext is swapped atomically.
 	defaultDialContext := DefaultDialContext()
 	trDialContext := unsafe.Pointer(&tr.DialContext)
 	atomic.StorePointer(&trDialContext, unsafe.Pointer(&defaultDialContext))

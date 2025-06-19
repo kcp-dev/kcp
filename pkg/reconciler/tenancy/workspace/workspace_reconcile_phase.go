@@ -67,7 +67,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 				if maxDuration := time.Minute * 10; after > maxDuration {
 					after = maxDuration
 				}
-				logger.V(3).Info("LogicalCluster still has initializers, requeueing", "initializers", initializers, "after", after)
+				logger.V(3).Info("LogicalCluster still has initializers, requeuing", "initializers", initializers, "after", after)
 				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
 				r.requeueAfter(workspace, after)
 				return reconcileStatusContinue, nil
@@ -106,9 +106,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 					cond := conditions.Get(logicalCluster, tenancyv1alpha1.WorkspaceContentDeleted)
 					if cond != nil {
 						conditions.Set(workspace, cond)
-						logger.V(3).Info("LogicalCluster is still deleting, requeueing", "reason", cond.Reason, "message", cond.Message, "after", after)
+						logger.V(3).Info("LogicalCluster is still deleting, requeuing", "reason", cond.Reason, "message", cond.Message, "after", after)
 					} else {
-						logger.V(3).Info("LogicalCluster is still deleting, requeueing", "after", after)
+						logger.V(3).Info("LogicalCluster is still deleting, requeuing", "after", after)
 					}
 					r.requeueAfter(workspace, after)
 					return reconcileStatusContinue, nil

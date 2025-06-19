@@ -87,7 +87,7 @@ func TestClusterRESTMapping(t *testing.T) {
 			expectedMappingsByCluster: map[logicalcluster.Name]*DefaultRESTMapper{},
 		},
 		// Removing and adding the same entry should resolve to adding that entry.
-		// This case can be triggered by an unrelated chage on the watched resource.
+		// This case can be triggered by an unrelated change on the watched resource.
 		{
 			dmapper: NewDynamicRESTMapper(nil),
 			applyPairs: map[logicalcluster.Name]applyPair{

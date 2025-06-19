@@ -52,7 +52,7 @@ const (
 	// LogicalClusterName is the name of the LogicalCluster singleton.
 	LogicalClusterName = "cluster"
 
-	// LogicalClusterFinalizer attached to the owner of thw LogicalCluster resource (usually a Workspace) so that we can control
+	// LogicalClusterFinalizer attached to the owner of the LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources.
 	LogicalClusterFinalizer = "core.kcp.io/logicalcluster"
 )

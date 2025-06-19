@@ -38,7 +38,7 @@ type privilege int
 const (
 	unprivileged privilege = iota
 	authenticated
-	priviledged
+	privileged
 	superPrivileged
 )
 
@@ -47,10 +47,10 @@ var (
 	// cannot impersonate higher privilege levels.
 	specialGroups = map[string]privilege{
 		authorizationbootstrap.SystemMastersGroup:                superPrivileged,
-		authorizationbootstrap.SystemLogicalClusterAdmin:         priviledged,
-		authorizationbootstrap.SystemExternalLogicalClusterAdmin: priviledged,
-		authorizationbootstrap.SystemKcpWorkspaceBootstrapper:    priviledged,
-		authorizationbootstrap.SystemKcpAdminGroup:               priviledged,
+		authorizationbootstrap.SystemLogicalClusterAdmin:         privileged,
+		authorizationbootstrap.SystemExternalLogicalClusterAdmin: privileged,
+		authorizationbootstrap.SystemKcpWorkspaceBootstrapper:    privileged,
+		authorizationbootstrap.SystemKcpAdminGroup:               privileged,
 		user.AllAuthenticated:                                    authenticated,
 	}
 )

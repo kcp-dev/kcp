@@ -139,7 +139,7 @@ func WithLockedResources(crds []*apiextensionsv1.CustomResourceDefinition, now t
 // unlockResource unlocks the resource for the given binding. It updates the
 // LogicalCluster with the new binding information IFF at least one resource
 // was unlocked.
-func unlockResource(ctx context.Context, kcpClusterCLient kcpclientset.ClusterInterface, lc *corev1alpha1.LogicalCluster, grs []schema.GroupResource, binding Lock) error { //nolint:unused // will be used eventually.
+func unlockResource(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, lc *corev1alpha1.LogicalCluster, grs []schema.GroupResource, binding Lock) error { //nolint:unused // will be used eventually.
 	v, found := lc.Annotations[ResourceBindingsAnnotationKey]
 	if !found {
 		return fmt.Errorf("%s annotation not found, migration has to happen first", ResourceBindingsAnnotationKey)
@@ -168,7 +168,7 @@ func unlockResource(ctx context.Context, kcpClusterCLient kcpclientset.ClusterIn
 	}
 	lc.Annotations[ResourceBindingsAnnotationKey] = string(bs)
 
-	_, err = kcpClusterCLient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(lc).Path()).Update(ctx, lc, metav1.UpdateOptions{})
+	_, err = kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(lc).Path()).Update(ctx, lc, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

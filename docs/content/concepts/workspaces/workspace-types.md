@@ -133,8 +133,8 @@ kcp startup:
 - Workspace CRD
 - WorkspaceType CRD
 - Shard CRD
-- Partion CRD
-- PartionSet CRD
+- Partition CRD
+- PartitionSet CRD
 
 The root workspace is the only one that holds `Shard` objects. Shards
 are used to schedule a new Workspace to, i.e. to select in which etcd the
@@ -153,7 +153,7 @@ that are scoped to the local shard (e.g. `lease` objects for kcp internal contro
 leader election is enabled). It is accessible via `/clusters/system:admin`.
 
 # Workspace Type Extensions and Constraints
-kcp offers extensions and constraints that enable you inherit functionality from other 
+kcp offers extensions and constraints that enable you inherit functionality from other
 workspace types and create custom workspace hierarchies for your organizational structure.
 
 A `WorkspaceType` can extend one or more other `WorkspaceTypes` using the `spec.extend.with`
@@ -188,7 +188,7 @@ spec:
     - name: standard
       path: root:base
 ```
-## Workspace Constraint Mechanisms 
+## Workspace Constraint Mechanisms
 KCP provides two primary constraint mechanisms for workspace types:
 * `limitAllowedChildren`: Controls which workspace types can be created as children.
 * `limitAllowedParents`: Controls which workspace types can serve as parents.

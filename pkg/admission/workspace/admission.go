@@ -106,7 +106,7 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 			ws.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = userInfo
 		}
 
-		// copy required groups from LogicalCluster to new child-Worksapce
+		// copy required groups from LogicalCluster to new child-workspace
 		if _, found := ws.Annotations[authorization.RequiredGroupsAnnotationKey]; !found || !isSystemPrivileged {
 			logicalCluster, err := o.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			if err != nil {

@@ -17,7 +17,7 @@ limitations under the License.
 package apis
 
 // GroupResource is a simple interface to get the group and resource of an object
-// Version specific group verision object in the apiexport API.
+// Version specific group version object in the apiexport API.
 type GroupResource interface {
 	GetGroup() string
 	GetResource() string

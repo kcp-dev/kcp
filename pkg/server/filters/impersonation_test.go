@@ -80,7 +80,7 @@ func TestValidImpersonation(t *testing.T) {
 			expectedResult:  false,
 		},
 		{
-			name:            "system:autenticated can impersonate itself",
+			name:            "system:authenticated can impersonate itself",
 			userGroups:      []string{systemUserGroup, user.AllAuthenticated},
 			requestedGroups: []string{user.AllAuthenticated},
 			expectedResult:  true,
@@ -116,7 +116,7 @@ func TestValidImpersonation(t *testing.T) {
 			expectedResult:  true,
 		},
 		{
-			name:            "user is in requesting 'system:authenticated' group with priviledged group",
+			name:            "user is in requesting 'system:authenticated' group with privileged group",
 			userGroups:      []string{"bob", authorizationbootstrap.SystemMastersGroup},
 			requestedGroups: []string{user.AllAuthenticated},
 			expectedResult:  true,

@@ -25,7 +25,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
-// finalizer is a reconciler that ensures the finalizer is present on the published resource and obejct is marked as deleting
+// finalizer is a reconciler that ensures the finalizer is present on the published resource and object is marked as deleting
 // If is done deleting - it removes the finalizer.
 type finalizer struct{}
 

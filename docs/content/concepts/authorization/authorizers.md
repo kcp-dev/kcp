@@ -138,7 +138,7 @@ A service-account defined in a different workspace is NOT given access to it.
 
 #### System CRD Authorizer
 
-This small authorizer simply prevents updates to the `status` subresource on APIExports or APIBindings. Note that this authorizer does not validate changes to the CustomResourceDefitions themselves, but to objects from those CRDs instead.
+This small authorizer simply prevents updates to the `status` subresource on APIExports or APIBindings. Note that this authorizer does not validate changes to the CustomResourceDefinitions themselves, but to objects from those CRDs instead.
 
 #### Maximal Permission Policy Authorizer
 

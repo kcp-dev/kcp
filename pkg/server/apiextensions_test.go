@@ -122,11 +122,11 @@ func TestDecorateCRDWithBinding(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(newCrd.Annotations, tt.expectedAnnotation) {
-				t.Errorf("expect annotion %v, got %v", tt.expectedAnnotation, newCrd.Annotations)
+				t.Errorf("expect annotation %v, got %v", tt.expectedAnnotation, newCrd.Annotations)
 			}
 
 			if !newCrd.DeletionTimestamp.Equal(tt.deleteTime) {
-				t.Errorf("expect deletetime %v, got %v", tt.deleteTime, newCrd.DeletionTimestamp)
+				t.Errorf("expect deletion timestamp %v, got %v", tt.deleteTime, newCrd.DeletionTimestamp)
 			}
 		})
 	}

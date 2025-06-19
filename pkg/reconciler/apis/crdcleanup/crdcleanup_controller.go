@@ -231,7 +231,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	if age < AgeThreshold {
 		duration := AgeThreshold - age
-		logger.V(4).Info("Requeueing until CRD is older to give some time for the bindings to complete initialization", "duration", duration)
+		logger.V(4).Info("Requeuing until CRD is older to give some time for the bindings to complete initialization", "duration", duration)
 		c.queue.AddAfter(key, duration)
 		return nil
 	}

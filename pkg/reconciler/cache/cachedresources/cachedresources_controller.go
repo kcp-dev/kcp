@@ -132,7 +132,7 @@ func NewController(
 			return err
 		},
 
-		conrollerRegistry: newRegistry(),
+		controllerRegistry: newRegistry(),
 	}
 
 	_, _ = cachedResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -174,7 +174,7 @@ type Controller struct {
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
 
-	conrollerRegistry *controllerRegistry
+	controllerRegistry *controllerRegistry
 
 	started bool
 }
