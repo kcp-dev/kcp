@@ -3733,7 +3733,7 @@ parent workspace.</p>
 <p>Service accounts declared within a workspace don't have access to initializing workspaces.</p>
 </div>
 <h4 id="system-crd-authorizer">System CRD Authorizer</h4>
-<p>This small authorizer simply prevents updates to the <code>status</code> subresource on APIExports or APIBindings. Note that this authorizer does not validate changes to the CustomResourceDefitions themselves, but to objects from those CRDs instead.</p>
+<p>This small authorizer simply prevents updates to the <code>status</code> subresource on APIExports or APIBindings. Note that this authorizer does not validate changes to the CustomResourceDefinitions themselves, but to objects from those CRDs instead.</p>
 <h4 id="maximal-permission-policy-authorizer">Maximal Permission Policy Authorizer</h4>
 <p>If the requested resource type is part of an API binding, then this authorizer verifies that
 the request is not exceeding the maximum permission policy of the related API export.

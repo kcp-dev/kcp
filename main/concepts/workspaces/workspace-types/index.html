@@ -3618,8 +3618,8 @@ kcp startup:</p>
 <li>Workspace CRD</li>
 <li>WorkspaceType CRD</li>
 <li>Shard CRD</li>
-<li>Partion CRD</li>
-<li>PartionSet CRD</li>
+<li>Partition CRD</li>
+<li>PartitionSet CRD</li>
 </ul>
 <p>The root workspace is the only one that holds <code>Shard</code> objects. Shards
 are used to schedule a new Workspace to, i.e. to select in which etcd the
@@ -3633,7 +3633,7 @@ that the system workspace exists.</p>
 that are scoped to the local shard (e.g. <code>lease</code> objects for kcp internal controllers if
 leader election is enabled). It is accessible via <code>/clusters/system:admin</code>.</p>
 <h1 id="workspace-type-extensions-and-constraints">Workspace Type Extensions and Constraints</h1>
-<p>kcp offers extensions and constraints that enable you inherit functionality from other 
+<p>kcp offers extensions and constraints that enable you inherit functionality from other
 workspace types and create custom workspace hierarchies for your organizational structure.</p>
 <p>A <code>WorkspaceType</code> can extend one or more other <code>WorkspaceTypes</code> using the <code>spec.extend.with</code>
 field.</p>
