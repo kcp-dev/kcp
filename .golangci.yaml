@@ -14,6 +14,7 @@ linters:
     - durationcheck
     - errcheck
     - errchkjson
+    - fatcontext
     - gocritic
     - godot
     - goprintffuncname
@@ -21,6 +22,7 @@ linters:
     - govet
     - importas
     - ineffassign
+    - intrange
     - misspell
     - nilerr
     - noctx
@@ -41,17 +43,11 @@ linters:
       disabled-checks:
         - appendAssign
         - dupImport # https://github.com/go-critic/go-critic/issues/845
-        - evalOrder
         - ifElseChain
         - octalLiteral
-        - regexpSimplify
-        - sloppyReassign
-        - truncateCmp
         - typeDefFirst
         - unnamedResult
-        - unnecessaryDefer
         - whyNoLint
-        - wrapperFunc
         - unnecessaryBlock
         - rangeValCopy
         - hugeParam
@@ -59,7 +55,6 @@ linters:
         - emptyStringTest
         - singleCaseSwitch
         - nestingReduce
-        - filepathJoin
         - tooManyResultsChecker
       enabled-tags:
         - diagnostic
@@ -83,7 +78,7 @@ linters:
       require-specific: true
       allow-unused: false
     revive:
-    # make sure error-strings issues actually surface (default confidence is 0.8)
+      # make sure error-strings issues actually surface (default confidence is 0.8)
       confidence: 0.6
       rules:
         - name: context-keys-type
@@ -122,21 +117,11 @@ linters:
       - std-error-handling
     rules:
       - linters:
-          - unparam
-        text: always receives
-      - linters:
-          - gosec
-        path: _test\.go
-        text: 'G112: Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server'
-      - linters:
           - gosec
         path: test/e2e/*
       - linters:
-          - goconst
-        path: (.+)_test\.go
-      - linters:
           - staticcheck
-        text: QF1008
+        text: QF1008 # "could remove embedded field" often impedes readability and clarity
     paths:
       - third_party$
       - builtin$

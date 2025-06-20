@@ -70,7 +70,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 
 	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
 	// and fill its quota to capacity, subsequent workspaces have independent quota.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("quota-%d", i))
 
 		ws1Quota := &corev1.ResourceQuota{
@@ -119,7 +119,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// Test multiple workspaces in parallel
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		t.Run(fmt.Sprintf("tc%d", i), func(t *testing.T) {
 			t.Parallel()
 
@@ -350,7 +350,7 @@ func TestClusterScopedQuota(t *testing.T) {
 
 	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
 	// and fill its quota to capacity, subsequent workspaces have independent quota.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("quota-%d", i))
 
 		const adminNamespace = "admin"

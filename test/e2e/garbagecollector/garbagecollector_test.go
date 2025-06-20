@@ -153,7 +153,7 @@ func TestGarbageCollectorTypesFromBinding(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test multiple workspaces in parallel
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		t.Run(fmt.Sprintf("tc%d", i), func(t *testing.T) {
 			t.Parallel()
 

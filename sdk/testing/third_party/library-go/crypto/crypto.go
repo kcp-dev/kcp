@@ -824,10 +824,10 @@ func (ca *CA) MakeClientCertificate(certFile, keyFile string, u user.Info, expir
 		return nil, err
 	}
 
-	if err = os.WriteFile(certFile, certData, os.FileMode(0644)); err != nil {
+	if err := os.WriteFile(certFile, certData, os.FileMode(0644)); err != nil {
 		return nil, err
 	}
-	if err = os.WriteFile(keyFile, keyData, os.FileMode(0600)); err != nil {
+	if err := os.WriteFile(keyFile, keyData, os.FileMode(0600)); err != nil {
 		return nil, err
 	}
 

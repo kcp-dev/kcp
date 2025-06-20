@@ -178,7 +178,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	}
 	c.dynamicFrontProxyClient = dynamicFrontProxyClient
 
-	for i := 0; i < numThreads; i++ {
+	for range numThreads {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
 	}
 

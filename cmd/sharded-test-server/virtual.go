@@ -65,32 +65,33 @@ type VirtualWorkspace struct {
 
 func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath string, clientCA *crypto.CA, cacheServerConfigPath string) (*VirtualWorkspace, error) {
 	logger := klog.FromContext(ctx)
+	wvDir := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", index))
 
 	// create serving cert
-	hostnames := sets.New[string]("localhost", hostIP)
-	logger.Info("Creating vw server serving cert", "index", index, "hostnames", sets.List[string](hostnames))
+	hostnames := sets.New("localhost", hostIP)
+	logger.Info("Creating vw server serving cert", "index", index, "hostnames", sets.List(hostnames))
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	servingKeyFile := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/apiserver.key", index))
-	servingCertFile := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/apiserver.crt", index))
+	servingKeyFile := filepath.Join(wvDir, "apiserver.key")
+	servingCertFile := filepath.Join(wvDir, "apiserver.crt")
 	if err := cert.WriteCertConfigFile(servingCertFile, servingKeyFile); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
 	// create client cert used to talk to kcp
-	vwClientCert := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/shard-client-cert.crt", index))
-	vwClientCertKey := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/shard-client-cert.key", index))
+	vwClientCert := filepath.Join(wvDir, "shard-client-cert.crt")
+	vwClientCertKey := filepath.Join(wvDir, "shard-client-cert.key")
 	shardUser := &user.DefaultInfo{Name: fmt.Sprintf("kcp-vw-%d", index), Groups: []string{"system:masters"}}
 	_, err = clientCA.MakeClientCertificate(vwClientCert, vwClientCertKey, shardUser, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vw client cert: %w", err)
 	}
 
-	servingCAPath, err := filepath.Abs(filepath.Join(workDirPath, ".kcp/serving-ca.crt"))
+	servingCAPath, err := filepath.Abs(filepath.Join(workDirPath, ".kcp", "serving-ca.crt"))
 	if err != nil {
-		return nil, fmt.Errorf("error getting absolute path for %q: %w", filepath.Join(workDirPath, ".kcp/serving-ca.crt"), err)
+		return nil, fmt.Errorf("error getting absolute path for %q: %w", filepath.Join(workDirPath, ".kcp", "serving-ca.crt"), err)
 	}
 	vwClientCertPath, err := filepath.Abs(vwClientCert)
 	if err != nil {
@@ -122,7 +123,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		},
 		CurrentContext: "shard",
 	}
-	kubeconfigPath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.kubeconfig", index))
+	kubeconfigPath := filepath.Join(wvDir, "virtualworkspace.kubeconfig")
 	err = clientcmd.WriteToFile(virtualWorkspaceKubeConfig, kubeconfigPath)
 	if err != nil {
 		fmt.Printf("failed to write vw kubeconfig: %v", err)
@@ -137,7 +138,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 	if err != nil {
 		return nil, err
 	}
-	auditPolicyFile := filepath.Join(workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", index), "audit-policy.yaml")
+	auditPolicyFile := filepath.Join(wvDir, "audit-policy.yaml")
 	if err := os.WriteFile(auditPolicyFile, bs, 0644); err != nil {
 		return nil, err
 	}
@@ -174,13 +175,14 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 func (v *VirtualWorkspace) start(ctx context.Context) error {
 	prefix := fmt.Sprintf("VW-%d", v.index)
 	yellow := color.New(color.BgYellow, color.FgHiWhite).SprintFunc()
+	wvDir := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", v.index))
 	out := lineprefix.New(
 		lineprefix.Prefix(yellow(prefix)),
 		lineprefix.Color(color.New(color.FgHiYellow)),
 	)
 
-	logFilePath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.log", v.index))
-	auditFilePath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", v.index), "audit.log")
+	logFilePath := filepath.Join(wvDir, "virtualworkspace.log")
+	auditFilePath := filepath.Join(wvDir, "audit.log")
 	if v.logDirPath != "" {
 		logFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d.log", v.index))
 		auditFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d-audit.log", v.index))
@@ -193,7 +195,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		"--authentication-skip-lookup",
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
-		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(v.workDirPath, ".kcp/requestheader-ca.crt")),
+		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(v.workDirPath, ".kcp", "requestheader-ca.crt")),
 		"--v=4",
 		"--audit-log-path", auditFilePath,
 	)
@@ -233,7 +235,7 @@ func (v *VirtualWorkspace) waitForReady(ctx context.Context) (<-chan error, erro
 	logger.WithValues("virtual-workspaces", v.index).Info("Waiting for virtual-workspaces /readyz to succeed")
 
 	vwHost := fmt.Sprintf("https://%s", net.JoinHostPort("localhost", virtualWorkspacePort(v.index)))
-	kubeconfigPath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d/virtualworkspace.kubeconfig", v.index))
+	kubeconfigPath := filepath.Join(v.workDirPath, fmt.Sprintf(".kcp-virtual-workspaces-%d", v.index), "virtualworkspace.kubeconfig")
 
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		select {

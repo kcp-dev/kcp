@@ -66,8 +66,8 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 			}
 
 			logger = logger.WithValues("gvr", gvr.String())
-			ctx = klog.NewContext(ctx, logger)
-			deletionMetadata, err := c.deleteAllCR(ctx, logicalcluster.From(apibinding), gvr)
+			versionCtx := klog.NewContext(ctx, logger)
+			deletionMetadata, err := c.deleteAllCR(versionCtx, logicalcluster.From(apibinding), gvr)
 			if err != nil {
 				deleteContentErrs = append(deleteContentErrs, err)
 			}

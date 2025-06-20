@@ -154,7 +154,7 @@ func (c *Controller) Start(ctx context.Context, workers int) {
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
 	c.started = true

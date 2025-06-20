@@ -29,7 +29,7 @@ import (
 	"k8s.io/component-base/term"
 )
 
-var reEmptyLine = regexp.MustCompile(`(?m)([\w[:punct:]])[ ]*\n([\w[:punct:]])`)
+var reEmptyLine = regexp.MustCompile(`(?m)([\w[:punct:]]) *\n([\w[:punct:]])`)
 
 func Doc(s string) string {
 	s = heredoc.Doc(s)

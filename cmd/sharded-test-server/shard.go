@@ -34,15 +34,17 @@ import (
 
 func newShard(ctx context.Context, n int, args []string, standaloneVW bool, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string, clientCA *crypto.CA) (*shard.Shard, error) {
 	logger := klog.FromContext(ctx).WithValues("shard", n)
+	kcpDir := filepath.Join(workDirPath, ".kcp")
+	shardDir := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))
 
 	// create serving cert
-	hostnames := sets.New[string]("localhost", hostIP)
+	hostnames := sets.New("localhost", hostIP)
 	logger.WithValues("hostnames", hostnames).Info("creating shard server serving cert with hostnames")
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n)), filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))); err != nil {
+	if err := cert.WriteCertConfigFile(filepath.Join(shardDir, "apiserver.crt"), filepath.Join(shardDir, "apiserver.key")); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
@@ -51,12 +53,12 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
-	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, ".kcp/apiserver.crt"), filepath.Join(workDirPath, ".kcp/apiserver.key")); err != nil {
+	if err := cert.WriteCertConfigFile(filepath.Join(kcpDir, "apiserver.crt"), filepath.Join(kcpDir, "apiserver.key")); err != nil {
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
-	shardClientCert := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/shard-client-cert.crt", n))
-	shardClientCertKey := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/shard-client-cert.key", n))
+	shardClientCert := filepath.Join(shardDir, "shard-client-cert.crt")
+	shardClientCertKey := filepath.Join(shardDir, "shard-client-cert.key")
 	shardUser := &user.DefaultInfo{Name: fmt.Sprintf("kcp-shard-%d", n), Groups: []string{"system:masters"}}
 	_, err = clientCA.MakeClientCertificate(shardClientCert, shardClientCertKey, shardUser, 365)
 	if err != nil {
@@ -64,8 +66,8 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		os.Exit(1)
 	}
 
-	logFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "kcp.log")
-	auditFilePath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n), "audit.log")
+	logFilePath := filepath.Join(shardDir, "kcp.log")
+	auditFilePath := filepath.Join(shardDir, "audit.log")
 	if logDirPath != "" {
 		logFilePath = filepath.Join(logDirPath, fmt.Sprintf("kcp-%d.log", n))
 		auditFilePath = filepath.Join(logDirPath, fmt.Sprintf("audit-%d.log", n))
@@ -74,7 +76,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 	if n > 0 {
 		args = append(args,
 			fmt.Sprintf("--shard-name=shard-%d", n),
-			fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0/admin.kubeconfig")),
+			fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0", "admin.kubeconfig")),
 			fmt.Sprintf("--embedded-etcd-client-port=%d", embeddedEtcdClientPort(n)),
 			fmt.Sprintf("--embedded-etcd-peer-port=%d", embeddedEtcdPeerPort(n)),
 		)
@@ -82,26 +84,26 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))),
-		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp/client-ca.crt")),
-		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(workDirPath, ".kcp/requestheader-ca.crt")),
+		fmt.Sprintf("--client-ca-file=%s", filepath.Join(kcpDir, "client-ca.crt")),
+		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(kcpDir, "requestheader-ca.crt")),
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
 		"--requestheader-extra-headers-prefix=X-Remote-Extra-",
-		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.crt")),
-		fmt.Sprintf("--service-account-private-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.key")),
-		fmt.Sprintf("--service-account-signing-key-file=%s", filepath.Join(workDirPath, ".kcp/service-account.key")),
+		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(kcpDir, "service-account.crt")),
+		fmt.Sprintf("--service-account-private-key-file=%s", filepath.Join(kcpDir, "service-account.key")),
+		fmt.Sprintf("--service-account-signing-key-file=%s", filepath.Join(kcpDir, "service-account.key")),
 		// TODO(sttts): remove this flag as soon as we have service account token lookup configured.
 		"--service-account-lookup=false",
 		"--audit-log-path", auditFilePath,
 		fmt.Sprintf("--shard-external-url=https://%s:%d", hostIP, 6443),
-		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.crt", n))),
-		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d/apiserver.key", n))),
+		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(shardDir, "apiserver.crt")),
+		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(shardDir, "apiserver.key")),
 		fmt.Sprintf("--secure-port=%d", 6444+n),
-		fmt.Sprintf("--logical-cluster-admin-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/logical-cluster-admin.kubeconfig")),
-		fmt.Sprintf("--external-logical-cluster-admin-kubeconfig=%s", filepath.Join(workDirPath, ".kcp/external-logical-cluster-admin.kubeconfig")),
+		fmt.Sprintf("--logical-cluster-admin-kubeconfig=%s", filepath.Join(kcpDir, "logical-cluster-admin.kubeconfig")),
+		fmt.Sprintf("--external-logical-cluster-admin-kubeconfig=%s", filepath.Join(kcpDir, "external-logical-cluster-admin.kubeconfig")),
 		fmt.Sprintf("--shard-client-cert-file=%s", shardClientCert),
 		fmt.Sprintf("--shard-client-key-file=%s", shardClientCertKey),
-		fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(workDirPath, ".kcp", "serving-ca.crt")),
+		fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(kcpDir, "serving-ca.crt")),
 		"--service-account-lookup=false",
 	)
 	if len(cacheServerConfigPath) > 0 {

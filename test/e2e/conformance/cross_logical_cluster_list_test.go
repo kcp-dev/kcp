@@ -289,7 +289,7 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
 
 		configMapName := fmt.Sprintf("test-cm-%d", i)

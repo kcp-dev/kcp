@@ -111,7 +111,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 			},
 		},
 	}
-	apiExportCreated, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	workspaceType := tenancyv1alpha1.WorkspaceType{
@@ -195,7 +195,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 
 	updatedAPIExport := currentAPIExport.DeepCopy()
 
-	updatedAPIExport.Spec.Resources = append(apiExportCreated.Spec.Resources, apisv1alpha2.ResourceSchema{
+	updatedAPIExport.Spec.Resources = append(updatedAPIExport.Spec.Resources, apisv1alpha2.ResourceSchema{
 		Group:  "gateway.networking.k8s.io",
 		Name:   "tlsroutes",
 		Schema: "latest.tlsroutes.gateway.networking.k8s.io",
