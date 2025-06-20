@@ -33,11 +33,11 @@ import (
 )
 
 func dialerWithDefaultOptions() DialContext {
-	nd := &net.Dialer{
+	dialer := &net.Dialer{
 		// TCP_USER_TIMEOUT does affect the behaviour of connect() which is controlled by this field so we set it to the same value
 		Timeout: 25 * time.Second,
 	}
-	return wrapDialContext(nd.DialContext)
+	return wrapDialContext(dialer.DialContext)
 }
 
 func wrapDialContext(dc DialContext) DialContext {

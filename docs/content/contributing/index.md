@@ -8,7 +8,7 @@ Please read the following guide if you're interested in contributing to kcp.
 ## Code of Conduct
 
 Please be aware that this project is governed by the [CNCF Code of Conduct](https://github.com/kcp-dev/kcp/blob/main/code-of-conduct.md),
-which boils down to "let's be excelent to each other". Code of Conduct violations can be reported to the
+which boils down to "let's be excellent to each other". Code of Conduct violations can be reported to the
 [CNCF Code of Conduct Committee](https://www.cncf.io/conduct/committee/), which can be reached via [conduct@cncf.io](mailto:conduct@cncf.io).
 
 ## Certificate of Origin
@@ -82,4 +82,4 @@ The `kcp` project uses `OWNERS` files to denote the collaborators who can assist
 are two roles: reviewer and approver.  Merging a PR requires sign off from both a reviewer and an approver.
 
 In general, maintainers strive to pick up PRs for review when they can. If you feel like your PR has been missed,
-do not hesistate to ping maintainers directly or ask on the project communication channels about your PR.
+do not hesitate to ping maintainers directly or ask on the project communication channels about your PR.

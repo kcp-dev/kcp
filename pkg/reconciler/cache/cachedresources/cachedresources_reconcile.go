@@ -89,7 +89,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			cacheKcpInformers:              c.cacheKcpInformers,
 			discoveringDynamicKcpInformers: c.discoveringDynamicKcpInformers,
 			callback:                       c.enqueue,
-			controllerRegistry:             c.conrollerRegistry,
+			controllerRegistry:             c.controllerRegistry,
 		},
 	}
 

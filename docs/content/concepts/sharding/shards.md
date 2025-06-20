@@ -21,13 +21,13 @@ cluster holds administrational objects. Among them are shard objects.
 The set of shards in a kcp installation is defined by `Shard` objects in
 `core.kcp.io/v1alpha1`.
 
-A shard object specifies the network addresses, one for external access (usually 
+A shard object specifies the network addresses, one for external access (usually
 some worldwide load balancer) and one for direct access (shard to shard).
 
 ## Logical Clusters and Workspace Paths
 
 Logical clusters are defined through the existence of a `LogicalCluster` object
-"in themselves", similar to a `.` directory defining the existence of a directory 
+"in themselves", similar to a `.` directory defining the existence of a directory
 in Unix.
 
 Every logical cluster name `name` is a *logical cluster path*. Every logical
@@ -54,8 +54,8 @@ for the parent (`home` in this case) to exist.
 ## Front Proxy
 
 A front-proxy is aware of all logical clusters, their shard they live on,
-their canonical paths and all `Workspaces`s. Non canonical paths can be 
-reconstructed from the canonical path prefixes and the worksapce names.
+their canonical paths and all `Workspaces`s. Non canonical paths can be
+reconstructed from the canonical path prefixes and the workspace names.
 
 Requests to `/cluster/<path>` are forwarded to the shard via inverse proxying.
 
@@ -70,7 +70,7 @@ or multiple per region or cloud provider.
 ## Consistency Domain
 
 Every logical cluster provides a Kubernetes-compatible API root endpoint under
-`/cluster/<path>` including its own discovery endpoint and their own set of 
+`/cluster/<path>` including its own discovery endpoint and their own set of
 API groups and resources.
 
 Resources under such an endpoints satisfy the same consistency properties as with
@@ -84,12 +84,12 @@ i.e. resource versions cannot be compared.
 
 The only exception to the upper rule are objects under a "wildcard endpoint"
 `/clusters/*/apis/<group>/<v>/[namespaces/<ns>]/resource:<identity-hash>` per
-shard. It serves the objects of the given resource on that shard across 
+shard. It serves the objects of the given resource on that shard across
 logical-clusters. The annotation `kcp.io/cluster` tells the consumer which
 logical cluster each object belongs to.
 
 The wildcard endpoint is privileged (requires `system:masters` group membership).
-It is only accessible when talking directly to a shard, not through a 
+It is only accessible when talking directly to a shard, not through a
 front-proxy.
 
 Note: for unprivileged access, virtual view apiservers can offer a highly
@@ -115,7 +115,7 @@ the shard hosting the `Workspace` object will access another shard to create the
 `LogicalCluster` object initially. It does that by choosing a random logical
 cluster name (optimistically) and choosing a shard that name maps to (through
 consistent hashing). It then tries to create the `LogicalCluster`. On conflict,
-it can check whether the existing object belong the given `Workspace` object or 
+it can check whether the existing object belong the given `Workspace` object or
 not. If not, another name and shard is chosen, until scheduling succeeds. During
 initialization the controller on the `Workspace` hosting shard will keep watching
 the logical cluster on the other shard, with some exponential backoff. In other
@@ -125,8 +125,8 @@ the other shard.
 Another example is API binding, but it is different than workspace scheduling:
 a binding controller running on the shard hosting the `APIBinding` object will
 be aware of all `APIExport`s in the kcp installation through caching replication
-(see next section). What is special is that this controller has all the 
-information necessary to bind a new API and to keep bound APIs working even if 
+(see next section). What is special is that this controller has all the
+information necessary to bind a new API and to keep bound APIs working even if
 the shard of the `APIExport` is unavailable.
 
 Note: usually it a bad idea to create logic dependent on the parent workspace. If
@@ -138,12 +138,12 @@ parent is not accessible.
 
 The cache server is a special API server that can hold replicas of objects that
 must be available globally in an eventual consistent way. E.g. the `APIExport`s
-and `APIResourceSchemas` are replicated that way and made available to the 
+and `APIResourceSchemas` are replicated that way and made available to the
 corresponding controllers via informers.
 
 The cache server holds objects by logical clusters, and it can hold objects from
 many or all shards in a kcp installation, served through wildcard informers.
-The resource versions of those objects have no meaning beyond driving the cache 
+The resource versions of those objects have no meaning beyond driving the cache
 informers running in the shards.
 
 Cache servers can be 1:1 with shards, or there can be shared cache servers, e.g.
@@ -155,7 +155,7 @@ Controllers that make use of cached objects, will usually have informers against
 local objects and against the same objects in the cache server. If the former
 returns a "NotFound" error, the controllers will look up in the cache informers.
 
-The cache server technique is only useful for APIs whose object cardinality 
+The cache server technique is only useful for APIs whose object cardinality
 across all shards does not go beyond the cardinality sensibly storable in a
 kube-based apiserver.
 
@@ -163,14 +163,14 @@ Note that objects like `Workspace`s and `LogicalCluster`s fall not into that
 category. This means that in particular the logical cluster canonical path
 cannot be derived from cached `LogicalCluster`s. Instead, the cached objects
 must hold their own `kcp.io/path` annotation in order to be indexable by that
-value. This is crucial to implement cross-logical-cluster references by 
+value. This is crucial to implement cross-logical-cluster references by
 canonical path.
 
 Note: the `APIExport` example assumes that there are never more than e.g. 10,000
-API exports in a kcp installation. If that is not an acceptable constraint, 
+API exports in a kcp installation. If that is not an acceptable constraint,
 other partitioning mechanism would be need to hold the number of `APIExport`
 objects per cache server below the critical number. E.g. there could be cache
-servers per big tenant, and that would hold only public exports and 
+servers per big tenant, and that would hold only public exports and
 tenant-internal exports. A more complex caching hierarchy would make sure the
 right objects are replicated, while the "really public" exports would only be a
 small number.
@@ -182,9 +182,9 @@ server replication is costly, this set is as minimal as possible. For example,
 certain RBAC objects are replicated in case they are needed to successfully
 authorize bindings of an API, or to use a workspace type.
 
-By the nature of replication, objects in the cache server can be old and 
+By the nature of replication, objects in the cache server can be old and
 incomplete. For instance, the non-existence of an object in the cache server
-does not mean it does not exist in its respective shard. The replication 
+does not mean it does not exist in its respective shard. The replication
 could be just delayed or the object was not identified to be worth to replicate.
 
 ## Bootstrapping

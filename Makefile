@@ -347,7 +347,7 @@ test-e2e-sharded-minimal: build-all
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
 # This is just easy target to run 2 shard test server locally until manually killed.
-# You can targer test to it by running:
+# You can target test to it by running:
 # go test ./test/e2e/apibinding/... --kcp-kubeconfig=$(pwd)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(pwd)/.kcp-0/admin.kubeconfig -run=^TestAPIBinding$
 test-run-sharded-server: WORK_DIR ?= $(PWD)
 test-run-sharded-server: LOG_DIR ?= $(WORK_DIR)/.kcp

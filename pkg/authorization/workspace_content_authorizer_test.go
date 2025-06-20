@@ -192,7 +192,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantReason:         "delegating due to logical cluster admin access",
 		},
 		{
-			testName: "system:kcp:logical-cluster-admin can always pass with exeception if scoped",
+			testName: "system:kcp:logical-cluster-admin can always pass with exception if scoped",
 
 			requestedWorkspace: "root:non-existent",
 			requestingUser: &user.DefaultInfo{Name: "lcluster-admin", Extra: map[string][]string{

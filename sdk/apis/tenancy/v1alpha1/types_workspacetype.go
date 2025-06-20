@@ -156,7 +156,7 @@ const (
 	// only initialized once upon workspace creation.
 	APIBindingLifecycleModeInitializeOnly APIBindingLifecycleMode = "InitializeOnly"
 	// APIBindingLifecycleModeInitializeOnly defines that the APIBinding is
-	// continuesly reconciled.
+	// continuously reconciled.
 	APIBindingLifecycleModeMaintain APIBindingLifecycleMode = "Maintain"
 )
 

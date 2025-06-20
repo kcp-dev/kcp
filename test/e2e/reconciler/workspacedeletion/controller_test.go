@@ -192,7 +192,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 			},
 		},
 		{
-			name: "nested worksapce cleanup when an org workspace is deleted",
+			name: "nested workspace cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				orgPath, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
 

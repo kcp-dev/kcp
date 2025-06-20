@@ -1,0 +1,23 @@
+# configuration for https://github.com/crate-ci/typos
+
+[default.extend-words]
+Informable = "Informable"
+Creater = "Creater"
+
+[default.extend-identifiers]
+ANDed = "ANDed"
+p0lyn0mial = "p0lyn0mial"
+HashiCorp = "HashiCorp"
+
+[default]
+extend-ignore-identifiers-re = [
+   "\\bTLS_[A-Z0-9_]+(_anon_[A-Z0-9_]+)?\\b",
+]
+
+[files]
+extend-exclude = [
+   "config/crds",
+   "contrib/crds",
+   "sdk/apis/third_party",
+   "sdk/testing/third_party",
+]

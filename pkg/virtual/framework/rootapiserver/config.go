@@ -69,7 +69,7 @@ func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *g
 func NewConfig(recommendedConfig *genericapiserver.RecommendedConfig) (*Config, error) {
 	// Loopback is not wired for now, since virtual workspaces are expected to delegate to
 	// some APIServer.
-	// The RootAPISrver is just a proxy to the various virtual workspaces.
+	// The RootAPIServer is just a proxy to the various virtual workspaces.
 	// We might consider a giving a special meaning to a global loopback config, in the future
 	// but that's not the case for now.
 	recommendedConfig.Config.LoopbackClientConfig = &rest.Config{

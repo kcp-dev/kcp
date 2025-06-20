@@ -59,7 +59,7 @@ func TestRoundTripTypes(t *testing.T) {
 	roundtrip.RoundTripExternalTypesWithoutProtobuf(t, scheme, codecs, fuzzer, nil)
 }
 
-type ConvertionTests struct {
+type ConversionTests struct {
 	name string
 	v1   runtime.Object
 	v2   runtime.Object
@@ -68,7 +68,7 @@ type ConvertionTests struct {
 }
 
 func TestConversion(t *testing.T) {
-	tests := []ConvertionTests{
+	tests := []ConversionTests{
 		{
 			name: "APIExport",
 			v1:   &apisv1alpha1.APIExport{},

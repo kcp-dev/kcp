@@ -133,7 +133,7 @@ to the private Maintainer mailing list or alias in the code-of-conduct file.-->
 kcp has adopted the CNCF [Code of Conduct](./code-of-conduct.md). Reporting of
 Code of Conduct violations happen through the [CNCF Code of Conduct committee](./code-of-conduct.md#reporting)
 and kcp maintainers pledge to work with the committee to resolve any incidents
-occuring in the kcp community.
+occurring in the kcp community.
 
 ## Security Response Team
 
