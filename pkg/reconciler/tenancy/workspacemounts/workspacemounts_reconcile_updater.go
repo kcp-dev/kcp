@@ -37,7 +37,7 @@ import (
 // we should add second reconciler that will update the status of the workspace so triggering
 // it to be "not ready" if the mount is not ready.
 type workspaceStatusUpdater struct {
-	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+	getMountObject func(ctx context.Context, cluster logicalcluster.Name, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
 }
 
 func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
@@ -49,7 +49,7 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 		return reconcileStatusContinue, nil
 	}
 
-	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), workspace.Spec.Mount.Reference)
+	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace), workspace.Spec.Mount.Reference)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			conditions.MarkFalse(
@@ -104,7 +104,7 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 
 // workspaceSpecUpdater updates the spec of the workspace based on the mount status.
 type workspaceSpecUpdater struct {
-	getMountObject func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
+	getMountObject func(ctx context.Context, cluster logicalcluster.Name, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error)
 }
 
 func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
@@ -116,7 +116,7 @@ func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancy
 		return reconcileStatusContinue, nil
 	}
 
-	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace).Path(), workspace.Spec.Mount.Reference)
+	obj, err := r.getMountObject(ctx, logicalcluster.From(workspace), workspace.Spec.Mount.Reference)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return reconcileStatusContinue, nil

@@ -680,6 +680,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		dynamicClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 		s.DiscoveringDynamicSharedInformerFactory,
+		s.DynRESTMapper,
 	)
 	if err != nil {
 		return err

@@ -19,7 +19,6 @@ package workspacemounts
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -59,6 +59,7 @@ func NewController(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	discoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper,
 ) (*Controller, error) {
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -73,6 +74,8 @@ func NewController(
 
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
+
+		dynRESTMapper: dynRESTMapper,
 
 		commit: committer.NewCommitter[*tenancyv1alpha1.Workspace, tenancyv1alpha1client.WorkspaceInterface, *tenancyv1alpha1.WorkspaceSpec, *tenancyv1alpha1.WorkspaceStatus](kcpClusterClient.TenancyV1alpha1().Workspaces()),
 	}
@@ -109,6 +112,8 @@ type Controller struct {
 
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancyv1alpha1listers.WorkspaceClusterLister
+
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, new, old *workspaceResource) error
@@ -196,21 +201,16 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	logger := logging.WithObject(klog.FromContext(ctx), workspace)
 	ctx = klog.NewContext(ctx, logger)
 
-	getMountObjectFunc := func(ctx context.Context, cluster logicalcluster.Path, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error) {
-		// TODO(sttts): do proper REST mapping.
-		resource := strings.ToLower(ref.Kind) + "s"
-		gvr := schema.GroupVersionResource{Resource: resource}
-		cs := strings.SplitN(ref.APIVersion, "/", 2)
-		if len(cs) == 2 {
-			gvr.Group = cs[0]
-			gvr.Version = cs[1]
-		} else {
-			gvr.Version = ref.APIVersion
+	getMountObjectFunc := func(ctx context.Context, cluster logicalcluster.Name, ref tenancyv1alpha1.ObjectReference) (*unstructured.Unstructured, error) {
+		mapper, err := c.dynRESTMapper.ForCluster(cluster).RESTMapping(ref.GroupVersionKind().GroupKind(), ref.GroupVersionKind().Version)
+		if err != nil {
+			return nil, err
 		}
+
 		if ref.Namespace != "" {
-			return c.dynamicClusterClient.Cluster(cluster).Resource(gvr).Namespace(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
+			return c.dynamicClusterClient.Cluster(cluster.Path()).Resource(mapper.Resource).Namespace(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 		}
-		return c.dynamicClusterClient.Cluster(cluster).Resource(gvr).Get(ctx, ref.Name, metav1.GetOptions{})
+		return c.dynamicClusterClient.Cluster(cluster.Path()).Resource(mapper.Resource).Get(ctx, ref.Name, metav1.GetOptions{})
 	}
 
 	// the following logic is a deviation from the standard pattern of reconcilers
