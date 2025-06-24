@@ -295,17 +295,7 @@ func (r *replicationReconciler) reconcile(ctx context.Context, gvr schema.GroupV
 
 		logger.V(2).Info("Creating object in global cache")
 		_, err := r.createObject(ctx, clusterName, localCopy)
-		if err != nil {
-			if apierrors.IsAlreadyExists(err) {
-				// If the object already exists, try to update it instead
-				logger.V(2).Info("Object already exists in global cache, updating instead")
-				_, err = r.updateObject(ctx, clusterName, localCopy)
-			}
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return err
 	}
 
 	// update global copy and compare
