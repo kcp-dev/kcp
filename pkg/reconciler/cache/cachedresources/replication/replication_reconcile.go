@@ -17,11 +17,15 @@ limitations under the License.
 package replication
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/martinlindhe/base36"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +52,18 @@ const (
 	LabelKeyObjectOriginalName      = "cache.kcp.io/object-original-name"
 	LabelKeyObjectOriginalNamespace = "cache.kcp.io/object-original-namespace"
 )
+
+func GenCachedObjectName(gvr schema.GroupVersionResource, namespace, name string) string {
+	buf := bytes.Buffer{}
+	buf.WriteString(gvr.String())
+	buf.WriteString(namespace)
+	buf.WriteString(name)
+
+	hash := sha256.Sum256([]byte(name))
+	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
+
+	return base36hash
+}
 
 func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 	if c.deleted {
@@ -142,7 +158,7 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + obj.GetName(), // TODO: handle namespace
+					Name:              GenCachedObjectName(gvr, obj.GetNamespace(), obj.GetName()),
 					Labels:            obj.GetLabels(),
 					Annotations:       obj.GetAnnotations(),
 					CreationTimestamp: metav1.NewTime(time.Now()),
@@ -182,7 +198,7 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:            gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + obj.GetName(),
+					Name:            GenCachedObjectName(gvr, obj.GetNamespace(), obj.GetName()),
 					Labels:          obj.GetLabels(),
 					Annotations:     obj.GetAnnotations(),
 					ResourceVersion: obj.GetResourceVersion(),
@@ -212,8 +228,11 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				gvr.Group = "core"
 			}
 
-			nameCache := gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + name // TODO: handle namespace
-			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Delete(ctx, nameCache, metav1.DeleteOptions{})
+			cachedObjName := GenCachedObjectName(gvr, ns, name)
+			if ns != "" {
+				cachedObjName += "." + ns
+			}
+			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Delete(ctx, cachedObjName, metav1.DeleteOptions{})
 		},
 	}
 	defer c.callback()
