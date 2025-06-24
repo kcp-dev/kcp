@@ -100,9 +100,15 @@ archives:
   - kubectl-create-workspace
   name_template: "kubectl-create-workspace-plugin_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+before:
+  hooks:
+    - config/crds/crd-bundler.sh
+
 release:
   draft: true
   mode: keep-existing
+  extra_files:
+    - glob: ./config/crds/crds.yaml
 
 krews:
 - name: kcp
