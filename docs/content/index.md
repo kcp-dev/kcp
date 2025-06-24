@@ -1,5 +1,14 @@
 # kcp Documentation
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8119/badge)](https://www.bestpractices.dev/projects/8119)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kcp-dev/kcp)](https://goreportcard.com/report/github.com/kcp-dev/kcp)
+[![GitHub](https://img.shields.io/github/license/kcp-dev/kcp)](https://github.com/kcp-dev/kcp/blob/main/LICENSE)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/kcp-dev/kcp?sort=semver)](https://github.com/kcp-dev/kcp/releases/latest)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp?ref=badge_shield)
+
+!!! tip ""
+    Looking for other project documentation? Check out: [api-syncagent](https://docs.kcp.io/api-syncagent) | [kcp-operator](https://docs.kcp.io/kcp-operator)
+
 ## Overview
 
 kcp is a Kubernetes-like control plane focusing on:

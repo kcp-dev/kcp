@@ -64,6 +64,8 @@ extra:
       link: https://github.com/kcp-dev/kcp
     - icon: fontawesome/brands/slack
       link: https://kubernetes.slack.com/archives/C021U8WSAFK
+    - icon: fontawesome/brands/youtube
+      link: https://www.youtube.com/@kcp-dev
 
 plugins:
   # https://github.com/lukasgeiter/mkdocs-awesome-pages-plugin
