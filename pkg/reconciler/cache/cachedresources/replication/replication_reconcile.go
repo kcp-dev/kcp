@@ -142,7 +142,7 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + obj.GetName(), // TODO: handle namespace
+					Name:              gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + obj.GetName(),
 					Labels:            obj.GetLabels(),
 					Annotations:       obj.GetAnnotations(),
 					CreationTimestamp: metav1.NewTime(time.Now()),
@@ -150,6 +150,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				Spec: cachev1alpha1.CachedObjectSpec{
 					Raw: runtime.RawExtension{Raw: objBytes},
 				},
+			}
+			if obj.GetNamespace() != "" {
+				cacheObj.Name += "." + obj.GetNamespace()
 			}
 			if cacheObj.Labels == nil {
 				cacheObj.Labels = map[string]string{}
@@ -191,6 +194,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 					Raw: runtime.RawExtension{Raw: objBytes},
 				},
 			}
+			if obj.GetNamespace() != "" {
+				cacheObj.Name += "." + obj.GetNamespace()
+			}
 			if cacheObj.Labels == nil {
 				cacheObj.Labels = map[string]string{}
 			}
@@ -212,8 +218,11 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				gvr.Group = "core"
 			}
 
-			nameCache := gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + name // TODO: handle namespace
-			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Delete(ctx, nameCache, metav1.DeleteOptions{})
+			cachedObjName := gvr.Version + "." + gvr.Resource + "." + gvr.Group + "." + name
+			if ns != "" {
+				cachedObjName += "." + ns
+			}
+			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Delete(ctx, cachedObjName, metav1.DeleteOptions{})
 		},
 	}
 	defer c.callback()
