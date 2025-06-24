@@ -121,23 +121,26 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			return u, nil
 		},
 		createObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
-			gvr := obj.GroupVersionKind()
-			if gvr.Group == "" {
-				gvr.Group = "core"
+			gvk := obj.GroupVersionKind()
+			if gvk.Group == "" {
+				gvk.Group = "core"
 			}
 
 			objBytes, err := json.Marshal(obj)
 			if err != nil {
 				return nil, err
 			}
-			resource := (strings.ToLower(gvr.Kind) + "s")
+			mapper, err := c.dynRESTMapper.ForCluster(cluster).RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, err
+			}
 			cacheObj := &cachev1alpha1.CachedObject{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       cache.CachedObjectKind,
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              gvr.Version + "." + resource + "." + gvr.Group + "." + obj.GetName(), // TODO: handle namespace
+					Name:              gvr.Version + "." + mapper.Resource.Resource + "." + gvr.Group + "." + obj.GetName(), // TODO: handle namespace
 					Labels:            obj.GetLabels(),
 					Annotations:       obj.GetAnnotations(),
 					CreationTimestamp: metav1.NewTime(time.Now()),
@@ -150,10 +153,10 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				cacheObj.Labels = map[string]string{}
 			}
 			// Append schema label to the object.
-			cacheObj.Labels[LabelKeyObjectSchema] = gvr.Version + "." + resource + "." + gvr.Group
+			cacheObj.Labels[LabelKeyObjectSchema] = gvr.Version + "." + mapper.Resource.Resource + "." + gvr.Group
 			cacheObj.Labels[LabelKeyObjectGroup] = gvr.Group
 			cacheObj.Labels[LabelKeyObjectVersion] = gvr.Version
-			cacheObj.Labels[LabelKeyObjectResource] = resource
+			cacheObj.Labels[LabelKeyObjectResource] = mapper.Resource.Resource
 			cacheObj.Labels[LabelKeyObjectOriginalName] = obj.GetName()
 			cacheObj.Labels[LabelKeyObjectOriginalNamespace] = obj.GetNamespace()
 
@@ -161,9 +164,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			return u, err
 		},
 		updateObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
-			gvr := obj.GroupVersionKind()
-			if gvr.Group == "" {
-				gvr.Group = "core"
+			gvk := obj.GroupVersionKind()
+			if gvk.Group == "" {
+				gvk.Group = "core"
 			}
 
 			objBytes, err := json.Marshal(obj)
@@ -171,14 +174,17 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				return nil, err
 			}
 
-			resource := (strings.ToLower(gvr.Kind) + "s")
+			mapper, err := c.dynRESTMapper.ForCluster(cluster).RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err != nil {
+				return nil, err
+			}
 			cacheObj := &cachev1alpha1.CachedObject{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       cache.CachedObjectKind,
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:            gvr.Version + "." + resource + "." + gvr.Group + "." + obj.GetName(),
+					Name:            gvr.Version + "." + mapper.Resource.Resource + "." + gvr.Group + "." + obj.GetName(),
 					Labels:          obj.GetLabels(),
 					Annotations:     obj.GetAnnotations(),
 					ResourceVersion: obj.GetResourceVersion(),
@@ -191,10 +197,10 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				cacheObj.Labels = map[string]string{}
 			}
 			// Append schema label to the object.
-			cacheObj.Labels[LabelKeyObjectSchema] = gvr.Version + "." + resource + "." + gvr.Group
+			cacheObj.Labels[LabelKeyObjectSchema] = gvr.Version + "." + mapper.Resource.Resource + "." + gvr.Group
 			cacheObj.Labels[LabelKeyObjectGroup] = gvr.Group
 			cacheObj.Labels[LabelKeyObjectVersion] = gvr.Version
-			cacheObj.Labels[LabelKeyObjectResource] = resource
+			cacheObj.Labels[LabelKeyObjectResource] = mapper.Resource.Resource
 			cacheObj.Labels[LabelKeyObjectOriginalName] = obj.GetName()
 			cacheObj.Labels[LabelKeyObjectOriginalNamespace] = obj.GetNamespace()
 

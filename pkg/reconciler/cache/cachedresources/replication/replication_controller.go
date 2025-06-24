@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
@@ -55,6 +56,7 @@ func NewController(
 	shardName string,
 	dynamicCacheClient kcpdynamic.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper,
 	gvr schema.GroupVersionResource,
 	replicated *ReplicatedGVR,
 	callback func(),
@@ -73,6 +75,7 @@ func NewController(
 		replicated:         replicated,
 		gvr:                gvr,
 		callback:           callback,
+		dynRESTMapper:      dynRESTMapper,
 		cleanupFuncs:       make([]func(), 0),
 		localLabelSelector: localLabelSelector,
 	}
@@ -209,6 +212,8 @@ type Controller struct {
 
 	replicated *ReplicatedGVR
 	gvr        schema.GroupVersionResource
+
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
 	// callback is called when we want to trigger parent object reconciliation.
 	// Cache state is being managed by child controller, so we need to trigger parent object reconciliation

@@ -18,8 +18,10 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -232,6 +234,14 @@ type ObjectReference struct {
 	//
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+}
+
+func (r ObjectReference) GroupVersionKind() schema.GroupVersionKind {
+	groupVersion := strings.SplitN(r.APIVersion, "/", 2)
+	if len(groupVersion) == 2 {
+		return schema.GroupVersionKind{Group: groupVersion[0], Kind: r.Kind, Version: groupVersion[1]}
+	}
+	return schema.GroupVersionKind{Kind: r.Kind, Version: groupVersion[0]}
 }
 
 type WorkspaceLocation struct {
