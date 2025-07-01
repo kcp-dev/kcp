@@ -146,6 +146,13 @@ type APIExportSpec struct {
 	// user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated`
 	// and `apis.kcp.io:binding:a-team`.
 	//
+	// If an APIExport with a maximalPermissionPolicy is deleted, these additional checks will no longer
+	// be applied to resources of this APIExport.
+	//
+	// For example: Assume an APIExport with a maximalPermissionPolicy that only allows creation and
+	// deletion of resources, but not updates - if the APIExport is deleted users will be able to update
+	// the resources of the APIExport again (given the constraints of their workspace's RBAC policies).
+	//
 	// +optional
 	MaximalPermissionPolicy *MaximalPermissionPolicy `json:"maximalPermissionPolicy,omitempty"`
 
