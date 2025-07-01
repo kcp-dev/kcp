@@ -150,11 +150,13 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 		path = lcluster.Path()
 	}
 	apiExport, err := a.getAPIExport(path, relevantBinding.Spec.Reference.Export.Name)
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// If an APIEXport is not found the MaximalPermissionPolicy is not applicable as documented in the APIExport spec.
+			// Instead the authorization is delegated to the next authorizer.
+			return DelegateAuthorization(fmt.Sprintf("APIExport %q:%q not found", path, relevantBinding.Spec.Reference.Export.Name), a.delegate).Authorize(ctx, attr)
+		}
 		return authorizer.DecisionNoOpinion, MaximalPermissionPolicyAccessNotPermittedReason, fmt.Errorf("error getting API export: %w", err)
-	} else if apierrors.IsNotFound(err) {
-		// If we can't find the export default to close
-		return authorizer.DecisionNoOpinion, fmt.Sprintf("APIExport %q:%q not found", path, relevantBinding.Spec.Reference.Export.Name), err
 	}
 
 	if apiExport.Spec.MaximalPermissionPolicy == nil {
