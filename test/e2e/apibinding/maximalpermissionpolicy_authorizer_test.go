@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -276,6 +277,84 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			t.Logf("Make sure user 2 can not create cowboy resources in consumer workspace %q", consumer)
 			_, err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").Create(ctx, cowboy2, metav1.CreateOptions{})
 			require.Error(t, err)
+
+			// Create user-2-cowboy for the admin to delete after the APIExport deletion.
+			_, err = cowboyclient.Create(ctx, cowboy2, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			// Create another cowboy that will be deleted upon the deletion of the APIBinding.
+			cowboy3 := &wildwestv1alpha1.Cowboy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cowboy-3",
+					Namespace: "default",
+				},
+			}
+			_, err = cowboyclient.Create(ctx, cowboy3, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			t.Logf("User 2 can list cowboys in consumer workspace %q before deleting APIExport", consumer)
+			user2Cowboys, err := user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+			require.Equal(t, 3, len(user2Cowboys.Items), "expected 3 cowboys in consumer")
+
+			t.Logf("User 2 gets errors trying to delete an existing cowboy in consumer workspace %q", consumer)
+			err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys(cowboy2.ObjectMeta.Namespace).Delete(ctx, cowboy2.ObjectMeta.Name, metav1.DeleteOptions{})
+			require.Error(t, err)
+
+			t.Logf("Delete APIExport in provider workspace %q", rbacServiceProviderPath)
+			err = kcpClusterClient.Cluster(rbacServiceProviderPath).ApisV1alpha2().APIExports().Delete(ctx, "today-cowboys", metav1.DeleteOptions{})
+			require.NoError(t, err)
+
+			t.Logf("Wait for APIExport deletion in provider workspace %q", rbacServiceProviderPath)
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
+				_, err = kcpClusterClient.Cluster(rbacServiceProviderPath).ApisV1alpha2().APIExports().Get(ctx, "today-cowboys", metav1.GetOptions{})
+				if apierrors.IsNotFound(err) {
+					return true, ""
+				}
+				if err != nil {
+					return false, fmt.Sprintf("error getting APIExport: %v", err)
+				}
+				return false, "APIExport still exists"
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+			t.Logf("User 2 can list cowboys in consumer workspace %q despite deleted APIExport", consumer)
+			_, err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+
+			// Due to RBAC - _not_ due to the deleted APIExport. This check is just to ensure the RBAC is not affected by the APIExport deletion.
+			t.Logf("User 2 should get errors trying to delete an existing cowboy in consumer workspace %q", consumer)
+			err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys(cowboy2.ObjectMeta.Namespace).Delete(ctx, cowboy2.ObjectMeta.Name, metav1.DeleteOptions{})
+			require.Error(t, err)
+
+			t.Logf("Admin can list the cowboys in consumer workspace %q", consumer)
+			cowboysAfterDelete, err := wildwestClusterClient.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+			require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumer)
+			require.Equal(t, 3, len(cowboysAfterDelete.Items), "expected 3 cowboy in consumer")
+
+			t.Logf("Admin can delete an existing cowboy in consumer workspace %q", consumer)
+			err = wildwestClusterClient.Cluster(consumer).WildwestV1alpha1().Cowboys(cowboy2.ObjectMeta.Namespace).Delete(ctx, cowboy2.ObjectMeta.Name, metav1.DeleteOptions{})
+			require.NoError(t, err)
+
+			t.Logf("APIBinding deletion does not error")
+			err = kcpClusterClient.Cluster(consumer).ApisV1alpha2().APIBindings().Delete(ctx, "cowboys", metav1.DeleteOptions{})
+			require.NoError(t, err)
+
+			t.Logf("Wait for APIBinding deletion in consumer workspace %q", consumer)
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
+				_, err = kcpClusterClient.Cluster(consumer).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+				if apierrors.IsNotFound(err) {
+					return true, ""
+				}
+				if err != nil {
+					return false, fmt.Sprintf("error getting APIBinding: %v", err)
+				}
+				return false, "APIBinding still exists"
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+			t.Logf("The CRDs are deleted in consumer workspace %q", consumer)
+			apiResourceList, err := kubeClusterClient.Cluster(consumer).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+			require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumer)
+			require.Empty(t, apiResourceList.APIResources, "expected no cowboys resource in consumer workspace %q", consumer)
 		} else {
 			t.Logf("Make sure that the status of cowboy can be updated in workspace %q", consumer)
 			_, err = cowboyclient.Update(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
