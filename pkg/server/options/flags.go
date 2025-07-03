@@ -128,6 +128,7 @@ var (
 		"storage-initialization-timeout",          // Maximum amount of time to wait for storage initialization before declaring apiserver ready. Defaults to 1m.
 
 		// etcd flags
+		"encryption-provider-config",                  // The file containing configuration for encryption providers to be used for storing secrets in etcd
 		"encryption-provider-config-automatic-reload", // Determines if the file set by --encryption-provider-config should be automatically reloaded if the disk contents change. Setting this to true disables the ability to uniquely identify distinct KMS plugins via the API server healthz endpoints.
 		"etcd-cafile",                   // SSL Certificate Authority file used to secure etcd communication.
 		"etcd-certfile",                 // SSL certification file used to secure etcd communication.
@@ -176,10 +177,9 @@ var (
 		"request-timeout",                // An optional field indicating the duration a handler must keep a request open before timing it out. This is the default request timeout for requests but may be overridden by flags such as --min-request-timeout for specific types of requests.
 
 		// etcd flags
-		"default-watch-cache-size",   // Default watch cache size. If zero, watch cache will be disabled for resources that do not have a default watch size set.
-		"delete-collection-workers",  // Number of workers spawned for DeleteCollection call. These are used to speed up namespace cleanup.
-		"enable-garbage-collector",   // Enables the generic garbage collector. MUST be synced with the corresponding flag of the kube-controller-manager.
-		"encryption-provider-config", // The file containing configuration for encryption providers to be used for storing secrets in etcd
+		"default-watch-cache-size",  // Default watch cache size. If zero, watch cache will be disabled for resources that do not have a default watch size set.
+		"delete-collection-workers", // Number of workers spawned for DeleteCollection call. These are used to speed up namespace cleanup.
+		"enable-garbage-collector",  // Enables the generic garbage collector. MUST be synced with the corresponding flag of the kube-controller-manager.
 
 		// admission flags
 		"admission-control-config-file", // File with admission control configuration.
