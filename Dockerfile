@@ -52,12 +52,19 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     make OS=${TARGETOS} ARCH=${TARGETARCH}
 
+# distroless doesn't have coreutils, so we need to create a directory
+# for kcp here and copy it over. Any directory would do.
+# It would be better to set WORKDIR to the home directory /home/nonroot,
+# but that would break for existing users.
+RUN mkdir /.kcp
+
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:debug
 
 # Copy wget so we can do basic healthchecks in the final image.
 COPY --from=builder /usr/bin/wget /usr/bin/wget
+COPY --from=builder --chown=65532:65532 /.kcp /.kcp
 
 WORKDIR /
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
