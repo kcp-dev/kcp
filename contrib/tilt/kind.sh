@@ -16,28 +16,20 @@
 
 set -e
 
-ARCH=""
-case $(uname -m) in
-    i386)   ARCH="386" ;;
-    i686)   ARCH="386" ;;
-    x86_64) ARCH="amd64" ;;
-    arm)    dpkg --print-architecture | grep -q "arm64" && ARCH="arm64" || ARCH="arm" ;;
-esac
-
-if [ ! -f "/usr/local/bin/kind" ]; then
- echo "Installing KIND"
- curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-$ARCH
- chmod +x ./kind
- sudo mv ./kind /usr/local/bin/kind
-else
-    echo "KIND already installed"
+if ! command -v kind &> /dev/null; then
+  echo "kind not found, exiting"
+  exit 1
 fi
 
-if [ ! -f "$HOME/.local/bin/tilt" ]; then
- echo "Installing TILT"
- curl -fsSL https://raw.githubusercontent.com/tilt-dev/tilt/master/scripts/install.sh | bash
-else
-    echo "TILT already installed"
+if ! command -v helm &> /dev/null; then
+  echo "helm not found, exiting"
+  exit 1
+fi
+
+if ! command -v tilt &> /dev/null; then
+  echo "tilt not found, exiting"
+  echo "please follow the instructions at https://github.com/tilt-dev/tilt#install-tilt"
+  exit 1
 fi
 
 CLUSTER_NAME=${CLUSTER_NAME:-kcp}
