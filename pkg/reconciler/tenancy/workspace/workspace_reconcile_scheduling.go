@@ -91,6 +91,50 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 	case !workspace.DeletionTimestamp.IsZero():
 		return reconcileStatusContinue, nil
 	case workspace.Spec.URL != "" && workspace.Spec.Cluster != "":
+		// There might be change in kcp internal URL if underlaying host IP changes when running not in the container.
+		// This is bit of edge case, but nevertheless we need to check if logical cluster url still matches the workspace url.
+		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
+		clusterName := logicalcluster.Name(clusterNameString)
+		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		if !hasShard || !hasCluster {
+			return reconcileStatusContinue, nil
+		}
+		shard, err := r.getShardByHash(shardNameHash)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonUnschedulable, conditionsv1alpha1.ConditionSeverityError, "chosen shard hash %q does not exist anymore: %v", shardNameHash, err)
+				return reconcileStatusContinue, nil
+			}
+			return reconcileStatusStopAndRequeue, err
+		}
+
+		parentThis, err := r.getLogicalCluster(logicalcluster.From(workspace))
+		if err != nil && !apierrors.IsNotFound(err) {
+			return reconcileStatusStopAndRequeue, err
+		} else if apierrors.IsNotFound(err) {
+			return reconcileStatusStopAndRequeue, nil // wait for parent LogicalCluster to be created
+		}
+
+		u, err := url.Parse(shard.Spec.ExternalURL)
+		if err != nil {
+			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceScheduled, tenancyv1alpha1.WorkspaceReasonReasonUnknown, conditionsv1alpha1.ConditionSeverityError, "Invalid connection information on target Shard: %v.", err)
+			return reconcileStatusStopAndRequeue, err // requeue
+		}
+
+		canonicalPath := logicalcluster.From(workspace).Path().Join(workspace.Name)
+		if parentThis != nil {
+			if parentPath := parentThis.Annotations[core.LogicalClusterPathAnnotationKey]; parentPath != "" {
+				canonicalPath = logicalcluster.NewPath(parentThis.Annotations[core.LogicalClusterPathAnnotationKey]).Join(workspace.Name)
+			}
+		}
+
+		u.Path = path.Join(u.Path, canonicalPath.RequestPath())
+		if workspace.Spec.URL != u.String() || workspace.Spec.Cluster != clusterName.String() {
+			workspace.Spec.Cluster = clusterName.String()
+			workspace.Spec.URL = u.String()
+			return reconcileStatusStopAndRequeue, nil
+		}
+
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		return reconcileStatusContinue, nil
 	case workspace.Spec.URL == "" || workspace.Spec.Cluster == "":
