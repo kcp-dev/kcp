@@ -1,6 +1,7 @@
 .kcp*
 contrib/demo/clusters/kind/*.yaml
 contrib/demo/clusters/kind/*.kubeconfig
+contrib/tilt/kcp-helm-charts/
 *.log
 coverage.*
 tools
