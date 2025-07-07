@@ -28,6 +28,7 @@ import (
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
+	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -75,7 +76,17 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces)
+	replications, err := replicationoptions.New().NewReplication(
+		rootPathPrefix,
+		config,
+		wildcardKcpInformers,
+		cachedKcpInformers,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	all, err := Merge(apiexports, initializingworkspaces, replications)
 	if err != nil {
 		return nil, err
 	}
