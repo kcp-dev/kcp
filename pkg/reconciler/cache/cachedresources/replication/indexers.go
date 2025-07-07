@@ -29,6 +29,9 @@ import (
 const (
 	// ByGVRAndShardAndLogicalClusterAndNamespaceAndName is the name for the index that indexes by an object's gvr, shard and logical cluster, namespace and name.
 	ByGVRAndShardAndLogicalClusterAndNamespaceAndName = "kcp-byGVRAndShardAndLogicalClusterAndNamespaceAndName"
+
+	// ByGVRAndLogicalClusterAndNamespace is the name for the index that indexes by an object's gvr, logical cluster and namespace.
+	ByGVRAndLogicalClusterAndNamespace = "kcp-byGVRAndLogicalClusterAndNamespace"
 )
 
 // IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name.
@@ -80,4 +83,40 @@ func GVRAndShardAndLogicalClusterAndNamespaceKey(gvr schema.GroupVersionResource
 		return name
 	}
 	return fmt.Sprintf("%s%s", key, name)
+}
+
+// IndexByGVRAndLogicalClusterAndNamespace is an index function that indexes by wrapped object's GVR, logical cluster and namespace.
+func IndexByGVRAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
+	a, err := meta.Accessor(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	labels := a.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    labels[LabelKeyObjectGroup],
+		Version:  labels[LabelKeyObjectVersion],
+		Resource: labels[LabelKeyObjectResource],
+	}
+	namespace := labels[LabelKeyObjectOriginalNamespace]
+
+	key := GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), namespace)
+	return []string{key}, nil
+}
+
+// GVRAndLogicalClusterAndNamespace creates an index key from the given parameters.
+func GVRAndLogicalClusterAndNamespace(gvr schema.GroupVersionResource, cluster logicalcluster.Name, namespace string) string {
+	var key string
+	key += gvr.Version + "." + gvr.Resource + "." + gvr.Group
+	if !cluster.Empty() {
+		key += "|" + cluster.String()
+	}
+	if namespace != "" {
+		key += "|" + namespace
+	}
+	return key
 }

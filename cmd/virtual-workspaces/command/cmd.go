@@ -149,6 +149,9 @@ func Run(ctx context.Context, o *options.Options) error {
 		go http.ListenAndServe(o.ProfilerAddress, nil)
 	}
 
+	// Start the CachedObjects informer against the cache server.
+	_ = cacheKcpInformers.Cache().V1alpha1().CachedObjects().Informer()
+
 	// create apiserver
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
