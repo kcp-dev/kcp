@@ -95,13 +95,11 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// TODO: implement proper readyz handler
 	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK")) //nolint:errcheck
-		w.WriteHeader(http.StatusOK)
 	}))
 
 	// TODO: implement proper livez handler
 	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK")) //nolint:errcheck
-		w.WriteHeader(http.StatusOK)
 	}))
 
 	mux.Handle("/", handler)
