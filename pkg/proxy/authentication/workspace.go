@@ -17,89 +17,22 @@ limitations under the License.
 package authentication
 
 import (
-	"context"
-	"fmt"
 	"net/http"
-	"time"
 
-	"k8s.io/apiserver/pkg/apis/apiserver"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
-	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
-	"k8s.io/utils/ptr"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-type AuthProvider interface {
-	GetAuthenticator(req *http.Request) (authenticator.Request, error)
-}
-
-type WorkspaceAuthProvider struct {
-	appCtx context.Context
-	index  index.Index
-}
-
-func NewWorkspaceAuthProvider(appCtx context.Context, index index.Index) *WorkspaceAuthProvider {
-	return &WorkspaceAuthProvider{
-		appCtx: appCtx,
-		index:  index,
-	}
-}
-
-func (p *WorkspaceAuthProvider) GetAuthenticator(req *http.Request) (authenticator.Request, error) {
-	clusterName := lookup.ClusterNameFrom(req.Context())
-	fmt.Printf("XRSTF: clusterName: %v\n", clusterName)
-
-	shardURL := lookup.ShardURLFrom(req.Context())
-	fmt.Printf("XRSTF: shardURL: %v\n", shardURL.String())
-
-	if clusterName == "root" {
-		return nil, nil
-	}
-
-	authConfig := kubeauthenticator.Config{
-		AuthenticationConfig: &apiserver.AuthenticationConfiguration{
-			JWT: []apiserver.JWTAuthenticator{{
-				Issuer: apiserver.Issuer{
-					URL:       "https://auth2.platform-dev.lab.kubermatic.io/dex",
-					Audiences: []string{"kdp-kubelogin"},
-				},
-				ClaimMappings: apiserver.ClaimMappings{
-					Username: apiserver.PrefixedClaimOrExpression{
-						Claim:  "email",
-						Prefix: ptr.To("oidc2:"),
-					},
-					Groups: apiserver.PrefixedClaimOrExpression{
-						Claim:  "groups",
-						Prefix: ptr.To("oidc2:"),
-					},
-				},
-			}},
-		},
-	}
-
-	authn, _, _, _, err := authConfig.New(p.appCtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct authenticator: %w", err)
-	}
-	// give auther time for discovery
-	time.Sleep(5 * time.Second)
-
-	fmt.Printf("AUTHER: %#v\n", authn)
-
-	return authn, nil
-}
-
 type WorkspaceAuthenticator struct {
-	delegate authenticator.Request
-	provider AuthProvider
+	delegate  authenticator.Request
+	authIndex AuthenticatorIndex
 }
 
-func NewWorkspaceAuthenticator(delegate authenticator.Request, provider AuthProvider) *WorkspaceAuthenticator {
+func NewWorkspaceAuthenticator(delegate authenticator.Request, authIndex AuthenticatorIndex) *WorkspaceAuthenticator {
 	return &WorkspaceAuthenticator{
-		delegate: delegate,
-		provider: provider,
+		delegate:  delegate,
+		authIndex: authIndex,
 	}
 }
 
@@ -111,9 +44,14 @@ func (a *WorkspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authen
 		return response, authenticated, err
 	}
 
-	authenticator, err := a.provider.GetAuthenticator(req)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to get workspace authentication: %w", err)
+	wsType := lookup.WorkspaceTypeFrom(req.Context())
+	if wsType == nil {
+		return nil, false, nil
+	}
+
+	authenticator, ok := a.authIndex.Lookup(*wsType)
+	if !ok {
+		return nil, false, nil
 	}
 
 	return authenticator.AuthenticateRequest(req)
