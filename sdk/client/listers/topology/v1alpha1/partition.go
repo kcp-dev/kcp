@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type PartitionClusterLister interface {
 // partitionClusterLister implements the PartitionClusterLister interface.
 type partitionClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.Partition]
-	indexer cache.Indexer
 }
 
 var _ PartitionClusterLister = new(partitionClusterLister)
@@ -54,19 +52,16 @@ var _ PartitionClusterLister = new(partitionClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewPartitionClusterLister(indexer cache.Indexer) *partitionClusterLister {
+func NewPartitionClusterLister(indexer cache.Indexer) PartitionClusterLister {
 	return &partitionClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.Partition](indexer, kcpv1alpha1.Resource("partition")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get Partitions.
 func (l *partitionClusterLister) Cluster(clusterName logicalcluster.Name) PartitionLister {
 	return &partitionLister{
-		kcplisters.New[*kcpv1alpha1.Partition](l.indexer, clusterName, kcpv1alpha1.Resource("partition")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *partitionClusterLister) Cluster(clusterName logicalcluster.Name) Partit
 // or scope down to a PartitionNamespaceLister for one namespace.
 type partitionLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.Partition]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ PartitionLister = new(partitionLister)
@@ -94,18 +87,17 @@ type PartitionLister interface {
 
 // NewPartitionLister returns a new PartitionLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewPartitionLister(indexer cache.Indexer) PartitionLister {
-	return &partitionScopedLister{
-		listers.New[*kcpv1alpha1.Partition](indexer, kcpv1alpha1.Resource("partition")),
-		indexer,
+	return &partitionLister{
+		kcplisters.New[*kcpv1alpha1.Partition](indexer, kcpv1alpha1.Resource("partition")),
 	}
 }
 
 // partitionScopedLister can list all Partitions inside a workspace
 // or scope down to a PartitionNamespaceLister.
 type partitionScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.Partition]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.Partition]
 }

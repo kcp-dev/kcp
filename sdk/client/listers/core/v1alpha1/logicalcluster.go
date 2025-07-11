@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type LogicalClusterClusterLister interface {
 // logicalClusterClusterLister implements the LogicalClusterClusterLister interface.
 type logicalClusterClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.LogicalCluster]
-	indexer cache.Indexer
 }
 
 var _ LogicalClusterClusterLister = new(logicalClusterClusterLister)
@@ -54,19 +52,16 @@ var _ LogicalClusterClusterLister = new(logicalClusterClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewLogicalClusterClusterLister(indexer cache.Indexer) *logicalClusterClusterLister {
+func NewLogicalClusterClusterLister(indexer cache.Indexer) LogicalClusterClusterLister {
 	return &logicalClusterClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.LogicalCluster](indexer, kcpv1alpha1.Resource("logicalcluster")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get LogicalClusters.
 func (l *logicalClusterClusterLister) Cluster(clusterName logicalcluster.Name) LogicalClusterLister {
 	return &logicalClusterLister{
-		kcplisters.New[*kcpv1alpha1.LogicalCluster](l.indexer, clusterName, kcpv1alpha1.Resource("logicalcluster")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *logicalClusterClusterLister) Cluster(clusterName logicalcluster.Name) L
 // or scope down to a LogicalClusterNamespaceLister for one namespace.
 type logicalClusterLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.LogicalCluster]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ LogicalClusterLister = new(logicalClusterLister)
@@ -94,18 +87,17 @@ type LogicalClusterLister interface {
 
 // NewLogicalClusterLister returns a new LogicalClusterLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewLogicalClusterLister(indexer cache.Indexer) LogicalClusterLister {
-	return &logicalClusterScopedLister{
-		listers.New[*kcpv1alpha1.LogicalCluster](indexer, kcpv1alpha1.Resource("logicalcluster")),
-		indexer,
+	return &logicalClusterLister{
+		kcplisters.New[*kcpv1alpha1.LogicalCluster](indexer, kcpv1alpha1.Resource("logicalcluster")),
 	}
 }
 
 // logicalClusterScopedLister can list all LogicalClusters inside a workspace
 // or scope down to a LogicalClusterNamespaceLister.
 type logicalClusterScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.LogicalCluster]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.LogicalCluster]
 }

@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type ShardClusterLister interface {
 // shardClusterLister implements the ShardClusterLister interface.
 type shardClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.Shard]
-	indexer cache.Indexer
 }
 
 var _ ShardClusterLister = new(shardClusterLister)
@@ -54,19 +52,16 @@ var _ ShardClusterLister = new(shardClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewShardClusterLister(indexer cache.Indexer) *shardClusterLister {
+func NewShardClusterLister(indexer cache.Indexer) ShardClusterLister {
 	return &shardClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.Shard](indexer, kcpv1alpha1.Resource("shard")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get Shards.
 func (l *shardClusterLister) Cluster(clusterName logicalcluster.Name) ShardLister {
 	return &shardLister{
-		kcplisters.New[*kcpv1alpha1.Shard](l.indexer, clusterName, kcpv1alpha1.Resource("shard")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *shardClusterLister) Cluster(clusterName logicalcluster.Name) ShardListe
 // or scope down to a ShardNamespaceLister for one namespace.
 type shardLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.Shard]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ ShardLister = new(shardLister)
@@ -94,18 +87,17 @@ type ShardLister interface {
 
 // NewShardLister returns a new ShardLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewShardLister(indexer cache.Indexer) ShardLister {
-	return &shardScopedLister{
-		listers.New[*kcpv1alpha1.Shard](indexer, kcpv1alpha1.Resource("shard")),
-		indexer,
+	return &shardLister{
+		kcplisters.New[*kcpv1alpha1.Shard](indexer, kcpv1alpha1.Resource("shard")),
 	}
 }
 
 // shardScopedLister can list all Shards inside a workspace
 // or scope down to a ShardNamespaceLister.
 type shardScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.Shard]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.Shard]
 }

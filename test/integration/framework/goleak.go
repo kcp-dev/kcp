@@ -80,6 +80,8 @@ var (
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType[...]).waitingLoop"),
 		// created by: k8s.io/client-go/util/workqueue.newQueue[...]
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
+		// created by: github.com/kcp-dev/apimachinery/v2/third_party/informers.newScopedSharedIndexInformerWithContext
+		goleak.IgnoreTopFunction("github.com/kcp-dev/apimachinery/v2/third_party/informers.newScopedSharedIndexInformerWithContext.func1"),
 
 		// unknown
 		// created by: net/http.(*Transport).dialConn

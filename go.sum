@@ -140,10 +140,10 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250512171935-ebb573a40077 h1:lDi9nZ75ypmRJwDFXUN70Cdu8+HxAjPU1kcnn+l4MvI=
 github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250512171935-ebb573a40077/go.mod h1:jnMZxVnCuKlkIXc4J1Qtmy1Lyo171CDF/RQhNAo0tvA=
-github.com/kcp-dev/client-go v0.0.0-20250512170835-5457a0f4bd98 h1:A1Hc2zVGd9LRSQqlGGqfzin+4skWJVcsNXw2+MjU6z4=
-github.com/kcp-dev/client-go v0.0.0-20250512170835-5457a0f4bd98/go.mod h1:79pmlxmvE/hohqD/qvhKaaoXmNDF/uhKnnAO6Vf5hZk=
-github.com/kcp-dev/code-generator/v3 v3.0.0-20250514075336-e635c8b9356e h1:eHeDzqRDTP0i8usxJQ+RrW5DQhhoDjn8/RQRkN6KWzw=
-github.com/kcp-dev/code-generator/v3 v3.0.0-20250514075336-e635c8b9356e/go.mod h1:1EZhJqiFvXq1N0xKJnJOf8kQ++wuwLkqFGIRVSoVACk=
+github.com/kcp-dev/client-go v0.0.0-20250707095244-decc4df45adb h1:PTfc4FGjz1Dx+6epz92G4RJj3BYrqg0+XYTiGJQR1cc=
+github.com/kcp-dev/client-go v0.0.0-20250707095244-decc4df45adb/go.mod h1:iv3cC1ShwBGzFfNjB+6KWvZviWPe6+MbRlQ7SZoZPFc=
+github.com/kcp-dev/code-generator/v3 v3.0.0-20250707080944-4094fb87e20f h1:Qfpk7+Y5gwWV8FNY6zu+l5hbKWlFZ6oJqgL67RoCEJg=
+github.com/kcp-dev/code-generator/v3 v3.0.0-20250707080944-4094fb87e20f/go.mod h1:1EZhJqiFvXq1N0xKJnJOf8kQ++wuwLkqFGIRVSoVACk=
 github.com/kcp-dev/embeddedetcd v1.0.3-0.20250423205017-89d1631077ab h1:NHsacwN5GN1pGzEPvJy+S96hJ0rT2rCJwovRFqGHn9A=
 github.com/kcp-dev/embeddedetcd v1.0.3-0.20250423205017-89d1631077ab/go.mod h1:IbvtRJOc9/YN5LT7CAHggS/sqNG3vcECNXk4Hmb5TmY=
 github.com/kcp-dev/kubernetes v0.0.0-20250425143807-ddbe171670d8 h1:g2KywpdhJVC6TOVhdjBCDNTuPc5LYCjfawu9B4UXEi4=

@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type APIConversionClusterLister interface {
 // aPIConversionClusterLister implements the APIConversionClusterLister interface.
 type aPIConversionClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.APIConversion]
-	indexer cache.Indexer
 }
 
 var _ APIConversionClusterLister = new(aPIConversionClusterLister)
@@ -54,19 +52,16 @@ var _ APIConversionClusterLister = new(aPIConversionClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewAPIConversionClusterLister(indexer cache.Indexer) *aPIConversionClusterLister {
+func NewAPIConversionClusterLister(indexer cache.Indexer) APIConversionClusterLister {
 	return &aPIConversionClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.APIConversion](indexer, kcpv1alpha1.Resource("apiconversion")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get APIConversions.
 func (l *aPIConversionClusterLister) Cluster(clusterName logicalcluster.Name) APIConversionLister {
 	return &aPIConversionLister{
-		kcplisters.New[*kcpv1alpha1.APIConversion](l.indexer, clusterName, kcpv1alpha1.Resource("apiconversion")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *aPIConversionClusterLister) Cluster(clusterName logicalcluster.Name) AP
 // or scope down to a APIConversionNamespaceLister for one namespace.
 type aPIConversionLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.APIConversion]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ APIConversionLister = new(aPIConversionLister)
@@ -94,18 +87,17 @@ type APIConversionLister interface {
 
 // NewAPIConversionLister returns a new APIConversionLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewAPIConversionLister(indexer cache.Indexer) APIConversionLister {
-	return &aPIConversionScopedLister{
-		listers.New[*kcpv1alpha1.APIConversion](indexer, kcpv1alpha1.Resource("apiconversion")),
-		indexer,
+	return &aPIConversionLister{
+		kcplisters.New[*kcpv1alpha1.APIConversion](indexer, kcpv1alpha1.Resource("apiconversion")),
 	}
 }
 
 // aPIConversionScopedLister can list all APIConversions inside a workspace
 // or scope down to a APIConversionNamespaceLister.
 type aPIConversionScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.APIConversion]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.APIConversion]
 }

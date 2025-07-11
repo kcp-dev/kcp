@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type CowboyClusterLister interface {
 // cowboyClusterLister implements the CowboyClusterLister interface.
 type cowboyClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.Cowboy]
-	indexer cache.Indexer
 }
 
 var _ CowboyClusterLister = new(cowboyClusterLister)
@@ -55,19 +53,16 @@ var _ CowboyClusterLister = new(cowboyClusterLister)
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
 // - has the kcpcache.ClusterAndNamespaceIndex as an index
-func NewCowboyClusterLister(indexer cache.Indexer) *cowboyClusterLister {
+func NewCowboyClusterLister(indexer cache.Indexer) CowboyClusterLister {
 	return &cowboyClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.Cowboy](indexer, kcpv1alpha1.Resource("cowboy")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get Cowboys.
 func (l *cowboyClusterLister) Cluster(clusterName logicalcluster.Name) CowboyLister {
 	return &cowboyLister{
-		kcplisters.New[*kcpv1alpha1.Cowboy](l.indexer, clusterName, kcpv1alpha1.Resource("cowboy")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -75,8 +70,6 @@ func (l *cowboyClusterLister) Cluster(clusterName logicalcluster.Name) CowboyLis
 // or scope down to a CowboyNamespaceLister for one namespace.
 type cowboyLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.Cowboy]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ CowboyLister = new(cowboyLister)
@@ -94,7 +87,9 @@ type CowboyLister interface {
 
 // Cowboys returns an object that can list and get Cowboys in one namespace.
 func (l *cowboyLister) Cowboys(namespace string) CowboyNamespaceLister {
-	return newCowboyNamespaceLister(l.ResourceIndexer, namespace)
+	return &cowboyNamespaceLister{
+		l.ResourceIndexer.WithNamespace(namespace),
+	}
 }
 
 // cowboyNamespaceLister implements the CowboyNamespaceLister
@@ -117,33 +112,27 @@ type CowboyNamespaceLister interface {
 	CowboyNamespaceListerExpansion
 }
 
-// newCowboyNamespaceLister returns a new CowboyNamespaceLister.
-func newCowboyNamespaceLister(indexer kcplisters.ResourceIndexer[*kcpv1alpha1.Cowboy], namespace string) CowboyNamespaceLister {
-	return &cowboyNamespaceLister{
-		kcplisters.NewNamespaced(indexer, namespace),
-	}
-}
-
 // NewCowboyLister returns a new CowboyLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
-// - has the cache.NamespaceIndex as an index
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
+// - has the kcpcache.ClusterAndNamespaceIndex as an index
 func NewCowboyLister(indexer cache.Indexer) CowboyLister {
-	return &cowboyScopedLister{
-		listers.New[*kcpv1alpha1.Cowboy](indexer, kcpv1alpha1.Resource("cowboy")),
-		indexer,
+	return &cowboyLister{
+		kcplisters.New[*kcpv1alpha1.Cowboy](indexer, kcpv1alpha1.Resource("cowboy")),
 	}
 }
 
 // cowboyScopedLister can list all Cowboys inside a workspace
 // or scope down to a CowboyNamespaceLister for one namespace.
 type cowboyScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.Cowboy]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.Cowboy]
 }
 
 // Cowboys returns an object that can list and get Cowboys in one namespace.
-func (l *cowboyScopedLister) Cowboys(namespace string) CowboyNamespaceLister {
-	return listers.NewNamespaced(l.ResourceIndexer, namespace)
+func (l *cowboyScopedLister) Cowboys(namespace string) CowboyLister {
+	return &cowboyLister{
+		l.ResourceIndexer.WithNamespace(namespace),
+	}
 }

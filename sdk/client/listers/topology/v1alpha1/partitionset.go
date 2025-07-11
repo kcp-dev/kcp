@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type PartitionSetClusterLister interface {
 // partitionSetClusterLister implements the PartitionSetClusterLister interface.
 type partitionSetClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.PartitionSet]
-	indexer cache.Indexer
 }
 
 var _ PartitionSetClusterLister = new(partitionSetClusterLister)
@@ -54,19 +52,16 @@ var _ PartitionSetClusterLister = new(partitionSetClusterLister)
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewPartitionSetClusterLister(indexer cache.Indexer) *partitionSetClusterLister {
+func NewPartitionSetClusterLister(indexer cache.Indexer) PartitionSetClusterLister {
 	return &partitionSetClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.PartitionSet](indexer, kcpv1alpha1.Resource("partitionset")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get PartitionSets.
 func (l *partitionSetClusterLister) Cluster(clusterName logicalcluster.Name) PartitionSetLister {
 	return &partitionSetLister{
-		kcplisters.New[*kcpv1alpha1.PartitionSet](l.indexer, clusterName, kcpv1alpha1.Resource("partitionset")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *partitionSetClusterLister) Cluster(clusterName logicalcluster.Name) Par
 // or scope down to a PartitionSetNamespaceLister for one namespace.
 type partitionSetLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.PartitionSet]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ PartitionSetLister = new(partitionSetLister)
@@ -94,18 +87,17 @@ type PartitionSetLister interface {
 
 // NewPartitionSetLister returns a new PartitionSetLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewPartitionSetLister(indexer cache.Indexer) PartitionSetLister {
-	return &partitionSetScopedLister{
-		listers.New[*kcpv1alpha1.PartitionSet](indexer, kcpv1alpha1.Resource("partitionset")),
-		indexer,
+	return &partitionSetLister{
+		kcplisters.New[*kcpv1alpha1.PartitionSet](indexer, kcpv1alpha1.Resource("partitionset")),
 	}
 }
 
 // partitionSetScopedLister can list all PartitionSets inside a workspace
 // or scope down to a PartitionSetNamespaceLister.
 type partitionSetScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.PartitionSet]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.PartitionSet]
 }
