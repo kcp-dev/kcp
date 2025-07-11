@@ -71,6 +71,7 @@ import (
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresourceendpointslice"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
@@ -1711,6 +1712,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 	}
 
 	cachedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources()
+	cachedResourceEndpointSliceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices()
 	c, err := cachedresources.NewController(
 		s.Options.Extra.ShardName,
 		kcpClusterClient,
@@ -1724,6 +1726,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		s.DiscoveringDynamicSharedInformerFactory,
 		s.CacheKcpSharedInformerFactory,
 		cachedResourceInformer,
+		cachedResourceEndpointSliceInformer,
 	)
 	if err != nil {
 		return err
@@ -1732,7 +1735,51 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		Name: cachedresources.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return cachedResourceInformer.Informer().HasSynced(), nil
+				return cachedResourceInformer.Informer().HasSynced() && cachedResourceEndpointSliceInformer.Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) installCachedResourceEndpointSliceController(ctx context.Context, config *rest.Config) error {
+	if !kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		return nil
+	}
+
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, logicalclusterdeletion.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	cachedResourceEndpointSliceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices()
+	cachedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources()
+	lcClusterInformer := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters()
+	apiBindingClusterInfomer := s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings()
+
+	c, err := cachedresourceendpointslice.NewController(
+		s.Options.Extra.ShardName,
+		cachedResourceEndpointSliceInformer,
+		cachedResourceInformer,
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		lcClusterInformer,
+		apiBindingClusterInfomer,
+		kcpClusterClient,
+	)
+	if err != nil {
+		return err
+	}
+	return s.registerController(&controllerWrapper{
+		Name: cachedresourceendpointslice.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return cachedResourceEndpointSliceInformer.Informer().HasSynced() &&
+					cachedResourceInformer.Informer().HasSynced() &&
+					lcClusterInformer.Informer().HasSynced() &&
+					apiBindingClusterInfomer.Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -1806,6 +1853,9 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 	defaultapibindinglifecycle.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+	)
+	cachedresourceendpointslice.InstallIndexers(
+		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
 	)
 	return replication.InstallIndexers(
 		s.KcpSharedInformerFactory,

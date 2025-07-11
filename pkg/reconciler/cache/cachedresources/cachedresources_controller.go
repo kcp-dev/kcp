@@ -80,6 +80,7 @@ func NewController(
 	cacheKcpInformers kcpinformers.SharedInformerFactory,
 
 	cachedResourceInformer cacheinformers.CachedResourceClusterInformer,
+	cachedResourceEndpointSliceInformer cacheinformers.CachedResourceEndpointSliceClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
 		shardName: shardName,
@@ -102,7 +103,10 @@ func NewController(
 
 		CachedResourceLister:  cachedResourceInformer.Lister(),
 		CachedResourceIndexer: cachedResourceInformer.Informer().GetIndexer(),
-		commit:                committer.NewCommitter[*cachev1alpha1.CachedResource, cachev1alpha1client.CachedResourceInterface, *cachev1alpha1.CachedResourceSpec, *cachev1alpha1.CachedResourceStatus](kcpClusterClient.CacheV1alpha1().CachedResources()),
+
+		CachedResourceEndpointSliceInformer: cachedResourceEndpointSliceInformer,
+
+		commit: committer.NewCommitter[*cachev1alpha1.CachedResource, cachev1alpha1client.CachedResourceInterface, *cachev1alpha1.CachedResourceSpec, *cachev1alpha1.CachedResourceStatus](kcpClusterClient.CacheV1alpha1().CachedResources()),
 
 		secretNamespace: DefaultIdentitySecretNamespace,
 
@@ -129,6 +133,14 @@ func NewController(
 		},
 		createSecret: func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error {
 			_, err := kubeClusterClient.Cluster(clusterName).CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+			return err
+		},
+		getEndpointSlice: func(ctx context.Context, clusterName logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+			return cachedResourceEndpointSliceInformer.Lister().Cluster(clusterName).Get(name)
+		},
+		createEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, endpointSlice *cachev1alpha1.CachedResourceEndpointSlice) error {
+			_, err := kcpClusterClient.CacheV1alpha1().CachedResourceEndpointSlices().Cluster(cluster).
+				Create(ctx, endpointSlice, metav1.CreateOptions{})
 			return err
 		},
 
@@ -164,6 +176,8 @@ type Controller struct {
 	CachedResourceIndexer cache.Indexer
 	CachedResourceLister  cachev1alpha1listers.CachedResourceClusterLister
 
+	CachedResourceEndpointSliceInformer cacheinformers.CachedResourceEndpointSliceClusterInformer
+
 	commit func(ctx context.Context, new, old *CachedResourceResource) error
 
 	secretNamespace string
@@ -173,6 +187,9 @@ type Controller struct {
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
+
+	getEndpointSlice    func(ctx context.Context, clusterName logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
+	createEndpointSlice func(ctx context.Context, clusterName logicalcluster.Path, endpointSlice *cachev1alpha1.CachedResourceEndpointSlice) error
 
 	controllerRegistry *controllerRegistry
 
