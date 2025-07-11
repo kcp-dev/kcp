@@ -20,4 +20,6 @@ package v1alpha1
 
 type WorkspaceExpansion interface{}
 
+type WorkspaceAuthenticationConfigurationExpansion interface{}
+
 type WorkspaceTypeExpansion interface{}

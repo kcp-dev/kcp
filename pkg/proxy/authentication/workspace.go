@@ -22,12 +22,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/index"
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"k8s.io/apiserver/pkg/apis/apiserver"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
 	"k8s.io/utils/ptr"
+
+	"github.com/kcp-dev/kcp/pkg/proxy/index"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 type AuthProvider interface {

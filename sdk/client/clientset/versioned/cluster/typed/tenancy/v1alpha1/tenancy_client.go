@@ -34,6 +34,7 @@ import (
 type TenancyV1alpha1ClusterInterface interface {
 	TenancyV1alpha1ClusterScoper
 	WorkspacesClusterGetter
+	WorkspaceAuthenticationConfigurationsClusterGetter
 	WorkspaceTypesClusterGetter
 }
 
@@ -55,6 +56,10 @@ func (c *TenancyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) 
 
 func (c *TenancyV1alpha1ClusterClient) Workspaces() WorkspaceClusterInterface {
 	return &workspacesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *TenancyV1alpha1ClusterClient) WorkspaceAuthenticationConfigurations() WorkspaceAuthenticationConfigurationClusterInterface {
+	return &workspaceAuthenticationConfigurationsClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *TenancyV1alpha1ClusterClient) WorkspaceTypes() WorkspaceTypeClusterInterface {
