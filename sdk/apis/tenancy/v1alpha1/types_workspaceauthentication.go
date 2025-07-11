@@ -40,10 +40,12 @@ type WorkspaceAuthenticationConfigurationSpec struct {
 }
 
 type JWTAuthenticator struct {
-	Issuer               Issuer                `json:"issuer"`
+	Issuer Issuer `json:"issuer"`
+	// +optional
 	ClaimValidationRules []ClaimValidationRule `json:"claimValidationRules,omitempty"`
 	ClaimMappings        ClaimMappings         `json:"claimMappings"`
-	UserValidationRules  []UserValidationRule  `json:"userValidationRules,omitempty"`
+	// +optional
+	UserValidationRules []UserValidationRule `json:"userValidationRules,omitempty"`
 }
 
 // Issuer provides the configuration for an external provider's specific settings.
@@ -82,10 +84,13 @@ type Issuer struct {
 	// Required to be unique across all JWT authenticators.
 	// Note that egress selection configuration is not used for this network connection.
 	// +optional
-	DiscoveryURL         string                  `json:"discoveryURL"`
-	CertificateAuthority string                  `json:"certificateAuthority"`
-	Audiences            []string                `json:"audiences,omitempty"`
-	AudienceMatchPolicy  AudienceMatchPolicyType `json:"audienceMatchPolicy"`
+	DiscoveryURL string `json:"discoveryURL,omitempty"`
+	// +optional
+	CertificateAuthority string `json:"certificateAuthority,omitempty"`
+	// +optional
+	Audiences []string `json:"audiences,omitempty"`
+	// +optional
+	AudienceMatchPolicy AudienceMatchPolicyType `json:"audienceMatchPolicy,omitempty"`
 }
 
 // AudienceMatchPolicyType is a set of valid values for Issuer.AudienceMatchPolicy
@@ -105,26 +110,30 @@ type ClaimValidationRule struct {
 	Message    string `json:"message"`
 }
 
-// ClaimMappings provides the configuration for claim mapping
+// ClaimMappings provides the configuration for claim mapping.
 type ClaimMappings struct {
 	Username PrefixedClaimOrExpression `json:"username"`
 	Groups   PrefixedClaimOrExpression `json:"groups"`
-	UID      ClaimOrExpression         `json:"uid"`
-	Extra    []ExtraMapping            `json:"extra,omitempty"`
+	// +optional
+	UID ClaimOrExpression `json:"uid,omitempty"`
+	// +optional
+	Extra []ExtraMapping `json:"extra,omitempty"`
 }
 
 // PrefixedClaimOrExpression provides the configuration for a single prefixed claim or expression.
 type PrefixedClaimOrExpression struct {
-	Claim  string  `json:"claim"`
+	Claim string `json:"claim"`
+	// +optional
 	Prefix *string `json:"prefix,omitempty"`
-
-	Expression string `json:"expression"`
+	// +optional
+	Expression string `json:"expression,omitempty"`
 }
 
 // ClaimOrExpression provides the configuration for a single claim or expression.
 type ClaimOrExpression struct {
-	Claim      string `json:"claim"`
-	Expression string `json:"expression"`
+	Claim string `json:"claim"`
+	// +optional
+	Expression string `json:"expression,omitempty"`
 }
 
 // ExtraMapping provides the configuration for a single extra mapping.

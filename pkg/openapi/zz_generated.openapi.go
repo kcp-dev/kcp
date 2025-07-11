@@ -4046,7 +4046,7 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClaimMappings provides the configuration for claim mapping",
+				Description: "ClaimMappings provides the configuration for claim mapping.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"username": {
@@ -4081,7 +4081,7 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"username", "groups", "uid"},
+				Required: []string{"username", "groups"},
 			},
 		},
 		Dependencies: []string{
@@ -4105,13 +4105,12 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref common.ReferenceCall
 					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"claim", "expression"},
+				Required: []string{"claim"},
 			},
 		},
 	}
@@ -4205,16 +4204,14 @@ func schema_sdk_apis_tenancy_v1alpha1_Issuer(ref common.ReferenceCallback) commo
 					"discoveryURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "discoveryURL, if specified, overrides the URL used to fetch discovery information instead of using \"{url}/.well-known/openid-configuration\". The exact value specified is used, so \"/.well-known/openid-configuration\" must be included in discoveryURL if needed.\n\nThe \"issuer\" field in the fetched discovery information must match the \"issuer.url\" field in the AuthenticationConfiguration and will be used to validate the \"iss\" claim in the presented JWT. This is for scenarios where the well-known and jwks endpoints are hosted at a different location than the issuer (such as locally in the cluster).\n\nExample: A discovery url that is exposed using kubernetes service 'oidc' in namespace 'oidc-namespace' and discovery information is available at '/.well-known/openid-configuration'. discoveryURL: \"https://oidc.oidc-namespace/.well-known/openid-configuration\" certificateAuthority is used to verify the TLS connection and the hostname on the leaf certificate must be set to 'oidc.oidc-namespace'.\n\ncurl https://oidc.oidc-namespace/.well-known/openid-configuration (.discoveryURL field) {\n    issuer: \"https://oidc.example.com\" (.url field)\n}\n\ndiscoveryURL must be different from url. Required to be unique across all JWT authenticators. Note that egress selection configuration is not used for this network connection.",
-							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"certificateAuthority": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"audiences": {
@@ -4233,13 +4230,12 @@ func schema_sdk_apis_tenancy_v1alpha1_Issuer(ref common.ReferenceCallback) commo
 					},
 					"audienceMatchPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"url", "certificateAuthority", "audienceMatchPolicy"},
+				Required: []string{"url"},
 			},
 		},
 	}
@@ -4387,13 +4383,12 @@ func schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref common.Refer
 					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"claim", "expression"},
+				Required: []string{"claim"},
 			},
 		},
 	}
