@@ -292,15 +292,5 @@ func (c *Controller) stopShard(shardName string) {
 }
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (index.Result, bool) {
-	r, found := c.state.LookupURL(path)
-	if found && r.ErrorCode != 0 {
-		return index.Result{
-			URL:       r.URL,
-			ErrorCode: r.ErrorCode,
-		}, found
-	}
-	return index.Result{
-		URL:       r.URL,
-		ErrorCode: 0,
-	}, found
+	return c.state.LookupURL(path)
 }
