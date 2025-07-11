@@ -80,9 +80,11 @@ func New(rewriters []PathRewriter) *State {
 	}
 }
 
-// State watches Shards on the root shard, and then starts informers
-// for every Shard, watching the Workspaces on them. It then
-// updates the workspace index, which maps logical clusters to shard URLs.
+// State is a runtime graph of shards, workspaces, logicalclusters and mounts.
+// It usually gets fed by a controller that watches these resources on each
+// shard. The state then organizes the graph and offers a workspace path lookup
+// that resolves a workspace path to its physical location on a shard and logical
+// cluster.
 type State struct {
 	rewriters []PathRewriter
 
@@ -110,11 +112,18 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	// Note that mounted workspaces have no type.
 	var wsType *WorkspaceType
 	if ws.Spec.Type != nil {
-		result, found := c.Lookup(logicalcluster.NewPath(ws.Spec.Type.Path))
-		if found {
+		if path := ws.Spec.Type.Path; path != "" {
+			result, found := c.Lookup(logicalcluster.NewPath(path))
+			if found {
+				wsType = &WorkspaceType{
+					Name:    string(ws.Spec.Type.Name),
+					Cluster: result.Cluster,
+				}
+			}
+		} else {
 			wsType = &WorkspaceType{
 				Name:    string(ws.Spec.Type.Name),
-				Cluster: result.Cluster,
+				Cluster: clusterName,
 			}
 		}
 	}
