@@ -222,14 +222,34 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):
 		return &applyconfigurationtenancyv1alpha1.APIExportReferenceApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ClaimMappings"):
+		return &applyconfigurationtenancyv1alpha1.ClaimMappingsApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ClaimOrExpression"):
+		return &applyconfigurationtenancyv1alpha1.ClaimOrExpressionApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ClaimValidationRule"):
+		return &applyconfigurationtenancyv1alpha1.ClaimValidationRuleApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ExtraMapping"):
+		return &applyconfigurationtenancyv1alpha1.ExtraMappingApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("Issuer"):
+		return &applyconfigurationtenancyv1alpha1.IssuerApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("JWTAuthenticator"):
+		return &applyconfigurationtenancyv1alpha1.JWTAuthenticatorApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("Mount"):
 		return &applyconfigurationtenancyv1alpha1.MountApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ObjectReference"):
 		return &applyconfigurationtenancyv1alpha1.ObjectReferenceApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("PrefixedClaimOrExpression"):
+		return &applyconfigurationtenancyv1alpha1.PrefixedClaimOrExpressionApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("UserValidationRule"):
+		return &applyconfigurationtenancyv1alpha1.UserValidationRuleApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &applyconfigurationtenancyv1alpha1.VirtualWorkspaceApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("Workspace"):
 		return &applyconfigurationtenancyv1alpha1.WorkspaceApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceAuthenticationConfiguration"):
+		return &applyconfigurationtenancyv1alpha1.WorkspaceAuthenticationConfigurationApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceAuthenticationConfigurationSpec"):
+		return &applyconfigurationtenancyv1alpha1.WorkspaceAuthenticationConfigurationSpecApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceLocation"):
 		return &applyconfigurationtenancyv1alpha1.WorkspaceLocationApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("WorkspaceSpec"):
