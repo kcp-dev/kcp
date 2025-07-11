@@ -107,11 +107,7 @@ func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
 }
 
 func ShardURLFrom(ctx context.Context) *url.URL {
-	shardURL, ok := ctx.Value(shardContextKey).(*url.URL)
-	if !ok {
-		return nil
-	}
-	return shardURL
+	return ctx.Value(shardContextKey).(*url.URL)
 }
 
 func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
@@ -119,11 +115,7 @@ func WithClusterName(parent context.Context, cluster logicalcluster.Name) contex
 }
 
 func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
-	cluster, ok := ctx.Value(clusterContextKey).(logicalcluster.Name)
-	if !ok {
-		return ""
-	}
-	return cluster
+	return ctx.Value(clusterContextKey).(logicalcluster.Name)
 }
 
 func WithWorkspaceType(parent context.Context, wsType *index.WorkspaceType) context.Context {
@@ -131,9 +123,5 @@ func WithWorkspaceType(parent context.Context, wsType *index.WorkspaceType) cont
 }
 
 func WorkspaceTypeFrom(ctx context.Context) *index.WorkspaceType {
-	cluster, ok := ctx.Value(workspaceTypeContextKey).(*index.WorkspaceType)
-	if !ok {
-		return nil
-	}
-	return cluster
+	return ctx.Value(workspaceTypeContextKey).(*index.WorkspaceType)
 }
