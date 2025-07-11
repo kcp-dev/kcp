@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250711-d92098c29.workspaceauthenticationconfigurations.tenancy.kcp.io
+  name: v250711-72568b07d.workspaceauthenticationconfigurations.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -44,7 +44,7 @@ spec:
                 properties:
                   claimMappings:
                     description: ClaimMappings provides the configuration for claim
-                      mapping
+                      mapping.
                     properties:
                       extra:
                         items:
@@ -72,7 +72,6 @@ spec:
                             type: string
                         required:
                         - claim
-                        - expression
                         type: object
                       uid:
                         description: ClaimOrExpression provides the configuration
@@ -84,7 +83,6 @@ spec:
                             type: string
                         required:
                         - claim
-                        - expression
                         type: object
                       username:
                         description: PrefixedClaimOrExpression provides the configuration
@@ -98,11 +96,9 @@ spec:
                             type: string
                         required:
                         - claim
-                        - expression
                         type: object
                     required:
                     - groups
-                    - uid
                     - username
                     type: object
                   claimValidationRules:
@@ -177,8 +173,6 @@ spec:
                           Note that egress selection configuration is not used for this network connection.
                         type: string
                     required:
-                    - audienceMatchPolicy
-                    - certificateAuthority
                     - url
                     type: object
                   userValidationRules:

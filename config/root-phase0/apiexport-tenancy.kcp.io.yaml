@@ -9,7 +9,7 @@ spec:
   resources:
   - group: tenancy.kcp.io
     name: workspaceauthenticationconfigurations
-    schema: v250711-d92098c29.workspaceauthenticationconfigurations.tenancy.kcp.io
+    schema: v250711-72568b07d.workspaceauthenticationconfigurations.tenancy.kcp.io
     storage:
       crd: {}
   - group: tenancy.kcp.io
