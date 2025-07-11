@@ -17,7 +17,6 @@ limitations under the License.
 package proxy
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -26,6 +25,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -85,7 +85,7 @@ func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHea
 
 func newShardReverseProxy() *httputil.ReverseProxy {
 	director := func(req *http.Request) {
-		shardURL := ShardURLFrom(req.Context())
+		shardURL := lookup.ShardURLFrom(req.Context())
 		if shardURL == nil {
 			// should not happen if wiring is correct
 			utilruntime.HandleError(fmt.Errorf("no shard URL found in request context"))
@@ -99,20 +99,4 @@ func newShardReverseProxy() *httputil.ReverseProxy {
 		req.URL.Path = shardURL.Path
 	}
 	return &httputil.ReverseProxy{Director: director}
-}
-
-type shardKey int
-
-const shardContextKey shardKey = iota
-
-func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
-	return context.WithValue(parent, shardContextKey, shardURL)
-}
-
-func ShardURLFrom(ctx context.Context) *url.URL {
-	shardURL, ok := ctx.Value(shardContextKey).(*url.URL)
-	if !ok {
-		return nil
-	}
-	return shardURL
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package proxy
+package lookup
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,11 +34,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 )
 
-func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
+func WithClusterResolver(delegate http.Handler, index index.Index) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var cs = strings.SplitN(strings.TrimLeft(req.URL.Path, "/"), "/", 3)
 		if len(cs) < 2 || cs[0] != "clusters" {
-			http.NotFound(w, req)
+			delegate.ServeHTTP(w, req)
 			return
 		}
 
@@ -79,8 +81,44 @@ func shardHandler(index index.Index, proxy http.Handler) http.HandlerFunc {
 			shardURL.Path += "/" + cs[2]
 		}
 
+		fmt.Printf("XRSTF: clusterPath=%v\n", clusterPath)
+		fmt.Printf("XRSTF: result=%#v\n", result)
+
 		ctx = WithShardURL(ctx, shardURL)
+		ctx = WithClusterName(ctx, result.Cluster)
 		req = req.WithContext(ctx)
-		proxy.ServeHTTP(w, req)
+
+		delegate.ServeHTTP(w, req)
+	})
+}
+
+type lookupKey int
+
+const (
+	shardContextKey lookupKey = iota
+	clusterContextKey
+)
+
+func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
+	return context.WithValue(parent, shardContextKey, shardURL)
+}
+
+func ShardURLFrom(ctx context.Context) *url.URL {
+	shardURL, ok := ctx.Value(shardContextKey).(*url.URL)
+	if !ok {
+		return nil
 	}
+	return shardURL
+}
+
+func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
+	return context.WithValue(parent, clusterContextKey, cluster)
+}
+
+func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
+	cluster, ok := ctx.Value(clusterContextKey).(logicalcluster.Name)
+	if !ok {
+		return ""
+	}
+	return cluster
 }

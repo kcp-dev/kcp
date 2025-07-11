@@ -335,6 +335,8 @@ func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
 	}
 
 	return Result{
-		URL: strings.TrimSuffix(baseURL, "/") + result.Cluster.Path().RequestPath(),
+		Shard:   result.Shard,
+		Cluster: result.Cluster,
+		URL:     strings.TrimSuffix(baseURL, "/") + result.Cluster.Path().RequestPath(),
 	}, true
 }

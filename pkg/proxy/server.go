@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -28,8 +29,10 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/proxy/authentication"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
@@ -52,11 +55,30 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
 	}
+
+	// load the configured path mappings
+	mappings, err := loadMappings(c.Options.MappingFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load mappings from %q: %w", c.Options.MappingFile, err)
+	}
+	hasShardMapping := slices.ContainsFunc(mappings, isShardMapping)
+
+	// When a mapping for shards is configured, we need to build up an index of which shard hosts
+	// which workspaces and logicalclusters. Ideally we'd start the index controller only if there
+	// is a shard mapping (i.e. a "/clusters/" entry in the mapping list), but there are other places
+	// in the general server package that always lookup the shard, so making the index optional would
+	// require deeper refactoring to make everything rely on the lookup middleware.
+	// If so, there will be also another middleware injected into the handler chain, which is responsible
+	// for resolving the incoming request and store the found cluster name in a context variable.
 	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
+
+	// This controller is responsible for watching all Shards, connecting to each of them and
+	// watching a number of resources on each. The controller is then also satisfying the Index
+	// interface.
 	s.IndexController = index.NewController(
 		ctx,
 		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
@@ -71,20 +93,36 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		},
 	)
 
-	handler, err := NewHandler(ctx, s.CompletedConfig.Options, s.IndexController)
+	handler, err := NewHandler(ctx, mappings, s.IndexController)
 	if err != nil {
 		return s, err
+	}
+
+	// Wrap the core authenticator in a workspace-aware wrapper that will use
+	// AuthConfigs from the target workspace to authenticate a request.
+	var authenticator = s.completedConfig.AuthenticationInfo.Authenticator
+	if hasShardMapping {
+		authenticator = authentication.NewWorkspaceAuthenticator(
+			s.CompletedConfig.AuthenticationInfo.Authenticator,
+			authentication.NewWorkspaceAuthProvider(ctx, s.IndexController),
+		)
 	}
 
 	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
 	handler = frontproxyfilters.WithOptionalAuthentication(
 		handler,
 		failedHandler,
-		s.CompletedConfig.AuthenticationInfo.Authenticator,
+		authenticator,
 		s.CompletedConfig.AdditionalAuthEnabled)
 
 	requestInfoFactory := requestinfo.NewFactory()
 	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
+
+	if hasShardMapping {
+		// This middleware must happen before the authentication.
+		handler = lookup.WithClusterResolver(handler, s.IndexController)
+	}
+
 	handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 	handler = genericfilters.WithHTTPLogging(handler)
 	handler = metrics.WithLatencyTracking(handler)

@@ -30,21 +30,28 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
-	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 	"github.com/kcp-dev/kcp/pkg/server/proxy"
 )
 
-func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index) (http.Handler, error) {
-	mappingData, err := os.ReadFile(o.MappingFile)
+func loadMappings(filename string) ([]proxy.PathMapping, error) {
+	mappingData, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read mapping file %q: %w", o.MappingFile, err)
+		return nil, err
 	}
 
 	var mapping []proxy.PathMapping
 	if err = yaml.Unmarshal(mappingData, &mapping); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal mapping file %q: %w", o.MappingFile, err)
+		return nil, err
 	}
 
+	return mapping, nil
+}
+
+func isShardMapping(m proxy.PathMapping) bool {
+	return m.Path == "/clusters/"
+}
+
+func NewHandler(ctx context.Context, mappings []proxy.PathMapping, index index.Index) (http.Handler, error) {
 	handlers := proxy.HttpHandler{
 		Index: index,
 		Mappings: proxy.HttpHandlerMappings{
@@ -57,7 +64,7 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 	}
 
 	logger := klog.FromContext(ctx)
-	for _, m := range mapping {
+	for _, m := range mappings {
 		logger.WithValues("mapping", m).V(2).Info("adding mapping")
 
 		u, err := url.Parse(m.Backend)
@@ -71,10 +78,10 @@ func NewHandler(ctx context.Context, o *proxyoptions.Options, index index.Index)
 		}
 
 		var handler http.Handler
-		if m.Path == "/clusters/" {
+		if isShardMapping(m) {
 			clusterProxy := newShardReverseProxy()
 			clusterProxy.Transport = transport
-			handler = shardHandler(index, clusterProxy)
+			handler = clusterProxy
 		} else {
 			// TODO: handle virtual workspace apiservers per shard
 			proxy := httputil.NewSingleHostReverseProxy(u)
