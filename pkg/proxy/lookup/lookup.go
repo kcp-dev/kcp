@@ -31,10 +31,11 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
-	"github.com/kcp-dev/kcp/pkg/proxy/index"
+	"github.com/kcp-dev/kcp/pkg/index"
+	proxyindex "github.com/kcp-dev/kcp/pkg/proxy/index"
 )
 
-func WithClusterResolver(delegate http.Handler, index index.Index) http.Handler {
+func WithClusterResolver(delegate http.Handler, index proxyindex.Index) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var cs = strings.SplitN(strings.TrimLeft(req.URL.Path, "/"), "/", 3)
 		if len(cs) < 2 || cs[0] != "clusters" {
@@ -86,6 +87,7 @@ func WithClusterResolver(delegate http.Handler, index index.Index) http.Handler 
 
 		ctx = WithShardURL(ctx, shardURL)
 		ctx = WithClusterName(ctx, result.Cluster)
+		ctx = WithWorkspaceType(ctx, result.Type)
 		req = req.WithContext(ctx)
 
 		delegate.ServeHTTP(w, req)
@@ -97,6 +99,7 @@ type lookupKey int
 const (
 	shardContextKey lookupKey = iota
 	clusterContextKey
+	workspaceTypeContextKey
 )
 
 func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
@@ -119,6 +122,18 @@ func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
 	cluster, ok := ctx.Value(clusterContextKey).(logicalcluster.Name)
 	if !ok {
 		return ""
+	}
+	return cluster
+}
+
+func WithWorkspaceType(parent context.Context, wsType *index.WorkspaceType) context.Context {
+	return context.WithValue(parent, workspaceTypeContextKey, wsType)
+}
+
+func WorkspaceTypeFrom(ctx context.Context) *index.WorkspaceType {
+	cluster, ok := ctx.Value(workspaceTypeContextKey).(*index.WorkspaceType)
+	if !ok {
+		return nil
 	}
 	return cluster
 }
