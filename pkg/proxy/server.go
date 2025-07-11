@@ -48,6 +48,7 @@ type Server struct {
 	CompletedConfig
 	Handler                  http.Handler
 	IndexController          *index.Controller
+	AuthController           *authentication.Controller
 	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
@@ -76,22 +77,23 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	}
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
 
+	getClientFunc := func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
+		shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)
+		shardConfig.Host = shard.Spec.BaseURL
+		shardClient, err := kcpclientset.NewForConfig(shardConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
+		}
+		return shardClient, nil
+	}
+
 	// This controller is responsible for watching all Shards, connecting to each of them and
 	// watching a number of resources on each. The controller is then also satisfying the Index
 	// interface.
-	s.IndexController = index.NewController(
-		ctx,
-		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
-			shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)
-			shardConfig.Host = shard.Spec.BaseURL
-			shardClient, err := kcpclientset.NewForConfig(shardConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create shard %q client: %w", shard.Name, err)
-			}
-			return shardClient, nil
-		},
-	)
+	s.IndexController = index.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc)
+
+	// This controller is similar, but keeps track of the per-workspace authenticators.
+	s.AuthController = authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, s.IndexController)
 
 	handler, err := NewHandler(ctx, mappings, s.IndexController)
 	if err != nil {
@@ -104,7 +106,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	if hasShardMapping {
 		authenticator = authentication.NewWorkspaceAuthenticator(
 			s.CompletedConfig.AuthenticationInfo.Authenticator,
-			authentication.NewWorkspaceAuthProvider(ctx, s.IndexController),
+			s.AuthController,
 		)
 	}
 
@@ -168,8 +170,9 @@ func (s preparedServer) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to get or create identities: %w", err)
 	}
 
-	// start index
+	// start indexes
 	go s.IndexController.Start(ctx, 2)
+	go s.AuthController.Start(ctx, 2)
 
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
