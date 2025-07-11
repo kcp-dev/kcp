@@ -165,8 +165,15 @@ func (c *resourceClient) RawDelete(ctx context.Context, name string, opts metav1
 	return bytes, 0, err
 }
 
+func titleASCII(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToUpper(s[0:1]) + s[1:]
+}
+
 func (c *resourceClient) RawDeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOptions metav1.ListOptions) ([]byte, int, error) {
-	gvk := c.resource.GroupVersion().WithKind(strings.TrimRight(strings.Title(c.resource.Resource), "s")) //nolint:staticcheck
+	gvk := c.resource.GroupVersion().WithKind(strings.TrimRight(titleASCII(c.resource.Resource), "s"))
 	objs, _ := c.client.Tracker().List(c.resource, gvk, c.namespace)
 	list := objs.(*unstructured.UnstructuredList)
 	list.SetGroupVersionKind(schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List"})
