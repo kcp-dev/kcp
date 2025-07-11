@@ -68,6 +68,10 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			updateOrVerifyIdentitySecretHash: c.updateOrVerifyIdentitySecretHash,
 			secretNamespace:                  c.secretNamespace,
 		},
+		&endpointSlice{
+			getEndpointSlice:    c.getEndpointSlice,
+			createEndpointSlice: c.createEndpointSlice,
+		},
 		&purge{
 			deleteSelectedCacheResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) error {
 				return c.deleteSelectedCacheResources(ctx, cluster, cachedResource)

@@ -25,6 +25,11 @@ import (
 
 const CachedResourceFinalizer = "cachedresource.cache.kcp.dev"
 
+const (
+	// CachedResourceEndpointSliceSkipAnnotation is an annotation that can be set on a CachedResource to skip the creation of default CachedResourceEndpointSlice.
+	CachedResourceEndpointSliceSkipAnnotation = "cachedresources.cache.kcp.io/skip-endpointslice"
+)
+
 // CachedResource defines a resource that should be published to other workspaces
 //
 // +crd
@@ -186,4 +191,12 @@ func (in *CachedResource) SetConditions(c conditionsv1alpha1.Conditions) {
 
 func (in *CachedResource) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
+}
+
+func (in GroupVersionResource) GetGroup() string {
+	return in.Group
+}
+
+func (in GroupVersionResource) GetResource() string {
+	return in.Resource
 }
