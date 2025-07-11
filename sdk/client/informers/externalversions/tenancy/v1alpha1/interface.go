@@ -25,6 +25,8 @@ import (
 type ClusterInterface interface {
 	// Workspaces returns a WorkspaceClusterInformer.
 	Workspaces() WorkspaceClusterInformer
+	// WorkspaceAuthenticationConfigurations returns a WorkspaceAuthenticationConfigurationClusterInformer.
+	WorkspaceAuthenticationConfigurations() WorkspaceAuthenticationConfigurationClusterInformer
 	// WorkspaceTypes returns a WorkspaceTypeClusterInformer.
 	WorkspaceTypes() WorkspaceTypeClusterInformer
 }
@@ -44,6 +46,11 @@ func (v *version) Workspaces() WorkspaceClusterInformer {
 	return &workspaceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// WorkspaceAuthenticationConfigurations returns a WorkspaceAuthenticationConfigurationClusterInformer.
+func (v *version) WorkspaceAuthenticationConfigurations() WorkspaceAuthenticationConfigurationClusterInformer {
+	return &workspaceAuthenticationConfigurationClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // WorkspaceTypes returns a WorkspaceTypeClusterInformer.
 func (v *version) WorkspaceTypes() WorkspaceTypeClusterInformer {
 	return &workspaceTypeClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -52,6 +59,8 @@ func (v *version) WorkspaceTypes() WorkspaceTypeClusterInformer {
 type Interface interface {
 	// Workspaces returns a WorkspaceInformer.
 	Workspaces() WorkspaceInformer
+	// WorkspaceAuthenticationConfigurations returns a WorkspaceAuthenticationConfigurationInformer.
+	WorkspaceAuthenticationConfigurations() WorkspaceAuthenticationConfigurationInformer
 	// WorkspaceTypes returns a WorkspaceTypeInformer.
 	WorkspaceTypes() WorkspaceTypeInformer
 }
@@ -70,6 +79,11 @@ func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace st
 // Workspaces returns a WorkspaceInformer.
 func (v *scopedVersion) Workspaces() WorkspaceInformer {
 	return &workspaceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// WorkspaceAuthenticationConfigurations returns a WorkspaceAuthenticationConfigurationInformer.
+func (v *scopedVersion) WorkspaceAuthenticationConfigurations() WorkspaceAuthenticationConfigurationInformer {
+	return &workspaceAuthenticationConfigurationScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // WorkspaceTypes returns a WorkspaceTypeInformer.

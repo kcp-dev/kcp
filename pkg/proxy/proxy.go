@@ -25,10 +25,11 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
