@@ -118,6 +118,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardSpec":                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus":                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference":                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.AuthenticationConfigurationReference":     schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimMappings":                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimOrExpression":                        schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimValidationRule":                      schema_sdk_apis_tenancy_v1alpha1_ClaimValidationRule(ref),
@@ -4012,6 +4013,35 @@ func schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCal
 	}
 }
 
+func schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is the fully-qualified path to the workspace containing the WorkspaceAuthenticationConfiguration. If it is empty, the current workspace is assumed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "configuration is the name of the WorkspaceAuthenticationConfiguration.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"configuration"},
+			},
+		},
+	}
+}
+
 func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5017,11 +5047,25 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 							Format:      "",
 						},
 					},
+					"authenticationConfigurations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authenticationConfigurations are additional authentication options that should apply to any workspace using this workspace type.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.AuthenticationConfigurationReference"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"},
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.AuthenticationConfigurationReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"},
 	}
 }
 
