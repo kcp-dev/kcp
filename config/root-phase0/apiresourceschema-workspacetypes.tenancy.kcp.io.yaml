@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250603-d4d365c8e.workspacetypes.tenancy.kcp.io
+  name: v250711-45f1249c4.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -54,6 +54,27 @@ spec:
                 additionalWorkspaceLabels are a set of labels that will be added to a
                 Workspace on creation.
               type: object
+            authenticationConfigurations:
+              description: |-
+                authenticationConfigurations are additional authentication options that should apply to any
+                workspace using this workspace type.
+              items:
+                description: AuthenticationConfigurationReference provides the fields
+                  necessary to resolve a WorkspaceAuthenticationConfiguration.
+                properties:
+                  configuration:
+                    description: configuration is the name of the WorkspaceAuthenticationConfiguration.
+                    type: string
+                  path:
+                    description: |-
+                      path is the fully-qualified path to the workspace containing the WorkspaceAuthenticationConfiguration.
+                      If it is empty, the current workspace is assumed.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - configuration
+                type: object
+              type: array
             defaultAPIBindingLifecycle:
               description: Configure the lifecycle behaviour of defaultAPIBindings.
               enum:

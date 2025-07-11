@@ -222,6 +222,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):
 		return &applyconfigurationtenancyv1alpha1.APIExportReferenceApplyConfiguration{}
+	case tenancyv1alpha1.SchemeGroupVersion.WithKind("AuthenticationConfigurationReference"):
+		return &applyconfigurationtenancyv1alpha1.AuthenticationConfigurationReferenceApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ClaimMappings"):
 		return &applyconfigurationtenancyv1alpha1.ClaimMappingsApplyConfiguration{}
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("ClaimOrExpression"):
