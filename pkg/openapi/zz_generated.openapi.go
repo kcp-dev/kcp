@@ -118,10 +118,21 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardSpec":                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1.ShardStatus":                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.APIExportReference":                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimMappings":                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimOrExpression":                        schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimValidationRule":                      schema_sdk_apis_tenancy_v1alpha1_ClaimValidationRule(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ExtraMapping":                             schema_sdk_apis_tenancy_v1alpha1_ExtraMapping(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Issuer":                                   schema_sdk_apis_tenancy_v1alpha1_Issuer(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.JWTAuthenticator":                         schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Mount":                                    schema_sdk_apis_tenancy_v1alpha1_Mount(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ObjectReference":                          schema_sdk_apis_tenancy_v1alpha1_ObjectReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression":                schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.UserValidationRule":                       schema_sdk_apis_tenancy_v1alpha1_UserValidationRule(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Workspace":                                schema_sdk_apis_tenancy_v1alpha1_Workspace(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfiguration":     schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfiguration(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationList": schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationList(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationSpec": schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationSpec(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceList":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceLocation":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceLocation(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceSpec":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref),
@@ -4001,6 +4012,262 @@ func schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref common.ReferenceCal
 	}
 }
 
+func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClaimMappings provides the configuration for claim mapping",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression"),
+						},
+					},
+					"groups": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression"),
+						},
+					},
+					"uid": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimOrExpression"),
+						},
+					},
+					"extra": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ExtraMapping"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"username", "groups", "uid"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimOrExpression", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ExtraMapping", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression"},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClaimOrExpression provides the configuration for a single claim or expression.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claim": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"expression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"claim", "expression"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_ClaimValidationRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClaimValidationRule provides the configuration for a single claim validation rule.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claim": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"requiredValue": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"expression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"claim", "requiredValue", "expression", "message"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_ExtraMapping(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExtraMapping provides the configuration for a single extra mapping.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"valueExpression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"key", "valueExpression"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_Issuer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Issuer provides the configuration for an external provider's specific settings.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url points to the issuer URL in a format https://url or https://url/path. This must match the \"iss\" claim in the presented JWT, and the issuer returned from discovery. Same value as the --oidc-issuer-url flag. Discovery information is fetched from \"{url}/.well-known/openid-configuration\" unless overridden by discoveryURL. Required to be unique across all JWT authenticators. Note that egress selection configuration is not used for this network connection.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"discoveryURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "discoveryURL, if specified, overrides the URL used to fetch discovery information instead of using \"{url}/.well-known/openid-configuration\". The exact value specified is used, so \"/.well-known/openid-configuration\" must be included in discoveryURL if needed.\n\nThe \"issuer\" field in the fetched discovery information must match the \"issuer.url\" field in the AuthenticationConfiguration and will be used to validate the \"iss\" claim in the presented JWT. This is for scenarios where the well-known and jwks endpoints are hosted at a different location than the issuer (such as locally in the cluster).\n\nExample: A discovery url that is exposed using kubernetes service 'oidc' in namespace 'oidc-namespace' and discovery information is available at '/.well-known/openid-configuration'. discoveryURL: \"https://oidc.oidc-namespace/.well-known/openid-configuration\" certificateAuthority is used to verify the TLS connection and the hostname on the leaf certificate must be set to 'oidc.oidc-namespace'.\n\ncurl https://oidc.oidc-namespace/.well-known/openid-configuration (.discoveryURL field) {\n    issuer: \"https://oidc.example.com\" (.url field)\n}\n\ndiscoveryURL must be different from url. Required to be unique across all JWT authenticators. Note that egress selection configuration is not used for this network connection.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"certificateAuthority": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"audiences": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"audienceMatchPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"url", "certificateAuthority", "audienceMatchPolicy"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"issuer": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Issuer"),
+						},
+					},
+					"claimValidationRules": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimValidationRule"),
+									},
+								},
+							},
+						},
+					},
+					"claimMappings": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimMappings"),
+						},
+					},
+					"userValidationRules": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.UserValidationRule"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"issuer", "claimMappings"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimMappings", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.ClaimValidationRule", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.Issuer", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.UserValidationRule"},
+	}
+}
+
 func schema_sdk_apis_tenancy_v1alpha1_Mount(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4063,6 +4330,68 @@ func schema_sdk_apis_tenancy_v1alpha1_ObjectReference(ref common.ReferenceCallba
 					},
 				},
 				Required: []string{"apiVersion", "kind", "name"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PrefixedClaimOrExpression provides the configuration for a single prefixed claim or expression.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claim": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"prefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"expression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"claim", "expression"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_UserValidationRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UserValidationRule provides the configuration for a single user validation rule.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"expression": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"expression", "message"},
 			},
 		},
 	}
@@ -4134,6 +4463,125 @@ func schema_sdk_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceSpec", "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkspaceAuthenticationConfiguration specifies additional authentication options for workspaces.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationSpec"),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkspaceAuthenticationConfigurationList is a list of WorkspaceAuthenticationConfigurations.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfiguration"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfiguration", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"jwt": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.JWTAuthenticator"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"jwt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1.JWTAuthenticator"},
 	}
 }
 
