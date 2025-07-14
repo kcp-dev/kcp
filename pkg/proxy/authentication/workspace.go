@@ -40,8 +40,12 @@ var _ authenticator.Request = &WorkspaceAuthenticator{}
 
 func (a *WorkspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	response, authenticated, err := a.delegate.AuthenticateRequest(req)
-	if err != nil || authenticated {
-		return response, authenticated, err
+
+	// Unfortunately in Kube, an invalid token is an *error*, making the 2nd return
+	// value from the AuthenticateRequest() entirely useless to distinguish between
+	// bad credentials and a broken authenticator.
+	if err == nil && authenticated {
+		return response, authenticated, nil
 	}
 
 	wsType := lookup.WorkspaceTypeFrom(req.Context())

@@ -29,7 +29,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/authentication"
+	"github.com/kcp-dev/kcp/pkg/authentication"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
@@ -92,9 +93,6 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// interface.
 	s.IndexController = index.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc)
 
-	// This controller is similar, but keeps track of the per-workspace authenticators.
-	s.AuthController = authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, s.IndexController)
-
 	handler, err := NewHandler(ctx, mappings, s.IndexController)
 	if err != nil {
 		return s, err
@@ -102,8 +100,13 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 
 	// Wrap the core authenticator in a workspace-aware wrapper that will use
 	// AuthConfigs from the target workspace to authenticate a request.
-	var authenticator = s.completedConfig.AuthenticationInfo.Authenticator
-	if hasShardMapping {
+	authenticator := s.completedConfig.AuthenticationInfo.Authenticator
+	hasWorkspaceAuth := hasShardMapping && kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication)
+
+	if hasWorkspaceAuth {
+		// This controller is similar to the index controller, but keeps track of the per-workspace authenticators.
+		s.AuthController = authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, nil)
+
 		authenticator = authentication.NewWorkspaceAuthenticator(
 			s.CompletedConfig.AuthenticationInfo.Authenticator,
 			s.AuthController,
@@ -115,7 +118,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		handler,
 		failedHandler,
 		authenticator,
-		s.CompletedConfig.AdditionalAuthEnabled)
+		s.CompletedConfig.AdditionalAuthEnabled || hasWorkspaceAuth)
 
 	requestInfoFactory := requestinfo.NewFactory()
 	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
@@ -172,7 +175,10 @@ func (s preparedServer) Run(ctx context.Context) error {
 
 	// start indexes
 	go s.IndexController.Start(ctx, 2)
-	go s.AuthController.Start(ctx, 2)
+
+	if s.AuthController != nil {
+		go s.AuthController.Start(ctx, 2)
+	}
 
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())

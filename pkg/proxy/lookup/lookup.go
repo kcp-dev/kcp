@@ -18,7 +18,6 @@ package lookup
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -82,9 +81,6 @@ func WithClusterResolver(delegate http.Handler, index proxyindex.Index) http.Han
 			shardURL.Path += "/" + cs[2]
 		}
 
-		fmt.Printf("XRSTF: clusterPath=%v\n", clusterPath)
-		fmt.Printf("XRSTF: result=%#v\n", result)
-
 		ctx = WithShardURL(ctx, shardURL)
 		ctx = WithClusterName(ctx, result.Cluster)
 		ctx = WithWorkspaceType(ctx, result.Type)
@@ -107,7 +103,11 @@ func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
 }
 
 func ShardURLFrom(ctx context.Context) *url.URL {
-	return ctx.Value(shardContextKey).(*url.URL)
+	shardURL, ok := ctx.Value(shardContextKey).(*url.URL)
+	if !ok {
+		return nil
+	}
+	return shardURL
 }
 
 func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
@@ -115,7 +115,11 @@ func WithClusterName(parent context.Context, cluster logicalcluster.Name) contex
 }
 
 func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
-	return ctx.Value(clusterContextKey).(logicalcluster.Name)
+	cluster, ok := ctx.Value(clusterContextKey).(logicalcluster.Name)
+	if !ok {
+		return ""
+	}
+	return cluster
 }
 
 func WithWorkspaceType(parent context.Context, wsType *index.WorkspaceType) context.Context {
@@ -123,5 +127,9 @@ func WithWorkspaceType(parent context.Context, wsType *index.WorkspaceType) cont
 }
 
 func WorkspaceTypeFrom(ctx context.Context) *index.WorkspaceType {
-	return ctx.Value(workspaceTypeContextKey).(*index.WorkspaceType)
+	cluster, ok := ctx.Value(workspaceTypeContextKey).(*index.WorkspaceType)
+	if !ok {
+		return nil
+	}
+	return cluster
 }
