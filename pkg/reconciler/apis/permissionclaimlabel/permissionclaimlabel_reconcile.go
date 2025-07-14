@@ -74,18 +74,18 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 	}
 
 	acceptedClaims := sets.New[string]()
-	acceptedClaimsMap := make(map[string]apisv1alpha2.PermissionClaim)
+	acceptedClaimsMap := make(map[string]apisv1alpha2.ScopedPermissionClaim)
 	for _, claim := range apiBinding.Spec.PermissionClaims {
 		if claim.State == apisv1alpha2.ClaimAccepted {
 			key := setKeyForClaim(claim.PermissionClaim)
 			acceptedClaims.Insert(key)
-			acceptedClaimsMap[key] = claim.PermissionClaim
+			acceptedClaimsMap[key] = claim.ScopedPermissionClaim
 		}
 	}
 
 	appliedClaims := sets.New[string]()
 	for _, claim := range apiBinding.Status.AppliedPermissionClaims {
-		appliedClaims.Insert(setKeyForClaim(claim))
+		appliedClaims.Insert(setKeyForClaim(claim.PermissionClaim))
 	}
 
 	expectedClaims := exportedClaims.Intersection(acceptedClaims)
@@ -212,7 +212,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 	}
 
 	fullyApplied := expectedClaims.Difference(applyErrors)
-	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha2.PermissionClaim{}
+	apiBinding.Status.AppliedPermissionClaims = []apisv1alpha2.ScopedPermissionClaim{}
 	for _, s := range sets.List[string](fullyApplied) {
 		// fullyApplied = (exportedClaims ∩ acceptedClaims) ⊖ applyErrors,
 		// hence s must be in acceptedClaims (and exportedClaims).

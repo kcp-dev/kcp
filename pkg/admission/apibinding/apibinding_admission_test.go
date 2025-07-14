@@ -598,7 +598,6 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 						Group:    "foo",
 						Resource: "bar",
 					},
-					All:          true,
 					IdentityHash: "baz",
 					Verbs:        []string{"get", "list"},
 				}}
@@ -632,7 +631,6 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 							Group:    "foo",
 							Resource: "bar",
 						},
-						All:          true,
 						IdentityHash: "baz",
 						Verbs:        []string{"get", "list"},
 					},
@@ -641,7 +639,6 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 							Group:    "foo",
 							Resource: "baz",
 						},
-						All:          true,
 						IdentityHash: "bar",
 						Verbs:        []string{"get"},
 					},

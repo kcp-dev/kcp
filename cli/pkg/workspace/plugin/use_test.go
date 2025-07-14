@@ -961,12 +961,14 @@ func (b *bindingBuilder) WithPermissionClaim(group, resource, identityHash strin
 	}
 
 	pc := apisv1alpha2.AcceptablePermissionClaim{
-		PermissionClaim: apisv1alpha2.PermissionClaim{
-			GroupResource: apisv1alpha2.GroupResource{
-				Group:    group,
-				Resource: resource,
+		ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+			PermissionClaim: apisv1alpha2.PermissionClaim{
+				GroupResource: apisv1alpha2.GroupResource{
+					Group:    group,
+					Resource: resource,
+				},
+				IdentityHash: identityHash,
 			},
-			IdentityHash: identityHash,
 		},
 	}
 
