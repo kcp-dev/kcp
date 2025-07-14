@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
@@ -44,7 +43,6 @@ type WorkspaceAuthenticationConfigurationClusterLister interface {
 // workspaceAuthenticationConfigurationClusterLister implements the WorkspaceAuthenticationConfigurationClusterLister interface.
 type workspaceAuthenticationConfigurationClusterLister struct {
 	kcplisters.ResourceClusterIndexer[*kcpv1alpha1.WorkspaceAuthenticationConfiguration]
-	indexer cache.Indexer
 }
 
 var _ WorkspaceAuthenticationConfigurationClusterLister = new(workspaceAuthenticationConfigurationClusterLister)
@@ -54,19 +52,16 @@ var _ WorkspaceAuthenticationConfigurationClusterLister = new(workspaceAuthentic
 // - is fed by a cross-workspace LIST+WATCH
 // - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
 // - has the kcpcache.ClusterIndex as an index
-func NewWorkspaceAuthenticationConfigurationClusterLister(indexer cache.Indexer) *workspaceAuthenticationConfigurationClusterLister {
+func NewWorkspaceAuthenticationConfigurationClusterLister(indexer cache.Indexer) WorkspaceAuthenticationConfigurationClusterLister {
 	return &workspaceAuthenticationConfigurationClusterLister{
 		kcplisters.NewCluster[*kcpv1alpha1.WorkspaceAuthenticationConfiguration](indexer, kcpv1alpha1.Resource("workspaceauthenticationconfiguration")),
-		indexer,
 	}
 }
 
 // Cluster scopes the lister to one workspace, allowing users to list and get WorkspaceAuthenticationConfigurations.
 func (l *workspaceAuthenticationConfigurationClusterLister) Cluster(clusterName logicalcluster.Name) WorkspaceAuthenticationConfigurationLister {
 	return &workspaceAuthenticationConfigurationLister{
-		kcplisters.New[*kcpv1alpha1.WorkspaceAuthenticationConfiguration](l.indexer, clusterName, kcpv1alpha1.Resource("workspaceauthenticationconfiguration")),
-		l.indexer,
-		clusterName,
+		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
@@ -74,8 +69,6 @@ func (l *workspaceAuthenticationConfigurationClusterLister) Cluster(clusterName 
 // or scope down to a WorkspaceAuthenticationConfigurationNamespaceLister for one namespace.
 type workspaceAuthenticationConfigurationLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.WorkspaceAuthenticationConfiguration]
-	indexer     cache.Indexer
-	clusterName logicalcluster.Name
 }
 
 var _ WorkspaceAuthenticationConfigurationLister = new(workspaceAuthenticationConfigurationLister)
@@ -94,18 +87,17 @@ type WorkspaceAuthenticationConfigurationLister interface {
 
 // NewWorkspaceAuthenticationConfigurationLister returns a new WorkspaceAuthenticationConfigurationLister.
 // We assume that the indexer:
-// - is fed by a workspace-scoped LIST+WATCH
-// - uses cache.MetaNamespaceKeyFunc as the key function
+// - is fed by a cross-workspace LIST+WATCH
+// - uses kcpcache.MetaClusterNamespaceKeyFunc as the key function
+// - has the kcpcache.ClusterIndex as an index
 func NewWorkspaceAuthenticationConfigurationLister(indexer cache.Indexer) WorkspaceAuthenticationConfigurationLister {
-	return &workspaceAuthenticationConfigurationScopedLister{
-		listers.New[*kcpv1alpha1.WorkspaceAuthenticationConfiguration](indexer, kcpv1alpha1.Resource("workspaceauthenticationconfiguration")),
-		indexer,
+	return &workspaceAuthenticationConfigurationLister{
+		kcplisters.New[*kcpv1alpha1.WorkspaceAuthenticationConfiguration](indexer, kcpv1alpha1.Resource("workspaceauthenticationconfiguration")),
 	}
 }
 
 // workspaceAuthenticationConfigurationScopedLister can list all WorkspaceAuthenticationConfigurations inside a workspace
 // or scope down to a WorkspaceAuthenticationConfigurationNamespaceLister.
 type workspaceAuthenticationConfigurationScopedLister struct {
-	listers.ResourceIndexer[*kcpv1alpha1.WorkspaceAuthenticationConfiguration]
-	indexer cache.Indexer
+	kcplisters.ResourceIndexer[*kcpv1alpha1.WorkspaceAuthenticationConfiguration]
 }
