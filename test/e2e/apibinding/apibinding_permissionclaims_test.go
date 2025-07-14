@@ -128,33 +128,27 @@ func makePermissionClaims(identityHash string, verbs []string) []apisv1alpha2.Pe
 	return []apisv1alpha2.PermissionClaim{
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
-			All:           true,
 			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
-			All:           true,
 			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
-			All:           true,
 			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
-			All:           true,
 			IdentityHash:  identityHash,
 			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
-			All:           true,
 			Verbs:         verbs,
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
-			All:           true,
 			Verbs:         verbs,
 		},
 	}
@@ -197,51 +191,75 @@ func setUpServiceProviderWithPermissionClaims(ctx context.Context, t *testing.T,
 func getAcceptedPermissionClaims(identityHash string, verbs []string) []apisv1alpha2.AcceptablePermissionClaim {
 	return []apisv1alpha2.AcceptablePermissionClaim{
 		{
-			PermissionClaim: apisv1alpha2.PermissionClaim{
-				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
-				All:           true,
-				Verbs:         verbs,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
+					Verbs:         verbs,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
 		{
-			PermissionClaim: apisv1alpha2.PermissionClaim{
-				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
-				All:           true,
-				Verbs:         verbs,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
+					Verbs:         verbs,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
 		{
-			PermissionClaim: apisv1alpha2.PermissionClaim{
-				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
-				All:           true,
-				Verbs:         verbs,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
+					Verbs:         verbs,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
 		{
-			PermissionClaim: apisv1alpha2.PermissionClaim{
-				GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
-				IdentityHash:  identityHash,
-				All:           true,
-				Verbs:         verbs,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+					IdentityHash:  identityHash,
+					Verbs:         verbs,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
 		{
-			PermissionClaim: apisv1alpha2.PermissionClaim{
-				GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
-				All:           true,
-				Verbs:         verbs,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "localsubjectaccessreviews"},
+					Verbs:         verbs,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},
 		{
-			PermissionClaim: apisv1alpha2.PermissionClaim{
-				GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
-				All:           true,
-				Verbs:         verbs,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{Group: authorizationv1.GroupName, Resource: "subjectaccessreviews"},
+					Verbs:         verbs,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		},

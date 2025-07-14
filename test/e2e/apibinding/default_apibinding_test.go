@@ -101,12 +101,6 @@ func TestDefaultAPIBinding(t *testing.T) {
 						Resource: "configmaps",
 					},
 					Verbs: []string{"get"},
-					ResourceSelector: []apisv1alpha2.ResourceSelector{
-						{
-							Name:      "test",
-							Namespace: "test-namespace",
-						},
-					},
 				},
 			},
 		},
@@ -163,8 +157,8 @@ func TestDefaultAPIBinding(t *testing.T) {
 					continue
 				}
 				for _, epc := range expectedAppliedPermissionsClaims {
-					hasAppliedPermissionClaim := slices.ContainsFunc(ab.Status.AppliedPermissionClaims, func(pc apisv1alpha2.PermissionClaim) bool {
-						return epc.Group == pc.Group && epc.Resource == pc.Resource
+					hasAppliedPermissionClaim := slices.ContainsFunc(ab.Status.AppliedPermissionClaims, func(spc apisv1alpha2.ScopedPermissionClaim) bool {
+						return epc.Group == spc.Group && epc.Resource == spc.Resource
 					})
 					if !hasAppliedPermissionClaim {
 						return false, fmt.Sprintf("found api binding %q but missing permission claim %s/%s", ab.GetName(), epc.Group, epc.Resource)
@@ -209,12 +203,6 @@ func TestDefaultAPIBinding(t *testing.T) {
 			Resource: "secrets",
 		},
 		Verbs: []string{"get"},
-		ResourceSelector: []apisv1alpha2.ResourceSelector{
-			{
-				Name:      "test",
-				Namespace: "test-namespace",
-			},
-		},
 	})
 
 	commitAPIExport := committer.NewCommitter[*apisv1alpha2.APIExport, apisv1alpha2client.APIExportInterface, *apisv1alpha2.APIExportSpec, *apisv1alpha2.APIExportStatus](kcpClusterClient.ApisV1alpha2().APIExports())

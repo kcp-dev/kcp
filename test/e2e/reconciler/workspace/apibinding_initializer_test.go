@@ -92,7 +92,6 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 					GroupResource: apisv1alpha2.GroupResource{
 						Resource: "configmaps",
 					},
-					All:   true,
 					Verbs: []string{"*"},
 				},
 			},

@@ -451,7 +451,6 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 				Group:    "apis.kcp.io",
 				Resource: "apibindings",
 			},
-			All: true,
 		},
 	}
 	_, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIExports().Update(ctx, export1, metav1.UpdateOptions{})
@@ -465,8 +464,13 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		Spec: apisv1alpha2.APIBindingSpec{
 			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: export1.Spec.PermissionClaims[0],
-					State:           apisv1alpha2.ClaimAccepted,
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: export1.Spec.PermissionClaims[0],
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
+					},
+					State: apisv1alpha2.ClaimAccepted,
 				},
 			},
 		},
@@ -674,8 +678,13 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		for i := range apiBinding.Status.ExportPermissionClaims {
 			claim := apiBinding.Status.ExportPermissionClaims[i]
 			bindingWithClaims.Spec.PermissionClaims = append(bindingWithClaims.Spec.PermissionClaims, apisv1alpha2.AcceptablePermissionClaim{
-				PermissionClaim: claim,
-				State:           apisv1alpha2.ClaimAccepted,
+				ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+					PermissionClaim: claim,
+					Selector: apisv1alpha2.PermissionClaimSelector{
+						MatchAll: true,
+					},
+				},
+				State: apisv1alpha2.ClaimAccepted,
 			})
 		}
 		oldJSON := toJSON(t, apiBinding)
@@ -949,48 +958,39 @@ func defaultPermissionsClaims(identityHash string, modifiers ...func([]apisv1alp
 	claims := []apisv1alpha2.PermissionClaim{
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "secrets"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "serviceaccounts"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterroles"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "rbac.authorization.k8s.io", Resource: "clusterrolebindings"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "subjectaccessreviews"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "apis.kcp.io", Resource: "apibindings"},
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 		{
 			GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 			IdentityHash:  identityHash,
-			All:           true,
 			Verbs:         []string{"*"},
 		},
 	}

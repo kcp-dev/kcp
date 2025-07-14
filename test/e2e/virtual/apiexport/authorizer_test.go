@@ -184,13 +184,11 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				PermissionClaims: []apisv1alpha2.PermissionClaim{
 					{
 						GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-						All:           true,
 						Verbs:         []string{"*"},
 					},
 					{
 						GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
 						IdentityHash:  sherriffsIdentityHash,
-						All:           true,
 						Verbs:         []string{"*"},
 					},
 				},
@@ -244,19 +242,27 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				Spec: apisv1alpha2.APIBindingSpec{
 					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimAccepted,
 						},
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
-								IdentityHash:  sherriffsIdentityHash,
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+									IdentityHash:  sherriffsIdentityHash,
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimAccepted,
 						},
@@ -332,19 +338,27 @@ func TestAPIExportAuthorizers(t *testing.T) {
 				Spec: apisv1alpha2.APIBindingSpec{
 					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimAccepted,
 						},
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
-								IdentityHash:  sherriffsIdentityHash,
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Group: "wild.wild.west", Resource: "sheriffs"},
+									IdentityHash:  sherriffsIdentityHash,
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimAccepted,
 						},
@@ -567,7 +581,6 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 							Group:    "",
 							Resource: "configmaps",
 						},
-						All:   true,
 						Verbs: []string{"*"},
 					},
 				},
@@ -601,10 +614,14 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 			},
 			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha2.PermissionClaim{
-						GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-						Verbs:         []string{"*"},
-						All:           true,
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: apisv1alpha2.PermissionClaim{
+							GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
+							Verbs:         []string{"*"},
+						},
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
 					},
 					State: apisv1alpha2.ClaimAccepted,
 				},
@@ -684,10 +701,14 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 				Spec: apisv1alpha2.APIBindingSpec{
 					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimRejected,
 						},
@@ -722,10 +743,14 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 				Spec: apisv1alpha2.APIBindingSpec{
 					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimAccepted,
 						},
@@ -784,10 +809,14 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 				Spec: apisv1alpha2.APIBindingSpec{
 					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
-								All:           true,
-								Verbs:         []string{"*"},
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{Resource: "configmaps"},
+									Verbs:         []string{"*"},
+								},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimRejected,
 						},
@@ -961,7 +990,6 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 				{
 					GroupResource: apisv1alpha2.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
 					IdentityHash:  identityHash,
-					All:           true,
 					Verbs:         []string{"*"},
 				},
 			},
@@ -996,11 +1024,15 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 			},
 			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha2.PermissionClaim{
-						GroupResource: apisv1alpha2.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
-						IdentityHash:  identityHash,
-						All:           true,
-						Verbs:         []string{"*"},
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: apisv1alpha2.PermissionClaim{
+							GroupResource: apisv1alpha2.GroupResource{Group: tenancy.GroupName, Resource: "workspacetypes"},
+							IdentityHash:  identityHash,
+							Verbs:         []string{"*"},
+						},
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
 					},
 					State: apisv1alpha2.ClaimAccepted,
 				},
