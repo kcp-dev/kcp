@@ -53,6 +53,7 @@ type ExtraConfig struct {
 	AuthenticationInfo    genericapiserver.AuthenticationInfo
 	ServingInfo           *genericapiserver.SecureServingInfo
 	AdditionalAuthEnabled bool
+	WorkspaceAuthEnabled  bool
 }
 
 type CompletedConfig struct {
@@ -104,6 +105,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	c.ShardsConfig.Wrap(kcpShardIdentityRoundTripper)
 
 	c.AdditionalAuthEnabled = c.Options.Authentication.AdditionalAuthEnabled()
+	c.WorkspaceAuthEnabled = c.Options.Authentication.EnableWorkspaceAuth
 
 	return c, nil
 }
