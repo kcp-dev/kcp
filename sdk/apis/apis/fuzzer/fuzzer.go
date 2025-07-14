@@ -86,7 +86,6 @@ func Funcs(codecs runtimeserializer.CodecFactory) []interface{} {
 						Group:    group,
 						Resource: resource,
 					},
-					All:          true,
 					IdentityHash: identityHash,
 					Verbs:        verbs,
 				})

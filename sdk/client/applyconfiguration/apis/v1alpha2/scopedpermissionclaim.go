@@ -18,24 +18,23 @@ limitations under the License.
 
 package v1alpha2
 
-// PermissionClaimApplyConfiguration represents a declarative configuration of the PermissionClaim type for use
+// ScopedPermissionClaimApplyConfiguration represents a declarative configuration of the ScopedPermissionClaim type for use
 // with apply.
-type PermissionClaimApplyConfiguration struct {
-	GroupResourceApplyConfiguration `json:",inline"`
-	Verbs                           []string `json:"verbs,omitempty"`
-	IdentityHash                    *string  `json:"identityHash,omitempty"`
+type ScopedPermissionClaimApplyConfiguration struct {
+	PermissionClaimApplyConfiguration `json:",inline"`
+	Selector                          *PermissionClaimSelectorApplyConfiguration `json:"selector,omitempty"`
 }
 
-// PermissionClaimApplyConfiguration constructs a declarative configuration of the PermissionClaim type for use with
+// ScopedPermissionClaimApplyConfiguration constructs a declarative configuration of the ScopedPermissionClaim type for use with
 // apply.
-func PermissionClaim() *PermissionClaimApplyConfiguration {
-	return &PermissionClaimApplyConfiguration{}
+func ScopedPermissionClaim() *ScopedPermissionClaimApplyConfiguration {
+	return &ScopedPermissionClaimApplyConfiguration{}
 }
 
 // WithGroup sets the Group field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Group field is set to the value of the last call.
-func (b *PermissionClaimApplyConfiguration) WithGroup(value string) *PermissionClaimApplyConfiguration {
+func (b *ScopedPermissionClaimApplyConfiguration) WithGroup(value string) *ScopedPermissionClaimApplyConfiguration {
 	b.GroupResourceApplyConfiguration.Group = &value
 	return b
 }
@@ -43,7 +42,7 @@ func (b *PermissionClaimApplyConfiguration) WithGroup(value string) *PermissionC
 // WithResource sets the Resource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Resource field is set to the value of the last call.
-func (b *PermissionClaimApplyConfiguration) WithResource(value string) *PermissionClaimApplyConfiguration {
+func (b *ScopedPermissionClaimApplyConfiguration) WithResource(value string) *ScopedPermissionClaimApplyConfiguration {
 	b.GroupResourceApplyConfiguration.Resource = &value
 	return b
 }
@@ -51,9 +50,9 @@ func (b *PermissionClaimApplyConfiguration) WithResource(value string) *Permissi
 // WithVerbs adds the given value to the Verbs field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Verbs field.
-func (b *PermissionClaimApplyConfiguration) WithVerbs(values ...string) *PermissionClaimApplyConfiguration {
+func (b *ScopedPermissionClaimApplyConfiguration) WithVerbs(values ...string) *ScopedPermissionClaimApplyConfiguration {
 	for i := range values {
-		b.Verbs = append(b.Verbs, values[i])
+		b.PermissionClaimApplyConfiguration.Verbs = append(b.PermissionClaimApplyConfiguration.Verbs, values[i])
 	}
 	return b
 }
@@ -61,7 +60,15 @@ func (b *PermissionClaimApplyConfiguration) WithVerbs(values ...string) *Permiss
 // WithIdentityHash sets the IdentityHash field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the IdentityHash field is set to the value of the last call.
-func (b *PermissionClaimApplyConfiguration) WithIdentityHash(value string) *PermissionClaimApplyConfiguration {
-	b.IdentityHash = &value
+func (b *ScopedPermissionClaimApplyConfiguration) WithIdentityHash(value string) *ScopedPermissionClaimApplyConfiguration {
+	b.PermissionClaimApplyConfiguration.IdentityHash = &value
+	return b
+}
+
+// WithSelector sets the Selector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Selector field is set to the value of the last call.
+func (b *ScopedPermissionClaimApplyConfiguration) WithSelector(value *PermissionClaimSelectorApplyConfiguration) *ScopedPermissionClaimApplyConfiguration {
+	b.Selector = value
 	return b
 }

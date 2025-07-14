@@ -74,12 +74,31 @@ type APIBindingSpec struct {
 	// GroupResource, identity, and other properties.
 	//
 	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
+	// +listMapKey=identityHash
 	PermissionClaims []AcceptablePermissionClaim `json:"permissionClaims,omitempty"`
+}
+
+// ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
+// scope down access to objects of the claimed resource.
+type ScopedPermissionClaim struct {
+	PermissionClaim `json:",inline"`
+
+	// selector configures which objects for the claimed resource
+	// are made available to the APIExport owner. This field is immutable.
+	// Only one of matchLabels, matchExpressions or matchAll can be set.
+
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Permission claim selector is immutable"
+	Selector PermissionClaimSelector `json:"selector"`
 }
 
 // AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.
 type AcceptablePermissionClaim struct {
-	PermissionClaim `json:",inline"`
+	ScopedPermissionClaim `json:",inline"`
 
 	// state indicates if the claim is accepted or rejected.
 
@@ -95,6 +114,17 @@ const (
 	ClaimAccepted AcceptablePermissionClaimState = "Accepted"
 	ClaimRejected AcceptablePermissionClaimState = "Rejected"
 )
+
+// PermissionClaimSelector configures scoped access to objects
+// of a claimed resource.
+//
+// +kubebuilder:validation:XValidation:rule="(has(self.matchAll) && self.matchAll)",message="a selector is required. Only \"matchAll\" is currently implemented"
+type PermissionClaimSelector struct {
+	metav1.LabelSelector `json:",inline"`
+
+	// matchAll grants full access to all objects of the claimed resource.
+	MatchAll bool `json:"matchAll,omitempty"`
+}
 
 // BindingReference describes a reference to an APIExport. Exactly one of the
 // fields must be set.
@@ -166,7 +196,11 @@ type APIBindingStatus struct {
 	// state in spec.permissionClaims.
 	//
 	// +optional
-	AppliedPermissionClaims []PermissionClaim `json:"appliedPermissionClaims,omitempty"`
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
+	// +listMapKey=identityHash
+	AppliedPermissionClaims []ScopedPermissionClaim `json:"appliedPermissionClaims,omitempty"`
 
 	// exportPermissionClaims records the permissions that the export provider is asking for
 	// the binding to grant.
