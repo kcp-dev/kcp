@@ -2054,6 +2054,16 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref common.ReferenceCallback
 						},
 					},
 					"appliedPermissionClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+									"identityHash",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "appliedPermissionClaims is a list of the permission claims the system has seen and applied, according to the requests of the API service provider in the APIExport and the acceptance state in spec.permissionClaims.",
 							Type:        []string{"array"},
