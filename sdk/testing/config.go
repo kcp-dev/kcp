@@ -19,6 +19,8 @@ package testing
 import (
 	"sync"
 
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
@@ -30,6 +32,7 @@ var (
 	sharedConfig = kcptestingserver.Config{
 		Name:        "shared",
 		BindAddress: "127.0.0.1",
+		Features:    utilfeature.DefaultMutableFeatureGate.DeepCopy(),
 	}
 	externalConfig = struct {
 		kubeconfigPath       string

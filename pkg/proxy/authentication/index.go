@@ -217,8 +217,8 @@ var _ authenticator.Request = authenticatorUnion{}
 func (u authenticatorUnion) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	for _, authenticator := range u {
 		response, authenticated, err := authenticator.AuthenticateRequest(req)
-		if err != nil || authenticated {
-			return response, authenticated, err
+		if err == nil && authenticated {
+			return response, authenticated, nil
 		}
 	}
 

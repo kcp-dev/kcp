@@ -23,6 +23,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
@@ -38,6 +40,7 @@ func PrivateKcpServer(t TestingT, options ...kcptestingserver.Option) kcptesting
 	cfg := &kcptestingserver.Config{
 		Name:        "main",
 		BindAddress: "127.0.0.1",
+		Features:    utilfeature.DefaultMutableFeatureGate.DeepCopy(),
 	}
 	for _, opt := range options {
 		opt(cfg)

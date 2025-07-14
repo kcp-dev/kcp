@@ -30,7 +30,7 @@ var DefaultTokenAuthFile = filepath.Join(kcptestinghelpers.RepositoryDir(), "tes
 func init() {
 	var args []string
 	args = append(args, "--token-auth-file", DefaultTokenAuthFile) //nolint:gocritic // no.
-	args = append(args, "--feature-gates=WorkspaceMounts=true,CacheAPIs=true")
+	args = append(args, "--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true")
 
 	kcptesting.InitSharedKcpServer(kcptestingserver.WithCustomArguments(args...))
 }
