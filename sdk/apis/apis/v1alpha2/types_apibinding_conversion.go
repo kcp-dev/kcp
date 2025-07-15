@@ -32,7 +32,7 @@ const (
 // v1alpha2 -> v1alpha1
 
 func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *apisv1alpha1.APIBinding, s kubeconversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
+	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
 
 	_, overhangingAPC, err := Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims(in.Spec.PermissionClaims, s)
 	if err != nil {
@@ -114,7 +114,12 @@ func Convert_v1alpha2_ScopedPermissionClaim_To_v1alpha1_PermissionClaim(in *Scop
 // v1alpha1 -> v1alpha2
 
 func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBinding, out *APIBinding, s kubeconversion.Scope) error {
-	if err := autoConvert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in, out, s); err != nil {
+	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
+
+	if err := Convert_v1alpha1_APIBindingSpec_To_v1alpha2_APIBindingSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 

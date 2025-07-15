@@ -35,7 +35,7 @@ const (
 // v1alpha2 -> v1alpha1 conversions.
 
 func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1alpha1.APIExport, s kubeconversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
+	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
 
 	// before converting the spec, figure out which ResourceSchemas could not be represented in v1alpha1 and
 	// retain them via an annotation
@@ -185,7 +185,12 @@ func Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in *Permission
 // v1alpha1 -> v1alpha2 conversions.
 
 func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport, out *APIExport, s kubeconversion.Scope) error {
-	if err := autoConvert_v1alpha1_APIExport_To_v1alpha2_APIExport(in, out, s); err != nil {
+	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
+
+	if err := Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
 
