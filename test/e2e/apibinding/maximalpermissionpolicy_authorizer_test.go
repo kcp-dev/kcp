@@ -352,9 +352,19 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 			t.Logf("The CRDs are deleted in consumer workspace %q", consumer)
-			apiResourceList, err := kubeClusterClient.Cluster(consumer).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
-			require.NoError(t, err, "error retrieving consumer workspace %q API discovery", consumer)
-			require.Empty(t, apiResourceList.APIResources, "expected no cowboys resource in consumer workspace %q", consumer)
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
+				apiResourceList, err := kubeClusterClient.Cluster(consumer).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+				if apierrors.IsNotFound(err) {
+					return true, ""
+				}
+				if err != nil {
+					return false, fmt.Sprintf("error listing resources: %v", err)
+				}
+				if len(apiResourceList.APIResources) == 0 {
+					return true, "resources are deleted"
+				}
+				return false, fmt.Sprintf("expected no resources, got: %v", apiResourceList.APIResources)
+			}, wait.ForeverTestTimeout, time.Millisecond*100)
 		} else {
 			t.Logf("Make sure that the status of cowboy can be updated in workspace %q", consumer)
 			_, err = cowboyclient.Update(ctx, &cowboys.Items[0], metav1.UpdateOptions{})
