@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,11 +67,11 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*200)
 
-	return func() {
+	return sync.OnceFunc(func() {
 		t.Log("Stopping webhook...")
 		cancel()
-		if err := cmd.Wait(); err != nil {
-			t.Logf("error waiting for webhook to finish: %v", err)
+		if err := cmd.Wait(); err != nil && err.Error() != "signal: killed" {
+			t.Logf("Error waiting for webhook to finish: %v", err)
 		}
-	}
+	})
 }

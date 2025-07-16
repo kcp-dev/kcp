@@ -53,7 +53,8 @@ func TestAuthorizationOrder(t *testing.T) {
 
 		// stop the webhook and switch to a deny policy
 		webhookStop()
-		RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
+		webhookStop = RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
+		t.Cleanup(webhookStop)
 
 		t.Log("Admin should not be allowed to list ConfigMaps.")
 		_, err = kubeClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
@@ -82,7 +83,8 @@ func TestAuthorizationOrder(t *testing.T) {
 
 		// stop the webhook and switch to a deny policy
 		webhookStop()
-		RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
+		webhookStop = RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
+		t.Cleanup(webhookStop)
 
 		t.Log("Admin should not be allowed now to list Logical clusters.")
 		_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
