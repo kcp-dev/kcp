@@ -23,7 +23,7 @@ jobs:
 
     - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # tag=v5.5.0
       with:
-        go-version: v1.23.10
+        go-version-file: go.mod
 
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
