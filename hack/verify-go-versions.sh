@@ -20,7 +20,12 @@ set -o pipefail
 VERSION=$(awk '/^go / { print $2 }' go.mod | sed 's/.0$//')
 
 grep "FROM .* docker.io/golang:" Dockerfile | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in Dockerfile, expected ${VERSION}"; exit 1; }
-grep -w "go-version:" .github/workflows/*.yaml | { ! grep -v "go-version: v${VERSION}"; } || { echo "Wrong go version in .github/workflows/*.yaml, expected ${VERSION}"; exit 1; }
+workflow_version() {
+    grep -w "go-version:" .github/workflows/*.yaml .github/workflows/*.yml
+}
+if [[ "$(workflow_version | wc -l)" -gt 0 ]]; then
+    workflow_version | { ! grep -v "go-version: v${VERSION}"; } || { echo "Wrong go version in .github/workflows/*.yaml, expected ${VERSION}"; exit 1; }
+fi
 
 shopt -s dotglob
 # Note CONTRIBUTING.md isn't copied in the Dockerfile
