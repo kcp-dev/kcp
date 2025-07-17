@@ -19,6 +19,7 @@ package authorizer
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -125,6 +126,14 @@ func setupTest(t *testing.T, authOrder, webhookConfigFile string) (kcptestingser
 	}
 
 	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(args...))
+
+	// The testing framework has a rare race condition where if you stop kcp too early after it became "ready",
+	// it will run into loads of shutdown issues and the shutdown will take 3-4 minutes.
+	// This can be easily avoided by simply waiting a few seconds here. Since the tests that use setupTest()
+	// are very, very short anyway, this will not harm the test runtime overall, but make them much more
+	// stable on some certain PCs/laptops.
+	// See https://github.com/kcp-dev/kcp/issues/3488 for more information.
+	time.Sleep(3 * time.Second)
 
 	kcpConfig := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
