@@ -1,5 +1,12 @@
 module github.com/kcp-dev/kcp
 
+// Two Go versions are maintained - the minimum supported Go version as
+// noted in the go directive and the build version used in PROW and GHA
+// jobs and Docker builds as noted in the comment.
+// The script hack/verify-go-versions.sh checks that all version
+// references across the codebase are consistent with the versions
+// maintained here.
+// go-build-version 1.23.10
 go 1.23.0
 
 require (
