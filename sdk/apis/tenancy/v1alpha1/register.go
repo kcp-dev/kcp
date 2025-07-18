@@ -49,6 +49,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&WorkspaceList{},
 		&WorkspaceType{},
 		&WorkspaceTypeList{},
+		&WorkspaceAuthenticationConfiguration{},
+		&WorkspaceAuthenticationConfigurationList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
