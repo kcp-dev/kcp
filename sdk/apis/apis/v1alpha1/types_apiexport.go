@@ -270,7 +270,7 @@ func (p PermissionClaim) String() string {
 	return fmt.Sprintf("%s.%s:%s", p.Resource, p.Group, p.IdentityHash)
 }
 
-func (p PermissionClaim) Equal(claim PermissionClaim) bool {
+func (p PermissionClaim) EqualGRI(claim PermissionClaim) bool {
 	return p.Group == claim.Group &&
 		p.Resource == claim.Resource &&
 		p.IdentityHash == claim.IdentityHash

@@ -142,12 +142,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.MaximalPermissionPolicyApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaim"):
 		return &apisv1alpha2.PermissionClaimApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaimSelector"):
+		return &apisv1alpha2.PermissionClaimSelectorApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchema"):
 		return &apisv1alpha2.ResourceSchemaApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorage"):
 		return &apisv1alpha2.ResourceSchemaStorageApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSelector"):
-		return &apisv1alpha2.ResourceSelectorApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ScopedPermissionClaim"):
+		return &apisv1alpha2.ScopedPermissionClaimApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &apisv1alpha2.VirtualWorkspaceApplyConfiguration{}
 

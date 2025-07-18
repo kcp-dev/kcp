@@ -86,7 +86,6 @@ func TestBinding(t *testing.T) {
 							Group:    "apis.kcp.io",
 							Resource: "apibindings",
 						},
-						All:   true,
 						Verbs: []string{"*"},
 					},
 				},
@@ -109,13 +108,17 @@ func TestBinding(t *testing.T) {
 				Spec: apisv1alpha2.APIBindingSpec{
 					PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 						{
-							PermissionClaim: apisv1alpha2.PermissionClaim{
-								GroupResource: apisv1alpha2.GroupResource{
-									Group:    "apis.kcp.io",
-									Resource: "apibindings",
+							ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+								PermissionClaim: apisv1alpha2.PermissionClaim{
+									GroupResource: apisv1alpha2.GroupResource{
+										Group:    "apis.kcp.io",
+										Resource: "apibindings",
+									},
+									Verbs: []string{"*"},
 								},
-								All:   true,
-								Verbs: []string{"*"},
+								Selector: apisv1alpha2.PermissionClaimSelector{
+									MatchAll: true,
+								},
 							},
 							State: apisv1alpha2.ClaimAccepted,
 						},
@@ -619,8 +622,13 @@ func permissionClaimsToAcceptable(permissionClaims []apisv1alpha2.PermissionClai
 	acceptablePermissionClaims := []apisv1alpha2.AcceptablePermissionClaim{}
 	for _, pc := range permissionClaims {
 		acceptablePermissionClaims = append(acceptablePermissionClaims, apisv1alpha2.AcceptablePermissionClaim{
-			PermissionClaim: pc,
-			State:           apisv1alpha2.ClaimAccepted,
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: pc,
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
+			},
+			State: apisv1alpha2.ClaimAccepted,
 		})
 	}
 

@@ -399,11 +399,6 @@ spec:
                     Its purpose is to determine the added permissions that a service provider may
                     request and that a consumer may accept and allow the service provider access to.
                   properties:
-                    all:
-                      description: |-
-                        all claims all resources for the given group/resource.
-                        This is mutually exclusive with resourceSelector.
-                      type: boolean
                     group:
                       default: ""
                       description: |-
@@ -412,6 +407,7 @@ spec:
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                       type: string
                     identityHash:
+                      default: ""
                       description: |-
                         This is the identity for a given APIExport that the APIResourceSchema belongs to.
                         The hash can be found on APIExport and APIResourceSchema's status.
@@ -425,31 +421,6 @@ spec:
                         not provided by an api export.
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                       type: string
-                    resourceSelector:
-                      description: resourceSelector is a list of claimed resource
-                        selectors.
-                      items:
-                        properties:
-                          name:
-                            description: |-
-                              name of an object within a claimed group/resource.
-                              It matches the metadata.name field of the underlying object.
-                              If namespace is unset, all objects matching that name will be claimed.
-                            maxLength: 253
-                            minLength: 1
-                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
-                            type: string
-                          namespace:
-                            description: |-
-                              namespace containing the named object. Matches metadata.namespace field.
-                              If "name" is unset, all objects from the namespace are being claimed.
-                            minLength: 1
-                            type: string
-                        type: object
-                        x-kubernetes-validations:
-                        - message: at least one field must be set
-                          rule: has(self.__namespace__) || has(self.name)
-                      type: array
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes
@@ -464,10 +435,6 @@ spec:
                   - resource
                   - verbs
                   type: object
-                  x-kubernetes-validations:
-                  - message: either "all" or "resourceSelector" must be set
-                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
-                      && size(self.resourceSelector) > 0)
                 type: array
                 x-kubernetes-list-map-keys:
                 - group

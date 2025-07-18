@@ -215,33 +215,24 @@ type LocalAPIExportPolicy struct{}
 // PermissionClaim identifies an object by GR and identity hash.
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
-//
-// +kubebuilder:validation:XValidation:rule="(has(self.all) && self.all) != (has(self.resourceSelector) && size(self.resourceSelector) > 0)",message="either \"all\" or \"resourceSelector\" must be set"
 type PermissionClaim struct {
 	GroupResource `json:",inline"`
-
-	// all claims all resources for the given group/resource.
-	// This is mutually exclusive with resourceSelector.
-	// +optional
-	All bool `json:"all,omitempty"`
 
 	// verbs is a list of supported API operation types (this includes
 	// but is not limited to get, list, watch, create, update, patch,
 	// delete, deletecollection, and proxy).
+	//
 	// +required
 	// +listType=set
 	// +kubebuilder:validation:MinItems=1
 	Verbs []string `json:"verbs"`
 
-	// resourceSelector is a list of claimed resource selectors.
-	//
-	// +optional
-	ResourceSelector []ResourceSelector `json:"resourceSelector,omitempty"`
-
 	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
 	// The hash can be found on APIExport and APIResourceSchema's status.
 	// It will be empty for core types.
 	// Note that one must look this up for a particular KCP instance.
+	//
+	// +kubebuilder:default:=""
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
 }
@@ -281,7 +272,8 @@ func (p PermissionClaim) String() string {
 	return fmt.Sprintf("%s.%s:%s", p.Resource, p.Group, p.IdentityHash)
 }
 
-func (p PermissionClaim) Equal(claim PermissionClaim) bool {
+// EqualGRI returns whether claim is equal in Group, Resource and Identity Hash.
+func (p PermissionClaim) EqualGRI(claim PermissionClaim) bool {
 	return p.Group == claim.Group &&
 		p.Resource == claim.Resource &&
 		p.IdentityHash == claim.IdentityHash
@@ -295,12 +287,14 @@ type GroupResource struct {
 	// For core groups this is the empty string '""'.
 	//
 	// +kubebuilder:validation:Pattern=`^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$`
+	// +kubebuilder:default:=""
 	// +optional
 	Group string `json:"group,omitempty"`
 
 	// resource is the name of the resource.
 	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 	// not provided by an api export.
+	//
 	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
 	// +required
 	// +kubebuilder:validation:Required
