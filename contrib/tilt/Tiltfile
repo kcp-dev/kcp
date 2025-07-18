@@ -311,6 +311,20 @@ k8s_resource(
 )
 
 k8s_resource(
+  workload='alpha-etcd',
+  port_forwards=[
+    port_forward(name="kcp-alpha-etcd", local_port=30100, container_port=2379),
+  ],
+)
+
+k8s_resource(
+  workload='beta-etcd',
+  port_forwards=[
+    port_forward(name="kcp-beta-etcd", local_port=30101, container_port=2379),
+  ],
+)
+
+k8s_resource(
   workload='proxy-front-proxy',
   port_forwards=[
     port_forward(name="proxy-front-proxy", local_port=8443, container_port=8443),
