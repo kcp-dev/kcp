@@ -17,7 +17,18 @@
 set -e
 set -o pipefail
 
-VERSION=$(awk '/^go / { print $2 }' go.mod | sed 's/.0$//')
+gomod_version() {
+    awk '/^go / { print $2 }' "$1" | sed 's/.0$//'
+}
+
+VERSION=$(gomod_version go.mod)
+
+for gomod in $(git ls-files '**/go.mod'); do
+    if [[ "$(gomod_version $gomod)" != "$VERSION" ]]; then
+        echo "Wrong go version in $gomod, expected $VERSION"
+        exit 1
+    fi
+done
 
 grep "FROM .* docker.io/golang:" Dockerfile | { ! grep -v "${VERSION}"; } || { echo "Wrong go version in Dockerfile, expected ${VERSION}"; exit 1; }
 workflow_version() {
