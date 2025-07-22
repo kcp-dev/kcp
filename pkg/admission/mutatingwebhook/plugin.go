@@ -27,11 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/configuration"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/tools/cache"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -40,6 +42,7 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -55,11 +58,13 @@ type Plugin struct {
 	kubeClusterClient               kcpkubernetesclientset.ClusterInterface
 	localKubeSharedInformerFactory  kcpkubernetesinformers.SharedInformerFactory
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
+	serverStopChannel               <-chan struct{}
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 
-	managerLock   sync.Mutex
-	managersCache map[logicalcluster.Name]generic.Source
+	managerLock    sync.Mutex
+	managersCache  map[logicalcluster.Name]generic.Source
+	managersCancel map[logicalcluster.Name]context.CancelFunc
 }
 
 var (
@@ -72,9 +77,10 @@ var (
 
 func NewMutatingAdmissionWebhook(configFile io.Reader) (*Plugin, error) {
 	p := &Plugin{
-		managerLock:   sync.Mutex{},
-		managersCache: make(map[logicalcluster.Name]generic.Source),
-		Handler:       admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+		managerLock:    sync.Mutex{},
+		managersCache:  make(map[logicalcluster.Name]generic.Source),
+		managersCancel: make(map[logicalcluster.Name]context.CancelFunc),
+		Handler:        admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
 	}
 	if configFile != nil {
 		config, err := io.ReadAll(configFile)
@@ -146,10 +152,13 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 
 	p.managerLock.Lock()
 	defer p.managerLock.Unlock()
+
 	if _, ok := p.managersCache[clusterNameForGroupResource]; !ok {
+		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel))
 		p.managersCache[clusterNameForGroupResource] = configuration.NewMutatingWebhookConfigurationManagerForInformer(
-			p.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().Cluster(clusterNameForGroupResource),
+			p.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().ClusterWithContext(ctx, clusterNameForGroupResource),
 		)
+		p.managersCancel[clusterNameForGroupResource] = cancel
 	}
 
 	return p.managersCache[clusterNameForGroupResource], nil
@@ -184,6 +193,9 @@ func (p *Plugin) ValidateInitialization() error {
 	if p.globalKubeSharedInformerFactory == nil {
 		return errors.New("missing globalKubeSharedInformerFactory")
 	}
+	if p.serverStopChannel == nil {
+		return errors.New("missing serverStopChannel")
+	}
 	return nil
 }
 
@@ -200,4 +212,35 @@ func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactor
 	p.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 		return local.Apis().V1alpha2().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
 	}
+
+	// handler doesn't need to be deregistered - the webhook is valid
+	// for as long as kcp runs and when kcp stops the informer is
+	// stopped and the handler gets cleaned up.
+	_, _ = local.Core().V1alpha1().LogicalClusters().Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: func(obj interface{}) {
+				cl, ok := obj.(*corev1alpha1.LogicalCluster)
+				if !ok {
+					return
+				}
+
+				clName := logicalcluster.Name(cl.Annotations[logicalcluster.AnnotationKey])
+
+				p.managerLock.Lock()
+				defer p.managerLock.Unlock()
+
+				cancel, ok := p.managersCancel[clName]
+				if !ok {
+					return
+				}
+				delete(p.managersCancel, clName)
+				delete(p.managersCache, clName)
+				cancel()
+			},
+		},
+	)
+}
+
+func (p *Plugin) SetServerShutdownChannel(ch <-chan struct{}) {
+	p.serverStopChannel = ch
 }
