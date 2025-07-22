@@ -2720,7 +2720,7 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref common.ReferenceC
 					},
 					"matchAll": {
 						SchemaProps: spec.SchemaProps{
-							Description: "matchAll grants full access to all objects of the claimed resource.",
+							Description: "matchAll grants access to all objects of the claimed resource.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

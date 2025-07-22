@@ -122,7 +122,7 @@ const (
 type PermissionClaimSelector struct {
 	metav1.LabelSelector `json:",inline"`
 
-	// matchAll grants full access to all objects of the claimed resource.
+	// matchAll grants access to all objects of the claimed resource.
 	MatchAll bool `json:"matchAll,omitempty"`
 }
 

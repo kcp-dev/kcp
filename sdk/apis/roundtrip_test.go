@@ -163,7 +163,9 @@ func testGenericConversion(
 		err = toV2(intermediate, result, nil)
 		require.NoError(t, err)
 
-		// remove annotations that we expect on the object due to conversion data stored.
+		// remove annotations that we expected on the converted object due to conversion data stored.
+		// to do a equality check with the original object, we need to remove those annotations as we
+		// know that they will be there.
 		removeAnnotations(t, result, v2ExpectedAnnotations)
 
 		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")

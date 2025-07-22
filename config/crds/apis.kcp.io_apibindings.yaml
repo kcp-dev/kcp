@@ -508,8 +508,8 @@ spec:
                         of a claimed resource.
                       properties:
                         matchAll:
-                          description: matchAll grants full access to all objects
-                            of the claimed resource.
+                          description: matchAll grants access to all objects of the
+                            claimed resource.
                           type: boolean
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -661,8 +661,8 @@ spec:
                         of a claimed resource.
                       properties:
                         matchAll:
-                          description: matchAll grants full access to all objects
-                            of the claimed resource.
+                          description: matchAll grants access to all objects of the
+                            claimed resource.
                           type: boolean
                         matchExpressions:
                           description: matchExpressions is a list of label selector
