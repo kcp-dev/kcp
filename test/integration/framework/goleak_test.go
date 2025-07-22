@@ -18,6 +18,7 @@ package framework
 
 import (
 	"testing"
+	"time"
 
 	"go.uber.org/goleak"
 )
@@ -25,6 +26,10 @@ import (
 func TestGoleakWithDefaults(t *testing.T) {
 	current := goleak.IgnoreCurrent()
 	server, _, _ := StartTestServer(t)
+
+	// See https://github.com/kcp-dev/kcp/issues/3488
+	time.Sleep(2 * time.Second)
+
 	server.Stop()
 	GoleakWithDefaults(t, current)
 }
