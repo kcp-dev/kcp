@@ -253,7 +253,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 		c.metadataClient.Cluster(clusterName.Path()),
 		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
 		c.ignoredResources,
-		c.dynamicDiscoverySharedInformerFactory.Cluster(clusterName),
+		c.dynamicDiscoverySharedInformerFactory.ClusterWithContext(ctx, clusterName),
 		c.informersStarted,
 	)
 	if err != nil {
