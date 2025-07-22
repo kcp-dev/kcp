@@ -267,9 +267,20 @@ func (d *DiscoveringDynamicSharedInformerFactory) Cluster(cluster logicalcluster
 	}
 }
 
+func (d *DiscoveringDynamicSharedInformerFactory) ClusterWithContext(ctx context.Context, cluster logicalcluster.Name) kcpinformers.ScopedDynamicSharedInformerFactory {
+	informer := &scopedDiscoveringDynamicSharedInformerFactory{
+		DiscoveringDynamicSharedInformerFactory: d,
+		cluster:                                 cluster,
+		contextFn:                               func() context.Context { return ctx },
+	}
+
+	return informer
+}
+
 type scopedDiscoveringDynamicSharedInformerFactory struct {
 	*DiscoveringDynamicSharedInformerFactory
-	cluster logicalcluster.Name
+	cluster   logicalcluster.Name
+	contextFn func() context.Context
 }
 
 // ForResource returns the GenericInformer for gvr, creating it if needed. The GenericInformer must be started
@@ -278,6 +289,9 @@ func (d *scopedDiscoveringDynamicSharedInformerFactory) ForResource(gvr schema.G
 	clusterInformer, err := d.DiscoveringDynamicSharedInformerFactory.ForResource(gvr)
 	if err != nil {
 		return nil, err
+	}
+	if d.contextFn != nil {
+		return clusterInformer.ClusterWithContext(d.contextFn(), d.cluster), nil
 	}
 	return clusterInformer.Cluster(d.cluster), nil
 }
