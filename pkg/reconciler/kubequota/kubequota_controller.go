@@ -51,6 +51,7 @@ const (
 
 type scopeableInformerFactory interface {
 	Cluster(logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
+	ClusterWithContext(context.Context, logicalcluster.Name) kcpkubernetesinformers.ScopedDynamicSharedInformerFactory
 }
 
 // Controller manages per-workspace resource quota controllers.
@@ -263,9 +264,9 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 
 	resourceQuotaControllerOptions := &resourcequota.ControllerOptions{
 		QuotaClient:           resourceQuotaControllerClient.CoreV1(),
-		ResourceQuotaInformer: c.resourceQuotaClusterInformer.Cluster(clusterName),
+		ResourceQuotaInformer: c.resourceQuotaClusterInformer.ClusterWithContext(ctx, clusterName),
 		ResyncPeriod:          controller.StaticResyncPeriodFunc(c.quotaRecalculationPeriod),
-		InformerFactory:       c.scopingGenericSharedInformerFactory.Cluster(clusterName),
+		InformerFactory:       c.scopingGenericSharedInformerFactory.ClusterWithContext(ctx, clusterName),
 		ReplenishmentResyncPeriod: func() time.Duration {
 			return c.fullResyncPeriod
 		},
