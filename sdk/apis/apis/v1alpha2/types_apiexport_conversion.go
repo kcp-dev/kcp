@@ -51,6 +51,8 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		out.Annotations[ResourceSchemasAnnotation] = string(encoded)
 	}
 
+	// before converting the spec, figure out which PermissionClaims could not be represented in v1alpha1 and
+	// retain them via an annotation
 	_, overhangingPC, err := Convert_v1alpha2_PermissionClaims_To_v1alpha1_PermissionClaims(in.Spec.PermissionClaims, s)
 	if err != nil {
 		return err
@@ -71,10 +73,12 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		return err
 	}
 
+	// if the object was converted from v1alpha1 to v1alpha2 to v1alpha1, retain All and ResourceSelector
+	// fields in PermissionClaims by reading the original (v1alpha1) PermissionClaims from an annotation
 	if originalPermissionClaims, ok := in.Annotations[PermissionClaimsV1Alpha1Annotation]; ok {
 		permissionClaims := []apisv1alpha1.PermissionClaim{}
 		if err := json.Unmarshal([]byte(originalPermissionClaims), &permissionClaims); err != nil {
-			return fmt.Errorf("failed to decode schemas from JSON: %w", err)
+			return fmt.Errorf("failed to decode v1alpha1 claims from JSON: %w", err)
 		}
 
 		for _, pc := range permissionClaims {
@@ -138,8 +142,8 @@ func Convert_v1alpha2_PermissionClaims_To_v1alpha1_PermissionClaims(in []Permiss
 }
 
 // Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec is *not* lossless, as it will drop all non-CRD
-// resource schemas present in the APIExport's spec. To have a full, lossless conversion, use
-// Convert_v1alpha2_APIExport_To_v1alpha1_APIExport instead.
+// resource schemas and all non-wildcard PermissionClaims present in the APIExport's spec.
+// To have a full, lossless conversion, use Convert_v1alpha2_APIExport_To_v1alpha1_APIExport instead.
 func Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(in *APIExportSpec, out *apisv1alpha1.APIExportSpec, s kubeconversion.Scope) error {
 	if in.Identity != nil {
 		out.Identity = &apisv1alpha1.Identity{}
@@ -281,6 +285,9 @@ func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.A
 		}
 	}
 
+	// This will not convert non-wildcard PermissionClaims verbs and All/ResourceSelector fields. Those are still
+	// tucked away in an annotation and are converted after this function has completed, in
+	// Convert_v1alpha1_APIExport_To_v1alpha2_APIExport.
 	if claims := in.PermissionClaims; claims != nil {
 		newClaims := []PermissionClaim{}
 		for _, claim := range claims {
@@ -365,7 +372,7 @@ func Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(in []strin
 }
 
 // Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim ensures we do the default conversion for
-// PermissionClaims. Fields "All" and "ResourceSelector" are stored in annotation.
+// PermissionClaims. Fields "All", "ResourceSelector", and "Verbs" are stored in relevant annotations.
 func Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in *apisv1alpha1.PermissionClaim, out *PermissionClaim, s kubeconversion.Scope) error {
 	return autoConvert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in, out, s)
 }

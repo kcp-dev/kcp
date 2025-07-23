@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -148,6 +149,66 @@ func TestConvertV1Alpha2APIBindings(t *testing.T) {
 						},
 						Selector: PermissionClaimSelector{
 							MatchAll: true,
+						},
+					},
+					State: ClaimAccepted,
+				}},
+			},
+		},
+		{
+			Spec: APIBindingSpec{
+				Reference: BindingReference{
+					Export: &ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+				PermissionClaims: []AcceptablePermissionClaim{{
+					ScopedPermissionClaim: ScopedPermissionClaim{
+						PermissionClaim: PermissionClaim{
+							GroupResource: GroupResource{
+								Resource: "configmaps",
+							},
+							Verbs: []string{"get"},
+						},
+						Selector: PermissionClaimSelector{
+							LabelSelector: metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"test": "label",
+								},
+							},
+						},
+					},
+					State: ClaimAccepted,
+				}},
+			},
+		},
+		{
+			Spec: APIBindingSpec{
+				Reference: BindingReference{
+					Export: &ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+				PermissionClaims: []AcceptablePermissionClaim{{
+					ScopedPermissionClaim: ScopedPermissionClaim{
+						PermissionClaim: PermissionClaim{
+							GroupResource: GroupResource{
+								Resource: "configmaps",
+							},
+							Verbs: []string{"get"},
+						},
+						Selector: PermissionClaimSelector{
+							LabelSelector: metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "test",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{"expression"},
+									},
+								},
+							},
 						},
 					},
 					State: ClaimAccepted,
