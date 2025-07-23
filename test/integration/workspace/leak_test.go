@@ -32,6 +32,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/integration/framework"
 )
 
@@ -82,7 +83,7 @@ func TestWorkspaceDeletionLeak(t *testing.T) {
 
 	_, kcpClient, _ := framework.StartTestServer(t)
 
-	time.Sleep(2 * time.Second) // Give the caches and goroutines some time to catch up
+	createAndDeleteWs(ctx, t, kcpClient, "warmup")
 
 	t.Logf("Register current goroutines after warmup")
 	curGoroutines := goleak.IgnoreCurrent()
@@ -90,8 +91,12 @@ func TestWorkspaceDeletionLeak(t *testing.T) {
 	t.Logf("Create workspace")
 	createAndDeleteWs(ctx, t, kcpClient, "leak-test")
 
-	time.Sleep(2 * time.Second) // Give the caches and goroutines some time to catch up
-
 	t.Logf("Check for leftover goroutines")
-	goleak.VerifyNone(t, curGoroutines)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		err := goleak.Find(curGoroutines)
+		if err == nil {
+			return true, ""
+		}
+		return false, err.Error()
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "eventually there will be no random goroutines running while checking for leaks")
 }
