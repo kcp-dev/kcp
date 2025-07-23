@@ -93,5 +93,5 @@ func TestWorkspaceDeletionLeak(t *testing.T) {
 	time.Sleep(2 * time.Second) // Give the caches and goroutines some time to catch up
 
 	t.Logf("Check for leftover goroutines")
-	framework.GoleakWithDefaults(t, curGoroutines)
+	goleak.VerifyNone(t, curGoroutines)
 }
