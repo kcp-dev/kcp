@@ -21,6 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
@@ -101,6 +102,34 @@ func TestConversion(t *testing.T) {
 				apisv1alpha2.PermissionClaimsV1Alpha1Annotation,
 			},
 		},
+		{
+			name: "APIBinding",
+			v1:   &apisv1alpha1.APIBinding{},
+			v2:   &apisv1alpha2.APIBinding{},
+			toV2: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in.(*apisv1alpha1.APIBinding), out.(*apisv1alpha2.APIBinding), s)
+			},
+			toV1: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in.(*apisv1alpha2.APIBinding), out.(*apisv1alpha1.APIBinding), s)
+			},
+			v2ExpectedAnnotations: []string{
+				apisv1alpha2.StatusPermissionClaimsV1Alpha1Annotation,
+			},
+		},
+		{
+			name: "APIBindingList",
+			v1:   &apisv1alpha1.APIBindingList{},
+			v2:   &apisv1alpha2.APIBindingList{},
+			toV2: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList(in.(*apisv1alpha1.APIBindingList), out.(*apisv1alpha2.APIBindingList), s)
+			},
+			toV1: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList(in.(*apisv1alpha2.APIBindingList), out.(*apisv1alpha1.APIBindingList), s)
+			},
+			v2ExpectedAnnotations: []string{
+				apisv1alpha2.StatusPermissionClaimsV1Alpha1Annotation,
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -142,11 +171,11 @@ func testGenericConversion(
 		err = toV1(intermediate, result, nil)
 		require.NoError(t, err)
 
-		// remove annotations that we expect on the object due to conversion data stored.
+		// Remove annotations that we expect on the object due to conversion data stored.
 		removeAnnotations(t, result, v1ExpectedAnnotations)
 
-		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")
-		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expects originalCopy to equal original")
+		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expected original to equal result, got diff: %v", cmp.Diff(original, result))
+		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expected originalCopy to equal original, got diff: %v", cmp.Diff(originalCopy, original))
 	})
 
 	t.Run("V2->V1->V2", func(t *testing.T) {
@@ -163,13 +192,13 @@ func testGenericConversion(
 		err = toV2(intermediate, result, nil)
 		require.NoError(t, err)
 
-		// remove annotations that we expected on the converted object due to conversion data stored.
-		// to do a equality check with the original object, we need to remove those annotations as we
+		// Remove annotations that we expected on the converted object due to conversion data stored.
+		// To do a equality check with the original object, we need to remove those annotations as we
 		// know that they will be there.
 		removeAnnotations(t, result, v2ExpectedAnnotations)
 
-		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")
-		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expects originalCopy to equal original")
+		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expected original to equal result, got diff: %v", cmp.Diff(original, result))
+		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expected originalCopy to equal original, got diff: %v", cmp.Diff(originalCopy, original))
 	})
 }
 
