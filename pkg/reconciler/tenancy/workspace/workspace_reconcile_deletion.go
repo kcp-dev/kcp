@@ -49,7 +49,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		return reconcileStatusContinue, nil
 	}
 
-	if sets.New[string](workspace.Finalizers...).Delete(corev1alpha1.LogicalClusterFinalizer).Len() > 0 {
+	if sets.New(workspace.Finalizers...).Delete(corev1alpha1.LogicalClusterFinalizer).Len() > 0 {
 		return reconcileStatusContinue, nil
 	}
 
@@ -59,9 +59,9 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
 		a, ok := workspace.Annotations[workspaceClusterAnnotationKey]
 		if !ok {
-			finalizers := sets.New[string](workspace.Finalizers...)
+			finalizers := sets.New(workspace.Finalizers...)
 			finalizers.Delete(corev1alpha1.LogicalClusterFinalizer)
-			workspace.Finalizers = sets.List[string](finalizers)
+			workspace.Finalizers = sets.List(finalizers)
 			return reconcileStatusContinue, nil
 		}
 
@@ -97,10 +97,10 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		// fall-through
 	}
 	if apierrors.IsNotFound(getErr) {
-		finalizers := sets.New[string](workspace.Finalizers...)
+		finalizers := sets.New(workspace.Finalizers...)
 		if finalizers.Has(corev1alpha1.LogicalClusterFinalizer) {
 			logger.Info(fmt.Sprintf("Removing finalizer %s", corev1alpha1.LogicalClusterFinalizer))
-			workspace.Finalizers = sets.List[string](finalizers.Delete(corev1alpha1.LogicalClusterFinalizer))
+			workspace.Finalizers = sets.List(finalizers.Delete(corev1alpha1.LogicalClusterFinalizer))
 			return reconcileStatusStopAndRequeue, nil // spec change
 		}
 		return reconcileStatusContinue, nil
