@@ -4602,25 +4602,6 @@ GroupResource, identity, and other properties.</p>
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].all">.spec.permissionClaims[*].all</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">boolean</span>
-
-</div>
-
-<div class="property-description">
-<p>all claims all resources for the given group/resource.
-This is mutually exclusive with resourceSelector.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
 <h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].group">.spec.permissionClaims[*].group</h3>
 </div>
 <div class="property-body">
@@ -4681,16 +4662,17 @@ not provided by an api export.</p>
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].resourceSelector">.spec.permissionClaims[*].resourceSelector</h3>
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector">.spec.permissionClaims[*].selector</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
-<span class="property-type">array</span>
-
+<span class="property-type">object</span>
+<span class="property-required">Required</span>
 </div>
 
 <div class="property-description">
-<p>resourceSelector is a list of claimed resource selectors.</p>
+<p>PermissionClaimSelector configures scoped access to objects
+of a claimed resource.</p>
 
 </div>
 
@@ -4699,7 +4681,43 @@ not provided by an api export.</p>
 
 <div class="property depth-4">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].resourceSelector[*]">.spec.permissionClaims[*].resourceSelector[*]</h3>
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchAll">.spec.permissionClaims[*].selector.matchAll</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>matchAll grants access to all objects of the claimed resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchExpressions">.spec.permissionClaims[*].selector.matchExpressions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchExpressions[*]">.spec.permissionClaims[*].selector.matchExpressions[*]</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -4707,12 +4725,76 @@ not provided by an api export.</p>
 
 </div>
 
+<div class="property-description">
+<p>A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.</p>
+
+</div>
+
 </div>
 </div>
 
-<div class="property depth-5">
+<div class="property depth-6">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].resourceSelector[*].name">.spec.permissionClaims[*].resourceSelector[*].name</h3>
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchExpressions[*].key">.spec.permissionClaims[*].selector.matchExpressions[*].key</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>key is the label key that the selector applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchExpressions[*].operator">.spec.permissionClaims[*].selector.matchExpressions[*].operator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>operator represents a key&rsquo;s relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchExpressions[*].values">.spec.permissionClaims[*].selector.matchExpressions[*].values</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchExpressions[*].values[*]">.spec.permissionClaims[*].selector.matchExpressions[*].values[*]</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -4720,29 +4802,23 @@ not provided by an api export.</p>
 
 </div>
 
-<div class="property-description">
-<p>name of an object within a claimed group/resource.
-It matches the metadata.name field of the underlying object.
-If namespace is unset, all objects matching that name will be claimed.</p>
-
-</div>
-
 </div>
 </div>
 
-<div class="property depth-5">
+<div class="property depth-4">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].resourceSelector[*].namespace">.spec.permissionClaims[*].resourceSelector[*].namespace</h3>
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].selector.matchLabels">.spec.permissionClaims[*].selector.matchLabels</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
-<span class="property-type">string</span>
+<span class="property-type">object</span>
 
 </div>
 
 <div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field.
-If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
+<p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
 
 </div>
 
@@ -4937,28 +5013,8 @@ state in spec.permissionClaims.</p>
 </div>
 
 <div class="property-description">
-<p>PermissionClaim identifies an object by GR and identity hash.
-Its purpose is to determine the added permissions that a service provider may
-request and that a consumer may accept and allow the service provider access to.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].all">.status.appliedPermissionClaims[*].all</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">boolean</span>
-
-</div>
-
-<div class="property-description">
-<p>all claims all resources for the given group/resource.
-This is mutually exclusive with resourceSelector.</p>
+<p>ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
+scope down access to objects of the claimed resource.</p>
 
 </div>
 
@@ -5027,16 +5083,17 @@ not provided by an api export.</p>
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].resourceSelector">.status.appliedPermissionClaims[*].resourceSelector</h3>
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector">.status.appliedPermissionClaims[*].selector</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
-<span class="property-type">array</span>
-
+<span class="property-type">object</span>
+<span class="property-required">Required</span>
 </div>
 
 <div class="property-description">
-<p>resourceSelector is a list of claimed resource selectors.</p>
+<p>PermissionClaimSelector configures scoped access to objects
+of a claimed resource.</p>
 
 </div>
 
@@ -5045,7 +5102,43 @@ not provided by an api export.</p>
 
 <div class="property depth-4">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].resourceSelector[*]">.status.appliedPermissionClaims[*].resourceSelector[*]</h3>
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchAll">.status.appliedPermissionClaims[*].selector.matchAll</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>matchAll grants access to all objects of the claimed resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchExpressions">.status.appliedPermissionClaims[*].selector.matchExpressions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchExpressions[*]">.status.appliedPermissionClaims[*].selector.matchExpressions[*]</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -5053,12 +5146,76 @@ not provided by an api export.</p>
 
 </div>
 
+<div class="property-description">
+<p>A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.</p>
+
+</div>
+
 </div>
 </div>
 
-<div class="property depth-5">
+<div class="property depth-6">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].resourceSelector[*].name">.status.appliedPermissionClaims[*].resourceSelector[*].name</h3>
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchExpressions[*].key">.status.appliedPermissionClaims[*].selector.matchExpressions[*].key</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>key is the label key that the selector applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchExpressions[*].operator">.status.appliedPermissionClaims[*].selector.matchExpressions[*].operator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>operator represents a key&rsquo;s relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchExpressions[*].values">.status.appliedPermissionClaims[*].selector.matchExpressions[*].values</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchExpressions[*].values[*]">.status.appliedPermissionClaims[*].selector.matchExpressions[*].values[*]</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
@@ -5066,29 +5223,23 @@ not provided by an api export.</p>
 
 </div>
 
-<div class="property-description">
-<p>name of an object within a claimed group/resource.
-It matches the metadata.name field of the underlying object.
-If namespace is unset, all objects matching that name will be claimed.</p>
-
-</div>
-
 </div>
 </div>
 
-<div class="property depth-5">
+<div class="property depth-4">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].resourceSelector[*].namespace">.status.appliedPermissionClaims[*].resourceSelector[*].namespace</h3>
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].selector.matchLabels">.status.appliedPermissionClaims[*].selector.matchLabels</h3>
 </div>
 <div class="property-body">
 <div class="property-meta">
-<span class="property-type">string</span>
+<span class="property-type">object</span>
 
 </div>
 
 <div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field.
-If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
+<p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
 
 </div>
 
@@ -5509,25 +5660,6 @@ request and that a consumer may accept and allow the service provider access to.
 
 <div class="property depth-3">
 <div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].all">.status.exportPermissionClaims[*].all</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">boolean</span>
-
-</div>
-
-<div class="property-description">
-<p>all claims all resources for the given group/resource.
-This is mutually exclusive with resourceSelector.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
 <h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].group">.status.exportPermissionClaims[*].group</h3>
 </div>
 <div class="property-body">
@@ -5580,76 +5712,6 @@ Note that one must look this up for a particular KCP instance.</p>
 <p>resource is the name of the resource.
 Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 not provided by an api export.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].resourceSelector">.status.exportPermissionClaims[*].resourceSelector</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>resourceSelector is a list of claimed resource selectors.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].resourceSelector[*]">.status.exportPermissionClaims[*].resourceSelector[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].resourceSelector[*].name">.status.exportPermissionClaims[*].resourceSelector[*].name</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>name of an object within a claimed group/resource.
-It matches the metadata.name field of the underlying object.
-If namespace is unset, all objects matching that name will be claimed.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].resourceSelector[*].namespace">.status.exportPermissionClaims[*].resourceSelector[*].namespace</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>namespace containing the named object. Matches metadata.namespace field.
-If &ldquo;name&rdquo; is unset, all objects from the namespace are being claimed.</p>
 
 </div>
 
