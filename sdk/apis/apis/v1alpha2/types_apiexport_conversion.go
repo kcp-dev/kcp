@@ -37,8 +37,8 @@ const (
 func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1alpha1.APIExport, s kubeconversion.Scope) error {
 	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
 
-	// before converting the spec, figure out which ResourceSchemas could not be represented in v1alpha1 and
-	// retain them via an annotation
+	// Before converting the spec, figure out which ResourceSchemas could not be represented in v1alpha1 and
+	// retain them via an annotation.
 	_, overhangingRS := Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in.Spec)
 	if len(overhangingRS) > 0 {
 		encoded, err := json.Marshal(overhangingRS)
@@ -51,8 +51,8 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		out.Annotations[ResourceSchemasAnnotation] = string(encoded)
 	}
 
-	// before converting the spec, figure out which PermissionClaims could not be represented in v1alpha1 and
-	// retain them via an annotation
+	// Before converting the spec, figure out which PermissionClaims could not be represented in v1alpha1 and
+	// retain them via an annotation.
 	_, overhangingPC, err := Convert_v1alpha2_PermissionClaims_To_v1alpha1_PermissionClaims(in.Spec.PermissionClaims, s)
 	if err != nil {
 		return err
@@ -73,8 +73,8 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		return err
 	}
 
-	// if the object was converted from v1alpha1 to v1alpha2 to v1alpha1, retain All and ResourceSelector
-	// fields in PermissionClaims by reading the original (v1alpha1) PermissionClaims from an annotation
+	// If the object was converted from v1alpha1 to v1alpha2 to v1alpha1, retain All and ResourceSelector
+	// fields in PermissionClaims by reading the original (v1alpha1) PermissionClaims from an annotation.
 	if originalPermissionClaims, ok := in.Annotations[PermissionClaimsV1Alpha1Annotation]; ok {
 		permissionClaims := []apisv1alpha1.PermissionClaim{}
 		if err := json.Unmarshal([]byte(originalPermissionClaims), &permissionClaims); err != nil {
@@ -92,7 +92,7 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 
 		delete(out.Annotations, PermissionClaimsV1Alpha1Annotation)
 
-		// make tests for equality easier to write by turning []string into nil
+		// Make tests for equality easier to write by turning []string into nil.
 		if len(out.Annotations) == 0 {
 			out.Annotations = nil
 		}
@@ -198,8 +198,8 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 		return err
 	}
 
-	// store permission claims in annotation. this is necessary for a clean conversion of
-	// field All and FieldSelector, which went away in v1alpha2.
+	// Store permission claims in annotation. This is necessary for a clean conversion of
+	// fields All and FieldSelector, which went away in v1alpha2.
 	if len(in.Spec.PermissionClaims) > 0 {
 		if out.Annotations == nil {
 			out.Annotations = make(map[string]string)
@@ -227,7 +227,7 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 		delete(out.Annotations, ResourceSchemasAnnotation)
 
-		// make tests for equality easier to write by turning []string into nil
+		// Make tests for equality easier to write by turning []string into nil.
 		if len(out.Annotations) == 0 {
 			out.Annotations = nil
 		}
@@ -255,7 +255,7 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 		delete(out.Annotations, PermissionClaimsAnnotation)
 
-		// make tests for equality easier to write by turning []string into nil
+		// Make tests for equality easier to write by turning []string into nil.
 		if len(out.Annotations) == 0 {
 			out.Annotations = nil
 		}
@@ -344,7 +344,7 @@ func Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(in []strin
 	// and are converted after this function has completed, in Convert_v1alpha1_APIExport_To_v1alpha2_APIExport.
 	if schemas := in; schemas != nil {
 		for _, schema := range schemas {
-			// parse strings like "v1.resource.group.org"
+			// Parse strings like "v1.resource.group.org".
 			parts := strings.Split(schema, ".")
 			if len(parts) < 3 {
 				return fmt.Errorf("invalid schema %q: must have at least 3 dot-separated segments", schema)

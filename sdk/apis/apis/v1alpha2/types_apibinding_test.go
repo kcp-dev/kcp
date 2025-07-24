@@ -199,8 +199,7 @@ func TestAPIBindingPermissionClaimSelectorCELValidation(t *testing.T) {
 			}
 
 			if got := len(errs); got != len(tc.wantErrs) {
-				t.Errorf("'%s': expected %d errors, got %d", tc.name, len(tc.wantErrs), len(errs))
-				return
+				t.Fatalf("'%s': expected %d errors, got %d", tc.name, len(tc.wantErrs), len(errs))
 			}
 
 			for i := range tc.wantErrs {

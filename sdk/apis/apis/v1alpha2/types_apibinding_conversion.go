@@ -85,8 +85,8 @@ func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *api
 }
 
 // Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims converts v1alpha2.AcceptablePermissionClaims
-// to v1alpha1.AcceptablePermissionClaims. This is not a loseless conversion, verbs and selectors are lost in this conversion.
-// For loseless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
+// to v1alpha1.AcceptablePermissionClaims. This is not a lossless conversion, verbs and selectors are lost in this conversion.
+// For lossless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
 func Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims(in []AcceptablePermissionClaim, s kubeconversion.Scope) (out []apisv1alpha1.AcceptablePermissionClaim, overhanging []AcceptablePermissionClaim, err error) {
 	for _, apc := range in {
 		if len(apc.PermissionClaim.Verbs) == 1 && apc.PermissionClaim.Verbs[0] == "*" && apc.Selector.MatchAll {
@@ -107,7 +107,7 @@ func Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissio
 
 // Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim converts v1alpha2.AcceptablePermissionClaim
 // to v1alpha1.AcceptablePermissionClaim. This is not a lossless conversion, selectors are lost in this conversion.
-// For loseless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
+// For lossless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
 func Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in *AcceptablePermissionClaim, out *apisv1alpha1.AcceptablePermissionClaim, s kubeconversion.Scope) error {
 	if err := Convert_v1alpha2_ScopedPermissionClaim_To_v1alpha1_PermissionClaim(&in.ScopedPermissionClaim, &out.PermissionClaim, s); err != nil {
 		return err
@@ -117,7 +117,7 @@ func Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermission
 }
 
 // Convert_v1alpha2_ScopedPermissionClaim_To_v1alpha1_PermissionClaim converts v1alhpa2.ScopedPermissionClaim to v1alpha1.PermissionClaim.
-// This is not a lossless conversion, for loseless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
+// This is not a lossless conversion, for lossless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
 func Convert_v1alpha2_ScopedPermissionClaim_To_v1alpha1_PermissionClaim(in *ScopedPermissionClaim, out *apisv1alpha1.PermissionClaim, s kubeconversion.Scope) error {
 	if err := Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&in.PermissionClaim, out, s); err != nil {
 		return err
@@ -138,7 +138,7 @@ func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBind
 		return err
 	}
 
-	// store v1alpha1 acceptable permission claims in annotation. this is necessary for a clean conversion of
+	// Store v1alpha1 acceptable permission claims in annotation. This is necessary for a clean conversion of
 	// ResourceSelector, which went away in v1alpha2.
 	_, overhangingV1PC, err := Convert_v1alpha1_AcceptablePermissionClaims_To_v1alpha2_AcceptablePermissionClaims(in.Spec.PermissionClaims, s)
 	if err != nil {
@@ -155,7 +155,7 @@ func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBind
 		out.Annotations[PermissionClaimsV1Alpha1Annotation] = string(encoded)
 	}
 
-	// store v1alpha2 permission claims in annotation. this is necessary for a clean conversion of
+	// Store v1alpha2 permission claims in annotation. This is necessary for a clean conversion of
 	// verbs and label selectors, which were not existing in v1alpha1.
 	if overhangingAPC, ok := in.Annotations[AcceptablePermissionClaimsAnnotation]; ok {
 		acceptablePermissionClaims := []AcceptablePermissionClaim{}
@@ -174,7 +174,7 @@ func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBind
 
 		delete(out.Annotations, AcceptablePermissionClaimsAnnotation)
 
-		// make tests for equality easier to write by turning []string into nil
+		// Make tests for equality easier to write by turning []string into nil.
 		if len(out.Annotations) == 0 {
 			out.Annotations = nil
 		}
@@ -196,7 +196,7 @@ func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBind
 }
 
 // Convert_v1alpha1_AcceptablePermissionClaims_To_v1alpha2_AcceptablePermissionClaims converts []v1alpha1.AcceptablePermissionClaim
-// to []v1alpha2.AcceptablePermissionClaim. This is not a lossless conversion, for loseless conversion use
+// to []v1alpha2.AcceptablePermissionClaim. This is not a lossless conversion, for lossless conversion use
 // Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding.
 func Convert_v1alpha1_AcceptablePermissionClaims_To_v1alpha2_AcceptablePermissionClaims(in []apisv1alpha1.AcceptablePermissionClaim, s kubeconversion.Scope) (out []AcceptablePermissionClaim, overhanging []apisv1alpha1.AcceptablePermissionClaim, err error) {
 	for _, pc := range in {
@@ -215,7 +215,7 @@ func Convert_v1alpha1_AcceptablePermissionClaims_To_v1alpha2_AcceptablePermissio
 }
 
 // Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim converts v1alpha1.AcceptablePermissionClaim
-// to v1alpha2.AcceptablePermissionClaim. This is not a lossless conversion, for loseless conversion use
+// to v1alpha2.AcceptablePermissionClaim. This is not a lossless conversion, for lossless conversion use
 // Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding.
 func Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in *apisv1alpha1.AcceptablePermissionClaim, out *AcceptablePermissionClaim, s kubeconversion.Scope) error {
 	if err := Convert_v1alpha1_PermissionClaim_To_v1alpha2_ScopedPermissionClaim(&in.PermissionClaim, &out.ScopedPermissionClaim, s); err != nil {
@@ -227,7 +227,7 @@ func Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermission
 }
 
 // Convert_v1alpha1_PermissionClaim_To_v1alpha2_ScopedPermissionClaim converts v1alpha1.PermissionClaim
-// to v1alpha2.PermissionClaim. This is not a lossless conversion, for loseless conversion use
+// to v1alpha2.PermissionClaim. This is not a lossless conversion, for lossless conversion use
 // Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding.
 func Convert_v1alpha1_PermissionClaim_To_v1alpha2_ScopedPermissionClaim(in *apisv1alpha1.PermissionClaim, out *ScopedPermissionClaim, s kubeconversion.Scope) error {
 	if err := Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in, &out.PermissionClaim, s); err != nil {
