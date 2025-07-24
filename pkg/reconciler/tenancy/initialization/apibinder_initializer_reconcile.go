@@ -164,8 +164,13 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
 				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
-					PermissionClaim: exportClaim,
-					State:           apisv1alpha2.ClaimAccepted,
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: exportClaim,
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
+					},
+					State: apisv1alpha2.ClaimAccepted,
 				}
 
 				apiBinding.Spec.PermissionClaims = append(apiBinding.Spec.PermissionClaims, acceptedClaim)

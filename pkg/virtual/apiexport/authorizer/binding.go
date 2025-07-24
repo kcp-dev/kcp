@@ -128,7 +128,7 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 			apiExportVerbs := sets.New[string]()
 
 			for _, exportPermpermissionClaim := range apiExport.Spec.PermissionClaims {
-				if exportPermpermissionClaim.Equal(permissionClaim.PermissionClaim) {
+				if exportPermpermissionClaim.EqualGRI(permissionClaim.PermissionClaim) {
 					apiExportVerbs.Insert(exportPermpermissionClaim.Verbs...)
 
 					break

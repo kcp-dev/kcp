@@ -480,18 +480,15 @@ spec:
                   description: AcceptablePermissionClaim is a PermissionClaim that
                     records if the user accepts or rejects it.
                   properties:
-                    all:
-                      description: |-
-                        all claims all resources for the given group/resource.
-                        This is mutually exclusive with resourceSelector.
-                      type: boolean
                     group:
+                      default: ""
                       description: |-
                         group is the name of an API group.
                         For core groups this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                       type: string
                     identityHash:
+                      default: ""
                       description: |-
                         This is the identity for a given APIExport that the APIResourceSchema belongs to.
                         The hash can be found on APIExport and APIResourceSchema's status.
@@ -505,31 +502,64 @@ spec:
                         not provided by an api export.
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                       type: string
-                    resourceSelector:
-                      description: resourceSelector is a list of claimed resource
-                        selectors.
-                      items:
-                        properties:
-                          name:
+                    selector:
+                      description: |-
+                        PermissionClaimSelector configures scoped access to objects
+                        of a claimed resource.
+                      properties:
+                        matchAll:
+                          description: matchAll grants access to all objects of the
+                            claimed resource.
+                          type: boolean
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
                             description: |-
-                              name of an object within a claimed group/resource.
-                              It matches the metadata.name field of the underlying object.
-                              If namespace is unset, all objects matching that name will be claimed.
-                            maxLength: 253
-                            minLength: 1
-                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
                             type: string
-                          namespace:
-                            description: |-
-                              namespace containing the named object. Matches metadata.namespace field.
-                              If "name" is unset, all objects from the namespace are being claimed.
-                            minLength: 1
-                            type: string
-                        type: object
-                        x-kubernetes-validations:
-                        - message: at least one field must be set
-                          rule: has(self.__namespace__) || has(self.name)
-                      type: array
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                      x-kubernetes-validations:
+                      - message: Permission claim selector is immutable
+                        rule: self == oldSelf
+                      - message: a selector is required. Only "matchAll" is currently
+                          implemented
+                        rule: (has(self.matchAll) && self.matchAll)
                     state:
                       enum:
                       - Accepted
@@ -547,14 +577,16 @@ spec:
                       x-kubernetes-list-type: set
                   required:
                   - resource
+                  - selector
                   - state
                   - verbs
                   type: object
-                  x-kubernetes-validations:
-                  - message: either "all" or "resourceSelector" must be set
-                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
-                      && size(self.resourceSelector) > 0)
                 type: array
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                - identityHash
+                x-kubernetes-list-type: map
               reference:
                 description: reference uniquely identifies an API to bind to.
                 properties:
@@ -598,22 +630,18 @@ spec:
                   state in spec.permissionClaims.
                 items:
                   description: |-
-                    PermissionClaim identifies an object by GR and identity hash.
-                    Its purpose is to determine the added permissions that a service provider may
-                    request and that a consumer may accept and allow the service provider access to.
+                    ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
+                    scope down access to objects of the claimed resource.
                   properties:
-                    all:
-                      description: |-
-                        all claims all resources for the given group/resource.
-                        This is mutually exclusive with resourceSelector.
-                      type: boolean
                     group:
+                      default: ""
                       description: |-
                         group is the name of an API group.
                         For core groups this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                       type: string
                     identityHash:
+                      default: ""
                       description: |-
                         This is the identity for a given APIExport that the APIResourceSchema belongs to.
                         The hash can be found on APIExport and APIResourceSchema's status.
@@ -627,31 +655,64 @@ spec:
                         not provided by an api export.
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                       type: string
-                    resourceSelector:
-                      description: resourceSelector is a list of claimed resource
-                        selectors.
-                      items:
-                        properties:
-                          name:
+                    selector:
+                      description: |-
+                        PermissionClaimSelector configures scoped access to objects
+                        of a claimed resource.
+                      properties:
+                        matchAll:
+                          description: matchAll grants access to all objects of the
+                            claimed resource.
+                          type: boolean
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
                             description: |-
-                              name of an object within a claimed group/resource.
-                              It matches the metadata.name field of the underlying object.
-                              If namespace is unset, all objects matching that name will be claimed.
-                            maxLength: 253
-                            minLength: 1
-                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
                             type: string
-                          namespace:
-                            description: |-
-                              namespace containing the named object. Matches metadata.namespace field.
-                              If "name" is unset, all objects from the namespace are being claimed.
-                            minLength: 1
-                            type: string
-                        type: object
-                        x-kubernetes-validations:
-                        - message: at least one field must be set
-                          rule: has(self.__namespace__) || has(self.name)
-                      type: array
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
+                      x-kubernetes-validations:
+                      - message: Permission claim selector is immutable
+                        rule: self == oldSelf
+                      - message: a selector is required. Only "matchAll" is currently
+                          implemented
+                        rule: (has(self.matchAll) && self.matchAll)
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes
@@ -664,13 +725,15 @@ spec:
                       x-kubernetes-list-type: set
                   required:
                   - resource
+                  - selector
                   - verbs
                   type: object
-                  x-kubernetes-validations:
-                  - message: either "all" or "resourceSelector" must be set
-                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
-                      && size(self.resourceSelector) > 0)
                 type: array
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                - identityHash
+                x-kubernetes-list-type: map
               boundResources:
                 description: boundResources records the state of bound APIs.
                 items:
@@ -793,18 +856,15 @@ spec:
                     Its purpose is to determine the added permissions that a service provider may
                     request and that a consumer may accept and allow the service provider access to.
                   properties:
-                    all:
-                      description: |-
-                        all claims all resources for the given group/resource.
-                        This is mutually exclusive with resourceSelector.
-                      type: boolean
                     group:
+                      default: ""
                       description: |-
                         group is the name of an API group.
                         For core groups this is the empty string '""'.
                       pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
                       type: string
                     identityHash:
+                      default: ""
                       description: |-
                         This is the identity for a given APIExport that the APIResourceSchema belongs to.
                         The hash can be found on APIExport and APIResourceSchema's status.
@@ -818,31 +878,6 @@ spec:
                         not provided by an api export.
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
                       type: string
-                    resourceSelector:
-                      description: resourceSelector is a list of claimed resource
-                        selectors.
-                      items:
-                        properties:
-                          name:
-                            description: |-
-                              name of an object within a claimed group/resource.
-                              It matches the metadata.name field of the underlying object.
-                              If namespace is unset, all objects matching that name will be claimed.
-                            maxLength: 253
-                            minLength: 1
-                            pattern: ^([a-z0-9][-a-z0-9_.]*)?[a-z0-9]$
-                            type: string
-                          namespace:
-                            description: |-
-                              namespace containing the named object. Matches metadata.namespace field.
-                              If "name" is unset, all objects from the namespace are being claimed.
-                            minLength: 1
-                            type: string
-                        type: object
-                        x-kubernetes-validations:
-                        - message: at least one field must be set
-                          rule: has(self.__namespace__) || has(self.name)
-                      type: array
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes
@@ -857,10 +892,6 @@ spec:
                   - resource
                   - verbs
                   type: object
-                  x-kubernetes-validations:
-                  - message: either "all" or "resourceSelector" must be set
-                    rule: (has(self.all) && self.all) != (has(self.resourceSelector)
-                      && size(self.resourceSelector) > 0)
                 type: array
               phase:
                 description: |-

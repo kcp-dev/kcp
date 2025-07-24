@@ -27,15 +27,18 @@ import (
 )
 
 const (
-	ResourceSchemasAnnotation  = "apis.v1alpha2.kcp.io/resource-schemas"
-	PermissionClaimsAnnotation = "apis.v1alpha2.kcp.io/permission-claims"
+	ResourceSchemasAnnotation          = "apis.v1alpha2.kcp.io/resource-schemas"
+	PermissionClaimsAnnotation         = "apis.v1alpha2.kcp.io/permission-claims"
+	PermissionClaimsV1Alpha1Annotation = "apis.v1alpha2.kcp.io/v1alpha1-permission-claims"
 )
 
-func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1alpha1.APIExport, s kubeconversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
+// v1alpha2 -> v1alpha1 conversions.
 
-	// before converting the spec, figure out which ResourceSchemas could not be represented in v1alpha1 and
-	// retain them via an annotation
+func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1alpha1.APIExport, s kubeconversion.Scope) error {
+	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
+
+	// Before converting the spec, figure out which ResourceSchemas could not be represented in v1alpha1 and
+	// retain them via an annotation.
 	_, overhangingRS := Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in.Spec)
 	if len(overhangingRS) > 0 {
 		encoded, err := json.Marshal(overhangingRS)
@@ -48,6 +51,8 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		out.Annotations[ResourceSchemasAnnotation] = string(encoded)
 	}
 
+	// Before converting the spec, figure out which PermissionClaims could not be represented in v1alpha1 and
+	// retain them via an annotation.
 	_, overhangingPC, err := Convert_v1alpha2_PermissionClaims_To_v1alpha1_PermissionClaims(in.Spec.PermissionClaims, s)
 	if err != nil {
 		return err
@@ -66,6 +71,31 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 
 	if err := Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
+	}
+
+	// If the object was converted from v1alpha1 to v1alpha2 to v1alpha1, retain All and ResourceSelector
+	// fields in PermissionClaims by reading the original (v1alpha1) PermissionClaims from an annotation.
+	if originalPermissionClaims, ok := in.Annotations[PermissionClaimsV1Alpha1Annotation]; ok {
+		permissionClaims := []apisv1alpha1.PermissionClaim{}
+		if err := json.Unmarshal([]byte(originalPermissionClaims), &permissionClaims); err != nil {
+			return fmt.Errorf("failed to decode v1alpha1 claims from JSON: %w", err)
+		}
+
+		for _, pc := range permissionClaims {
+			for i, opc := range out.Spec.PermissionClaims {
+				if pc.EqualGRI(opc) {
+					out.Spec.PermissionClaims[i].All = pc.All
+					out.Spec.PermissionClaims[i].ResourceSelector = pc.ResourceSelector
+				}
+			}
+		}
+
+		delete(out.Annotations, PermissionClaimsV1Alpha1Annotation)
+
+		// Make tests for equality easier to write by turning []string into nil.
+		if len(out.Annotations) == 0 {
+			out.Annotations = nil
+		}
 	}
 
 	return Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(&in.Status, &out.Status, s)
@@ -112,8 +142,8 @@ func Convert_v1alpha2_PermissionClaims_To_v1alpha1_PermissionClaims(in []Permiss
 }
 
 // Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec is *not* lossless, as it will drop all non-CRD
-// resource schemas present in the APIExport's spec. To have a full, lossless conversion, use
-// Convert_v1alpha2_APIExport_To_v1alpha1_APIExport instead.
+// resource schemas and all non-wildcard PermissionClaims present in the APIExport's spec.
+// To have a full, lossless conversion, use Convert_v1alpha2_APIExport_To_v1alpha1_APIExport instead.
 func Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(in *APIExportSpec, out *apisv1alpha1.APIExportSpec, s kubeconversion.Scope) error {
 	if in.Identity != nil {
 		out.Identity = &apisv1alpha1.Identity{}
@@ -149,9 +179,36 @@ func Convert_v1alpha2_APIExportSpec_To_v1alpha1_APIExportSpec(in *APIExportSpec,
 	return nil
 }
 
+// Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim ensures we do the default conversion for
+// PermissionClaims. Verbs are ignored in this phase and are handled in
+// Convert_v1alpha2_APIExport_To_v1alpha1_APIExport.
+func Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in *PermissionClaim, out *apisv1alpha1.PermissionClaim, s kubeconversion.Scope) error {
+	return autoConvert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in, out, s)
+}
+
+// v1alpha1 -> v1alpha2 conversions.
+
 func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport, out *APIExport, s kubeconversion.Scope) error {
-	if err := autoConvert_v1alpha1_APIExport_To_v1alpha2_APIExport(in, out, s); err != nil {
+	out.ObjectMeta = *in.ObjectMeta.DeepCopy()
+
+	if err := Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(&in.Spec, &out.Spec, s); err != nil {
 		return err
+	}
+	if err := Convert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+
+	// Store permission claims in annotation. This is necessary for a clean conversion of
+	// fields All and FieldSelector, which went away in v1alpha2.
+	if len(in.Spec.PermissionClaims) > 0 {
+		if out.Annotations == nil {
+			out.Annotations = make(map[string]string)
+		}
+		encoded, err := json.Marshal(in.Spec.PermissionClaims)
+		if err != nil {
+			return err
+		}
+		out.Annotations[PermissionClaimsV1Alpha1Annotation] = string(encoded)
 	}
 
 	if overhangingRS, ok := in.Annotations[ResourceSchemasAnnotation]; ok {
@@ -170,7 +227,7 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 		delete(out.Annotations, ResourceSchemasAnnotation)
 
-		// make tests for equality easier to write by turning []string into nil
+		// Make tests for equality easier to write by turning []string into nil.
 		if len(out.Annotations) == 0 {
 			out.Annotations = nil
 		}
@@ -189,7 +246,7 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 			for _, pc := range permissionClaims {
 				for i, opc := range out.Spec.PermissionClaims {
-					if pc.Equal(opc) {
+					if pc.EqualGRI(opc) {
 						out.Spec.PermissionClaims[i].Verbs = pc.Verbs
 					}
 				}
@@ -198,7 +255,7 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 
 		delete(out.Annotations, PermissionClaimsAnnotation)
 
-		// make tests for equality easier to write by turning []string into nil
+		// Make tests for equality easier to write by turning []string into nil.
 		if len(out.Annotations) == 0 {
 			out.Annotations = nil
 		}
@@ -228,6 +285,9 @@ func Convert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *apisv1alpha1.A
 		}
 	}
 
+	// This will not convert non-wildcard PermissionClaims verbs and All/ResourceSelector fields. Those are still
+	// tucked away in an annotation and are converted after this function has completed, in
+	// Convert_v1alpha1_APIExport_To_v1alpha2_APIExport.
 	if claims := in.PermissionClaims; claims != nil {
 		newClaims := []PermissionClaim{}
 		for _, claim := range claims {
@@ -284,7 +344,7 @@ func Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(in []strin
 	// and are converted after this function has completed, in Convert_v1alpha1_APIExport_To_v1alpha2_APIExport.
 	if schemas := in; schemas != nil {
 		for _, schema := range schemas {
-			// parse strings like "v1.resource.group.org"
+			// Parse strings like "v1.resource.group.org".
 			parts := strings.Split(schema, ".")
 			if len(parts) < 3 {
 				return fmt.Errorf("invalid schema %q: must have at least 3 dot-separated segments", schema)
@@ -311,75 +371,8 @@ func Convert_v1alpha1_LatestResourceSchema_To_v1alpha2_ResourceSchema(in []strin
 	return nil
 }
 
-func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *apisv1alpha1.APIBinding, s kubeconversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-
-	pcs := []PermissionClaim{}
-	for _, pc := range in.Spec.PermissionClaims {
-		pcs = append(pcs, pc.PermissionClaim)
-	}
-	_, overhangingPC, err := Convert_v1alpha2_PermissionClaims_To_v1alpha1_PermissionClaims(pcs, s)
-	if err != nil {
-		return err
-	}
-	if len(overhangingPC) > 0 {
-		encoded, err := json.Marshal(overhangingPC)
-		if err != nil {
-			return fmt.Errorf("failed to encode claims as JSON: %w", err)
-		}
-
-		if out.Annotations == nil {
-			out.Annotations = map[string]string{}
-		}
-		out.Annotations[PermissionClaimsAnnotation] = string(encoded)
-	}
-
-	if err := Convert_v1alpha2_APIBindingSpec_To_v1alpha1_APIBindingSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-
-	return Convert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(&in.Status, &out.Status, s)
-}
-
-func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBinding, out *APIBinding, s kubeconversion.Scope) error {
-	if err := autoConvert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in, out, s); err != nil {
-		return err
-	}
-
-	if overhangingPC, ok := in.Annotations[PermissionClaimsAnnotation]; ok {
-		permissionClaims := []AcceptablePermissionClaim{}
-		if err := json.Unmarshal([]byte(overhangingPC), &permissionClaims); err != nil {
-			return fmt.Errorf("failed to decode claims from JSON: %w", err)
-		}
-
-		for _, pc := range permissionClaims {
-			for i, opc := range out.Spec.PermissionClaims {
-				if pc.Equal(opc.PermissionClaim) {
-					out.Spec.PermissionClaims[i].PermissionClaim.Verbs = pc.Verbs
-				}
-			}
-		}
-
-		delete(out.Annotations, PermissionClaimsAnnotation)
-
-		// make tests for equality easier to write by turning []string into nil
-		if len(out.Annotations) == 0 {
-			out.Annotations = nil
-		}
-	}
-
-	for i, opc := range out.Spec.PermissionClaims {
-		if len(opc.PermissionClaim.Verbs) == 0 {
-			out.Spec.PermissionClaims[i].PermissionClaim.Verbs = []string{"*"}
-		}
-	}
-
-	return nil
-}
-
-// Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim ensures we do the default conversion for
-// PermissionClaims. Verbs are ignored in this phase and are handled in
-// Convert_v1alpha2_APIExport_To_v1alpha1_APIExport.
-func Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in *PermissionClaim, out *apisv1alpha1.PermissionClaim, s kubeconversion.Scope) error {
-	return autoConvert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in, out, s)
+// Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim ensures we do the default conversion for
+// PermissionClaims. Fields "All", "ResourceSelector", and "Verbs" are stored in relevant annotations.
+func Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in *apisv1alpha1.PermissionClaim, out *PermissionClaim, s kubeconversion.Scope) error {
+	return autoConvert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in, out, s)
 }

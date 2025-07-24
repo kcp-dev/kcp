@@ -347,7 +347,7 @@ func validateOverhangingPermissionClaims(_ context.Context, _ admission.Attribut
 		for _, o := range overhanging {
 			var found bool
 			for _, pc := range v2Claims {
-				if pc.Equal(o) {
+				if pc.EqualGRI(o) {
 					found = true
 
 					break

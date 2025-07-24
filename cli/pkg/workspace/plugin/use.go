@@ -430,7 +430,7 @@ func findUnresolvedPermissionClaims(out io.Writer, apiBindings []apisv1alpha2.AP
 			var found, ack, verbsMatch bool
 			var verbsExpected, verbsActual sets.Set[string]
 			for _, specClaim := range binding.Spec.PermissionClaims {
-				if !exportedClaim.Equal(specClaim.PermissionClaim) {
+				if !exportedClaim.EqualGRI(specClaim.PermissionClaim) {
 					continue
 				}
 				found = true

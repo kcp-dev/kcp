@@ -21,6 +21,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
@@ -28,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeconversion "k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -60,11 +63,13 @@ func TestRoundTripTypes(t *testing.T) {
 }
 
 type ConversionTests struct {
-	name string
-	v1   runtime.Object
-	v2   runtime.Object
-	toV2 func(in, out runtime.Object, s kubeconversion.Scope) error
-	toV1 func(in, out runtime.Object, s kubeconversion.Scope) error
+	name                  string
+	v1                    runtime.Object
+	v2                    runtime.Object
+	toV2                  func(in, out runtime.Object, s kubeconversion.Scope) error
+	toV1                  func(in, out runtime.Object, s kubeconversion.Scope) error
+	v1ExpectedAnnotations []string
+	v2ExpectedAnnotations []string
 }
 
 func TestConversion(t *testing.T) {
@@ -79,6 +84,9 @@ func TestConversion(t *testing.T) {
 			toV1: func(in, out runtime.Object, s kubeconversion.Scope) error {
 				return apisv1alpha2.Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in.(*apisv1alpha2.APIExport), out.(*apisv1alpha1.APIExport), s)
 			},
+			v2ExpectedAnnotations: []string{
+				apisv1alpha2.PermissionClaimsV1Alpha1Annotation,
+			},
 		},
 		{
 			name: "APIExportList",
@@ -90,24 +98,56 @@ func TestConversion(t *testing.T) {
 			toV1: func(in, out runtime.Object, s kubeconversion.Scope) error {
 				return apisv1alpha2.Convert_v1alpha2_APIExportList_To_v1alpha1_APIExportList(in.(*apisv1alpha2.APIExportList), out.(*apisv1alpha1.APIExportList), s)
 			},
+			v2ExpectedAnnotations: []string{
+				apisv1alpha2.PermissionClaimsV1Alpha1Annotation,
+			},
+		},
+		{
+			name: "APIBinding",
+			v1:   &apisv1alpha1.APIBinding{},
+			v2:   &apisv1alpha2.APIBinding{},
+			toV2: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in.(*apisv1alpha1.APIBinding), out.(*apisv1alpha2.APIBinding), s)
+			},
+			toV1: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in.(*apisv1alpha2.APIBinding), out.(*apisv1alpha1.APIBinding), s)
+			},
+			v2ExpectedAnnotations: []string{
+				apisv1alpha2.StatusPermissionClaimsV1Alpha1Annotation,
+			},
+		},
+		{
+			name: "APIBindingList",
+			v1:   &apisv1alpha1.APIBindingList{},
+			v2:   &apisv1alpha2.APIBindingList{},
+			toV2: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha1_APIBindingList_To_v1alpha2_APIBindingList(in.(*apisv1alpha1.APIBindingList), out.(*apisv1alpha2.APIBindingList), s)
+			},
+			toV1: func(in, out runtime.Object, s kubeconversion.Scope) error {
+				return apisv1alpha2.Convert_v1alpha2_APIBindingList_To_v1alpha1_APIBindingList(in.(*apisv1alpha2.APIBindingList), out.(*apisv1alpha1.APIBindingList), s)
+			},
+			v2ExpectedAnnotations: []string{
+				apisv1alpha2.StatusPermissionClaimsV1Alpha1Annotation,
+			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			for range *FuzzIters {
-				testGenericConversion(t, test.v1.DeepCopyObject, test.v2.DeepCopyObject, test.toV1, test.toV2)
+				testGenericConversion(t, test.v1.DeepCopyObject, test.v2.DeepCopyObject, test.toV1, test.toV2, test.v1ExpectedAnnotations, test.v2ExpectedAnnotations)
 			}
 		})
 	}
 }
 
-func testGenericConversion[V1 runtime.Object, V2 runtime.Object](
+func testGenericConversion(
 	t *testing.T,
-	v1Factory func() V1,
-	v2Factory func() V2,
+	v1Factory func() runtime.Object,
+	v2Factory func() runtime.Object,
 	toV1 func(in, out runtime.Object, s kubeconversion.Scope) error,
 	toV2 func(in, out runtime.Object, s kubeconversion.Scope) error,
+	v1ExpectedAnnotations, v2ExpectedAnnotations []string,
 ) {
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
@@ -131,8 +171,11 @@ func testGenericConversion[V1 runtime.Object, V2 runtime.Object](
 		err = toV1(intermediate, result, nil)
 		require.NoError(t, err)
 
-		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")
-		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expects originalCopy to equal original")
+		// Remove annotations that we expect on the object due to conversion data stored.
+		removeAnnotations(t, result, v1ExpectedAnnotations)
+
+		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expected original to equal result, got diff: %v", cmp.Diff(original, result))
+		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expected originalCopy to equal original, got diff: %v", cmp.Diff(originalCopy, original))
 	})
 
 	t.Run("V2->V1->V2", func(t *testing.T) {
@@ -149,9 +192,55 @@ func testGenericConversion[V1 runtime.Object, V2 runtime.Object](
 		err = toV2(intermediate, result, nil)
 		require.NoError(t, err)
 
-		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expects original to equal result")
-		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expects originalCopy to equal original")
+		// Remove annotations that we expected on the converted object due to conversion data stored.
+		// To do a equality check with the original object, we need to remove those annotations as we
+		// know that they will be there.
+		removeAnnotations(t, result, v2ExpectedAnnotations)
+
+		require.True(t, apiequality.Semantic.DeepEqual(original, result), "expected original to equal result, got diff: %v", cmp.Diff(original, result))
+		require.True(t, apiequality.Semantic.DeepEqual(originalCopy, original), "expected originalCopy to equal original, got diff: %v", cmp.Diff(originalCopy, original))
 	})
+}
+
+func removeAnnotations(t *testing.T, object runtime.Object, annotationsToRemove []string) {
+	if len(annotationsToRemove) == 0 {
+		// nothing to remove, exit early. no reason to do all the conversion below.
+		return
+	}
+
+	resultMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
+	if err != nil {
+		t.Fatalf("Failed converting to unstructured: %v for %#v", err, object)
+	}
+	u := unstructured.Unstructured{Object: resultMap}
+
+	if u.IsList() {
+		if err := u.EachListItem(func(obj runtime.Object) error {
+			objMeta := obj.(metav1.Object)
+			annotations := objMeta.GetAnnotations()
+			if annotations != nil {
+				for _, annotation := range annotationsToRemove {
+					delete(annotations, annotation)
+				}
+			}
+			objMeta.SetAnnotations(annotations)
+			return nil
+		}); err != nil {
+			t.Fatalf("Failed iterating over list items: %v", err)
+		}
+	} else {
+		annotations := u.GetAnnotations()
+		if annotations != nil {
+			for _, annotation := range annotationsToRemove {
+				delete(annotations, annotation)
+			}
+		}
+		u.SetAnnotations(annotations)
+	}
+
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, object); err != nil {
+		t.Fatalf("Failed converting from unstructured: %v for %#v", err, object)
+	}
 }
 
 // fuzzInternalObject fuzzes an arbitrary runtime object using the appropriate

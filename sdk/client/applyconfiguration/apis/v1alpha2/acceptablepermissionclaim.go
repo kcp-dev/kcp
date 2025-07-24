@@ -25,8 +25,8 @@ import (
 // AcceptablePermissionClaimApplyConfiguration represents a declarative configuration of the AcceptablePermissionClaim type for use
 // with apply.
 type AcceptablePermissionClaimApplyConfiguration struct {
-	PermissionClaimApplyConfiguration `json:",inline"`
-	State                             *apisv1alpha2.AcceptablePermissionClaimState `json:"state,omitempty"`
+	ScopedPermissionClaimApplyConfiguration `json:",inline"`
+	State                                   *apisv1alpha2.AcceptablePermissionClaimState `json:"state,omitempty"`
 }
 
 // AcceptablePermissionClaimApplyConfiguration constructs a declarative configuration of the AcceptablePermissionClaim type for use with
@@ -51,14 +51,6 @@ func (b *AcceptablePermissionClaimApplyConfiguration) WithResource(value string)
 	return b
 }
 
-// WithAll sets the All field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the All field is set to the value of the last call.
-func (b *AcceptablePermissionClaimApplyConfiguration) WithAll(value bool) *AcceptablePermissionClaimApplyConfiguration {
-	b.PermissionClaimApplyConfiguration.All = &value
-	return b
-}
-
 // WithVerbs adds the given value to the Verbs field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Verbs field.
@@ -69,24 +61,19 @@ func (b *AcceptablePermissionClaimApplyConfiguration) WithVerbs(values ...string
 	return b
 }
 
-// WithResourceSelector adds the given value to the ResourceSelector field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the ResourceSelector field.
-func (b *AcceptablePermissionClaimApplyConfiguration) WithResourceSelector(values ...*ResourceSelectorApplyConfiguration) *AcceptablePermissionClaimApplyConfiguration {
-	for i := range values {
-		if values[i] == nil {
-			panic("nil value passed to WithResourceSelector")
-		}
-		b.PermissionClaimApplyConfiguration.ResourceSelector = append(b.PermissionClaimApplyConfiguration.ResourceSelector, *values[i])
-	}
-	return b
-}
-
 // WithIdentityHash sets the IdentityHash field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the IdentityHash field is set to the value of the last call.
 func (b *AcceptablePermissionClaimApplyConfiguration) WithIdentityHash(value string) *AcceptablePermissionClaimApplyConfiguration {
 	b.PermissionClaimApplyConfiguration.IdentityHash = &value
+	return b
+}
+
+// WithSelector sets the Selector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Selector field is set to the value of the last call.
+func (b *AcceptablePermissionClaimApplyConfiguration) WithSelector(value *PermissionClaimSelectorApplyConfiguration) *AcceptablePermissionClaimApplyConfiguration {
+	b.ScopedPermissionClaimApplyConfiguration.Selector = value
 	return b
 }
 

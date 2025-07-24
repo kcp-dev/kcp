@@ -134,8 +134,13 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
 				// For now we automatically accept DefaultAPIBindings
 				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
-					PermissionClaim: exportClaim,
-					State:           apisv1alpha2.ClaimAccepted,
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: exportClaim,
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
+					},
+					State: apisv1alpha2.ClaimAccepted,
 				}
 
 				apiBindingSpec.PermissionClaims = append(apiBindingSpec.PermissionClaims, acceptedClaim)

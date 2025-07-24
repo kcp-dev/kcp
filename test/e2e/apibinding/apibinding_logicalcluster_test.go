@@ -82,7 +82,6 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 						Group:    "core.kcp.io",
 						Resource: "logicalclusters",
 					},
-					All:   true,
 					Verbs: []string{"*"},
 				},
 			},
@@ -110,13 +109,17 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 			},
 			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha2.PermissionClaim{
-						GroupResource: apisv1alpha2.GroupResource{
-							Group:    "core.kcp.io",
-							Resource: "logicalclusters",
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: apisv1alpha2.PermissionClaim{
+							GroupResource: apisv1alpha2.GroupResource{
+								Group:    "core.kcp.io",
+								Resource: "logicalclusters",
+							},
+							Verbs: []string{"*"},
 						},
-						All:   true,
-						Verbs: []string{"*"},
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
 					},
 					State: apisv1alpha2.ClaimAccepted,
 				},
@@ -219,7 +222,6 @@ func TestAPIBindingCRDs(t *testing.T) {
 						Group:    "apiextensions.k8s.io",
 						Resource: "customresourcedefinitions",
 					},
-					All:   true,
 					Verbs: []string{"*"},
 				},
 			},
@@ -247,13 +249,17 @@ func TestAPIBindingCRDs(t *testing.T) {
 			},
 			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 				{
-					PermissionClaim: apisv1alpha2.PermissionClaim{
-						GroupResource: apisv1alpha2.GroupResource{
-							Group:    "apiextensions.k8s.io",
-							Resource: "customresourcedefinitions",
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: apisv1alpha2.PermissionClaim{
+							GroupResource: apisv1alpha2.GroupResource{
+								Group:    "apiextensions.k8s.io",
+								Resource: "customresourcedefinitions",
+							},
+							Verbs: []string{"*"},
 						},
-						All:   true,
-						Verbs: []string{"*"},
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
 					},
 					State: apisv1alpha2.ClaimAccepted,
 				},

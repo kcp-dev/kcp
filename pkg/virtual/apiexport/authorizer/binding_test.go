@@ -140,13 +140,14 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"list"},
 									},
-									All:   true,
-									Verbs: []string{"list"},
 								},
 								State: apisv1alpha2.ClaimAccepted,
 							},
@@ -166,7 +167,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"list"},
 							},
 						},
@@ -192,13 +192,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"*"},
 									},
-									All:   true,
-									Verbs: []string{"*"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimAccepted,
 							},
@@ -218,7 +222,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"*"},
 							},
 						},
@@ -244,13 +247,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"*"},
 									},
-									All:   true,
-									Verbs: []string{"*"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimRejected,
 							},
@@ -270,7 +277,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"*"},
 							},
 						},
@@ -297,13 +303,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"list"},
 									},
-									All:   true,
-									Verbs: []string{"list"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimRejected,
 							},
@@ -323,7 +333,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"list"},
 							},
 						},
@@ -350,13 +359,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"get"},
 									},
-									All:   true,
-									Verbs: []string{"get"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimAccepted,
 							},
@@ -376,7 +389,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"get"},
 							},
 						},
@@ -403,13 +415,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"get"},
 									},
-									All:   true,
-									Verbs: []string{"get"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimAccepted,
 							},
@@ -429,7 +445,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"get", "list"},
 							},
 						},
@@ -456,13 +471,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"get", "list"},
 									},
-									All:   true,
-									Verbs: []string{"get", "list"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimAccepted,
 							},
@@ -482,7 +501,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"get"},
 							},
 						},
@@ -509,13 +527,17 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 					Spec: apisv1alpha2.APIBindingSpec{
 						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
 							{
-								PermissionClaim: apisv1alpha2.PermissionClaim{
-									GroupResource: apisv1alpha2.GroupResource{
-										Group:    "foo",
-										Resource: "bar",
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"connect", "proxy"},
 									},
-									All:   true,
-									Verbs: []string{"connect", "proxy"},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
 								},
 								State: apisv1alpha2.ClaimAccepted,
 							},
@@ -535,7 +557,6 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Group:    "foo",
 									Resource: "bar",
 								},
-								All:   true,
 								Verbs: []string{"connect", "proxy"},
 							},
 						},

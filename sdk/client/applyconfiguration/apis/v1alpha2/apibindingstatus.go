@@ -26,12 +26,12 @@ import (
 // APIBindingStatusApplyConfiguration represents a declarative configuration of the APIBindingStatus type for use
 // with apply.
 type APIBindingStatusApplyConfiguration struct {
-	APIExportClusterName    *string                              `json:"apiExportClusterName,omitempty"`
-	BoundResources          []BoundAPIResourceApplyConfiguration `json:"boundResources,omitempty"`
-	Phase                   *apisv1alpha2.APIBindingPhaseType    `json:"phase,omitempty"`
-	Conditions              *v1alpha1.Conditions                 `json:"conditions,omitempty"`
-	AppliedPermissionClaims []PermissionClaimApplyConfiguration  `json:"appliedPermissionClaims,omitempty"`
-	ExportPermissionClaims  []PermissionClaimApplyConfiguration  `json:"exportPermissionClaims,omitempty"`
+	APIExportClusterName    *string                                   `json:"apiExportClusterName,omitempty"`
+	BoundResources          []BoundAPIResourceApplyConfiguration      `json:"boundResources,omitempty"`
+	Phase                   *apisv1alpha2.APIBindingPhaseType         `json:"phase,omitempty"`
+	Conditions              *v1alpha1.Conditions                      `json:"conditions,omitempty"`
+	AppliedPermissionClaims []ScopedPermissionClaimApplyConfiguration `json:"appliedPermissionClaims,omitempty"`
+	ExportPermissionClaims  []PermissionClaimApplyConfiguration       `json:"exportPermissionClaims,omitempty"`
 }
 
 // APIBindingStatusApplyConfiguration constructs a declarative configuration of the APIBindingStatus type for use with
@@ -80,7 +80,7 @@ func (b *APIBindingStatusApplyConfiguration) WithConditions(value v1alpha1.Condi
 // WithAppliedPermissionClaims adds the given value to the AppliedPermissionClaims field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the AppliedPermissionClaims field.
-func (b *APIBindingStatusApplyConfiguration) WithAppliedPermissionClaims(values ...*PermissionClaimApplyConfiguration) *APIBindingStatusApplyConfiguration {
+func (b *APIBindingStatusApplyConfiguration) WithAppliedPermissionClaims(values ...*ScopedPermissionClaimApplyConfiguration) *APIBindingStatusApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithAppliedPermissionClaims")

@@ -89,16 +89,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*AcceptablePermissionClaim)(nil), (*v1alpha1.AcceptablePermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(a.(*AcceptablePermissionClaim), b.(*v1alpha1.AcceptablePermissionClaim), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*v1alpha1.AcceptablePermissionClaim)(nil), (*AcceptablePermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(a.(*v1alpha1.AcceptablePermissionClaim), b.(*AcceptablePermissionClaim), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*BindingReference)(nil), (*v1alpha1.BindingReference)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(a.(*BindingReference), b.(*v1alpha1.BindingReference), scope)
 	}); err != nil {
@@ -179,11 +169,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1alpha1.PermissionClaim)(nil), (*PermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(a.(*v1alpha1.PermissionClaim), b.(*PermissionClaim), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*ResourceSelector)(nil), (*v1alpha1.ResourceSelector)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_ResourceSelector_To_v1alpha1_ResourceSelector(a.(*ResourceSelector), b.(*v1alpha1.ResourceSelector), scope)
 	}); err != nil {
@@ -219,6 +204,21 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*v1alpha1.AcceptablePermissionClaim)(nil), (*AcceptablePermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(a.(*v1alpha1.AcceptablePermissionClaim), b.(*AcceptablePermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1alpha1.PermissionClaim)(nil), (*PermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(a.(*v1alpha1.PermissionClaim), b.(*PermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1alpha1.PermissionClaim)(nil), (*ScopedPermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_PermissionClaim_To_v1alpha2_ScopedPermissionClaim(a.(*v1alpha1.PermissionClaim), b.(*ScopedPermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*APIBinding)(nil), (*v1alpha1.APIBinding)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(a.(*APIBinding), b.(*v1alpha1.APIBinding), scope)
 	}); err != nil {
@@ -234,8 +234,18 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddConversionFunc((*AcceptablePermissionClaim)(nil), (*v1alpha1.AcceptablePermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(a.(*AcceptablePermissionClaim), b.(*v1alpha1.AcceptablePermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddConversionFunc((*PermissionClaim)(nil), (*v1alpha1.PermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(a.(*PermissionClaim), b.(*v1alpha1.PermissionClaim), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*ScopedPermissionClaim)(nil), (*v1alpha1.PermissionClaim)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha2_ScopedPermissionClaim_To_v1alpha1_PermissionClaim(a.(*ScopedPermissionClaim), b.(*v1alpha1.PermissionClaim), scope)
 	}); err != nil {
 		return err
 	}
@@ -361,7 +371,7 @@ func autoConvert_v1alpha2_APIBindingStatus_To_v1alpha1_APIBindingStatus(in *APIB
 		in, out := &in.AppliedPermissionClaims, &out.AppliedPermissionClaims
 		*out = make([]v1alpha1.PermissionClaim, len(*in))
 		for i := range *in {
-			if err := Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&(*in)[i], &(*out)[i], s); err != nil {
+			if err := Convert_v1alpha2_ScopedPermissionClaim_To_v1alpha1_PermissionClaim(&(*in)[i], &(*out)[i], s); err != nil {
 				return err
 			}
 		}
@@ -394,9 +404,9 @@ func autoConvert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(in *v1al
 	out.Conditions = *(*conditionsv1alpha1.Conditions)(unsafe.Pointer(&in.Conditions))
 	if in.AppliedPermissionClaims != nil {
 		in, out := &in.AppliedPermissionClaims, &out.AppliedPermissionClaims
-		*out = make([]PermissionClaim, len(*in))
+		*out = make([]ScopedPermissionClaim, len(*in))
 		for i := range *in {
-			if err := Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&(*in)[i], &(*out)[i], s); err != nil {
+			if err := Convert_v1alpha1_PermissionClaim_To_v1alpha2_ScopedPermissionClaim(&(*in)[i], &(*out)[i], s); err != nil {
 				return err
 			}
 		}
@@ -547,29 +557,15 @@ func Convert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(in *v1alpha1.A
 }
 
 func autoConvert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in *AcceptablePermissionClaim, out *v1alpha1.AcceptablePermissionClaim, s conversion.Scope) error {
-	if err := Convert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(&in.PermissionClaim, &out.PermissionClaim, s); err != nil {
-		return err
-	}
+	// WARNING: in.ScopedPermissionClaim requires manual conversion: does not exist in peer-type
 	out.State = v1alpha1.AcceptablePermissionClaimState(in.State)
 	return nil
 }
 
-// Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim is an autogenerated conversion function.
-func Convert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in *AcceptablePermissionClaim, out *v1alpha1.AcceptablePermissionClaim, s conversion.Scope) error {
-	return autoConvert_v1alpha2_AcceptablePermissionClaim_To_v1alpha1_AcceptablePermissionClaim(in, out, s)
-}
-
 func autoConvert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in *v1alpha1.AcceptablePermissionClaim, out *AcceptablePermissionClaim, s conversion.Scope) error {
-	if err := Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(&in.PermissionClaim, &out.PermissionClaim, s); err != nil {
-		return err
-	}
+	// WARNING: in.PermissionClaim requires manual conversion: does not exist in peer-type
 	out.State = AcceptablePermissionClaimState(in.State)
 	return nil
-}
-
-// Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim is an autogenerated conversion function.
-func Convert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in *v1alpha1.AcceptablePermissionClaim, out *AcceptablePermissionClaim, s conversion.Scope) error {
-	return autoConvert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermissionClaim(in, out, s)
 }
 
 func autoConvert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(in *BindingReference, out *v1alpha1.BindingReference, s conversion.Scope) error {
@@ -752,9 +748,7 @@ func autoConvert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in *Permis
 	if err := Convert_v1alpha2_GroupResource_To_v1alpha1_GroupResource(&in.GroupResource, &out.GroupResource, s); err != nil {
 		return err
 	}
-	out.All = in.All
 	// WARNING: in.Verbs requires manual conversion: does not exist in peer-type
-	out.ResourceSelector = *(*[]v1alpha1.ResourceSelector)(unsafe.Pointer(&in.ResourceSelector))
 	out.IdentityHash = in.IdentityHash
 	return nil
 }
@@ -763,15 +757,10 @@ func autoConvert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in *v1alph
 	if err := Convert_v1alpha1_GroupResource_To_v1alpha2_GroupResource(&in.GroupResource, &out.GroupResource, s); err != nil {
 		return err
 	}
-	out.All = in.All
-	out.ResourceSelector = *(*[]ResourceSelector)(unsafe.Pointer(&in.ResourceSelector))
+	// WARNING: in.All requires manual conversion: does not exist in peer-type
+	// WARNING: in.ResourceSelector requires manual conversion: does not exist in peer-type
 	out.IdentityHash = in.IdentityHash
 	return nil
-}
-
-// Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim is an autogenerated conversion function.
-func Convert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in *v1alpha1.PermissionClaim, out *PermissionClaim, s conversion.Scope) error {
-	return autoConvert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in, out, s)
 }
 
 func autoConvert_v1alpha2_ResourceSelector_To_v1alpha1_ResourceSelector(in *ResourceSelector, out *v1alpha1.ResourceSelector, s conversion.Scope) error {

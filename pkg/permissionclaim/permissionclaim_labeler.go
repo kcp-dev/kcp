@@ -78,7 +78,7 @@ func NewLabeler(
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string) (map[string]string, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string, resourceLabels map[string]string) (map[string]string, error) {
 	labels := map[string]string{}
 	if _, nonPersisted := NonPersistedResourcesClaimable[groupResource]; nonPersisted {
 		return labels, nil
@@ -104,7 +104,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			if claim.State != apisv1alpha2.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource {
+			if claim.State != apisv1alpha2.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource || !claim.Selector.MatchAll {
 				continue
 			}
 
