@@ -21,6 +21,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 )
 
@@ -31,6 +32,8 @@ var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
 type DynamicVirtualWorkspace struct {
 	framework.RootPathResolver
 	authorizer.Authorizer
+	admission.MutationInterface
+	admission.ValidationInterface
 	framework.ReadyChecker
 
 	// BootstrapAPISetManagement creates, initializes and returns an apidefinition.APIDefinitionSetGetter.

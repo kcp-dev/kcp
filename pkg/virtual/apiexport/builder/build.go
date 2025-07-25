@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -39,6 +40,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	aeadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
@@ -219,7 +221,9 @@ func BuildVirtualWorkspace(
 
 			return apiReconciler, nil
 		},
-		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, cachedKcpInformers, kcpInformers),
+		Authorizer:          newAuthorizer(kubeClusterClient, deepSARClient, cachedKcpInformers, kcpInformers),
+		MutationInterface:   aeadmission.NewSelectorAdmission(kcpInformers.Apis().V1alpha2().APIBindings(), kubeClusterClient),
+		ValidationInterface: nilType{},
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
@@ -303,6 +307,16 @@ func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.Clust
 	boundApiAuth = authorization.NewDecorator("virtual.apiexport.boundapi.authorization.kcp.io", boundApiAuth).AddAuditLogging().AddAnonymization()
 
 	return boundApiAuth
+}
+
+type nilType struct{}
+
+func (nilType) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	return nil
+}
+
+func (nilType) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	return nil
 }
 
 // apiDefinitionWithCancel calls the cancelFn on tear-down.
