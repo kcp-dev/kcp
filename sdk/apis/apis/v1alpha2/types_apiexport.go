@@ -56,7 +56,6 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="VirtualWorkspaceURLsReady")].status`
 type APIExport struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -323,8 +322,11 @@ type APIExportStatus struct {
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// virtualWorkspaces contains all APIExport virtual workspace URLs.
+	// this field is empty unless kcp has been started with the
+	// 'EnableDeprecatedAPIExportVirtualWorkspacesUrls' feature gate.
 	//
-	// Deprecated: use APIExportEndpointSlice.status.endpoints instead
+	// Deprecated: use APIExportEndpointSlice.status.endpoints instead. This
+	// field will be removed in an upcoming API version.
 	//
 	// +optional
 	VirtualWorkspaces []VirtualWorkspace `json:"virtualWorkspaces,omitempty"`
