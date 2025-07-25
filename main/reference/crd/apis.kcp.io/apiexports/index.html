@@ -4739,9 +4739,12 @@ is immutable as soon as it is set.</p>
 </div>
 
 <div class="property-description">
-<p>virtualWorkspaces contains all APIExport virtual workspace URLs.</p>
+<p>virtualWorkspaces contains all APIExport virtual workspace URLs.
+this field is empty unless kcp has been started with the
+&lsquo;EnableDeprecatedAPIExportVirtualWorkspacesUrls&rsquo; feature gate.</p>
 
-<p>Deprecated: use APIExportEndpointSlice.status.endpoints instead</p>
+<p>Deprecated: use APIExportEndpointSlice.status.endpoints instead. This
+field will be removed in an upcoming API version.</p>
 
 </div>
 
