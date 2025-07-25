@@ -147,6 +147,8 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 			c.shardClusterWorkspaceMount[shard][clusterName][ws.Name] = ws.Spec
 		}
 	}
+
+	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
 }
 
 func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
@@ -200,6 +202,8 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 			delete(c.shardClusterWorkspaceNameErrorCode, shard)
 		}
 	}
+
+	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
 }
 
 func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
@@ -258,6 +262,8 @@ func (c *State) DeleteShard(shardName string) {
 	delete(c.shardClusterWorkspaceName, shardName)
 	delete(c.shardClusterParentCluster, shardName)
 	delete(c.shardClusterWorkspaceNameErrorCode, shardName)
+
+	clustersOnShard.DeleteLabelValues(shardName)
 }
 
 func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
