@@ -79,8 +79,7 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		global := r.cacheKcpInformers.Cache().V1alpha1().CachedObjects()
 
 		// Local informer is based on the specific types we want to replicate.
-		// TODO: use ClusterWithContext
-		local, err := r.discoveringDynamicKcpInformers.Cluster(cluster).ForResource(gvr)
+		local, err := r.discoveringDynamicKcpInformers.ClusterWithContext(ctx, cluster).ForResource(gvr)
 		if err != nil {
 			logger.Error(err, "Failed to get local informer for resource", "resource", gvr)
 			cancel()
