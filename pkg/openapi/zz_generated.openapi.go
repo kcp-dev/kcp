@@ -2300,7 +2300,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref common.ReferenceCallback)
 					},
 					"virtualWorkspaces": {
 						SchemaProps: spec.SchemaProps{
-							Description: "virtualWorkspaces contains all APIExport virtual workspace URLs.\n\nDeprecated: use APIExportEndpointSlice.status.endpoints instead",
+							Description: "virtualWorkspaces contains all APIExport virtual workspace URLs. this field is empty unless kcp has been started with the 'EnableDeprecatedAPIExportVirtualWorkspacesUrls' feature gate.\n\nDeprecated: use APIExportEndpointSlice.status.endpoints instead. This field will be removed in an upcoming API version.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

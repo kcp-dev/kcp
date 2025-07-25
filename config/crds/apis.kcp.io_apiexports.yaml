@@ -292,9 +292,6 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    - jsonPath: .status.conditions[?(@.type=="VirtualWorkspaceURLsReady")].status
-      name: Ready
-      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -550,8 +547,11 @@ spec:
               virtualWorkspaces:
                 description: |-
                   virtualWorkspaces contains all APIExport virtual workspace URLs.
+                  this field is empty unless kcp has been started with the
+                  'EnableDeprecatedAPIExportVirtualWorkspacesUrls' feature gate.
 
-                  Deprecated: use APIExportEndpointSlice.status.endpoints instead
+                  Deprecated: use APIExportEndpointSlice.status.endpoints instead. This
+                  field will be removed in an upcoming API version.
                 items:
                   properties:
                     url:
