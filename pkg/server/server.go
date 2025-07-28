@@ -24,6 +24,7 @@ import (
 	"os"
 	"time"
 
+	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 	"k8s.io/kubernetes/pkg/controlplane/apiserver/miniaggregator"
@@ -45,6 +47,7 @@ import (
 	flowcontrolrest "k8s.io/kubernetes/pkg/registry/flowcontrol/rest"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootidentities "github.com/kcp-dev/kcp/config/root-identities"
@@ -601,6 +604,10 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("starting dynamic metadata informer worker")
 		go s.DiscoveringDynamicSharedInformerFactory.StartWorker(hookCtx)
 
+		logger.Info("setting up metrics endpoint")
+		s.setupMetricsEndpoint()
+		logger.Info("finished setting up metrics endpoint")
+
 		logger.Info("synced all informers, ready to start controllers")
 		close(s.syncedCh)
 
@@ -778,4 +785,17 @@ loop:
 	}
 
 	electionLogger.Info("leader election loop has been terminated")
+}
+
+func (s *Server) setupMetricsEndpoint() {
+	metricsHandler := promhttp.HandlerFor(legacyregistry.DefaultGatherer, promhttp.HandlerOpts{})
+
+	s.MiniAggregator.GenericAPIServer.Handler.NonGoRestfulMux.HandleFunc("/clusters/root/metrics", func(w http.ResponseWriter, r *http.Request) {
+		metricsHandler.ServeHTTP(w, r)
+	})
+
+	kcpmetrics.UpdateLogicalClusterCount(
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.Options.Extra.ShardName,
+	)
 }
