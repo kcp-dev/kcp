@@ -41,8 +41,8 @@ flowchart TD
     export --> binding1
     export --> binding2
 
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef resource fill:#e1f3d8,stroke:#82c91e,stroke-width:2px;
+    classDef state color:#F77
+    classDef or fill:none,stroke:none
     class export,schema,binding1,binding2 resource;
 ```
 
@@ -122,18 +122,20 @@ workspaces.
 Here is an example `APIExport` called `example.kcp.io` that exports 1 resource: `widgets`.
 
 ```yaml
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: example.kcp.io
 spec:
-  latestResourceSchemas:
-  - v220801.widgets.example.kcp.io
+  resources:
+    - group: example.kcp.io
+      name: widgets
+      schema: v220801.widgets.example.kcp.io
+      storage:
+        crd: {}
 ```
 
-At a minimum, you specify the names of the `APIResourceSchema`s you want to export in the `spec.latestResourceSchemas`
-field. The `APIResourceSchemas` must be in the same workspace as the `APIExport` (and therefore no workspace name or
-path is required here).
+At a minimum, you specify the resource group, resource name, name of the `APIResourceSchema` and storage type in `spec.resources`. `APIResourceSchemas` must be in the same workspace as the `APIExport` (and therefore no workspace name or path is required here).
 
 You can optionally configure the following additional aspects of an `APIExport`:
 
@@ -182,36 +184,34 @@ requested resource by setting the appropriate [API verbs](https://kubernetes.io/
 Let's take the example `APIExport` from above and add permission claims for `ConfigMaps` and `Things`:
 
 ```yaml
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: example.kcp.io
 spec:
-  latestResourceSchemas:
-  - v220801.widgets.example.kcp.io
+  resources:
+    - group: example.kcp.io
+      name: widgets
+      schema: v220801.widgets.example.kcp.io
+      storage:
+        crd: {}
   permissionClaims:
   - group: "" # (1)
     resource: configmaps
-    resourceSelector: # (2)
-    - namespace: example-system
-      name: my-setup
-    verbs: ["get", "list", "create"] # (4)
+    verbs: ["get", "list", "create"] # (3)
   - group: somegroup.kcp.io
     resource: things
-    identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6 # (3)
-    all: true # (5)
-    verbs: ["*"] # (6)
+    identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6 # (2)
+    verbs: ["*"] # (4)
 ```
 
 1. This is how you specify the core API group
-2. You can claim access to one or more resource instances by namespace and/or name
-3. To claim another exported API, you must include its `identityHash`
-4. Verbs is a list of the [API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs)
-5. If you aren't claiming access to individual instances, you must specify `all` instead
-6. `"*"` is a special "verb" that matches any possible verb
+2. To claim another exported API, you must include its `identityHash`
+3. Verbs is a list of the [API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs)
+4. `"*"` is a special "verb" that matches any possible verb
 
-This is essentially a request from the APIProvider, asking each consumer to grant permission for the claimed
-resources. If the consumer does not accept a permission claim, the API Provider is not allowed to access the claimed
+This is essentially a request from the API provider, asking each consumer to grant permission for the claimed
+resources. If the consumer does not accept a permission claim, the API provider is not allowed to access the claimed
 resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. The operations allowed on the
 resource are the intersection of the verbs defined in the `APIExport` and the verbs accepted in the appropriate
 `APIBinding`. For more details, see the section on [APIBindings](#apibinding).
@@ -230,14 +230,22 @@ For example: we have an `APIExport` in the `root` workspace called `tenancy.kcp.
 for `workspaces` and `workspacetypes`:
 
 ```yaml
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: tenancy.kcp.io
 spec:
-  latestResourceSchemas:
-  - v230110-89146c99.workspacetypes.tenancy.kcp.io
-  - v230116-832a4a55d.workspaces.tenancy.kcp.io
+  resources:
+  - group: tenancy.kcp.io
+    name: workspaces
+    schema: v250421-25d98218b.workspaces.tenancy.kcp.io
+    storage:
+      crd: {}
+  - group: tenancy.kcp.io
+    name: workspacetypes
+    schema: v250603-d4d365c8e.workspacetypes.tenancy.kcp.io
+    storage:
+      crd: {}
   maximalPermissionPolicy:
     local: {} # (1)
 ```
@@ -303,9 +311,12 @@ When reconciling exported APIs, controllers usually interact with the API resour
 
 ### Endpoint Slices
 
-An API provider that implements a controller should also create something called an `APIExportEndpointSlice` alongside their `APIExport`. This will "slice and dice" the list of available virtual workspace endpoints. For example, a [Partition](../sharding/partitions.md) can be provided to restrict provided virtual workspace URLs to a part of the sharded kcp setup.
+!!! information "Changed with kcp v0.28"
+    Previous versions of kcp did not automatically create an `APIExportEndpointSlice`. Check their respective versioned documentation for details.
 
-This is what the resource looks like:
+Since kcp is a sharded system, global access to the resources exposed via an `APIExport` is not trivial and can mean that a service provider has to connect to multiple shard endpoints to get the "full picture". This behaviour of kcp is reflected in `APIExportEndpointSlices`. They return a list of endpoints to connect to for a particular `APIExport`. kcp creates one global `APIExportEndpointSlice` per `APIExport` automatically. So unless a certain partition of the kcp installation should be targeted, it is not required to create one manually. If you wish to disable this behaviour, label your `APIExport` with `apiexports.apis.kcp.io/skip-endpointslice=true`.
+
+An API provider that implements a controller can optionally also create an `APIExportEndpointSlice` themselves. This will "slice and dice" the list of available virtual workspace endpoints based on [Partitions](../sharding/partitions.md). This is what it looks like:
 
 ```yaml title="APIExportEndpointSlice for a partition's virtual workspace endpoints"
 kind: APIExportEndpointSlice
@@ -317,10 +328,11 @@ spec:
         path: root # (1)
         name: example.kcp.io
     # optional
-    partition: cloud-region-gcp-europe-xdfgs
+    partition: cloud-region-gcp-europe-xdfgs # (2)
 ```
 
-1. The workspace path at which the `APIExport` sits. This can be in a different workspace than the `APIExportEndpointSlice`
+1. The workspace path at which the `APIExport` sits. This can be in a different workspace than the `APIExportEndpointSlice`.
+2. The `Partition` object targeted by this endpoint slice.
 
 Based on this, only virtual workspace URLs for the `cloud-region-gcp-europe-xdfgs` partition will be populated into this endpoint slice. If you wish to get a full list of virtual workspace endpoints, just omit the `spec.partition` field from the example above.
 
@@ -395,7 +407,7 @@ TODO
 Returning to our previous example, we can use the following `APIBinding` to import the widgets api.
 
 ```yaml
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIBinding
 metadata:
   name: example.kcp.io
@@ -406,13 +418,15 @@ spec:
       path: "root:api-provider" # path of your api-provider workspace
 ```
 
+#### Permission Claims
+
 Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
 When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New permission claims on the other hand are NOT automatically accepted.
 
 Returning to our example, we can grant the requested permissions in the `APIBinding`:
 
 ```yaml
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIBinding
 metadata:
   name: example.kcp.io
@@ -423,23 +437,34 @@ spec:
       path: "root:api-provider" # path of your api-provider workspace
   permissionClaims:
   - resource: configmaps
-    resourceSelector:
-    - name: my-setup
-      namespace: example-system
     verbs: ["get", "list", "create"]
     state: Accepted
+    selector:
+      matchAll: true
   - resource: things
     group: somegroup.kcp.io
-    all: true
     identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
     verbs: ["*"]
     state: Accepted
+    selector:
+      matchAll: true
 ```
 
 It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.
 
+##### Verbs
+
 Operations allowed on the resources for which permission claims are accepted is defined as the intersection of
 the verbs in the APIBinding and the verbs in the appropriate APIExport.
+
+##### Selector
+
+`APIBindings` allow API consumers to scope an API provider's access to claimed resources via the `selector` field on a permission claim. This means that providers will only be able to see and access those objects matched by the `selector`.
+
+!!! information
+    Currently, only `selector.matchAll=true` is supported, giving the provider that owns the `APIExport` full access to all objects of a claimed resource. Additional selectors are planned for upcoming releases.
+
+---
 
 In practice, bound APIs behave similarly to other resources in kcp or Kubernetes. This means you can query for imported APIs using `kubectl api-resources`. Additionally you can use `kubectl explain` to get a detailed view on all fields of the API.
 
