@@ -20,8 +20,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
+	"github.com/kcp-dev/logicalcluster/v3"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -32,11 +39,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
@@ -58,6 +60,7 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	clusterRoleBindingInformer kcprbacinformers.ClusterRoleBindingClusterInformer,
+	shardName string,
 ) *Controller {
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -69,6 +72,8 @@ func NewController(
 		kubeClusterClient:        kubeClusterClient,
 		logicalClusterLister:     logicalClusterInformer.Lister(),
 		clusterRoleBindingLister: clusterRoleBindingInformer.Lister(),
+		shardName:                shardName,
+		countedClusters:          make(map[string]bool),
 	}
 
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -104,6 +109,9 @@ type Controller struct {
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 
 	clusterRoleBindingLister kcprbaclisters.ClusterRoleBindingClusterLister
+	mu                       sync.Mutex
+	countedClusters          map[string]bool
+	shardName                string
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -186,11 +194,18 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	logicalCluster, err := c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
+			c.mu.Lock()
+			if c.countedClusters[clusterName.String()] {
+				delete(c.countedClusters, clusterName.String())
+				kcpmetrics.DecrementLogicalClusterCount(c.shardName)
+				logger.V(4).Info("LogicalCluster deleted, decremented metrics", "cluster", clusterName)
+			}
+			c.mu.Unlock()
+		} else {
 			logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		}
-
-		return nil // nothing we can do here
+		return nil
 	}
 
 	logger = logging.WithObject(logger, logicalCluster)
@@ -200,6 +215,18 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		logger.V(4).Info("LogicalCluster is being deleted, skipping")
 		return nil
 	}
+
+	c.mu.Lock()
+	clusterKey := string(logicalcluster.From(logicalCluster))
+	alreadyCounted := c.countedClusters[clusterKey]
+	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseReady && !alreadyCounted {
+		c.countedClusters[clusterKey] = true
+		kcpmetrics.IncrementLogicalClusterCount(c.shardName)
+	} else if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && alreadyCounted {
+		delete(c.countedClusters, clusterKey)
+		kcpmetrics.DecrementLogicalClusterCount(c.shardName)
+	}
+	c.mu.Unlock()
 
 	// need to create ClusterRoleBinding for owner.
 	ownerAnnotation := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
