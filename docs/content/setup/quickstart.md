@@ -36,9 +36,9 @@ version to confirm it's working:
 ```shell
 $ export KUBECONFIG=.kcp/admin.kubeconfig
 $ kubectl version
-Client Version: v1.31.1
-Kustomize Version: v5.4.2
-Server Version: v1.31.0+kcp-v0.26.0
+Client Version: v1.33.1
+Kustomize Version: v5.6.0
+Server Version: v1.32.3+kcp-v0.28.0
 ```
 
 ## Next steps

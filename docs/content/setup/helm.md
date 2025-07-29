@@ -25,7 +25,7 @@ helm install my-kcp kcp/kcp -f my-values.yaml
 ### Values
 
 At the very least, `.externalHostname` needs to be set and point to a DNS hostname that will point
-to the front-proxy's external hostname.
+to the front-proxy's external hostname. The repository hosting the Helm chart has a **[detailed guide to configure the chart correctly](https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp#configuration)**.
 
 A list of all values is [available in the git repository](https://github.com/kcp-dev/helm-charts/blob/main/charts/kcp/values.yaml).
 
