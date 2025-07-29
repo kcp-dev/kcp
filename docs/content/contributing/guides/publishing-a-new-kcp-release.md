@@ -128,4 +128,4 @@ Documentation for the respective release branch needs to be triggered manually a
    1. Subject: `[release] <version>` e.g. `[release] v0.8.0`
    2. In the body, include noteworthy changes
    3. Provide a link to the release in GitHub for the full release notes
-2. Post a message in the [#kcp-dev](https://kubernetes.slack.com/archives/C021U8WSAFK) Slack channel
+2. Post a message in the [#kcp-users](https://kubernetes.slack.com/archives/C021U8WSAFK) Slack channel
