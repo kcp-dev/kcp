@@ -3294,8 +3294,8 @@
     export --&gt; binding1
     export --&gt; binding2
 
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef resource fill:#e1f3d8,stroke:#82c91e,stroke-width:2px;
+    classDef state color:#F77
+    classDef or fill:none,stroke:none
     class export,schema,webhook,crd,binding1,binding2 resource;</code></pre>
 <p>When an object is to be mutated or validated, the webhook admission plugin (<a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/mutatingwebhook"><code>apis.kcp.io/MutatingWebhook</code></a> and <a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/validatingwebhook"><code>apis.kcp.io/ValidatingWebhook</code></a> respectively) looks for the owner of the resource schema. Once found, it then dispatches the handling for that object in the owner's workspace. There are two such cases in the diagram above:</p>
 <ul>
