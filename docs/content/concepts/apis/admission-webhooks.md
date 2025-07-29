@@ -32,8 +32,8 @@ flowchart TD
     export --> binding1
     export --> binding2
 
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef resource fill:#e1f3d8,stroke:#82c91e,stroke-width:2px;
+    classDef state color:#F77
+    classDef or fill:none,stroke:none
     class export,schema,webhook,crd,binding1,binding2 resource;
 ```
 

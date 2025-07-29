@@ -16,9 +16,14 @@ in a `kubeconfig` file.
 
 The default context in the kcp-provided `admin.kubeconfig` gives access to the `root` workspace as the `kcp-admin` user.
 
-```shell
-$ export KUBECONFIG=.kcp/admin.kubeconfig
-$ kubectl config get-contexts
+```sh
+export KUBECONFIG=.kcp/admin.kubeconfig
+kubectl config get-contexts
+```
+
+Output should look similar to below (depending on the kcp instance / method of kubeconfig generation):
+
+```console
 CURRENT   NAME           CLUSTER   AUTHINFO      NAMESPACE
           base           base      kcp-admin
 *         root           root      kcp-admin
@@ -28,56 +33,107 @@ CURRENT   NAME           CLUSTER   AUTHINFO      NAMESPACE
 You can use API discovery to see what resources are available in this `root` workspace. We're here to explore the
 `tenancy.kcp.io` and `apis.kcp.io` resources.
 
-```shell
-$ kubectl api-resources
-NAME                              SHORTNAMES   APIVERSION                             NAMESPACED   KIND
-configmaps                        cm           v1                                     true         ConfigMap
-events                            ev           v1                                     true         Event
+```sh
+kubectl api-resources
+```
+
+Output should include some core resources and the kcp-specific ones for tenancy and API management:
+
+```console
+NAME                              SHORTNAMES   APIVERSION                            NAMESPACED   KIND
+configmaps                        cm           v1                                    true         ConfigMap
+events                            ev           v1                                    true         Event
 ...
-apibindings                                    apis.kcp.io/v1alpha1                  false        APIBinding
-apiexports                                     apis.kcp.io/v1alpha1                  false        APIExport
+apibindings                                    apis.kcp.io/v1alpha2                  false        APIBinding
+apiexports                                     apis.kcp.io/v1alpha2                  false        APIExport
 ...
 workspaces                        ws           tenancy.kcp.io/v1alpha1               false        Workspace
 ```
 
-## Create and Navigate Some Workspaces
+## Create and Navigate Workspaces
+
+!!! tip
+    Refer to the [plugins page](../setup/kubectl-plugin.md) to install the kubectl plugins for kcp.
 
 The `ws` plugin for `kubectl` makes it easy to switch your `kubeconfig` between workspaces and use `create-workspace` plugin for `kubectl` to create new ones:
-> [!NOTE]  
-> Refer to the [plugins page](https://docs.kcp.io/kcp/main/setup/kubectl-plugin/) to install them.
 
-```shell
-$ kubectl ws .
+
+```sh
+kubectl ws .
+```
+
+Output should show that you are currently in the `root` workspace:
+
+```console
 Current workspace is "root".
-$ kubectl create workspace a --enter
+```
+
+Next, let's create a new workspace in `root` and immediately switch to it (via `--enter`):
+
+```sh
+kubectl create-workspace a --enter
+```
+
+This will create the new workspace `a` and change the current workspace to it:
+
+```console
 Workspace "a" (type root:organization) created. Waiting for it to be ready...
 Workspace "a" (type root:organization) is ready to use.
 Current workspace is "root:a".
-$ kubectl create workspace b
+```
+
+Let's create another workspace but not change into it:
+
+```sh
+kubectl create-workspace b
+```
+
+Output will look similar to the previous workspace creation:
+
+```console
 Workspace "b" (type root:universal) created. Waiting for it to be ready...
 Workspace "b" (type root:universal) is ready to use.
-$ kubectl get workspaces
+```
+
+Since there was no switch to the newly created workspace, you are still in `root:a` and can look at child workspaces here:
+
+```sh
+kubectl get workspaces
+```
+
+Output should include the new `b` workspace:
+
+```console
 NAME   TYPE        PHASE   URL
 b      universal   Ready   https://myhost:6443/clusters/root:a:b
+```
+
+Here is a quick collection of commands showing the navigation between the workspaces you've just created. 
+Note the usage of `..` to switch to the parent workspace and `-` to the previously selected workspace.
+
+```console
 $ kubectl ws b
 Current workspace is "root:a:b".
 $ kubectl ws ..
 Current workspace is "root:a".
 $ kubectl ws -
 Current workspace is "root:a:b".
-$ kubectl ws root
+$ kubectl ws :root
 Current workspace is "root".
-$ kubectl get workspaces
-NAME    TYPE           PHASE   URL
-a       organization   Ready   https://myhost:6443/clusters/root:a
 ```
+
+!!! tip
+    Workspace paths in kcp are separated by colons, not slashes. As such, absolute paths need to start with `:` (such as `:root` to navigate to the top-level root workspace as seen in the example above).
 
 Our `kubeconfig` now contains two additional contexts, one which represents the current workspace, and the other to keep
 track of our most recently used workspace. This highlights that the `kubectl ws` plugin is primarily a convenience
 wrapper for managing a `kubeconfig` that can be used for working within a workspace.
 
-```shell
-$ kubectl config get-contexts
+```sh
+kubectl config get-contexts
+```
+
+```console
 CURRENT   NAME                         CLUSTER                      AUTHINFO      NAMESPACE
           base                         base                         kcp-admin
           root                         root                         kcp-admin
@@ -91,38 +147,31 @@ CURRENT   NAME                         CLUSTER                      AUTHINFO    
 As we can see above, workspaces can contain sub-workspaces, and workspaces have different types. A workspace type
 defines which sub-workspace types can be created under such workspaces. So, for example:
 
-- A universal workspace is the base workspace type that most other workspace types inherit from - they may contain other
+- A `universal` workspace is the base workspace type that most other workspace types inherit from - they may contain other
   universal workspaces, and they have a "default" namespace
-- The root workspace primarily contains organization workspaces
-- An organization workspace can contain universal workspaces, or can be further subdivided using team workspaces
-
-The final type of workspace is "home workspaces". These are workspaces that are intended to be used privately by
-individual users. They appear under the `root:users` workspace (type `homeroot`) and they are further organized into a
-hierarchy of `homebucket` workspaces based on a hash of their name.
-
-```shell
-$ kubectl ws
-Current workspace is "root:users:zu:yc:kcp-admin".
-$ kubectl ws root
-Current workspace is "root".
-$ kubectl get workspaces
-NAME    TYPE           PHASE   URL
-a       organization   Ready   https://myhost:6443/clusters/root:a
-users   homeroot       Ready   https://myhost:6443/clusters/root:users
-```
+- The `root` workspace primarily contains organization workspaces
+- An `organization` workspace can contain universal workspaces, or can be further subdivided using team workspaces
 
 Workspace types and their behaviors are defined using the `WorkspaceType` resource:
 
 ```shell
-$ kubectl get workspacetypes
+kubectl get workspacetypes
+```
+
+Output of this depends on the kcp instance, but by default the list should look like this:
+
+```console
 NAME           AGE
 home           74m
-homebucket     74m
-homeroot       74m
 organization   74m
 root           74m
 team           74m
 universal      74m
+```
+
+Describing a `WorkspaceType` will yield some information about its configuration:
+
+```console
 $ kubectl describe workspacetype/team
 Name:         team
 ...
@@ -155,35 +204,58 @@ Status:
 kcp offers `APIExport` and `APIBinding` resources which allow a service provider operating in one workspace to offer its
 capabilities to service consumers in other workspaces.
 
-First we'll create an organization workspace, and then within that create a service provider workspace.
+First we'll create an organization workspace in `root`, and then within that create a service provider workspace.
 
-```shell
-$ kubectl create workspace wildwest --enter
-Workspace "wildwest" (type root:organization) created. Waiting for it to be ready...
-Workspace "wildwest" (type root:organization) is ready to use.
-Current workspace is "root:wildwest".
-$ kubectl create workspace cowboys-service --enter
-Workspace "cowboys-service" (type root:universal) created. Waiting for it to be ready...
-Workspace "cowboys-service" (type root:universal) is ready to use.
-Current workspace is "root:wildwest:cowboys-service".
+```sh
+kubectl create-workspace wildwest --enter
 ```
 
+```console
+Workspace "wildwest" (type root:organization) created. Waiting for it to be ready...
+Workspace "wildwest" (type root:organization) is ready to use.
+Current workspace is 'root:wildwest' (type root:organization).
+```
+
+```sh
+kubectl create-workspace cowboys-service --enter
+```
+
+```console
+Workspace "cowboys-service" (type root:universal) created. Waiting for it to be ready...
+Workspace "cowboys-service" (type root:universal) is ready to use.
+Current workspace is 'root:wildwest:cowboys-service' (type root:universal).
+```
+
+!!! tip
+    The `apigen` tool used below can be found on the [release page](https://github.com/kcp-dev/kcp/releases/latest)
+
 Then we'll use a CRD to generate an `APIResourceSchema` and `APIExport` and apply these within the service provider
-workspace.
+workspace. For this example, we are using a CRD from kcp's own end-to-end testing. You can find it [here](https://github.com/kcp-dev/kcp/tree/main/test/e2e/customresourcedefinition).
+One of the options to follow along is to clone the kcp repository.
 
-> [!NOTE]
-> The `apigen` tool used below can be found on the [release page](https://github.com/kcp-dev/kcp/releases/latest)
 
-```shell
-$ mkdir wildwest-schemas/
-$ ./bin/apigen --input-dir test/e2e/customresourcedefinition/ --output-dir wildwest-schemas/
-$ ls -1 wildwest-schemas/
+```sh
+mkdir wildwest-schemas/
+./bin/apigen --input-dir test/e2e/customresourcedefinition/ --output-dir wildwest-schemas/
+ls -1 wildwest-schemas/
+```
+
+`apigen` should have generated two files, one containing an `APIResourceSchema` and the other
+containing an `APIExport`:
+
+```console
 apiexport-wildwest.dev.yaml
 apiresourceschema-cowboys.wildwest.dev.yaml
+```
 
-$ kubectl apply -f wildwest-schemas/apiresourceschema-cowboys.wildwest.dev.yaml
+We can now apply both of them:
+
+```sh
+kubectl apply -f wildwest-schemas/
+```
+
+```console
 apiresourceschema.apis.kcp.io/v220920-6039d110.cowboys.wildwest.dev created
-$ kubectl apply -f wildwest-schemas/apiexport-wildwest.dev.yaml
 apiexport.apis.kcp.io/wildwest.dev created
 ```
 
@@ -192,38 +264,64 @@ available to consumers.
 
 ## Use Those APIs as a Service Consumer
 
-Now we can adopt the service consumer persona and create a workspace from which we will use this new `APIExport`:
+Now we can adopt the service consumer persona and create a workspace from which we will use this new `APIExport`.
+Let's start by creating a new workspace under `root` and switch to it:
 
-```shell
-$ kubectl ws
-Current workspace is "root:users:zu:yc:kcp-admin".
-$ kubectl create workspace --enter test-consumer
-Workspace "test-consumer" (type root:universal) created. Waiting for it to be ready...
-Workspace "test-consumer" (type root:universal) is ready to use.
-Current workspace is "root:users:zu:yc:kcp-admin:test-consumer".
+```sh
+kubectl ws :root
+```
 
-$ kubectl apply -f - <<EOF
-apiVersion: apis.kcp.io/v1alpha1
+```console
+Current workspace is "root".
+```
+
+```sh
+kubectl create-workspace test-consumer --enter
+```
+
+```console
+Workspace "test-consumer" (type root:organization) created. Waiting for it to be ready...
+Workspace "test-consumer" (type root:organization) is ready to use.
+Current workspace is 'root:test-consumer' (type root:organization).
+```
+
+Now create an `APIBinding` that references the previously created `APIExport`:
+
+```sh
+kubectl apply -f - <<EOF
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIBinding
 metadata:
   name: cowboys
 spec:
   reference:
-    workspace:
+    export:
+      name: wildwest.dev
       path: root:wildwest:cowboys-service
-      exportName: wildwest.dev
 EOF
+```
+
+```console
 apibinding.apis.kcp.io/cowboys created
+```
+
+Let's verify that the resource provided by the `APIExport` is now available:
+
+```sh
+kubectl api-resources | grep wildwest
+```
+
+The `cowboys` resource should show up:
+
+```console
+cowboys      wildwest.dev/v1alpha1    true    Cowboy
 ```
 
 Now this resource type is available for use within our workspace, so
 let's create an instance!
 
-```shell
-$ kubectl api-resources | grep wildwest
-cowboys      wildwest.dev/v1alpha1    true    Cowboy
-
-$ kubectl apply -f - <<EOF
+```sh
+kubectl apply -f - <<EOF
 apiVersion: wildwest.dev/v1alpha1
 kind: Cowboy
 metadata:
@@ -231,6 +329,9 @@ metadata:
 spec:
   intent: one
 EOF
+```
+
+```console
 cowboy.wildwest.dev/one created
 ```
 
@@ -248,7 +349,7 @@ spec:
       resource: "configmaps"
       verbs: ["*"]
 ```
-Users can then authorize access to this resource type in their workspace by accepting the claim in the `APIBinding`, including what verbs are they permitting:
+Users can then authorize access to this resource type in their workspace by accepting the claim in the `APIBinding`, including the permitted verbs and a way to scope down object access by a selector of choice:
 
 ```yaml
 spec:
@@ -258,6 +359,8 @@ spec:
       resource: "configmaps"
       verbs: ["*"]
       state: Accepted
+      selector:
+        matchAll: true
 ```
 
 Operations allowed on the resources for which permission claim is accepted is defined as the intersection of the verbs in the `APIBinding` and the verbs in the `APIExport`. Verbs in this case are matching the verbs used by the [Kubernetes API](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs). There is the possibility to further limit the access claim to single resources.
@@ -266,11 +369,20 @@ Operations allowed on the resources for which permission claim is accepted is de
 
 Switching back to the service provider persona:
 
-```shell
-$ kubectl ws root:wildwest:cowboys-service
+```sh
+kubectl ws root:wildwest:cowboys-service
+```
+
+```console
 Current workspace is "root:wildwest:cowboys-service".
-$ kubectl get apiexport/wildwest.dev -o yaml
-apiVersion: apis.kcp.io/v1alpha1
+```
+
+```sh
+kubectl get apiexport/wildwest.dev -o yaml
+```
+
+```yaml
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: wildwest.dev
@@ -280,65 +392,66 @@ status:
   identityHash: a6a0cc778bec8c4b844e6326965fbb740b6a9590963578afe07276e6a0d41e20
 ```
 
-We can see that our `APIExport` has a key attribute in its status - its identity (more on this below).
+We can see that our `APIExport` has a key attribute in its status - its identity hash.
 This identity can be used in permissionClaims for referring to non-core resources.
 
 ## APIExportEndpointSlice
 
 `APIExportEndpointSlices` allow service provider to retrieve the URL of service endpoints, acting as a sink for them. You can think of this endpoint as behaving just like a workspace or cluster, except it searches across all workspaces for instances of the resource types provided by the `APIExport`.
 An `APIExportEndpointSlice` is created by a service provider, references a single `APIExport` and optionally a `Partition`.
-`Partitions` are a mechanism for filtering service endpoints. Within a multi-sharded kcp, each shard will offer its own service endpoint URL for an `APIExport`. Service provider may decide to have multiple instances of their controller reconciliating, for instance, resources of shards in the same region. For that they may create an `APIExportEndpointSlice` in the same workspace where a controller instance is deployed. This `APIExportEndpointSlice` will then reference a specific `Partition` by its name in the same workspace filtering the service endpoints for a subset of shards. If an `APIExportEndpointSlice` does not reference a `Partition` all the available endpoints are populated in its `status`. More on `Partitions` [here](./sharding/partitions.md).
+`Partitions` are a mechanism for filtering service endpoints.
 
-```shell
-$ kubectl apply -f - <<EOF
-kind: APIExportEndpointSlice
-apiVersion: apis.kcp.io/v1alpha1
-metadata:
-    name: cowboys
-spec:
-    export:
-        path: root:wildwest:cowboys-service
-        name: cowboy
-    # optional
-    partition: cloud-region-gcp-europe-xdfgs
-EOF
-apiexportendpointslice.apis.kcp.io/cowboys created
+Within a multi-sharded kcp, each shard will offer its own service endpoint URL for an `APIExport`. Service provider may decide to have multiple instances of their controller reconciliating, for instance, resources of shards in the same region. For that they may create an `APIExportEndpointSlice` in the same workspace where a controller instance is deployed. This `APIExportEndpointSlice` will then reference a specific `Partition` by its name in the same workspace filtering the service endpoints for a subset of shards.
+
+If an `APIExportEndpointSlice` does not reference a `Partition` all the available endpoints are populated in its `status`. More on `Partitions` [here](./sharding/partitions.md).
+
+By default, kcp creates a non-partioned `APIExportEndpointSlice` for every `APIExport`.
+
+```sh
+kubectl get apiexportendpointslice/wildwest.dev -o yaml
 ```
 
-Looking at the status populated by the controller
-
-```shell
-$ kubectl get APIExportEndpointSlice/cowboys -o yaml
+```yaml
 kind: APIExportEndpointSlice
 apiVersion: apis.kcp.io/v1alpha1
 metadata:
-    name: cowboys
+    name: wildwest.dev
 ...
 status:
     endpoints
-        - url: https://host1:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev
-        - url: https://host2:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev
+        - url: https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev
 ...
 ```
 
 We can use API discovery to see what resource types are available via the endpoint URL:
 
-```shell
-$ kubectl --server='https://host1:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev/clusters/*/' api-resources
-NAME      SHORTNAMES   APIVERSION              NAMESPACED   KIND
-cowboys                wildwest.dev/v1alpha1   true         Cowboy
+```sh
+kubectl --server='https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev/clusters/*/' api-resources
 ```
 
-The question is ... can we see the instance created by the consumer?
-
-```shell
-$ kubectl --server='https://host1:6443/services/apiexport/root:wildwest:cowboys-service/wildwest.dev/clusters/*/' get -A cowboys \
-    -o custom-columns='WORKSPACE:.metadata.annotations.kcp\.dev/cluster,NAME:.metadata.name'
-WORKSPACE                                  NAME
-root:users:zu:yc:kcp-admin:test-consumer   one
+```console
+NAME          SHORTNAMES   APIVERSION              NAMESPACED   KIND
+apibindings                apis.kcp.io/v1alpha2    false        APIBinding
+cowboys                    wildwest.dev/v1alpha1   true         Cowboy
+error: unable to retrieve the complete list of server APIs: v1: received empty response for: v1
 ```
 
-Yay!
+Every service provider sees the `APIBinding` resource so they can access the "contract" between API consumer and provider. `kubectl` gets a little confused about `v1` APIs missing, but the endpoint itself is fully functional.
+
+The question is, can we see the particular instance created by the consumer persona?
+
+```sh
+kubectl --server='https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev/clusters/*/' get -A cowboys -o custom-columns='LOGICAL CLUSTER:.metadata.annotations.kcp\.io/cluster,NAME:.metadata.name'
+```
+
+```console
+LOGICAL CLUSTER    NAME
+18hjcbxmhbq0k9y1   one
+```
+
+Yay! We have access to the object (thus, we can reconcile it) and we see the source [logical cluster](./terminology.md#logical-cluster).
+
+This completes the basic tour of kcp's tenancy and API management capabilities. One of the next things you likely want to do is [develop your own kcp-aware controller](../developers/controllers/writing-kcp-aware-controllers.md) to automatically reconcile the API we just created (or any other, for that matter).
 
 ## APIs FAQ
 
@@ -346,9 +459,13 @@ Q: Why is there a new `APIResourceSchema` resource type that appears to be very 
 
 A: An APIResourceSchema defines a single custom API type. It is almost identical to a CRD, but creating an APIResourceSchema instance does not add a usable API to the server. By intentionally decoupling the schema definition from serving, API owners can be more explicit about API evolution.
 
+---
+
 Q: Why do I have to append `/clusters/*/` to the `APIExport` service endpoint URL?
 
 A: The URL represents the base path of a virtual kcp API server. With a standard kcp API server, workspaces live under the `/clusters/` path, so `/clusters/*/` represents a wildcard search across all workspaces via this virtual API server.
+
+---
 
 Q: How should we understand an `APIExport` `identityHash`?
 
@@ -360,12 +477,8 @@ identity - just a SHA256 hash of the private secret - which securely identifies 
 
 This is important because an `APIExport` makes service endpoints available to interact with all instances of a particular `APIResourceShema`, and we want to make sure that users are clear on which service provider `APIExports` they are trusting and only the owners of those `APIExport` have access to their resources via the service endpoints.
 
+---
+
 Q: Why do you have to use `--all-namespaces` with the `APIExport` service endpoint?
 
 A: Think of this endpoint as representing a wildcard listing across all workspaces. It doesn't make sense to look at a specific namespace across all workspaces, so you have to list across all namespaces too.
-
-Q: If I attempt to use an `APIExport` endpoint before there are any `APIBindings` I get the "Error from server (NotFound): Unable to list ...: the server could not find the requested resource". Is this a bug?
-
-A: It is a bug. See <https://github.com/kcp-dev/kcp/issues/1183>
-
-When fixed, we expect the `APIExport` behavior will change such that an empty list is returned instead of the error.
