@@ -3594,9 +3594,9 @@ That means the schema is implicit, maintained, and enforced by the shards pushin
 <p><code>{namespace-name}</code>: an optional string holding a namespace the given request is for, not all resources are stored under a namespace.</p>
 <p><code>{resource-name}</code>: an optional string holding the name of a resource</p>
 <p>For example:</p>
-<p><code>/services/cache/shards/*/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports</code>: for listing apiexports for all shards and clusters</p>
-<p><code>/services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha1/apiexports</code>: for listing apiexports for amber shard for all clusters</p>
-<p><code>/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha1/apiexports</code>: for listing apiexports for sapphire shard stored in system:sapphire cluster</p>
+<p><code>/services/cache/shards/*/clusters/*/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for all shards and clusters</p>
+<p><code>/services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for amber shard for all clusters</p>
+<p><code>/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for sapphire shard stored in system:sapphire cluster</p>
 <h4 id="on-the-storage-layer">On the Storage Layer</h4>
 <p>All resources stored by the cache server are prefixed with <code>/cache</code>.
 Thanks to that the server can share the same database with the kcp server.</p>
