@@ -34,7 +34,7 @@ This community has a [Code of Conduct](./code-of-conduct.md). Please make sure t
 
 There are several ways to communicate with us:
 
-- The [`#kcp-dev` channel](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) in the [Kubernetes Slack workspace](https://slack.k8s.io).
+- The [`#kcp-users` channel](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) in the [Kubernetes Slack workspace](https://slack.k8s.io).
 - Our mailing lists:
     - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions.
     - [kcp-users](https://groups.google.com/g/kcp-users) for discussions among users and potential users.
