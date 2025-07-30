@@ -21,6 +21,8 @@ import (
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
 )
 
 // RootPathResolverFunc is the type of a function that, based on the URL path of a request,
@@ -74,6 +76,8 @@ type ReadyChecker interface {
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
 	authorizer.Authorizer
+	admission.MutationInterface
+	admission.ValidationInterface
 	RootPathResolver
 	ReadyChecker
 	Register(name string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)
