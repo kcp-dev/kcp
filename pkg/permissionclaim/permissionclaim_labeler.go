@@ -75,6 +75,16 @@ func NewLabeler(
 	}
 }
 
+// normalizeEventGroupResource normalizes event resources to use the core/v1 version consistently
+// This prevents race conditions between core/v1 events and events.k8s.io/v1 events.
+func normalizeEventGroupResource(gr schema.GroupResource) schema.GroupResource {
+	if gr.Resource == "events" && (gr.Group == "" || gr.Group == "events.k8s.io") {
+		// Always normalize to core/v1 events for consistent labeling
+		return schema.GroupResource{Group: "", Resource: "events"}
+	}
+	return gr
+}
+
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
@@ -84,7 +94,10 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		return labels, nil
 	}
 
-	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, groupResource)
+	// Normalize event resources to prevent race conditions between API versions
+	normalizedGR := normalizeEventGroupResource(groupResource)
+
+	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, normalizedGR)
 	if err != nil {
 		return nil, fmt.Errorf("error listing APIBindings in %q accepting claimed group resource %q: %w", cluster, groupResource, err)
 	}
@@ -104,7 +117,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			if claim.State != apisv1alpha2.ClaimAccepted || claim.Group != groupResource.Group || claim.Resource != groupResource.Resource || !claim.Selector.MatchAll {
+			if claim.State != apisv1alpha2.ClaimAccepted || claim.Group != normalizedGR.Group || claim.Resource != normalizedGR.Resource || !claim.Selector.MatchAll {
 				continue
 			}
 
