@@ -107,7 +107,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		// This controller is similar to the index controller, but keeps track of the per-workspace authenticators.
 		s.AuthController = authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, nil)
 
-		authenticator = authentication.NewWorkspaceAuthenticator(
+		authenticator = authentication.WithWorkspaceAuthenticator(
 			s.CompletedConfig.AuthenticationInfo.Authenticator,
 			s.AuthController,
 		)

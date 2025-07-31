@@ -30,9 +30,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"github.com/kcp-dev/kcp/pkg/logging"
-	proxyindex "github.com/kcp-dev/kcp/pkg/proxy/index"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -59,26 +59,20 @@ type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	clientGetter ClusterClientGetter
-
-	// clusterIndex is provided by the workspace-index controller and is used to resolve workspaces
-	// to shards.
-	clusterIndex proxyindex.Index
 	authIndex    state
 
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardLister
 
-	lock                              sync.RWMutex
-	shardWorkspaceTypeInformers       map[string]cache.SharedIndexInformer
-	shardWorkspaceAuthConfigInformers map[string]cache.SharedIndexInformer
-	shardWorkspaceStopCh              map[string]chan struct{}
+	lock          sync.RWMutex
+	shardWatchers map[string]*shardWatcher
 }
 
 func NewController(
 	ctx context.Context,
 	shardInformer corev1alpha1informers.ShardInformer,
 	clientGetter ClusterClientGetter,
-	clusterIndex proxyindex.Index,
+	baseAudiences authenticator.Audiences,
 ) *Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -91,15 +85,12 @@ func NewController(
 		queue: queue,
 
 		clientGetter: clientGetter,
-		clusterIndex: clusterIndex,
-		authIndex:    *newState(ctx, clusterIndex),
+		authIndex:    *NewIndex(ctx, baseAudiences),
 
 		shardIndexer: shardInformer.Informer().GetIndexer(),
 		shardLister:  shardInformer.Lister(),
 
-		shardWorkspaceTypeInformers:       map[string]cache.SharedIndexInformer{},
-		shardWorkspaceAuthConfigInformers: map[string]cache.SharedIndexInformer{},
-		shardWorkspaceStopCh:              map[string]chan struct{}{},
+		shardWatchers: map[string]*shardWatcher{},
 	}
 
 	_, _ = shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -136,8 +127,8 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer func() {
 		c.lock.Lock()
 		defer c.lock.Unlock()
-		for _, stopCh := range c.shardWorkspaceStopCh {
-			close(stopCh)
+		for _, watcher := range c.shardWatchers {
+			watcher.Stop()
 		}
 	}()
 
@@ -216,7 +207,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if _, found := c.shardWorkspaceAuthConfigInformers[shard.Name]; !found {
+	if _, found := c.shardWatchers[shard.Name]; !found {
 		logger.V(2).Info("Starting informers for Shard")
 
 		client, err := c.clientGetter(shard)
@@ -224,70 +215,99 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return err
 		}
 
-		wacInformer := tenancyv1alpha1informers.NewWorkspaceAuthenticationConfigurationClusterInformer(client, resyncPeriod, nil)
-		_, _ = wacInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
-				c.authIndex.UpsertWorkspaceAuthenticationConfiguration(wac)
-			},
-			UpdateFunc: func(old, obj interface{}) {
-				wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
-				c.authIndex.UpsertWorkspaceAuthenticationConfiguration(wac)
-			},
-			DeleteFunc: func(obj interface{}) {
-				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					obj = final.Obj
-				}
-				wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
-				c.authIndex.DeleteWorkspaceAuthenticationConfiguration(wac)
-			},
-		})
-
-		wtInformer := tenancyv1alpha1informers.NewWorkspaceTypeClusterInformer(client, resyncPeriod, nil)
-		_, _ = wtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				wt := obj.(*tenancyv1alpha1.WorkspaceType)
-				c.authIndex.UpsertWorkspaceType(wt)
-			},
-			UpdateFunc: func(old, obj interface{}) {
-				wt := obj.(*tenancyv1alpha1.WorkspaceType)
-				c.authIndex.UpsertWorkspaceType(wt)
-			},
-			DeleteFunc: func(obj interface{}) {
-				if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-					obj = final.Obj
-				}
-				wt := obj.(*tenancyv1alpha1.WorkspaceType)
-				c.authIndex.DeleteWorkspaceType(wt)
-			},
-		})
-
-		stopCh := make(chan struct{})
-		c.shardWorkspaceStopCh[shard.Name] = stopCh
-		c.shardWorkspaceTypeInformers[shard.Name] = wtInformer
-		c.shardWorkspaceAuthConfigInformers[shard.Name] = wacInformer
-
-		go wacInformer.Run(stopCh)
-		go wtInformer.Run(stopCh)
-
-		// no need to wait. We only care about events and they arrive when they arrive.
+		watcher := NewShardWatcher(shard.Name, client, &c.authIndex)
+		c.shardWatchers[shard.Name] = watcher
 	}
 
 	return nil
 }
 
 func (c *Controller) stopShard(shardName string) {
+	c.authIndex.DeleteShard(shardName)
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if stopCh, found := c.shardWorkspaceStopCh[shardName]; found {
-		close(stopCh)
+	for _, watcher := range c.shardWatchers {
+		watcher.Stop()
 	}
-	delete(c.shardWorkspaceStopCh, shardName)
-	delete(c.shardWorkspaceTypeInformers, shardName)
-	delete(c.shardWorkspaceAuthConfigInformers, shardName)
+	delete(c.shardWatchers, shardName)
 }
 
-func (c *Controller) Lookup(wsType index.WorkspaceType) (authenticator.Request, bool) {
+func (c *Controller) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
 	return c.authIndex.Lookup(wsType)
+}
+
+type shardWatcher struct {
+	state                       *state
+	workspaceTypeInformer       cache.SharedIndexInformer
+	workspaceAuthConfigInformer cache.SharedIndexInformer
+	stopCh                      chan struct{}
+}
+
+func NewShardWatcher(
+	shardName string,
+	shardClient kcpclientset.ClusterInterface,
+	state *state,
+) *shardWatcher {
+
+	wacInformer := tenancyv1alpha1informers.NewWorkspaceAuthenticationConfigurationClusterInformer(shardClient, resyncPeriod, nil)
+	_, _ = wacInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
+			state.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
+		},
+		UpdateFunc: func(old, obj interface{}) {
+			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
+			state.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
+		},
+		DeleteFunc: func(obj interface{}) {
+			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = final.Obj
+			}
+			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
+			state.DeleteWorkspaceAuthenticationConfiguration(shardName, wac)
+		},
+	})
+
+	wtInformer := tenancyv1alpha1informers.NewWorkspaceTypeClusterInformer(shardClient, resyncPeriod, nil)
+	_, _ = wtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			wt := obj.(*tenancyv1alpha1.WorkspaceType)
+			state.UpsertWorkspaceType(shardName, wt)
+		},
+		UpdateFunc: func(old, obj interface{}) {
+			wt := obj.(*tenancyv1alpha1.WorkspaceType)
+			state.UpsertWorkspaceType(shardName, wt)
+		},
+		DeleteFunc: func(obj interface{}) {
+			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = final.Obj
+			}
+			wt := obj.(*tenancyv1alpha1.WorkspaceType)
+			state.DeleteWorkspaceType(shardName, wt)
+		},
+	})
+
+	watcher := &shardWatcher{
+		state:                       state,
+		workspaceTypeInformer:       wtInformer,
+		workspaceAuthConfigInformer: wacInformer,
+		stopCh:                      make(chan struct{}),
+	}
+
+	go wacInformer.Run(watcher.stopCh)
+	go wtInformer.Run(watcher.stopCh)
+
+	// no need to wait. We only care about events and they arrive when they arrive.
+
+	return watcher
+}
+
+func (w *shardWatcher) Stop() {
+	close(w.stopCh)
+}
+
+func (w *shardWatcher) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
+	return w.state.Lookup(wsType)
 }
