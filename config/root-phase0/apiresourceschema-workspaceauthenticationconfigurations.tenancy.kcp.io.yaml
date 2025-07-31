@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250711-72568b07d.workspaceauthenticationconfigurations.tenancy.kcp.io
+  name: v250802-1b3cd3d0d.workspaceauthenticationconfigurations.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -127,7 +127,7 @@ spec:
                     properties:
                       audienceMatchPolicy:
                         description: AudienceMatchPolicyType is a set of valid values
-                          for Issuer.AudienceMatchPolicy
+                          for Issuer.AudienceMatchPolicy.
                         type: string
                       audiences:
                         items:

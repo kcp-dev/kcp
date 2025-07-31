@@ -40,7 +40,7 @@ func loadMappings(filename string) ([]proxy.PathMapping, error) {
 	}
 
 	var mapping []proxy.PathMapping
-	if err = yaml.Unmarshal(mappingData, &mapping); err != nil {
+	if err := yaml.Unmarshal(mappingData, &mapping); err != nil {
 		return nil, err
 	}
 

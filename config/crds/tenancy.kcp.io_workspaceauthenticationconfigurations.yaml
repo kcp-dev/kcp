@@ -130,7 +130,7 @@ spec:
                       properties:
                         audienceMatchPolicy:
                           description: AudienceMatchPolicyType is a set of valid values
-                            for Issuer.AudienceMatchPolicy
+                            for Issuer.AudienceMatchPolicy.
                           type: string
                         audiences:
                           items:
