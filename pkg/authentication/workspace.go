@@ -20,43 +20,33 @@ import (
 	"net/http"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-type WorkspaceAuthenticator struct {
-	delegate  authenticator.Request
+type workspaceAuthenticator struct {
 	authIndex AuthenticatorIndex
 }
 
-func NewWorkspaceAuthenticator(delegate authenticator.Request, authIndex AuthenticatorIndex) *WorkspaceAuthenticator {
-	return &WorkspaceAuthenticator{
-		delegate:  delegate,
+func WithWorkspaceAuthenticator(delegate authenticator.Request, authIndex AuthenticatorIndex) authenticator.Request {
+	wa := &workspaceAuthenticator{
 		authIndex: authIndex,
 	}
+
+	return authenticatorunion.New(delegate, wa)
 }
 
-var _ authenticator.Request = &WorkspaceAuthenticator{}
-
-func (a *WorkspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	response, authenticated, err := a.delegate.AuthenticateRequest(req)
-
-	// Unfortunately in Kube, an invalid token is an *error*, making the 2nd return
-	// value from the AuthenticateRequest() entirely useless to distinguish between
-	// bad credentials and a broken authenticator.
-	if err == nil && authenticated {
-		return response, authenticated, nil
-	}
-
+func (a *workspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	wsType := lookup.WorkspaceTypeFrom(req.Context())
-	if wsType == nil {
+	if wsType.Empty() {
 		return nil, false, nil
 	}
 
-	authenticator, ok := a.authIndex.Lookup(*wsType)
+	authn, ok := a.authIndex.Lookup(wsType)
 	if !ok {
 		return nil, false, nil
 	}
 
-	return authenticator.AuthenticateRequest(req)
+	return authn.AuthenticateRequest(req)
 }
