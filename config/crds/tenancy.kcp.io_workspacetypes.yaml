@@ -67,12 +67,6 @@ spec:
                     configuration:
                       description: configuration is the name of the WorkspaceAuthenticationConfiguration.
                       type: string
-                    path:
-                      description: |-
-                        path is the fully-qualified path to the workspace containing the WorkspaceAuthenticationConfiguration.
-                        If it is empty, the current workspace is assumed.
-                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                      type: string
                   required:
                   - configuration
                   type: object

@@ -155,14 +155,6 @@ type APIExportReference struct {
 
 // AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.
 type AuthenticationConfigurationReference struct {
-	// path is the fully-qualified path to the workspace containing the WorkspaceAuthenticationConfiguration.
-	// If it is empty, the current workspace is assumed.
-	//
-	// +optional
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-	Path string `json:"path,omitempty"`
-
 	// configuration is the name of the WorkspaceAuthenticationConfiguration.
 	//
 	// +required
