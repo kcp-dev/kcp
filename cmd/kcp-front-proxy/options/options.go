@@ -17,10 +17,13 @@ limitations under the License.
 package options
 
 import (
+	"strings"
+
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
 
@@ -43,6 +46,11 @@ func NewOptions() *Options {
 func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	o.Proxy.AddFlags(fss)
 	logsapiv1.AddFlags(o.Logs, fss.FlagSet("logging"))
+
+	// add flags that are filtered out from upstream, but overridden here with our own version
+	fss.FlagSet("KCP").Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
+		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
+		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 }
 
 func (o *Options) Complete() error {

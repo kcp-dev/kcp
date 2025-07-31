@@ -47,10 +47,9 @@ const resyncPeriod = 10 * time.Hour
 // ApplyTo so we can remove those config dependencies not relevant to the
 // subset of auth methods we enable in the proxy.
 type Authentication struct {
-	BuiltInOptions      *kubeoptions.BuiltInAuthenticationOptions
-	PassOnGroups        []string
-	DropGroups          []string
-	EnableWorkspaceAuth bool
+	BuiltInOptions *kubeoptions.BuiltInAuthenticationOptions
+	PassOnGroups   []string
+	DropGroups     []string
 }
 
 // NewAuthentication creates a default Authentication.
@@ -189,8 +188,6 @@ func (c *Authentication) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&c.DropGroups, "authentication-drop-groups", c.DropGroups,
 		"Groups that are not passed on to the shard. Empty matches none. \"prefix*\" matches "+
 			"all beginning with the given prefix. Dropping trumps over passing on.")
-	fs.BoolVar(&c.EnableWorkspaceAuth, "enable-workspace-auth", c.EnableWorkspaceAuth,
-		"Enables per-workspace authentication as configured by WorkspaceAuthenticationConfigurations.")
 }
 
 func (c *Authentication) Validate() []error {

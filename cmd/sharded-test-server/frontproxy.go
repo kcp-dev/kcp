@@ -142,7 +142,6 @@ func startFrontProxy(
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.key")),
 		"--secure-port=6443",
 		"--v=4",
-		"--enable-workspace-auth",
 	)
 	commandLine = append(commandLine, args...)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
