@@ -57,8 +57,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
@@ -337,6 +339,17 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.DynamicClusterClient, err = kcpdynamic.NewForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	// Wrap authenticator with a per-workspace authenticator if desired.
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+		authIndex := authentication.NewIndex(ctx, c.GenericConfig.Authentication.APIAudiences)
+		authentication.NewShardWatcher(c.Options.Extra.ShardName, c.KcpClusterClient, authIndex)
+
+		c.GenericConfig.Authentication.Authenticator = authentication.WithWorkspaceAuthenticator(
+			c.GenericConfig.Authentication.Authenticator,
+			authIndex,
+		)
 	}
 
 	if err := opts.Authorization.ApplyTo(ctx, c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory); err != nil {

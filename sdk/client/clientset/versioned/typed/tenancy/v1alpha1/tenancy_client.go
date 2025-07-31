@@ -30,6 +30,7 @@ import (
 type TenancyV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	WorkspacesGetter
+	WorkspaceAuthenticationConfigurationsGetter
 	WorkspaceTypesGetter
 }
 
@@ -40,6 +41,10 @@ type TenancyV1alpha1Client struct {
 
 func (c *TenancyV1alpha1Client) Workspaces() WorkspaceInterface {
 	return newWorkspaces(c)
+}
+
+func (c *TenancyV1alpha1Client) WorkspaceAuthenticationConfigurations() WorkspaceAuthenticationConfigurationInterface {
+	return newWorkspaceAuthenticationConfigurations(c)
 }
 
 func (c *TenancyV1alpha1Client) WorkspaceTypes() WorkspaceTypeInterface {
