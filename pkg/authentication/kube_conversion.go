@@ -22,7 +22,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
-// The functions in this file convert the kcp AuthConfig to Kubernetes AuthConfig, which can not be
+// The functions in this file convert the kcp AuthConfig to Kubernetes AuthConfig, which cannot be
 // used directly in our CRDs because they do not have json tags.
 
 func convertAuthenticationConfiguration(in *tenancyv1alpha1.WorkspaceAuthenticationConfiguration) *apiserver.AuthenticationConfiguration {

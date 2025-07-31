@@ -30,7 +30,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
-	"github.com/kcp-dev/kcp/pkg/index"
 	proxyindex "github.com/kcp-dev/kcp/pkg/proxy/index"
 )
 
@@ -122,14 +121,14 @@ func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
 	return cluster
 }
 
-func WithWorkspaceType(parent context.Context, wsType *index.WorkspaceType) context.Context {
+func WithWorkspaceType(parent context.Context, wsType logicalcluster.Path) context.Context {
 	return context.WithValue(parent, workspaceTypeContextKey, wsType)
 }
 
-func WorkspaceTypeFrom(ctx context.Context) *index.WorkspaceType {
-	cluster, ok := ctx.Value(workspaceTypeContextKey).(*index.WorkspaceType)
+func WorkspaceTypeFrom(ctx context.Context) logicalcluster.Path {
+	cluster, ok := ctx.Value(workspaceTypeContextKey).(logicalcluster.Path)
 	if !ok {
-		return nil
+		return logicalcluster.None
 	}
 	return cluster
 }
