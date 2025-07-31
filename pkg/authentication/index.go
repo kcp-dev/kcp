@@ -40,7 +40,12 @@ type AuthenticatorIndex interface {
 
 // state keeps track of authenticators for each workspace type.
 type state struct {
-	lock                        sync.RWMutex
+	lock sync.RWMutex
+	// This component's job is to hand the application's long-lived context to new,
+	// ad-hoc started goroutines, so it must store the context here. The context
+	// available for a reconciliation will be cancelled too early and is not suitable
+	// for authenticators.
+	//nolint:containedctx
 	lifecycleCtx                context.Context
 	baseAudiences               authenticator.Audiences
 	workspaceTypeAuthenticators map[string]map[logicalcluster.Path][]authenticatorKey
@@ -105,10 +110,10 @@ func (c *state) DeleteWorkspaceType(shard string, wst *tenancyv1alpha1.Workspace
 }
 
 var (
-	upsertCauseErr      = errors.New("authentication configuration has changed")
-	deleteCauseErr      = errors.New("authentication configuration has been deleted")
-	deleteShardCauseErr = errors.New("shard has been deleted")
-	emptyCauseErr       = errors.New("no valid authentication methods configured")
+	errCauseUpsert      = errors.New("authentication configuration has changed")
+	errCauseDelete      = errors.New("authentication configuration has been deleted")
+	errCauseDeleteShard = errors.New("shard has been deleted")
+	errCauseEmpty       = errors.New("no valid authentication methods configured")
 )
 
 func (c *state) UpsertWorkspaceAuthenticationConfiguration(shard string, authConfig *tenancyv1alpha1.WorkspaceAuthenticationConfiguration) {
@@ -117,7 +122,7 @@ func (c *state) UpsertWorkspaceAuthenticationConfiguration(shard string, authCon
 	// Stop and delete the old authenticator; do not lock for the entire duration of this function
 	// because initializing the authenticator later might be comparatively slow.
 	c.lock.Lock()
-	c.stopAuthenticator(shard, mapKey, upsertCauseErr)
+	c.stopAuthenticator(shard, mapKey, errCauseUpsert)
 	c.lock.Unlock()
 
 	// build new authenticator
@@ -139,7 +144,7 @@ func (c *state) UpsertWorkspaceAuthenticationConfiguration(shard string, authCon
 
 	// nil is returned whenever no valid individual auth method is configured.
 	if authn == nil {
-		cancel(emptyCauseErr)
+		cancel(errCauseEmpty)
 		return
 	}
 
@@ -180,7 +185,7 @@ func (c *state) DeleteWorkspaceAuthenticationConfiguration(shard string, authCon
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.stopAuthenticator(shard, mapKey, deleteCauseErr)
+	c.stopAuthenticator(shard, mapKey, errCauseDelete)
 }
 
 func (c *state) DeleteShard(shardName string) {
@@ -189,7 +194,7 @@ func (c *state) DeleteShard(shardName string) {
 
 	// stop all authenticators on this shard
 	for key := range c.authConfigAuthenticators[shardName] {
-		c.stopAuthenticator(shardName, key, deleteShardCauseErr)
+		c.stopAuthenticator(shardName, key, errCauseDeleteShard)
 	}
 
 	delete(c.workspaceTypeAuthenticators, shardName)

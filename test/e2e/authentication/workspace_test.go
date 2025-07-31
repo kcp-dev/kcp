@@ -55,7 +55,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 	// start a mock OIDC server that will listen on a random port
 	// (only for discovery and keyset handling, no actual login workflows)
 	m, ca := startMockOIDC(t, server)
-	defer m.Shutdown()
+	defer m.Shutdown() //nolint:errcheck
 
 	// setup a new workspace auth config that uses mockoidc's server
 	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
@@ -114,6 +114,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	t.Log("Grating OIDC permissions...")
 	_, err = kubeClusterClient.Cluster(team1Path).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	require.NoError(t, err)
 
 	// sanity check: owner can access their own workspace
 	t.Log("Owner should be allowed to list ConfigMaps.")

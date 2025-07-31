@@ -116,7 +116,9 @@ func WithFeatures(m map[string]bool) Option {
 			cfg.Features = featuregate.NewFeatureGate()
 		}
 
-		cfg.Features.SetFromMap(m)
+		if err := cfg.Features.SetFromMap(m); err != nil {
+			panic(fmt.Sprintf("Failed to set features: %v", err))
+		}
 	}
 }
 

@@ -250,7 +250,6 @@ func NewShardWatcher(
 	shardClient kcpclientset.ClusterInterface,
 	state *state,
 ) *shardWatcher {
-
 	wacInformer := tenancyv1alpha1informers.NewWorkspaceAuthenticationConfigurationClusterInformer(shardClient, resyncPeriod, nil)
 	_, _ = wacInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
