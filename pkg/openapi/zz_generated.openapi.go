@@ -4020,13 +4020,6 @@ func schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref c
 				Description: "AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"path": {
-						SchemaProps: spec.SchemaProps{
-							Description: "path is the fully-qualified path to the workspace containing the WorkspaceAuthenticationConfiguration. If it is empty, the current workspace is assumed.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"configuration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "configuration is the name of the WorkspaceAuthenticationConfiguration.",
