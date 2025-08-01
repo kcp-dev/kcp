@@ -37,9 +37,9 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-// TestWorkspaceLogicalclusterRelationship tests that a workspace gets not
+// TestWorkspaceLogicalClusterRelationship tests that a workspace gets not
 // deleted prematurely if its LogicalCluster has not yet been deleted.
-func TestWorkspaceLogicalclusterRelationship(t *testing.T) {
+func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -65,14 +65,16 @@ func TestWorkspaceLogicalclusterRelationship(t *testing.T) {
 
 	// add a finalizer to the cluster, mimicking an external finalizer
 	customFinalizer := "example.com/test"
-	lcsUpd := lc.DeepCopy()
-	lcsUpd.Finalizers = append(lcsUpd.Finalizers, customFinalizer)
-	_, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Update(ctx, lcsUpd, v1.UpdateOptions{})
-	require.NoError(t, err, "error updating logicalcluster")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		lcsUpd := lc.DeepCopy()
+		lcsUpd.Finalizers = append(lcsUpd.Finalizers, customFinalizer)
+		_, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Update(ctx, lcsUpd, v1.UpdateOptions{})
+		require.NoError(c, err, "error updating logicalcluster")
 
-	// delete the workspace
-	err = clientset.Cluster(fixtureRoot).TenancyV1alpha1().Workspaces().Delete(ctx, wsName, v1.DeleteOptions{})
-	require.NoError(t, err, "error deleting workspace")
+		// delete the workspace
+		err = clientset.Cluster(fixtureRoot).TenancyV1alpha1().Workspaces().Delete(ctx, wsName, v1.DeleteOptions{})
+		require.NoError(c, err, "error deleting workspace")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for finalizer to be applied and workspace to be deleted")
 
 	// ensure that the deletion has propagated to the logicalcluster, meaning:
 	// - it should have a deletion timestamp
@@ -96,12 +98,14 @@ func TestWorkspaceLogicalclusterRelationship(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to be marked for deletion")
 
 	// remove the custom finalizer from the logicalcluster object
-	lc, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, v1.GetOptions{})
-	require.NoError(t, err, "error getting logicalcluster")
-	lcsUpd = lc.DeepCopy()
-	lcsUpd.Finalizers = removeByValue(lcsUpd.Finalizers, customFinalizer)
-	_, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Update(ctx, lcsUpd, v1.UpdateOptions{})
-	require.NoError(t, err, "error updating logicalcluster")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		lc, err := clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, v1.GetOptions{})
+		require.NoError(c, err, "error getting logicalcluster")
+		lcsUpd := lc.DeepCopy()
+		lcsUpd.Finalizers = removeByValue(lcsUpd.Finalizers, customFinalizer)
+		_, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Update(ctx, lcsUpd, v1.UpdateOptions{})
+		require.NoError(c, err, "error updating logicalcluster")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "wainting for custom finalizer to be removed")
 
 	// the logicalcluster should now be cleaned up successfully
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
