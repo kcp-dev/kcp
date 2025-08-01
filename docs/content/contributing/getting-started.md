@@ -2,29 +2,16 @@
 
 ## Prerequisites
 
-1. Clone this repository.
+1. Clone the [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository.
 2. [Install Go](https://golang.org/doc/install) (currently 1.23.10).
 3. Install [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl).
 
-Please note that the go language version numbers in these files must exactly agree: go/go.mod file, kcp/Dockerfile, and in all the kcp/.github/workflows yaml files that specify go-version. In kcp/Dockerfile it is indicated by the "golang" attribute. In go.mod it is indicated by the "go" directive." In the .github/workflows yaml files it is indicated by "go-version"
+Please note that the go language version numbers in these files must exactly agree: go/go.mod file, kcp/Dockerfile, and in all the kcp/.github/workflows yaml files that specify go-version. In kcp/Dockerfile it is indicated by the "golang" attribute. In go.mod it is indicated by the "go" directive." In the .github/workflows yaml files it is indicated by "go-version".
 
-## Build & Verify
+If you wish to use a newer Go version (with the risk that your changes might not successfully pass CI when submitted as pull request), you can set an environment variable to ignore the Go version requirement.
 
-1. In one terminal, build and start `kcp`:
-```
-go run ./cmd/kcp start
-```
-
-2. In another terminal, tell `kubectl` where to find the kubeconfig:
-
-```
-export KUBECONFIG=.kcp/admin.kubeconfig
-```
-
-3. Confirm you can connect to `kcp`:
-
-```
-kubectl api-resources
+```sh
+export IGNORE_GO_VERSION=1
 ```
 
 ## Developer Certificate of Origin (DCO)
@@ -44,6 +31,28 @@ Signed-off-by: Your Name <mail@example.com>
 ```
 
 Please be aware that we cannot accept pull requests in which commits are missing the sign-off.
+
+
+## Build & Verify
+
+1. In one terminal, build and start `kcp`:
+
+```sh
+go run ./cmd/kcp start
+```
+
+2. In another terminal, tell `kubectl` where to find the kubeconfig:
+
+```sh
+export KUBECONFIG=.kcp/admin.kubeconfig
+```
+
+3. Confirm you can connect to `kcp`:
+
+```sh
+kubectl api-resources
+```
+
 
 ## Finding Areas to Contribute
 

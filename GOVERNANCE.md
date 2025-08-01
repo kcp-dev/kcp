@@ -70,7 +70,7 @@ is the governing body for the project.
 a Maintainer or Owner, then this section should instead be a reference to that
 documentation -->
 
-To become a Maintainer you need to demonstrate the following:
+To become a [Maintainer](./MAINTAINERS.md) you need to demonstrate the following:
 
   * commitment to the project:
     * participate in discussions, contributions, code and documentation reviews
@@ -119,10 +119,8 @@ and can be rapidly returned to Maintainer status if their availability changes.
 
 Time zones permitting, Maintainers are expected to participate in the public
 community call meeting. Maintainers will also have closed meetings in order to
-discuss security reports or Code of Conduct violations. Such meetings should be
-scheduled by any Maintainer on receipt of a security issue or CoC report.
-All current Maintainers must be invited to such closed meetings, except for any
-Maintainer who is accused of a CoC violation.
+discuss security reports. Such meetings should be scheduled by any Maintainer on
+receipt of a security issue. All current Maintainers must be invited to such closed meetings.
 
 ## Code of Conduct
 
@@ -146,18 +144,51 @@ at least once a year.
 The Security Response Team is responsible for handling all reports of security
 holes and breaches according to the [security policy](./SECURITY.md).
 
+The members of the Security Response Team are documented in [MAINTAINERS.md](./MAINTAINERS.md).
+
 ## Voting
 
 While most business in kcp is conducted by "lazy consensus", periodically
 the Maintainers may need to vote on specific actions or changes.
 A vote can be taken on [the developer mailing list](https://groups.google.com/g/kcp-dev) or
 [the private Maintainer mailing list](https://groups.google.com/g/kcp-dev-private)
-for security or conduct matters.  Votes may also be taken at the community call
+for security issues.  Votes may also be taken at the community call
 meeting. Any Maintainer may demand a vote be taken.
 
 Most votes require a simple majority of all Maintainers to succeed. Maintainers
 can be removed by a 2/3 majority vote of all Maintainers, and changes to this
 Governance require a 2/3 vote of all Maintainers.
+
+Pull requests that make changes requiring Maintainer consensus may also be
+understood as a vote. They require the stated majority to be granted via
+LGTMs on the pull request. Such a pull request shall be announced to the developer
+mailing list and put on hold until the necessary majority has been reached.
+
+## Subprojects
+
+Any Maintainer may submit a [vote](#voting) to create a new subproject under the
+kcp-dev GitHub organization. Subprojects are governed by all Maintainers, but may
+take on additional Subproject Maintainers that are only responsible for the 
+specific subproject.
+
+It is the combined responsibility of Maintainers and Subproject Maintainers
+to review contributions to subprojects and make project goal decisions.
+Subproject Maintainers are not part of the private Maintainer mailing list and
+are involved in security responses on a need-to-know basis if the reported security
+issue concerns their respective subproject.
+
+Subproject Maintainers are elected by the Maintainers. Subproject Maintainers are
+allowed to participate in votes concerning their respective subprojects.
+
+## Approvers
+
+The Maintainers and Subproject Maintainers may elect trusted contributors to
+assist them in the review process for specific parts of the code. Those Approvers
+are allowed to approve and merge code contributions for certain subsets of the code
+(not a whole project), e.g. areas of the code that they have proven themselves
+to be very familiar with.
+
+Approvers do not have voting rights.
 
 ## Modifying this Charter
 

@@ -18,13 +18,27 @@ Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
 contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file for details.
 
+For how to correctly set this on your commits, check out the [Getting Started](./getting-started.md#developer-certificate-of-origin-dco) guide.
+
 ## Community Roles
 
 ### Maintainers
 
 The project maintainers are the central [gonvernance entity](https://github.com/kcp-dev/kcp/blob/main/GOVERNANCE.md) of
 kcp. They review and approve PRs into all projects in the kcp-dev GitHub organization and decide on project direction
-and other decisions.
+and other governance matters.
+
+### Subproject Maintainers
+
+The kcp-dev GitHub organization hosts several subprojects that utilize or extend kcp in some form. These subprojects
+might take on additional subproject maintainers that participate in code review and project goal decisions to steer
+their respective subprojects.
+
+### Approvers
+
+Consistent contributors with a specific area of expertise in the code base might be chosen to be approvers by the
+(subproject) maintainers. Approvers are allowed to approve (and subsequently, merge) code for parts of a specific project.
+Approvers are generally not allowed to have full approval rights for a (sub)project but only specific folders within it.
 
 ### Contributors
 
@@ -32,27 +46,30 @@ People that are consistently contributing to the project (through code, document
 project contributors. They are invited by maintainers to join the kcp-dev GitHub organization, which allows them
 to submit PRs that do not need approval to run CI jobs in Prow.
 
+Contributors are able to LGTM pull requests in the kcp-dev GitHub organization, but they cannot merge them.
+
 ## Project Management
 
 ### Priorities & Milestones
 
 We prioritize issues and features both synchronously (during community meetings) and asynchronously (Slack/GitHub conversations).
 
-We group issues together into milestones. Each milestone represents a set of new features and bug fixes that we want users to try out. We aim for each milestone to take about a month from start to finish.
+We group issues together into milestones. Each milestone represents a planned kcp release and subsequently can be open for a period of 3-5 months.
 
 You can see the [current list of milestones](https://github.com/kcp-dev/kcp/milestones?direction=asc&sort=due_date&state=open) in GitHub.
 
 For a given issue or pull request, its milestone may be:
 
 - **unset/unassigned**: we haven't looked at this yet, or if we have, we aren't sure if we want to do it and it needs more community discussion
-- **assigned to a named milestone**
+- **assigned to a version milestone**
 - **assigned to `TBD`** - we have looked at this, decided that it is important and we eventually would like to do it, but we aren't sure exactly when
 
 If you are confident about the target milestone for your issue or PR, please set it. If you don’t have permissions, please ask & we’ll set it for you.
 
 ### Epics
 
-We use the [epic label](https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3Aepic+) to track large features that typically involve multiple stories. When creating a new epic, please use the [epic issue template](https://github.com/kcp-dev/kcp/issues/new?assignees=&labels=epic&template=epic.md&title=).
+We sometimes use the [epic label](https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3Aepic+) to track large features that typically involve multiple stories.
+When creating a new epic, please use the [epic issue template](https://github.com/kcp-dev/kcp/issues/new?assignees=&labels=epic&template=epic.md&title=).
 
 Please make sure that you fill in all the sections of the template (it's ok if some of this is done later, after creating the issue). If you need help with anything, please let us know.
 

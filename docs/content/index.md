@@ -7,7 +7,7 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp?ref=badge_shield)
 
 !!! tip ""
-    Looking for other project documentation? Check out: [api-syncagent](https://docs.kcp.io/api-syncagent) | [kcp-operator](https://docs.kcp.io/kcp-operator)
+    Looking for subproject documentation? Check out: [api-syncagent](https://docs.kcp.io/api-syncagent) | [kcp-operator](https://docs.kcp.io/kcp-operator)
 
 ## Overview
 
