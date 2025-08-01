@@ -3,9 +3,11 @@ description: >
   Investigation of transparent multi-cluster
 ---
 
-# Transparent multi-cluster
+# Transparent Multi-Cluster
 
-## NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project. 
+
+!!! warning
+    This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project. 
 
 A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can "break-glass" and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it's a detail determined by some human or automated process.
 
