@@ -18,11 +18,11 @@ package authentication
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 // WithWorkspaceAuthentication looks up the target cluster in the given auth index
@@ -31,23 +31,17 @@ import (
 // options.
 func WithWorkspaceAuthentication(handler http.Handler, authIndex AuthenticatorIndex) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		fmt.Printf(">> WithWorkspaceAuthentication(%q %q)\n", req.Method, req.URL.String())
-		defer fmt.Printf("<< WithWorkspaceAuthentication(%q %q)\n", req.Method, req.URL.String())
 		wsType := lookup.WorkspaceTypeFrom(req.Context())
 		if wsType.Empty() {
-			fmt.Printf("no workspace type\n")
 			handler.ServeHTTP(w, req)
 			return
 		}
 
 		authn, ok := authIndex.Lookup(wsType)
 		if !ok {
-			fmt.Printf("no authenticator for %q\n", wsType)
 			handler.ServeHTTP(w, req)
 			return
 		}
-
-		fmt.Printf("storing authenticator\n")
 
 		req = req.WithContext(WithWorkspaceAuthenticator(req.Context(), authn))
 		handler.ServeHTTP(w, req)

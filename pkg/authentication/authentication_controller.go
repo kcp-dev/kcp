@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -228,10 +228,10 @@ func (c *Controller) stopShard(shardName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	for _, watcher := range c.shardWatchers {
+	if watcher, ok := c.shardWatchers[shardName]; ok {
 		watcher.Stop()
+		delete(c.shardWatchers, shardName)
 	}
-	delete(c.shardWatchers, shardName)
 }
 
 func (c *Controller) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
