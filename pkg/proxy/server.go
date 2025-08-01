@@ -98,36 +98,39 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		return s, err
 	}
 
-	// Wrap the core authenticator in a workspace-aware wrapper that will use
-	// AuthConfigs from the target workspace to authenticate a request.
-	authenticator := s.completedConfig.AuthenticationInfo.Authenticator
+	// The optional auth handler will call the underlying authenticator only if
+	// auth methods are configured directly on the front-proxy *or* if there is
+	// a custom workspace authenticator, i.e. the AdditionalAuthEnabled field
+	// only represents the CLI flag state.
+	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
+	handler = frontproxyfilters.WithOptionalAuthentication(
+		handler,
+		failedHandler,
+		s.completedConfig.AuthenticationInfo.Authenticator,
+		s.CompletedConfig.AdditionalAuthEnabled)
+
+	// Make the per-workspace authenticator available to the previous middleware
+	// by hooking up a handler and a runtime index.
 	hasWorkspaceAuth := hasShardMapping && kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication)
 
 	if hasWorkspaceAuth {
 		// This controller is similar to the index controller, but keeps track of the per-workspace authenticators.
 		s.AuthController = authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, nil)
 
-		authenticator = authentication.WithWorkspaceAuthenticator(
-			s.CompletedConfig.AuthenticationInfo.Authenticator,
-			s.AuthController,
-		)
+		// When workspace auth is enabled, it depends on the target cluster whether
+		// a custom authenticator exists or not. This needs to be determined before
+		// the optionalAuthentication middleware can run, as it needs to know about
+		// the workspace authenticator.
+		handler = authentication.WithWorkspaceAuthentication(handler, s.AuthController)
 	}
-
-	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
-	handler = frontproxyfilters.WithOptionalAuthentication(
-		handler,
-		failedHandler,
-		authenticator,
-		s.CompletedConfig.AdditionalAuthEnabled || hasWorkspaceAuth)
-
-	requestInfoFactory := requestinfo.NewFactory()
-	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
 
 	if hasShardMapping {
 		// This middleware must happen before the authentication.
 		handler = lookup.WithClusterResolver(handler, s.IndexController)
 	}
 
+	requestInfoFactory := requestinfo.NewFactory()
+	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
 	handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 	handler = genericfilters.WithHTTPLogging(handler)
 	handler = metrics.WithLatencyTracking(handler)

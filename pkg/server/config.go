@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
@@ -341,17 +342,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		return nil, err
 	}
 
-	// Wrap authenticator with a per-workspace authenticator if desired.
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
-		authIndex := authentication.NewIndex(ctx, c.GenericConfig.Authentication.APIAudiences)
-		authentication.NewShardWatcher(c.Options.Extra.ShardName, c.KcpClusterClient, authIndex)
-
-		c.GenericConfig.Authentication.Authenticator = authentication.WithWorkspaceAuthenticator(
-			c.GenericConfig.Authentication.Authenticator,
-			authIndex,
-		)
-	}
-
 	if err := opts.Authorization.ApplyTo(ctx, c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory); err != nil {
 		return nil, err
 	}
@@ -470,6 +460,22 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
 
+		// Wrap authenticator with a per-workspace authenticator if desired. This authenticator
+		// requires the WorkspaceAuth middleware to have looked up and injected the relevant
+		// authenticator into the request context already.
+		var authIndex authentication.AuthenticatorIndex
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+			authIndexState := authentication.NewIndex(ctx, genericConfig.Authentication.APIAudiences)
+			authentication.NewShardWatcher(c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
+
+			genericConfig.Authentication.Authenticator = authenticatorunion.New(
+				genericConfig.Authentication.Authenticator,
+				authentication.NewWorkspaceAuthenticator(authIndexState),
+			)
+
+			authIndex = authIndexState
+		}
+
 		// There is ordering here in play:
 		// 1. Default handlers up to impersonation gatekeeper preventing impersonation of the privileged user.
 		// 2. Rest of the handlers up to Authz
@@ -479,6 +485,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = kcpfilters.WithImpersonationGatekeeper(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
+
+		// When workspace auth is enabled, it depends on the target cluster whether
+		// a custom authenticator exists or not. This needs to be determined before
+		// the authentication middleware can run, as it needs to know about the
+		// workspace authenticator.
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+			apiHandler = authentication.WithWorkspaceAuthentication(apiHandler, authIndex)
+		}
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,33 +20,23 @@ import (
 	"net/http"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
-	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
-
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 type workspaceAuthenticator struct {
 	authIndex AuthenticatorIndex
 }
 
-func WithWorkspaceAuthenticator(delegate authenticator.Request, authIndex AuthenticatorIndex) authenticator.Request {
-	wa := &workspaceAuthenticator{
+func NewWorkspaceAuthenticator(authIndex AuthenticatorIndex) authenticator.Request {
+	return &workspaceAuthenticator{
 		authIndex: authIndex,
 	}
-
-	return authenticatorunion.New(delegate, wa)
 }
 
 func (a *workspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	wsType := lookup.WorkspaceTypeFrom(req.Context())
-	if wsType.Empty() {
-		return nil, false, nil
-	}
-
-	authn, ok := a.authIndex.Lookup(wsType)
+	reqAuthenticator, ok := WorkspaceAuthenticatorFrom(req.Context())
 	if !ok {
 		return nil, false, nil
 	}
 
-	return authn.AuthenticateRequest(req)
+	return reqAuthenticator.AuthenticateRequest(req)
 }
