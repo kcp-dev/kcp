@@ -3,7 +3,7 @@ description: >
   Investigation on logical clusters
 ---
 
-# Logical clusters
+# Logical Clusters
 
 Kubernetes evolved from and was influenced by earlier systems that had weaker internal tenancy than a general-purpose compute platform requires. The namespace, quota, admission, and RBAC concepts were all envisioned quite early in the project, but evolved with Kubernetes and not all impacts to future evolution were completely anticipated. Tenancy within clusters is handled at the resource and namespace level, and within a namespace there are a limited number of boundaries. Most organizations use either namespace or cluster separation as their primary unit of self service, with variations leveraging a rich ecosystem of tools.
 
