@@ -22,18 +22,17 @@ import (
 	context "context"
 	fmt "fmt"
 
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	cache "k8s.io/client-go/tools/cache"
-
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	kcpv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpcachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcptenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	kcpworkloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 type GenericClusterInformer interface {
@@ -143,6 +142,20 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case kcptopologyv1alpha1.SchemeGroupVersion.WithResource("partitionsets"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Topology().V1alpha1().PartitionSets().Informer()}, nil
 
+		// Group=workload.kcp.io, Version=v1alpha1
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("locations"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().Locations().Informer()}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("placements"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().Placements().Informer()}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("resourceexports"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().ResourceExports().Informer()}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("resourceimports"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().ResourceImports().Informer()}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().SyncTargets().Informer()}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("synctargetheartbeats"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Workload().V1alpha1().SyncTargetHeartbeats().Informer()}, nil
+
 	}
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
@@ -210,6 +223,26 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case kcptopologyv1alpha1.SchemeGroupVersion.WithResource("partitionsets"):
 		informer := f.Topology().V1alpha1().PartitionSets().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+
+		// Group=workload.kcp.io, Version=v1alpha1
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("locations"):
+		informer := f.Workload().V1alpha1().Locations().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("placements"):
+		informer := f.Workload().V1alpha1().Placements().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("resourceexports"):
+		informer := f.Workload().V1alpha1().ResourceExports().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("resourceimports"):
+		informer := f.Workload().V1alpha1().ResourceImports().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("synctargets"):
+		informer := f.Workload().V1alpha1().SyncTargets().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case kcpworkloadv1alpha1.SchemeGroupVersion.WithResource("synctargetheartbeats"):
+		informer := f.Workload().V1alpha1().SyncTargetHeartbeats().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 	}

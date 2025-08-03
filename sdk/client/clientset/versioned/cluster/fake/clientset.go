@@ -19,13 +19,8 @@ limitations under the License.
 package fake
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-
 	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	kcpapplyconfiguration "github.com/kcp-dev/kcp/sdk/client/applyconfiguration"
 	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -42,12 +37,18 @@ import (
 	kcpfaketenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1/fake"
 	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
 	kcpfaketopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1/fake"
+	kcpworkloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/workload/v1alpha1"
+	kcpfakeworkloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/workload/v1alpha1/fake"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/workload/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -131,6 +132,11 @@ func (c *ClusterClientset) TopologyV1alpha1() kcptopologyv1alpha1.TopologyV1alph
 	return &kcpfaketopologyv1alpha1.TopologyV1alpha1ClusterClient{Fake: &c.Fake}
 }
 
+// WorkloadV1alpha1 retrieves the WorkloadV1alpha1ClusterClient
+func (c *ClusterClientset) WorkloadV1alpha1() kcpworkloadv1alpha1.WorkloadV1alpha1ClusterInterface {
+	return &kcpfakeworkloadv1alpha1.WorkloadV1alpha1ClusterClient{Fake: &c.Fake}
+}
+
 // Clientset implements clientset.Interface. Meant to be embedded into a
 // struct to get a default implementation. This makes faking out just the method
 // you want to test easier.
@@ -202,4 +208,9 @@ func (c *Clientset) TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface {
 // TopologyV1alpha1 retrieves the TopologyV1alpha1Client
 func (c *Clientset) TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface {
 	return &kcpfaketopologyv1alpha1.TopologyV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// WorkloadV1alpha1 retrieves the WorkloadV1alpha1Client
+func (c *Clientset) WorkloadV1alpha1() workloadv1alpha1.WorkloadV1alpha1Interface {
+	return &kcpfakeworkloadv1alpha1.WorkloadV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }

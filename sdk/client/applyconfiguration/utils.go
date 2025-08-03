@@ -19,12 +19,6 @@ limitations under the License.
 package applyconfiguration
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
-	testing "k8s.io/client-go/testing"
-
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	v1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
@@ -32,6 +26,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	workloadv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/workload/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha2"
 	applyconfigurationcachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/cache/v1alpha1"
@@ -41,6 +36,12 @@ import (
 	applyconfigurationmetav1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/meta/v1"
 	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	applyconfigurationtopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/topology/v1alpha1"
+	applyconfigurationworkloadv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/workload/v1alpha1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+	testing "k8s.io/client-go/testing"
 )
 
 // ForKind returns an apply configuration type for the given GroupVersionKind, or nil if no
@@ -260,6 +261,106 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationtopologyv1alpha1.PartitionSetStatusApplyConfiguration{}
 	case topologyv1alpha1.SchemeGroupVersion.WithKind("PartitionSpec"):
 		return &applyconfigurationtopologyv1alpha1.PartitionSpecApplyConfiguration{}
+
+		// Group=workload.kcp.io, Version=v1alpha1
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("Accelerator"):
+		return &applyconfigurationworkloadv1alpha1.AcceleratorApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):
+		return &applyconfigurationworkloadv1alpha1.APIExportReferenceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("APIExportStatus"):
+		return &applyconfigurationworkloadv1alpha1.APIExportStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("CapabilitySpec"):
+		return &applyconfigurationworkloadv1alpha1.CapabilitySpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ClusterAffinity"):
+		return &applyconfigurationworkloadv1alpha1.ClusterAffinityApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ClusterAffinityTerm"):
+		return &applyconfigurationworkloadv1alpha1.ClusterAffinityTermApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ClusterAntiAffinity"):
+		return &applyconfigurationworkloadv1alpha1.ClusterAntiAffinityApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ClusterCredentials"):
+		return &applyconfigurationworkloadv1alpha1.ClusterCredentialsApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ClusterExportStatus"):
+		return &applyconfigurationworkloadv1alpha1.ClusterExportStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ClusterHealthStatus"):
+		return &applyconfigurationworkloadv1alpha1.ClusterHealthStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ExportTarget"):
+		return &applyconfigurationworkloadv1alpha1.ExportTargetApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("GeographicalCoordinates"):
+		return &applyconfigurationworkloadv1alpha1.GeographicalCoordinatesApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("InstanceType"):
+		return &applyconfigurationworkloadv1alpha1.InstanceTypeApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("Location"):
+		return &applyconfigurationworkloadv1alpha1.LocationApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("LocationSelector"):
+		return &applyconfigurationworkloadv1alpha1.LocationSelectorApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("LocationSpec"):
+		return &applyconfigurationworkloadv1alpha1.LocationSpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("LocationStatus"):
+		return &applyconfigurationworkloadv1alpha1.LocationStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("Placement"):
+		return &applyconfigurationworkloadv1alpha1.PlacementApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("PlacementAffinity"):
+		return &applyconfigurationworkloadv1alpha1.PlacementAffinityApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("PlacementConstraints"):
+		return &applyconfigurationworkloadv1alpha1.PlacementConstraintsApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("PlacementDecision"):
+		return &applyconfigurationworkloadv1alpha1.PlacementDecisionApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("PlacementSpec"):
+		return &applyconfigurationworkloadv1alpha1.PlacementSpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("PlacementStatus"):
+		return &applyconfigurationworkloadv1alpha1.PlacementStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("PlacementToleration"):
+		return &applyconfigurationworkloadv1alpha1.PlacementTolerationApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceCapacityStatus"):
+		return &applyconfigurationworkloadv1alpha1.ResourceCapacityStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceExport"):
+		return &applyconfigurationworkloadv1alpha1.ResourceExportApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceExportSpec"):
+		return &applyconfigurationworkloadv1alpha1.ResourceExportSpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceExportStatus"):
+		return &applyconfigurationworkloadv1alpha1.ResourceExportStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceImport"):
+		return &applyconfigurationworkloadv1alpha1.ResourceImportApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceImportSpec"):
+		return &applyconfigurationworkloadv1alpha1.ResourceImportSpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceImportStatus"):
+		return &applyconfigurationworkloadv1alpha1.ResourceImportStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceReference"):
+		return &applyconfigurationworkloadv1alpha1.ResourceReferenceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceRequirements"):
+		return &applyconfigurationworkloadv1alpha1.ResourceRequirementsApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceSource"):
+		return &applyconfigurationworkloadv1alpha1.ResourceSourceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ResourceUsageStatus"):
+		return &applyconfigurationworkloadv1alpha1.ResourceUsageStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SecretReference"):
+		return &applyconfigurationworkloadv1alpha1.SecretReferenceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("ServiceAccountReference"):
+		return &applyconfigurationworkloadv1alpha1.ServiceAccountReferenceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTarget"):
+		return &applyconfigurationworkloadv1alpha1.SyncTargetApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetHeartbeat"):
+		return &applyconfigurationworkloadv1alpha1.SyncTargetHeartbeatApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetHeartbeatSpec"):
+		return &applyconfigurationworkloadv1alpha1.SyncTargetHeartbeatSpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetHeartbeatStatus"):
+		return &applyconfigurationworkloadv1alpha1.SyncTargetHeartbeatStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetSpec"):
+		return &applyconfigurationworkloadv1alpha1.SyncTargetSpecApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("SyncTargetStatus"):
+		return &applyconfigurationworkloadv1alpha1.SyncTargetStatusApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("TopologySpreadConstraint"):
+		return &applyconfigurationworkloadv1alpha1.TopologySpreadConstraintApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("VirtualWorkspace"):
+		return &applyconfigurationworkloadv1alpha1.VirtualWorkspaceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("WeightedClusterAffinityTerm"):
+		return &applyconfigurationworkloadv1alpha1.WeightedClusterAffinityTermApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("WorkloadClusterReference"):
+		return &applyconfigurationworkloadv1alpha1.WorkloadClusterReferenceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("WorkloadReference"):
+		return &applyconfigurationworkloadv1alpha1.WorkloadReferenceApplyConfiguration{}
+	case workloadv1alpha1.SchemeGroupVersion.WithKind("WorkspaceReference"):
+		return &applyconfigurationworkloadv1alpha1.WorkspaceReferenceApplyConfiguration{}
 
 	}
 	return nil

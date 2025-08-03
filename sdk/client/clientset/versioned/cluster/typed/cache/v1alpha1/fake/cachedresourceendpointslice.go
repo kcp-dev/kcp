@@ -21,12 +21,11 @@ package fake
 import (
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/cache/v1alpha1"
 	typedkcpcachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/cache/v1alpha1"
 	typedcachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // cachedResourceEndpointSliceClusterClient implements CachedResourceEndpointSliceClusterInterface
