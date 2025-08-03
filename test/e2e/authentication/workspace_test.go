@@ -41,10 +41,11 @@ func TestWorkspaceOIDC(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	ctx := context.Background()
-	rootPath := logicalcluster.NewPath("root")
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
+
+	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("oidc"))
 
 	kcpConfig := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
@@ -70,7 +71,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 	}
 
 	t.Log("Creating WorkspaceAuthenticationConfguration...")
-	_, err = kcpClusterClient.Cluster(rootPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// use this config in a new WorkspaceType
@@ -86,12 +87,12 @@ func TestWorkspaceOIDC(t *testing.T) {
 	}
 
 	t.Log("Creating WorkspaceType...")
-	_, err = kcpClusterClient.Cluster(rootPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wsType, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wsType, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspace...")
-	team1Path, _ := kcptesting.NewWorkspaceFixture(t, server, rootPath, kcptesting.WithName("team1"), kcptesting.WithType(rootPath, tenancyv1alpha1.WorkspaceTypeName(wsType.Name)))
+	team1Path, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team1"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType.Name)))
 
 	// grant permissions to OIDC user
 	email := "test@example.com"
