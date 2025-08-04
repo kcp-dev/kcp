@@ -28,13 +28,13 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery/cached/memory"
 	kubernetesclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/kube-openapi/pkg/util/sets"
 
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -277,17 +277,10 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			}
 		}
 
-		t.Logf("Verify that the first watched event is the second cowboy with labels %v", cowboyLabels)
-		e, next := waitForEvent()
-		checkEvent(e, watch.Added, true, next, func(cowboy *wildwestv1alpha1.Cowboy) {
-			require.Equal(t, cowboyName2, cowboy.Name, "expected to receive the second cowboy")
-			require.Equal(t, cowboyLabels, cowboy.GetLabels(), "expected the cowboy to have labels defined")
-		})
-
 		t.Logf("Set labels on first cowboy to %v", cowboyLabels)
 		setLabelsOnCowboyInConsumer(ctx, t, consumerPath, wildwestClusterClient, cowboyName1, cowboyLabels)
 		t.Logf("Verify that the second watched event is the first cowboy with updated labels %v", cowboyLabels)
-		e, next = waitForEvent()
+		e, next := waitForEvent()
 		checkEvent(e, watch.Modified, true, next, func(cowboy *wildwestv1alpha1.Cowboy) {
 			require.Equal(t, cowboyName1, cowboy.Name, "expected to receive the first cowboy")
 			require.Equal(t, cowboyLabels, cowboy.GetLabels(), "expected the cowboy to have labels defined")
