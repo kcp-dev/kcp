@@ -35,11 +35,10 @@ current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.
 
 # equivalent to go mod edit -replace
 is_gnu_sed() { sed --version >/dev/null 2>&1; }
-if is_gnu_sed; then
-  SED="sed -i"
-else
-  SED="sed -i ''"
+sed_args=( -i )
+if ! is_gnu_sed; then
+    sed_args+=( "" )
 fi
-${SED} -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/kcp-dev/kubernetes,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
+sed "${sed_args[@]}" -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/kcp-dev/kubernetes,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
 
 GOPROXY=direct go mod tidy
