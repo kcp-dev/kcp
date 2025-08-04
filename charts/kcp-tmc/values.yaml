@@ -1,0 +1,206 @@
+# Default values for kcp-tmc
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  # Container registry configuration
+  imageRegistry: ""
+  imagePullSecrets: []
+  
+  # Common labels to apply to all resources
+  commonLabels: {}
+  
+  # Common annotations to apply to all resources  
+  commonAnnotations: {}
+
+# KCP server configuration
+kcp:
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: kcpdev/kcp
+    tag: "v0.11.0"
+    pullPolicy: IfNotPresent
+    
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 6443
+    targetPort: 6443
+    annotations: {}
+    
+  # TMC (Transparent Multi-Cluster) configuration
+  tmc:
+    enabled: true
+    errorHandling:
+      enabled: true
+    healthMonitoring:
+      enabled: true
+    metrics:
+      enabled: true
+      port: 8080
+    recovery:
+      enabled: true
+    virtualWorkspaces:
+      enabled: true
+    placementController:
+      enabled: true
+      
+  # KCP server configuration
+  config:
+    # Root directory for KCP data
+    rootDirectory: "/var/lib/kcp"
+    # Bind address
+    bindAddress: "0.0.0.0"
+    # Secure port
+    securePort: 6443
+    # Log verbosity
+    verbosity: 2
+    # Additional arguments
+    extraArgs: []
+    
+  # Environment variables
+  env: []
+  
+  # Resource requirements
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+      
+  # Node selector
+  nodeSelector: {}
+  
+  # Tolerations
+  tolerations: []
+  
+  # Affinity
+  affinity: {}
+  
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1000
+    
+  # Liveness probe
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 6443
+      scheme: HTTPS
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+    
+  # Readiness probe
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 6443
+      scheme: HTTPS
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    
+  # Persistent volume configuration
+  persistence:
+    enabled: true
+    # Storage class (leave empty for default)
+    storageClass: ""
+    # Access mode
+    accessMode: ReadWriteOnce
+    # Size
+    size: 20Gi
+    # Annotations
+    annotations: {}
+
+# Monitoring configuration
+monitoring:
+  # Enable monitoring
+  enabled: true
+  
+  # Prometheus configuration
+  prometheus:
+    enabled: true
+    # ServiceMonitor for Prometheus Operator
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+      labels: {}
+      
+  # Grafana dashboard
+  grafana:
+    enabled: true
+    # ConfigMap with dashboard
+    dashboardConfigMap: kcp-tmc-dashboard
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+  
+  # Service account configuration
+  serviceAccount:
+    # Create service account
+    create: true
+    # Service account name (leave empty for auto-generated)
+    name: ""
+    # Service account annotations
+    annotations: {}
+
+# Network policy
+networkPolicy:
+  enabled: false
+  # Ingress rules
+  ingress: []
+  # Egress rules
+  egress: []
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kcp.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Extra manifests to deploy
+extraManifests: []
+
+# Development/testing configuration
+development:
+  # Enable development mode
+  enabled: false
+  # Expose metrics on insecure port
+  exposeMetrics: true
+  # Enable debug logging
+  debug: true

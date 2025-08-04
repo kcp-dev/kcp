@@ -1,0 +1,27 @@
+{{- if .Values.kcp.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: kcp-storage
+  {{- with .Values.kcp.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.kcp.persistence.accessMode }}
+  {{- if .Values.kcp.persistence.storageClass }}
+  {{- if eq .Values.kcp.persistence.storageClass "-" }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.kcp.persistence.storageClass }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.kcp.persistence.size }}
+{{- end }}

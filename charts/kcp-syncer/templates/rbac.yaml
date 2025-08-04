@@ -1,0 +1,65 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kcp-syncer.fullname" . }}
+  labels:
+    {{- include "kcp-syncer.labels" . | nindent 4 }}
+    component: syncer
+rules:
+# Core resource permissions for syncing
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["policy"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# Workload syncer specific permissions
+- apiGroups: ["workload.kcp.io"]
+  resources: ["synctargets", "synctargets/status"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+
+# Events and monitoring
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kcp-syncer.fullname" . }}
+  labels:
+    {{- include "kcp-syncer.labels" . | nindent 4 }}
+    component: syncer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kcp-syncer.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "kcp-syncer.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

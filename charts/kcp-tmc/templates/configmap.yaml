@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: kcp-config
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  # KCP configuration
+  kcp.yaml: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        server: https://{{ include "kcp-tmc.fullname" . }}:{{ .Values.kcp.service.port }}
+        insecure-skip-tls-verify: {{ .Values.development.enabled }}
+      name: kcp
+    contexts:
+    - context:
+        cluster: kcp
+        user: kcp-admin
+      name: kcp
+    current-context: kcp
+    users:
+    - name: kcp-admin
+      user:
+        # This will be populated by the init container or external process
+        
+  # TMC configuration
+  tmc-config.yaml: |
+    {{- include "kcp-tmc.tmcConfig" . | nindent 4 }}
+    
+  # Feature flags
+  feature-flags.env: |
+    KCP_TMC_ENABLED={{ .Values.kcp.tmc.enabled }}
+    {{- if .Values.kcp.tmc.errorHandling.enabled }}
+    KCP_TMC_ERROR_HANDLING=true
+    {{- end }}
+    {{- if .Values.kcp.tmc.healthMonitoring.enabled }}
+    KCP_TMC_HEALTH_MONITORING=true
+    {{- end }}
+    {{- if .Values.kcp.tmc.metrics.enabled }}
+    KCP_TMC_METRICS=true
+    {{- end }}
+    {{- if .Values.kcp.tmc.recovery.enabled }}
+    KCP_TMC_RECOVERY=true
+    {{- end }}
+    {{- if .Values.kcp.tmc.virtualWorkspaces.enabled }}
+    KCP_TMC_VIRTUAL_WORKSPACES=true
+    {{- end }}
+    {{- if .Values.kcp.tmc.placementController.enabled }}
+    KCP_TMC_PLACEMENT_CONTROLLER=true
+    {{- end }}

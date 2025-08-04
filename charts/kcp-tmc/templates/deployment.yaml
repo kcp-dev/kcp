@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: kcp-server
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kcp-tmc.selectorLabels" . | nindent 6 }}
+      component: kcp-server
+  template:
+    metadata:
+      labels:
+        {{- include "kcp-tmc.selectorLabels" . | nindent 8 }}
+        component: kcp-server
+        {{- with .Values.global.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.global.commonAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kcp-tmc.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.kcp.podSecurityContext | nindent 8 }}
+      containers:
+      - name: kcp
+        image: {{ include "kcp-tmc.image" . }}
+        imagePullPolicy: {{ .Values.kcp.image.pullPolicy }}
+        command:
+        - /usr/local/bin/kcp
+        args:
+        - start
+        - --root-directory={{ .Values.kcp.config.rootDirectory }}
+        - --bind-address={{ .Values.kcp.config.bindAddress }}
+        - --secure-port={{ .Values.kcp.config.securePort }}
+        - --v={{ .Values.kcp.config.verbosity }}
+        {{- if .Values.kcp.tmc.enabled }}
+        - --enable-tmc
+        {{- if .Values.kcp.tmc.errorHandling.enabled }}
+        - --tmc-error-handling=true
+        {{- end }}
+        {{- if .Values.kcp.tmc.healthMonitoring.enabled }}
+        - --tmc-health-monitoring=true
+        {{- end }}
+        {{- if .Values.kcp.tmc.metrics.enabled }}
+        - --tmc-metrics=true
+        {{- end }}
+        {{- if .Values.kcp.tmc.recovery.enabled }}
+        - --tmc-recovery=true
+        {{- end }}
+        {{- if .Values.kcp.tmc.virtualWorkspaces.enabled }}
+        - --tmc-virtual-workspaces=true
+        {{- end }}
+        {{- if .Values.kcp.tmc.placementController.enabled }}
+        - --tmc-placement-controller=true
+        {{- end }}
+        {{- end }}
+        {{- range .Values.kcp.config.extraArgs }}
+        - {{ . }}
+        {{- end }}
+        ports:
+        - name: https
+          containerPort: {{ .Values.kcp.config.securePort }}
+          protocol: TCP
+        {{- if and .Values.kcp.tmc.enabled .Values.kcp.tmc.metrics.enabled }}
+        - name: metrics
+          containerPort: {{ .Values.kcp.tmc.metrics.port }}
+          protocol: TCP
+        {{- end }}
+        env:
+        - name: KCP_TMC_ENABLED
+          value: {{ .Values.kcp.tmc.enabled | quote }}
+        {{- if .Values.kcp.env }}
+        {{- toYaml .Values.kcp.env | nindent 8 }}
+        {{- end }}
+        livenessProbe:
+          {{- toYaml .Values.kcp.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.kcp.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.kcp.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.kcp.securityContext | nindent 10 }}
+        volumeMounts:
+        - name: kcp-data
+          mountPath: {{ .Values.kcp.config.rootDirectory }}
+        {{- if .Values.kcp.persistence.enabled }}
+        - name: kcp-storage
+          mountPath: {{ .Values.kcp.config.rootDirectory }}/data
+        {{- end }}
+      volumes:
+      - name: kcp-data
+        emptyDir: {}
+      {{- if .Values.kcp.persistence.enabled }}
+      - name: kcp-storage
+        persistentVolumeClaim:
+          claimName: {{ include "kcp-tmc.fullname" . }}-data
+      {{- end }}
+      {{- with .Values.kcp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kcp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kcp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

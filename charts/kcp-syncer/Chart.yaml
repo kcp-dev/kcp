@@ -1,0 +1,28 @@
+apiVersion: v2
+name: kcp-syncer
+description: A Helm chart for KCP Workload Syncer with TMC support
+type: application
+version: 0.11.0
+appVersion: "0.11.0"
+
+keywords:
+  - kcp
+  - syncer
+  - workload
+  - multi-cluster
+  - tmc
+
+home: https://kcp.io
+sources:
+  - https://github.com/kcp-dev/kcp
+
+maintainers:
+  - name: KCP TMC Team
+    email: kcp-dev@kubernetes.io
+
+annotations:
+  category: Infrastructure
+  licenses: Apache-2.0
+
+# Minimum Kubernetes version required
+kubeVersion: ">=1.26.0"

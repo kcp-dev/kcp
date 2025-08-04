@@ -1,0 +1,144 @@
+# Default values for kcp-syncer
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Syncer configuration
+syncer:
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: kcpdev/kcp-syncer
+    tag: "v0.11.0"
+    pullPolicy: IfNotPresent
+    
+  # Syncer target configuration
+  syncTarget:
+    name: "default-target"  # Required: name of the sync target
+    uid: ""   # Optional: will be auto-generated if not provided
+    workspace: "root:default"  # KCP workspace
+    
+  # KCP connection configuration
+  kcp:
+    endpoint: "https://kcp.example.com:6443"  # Required: KCP server endpoint
+    kubeconfig: ""  # Optional: kubeconfig content (base64 encoded)
+    kubeconfigSecret:
+      name: ""  # Optional: secret name containing kubeconfig
+      key: "kubeconfig"
+      
+  # Target cluster configuration
+  cluster:
+    kubeconfig: ""  # Optional: target cluster kubeconfig content
+    kubeconfigSecret:
+      name: ""  # Optional: secret name containing cluster kubeconfig
+      key: "kubeconfig"
+      
+  # Syncer configuration
+  config:
+    # Number of worker threads
+    workers: 10
+    # Sync interval
+    syncInterval: "30s"
+    # Resync period
+    resyncPeriod: "10m"
+    # Log verbosity
+    verbosity: 2
+    # Metrics bind address
+    metricsBindAddress: "0.0.0.0:8080"
+    # Health bind address
+    healthBindAddress: "0.0.0.0:8081"
+    # Additional arguments
+    extraArgs: []
+    
+  # Environment variables
+  env: []
+  
+  # Resource requirements
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+      
+  # Node selector
+  nodeSelector: {}
+  
+  # Tolerations
+  tolerations: []
+  
+  # Affinity
+  affinity: {}
+  
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1001
+    
+  # Liveness probe
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8081
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+    
+  # Readiness probe
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8081
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Service configuration
+service:
+  # Create service for metrics
+  enabled: true
+  type: ClusterIP
+  ports:
+    metrics: 8080
+    health: 8081
+  annotations: {}
+
+# RBAC configuration
+rbac:
+  create: true
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80

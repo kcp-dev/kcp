@@ -1,0 +1,109 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: kcp-server
+rules:
+# KCP core permissions
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+
+# TMC-specific permissions
+{{- if .Values.kcp.tmc.enabled }}
+- apiGroups: ["workload.kcp.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["scheduling.kcp.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["topology.kcp.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["tenancy.kcp.io"]
+  resources: ["*"]
+  verbs: ["*"]
+{{- end }}
+
+# Metrics and monitoring
+{{- if and .Values.kcp.tmc.enabled .Values.kcp.tmc.metrics.enabled }}
+- apiGroups: [""]
+  resources: ["endpoints", "services", "pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+{{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: kcp-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kcp-tmc.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "kcp-tmc.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+
+{{- if and .Values.kcp.tmc.enabled .Values.kcp.tmc.placementController.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}-placement
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: placement-controller
+rules:
+# Placement controller permissions
+- apiGroups: ["workload.kcp.io"]
+  resources: ["synctargets", "synctargets/status"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: ["scheduling.kcp.io"]
+  resources: ["placements", "placements/status"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}-placement
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: placement-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kcp-tmc.fullname" . }}-placement
+subjects:
+- kind: ServiceAccount
+  name: {{ include "kcp-tmc.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+
+{{- end }}

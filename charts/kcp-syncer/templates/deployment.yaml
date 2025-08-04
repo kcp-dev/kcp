@@ -1,0 +1,116 @@
+{{- include "kcp-syncer.validateConfig" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kcp-syncer.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kcp-syncer.labels" . | nindent 4 }}
+    component: syncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kcp-syncer.selectorLabels" . | nindent 6 }}
+      component: syncer
+  template:
+    metadata:
+      labels:
+        {{- include "kcp-syncer.selectorLabels" . | nindent 8 }}
+        component: syncer
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kcp-syncer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.syncer.podSecurityContext | nindent 8 }}
+      containers:
+      - name: syncer
+        image: {{ include "kcp-syncer.image" . }}
+        imagePullPolicy: {{ .Values.syncer.image.pullPolicy }}
+        command:
+        - /usr/local/bin/workload-syncer
+        args:
+        - --sync-target-name={{ .Values.syncer.syncTarget.name }}
+        - --sync-target-uid={{ include "kcp-syncer.syncTargetUID" . }}
+        - --workspace-cluster={{ .Values.syncer.syncTarget.workspace }}
+        - --kcp-kubeconfig=/etc/kcp/kubeconfig
+        - --cluster-kubeconfig=/etc/cluster/kubeconfig
+        - --metrics-bind-address={{ .Values.syncer.config.metricsBindAddress }}
+        - --health-bind-address={{ .Values.syncer.config.healthBindAddress }}
+        - --workers={{ .Values.syncer.config.workers }}
+        - --v={{ .Values.syncer.config.verbosity }}
+        {{- range .Values.syncer.config.extraArgs }}
+        - {{ . }}
+        {{- end }}
+        ports:
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        env:
+        - name: SYNC_TARGET_NAME
+          value: {{ .Values.syncer.syncTarget.name | quote }}
+        - name: SYNC_TARGET_UID
+          value: {{ include "kcp-syncer.syncTargetUID" . | quote }}
+        - name: WORKSPACE_CLUSTER
+          value: {{ .Values.syncer.syncTarget.workspace | quote }}
+        - name: KCP_ENDPOINT
+          value: {{ .Values.syncer.kcp.endpoint | quote }}
+        {{- if .Values.syncer.env }}
+        {{- toYaml .Values.syncer.env | nindent 8 }}
+        {{- end }}
+        livenessProbe:
+          {{- toYaml .Values.syncer.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.syncer.readinessProbe | nindent 10 }}
+        resources:
+          {{- toYaml .Values.syncer.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.syncer.securityContext | nindent 10 }}
+        volumeMounts:
+        - name: kcp-kubeconfig
+          mountPath: /etc/kcp
+          readOnly: true
+        - name: cluster-kubeconfig
+          mountPath: /etc/cluster
+          readOnly: true
+      volumes:
+      - name: kcp-kubeconfig
+        secret:
+          {{- if .Values.syncer.kcp.kubeconfigSecret.name }}
+          secretName: {{ .Values.syncer.kcp.kubeconfigSecret.name }}
+          {{- else }}
+          secretName: {{ include "kcp-syncer.fullname" . }}-kcp-kubeconfig
+          {{- end }}
+          items:
+          - key: {{ .Values.syncer.kcp.kubeconfigSecret.key }}
+            path: kubeconfig
+      - name: cluster-kubeconfig
+        secret:
+          {{- if .Values.syncer.cluster.kubeconfigSecret.name }}
+          secretName: {{ .Values.syncer.cluster.kubeconfigSecret.name }}
+          {{- else }}
+          secretName: {{ include "kcp-syncer.fullname" . }}-cluster-kubeconfig
+          {{- end }}
+          items:
+          - key: {{ .Values.syncer.cluster.kubeconfigSecret.key }}
+            path: kubeconfig
+      {{- with .Values.syncer.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.syncer.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.syncer.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

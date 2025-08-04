@@ -1,0 +1,31 @@
+apiVersion: v2
+name: kcp-tmc
+description: A Helm chart for KCP (Kubernetes Control Plane) with TMC (Transparent Multi-Cluster) support
+type: application
+version: 0.11.0
+appVersion: "0.11.0"
+
+keywords:
+  - kcp
+  - kubernetes
+  - control-plane
+  - multi-cluster
+  - tmc
+  - transparent-multi-cluster
+
+home: https://kcp.io
+sources:
+  - https://github.com/kcp-dev/kcp
+
+maintainers:
+  - name: KCP TMC Team
+    email: kcp-dev@kubernetes.io
+
+annotations:
+  category: Infrastructure
+  licenses: Apache-2.0
+  
+dependencies: []
+
+# Minimum Kubernetes version required
+kubeVersion: ">=1.26.0"

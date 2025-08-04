@@ -1,0 +1,36 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheus.enabled .Values.monitoring.prometheus.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "kcp-tmc.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kcp-tmc.labels" . | nindent 4 }}
+    component: kcp-metrics
+    {{- with .Values.monitoring.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kcp-tmc.selectorLabels" . | nindent 6 }}
+      component: kcp-metrics
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.monitoring.prometheus.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.monitoring.prometheus.serviceMonitor.scrapeTimeout }}
+    path: /metrics
+    scheme: http
+    {{- if .Values.kcp.tmc.enabled }}
+    metricRelabelings:
+    # Add TMC-specific labels
+    - sourceLabels: [__name__]
+      regex: 'tmc_.*'
+      targetLabel: tmc_component
+      replacement: 'true'
+    - sourceLabels: [__name__]
+      regex: 'kcp_.*'
+      targetLabel: kcp_component
+      replacement: 'true'
+    {{- end }}
+{{- end }}
