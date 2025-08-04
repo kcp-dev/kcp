@@ -92,8 +92,10 @@ func (b *BindOptions) Complete(args []string) error {
 // Validate validates the BindOptions are complete and usable.
 func (b *BindOptions) Validate() error {
 	if b.APIExportRef == "" {
-		return errors.New("`root:ws:apiexport_object` reference to bind is required as an argument")
+		return errors.New("`:root:ws:apiexport_object` reference to bind is required as an argument")
 	}
+
+	b.APIExportRef = strings.TrimPrefix(b.APIExportRef, ":")
 
 	// We validate the path component of the APIExport. Its name component will be implicitly validated at API look-up time.
 	path, _ := logicalcluster.NewPath(b.APIExportRef).Split()

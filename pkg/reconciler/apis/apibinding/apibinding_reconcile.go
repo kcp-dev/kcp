@@ -651,7 +651,7 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 	}
 
 	if len(schema.Spec.Versions) > 1 && schema.Spec.Conversion == nil {
-		return nil, fmt.Errorf("multiple versions specified but no conversion strategy")
+		return nil, fmt.Errorf("multiple versions specified for '%s' but no conversion strategy", schema.Name)
 	}
 
 	if len(schema.Spec.Versions) > 1 {
