@@ -1,0 +1,45 @@
+# Resource Policy Violation Example - This should be blocked
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-hog-app
+  namespace: default
+  labels:
+    app: resource-hog-app
+    environment: staging
+    version: v1.0.0
+    owner: test-team
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resource-hog-app
+  template:
+    metadata:
+      labels:
+        app: resource-hog-app
+        environment: staging
+        version: v1.0.0
+        owner: test-team
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: resource-hungry-container
+        image: nginx:1.21-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "10Gi"  # Excessive memory request - violates resource policies
+            cpu: "8000m"    # Excessive CPU request - violates resource policies
+          limits:
+            memory: "20Gi"  # Excessive memory limit - violates resource policies
+            cpu: "16000m"   # Excessive CPU limit - violates resource policies

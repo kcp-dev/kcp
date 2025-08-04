@@ -1,0 +1,164 @@
+# Tenant Template for Shared Multi-Tenant Environment
+# Replace TENANT_NAME with actual tenant name
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: TENANT_NAME-quota
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+spec:
+  hard:
+    requests.cpu: "1000m"
+    requests.memory: "1Gi"
+    limits.cpu: "2000m"
+    limits.memory: "2Gi"
+    requests.storage: "10Gi"
+    persistentvolumeclaims: "4"
+    pods: "10"
+    services: "5"
+    secrets: "10"
+    configmaps: "10"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: TENANT_NAME-limits
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+spec:
+  limits:
+  - default:
+      cpu: "200m"
+      memory: "256Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+  - max:
+      cpu: "1000m"
+      memory: "1Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    type: Container
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: TENANT_NAME-service-account
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: TENANT_NAME-role
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods/exec", "pods/log"]
+  verbs: ["get", "list", "watch", "create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: TENANT_NAME-role-binding
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: TENANT_NAME-role
+subjects:
+- kind: ServiceAccount
+  name: TENANT_NAME-service-account
+  namespace: tenant-TENANT_NAME
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: TENANT_NAME-network-isolation
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: tenant-TENANT_NAME
+    - namespaceSelector:
+        matchLabels:
+          name: tenant-system
+    - podSelector: {}
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: tenant-TENANT_NAME
+    - namespaceSelector:
+        matchLabels:
+          name: tenant-system
+    - podSelector: {}
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: TENANT_NAME-tenant-config
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+type: Opaque
+data:
+  tenant-id: VEVOQU5UX05BTUU=  # base64 encoded TENANT_NAME
+  tier: c2hhcmVk  # base64 encoded "shared"
+  max-replicas: NQ==  # base64 encoded "5"
+  resource-class: c3RhbmRhcmQ=  # base64 encoded "standard"

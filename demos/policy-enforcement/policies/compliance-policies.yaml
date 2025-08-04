@@ -1,0 +1,280 @@
+# Global Compliance Policies for TMC Policy Enforcement Demo
+# These policies ensure regulatory and organizational compliance
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: compliance-policies
+  namespace: policy-system
+  labels:
+    policy-type: compliance
+    demo: policy-enforcement
+data:
+  labeling-requirements.yaml: |
+    # Required Labels Policy
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: required-labels-policy
+      namespace: policy-system
+    data:
+      requirements: |
+        labeling_policies:
+          - name: "environment-label-required"
+            description: "All resources must have an environment label"
+            rule: "metadata.labels['environment'] is defined"
+            enforcement: "block"
+            applies_to: ["Pod", "Deployment", "Service", "ConfigMap", "Secret"]
+          
+          - name: "app-label-required"
+            description: "All application resources must have an app label"
+            rule: "metadata.labels['app'] is defined"
+            enforcement: "block"
+            applies_to: ["Pod", "Deployment", "Service"]
+          
+          - name: "version-label-required"
+            description: "All deployments must have a version label"
+            rule: "metadata.labels['version'] is defined"
+            enforcement: "warn"
+            applies_to: ["Deployment"]
+          
+          - name: "owner-label-required"
+            description: "All resources must have an owner label"
+            rule: "metadata.labels['owner'] is defined"
+            enforcement: "warn"
+            applies_to: ["Pod", "Deployment", "Service", "ConfigMap", "Secret"]
+          
+          - name: "cost-center-label-required"
+            description: "Production resources must have a cost-center label"
+            rule: "metadata.labels['cost-center'] is defined OR metadata.labels['environment'] != 'production'"
+            enforcement: "block"
+            applies_to: ["Pod", "Deployment", "Service"]
+
+  annotation-requirements.yaml: |
+    # Required Annotations Policy
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: required-annotations-policy
+      namespace: policy-system
+    data:
+      requirements: |
+        annotation_policies:
+          - name: "description-annotation-required"
+            description: "All deployments must have a description annotation"
+            rule: "metadata.annotations['description'] is defined"
+            enforcement: "warn"
+            applies_to: ["Deployment"]
+          
+          - name: "contact-annotation-required"
+            description: "All production resources must have a contact annotation"
+            rule: "metadata.annotations['contact'] is defined OR metadata.labels['environment'] != 'production'"
+            enforcement: "block"
+            applies_to: ["Deployment", "Service"]
+          
+          - name: "change-ticket-annotation"
+            description: "Production deployments must have a change ticket annotation"
+            rule: "metadata.annotations['change-ticket'] is defined OR metadata.labels['environment'] != 'production'"
+            enforcement: "block"
+            applies_to: ["Deployment"]
+
+  data-protection-policy.yaml: |
+    # Data Protection and Privacy Compliance
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: data-protection-policy
+      namespace: policy-system
+    data:
+      requirements: |
+        data_protection_policies:
+          - name: "pii-data-classification"
+            description: "Resources handling PII must be classified"
+            rule: "metadata.labels['data-classification'] is defined AND metadata.labels['data-classification'] in ['public', 'internal', 'confidential', 'restricted']"
+            enforcement: "block"
+            condition: "metadata.labels['handles-pii'] == 'true'"
+          
+          - name: "encryption-at-rest"
+            description: "PersistentVolumes with sensitive data must be encrypted"
+            rule: "metadata.annotations['encrypted'] == 'true'"
+            enforcement: "block"
+            condition: "metadata.labels['data-classification'] in ['confidential', 'restricted']"
+          
+          - name: "backup-policy"
+            description: "Production persistent volumes must have backup policy"
+            rule: "metadata.annotations['backup-policy'] is defined"
+            enforcement: "warn"
+            condition: "metadata.labels['environment'] == 'production' AND kind == 'PersistentVolumeClaim'"
+
+  audit-requirements.yaml: |
+    # Audit and Compliance Logging
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: audit-requirements-policy
+      namespace: policy-system
+    data:
+      requirements: |
+        audit_policies:
+          - name: "audit-logging-enabled"
+            description: "Production applications must enable audit logging"
+            rule: "metadata.annotations['audit-logging'] == 'enabled'"
+            enforcement: "warn"
+            condition: "metadata.labels['environment'] == 'production'"
+          
+          - name: "log-retention-policy"
+            description: "Applications must specify log retention policy"
+            rule: "metadata.annotations['log-retention-days'] is defined"
+            enforcement: "warn"
+            applies_to: ["Deployment"]
+          
+          - name: "compliance-framework"
+            description: "Regulated applications must specify compliance framework"
+            rule: "metadata.annotations['compliance-framework'] is defined"
+            enforcement: "block"
+            condition: "metadata.labels['regulated'] == 'true'"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-policy-enforcer
+  namespace: policy-system
+  labels:
+    app: compliance-policy-enforcer
+    component: compliance
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: compliance-policy-enforcer
+  template:
+    metadata:
+      labels:
+        app: compliance-policy-enforcer
+        component: compliance
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: enforcer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Compliance Policy Enforcer starting..."
+          echo "Enforcer ID: global-compliance-enforcer"
+          echo "Monitoring compliance policy adherence"
+          
+          # Simulate compliance policy enforcement
+          while true; do
+            echo "$(date): Scanning for compliance policy violations..."
+            echo "$(date): Checking required labels: 3 warnings found"
+            echo "$(date): Checking required annotations: 1 warning found"
+            echo "$(date): Checking data classification: 0 violations found"
+            echo "$(date): Checking audit requirements: 2 warnings found"
+            echo "$(date): Checking regulatory compliance: 0 violations found"
+            
+            # Simulate compliance scoring
+            echo "$(date): Compliance scores by environment:"
+            echo "  • Development: 87.2% compliant (relaxed requirements)"
+            echo "  • Staging: 94.1% compliant (moderate requirements)"
+            echo "  • Production: 98.3% compliant (strict requirements)"
+            
+            # Simulate compliance categories
+            echo "$(date): Compliance by category:"
+            echo "  • Labeling compliance: 89.1%"
+            echo "  • Data protection compliance: 96.7%"
+            echo "  • Audit compliance: 91.4%"
+            echo "  • Regulatory compliance: 99.2%"
+            
+            echo "$(date): Compliance policy enforcer healthy"
+            sleep 55
+          done
+        env:
+        - name: ENFORCER_ID
+          value: "global-compliance-enforcer"
+        - name: SCAN_INTERVAL
+          value: "55s"
+        - name: COMPLIANCE_FRAMEWORKS
+          value: "SOC2,GDPR,HIPAA,PCI-DSS"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-auditor
+  namespace: policy-system
+  labels:
+    app: compliance-auditor
+    component: audit
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: compliance-auditor
+  template:
+    metadata:
+      labels:
+        app: compliance-auditor
+        component: audit
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: auditor
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Compliance Auditor starting..."
+          echo "Auditor ID: global-compliance-auditor"
+          echo "Performing continuous compliance auditing"
+          
+          # Simulate compliance auditing
+          while true; do
+            echo "$(date): Performing compliance audit scan..."
+            echo "$(date): Auditing resource configurations across clusters"
+            echo "$(date): Checking compliance framework adherence"
+            
+            # Simulate audit findings
+            echo "$(date): Audit findings summary:"
+            echo "  • Total resources audited: 89"
+            echo "  • Fully compliant resources: 81 (91.0%)"
+            echo "  • Resources with warnings: 6 (6.7%)"
+            echo "  • Non-compliant resources: 2 (2.2%)"
+            echo "  • Resources requiring attention: 8"
+            
+            # Simulate framework-specific compliance
+            echo "$(date): Framework-specific compliance:"
+            echo "  • SOC2 Type II: 94.3% compliant"
+            echo "  • GDPR: 97.8% compliant"
+            echo "  • HIPAA: N/A (no healthcare data detected)"
+            echo "  • PCI-DSS: N/A (no cardholder data detected)"
+            
+            echo "$(date): Compliance audit complete, next audit in 120s"
+            sleep 120
+          done
+        env:
+        - name: AUDITOR_ID
+          value: "global-compliance-auditor"
+        - name: AUDIT_INTERVAL
+          value: "120s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

@@ -1,0 +1,289 @@
+# TMC Progressive Rollout Controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rollout-controller
+  namespace: rollout-system
+  labels:
+    app: rollout-controller
+    component: management
+    demo: progressive-rollout
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rollout-controller
+  labels:
+    app: rollout-controller
+    demo: progressive-rollout
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rollout-controller
+  labels:
+    app: rollout-controller
+    demo: progressive-rollout
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rollout-controller
+subjects:
+- kind: ServiceAccount
+  name: rollout-controller
+  namespace: rollout-system
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollout-controller
+  namespace: rollout-system
+  labels:
+    app: rollout-controller
+    component: management
+    demo: progressive-rollout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rollout-controller
+  template:
+    metadata:
+      labels:
+        app: rollout-controller
+        component: management
+        demo: progressive-rollout
+    spec:
+      serviceAccountName: rollout-controller
+      containers:
+      - name: controller
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Progressive Rollout Controller starting..."
+          echo "Controller ID: global-rollout-controller"
+          echo "Managing progressive rollouts across clusters"
+          
+          # Simulate rollout management
+          while true; do
+            echo "$(date): Managing progressive rollouts..."
+            echo "$(date): Active rollout coordination:"
+            echo "  • Canary environment: webapp v2.0 (5% traffic)"
+            echo "  • Staging environment: webapp v2.0 (50% traffic)"
+            echo "  • Production environment: webapp v2.0 (blue-green deployment)"
+            echo "  • Cross-cluster sync: healthy"
+            
+            # Simulate rollout health monitoring
+            echo "$(date): Rollout health monitoring:"
+            echo "  • Canary health: excellent (0.01% error rate, 95ms avg)"
+            echo "  • Staging health: good (0.02% error rate, 120ms avg)"
+             "  • Production health: excellent (0.00% error rate, 85ms avg)"
+            echo "  • Traffic distribution: optimal"
+            
+            # Simulate rollout policies
+            echo "$(date): Rollout policy enforcement:"
+            echo "  • Canary → Staging gate: PASSED (error rate < 1%)"
+            echo "  • Staging → Production gate: PASSED (tests passed)"
+            echo "  • Production deployment: blue-green strategy active"
+            echo "  • Rollback triggers: monitoring for thresholds"
+            
+            # Simulate deployment coordination
+            echo "$(date): Deployment coordination:"
+            echo "  • Version alignment: v2.0 across environments"
+            echo "  • Configuration drift: none detected"
+            echo "  • Health check status: all endpoints healthy"
+            echo "  • Traffic routing: dynamic load balancing active"
+            
+            echo "$(date): Rollout controller healthy"
+            sleep 45
+          done
+        env:
+        - name: CONTROLLER_ID
+          value: "global-rollout-controller"
+        - name: SYNC_INTERVAL
+          value: "45s"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollout-metrics-collector
+  namespace: rollout-system
+  labels:
+    app: rollout-metrics-collector
+    component: monitoring
+    demo: progressive-rollout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rollout-metrics-collector
+  template:
+    metadata:
+      labels:
+        app: rollout-metrics-collector
+        component: monitoring
+        demo: progressive-rollout
+    spec:
+      serviceAccountName: rollout-controller
+      containers:
+      - name: collector
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Rollout Metrics Collector starting..."
+          echo "Collector ID: global-metrics-collector"
+          echo "Collecting rollout metrics across all environments"
+          
+          # Simulate metrics collection
+          while true; do
+            echo "$(date): Collecting rollout metrics..."
+            echo "$(date): Application performance metrics:"
+            
+            # Simulate dynamic metrics
+            canary_error_rate=$(echo "scale=3; $(( RANDOM % 10 )) / 1000" | bc -l 2>/dev/null || echo "0.001")
+            staging_error_rate=$(echo "scale=3; $(( RANDOM % 20 )) / 1000" | bc -l 2>/dev/null || echo "0.002")
+            prod_error_rate=$(echo "scale=3; $(( RANDOM % 5 )) / 1000" | bc -l 2>/dev/null || echo "0.000")
+            
+            canary_response_time=$(( 90 + RANDOM % 20 ))
+            staging_response_time=$(( 110 + RANDOM % 30 ))
+            prod_response_time=$(( 80 + RANDOM % 20 ))
+            
+            echo "  • Canary: ${canary_error_rate}% error rate, ${canary_response_time}ms avg response"
+            echo "  • Staging: ${staging_error_rate}% error rate, ${staging_response_time}ms avg response"
+            echo "  • Production: ${prod_error_rate}% error rate, ${prod_response_time}ms avg response"
+            
+            # Simulate traffic distribution
+            echo "$(date): Traffic distribution analysis:"
+            echo "  • Canary traffic: 5% (target achieved)"
+            echo "  • Staging traffic: 50% (target achieved)"
+            echo "  • Production traffic: 100% to v2.0 (rollout complete)"
+            echo "  • Load balancing: optimal distribution"
+            
+            # Simulate health indicators
+            echo "$(date): Health indicators:"
+            echo "  • CPU utilization: Canary 45%, Staging 62%, Prod 38%"
+            echo "  • Memory utilization: Canary 52%, Staging 68%, Prod 41%"
+            echo "  • Network latency: optimal across all environments"
+            echo "  • Database connections: healthy connection pools"
+            
+            echo "$(date): Metrics collector healthy"
+            sleep 30
+          done
+        env:
+        - name: COLLECTOR_ID
+          value: "global-metrics-collector"
+        - name: COLLECT_INTERVAL
+          value: "30s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rollout-gate-evaluator
+  namespace: rollout-system
+  labels:
+    app: rollout-gate-evaluator
+    component: evaluation
+    demo: progressive-rollout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rollout-gate-evaluator
+  template:
+    metadata:
+      labels:
+        app: rollout-gate-evaluator
+        component: evaluation
+        demo: progressive-rollout
+    spec:
+      serviceAccountName: rollout-controller
+      containers:
+      - name: evaluator
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Rollout Gate Evaluator starting..."
+          echo "Evaluator ID: global-gate-evaluator"
+          echo "Evaluating promotion gates and rollback triggers"
+          
+          # Simulate gate evaluation
+          while true; do
+            echo "$(date): Evaluating rollout gates..."
+            echo "$(date): Canary → Staging promotion gate:"
+            echo "  ✅ Error rate < 1.0% (current: 0.01%)"
+            echo "  ✅ Response time < 200ms (current: 95ms)"
+            echo "  ✅ Health check success rate > 99% (current: 100%)"
+            echo "  ✅ No critical alerts in last 10 minutes"
+            echo "  → GATE STATUS: PASSED"
+            
+            echo "$(date): Staging → Production promotion gate:"
+            echo "  ✅ All integration tests passed"
+            echo "  ✅ Security scan passed"
+            echo "  ✅ Performance regression tests passed"
+            echo "  ✅ Manual approval received"
+            echo "  → GATE STATUS: PASSED"
+            
+            echo "$(date): Rollback trigger evaluation:"
+            echo "  ✅ Error rate within acceptable bounds"
+            echo "  ✅ Response time within SLA"
+            echo "  ✅ Resource utilization normal"
+            echo "  ✅ No cascading failures detected"
+            echo "  → ROLLBACK STATUS: NOT TRIGGERED"
+            
+            # Simulate policy evaluation
+            echo "$(date): Rollout policy compliance:"
+            echo "  ✅ Blue-green deployment strategy active"
+            echo "  ✅ Traffic shifting according to schedule"
+            echo "  ✅ Health monitoring thresholds configured"
+            echo "  ✅ Rollback procedures verified"
+            
+            echo "$(date): Gate evaluator healthy"
+            sleep 40
+          done
+        env:
+        - name: EVALUATOR_ID
+          value: "global-gate-evaluator"
+        - name: EVAL_INTERVAL
+          value: "40s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

@@ -1,0 +1,52 @@
+# Canary Cluster Configuration for Progressive Rollout Demo
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: rollout-canary
+networking:
+  apiServerAddress: "127.0.0.1"
+  apiServerPort: 42444
+  disableDefaultCNI: false
+  podSubnet: "10.251.0.0/16"
+  serviceSubnet: "10.101.0.0/12"
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true,environment=canary"
+        authorization-mode: "Webhook"
+    ---
+    kind: KubeletConfiguration
+    serverTLSBootstrap: true
+  - |
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    apiServer:
+      extraArgs:
+        runtime-config: "api/all=true"
+        feature-gates: "EphemeralContainers=true"
+    controllerManager:
+      extraArgs:
+        feature-gates: "EphemeralContainers=true"
+        bind-address: "0.0.0.0"
+    scheduler:
+      extraArgs:
+        feature-gates: "EphemeralContainers=true"
+        bind-address: "0.0.0.0"
+  extraPortMappings:
+  - containerPort: 30080
+    hostPort: 30981
+    protocol: TCP
+  - containerPort: 30443
+    hostPort: 30984
+    protocol: TCP
+- role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "environment=canary,workload-type=canary"

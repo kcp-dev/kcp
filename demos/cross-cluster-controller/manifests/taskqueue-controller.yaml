@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskqueue-controller
+  namespace: default
+  labels:
+    app: taskqueue-controller
+    component: controller
+    demo: cross-cluster-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskqueue-controller
+  template:
+    metadata:
+      labels:
+        app: taskqueue-controller
+        component: controller
+        demo: cross-cluster-controller
+    spec:
+      serviceAccountName: taskqueue-controller
+      containers:
+      - name: controller
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TaskQueue Controller starting..."
+          echo "Controller ID: west-controller"
+          echo "Watching TaskQueues across all clusters..."
+          
+          # Simulate controller processing loop
+          while true; do
+            echo "$(date): Scanning for TaskQueues to process..."
+            
+            # Simulate processing different TaskQueues
+            for phase in "Pending" "Processing" "Completed"; do
+              echo "$(date): Processing TaskQueues in $phase phase"
+              sleep 10
+            done
+            
+            echo "$(date): Controller cycle complete, waiting for next scan..."
+            sleep 30
+          done
+        env:
+        - name: CONTROLLER_ID
+          value: "west-controller"
+        - name: CONTROLLER_REGION
+          value: "us-west-2"
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: taskqueue-controller
+  namespace: default
+  labels:
+    app: taskqueue-controller
+    demo: cross-cluster-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: taskqueue-controller
+  labels:
+    app: taskqueue-controller
+    demo: cross-cluster-controller
+rules:
+- apiGroups: ["demo.tmc.io"]
+  resources: ["taskqueues"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["demo.tmc.io"]
+  resources: ["taskqueues/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: taskqueue-controller
+  labels:
+    app: taskqueue-controller
+    demo: cross-cluster-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: taskqueue-controller
+subjects:
+- kind: ServiceAccount
+  name: taskqueue-controller
+  namespace: default

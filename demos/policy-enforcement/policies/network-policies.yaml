@@ -1,0 +1,401 @@
+# Global Network Policies for TMC Policy Enforcement Demo
+# These policies control network traffic and communication patterns
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: network-policies
+  namespace: policy-system
+  labels:
+    policy-type: network
+    demo: policy-enforcement
+data:
+  default-network-policies.yaml: |
+    # Default deny all traffic
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: default-deny-all
+      namespace: default
+      labels:
+        policy-tier: base
+        environment: all
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Ingress
+      - Egress
+    ---
+    # Allow DNS resolution
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-dns
+      namespace: default
+      labels:
+        policy-tier: base
+        environment: all
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Egress
+      egress:
+      - to: []
+        ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    ---
+    # Allow traffic within same namespace
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-same-namespace
+      namespace: default
+      labels:
+        policy-tier: base
+        environment: all
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Ingress
+      ingress:
+      - from:
+        - podSelector: {}
+
+  environment-network-policies.yaml: |
+    # Development environment - more permissive
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: dev-egress-policy
+      namespace: default
+      labels:
+        policy-tier: relaxed
+        environment: development
+    spec:
+      podSelector:
+        matchLabels:
+          environment: development
+      policyTypes:
+      - Egress
+      egress:
+      - to: []  # Allow all egress for development
+    ---
+    # Staging environment - moderate restrictions
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: staging-egress-policy
+      namespace: default
+      labels:
+        policy-tier: moderate
+        environment: staging
+    spec:
+      podSelector:
+        matchLabels:
+          environment: staging
+      policyTypes:
+      - Egress
+      egress:
+      - to:
+        - namespaceSelector:
+            matchLabels:
+              name: default
+      - to: []
+        ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+    ---
+    # Production environment - strict restrictions
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: prod-egress-policy
+      namespace: default
+      labels:
+        policy-tier: strict
+        environment: production
+    spec:
+      podSelector:
+        matchLabels:
+          environment: production
+      policyTypes:
+      - Egress
+      egress:
+      - to:
+        - podSelector:
+            matchLabels:
+              app: database
+        ports:
+        - protocol: TCP
+          port: 5432
+      - to: []
+        ports:
+        - protocol: TCP
+          port: 443
+
+  application-network-policies.yaml: |
+    # Web application network policy
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: webapp-network-policy
+      namespace: default
+      labels:
+        app: webapp
+        policy-type: application
+    spec:
+      podSelector:
+        matchLabels:
+          app: webapp
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: loadbalancer
+        ports:
+        - protocol: TCP
+          port: 8080
+      egress:
+      - to:
+        - podSelector:
+            matchLabels:
+              app: database
+        ports:
+        - protocol: TCP
+          port: 5432
+      - to:
+        - podSelector:
+            matchLabels:
+              app: cache
+        ports:
+        - protocol: TCP
+          port: 6379
+    ---
+    # Database network policy
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: database-network-policy
+      namespace: default
+      labels:
+        app: database
+        policy-type: application
+    spec:
+      podSelector:
+        matchLabels:
+          app: database
+      policyTypes:
+      - Ingress
+      ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: webapp
+        ports:
+        - protocol: TCP
+          port: 5432
+
+  security-network-policies.yaml: |
+    # No external egress for sensitive applications
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: no-external-egress
+      namespace: default
+      labels:
+        policy-type: security
+        data-classification: confidential
+    spec:
+      podSelector:
+        matchLabels:
+          data-classification: confidential
+      policyTypes:
+      - Egress
+      egress:
+      - to:
+        - namespaceSelector: {}
+      # Only internal cluster traffic allowed
+    ---
+    # DMZ network policy
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: dmz-network-policy
+      namespace: default
+      labels:
+        policy-type: security
+        zone: dmz
+    spec:
+      podSelector:
+        matchLabels:
+          zone: dmz
+      policyTypes:
+      - Ingress
+      - Egress
+      ingress:
+      - from: []  # Allow from anywhere for DMZ
+        ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+      egress:
+      - to:
+        - podSelector:
+            matchLabels:
+              zone: internal
+        ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-policy-enforcer
+  namespace: policy-system
+  labels:
+    app: network-policy-enforcer
+    component: network
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: network-policy-enforcer
+  template:
+    metadata:
+      labels:
+        app: network-policy-enforcer
+        component: network
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: enforcer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Network Policy Enforcer starting..."
+          echo "Enforcer ID: global-network-enforcer"
+          echo "Monitoring network policy compliance"
+          
+          # Simulate network policy enforcement
+          while true; do
+            echo "$(date): Scanning network policies and traffic patterns..."
+            echo "$(date): Checking default-deny policies: Active on all clusters"
+            echo "$(date): Checking environment-specific policies: 12 policies active"
+            echo "$(date): Checking application-specific policies: 8 policies active"
+            echo "$(date): Checking security zone policies: 4 policies active"
+            echo "$(date): Monitoring traffic violations: 0 blocked connections"
+            
+            # Simulate network traffic analysis
+            echo "$(date): Network traffic analysis:"
+            echo "  • Total network policies: 24 active"
+            echo "  • Allowed connections: 1,456 (monitored)"
+            echo "  • Blocked connections: 12 (policy violations)"
+            echo "  • DNS queries: 892 (allowed)"
+            echo "  • External egress attempts: 45 (23 allowed, 22 blocked)"
+            
+            # Simulate environment-specific network monitoring
+            echo "$(date): Network security by environment:"
+            echo "  • Development: 8 policies active, relaxed egress"
+            echo "  • Staging: 6 policies active, moderate restrictions"
+            echo "  • Production: 10 policies active, strict egress control"
+            
+            echo "$(date): Network policy enforcer healthy"
+            sleep 40
+          done
+        env:
+        - name: ENFORCER_ID
+          value: "global-network-enforcer"
+        - name: SCAN_INTERVAL
+          value: "40s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-traffic-analyzer
+  namespace: policy-system
+  labels:
+    app: network-traffic-analyzer
+    component: network-analysis
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: network-traffic-analyzer
+  template:
+    metadata:
+      labels:
+        app: network-traffic-analyzer
+        component: network-analysis
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: analyzer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Network Traffic Analyzer starting..."
+          echo "Analyzer ID: global-network-analyzer"
+          echo "Analyzing network traffic patterns and policy effectiveness"
+          
+          # Simulate network traffic analysis
+          while true; do
+            echo "$(date): Analyzing network traffic patterns..."
+            echo "$(date): Processing network flow data across clusters"
+            echo "$(date): Evaluating policy effectiveness"
+            
+            # Simulate traffic flow analysis
+            echo "$(date): Traffic flow analysis:"
+            echo "  • Inter-pod communication: 234 flows (all allowed)"
+            echo "  • Cross-namespace traffic: 45 flows (32 allowed, 13 blocked)"
+            echo "  • External ingress: 567 flows (all through approved channels)"
+            echo "  • External egress: 123 flows (98 allowed, 25 blocked)"
+            echo "  • Suspicious activity detected: 0 incidents"
+            
+            # Simulate policy recommendation
+            echo "$(date): Policy recommendations:"
+            echo "  • Consider tightening egress for dev environment"
+            echo "  • DMZ policies are working effectively"
+            echo "  • Database access patterns are secure"
+            echo "  • No policy gaps detected"
+            
+            echo "$(date): Network traffic analyzer healthy"
+            sleep 75
+          done
+        env:
+        - name: ANALYZER_ID
+          value: "global-network-analyzer"
+        - name: ANALYSIS_INTERVAL
+          value: "75s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

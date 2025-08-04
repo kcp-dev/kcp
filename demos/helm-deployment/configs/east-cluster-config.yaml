@@ -1,0 +1,18 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: helm-east
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "region=us-east-1,zone=us-east-1a,demo=helm-deployment"
+  extraPortMappings:
+  - containerPort: 6443
+    hostPort: 38444
+    protocol: TCP
+  - containerPort: 30081
+    hostPort: 30081
+    protocol: TCP

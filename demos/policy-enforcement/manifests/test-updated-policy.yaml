@@ -1,0 +1,48 @@
+# Test deployment to validate updated resource policies
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-updated-policy-app
+  namespace: default
+  labels:
+    app: test-updated-policy-app
+    environment: development
+    version: v1.0.0
+    owner: test-team
+  annotations:
+    description: "Test application for updated policy validation"
+    contact: "test-team@company.com"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-updated-policy-app
+  template:
+    metadata:
+      labels:
+        app: test-updated-policy-app
+        environment: development
+        version: v1.0.0
+        owner: test-team
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: test-container
+        image: nginx:1.21-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "1600m"  # This exceeds the new v2 limit of 1500m for dev - should be blocked
+          limits:
+            memory: "1Gi"
+            cpu: "2000m"  # This also exceeds the new limit - should be blocked

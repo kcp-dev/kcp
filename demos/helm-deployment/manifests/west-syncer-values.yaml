@@ -1,0 +1,24 @@
+replicaCount: 1
+
+image:
+  repository: alpine
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+syncTarget:
+  name: "west-cluster"
+  workspace: "root:west"
+
+kcp:
+  endpoint: "https://host.docker.internal:38443"
+  insecure: true
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+demo: "helm-deployment"

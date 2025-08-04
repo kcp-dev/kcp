@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "demo-syncer.fullname" . }}
+  labels:
+    {{- include "demo-syncer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "demo-syncer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-syncer.selectorLabels" . | nindent 8 }}
+        demo: {{ .Values.demo }}
+    spec:
+      containers:
+        - name: syncer
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              echo "🔄 Demo TMC Syncer starting..."
+              echo "📍 Pod: $(hostname)"
+              echo "🎯 Target: {{ .Values.syncTarget.name }}"
+              echo "🏢 Workspace: {{ .Values.syncTarget.workspace }}"
+              echo "🔗 KCP: {{ .Values.kcp.endpoint }}"
+              echo "📊 Metrics: :8080/metrics"
+              echo "📋 Helm managed: true"
+              
+              while true; do
+                echo "$(date '+%H:%M:%S'): ✅ Syncing resources to KCP"
+                echo "$(date '+%H:%M:%S'): 📊 Synced $(( RANDOM % 10 + 5 )) resources"
+                echo "$(date '+%H:%M:%S'): 💚 Syncer healthy (Helm)"
+                echo "$(date '+%H:%M:%S'): 📈 Queue size: $(( RANDOM % 5 + 1 )) items"
+                sleep 30
+              done
+          env:
+            - name: SYNC_TARGET_NAME
+              value: {{ .Values.syncTarget.name | quote }}
+            - name: KCP_ENDPOINT
+              value: {{ .Values.kcp.endpoint | quote }}
+            - name: HELM_DEMO
+              value: "true"
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

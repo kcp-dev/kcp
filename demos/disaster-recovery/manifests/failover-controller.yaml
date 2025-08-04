@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: failover-controller
+  namespace: default
+  labels:
+    app: failover-controller
+    component: disaster-recovery
+    demo: disaster-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: failover-controller
+  template:
+    metadata:
+      labels:
+        app: failover-controller
+        component: disaster-recovery
+        demo: disaster-recovery
+    spec:
+      serviceAccountName: failover-controller
+      containers:
+      - name: controller
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Failover Controller starting..."
+          echo "Controller ID: global-failover-controller"
+          echo "Managing regions: us-east-1, us-west-2"
+          echo "Failover mode: automatic"
+          
+          # Initialize region health status
+          east_healthy=true
+          west_healthy=true
+          east_failures=0
+          west_failures=0
+          
+          # Simulate failover controller logic
+          while true; do
+            echo "$(date): Checking regional health status..."
+            
+            # Simulate health check results (in real implementation, this would query health monitors)
+            echo "$(date): Querying health monitors..."
+            
+            # Check East region
+            echo "$(date): East region health check: ${east_healthy}"
+            if [ "$east_healthy" = true ]; then
+              echo "$(date): East region (us-east-1): HEALTHY (failures: $east_failures)"
+              east_failures=0
+            else
+              east_failures=$((east_failures + 1))
+              echo "$(date): East region (us-east-1): UNHEALTHY (failures: $east_failures)"
+            fi
+            
+            # Check West region
+            echo "$(date): West region health check: ${west_healthy}"
+            if [ "$west_healthy" = true ]; then
+              echo "$(date): West region (us-west-2): HEALTHY (failures: $west_failures)"
+              west_failures=0
+            else
+              west_failures=$((west_failures + 1))
+              echo "$(date): West region (us-west-2): UNHEALTHY (failures: $west_failures)"
+            fi
+            
+            # Failover logic
+            if [ $east_failures -ge 3 ] && [ "$east_healthy" = false ]; then
+              echo "$(date): 🚨 FAILOVER TRIGGERED: East region failed, routing all traffic to West"
+              echo "$(date): Traffic distribution: East=0%, West=100%"
+            elif [ $west_failures -ge 3 ] && [ "$west_healthy" = false ]; then
+              echo "$(date): 🚨 FAILOVER TRIGGERED: West region failed, routing all traffic to East"
+              echo "$(date): Traffic distribution: East=100%, West=0%"
+            else
+              echo "$(date): Both regions healthy, maintaining load balancing"
+              echo "$(date): Traffic distribution: East=50%, West=50%"
+            fi
+            
+            echo "$(date): Failover controller cycle complete"
+            sleep 25
+          done
+        env:
+        - name: CONTROLLER_ID
+          value: "global-failover-controller"
+        - name: FAILOVER_THRESHOLD
+          value: "3"
+        - name: CHECK_INTERVAL
+          value: "25s"
+        - name: REGIONS
+          value: "us-east-1,us-west-2"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: failover-controller
+  namespace: default
+  labels:
+    app: failover-controller
+    demo: disaster-recovery
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: failover-controller
+  labels:
+    app: failover-controller
+    demo: disaster-recovery
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: failover-controller
+  labels:
+    app: failover-controller
+    demo: disaster-recovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: failover-controller
+subjects:
+- kind: ServiceAccount
+  name: failover-controller
+  namespace: default

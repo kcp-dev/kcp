@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kcp-syncer
+  namespace: default
+  labels:
+    app: kcp-syncer
+    region: west
+    demo: disaster-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kcp-syncer
+      region: west
+  template:
+    metadata:
+      labels:
+        app: kcp-syncer
+        region: west
+        demo: disaster-recovery
+    spec:
+      serviceAccountName: kcp-syncer
+      containers:
+      - name: syncer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Syncer starting on West cluster..."
+          echo "Syncer ID: west-syncer"
+          echo "KCP Host: https://127.0.0.1:38443"
+          echo "Region: us-west-2"
+          
+          # Simulate syncer functionality
+          while true; do
+            echo "$(date): Syncing resources with KCP host..."
+            echo "$(date): Watching for resource changes in West region"
+            echo "$(date): Pushing status updates to global control plane"
+            echo "$(date): Checking for cross-cluster resource synchronization"
+            
+            # Simulate resource sync activities
+            echo "$(date): Active resources synchronized: deployments, services, configmaps"
+            echo "$(date): Health status: HEALTHY"
+            echo "$(date): Last sync: $(date)"
+            
+            sleep 45
+          done
+        env:
+        - name: SYNCER_ID
+          value: "west-syncer"
+        - name: REGION
+          value: "us-west-2"
+        - name: KCP_HOST
+          value: "https://127.0.0.1:38443"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kcp-syncer
+  namespace: default
+  labels:
+    app: kcp-syncer
+    region: west
+    demo: disaster-recovery
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kcp-syncer
+  labels:
+    app: kcp-syncer
+    demo: disaster-recovery
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kcp-syncer
+  labels:
+    app: kcp-syncer
+    demo: disaster-recovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kcp-syncer
+subjects:
+- kind: ServiceAccount
+  name: kcp-syncer
+  namespace: default

@@ -1,0 +1,277 @@
+# Global Resource Policies for TMC Policy Enforcement Demo
+# These policies manage resource allocation and limits across all clusters
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resource-policies
+  namespace: policy-system
+  labels:
+    policy-type: resource
+    demo: policy-enforcement
+data:
+  resource-quotas.yaml: |
+    # Development Environment Resource Quota
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+      name: dev-resource-quota
+      namespace: default
+      labels:
+        environment: development
+        policy-tier: relaxed
+    spec:
+      hard:
+        requests.cpu: "4"
+        requests.memory: 8Gi
+        limits.cpu: "8"
+        limits.memory: 16Gi
+        persistentvolumeclaims: "10"
+        pods: "20"
+        services: "10"
+    ---
+    # Staging Environment Resource Quota
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+      name: staging-resource-quota
+      namespace: default
+      labels:
+        environment: staging
+        policy-tier: moderate
+    spec:
+      hard:
+        requests.cpu: "2"
+        requests.memory: 4Gi
+        limits.cpu: "4"
+        limits.memory: 8Gi
+        persistentvolumeclaims: "5"
+        pods: "10"
+        services: "5"
+    ---
+    # Production Environment Resource Quota
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+      name: prod-resource-quota
+      namespace: default
+      labels:
+        environment: production
+        policy-tier: strict
+    spec:
+      hard:
+        requests.cpu: "8"
+        requests.memory: 16Gi
+        limits.cpu: "16"
+        limits.memory: 32Gi
+        persistentvolumeclaims: "20"
+        pods: "50"
+        services: "20"
+
+  limit-ranges.yaml: |
+    # Development Environment Limit Range
+    apiVersion: v1
+    kind: LimitRange
+    metadata:
+      name: dev-limit-range
+      namespace: default
+      labels:
+        environment: development
+        policy-tier: relaxed
+    spec:
+      limits:
+      - default:
+          cpu: "1"
+          memory: "1Gi"
+        defaultRequest:
+          cpu: "100m"
+          memory: "128Mi"
+        max:
+          cpu: "2"
+          memory: "4Gi"
+        min:
+          cpu: "50m"
+          memory: "64Mi"
+        type: Container
+      - max:
+          cpu: "4"
+          memory: "8Gi"
+        type: Pod
+    ---
+    # Staging Environment Limit Range
+    apiVersion: v1
+    kind: LimitRange
+    metadata:
+      name: staging-limit-range
+      namespace: default
+      labels:
+        environment: staging
+        policy-tier: moderate
+    spec:
+      limits:
+      - default:
+          cpu: "500m"
+          memory: "512Mi"
+        defaultRequest:
+          cpu: "100m"
+          memory: "128Mi"
+        max:
+          cpu: "1"
+          memory: "2Gi"
+        min:
+          cpu: "50m"
+          memory: "64Mi"
+        type: Container
+      - max:
+          cpu: "2"
+          memory: "4Gi"
+        type: Pod
+    ---
+    # Production Environment Limit Range
+    apiVersion: v1
+    kind: LimitRange
+    metadata:
+      name: prod-limit-range
+      namespace: default
+      labels:
+        environment: production
+        policy-tier: strict
+    spec:
+      limits:
+      - default:
+          cpu: "500m"
+          memory: "512Mi"
+        defaultRequest:
+          cpu: "200m"
+          memory: "256Mi"
+        max:
+          cpu: "2"
+          memory: "4Gi"
+        min:
+          cpu: "100m"
+          memory: "128Mi"
+        type: Container
+      - max:
+          cpu: "4"
+          memory: "8Gi"
+        type: Pod
+
+  resource-requirements.yaml: |
+    # Resource Policy Requirements
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: resource-requirements
+      namespace: policy-system
+    data:
+      requirements: |
+        resource_policies:
+          - name: "cpu-limits-required"
+            description: "All containers must specify CPU limits"
+            rule: "spec.containers[*].resources.limits.cpu is defined"
+            enforcement: "block"
+          
+          - name: "memory-limits-required"
+            description: "All containers must specify memory limits"
+            rule: "spec.containers[*].resources.limits.memory is defined"
+            enforcement: "block"
+          
+          - name: "cpu-requests-required"
+            description: "All containers must specify CPU requests"
+            rule: "spec.containers[*].resources.requests.cpu is defined"
+            enforcement: "block"
+          
+          - name: "memory-requests-required"
+            description: "All containers must specify memory requests"
+            rule: "spec.containers[*].resources.requests.memory is defined"
+            enforcement: "block"
+          
+          - name: "reasonable-cpu-ratio"
+            description: "CPU limit should not exceed 10x the request"
+            rule: "spec.containers[*].resources.limits.cpu <= (spec.containers[*].resources.requests.cpu * 10)"
+            enforcement: "warn"
+          
+          - name: "reasonable-memory-ratio"
+            description: "Memory limit should not exceed 4x the request"
+            rule: "spec.containers[*].resources.limits.memory <= (spec.containers[*].resources.requests.memory * 4)"
+            enforcement: "warn"
+          
+          - name: "no-excessive-cpu"
+            description: "No single container should request more than 4 CPU cores"
+            rule: "spec.containers[*].resources.requests.cpu <= '4'"
+            enforcement: "block"
+          
+          - name: "no-excessive-memory"
+            description: "No single container should request more than 8Gi memory"
+            rule: "spec.containers[*].resources.requests.memory <= '8Gi'"
+            enforcement: "block"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-policy-enforcer
+  namespace: policy-system
+  labels:
+    app: resource-policy-enforcer
+    component: resource
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resource-policy-enforcer
+  template:
+    metadata:
+      labels:
+        app: resource-policy-enforcer
+        component: resource
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: enforcer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Resource Policy Enforcer starting..."
+          echo "Enforcer ID: global-resource-enforcer"
+          echo "Monitoring resource policy compliance"
+          
+          # Simulate resource policy enforcement
+          while true; do
+            echo "$(date): Scanning for resource policy violations..."
+            echo "$(date): Checking CPU limit specifications: 0 violations found"
+            echo "$(date): Checking memory limit specifications: 0 violations found"
+            echo "$(date): Checking resource request specifications: 0 violations found"
+            echo "$(date): Checking resource quota compliance: 2 warnings"
+            echo "$(date): Checking excessive resource requests: 0 violations found"
+            
+            # Simulate environment-specific monitoring
+            echo "$(date): Resource usage by environment:"
+            echo "  • Development: 2.1/4 CPU cores, 3.2/8Gi memory (52% utilized)"
+            echo "  • Staging: 1.3/2 CPU cores, 2.1/4Gi memory (65% utilized)" 
+            echo "  • Production: 5.8/8 CPU cores, 11.2/16Gi memory (72% utilized)"
+            
+            echo "$(date): Resource quota status:"
+            echo "  • Development: 15/20 pods, 6/10 services"
+            echo "  • Staging: 8/10 pods, 3/5 services"
+            echo "  • Production: 32/50 pods, 12/20 services"
+            
+            echo "$(date): Resource policy enforcer healthy"
+            sleep 45
+          done
+        env:
+        - name: ENFORCER_ID
+          value: "global-resource-enforcer"
+        - name: SCAN_INTERVAL
+          value: "45s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

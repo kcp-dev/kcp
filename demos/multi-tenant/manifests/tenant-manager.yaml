@@ -1,0 +1,283 @@
+# TMC Tenant Management System
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tenant-manager
+  namespace: tenant-system
+  labels:
+    app: tenant-manager
+    component: management
+    demo: multi-tenant
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tenant-manager
+  labels:
+    app: tenant-manager
+    demo: multi-tenant
+rules:
+- apiGroups: [""]
+  resources: ["namespaces", "secrets", "configmaps", "serviceaccounts"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["resourcequotas", "limitranges"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tenant-manager
+  labels:
+    app: tenant-manager
+    demo: multi-tenant
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tenant-manager
+subjects:
+- kind: ServiceAccount
+  name: tenant-manager
+  namespace: tenant-system
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-manager
+  namespace: tenant-system
+  labels:
+    app: tenant-manager
+    component: management
+    demo: multi-tenant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-manager
+  template:
+    metadata:
+      labels:
+        app: tenant-manager
+        component: management
+        demo: multi-tenant
+    spec:
+      serviceAccountName: tenant-manager
+      containers:
+      - name: manager
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Tenant Manager starting..."
+          echo "Manager ID: global-tenant-manager"
+          echo "Managing tenant lifecycle and coordination"
+          
+          # Simulate tenant management operations
+          while true; do
+            echo "$(date): Managing tenant lifecycle operations..."
+            echo "$(date): Tenant coordination across clusters:"
+            echo "  • Shared cluster tenants: 3 active (acme-corp, beta-inc, gamma-ltd)"
+            echo "  • Isolated cluster tenants: 1 active (enterprise)"
+            echo "  • Total tenant workspaces: 4"
+            echo "  • Cross-cluster sync status: healthy"
+            
+            # Simulate tenant health monitoring
+            echo "$(date): Tenant health monitoring:"
+            echo "  • acme-corp: healthy (2 pods running, 45% resource usage)"
+            echo "  • beta-inc: healthy (3 pods running, 62% resource usage)"
+            echo "  • gamma-ltd: healthy (1 pod running, 23% resource usage)"
+            echo "  • enterprise: healthy (5 pods running, 78% resource usage)"
+            
+            # Simulate tenant resource management
+            echo "$(date): Tenant resource management:"
+            echo "  • Resource quotas enforced: 4/4 tenants"
+            echo "  • Network isolation active: 4/4 tenants"
+            echo "  • RBAC boundaries enforced: 4/4 tenants"
+            echo "  • Storage isolation verified: 4/4 tenants"
+            
+            # Simulate tenant provisioning queue
+            echo "$(date): Tenant provisioning queue:"
+            echo "  • Pending tenant requests: 0"
+            echo "  • Recently provisioned: delta-corp (2h ago)"
+            echo "  • Recently deprovisioned: old-tenant (1d ago)"
+            
+            echo "$(date): Tenant manager healthy"
+            sleep 45
+          done
+        env:
+        - name: MANAGER_ID
+          value: "global-tenant-manager"
+        - name: SYNC_INTERVAL
+          value: "45s"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-resource-controller
+  namespace: tenant-system
+  labels:
+    app: tenant-resource-controller
+    component: resource-management
+    demo: multi-tenant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-resource-controller
+  template:
+    metadata:
+      labels:
+        app: tenant-resource-controller
+        component: resource-management
+        demo: multi-tenant
+    spec:
+      serviceAccountName: tenant-manager
+      containers:
+      - name: controller
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Tenant Resource Controller starting..."
+          echo "Controller ID: global-resource-controller"
+          echo "Managing tenant resource allocation and limits"
+          
+          # Simulate resource management
+          while true; do
+            echo "$(date): Managing tenant resource allocation..."
+            echo "$(date): Resource usage monitoring:"
+            echo "  • Total cluster CPU: 2.4/8.0 cores (30%)"
+            echo "  • Total cluster Memory: 6.2/16.0 GiB (39%)"
+            echo "  • Total cluster Storage: 24/100 GiB (24%)"
+            
+            # Simulate per-tenant resource usage
+            echo "$(date): Per-tenant resource consumption:"
+            echo "  • acme-corp: CPU 0.45/1.0 cores, Memory 512/1024 MiB"
+            echo "  • beta-inc: CPU 0.62/1.0 cores, Memory 768/1024 MiB"
+            echo "  • gamma-ltd: CPU 0.23/0.5 cores, Memory 256/512 MiB"
+            echo "  • enterprise: CPU 1.1/2.0 cores, Memory 1536/2048 MiB"
+            
+            # Simulate resource policy enforcement
+            echo "$(date): Resource policy enforcement:"
+            echo "  • Quota violations: 0 detected"
+            echo "  • Resource limits enforced: all tenants compliant"
+            echo "  • Resource requests honored: 100%"
+            echo "  • Fair share scheduling: active"
+            
+            echo "$(date): Resource controller healthy"
+            sleep 35
+          done
+        env:
+        - name: CONTROLLER_ID
+          value: "global-resource-controller"
+        - name: MONITOR_INTERVAL
+          value: "35s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-isolation-enforcer
+  namespace: tenant-system
+  labels:
+    app: tenant-isolation-enforcer
+    component: isolation
+    demo: multi-tenant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant-isolation-enforcer
+  template:
+    metadata:
+      labels:
+        app: tenant-isolation-enforcer
+        component: isolation
+        demo: multi-tenant
+    spec:
+      serviceAccountName: tenant-manager
+      containers:
+      - name: enforcer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Tenant Isolation Enforcer starting..."
+          echo "Enforcer ID: global-isolation-enforcer"
+          echo "Enforcing tenant isolation boundaries"
+          
+          # Simulate isolation enforcement
+          while true; do
+            echo "$(date): Enforcing tenant isolation boundaries..."
+            echo "$(date): Network isolation status:"
+            echo "  • Cross-tenant network traffic: blocked (0 attempts)"
+            echo "  • Tenant-internal traffic: allowed (245 connections)"
+            echo "  • External ingress: filtered by tenant (12 connections)"
+            echo "  • External egress: controlled by tenant policies"
+            
+            # Simulate RBAC isolation
+            echo "$(date): RBAC isolation status:"
+            echo "  • Cross-tenant resource access: blocked (0 attempts)"
+            echo "  • Tenant admin permissions: scoped correctly"
+            echo "  • Service account isolation: enforced"
+            echo "  • Secret access control: tenant-scoped"
+            
+            # Simulate storage isolation
+            echo "$(date): Storage isolation status:"
+            echo "  • Tenant storage boundaries: enforced"
+            echo "  • Cross-tenant volume access: blocked"
+            echo "  • Persistent volume isolation: active"
+            echo "  • ConfigMap/Secret isolation: enforced"
+            
+            # Simulate compute isolation
+            echo "$(date): Compute isolation status:"
+            echo "  • CPU isolation: cgroups enforced"
+            echo "  • Memory isolation: limits enforced"
+            echo "  • Process isolation: namespaces active"
+            echo "  • Node affinity rules: tenant-specific"
+            
+            echo "$(date): Isolation enforcer healthy"
+            sleep 50
+          done
+        env:
+        - name: ENFORCER_ID
+          value: "global-isolation-enforcer"
+        - name: ENFORCE_INTERVAL
+          value: "50s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

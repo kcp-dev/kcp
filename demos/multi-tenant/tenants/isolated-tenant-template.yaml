@@ -1,0 +1,182 @@
+# Isolated Tenant Template for Enterprise Dedicated Environment
+# Replace TENANT_NAME with actual tenant name
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: TENANT_NAME-quota
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+spec:
+  hard:
+    requests.cpu: "4000m"
+    requests.memory: "4Gi"
+    limits.cpu: "8000m"
+    limits.memory: "8Gi"
+    requests.storage: "100Gi"
+    persistentvolumeclaims: "20"
+    pods: "50"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+    loadbalancers: "5"
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: TENANT_NAME-limits
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "200m"
+      memory: "256Mi"
+    type: Container
+  - max:
+      cpu: "2000m"
+      memory: "4Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: TENANT_NAME-admin-service-account
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: TENANT_NAME-admin-role
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: TENANT_NAME-admin-role-binding
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: TENANT_NAME-admin-role
+subjects:
+- kind: ServiceAccount
+  name: TENANT_NAME-admin-service-account
+  namespace: tenant-TENANT_NAME
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: TENANT_NAME-strict-isolation
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: tenant-TENANT_NAME
+    - podSelector: {}
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: tenant-TENANT_NAME
+    - podSelector: {}
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    # Restricted external access for isolated tenants
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: TENANT_NAME-enterprise-config
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+type: Opaque
+data:
+  tenant-id: VEVOQU5UX05BTUU=  # base64 encoded TENANT_NAME
+  tier: aXNvbGF0ZWQ=  # base64 encoded "isolated"
+  max-replicas: MjA=  # base64 encoded "20"
+  resource-class: ZW50ZXJwcmlzZQ==  # base64 encoded "enterprise"
+  security-level: aGlnaA==  # base64 encoded "high"
+  dedicated-cluster: dHJ1ZQ==  # base64 encoded "true"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: TENANT_NAME-enterprise-settings
+  namespace: tenant-TENANT_NAME
+  labels:
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+data:
+  cluster-type: "dedicated"
+  security-profile: "enterprise"
+  compliance-frameworks: "SOC2,GDPR,HIPAA"
+  backup-policy: "daily"
+  monitoring-level: "detailed"
+  log-retention: "90days"
+  encryption-at-rest: "enabled"
+  network-isolation: "strict"

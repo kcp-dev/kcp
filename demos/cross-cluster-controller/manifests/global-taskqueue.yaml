@@ -1,0 +1,30 @@
+apiVersion: demo.tmc.io/v1
+kind: TaskQueue
+metadata:
+  name: global-health-monitor
+  namespace: default
+  labels:
+    origin-cluster: kcp
+    demo: cross-cluster-controller
+    priority: critical
+spec:
+  region: global
+  priority: critical
+  parallelism: 1
+  tasks:
+  - name: check-east-cluster-health
+    command: "health-checker --cluster=east --endpoints=api,etcd,nodes"
+    timeout: "2m"
+    retries: 5
+  - name: check-west-cluster-health
+    command: "health-checker --cluster=west --endpoints=api,etcd,nodes"
+    timeout: "2m"
+    retries: 5
+  - name: validate-cross-cluster-sync
+    command: "sync-validator --source=east --target=west --timeout=30s"
+    timeout: "5m"
+    retries: 3
+  - name: generate-health-report
+    command: "report-generator --format=json --output=/reports/health-$(date +%Y%m%d).json"
+    timeout: "3m"
+    retries: 2

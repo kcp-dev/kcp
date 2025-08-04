@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "demo-kcp-tmc.fullname" . }}
+  labels:
+    {{- include "demo-kcp-tmc.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "demo-kcp-tmc.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-kcp-tmc.selectorLabels" . | nindent 8 }}
+        demo: {{ .Values.demo }}
+    spec:
+      containers:
+        - name: kcp-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              echo "🚀 Demo KCP Server with TMC starting..."
+              echo "📍 Pod: $(hostname)"
+              echo "🎯 TMC Helm Demo Mode: enabled"
+              echo "📊 Metrics endpoint: :8080/metrics"
+              echo "💚 Health endpoint: :8081/healthz"
+              echo "📋 Helm managed: true"
+              echo "🔧 Chart version: {{ .Chart.Version }}"
+              
+              while true; do
+                echo "$(date '+%H:%M:%S'): 💚 KCP API server healthy (Helm)"
+                echo "$(date '+%H:%M:%S'): 📊 Processing $(( RANDOM % 500 + 50 )) requests/min"
+                echo "$(date '+%H:%M:%S'): 🔄 Managing $(( RANDOM % 20 + 5 )) workspaces"
+                echo "$(date '+%H:%M:%S'): 📈 Memory usage: $(( RANDOM % 20 + 30 ))%"
+                sleep 30
+              done
+          ports:
+            - name: https
+              containerPort: 6443
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: HELM_DEMO
+              value: "true"
+            - name: KCP_TMC_ENABLED
+              value: "true"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

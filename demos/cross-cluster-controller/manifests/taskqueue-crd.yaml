@@ -1,0 +1,137 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: taskqueues.demo.tmc.io
+spec:
+  group: demo.tmc.io
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              region:
+                type: string
+                description: "The region where this TaskQueue should be processed"
+              priority:
+                type: string
+                enum: ["low", "medium", "high", "critical"]
+                default: "medium"
+                description: "Processing priority level"
+              parallelism:
+                type: integer
+                minimum: 1
+                maximum: 100
+                default: 1
+                description: "Number of tasks to process in parallel"
+              tasks:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: "Task name/identifier"
+                    command:
+                      type: string
+                      description: "Command to execute for this task"
+                    timeout:
+                      type: string
+                      pattern: '^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$'
+                      default: "5m"
+                      description: "Task timeout duration"
+                    retries:
+                      type: integer
+                      minimum: 0
+                      maximum: 10
+                      default: 3
+                      description: "Number of retry attempts"
+                  required:
+                  - name
+                  - command
+            required:
+            - region
+            - tasks
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum: ["Pending", "Processing", "Completed", "Failed"]
+                description: "Current processing phase"
+              completedTasks:
+                type: integer
+                minimum: 0
+                description: "Number of completed tasks"
+              totalTasks:
+                type: integer
+                minimum: 0
+                description: "Total number of tasks"
+              processingCluster:
+                type: string
+                description: "Which cluster is processing this TaskQueue"
+              lastProcessedTime:
+                type: string
+                format: date-time
+                description: "Timestamp of last processing activity"
+              startTime:
+                type: string
+                format: date-time
+                description: "When processing started"
+              completionTime:
+                type: string
+                format: date-time
+                description: "When processing completed"
+              message:
+                type: string
+                description: "Human-readable status message"
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                      enum: ["True", "False", "Unknown"]
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                  required:
+                  - type
+                  - status
+    additionalPrinterColumns:
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Tasks
+      type: string
+      jsonPath: .status.completedTasks/.status.totalTasks
+      format: "%d/%d"
+    - name: Region
+      type: string
+      jsonPath: .spec.region
+    - name: Controller
+      type: string
+      jsonPath: .status.processingCluster
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: taskqueues
+    singular: taskqueue
+    kind: TaskQueue
+    shortNames:
+    - tq
+    - taskq

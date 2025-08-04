@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-kcp-tmc
+description: Demo Helm chart for KCP with TMC
+type: application
+version: 0.1.0
+appVersion: "demo"

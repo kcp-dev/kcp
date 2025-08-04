@@ -1,0 +1,85 @@
+# Policy-compliant application for production environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliant-webapp-prod
+  namespace: default
+  labels:
+    app: compliant-webapp
+    environment: production
+    version: v1.0.0
+    owner: prod-team
+    data-classification: internal
+    cost-center: engineering
+  annotations:
+    description: "Production web application demonstrating policy compliance"
+    contact: "prod-team@company.com"
+    change-ticket: "CHG-2024-001234"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: compliant-webapp
+      environment: production
+  template:
+    metadata:
+      labels:
+        app: compliant-webapp
+        environment: production
+        version: v1.0.0
+        owner: prod-team
+        data-classification: internal
+        cost-center: engineering
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: webapp
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: var-cache
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: var-cache
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}

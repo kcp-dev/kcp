@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-west
+  namespace: default
+  labels:
+    app: webapp
+    region: west
+    demo: disaster-recovery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp
+      region: west
+  template:
+    metadata:
+      labels:
+        app: webapp
+        region: west
+        demo: disaster-recovery
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        env:
+        - name: REGION
+          value: "us-west-2"
+        - name: CLUSTER_NAME
+          value: "west"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: webapp-content
+          mountPath: /usr/share/nginx/html
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: webapp-content
+        configMap:
+          name: webapp-content-west
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-content-west
+  namespace: default
+  labels:
+    app: webapp
+    region: west
+    demo: disaster-recovery
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>TMC Demo - West Region</title>
+        <style>
+            body { font-family: Arial, sans-serif; background: #f3e5f5; margin: 0; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .header { background: #7b1fa2; color: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+            .status { background: #4caf50; color: white; padding: 15px; border-radius: 5px; margin: 10px 0; }
+            .region-info { background: #e8f5e8; padding: 15px; border-radius: 5px; border-left: 4px solid #4caf50; }
+            .timestamp { font-size: 12px; color: #666; }
+        </style>
+        <script>
+            function updateTimestamp() {
+                document.getElementById('timestamp').innerHTML = new Date().toLocaleString();
+            }
+            setInterval(updateTimestamp, 1000);
+        </script>
+    </head>
+    <body onload="updateTimestamp()">
+        <div class="container">
+            <div class="header">
+                <h1>🌍 TMC Disaster Recovery Demo</h1>
+                <h2>West Region (us-west-2)</h2>
+            </div>
+            
+            <div class="status">
+                <h3>✅ Region Status: HEALTHY</h3>
+                <p>This application is running in the West region and is ready to serve traffic.</p>
+            </div>
+            
+            <div class="region-info">
+                <h3>📍 Region Information</h3>
+                <p><strong>Region:</strong> us-west-2</p>
+                <p><strong>Cluster:</strong> west</p>
+                <p><strong>Pod:</strong> <span id="pod-name">webapp-west-pod</span></p>
+                <p><strong>Load Balancer:</strong> Active</p>
+                <p><strong>Last Updated:</strong> <span id="timestamp" class="timestamp"></span></p>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <h3>🚀 TMC Features Demonstrated</h3>
+                <ul>
+                    <li>Multi-region deployment</li>
+                    <li>Automatic health monitoring</li>
+                    <li>Real-time failover capabilities</li>
+                    <li>Regional traffic distribution</li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+  health: |
+    OK
+  ready: |
+    READY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-west-svc
+  namespace: default
+  labels:
+    app: webapp
+    region: west
+    demo: disaster-recovery
+spec:
+  selector:
+    app: webapp
+    region: west
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP

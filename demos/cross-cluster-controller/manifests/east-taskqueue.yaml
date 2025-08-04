@@ -1,0 +1,34 @@
+apiVersion: demo.tmc.io/v1
+kind: TaskQueue
+metadata:
+  name: east-data-processing
+  namespace: default
+  labels:
+    origin-cluster: east
+    demo: cross-cluster-controller
+    priority: high
+spec:
+  region: us-east-1
+  priority: high
+  parallelism: 3
+  tasks:
+  - name: ingest-raw-data
+    command: "data-processor ingest --source=raw-logs --format=json"
+    timeout: "10m"
+    retries: 2
+  - name: validate-data-schema
+    command: "data-validator --schema=business-rules.yaml --strict"
+    timeout: "5m"
+    retries: 3
+  - name: transform-data
+    command: "data-transformer --input=validated --output=processed"
+    timeout: "15m"
+    retries: 1
+  - name: index-for-search
+    command: "search-indexer --index=primary --batch-size=1000"
+    timeout: "20m"
+    retries: 2
+  - name: backup-processed-data
+    command: "backup-manager --target=s3://east-backup --compress=gzip"
+    timeout: "30m"
+    retries: 5

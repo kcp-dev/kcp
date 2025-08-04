@@ -1,0 +1,427 @@
+# TMC Policy Enforcement Engine
+# Centralized policy management and enforcement across clusters
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-controller
+  namespace: policy-system
+  labels:
+    app: policy-controller
+    component: policy-engine
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: policy-controller
+  template:
+    metadata:
+      labels:
+        app: policy-controller
+        component: policy-engine
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: policy-controller
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "TMC Policy Controller starting..."
+          echo "Controller ID: global-policy-controller"
+          echo "Managing policies across all clusters"
+          echo "Policy types: Security, Resource, Compliance, Network"
+          
+          # Simulate policy controller functionality
+          while true; do
+            echo "$(date): Evaluating global policies..."
+            echo "$(date): Checking policy compliance across clusters"
+            echo "$(date): Synchronizing policy updates via TMC"
+            
+            # Simulate policy enforcement activities
+            echo "$(date): Policy enforcement status:"
+            echo "  • Security policies: 15 active, 0 violations"
+            echo "  • Resource policies: 8 active, 2 warnings"
+            echo "  • Compliance policies: 12 active, 0 violations"
+            echo "  • Network policies: 6 active, 0 violations"
+            
+            # Simulate cluster-specific enforcement
+            echo "$(date): Cluster-specific enforcement:"
+            echo "  • Development: Relaxed policies, 12 resources managed"
+            echo "  • Staging: Moderate policies, 8 resources managed"
+            echo "  • Production: Strict policies, 15 resources managed"
+            
+            echo "$(date): Policy controller healthy, next evaluation in 45s"
+            sleep 45
+          done
+        env:
+        - name: CONTROLLER_ID
+          value: "global-policy-controller"
+        - name: POLICY_TYPES
+          value: "security,resource,compliance,network"
+        - name: TMC_INTEGRATION
+          value: "enabled"
+        - name: ENFORCEMENT_MODE
+          value: "strict"
+        ports:
+        - containerPort: 8080
+          name: webhook
+        - containerPort: 8081
+          name: metrics
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-webhook
+  namespace: policy-system
+  labels:
+    app: policy-webhook
+    component: admission-webhook
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: policy-webhook
+  template:
+    metadata:
+      labels:
+        app: policy-webhook
+        component: admission-webhook
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-webhook
+      containers:
+      - name: webhook
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Policy Admission Webhook starting..."
+          echo "Webhook ID: global-policy-webhook"
+          echo "Intercepting resource creation/updates for policy validation"
+          
+          # Simulate admission webhook functionality
+          while true; do
+            echo "$(date): Policy webhook active and validating requests..."
+            echo "$(date): Intercepting admission requests across clusters"
+            echo "$(date): Validating against global policies"
+            
+            # Simulate webhook activities
+            echo "$(date): Admission webhook statistics:"
+            echo "  • Total requests processed: 1,247"
+            echo "  • Approved requests: 1,189 (95.3%)"
+            echo "  • Denied requests: 58 (4.7%)"
+            echo "  • Policy violations blocked: 58"
+            
+            # Simulate policy types
+            echo "$(date): Violations by policy type:"
+            echo "  • Security policy violations: 23"
+            echo "  • Resource policy violations: 19"
+            echo "  • Compliance policy violations: 12"
+            echo "  • Network policy violations: 4"
+            
+            echo "$(date): Policy webhook healthy, processing ongoing requests"
+            sleep 40
+          done
+        env:
+        - name: WEBHOOK_ID
+          value: "global-policy-webhook"
+        - name: VALIDATION_MODE
+          value: "enforcing"
+        - name: POLICY_ENDPOINT
+          value: "http://policy-controller:8080"
+        ports:
+        - containerPort: 9443
+          name: webhook-tls
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-reporter
+  namespace: policy-system
+  labels:
+    app: policy-reporter
+    component: compliance-reporter
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: policy-reporter
+  template:
+    metadata:
+      labels:
+        app: policy-reporter
+        component: compliance-reporter
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-reporter
+      containers:
+      - name: reporter
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Policy Compliance Reporter starting..."
+          echo "Reporter ID: global-compliance-reporter"
+          echo "Generating compliance reports across all clusters"
+          
+          # Simulate compliance reporting functionality
+          while true; do
+            echo "$(date): Generating compliance reports..."
+            echo "$(date): Scanning all clusters for policy compliance"
+            echo "$(date): Aggregating compliance metrics"
+            
+            # Simulate compliance reporting
+            echo "$(date): Compliance report summary:"
+            echo "  • Overall compliance score: 94.2%"
+            echo "  • Total resources under management: 156"
+            echo "  • Compliant resources: 147"
+            echo "  • Non-compliant resources: 9"
+            echo "  • Policy violations in last 24h: 23"
+            
+            # Simulate cluster breakdown
+            echo "$(date): Compliance by cluster:"
+            echo "  • Development: 89.3% compliant (relaxed policies)"
+            echo "  • Staging: 96.1% compliant (moderate policies)"
+            echo "  • Production: 98.7% compliant (strict policies)"
+            
+            echo "$(date): Compliance report generated, next report in 60s"
+            sleep 60
+          done
+        env:
+        - name: REPORTER_ID
+          value: "global-compliance-reporter"
+        - name: REPORT_INTERVAL
+          value: "60s"
+        - name: COMPLIANCE_THRESHOLD
+          value: "95"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: policy-controller
+  namespace: policy-system
+  labels:
+    app: policy-controller
+    demo: policy-enforcement
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: policy-webhook
+  namespace: policy-system
+  labels:
+    app: policy-webhook
+    demo: policy-enforcement
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: policy-reporter
+  namespace: policy-system
+  labels:
+    app: policy-reporter
+    demo: policy-enforcement
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policy-controller
+  labels:
+    app: policy-controller
+    demo: policy-enforcement
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policy-webhook
+  labels:
+    app: policy-webhook
+    demo: policy-enforcement
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policy-reporter
+  labels:
+    app: policy-reporter
+    demo: policy-enforcement
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: policy-controller
+  labels:
+    app: policy-controller
+    demo: policy-enforcement
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: policy-controller
+subjects:
+- kind: ServiceAccount
+  name: policy-controller
+  namespace: policy-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: policy-webhook
+  labels:
+    app: policy-webhook
+    demo: policy-enforcement
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: policy-webhook
+subjects:
+- kind: ServiceAccount
+  name: policy-webhook
+  namespace: policy-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: policy-reporter
+  labels:
+    app: policy-reporter
+    demo: policy-enforcement
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: policy-reporter
+subjects:
+- kind: ServiceAccount
+  name: policy-reporter
+  namespace: policy-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: policy-controller
+  namespace: policy-system
+  labels:
+    app: policy-controller
+    demo: policy-enforcement
+spec:
+  selector:
+    app: policy-controller
+  ports:
+  - name: webhook
+    port: 8080
+    targetPort: 8080
+  - name: metrics
+    port: 8081
+    targetPort: 8081
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: policy-webhook
+  namespace: policy-system
+  labels:
+    app: policy-webhook
+    demo: policy-enforcement
+spec:
+  selector:
+    app: policy-webhook
+  ports:
+  - name: webhook-tls
+    port: 443
+    targetPort: 9443
+  type: ClusterIP

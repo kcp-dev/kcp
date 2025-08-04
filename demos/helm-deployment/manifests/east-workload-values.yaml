@@ -1,0 +1,25 @@
+replicaCount: 2
+
+image:
+  repository: nginx
+  pullPolicy: Always
+  tag: "latest"
+
+nameOverride: "helm-east"
+fullnameOverride: "helm-east"
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+demo: "helm-deployment"
+cluster: "east"
+message: "Hello from East Cluster via Helm!"

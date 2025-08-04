@@ -1,0 +1,191 @@
+# Updated Global Resource Policies for TMC Policy Enforcement Demo
+# These represent policy updates that will be dynamically synchronized
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: updated-resource-policies
+  namespace: policy-system
+  labels:
+    policy-type: resource
+    demo: policy-enforcement
+    policy-version: v2
+data:
+  global-resource-limits-v2.yaml: |
+    # Updated Global Resource Limits (more restrictive)
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: global-resource-limits-v2
+      namespace: policy-system
+    data:
+      limits: |
+        resource_policies:
+          development:
+            max_cpu_per_pod: "1500m"  # Reduced from 2000m
+            max_memory_per_pod: "3Gi"  # Reduced from 4Gi
+            max_storage_per_pvc: "8Gi"  # Reduced from 10Gi
+            max_pods_per_namespace: 40  # Reduced from 50
+          
+          staging:
+            max_cpu_per_pod: "3000m"  # Reduced from 4000m
+            max_memory_per_pod: "6Gi"  # Reduced from 8Gi
+            max_storage_per_pvc: "18Gi"  # Reduced from 20Gi
+            max_pods_per_namespace: 80  # Reduced from 100
+          
+          production:
+            max_cpu_per_pod: "6000m"  # Reduced from 8000m
+            max_memory_per_pod: "12Gi"  # Reduced from 16Gi
+            max_storage_per_pvc: "45Gi"  # Reduced from 50Gi
+            max_pods_per_namespace: 180  # Reduced from 200
+
+  namespace-quotas-v2.yaml: |
+    # Updated Namespace Resource Quotas
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: namespace-quotas-v2
+      namespace: policy-system
+    data:
+      quotas: |
+        quota_policies:
+          development:
+            requests.cpu: "8"     # Reduced from 10
+            requests.memory: "16Gi"  # Reduced from 20Gi
+            limits.cpu: "16"      # Reduced from 20
+            limits.memory: "32Gi"    # Reduced from 40Gi
+            requests.storage: "80Gi" # Reduced from 100Gi
+            persistentvolumeclaims: "40"  # Reduced from 50
+            pods: "160"           # Reduced from 200
+            services: "40"        # Reduced from 50
+            secrets: "80"         # Reduced from 100
+            configmaps: "80"      # Reduced from 100
+          
+          staging:
+            requests.cpu: "16"    # Reduced from 20
+            requests.memory: "32Gi"  # Reduced from 40Gi
+            limits.cpu: "32"      # Reduced from 40
+            limits.memory: "64Gi"    # Reduced from 80Gi
+            requests.storage: "160Gi" # Reduced from 200Gi
+            persistentvolumeclaims: "80"  # Reduced from 100
+            pods: "320"           # Reduced from 400
+            services: "80"        # Reduced from 100
+            secrets: "160"        # Reduced from 200
+            configmaps: "160"     # Reduced from 200
+          
+          production:
+            requests.cpu: "40"    # Reduced from 50
+            requests.memory: "80Gi"  # Reduced from 100Gi
+            limits.cpu: "80"      # Reduced from 100
+            limits.memory: "160Gi"   # Reduced from 200Gi
+            requests.storage: "400Gi" # Reduced from 500Gi
+            persistentvolumeclaims: "160"  # Reduced from 200
+            pods: "800"           # Reduced from 1000
+            services: "160"       # Reduced from 200
+            secrets: "320"        # Reduced from 400
+            configmaps: "320"     # Reduced from 400
+
+  request-limit-ratios-v2.yaml: |
+    # Updated Request to Limit Ratios (more strict)
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: request-limit-ratios-v2
+      namespace: policy-system
+    data:
+      ratios: |
+        ratio_policies:
+          - name: "cpu-request-limit-ratio"
+            description: "CPU requests must be at least 60% of limits"
+            resource: "cpu"
+            min_ratio: 0.6  # Increased from 0.5
+            enforcement: "warn"
+            applies_to: ["Pod"]
+          
+          - name: "memory-request-limit-ratio"
+            description: "Memory requests must be at least 70% of limits"
+            resource: "memory"
+            min_ratio: 0.7  # Increased from 0.6
+            enforcement: "warn"
+            applies_to: ["Pod"]
+          
+          - name: "storage-utilization-check"
+            description: "PVCs should not be oversized"
+            resource: "storage"
+            max_waste_threshold: 0.3  # New policy: warn if >70% unused
+            enforcement: "warn"
+            applies_to: ["PersistentVolumeClaim"]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: updated-resource-policy-enforcer
+  namespace: policy-system
+  labels:
+    app: updated-resource-policy-enforcer
+    component: resource-v2
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: updated-resource-policy-enforcer
+  template:
+    metadata:
+      labels:
+        app: updated-resource-policy-enforcer
+        component: resource-v2
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: enforcer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Updated Resource Policy Enforcer starting..."
+          echo "Enforcer ID: global-resource-enforcer-v2"
+          echo "Applying updated resource policies with tighter limits"
+          
+          # Simulate updated resource policy enforcement
+          while true; do
+            echo "$(date): Enforcing updated resource policies (v2)..."
+            echo "$(date): New tighter limits now active:"
+            echo "  • Development: CPU 1.5 cores, Memory 3Gi per pod"
+            echo "  • Staging: CPU 3.0 cores, Memory 6Gi per pod"
+            echo "  • Production: CPU 6.0 cores, Memory 12Gi per pod"
+            
+            # Simulate policy update impact
+            echo "$(date): Policy update impact analysis:"
+            echo "  • 3 pods now exceed new CPU limits (will be warned)"
+            echo "  • 1 pod exceeds new memory limits (will be warned)"
+            echo "  • 2 namespaces approaching updated quotas"
+            echo "  • 0 pods actually violating strict limits (enforcement working)"
+            
+            # Simulate resource optimization recommendations
+            echo "$(date): Resource optimization recommendations:"
+            echo "  • 5 pods can reduce CPU requests by ~20%"
+            echo "  • 3 pods can reduce memory requests by ~15%"
+            echo "  • 2 PVCs appear oversized (>70% unused)"
+            echo "  • Overall resource efficiency improved by 12%"
+            
+            echo "$(date): Updated resource policy enforcer healthy"
+            sleep 60
+          done
+        env:
+        - name: ENFORCER_ID
+          value: "global-resource-enforcer-v2"
+        - name: POLICY_VERSION
+          value: "v2"
+        - name: SCAN_INTERVAL
+          value: "60s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

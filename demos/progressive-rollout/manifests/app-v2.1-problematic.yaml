@@ -1,0 +1,218 @@
+# Application v2.1 with Critical Issues (Problematic Version)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-v2-1
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.1.0
+    environment: canary
+    rollout-group: main
+  annotations:
+    rollout.tmc.io/strategy: "canary"
+    rollout.tmc.io/traffic-weight: "5"
+    rollout.tmc.io/baseline-version: "v2.0.0"
+    rollout.tmc.io/problematic: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+      version: v2.1.0
+  template:
+    metadata:
+      labels:
+        app: webapp
+        version: v2.1.0
+        environment: canary
+        rollout-group: main
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:1.22-alpine
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: APP_VERSION
+          value: "v2.1.0"
+        - name: ENVIRONMENT
+          value: "canary"
+        - name: FEATURE_FLAGS
+          value: "legacy-ui=false,new-api=true,experimental-features=true"
+        - name: SIMULATE_ERRORS
+          value: "true"  # Simulates high error rate
+        - name: SLOW_RESPONSES
+          value: "true"  # Simulates slow response times
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          failureThreshold: 10  # High failure threshold to simulate issues
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 5   # Higher failure threshold
+        volumeMounts:
+        - name: app-config
+          mountPath: /usr/share/nginx/html
+        - name: feature-config
+          mountPath: /etc/features
+      volumes:
+      - name: app-config
+        configMap:
+          name: webapp-v2-1-config
+      - name: feature-config
+        configMap:
+          name: webapp-v2-1-features
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-v2-1-service
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.1.0
+    environment: canary
+spec:
+  selector:
+    app: webapp
+    version: v2.1.0
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-v2-1-config
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.1.0
+    environment: canary
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>TMC Progressive Rollout Demo - v2.1.0 (PROBLEMATIC)</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #ff6b6b; color: white; }
+            .header { text-align: center; }
+            .version { background: #d63031; color: white; padding: 10px; border-radius: 5px; display: inline-block; }
+            .info { margin: 20px 0; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 5px; }
+            .error { background: #ff4757; padding: 10px; border-radius: 5px; margin: 10px 0; }
+            .blinking { animation: blink 1s linear infinite; }
+            @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>⚠️ TMC Progressive Rollout Demo</h1>
+            <div class="version blinking">Version: v2.1.0 (PROBLEMATIC)</div>
+        </div>
+        <div class="info">
+            <h3>🚨 Application Information</h3>
+            <p><strong>Environment:</strong> Canary</p>
+            <p><strong>Status:</strong> CRITICAL ISSUES DETECTED</p>
+            <p><strong>Traffic Weight:</strong> 5% (new version)</p>
+            <p><strong>Features:</strong> Experimental features enabled (UNSTABLE)</p>
+        </div>
+        <div class="error">
+            <h3>🚨 Critical Issues Detected</h3>
+            <p>• High error rate: 15.3% (threshold: 1%)</p>
+            <p>• Slow response times: 2400ms average</p>
+            <p>• Memory leaks detected</p>
+            <p>• Database connection issues</p>
+            <p>• Experimental features causing instability</p>
+        </div>
+        <div class="info">
+            <h3>⚠️ Health Status</h3>
+            <p>❌ Application Status: DEGRADED</p>
+            <p>❌ Database Connection: UNSTABLE</p>
+            <p>❌ External Services: TIMEOUT ERRORS</p>
+            <p>❌ Memory Usage: CRITICAL (85%)</p>
+            <p>❌ Response Time: UNACCEPTABLE</p>
+        </div>
+        <div class="error">
+            <h3>🔄 Automatic Rollback</h3>
+            <p>TMC has detected critical issues and will initiate automatic rollback to v2.0.0</p>
+            <p class="blinking">ROLLBACK IN PROGRESS...</p>
+        </div>
+    </body>
+    </html>
+  health: |
+    HTTP/1.1 503 Service Unavailable
+    Content-Type: application/json
+    
+    {"status": "unhealthy", "version": "v2.1.0", "environment": "canary", "errors": ["high_error_rate", "slow_response", "memory_leak"]}
+  ready: |
+    HTTP/1.1 503 Service Unavailable
+    Content-Type: application/json
+    
+    {"status": "not_ready", "version": "v2.1.0", "checks": {"database": "timeout", "cache": "error", "analytics": "failed"}}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-v2-1-features
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.1.0
+    environment: canary
+data:
+  features.json: |
+    {
+      "features": {
+        "legacy-ui": false,
+        "new-api": true,
+        "advanced-analytics": true,
+        "real-time-updates": true,
+        "experimental-features": true,
+        "unstable-features": true,
+        "beta-features": true
+      },
+      "rollout_config": {
+        "traffic_split": 5,
+        "error_threshold": 1.0,
+        "response_time_threshold": 200,
+        "simulated_issues": {
+          "error_rate": 15.3,
+          "response_time": 2400,
+          "memory_leak": true,
+          "connection_issues": true
+        }
+      },
+      "canary_analysis": {
+        "baseline_version": "v2.0.0",
+        "issues_detected": [
+          "error_rate > 15%",
+          "response_time > 2000ms",
+          "health_check_failures > 20%",
+          "memory_usage > 80%"
+        ],
+        "rollback_triggered": true,
+        "rollback_reason": "critical_performance_degradation"
+      }
+    }

@@ -1,0 +1,288 @@
+# Enterprise Isolated Tenant Application
+# Replace TENANT_NAME with actual tenant name
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: TENANT_NAME-enterprise-app
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    version: v2.0.0
+    demo: multi-tenant
+  annotations:
+    description: "Enterprise-grade isolated application for TENANT_NAME"
+    contact: "TENANT_NAME-admin@company.com"
+    compliance-frameworks: "SOC2,GDPR,HIPAA"
+    change-ticket: "CHG-2024-001234"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: TENANT_NAME-enterprise-app
+      tenant: TENANT_NAME
+  template:
+    metadata:
+      labels:
+        app: TENANT_NAME-enterprise-app
+        tenant: TENANT_NAME
+        tier: isolated
+        security-level: high
+        version: v2.0.0
+        demo: multi-tenant
+    spec:
+      serviceAccountName: TENANT_NAME-admin-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: enterprise-app
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8443
+          name: https
+        env:
+        - name: TENANT_NAME
+          value: "TENANT_NAME"
+        - name: TENANT_TIER
+          value: "isolated"
+        - name: SECURITY_LEVEL
+          value: "high"
+        - name: CLUSTER_TYPE
+          value: "dedicated"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        - name: enterprise-config
+          mountPath: /etc/enterprise
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: var-cache
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: config
+        secret:
+          secretName: TENANT_NAME-enterprise-config
+      - name: enterprise-config
+        configMap:
+          name: TENANT_NAME-enterprise-settings
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: var-cache
+        emptyDir:
+          sizeLimit: 512Mi
+      - name: var-run
+        emptyDir:
+          sizeLimit: 256Mi
+      - name: data
+        persistentVolumeClaim:
+          claimName: TENANT_NAME-enterprise-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: TENANT_NAME-enterprise-service
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+spec:
+  selector:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 8443
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: TENANT_NAME-enterprise-lb
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+spec:
+  selector:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 8443
+    protocol: TCP
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: TENANT_NAME-enterprise-app-config
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+data:
+  app.properties: |
+    tenant.name=TENANT_NAME
+    tenant.tier=isolated
+    security.level=high
+    cluster.type=dedicated
+    max.connections=1000
+    cache.size=1G
+    log.level=DEBUG
+    metrics.enabled=true
+    audit.enabled=true
+    encryption.enabled=true
+    compliance.frameworks=SOC2,GDPR,HIPAA
+  nginx.conf: |
+    server {
+        listen 8080;
+        listen 8443 ssl;
+        server_name _;
+        
+        # SSL configuration would go here in production
+        
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+        
+        location /health {
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        location /ready {
+            return 200 "ready\n";
+            add_header Content-Type text/plain;
+        }
+        
+        location /tenant {
+            return 200 "tenant: TENANT_NAME, tier: isolated, security: high\n";
+            add_header Content-Type text/plain;
+        }
+        
+        location /status {
+            return 200 "enterprise application running\n";
+            add_header Content-Type text/plain;
+        }
+    }
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: TENANT_NAME-enterprise-data
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+  annotations:
+    encrypted: "true"
+    backup-policy: "daily"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: enterprise-ssd
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: TENANT_NAME-enterprise-logs
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-enterprise-app
+    tenant: TENANT_NAME
+    tier: isolated
+    security-level: high
+    demo: multi-tenant
+  annotations:
+    encrypted: "true"
+    backup-policy: "weekly"
+    log-retention-days: "90"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: enterprise-ssd

@@ -1,0 +1,191 @@
+# Application v1.0 for Canary Environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-v1
+  namespace: default
+  labels:
+    app: webapp
+    version: v1.0.0
+    environment: canary
+    rollout-group: main
+  annotations:
+    rollout.tmc.io/strategy: "canary"
+    rollout.tmc.io/traffic-weight: "100"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp
+      version: v1.0.0
+  template:
+    metadata:
+      labels:
+        app: webapp
+        version: v1.0.0
+        environment: canary
+        rollout-group: main
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: APP_VERSION
+          value: "v1.0.0"
+        - name: ENVIRONMENT
+          value: "canary"
+        - name: FEATURE_FLAGS
+          value: "legacy-ui=true,new-api=false"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: app-config
+          mountPath: /usr/share/nginx/html
+        - name: feature-config
+          mountPath: /etc/features
+      volumes:
+      - name: app-config
+        configMap:
+          name: webapp-v1-config
+      - name: feature-config
+        configMap:
+          name: webapp-v1-features
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+  namespace: default
+  labels:
+    app: webapp
+    environment: canary
+spec:
+  selector:
+    app: webapp
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-v1-service
+  namespace: default
+  labels:
+    app: webapp
+    version: v1.0.0
+    environment: canary
+spec:
+  selector:
+    app: webapp
+    version: v1.0.0
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-v1-config
+  namespace: default
+  labels:
+    app: webapp
+    version: v1.0.0
+    environment: canary
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>TMC Progressive Rollout Demo - v1.0.0</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f0f8ff; }
+            .header { color: #2c3e50; text-align: center; }
+            .version { background: #3498db; color: white; padding: 10px; border-radius: 5px; }
+            .info { margin: 20px 0; padding: 20px; background: white; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>TMC Progressive Rollout Demo</h1>
+            <div class="version">Version: v1.0.0 (Canary)</div>
+        </div>
+        <div class="info">
+            <h3>Application Information</h3>
+            <p><strong>Environment:</strong> Canary</p>
+            <p><strong>Deployment Strategy:</strong> Canary Testing</p>
+            <p><strong>Traffic Weight:</strong> 100% (baseline version)</p>
+            <p><strong>Features:</strong> Legacy UI, Stable API</p>
+        </div>
+        <div class="info">
+            <h3>Health Status</h3>
+            <p>✅ Application Status: Running</p>
+            <p>✅ Database Connection: Active</p>
+            <p>✅ External Services: Connected</p>
+        </div>
+    </body>
+    </html>
+  health: |
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    
+    {"status": "healthy", "version": "v1.0.0", "environment": "canary"}
+  ready: |
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    
+    {"status": "ready", "version": "v1.0.0", "checks": {"database": "ok", "cache": "ok"}}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-v1-features
+  namespace: default
+  labels:
+    app: webapp
+    version: v1.0.0
+    environment: canary
+data:
+  features.json: |
+    {
+      "features": {
+        "legacy-ui": true,
+        "new-api": false,
+        "advanced-analytics": false,
+        "real-time-updates": false,
+        "experimental-features": false
+      },
+      "rollout_config": {
+        "traffic_split": 100,
+        "error_threshold": 1.0,
+        "response_time_threshold": 200
+      }
+    }

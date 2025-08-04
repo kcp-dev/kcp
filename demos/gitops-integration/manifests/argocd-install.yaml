@@ -1,0 +1,368 @@
+# Simplified ArgoCD installation for TMC GitOps demo
+# This is a demo-focused version, not for production use
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app: argocd-server
+    component: server
+    demo: gitops-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argocd-server
+  template:
+    metadata:
+      labels:
+        app: argocd-server
+        component: server
+        demo: gitops-integration
+    spec:
+      serviceAccountName: argocd-server
+      containers:
+      - name: argocd-server
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "ArgoCD Server starting..."
+          echo "Server ID: tmc-gitops-argocd"
+          echo "Managing multi-cluster GitOps deployments"
+          echo "Clusters: dev, staging, prod"
+          
+          # Simulate ArgoCD server functionality
+          while true; do
+            echo "$(date): Syncing GitOps applications..."
+            echo "$(date): Monitoring Git repositories for changes"
+            echo "$(date): Managing application deployments across clusters"
+            
+            # Simulate application sync status
+            echo "$(date): Application sync status:"
+            echo "  • demo-webapp-dev: Synced (auto)"
+            echo "  • demo-webapp-staging: Synced (auto)"
+            echo "  • demo-webapp-prod: OutOfSync (manual approval required)"
+            
+            echo "$(date): ArgoCD server healthy, next sync in 30s"
+            sleep 30
+          done
+        env:
+        - name: ARGOCD_SERVER_ID
+          value: "tmc-gitops-argocd"
+        - name: MANAGED_CLUSTERS
+          value: "dev,staging,prod"
+        - name: SYNC_INTERVAL
+          value: "30s"
+        ports:
+        - containerPort: 8080
+          name: server
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+  labels:
+    app: argocd-repo-server
+    component: repo-server
+    demo: gitops-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argocd-repo-server
+  template:
+    metadata:
+      labels:
+        app: argocd-repo-server
+        component: repo-server
+        demo: gitops-integration
+    spec:
+      serviceAccountName: argocd-repo-server
+      containers:
+      - name: repo-server
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "ArgoCD Repository Server starting..."
+          echo "Repo Server ID: tmc-gitops-repo-server"
+          echo "Managing Git repository connections"
+          
+          # Simulate repo server functionality
+          while true; do
+            echo "$(date): Monitoring Git repositories..."
+            echo "$(date): Checking for changes in demo-app repository"
+            echo "$(date): Validating Kubernetes manifests"
+            echo "$(date): Generating application resources"
+            
+            # Simulate repository status
+            echo "$(date): Repository status:"
+            echo "  • demo-app: Connected, last commit $(date -d '5 minutes ago')"
+            echo "  • argocd-config: Connected, monitoring applications"
+            
+            echo "$(date): Repository server healthy, next check in 45s"
+            sleep 45
+          done
+        env:
+        - name: REPO_SERVER_ID
+          value: "tmc-gitops-repo-server"
+        - name: MONITORED_REPOS
+          value: "demo-app,argocd-config"
+        ports:
+        - containerPort: 8081
+          name: repo-server
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-application-controller
+  namespace: argocd
+  labels:
+    app: argocd-application-controller
+    component: application-controller
+    demo: gitops-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argocd-application-controller
+  template:
+    metadata:
+      labels:
+        app: argocd-application-controller
+        component: application-controller
+        demo: gitops-integration
+    spec:
+      serviceAccountName: argocd-application-controller
+      containers:
+      - name: application-controller
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "ArgoCD Application Controller starting..."
+          echo "Controller ID: tmc-gitops-app-controller"
+          echo "Managing application synchronization across clusters"
+          
+          # Simulate application controller functionality
+          while true; do
+            echo "$(date): Processing application synchronization..."
+            echo "$(date): Checking application health across all clusters"
+            echo "$(date): Reconciling desired state with actual state"
+            
+            # Simulate application management
+            echo "$(date): Application reconciliation:"
+            echo "  • demo-webapp-dev: Healthy, 2/2 pods running"
+            echo "  • demo-webapp-staging: Healthy, 2/2 pods running"
+            echo "  • demo-webapp-prod: Pending manual sync"
+            
+            echo "$(date): TMC cross-cluster coordination active"
+            echo "$(date): Application controller healthy, next reconcile in 60s"
+            sleep 60
+          done
+        env:
+        - name: CONTROLLER_ID
+          value: "tmc-gitops-app-controller"
+        - name: RECONCILE_INTERVAL
+          value: "60s"
+        - name: TMC_INTEGRATION
+          value: "enabled"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app: argocd-server
+    demo: gitops-integration
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+  labels:
+    app: argocd-repo-server
+    demo: gitops-integration
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-application-controller
+  namespace: argocd
+  labels:
+    app: argocd-application-controller
+    demo: gitops-integration
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-server
+  labels:
+    app: argocd-server
+    demo: gitops-integration
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["argoproj.io"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-application-controller
+  labels:
+    app: argocd-application-controller
+    demo: gitops-integration
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-server
+  labels:
+    app: argocd-server
+    demo: gitops-integration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-server
+subjects:
+- kind: ServiceAccount
+  name: argocd-server
+  namespace: argocd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-application-controller
+  labels:
+    app: argocd-application-controller
+    demo: gitops-integration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-application-controller
+subjects:
+- kind: ServiceAccount
+  name: argocd-application-controller
+  namespace: argocd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app: argocd-server
+    demo: gitops-integration
+spec:
+  selector:
+    app: argocd-server
+  ports:
+  - name: server
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+  labels:
+    app: argocd-repo-server
+    demo: gitops-integration
+spec:
+  selector:
+    app: argocd-repo-server
+  ports:
+  - name: repo-server
+    port: 8081
+    targetPort: 8081
+  type: ClusterIP

@@ -1,0 +1,207 @@
+# Application v2.0 for Canary Environment (New Version)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-v2
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.0.0
+    environment: canary
+    rollout-group: main
+  annotations:
+    rollout.tmc.io/strategy: "canary"
+    rollout.tmc.io/traffic-weight: "5"
+    rollout.tmc.io/baseline-version: "v1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+      version: v2.0.0
+  template:
+    metadata:
+      labels:
+        app: webapp
+        version: v2.0.0
+        environment: canary
+        rollout-group: main
+    spec:
+      containers:
+      - name: webapp
+        image: nginx:1.22-alpine
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: APP_VERSION
+          value: "v2.0.0"
+        - name: ENVIRONMENT
+          value: "canary"
+        - name: FEATURE_FLAGS
+          value: "legacy-ui=false,new-api=true,advanced-analytics=true"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: app-config
+          mountPath: /usr/share/nginx/html
+        - name: feature-config
+          mountPath: /etc/features
+      volumes:
+      - name: app-config
+        configMap:
+          name: webapp-v2-config
+      - name: feature-config
+        configMap:
+          name: webapp-v2-features
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-v2-service
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.0.0
+    environment: canary
+spec:
+  selector:
+    app: webapp
+    version: v2.0.0
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-v2-config
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.0.0
+    environment: canary
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>TMC Progressive Rollout Demo - v2.0.0</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+            .header { text-align: center; }
+            .version { background: #e74c3c; color: white; padding: 10px; border-radius: 5px; display: inline-block; }
+            .info { margin: 20px 0; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 5px; backdrop-filter: blur(10px); }
+            .new-feature { background: #27ae60; padding: 5px 10px; border-radius: 3px; margin: 5px; display: inline-block; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🚀 TMC Progressive Rollout Demo</h1>
+            <div class="version">Version: v2.0.0 (NEW CANARY)</div>
+        </div>
+        <div class="info">
+            <h3>🎯 Application Information</h3>
+            <p><strong>Environment:</strong> Canary</p>
+            <p><strong>Deployment Strategy:</strong> Canary Testing (5% traffic)</p>
+            <p><strong>Traffic Weight:</strong> 5% (new version)</p>
+            <p><strong>Features:</strong> Modern UI, Enhanced API, Analytics</p>
+        </div>
+        <div class="info">
+            <h3>🆕 New Features in v2.0.0</h3>
+            <div class="new-feature">Modern UI Design</div>
+            <div class="new-feature">Enhanced REST API</div>
+            <div class="new-feature">Real-time Analytics</div>
+            <div class="new-feature">Improved Performance</div>
+            <div class="new-feature">Advanced Monitoring</div>
+        </div>
+        <div class="info">
+            <h3>📊 Health Status</h3>
+            <p>✅ Application Status: Running (Enhanced)</p>
+            <p>✅ Database Connection: Active (Connection Pooling)</p>
+            <p>✅ External Services: Connected (Circuit Breaker)</p>
+            <p>✅ Analytics Engine: Active</p>
+            <p>✅ Cache Layer: Optimized</p>
+        </div>
+        <div class="info">
+            <h3>🔍 Canary Metrics</h3>
+            <p>📈 Response Time: ~95ms (15% improvement)</p>
+            <p>📊 Error Rate: <0.01%</p>
+            <p>🎯 Success Rate: 99.99%</p>
+            <p>💾 Memory Usage: Optimized (+20% efficiency)</p>
+        </div>
+    </body>
+    </html>
+  health: |
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    
+    {"status": "healthy", "version": "v2.0.0", "environment": "canary", "features": ["new-ui", "enhanced-api", "analytics"]}
+  ready: |
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    
+    {"status": "ready", "version": "v2.0.0", "checks": {"database": "ok", "cache": "ok", "analytics": "ok", "monitoring": "ok"}}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-v2-features
+  namespace: default
+  labels:
+    app: webapp
+    version: v2.0.0
+    environment: canary
+data:
+  features.json: |
+    {
+      "features": {
+        "legacy-ui": false,
+        "new-api": true,
+        "advanced-analytics": true,
+        "real-time-updates": true,
+        "experimental-features": false,
+        "performance-optimizations": true,
+        "enhanced-monitoring": true
+      },
+      "rollout_config": {
+        "traffic_split": 5,
+        "error_threshold": 1.0,
+        "response_time_threshold": 200,
+        "promotion_criteria": {
+          "min_success_rate": 99.5,
+          "max_error_rate": 0.5,
+          "min_duration_minutes": 10
+        }
+      },
+      "canary_analysis": {
+        "baseline_version": "v1.0.0",
+        "success_criteria": [
+          "error_rate < 1%",
+          "response_time < 200ms",
+          "success_rate > 99%"
+        ]
+      }
+    }

@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: health-monitor-west
+  namespace: default
+  labels:
+    app: health-monitor
+    region: west
+    demo: disaster-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-monitor
+      region: west
+  template:
+    metadata:
+      labels:
+        app: health-monitor
+        region: west
+        demo: disaster-recovery
+    spec:
+      serviceAccountName: health-monitor
+      containers:
+      - name: monitor
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Health Monitor starting on West cluster..."
+          echo "Monitor ID: west-health-monitor"
+          echo "Region: us-west-2"
+          echo "Monitoring: webapp-west-svc, kcp-syncer"
+          
+          # Simulate health monitoring
+          while true; do
+            echo "$(date): Performing health checks..."
+            
+            # Check webapp health
+            echo "$(date): Checking webapp-west-svc health: HEALTHY"
+            echo "$(date): Checking webapp-west deployment: 2/2 pods ready"
+            
+            # Check syncer health
+            echo "$(date): Checking kcp-syncer connectivity: CONNECTED"
+            echo "$(date): Last successful sync: $(date)"
+            
+            # Report to global controller
+            echo "$(date): Reporting regional health to failover controller"
+            echo "$(date): West region status: HEALTHY"
+            
+            sleep 20
+          done
+        env:
+        - name: MONITOR_ID
+          value: "west-health-monitor"
+        - name: REGION
+          value: "us-west-2"
+        - name: CHECK_INTERVAL
+          value: "20s"
+        - name: WEBAPP_SERVICE
+          value: "webapp-west-svc"
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep -v grep | grep -q 'sh -c'"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: health-monitor
+  namespace: default
+  labels:
+    app: health-monitor
+    demo: disaster-recovery
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: health-monitor
+  labels:
+    app: health-monitor
+    demo: disaster-recovery
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints", "pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: health-monitor
+  labels:
+    app: health-monitor
+    demo: disaster-recovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: health-monitor
+subjects:
+- kind: ServiceAccount
+  name: health-monitor
+  namespace: default

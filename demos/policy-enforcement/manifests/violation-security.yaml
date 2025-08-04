@@ -1,0 +1,34 @@
+# Security Policy Violation Example - This should be blocked
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privileged-app
+  namespace: default
+  labels:
+    app: privileged-app
+    environment: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: privileged-app
+  template:
+    metadata:
+      labels:
+        app: privileged-app
+        environment: development
+    spec:
+      containers:
+      - name: bad-container
+        image: nginx:latest
+        securityContext:
+          privileged: true  # This violates security policies
+          allowPrivilegeEscalation: true  # This also violates security policies
+          runAsRoot: true  # Running as root violates policies
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

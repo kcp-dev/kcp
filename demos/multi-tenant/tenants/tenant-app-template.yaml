@@ -1,0 +1,183 @@
+# Tenant Application Template for Shared Environment
+# Replace TENANT_NAME with actual tenant name
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: TENANT_NAME-webapp
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-webapp
+    tenant: TENANT_NAME
+    tier: shared
+    version: v1.0.0
+    demo: multi-tenant
+  annotations:
+    description: "Multi-tenant web application for TENANT_NAME"
+    contact: "TENANT_NAME@company.com"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: TENANT_NAME-webapp
+      tenant: TENANT_NAME
+  template:
+    metadata:
+      labels:
+        app: TENANT_NAME-webapp
+        tenant: TENANT_NAME
+        tier: shared
+        version: v1.0.0
+        demo: multi-tenant
+    spec:
+      serviceAccountName: TENANT_NAME-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: webapp
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: TENANT_NAME
+          value: "TENANT_NAME"
+        - name: TENANT_TIER
+          value: "shared"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: var-cache
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+      volumes:
+      - name: config
+        secret:
+          secretName: TENANT_NAME-tenant-config
+      - name: tmp
+        emptyDir: {}
+      - name: var-cache
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: TENANT_NAME-webapp-service
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-webapp
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+spec:
+  selector:
+    app: TENANT_NAME-webapp
+    tenant: TENANT_NAME
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: TENANT_NAME-app-config
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-webapp
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+data:
+  app.properties: |
+    tenant.name=TENANT_NAME
+    tenant.tier=shared
+    max.connections=100
+    cache.size=256M
+    log.level=INFO
+    metrics.enabled=true
+  nginx.conf: |
+    server {
+        listen 8080;
+        server_name _;
+        
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+        
+        location /health {
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        location /tenant {
+            return 200 "tenant: TENANT_NAME, tier: shared\n";
+            add_header Content-Type text/plain;
+        }
+    }
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: TENANT_NAME-data
+  namespace: tenant-TENANT_NAME
+  labels:
+    app: TENANT_NAME-webapp
+    tenant: TENANT_NAME
+    tier: shared
+    demo: multi-tenant
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard

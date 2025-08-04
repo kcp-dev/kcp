@@ -1,0 +1,28 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: policy-prod
+networking:
+  apiServerPort: 40446
+  apiServerAddress: "127.0.0.1"
+nodes:
+- role: control-plane
+  image: kindest/node:v1.27.3
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "region=us-east-1,cluster=prod,demo=policy-enforcement,environment=production,policy-tier=strict"
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        enable-admission-plugins: "NodeRestriction,ResourceQuota,LimitRanger,PodSecurityPolicy"
+- role: worker
+  image: kindest/node:v1.27.3
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "region=us-east-1,cluster=prod,demo=policy-enforcement,environment=production,policy-tier=strict"

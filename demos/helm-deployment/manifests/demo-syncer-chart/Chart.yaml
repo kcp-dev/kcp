@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-syncer
+description: Demo Helm chart for TMC Syncer
+type: application
+version: 0.1.0
+appVersion: "demo"

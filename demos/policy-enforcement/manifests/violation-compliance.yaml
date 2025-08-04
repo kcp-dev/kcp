@@ -1,0 +1,42 @@
+# Compliance Policy Violation Example - This should be blocked
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: non-compliant-app
+  namespace: default
+  # Missing required labels: environment, version, owner
+  # Missing required annotations: description, contact
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: non-compliant-app
+  template:
+    metadata:
+      labels:
+        app: non-compliant-app
+        # Missing environment label - violates compliance policy
+        # Missing version label - violates compliance policy
+        # Missing owner label - violates compliance policy
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: non-compliant-container
+        image: nginx:1.21-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

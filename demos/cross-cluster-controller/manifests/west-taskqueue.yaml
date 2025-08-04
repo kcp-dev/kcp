@@ -1,0 +1,30 @@
+apiVersion: demo.tmc.io/v1
+kind: TaskQueue
+metadata:
+  name: west-ml-training
+  namespace: default
+  labels:
+    origin-cluster: west
+    demo: cross-cluster-controller
+    priority: medium
+spec:
+  region: us-west-2
+  priority: medium
+  parallelism: 2
+  tasks:
+  - name: prepare-training-data
+    command: "ml-preprocessor --dataset=customer-data --normalize --split=0.8"
+    timeout: "25m"
+    retries: 3
+  - name: train-model
+    command: "ml-trainer --algorithm=xgboost --epochs=100 --gpu=true"
+    timeout: "2h"
+    retries: 1
+  - name: validate-model
+    command: "ml-validator --test-set=validation --metrics=accuracy,f1"
+    timeout: "10m"
+    retries: 2
+  - name: deploy-model
+    command: "ml-deployer --target=production --version=v2.1"
+    timeout: "15m"
+    retries: 3

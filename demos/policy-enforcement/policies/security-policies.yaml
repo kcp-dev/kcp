@@ -1,0 +1,209 @@
+# Global Security Policies for TMC Policy Enforcement Demo
+# These policies enforce security best practices across all clusters
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-policies
+  namespace: policy-system
+  labels:
+    policy-type: security
+    demo: policy-enforcement
+data:
+  pod-security-policy.yaml: |
+    # Pod Security Policy - Prevents privileged containers
+    apiVersion: policy/v1beta1
+    kind: PodSecurityPolicy
+    metadata:
+      name: restricted-psp
+      labels:
+        policy-category: security
+        enforcement-level: strict
+    spec:
+      privileged: false
+      allowPrivilegeEscalation: false
+      requiredDropCapabilities:
+        - ALL
+      volumes:
+        - 'configMap'
+        - 'emptyDir'
+        - 'projected'
+        - 'secret'
+        - 'downwardAPI'
+        - 'persistentVolumeClaim'
+      runAsUser:
+        rule: 'MustRunAsNonRoot'
+      seLinux:
+        rule: 'RunAsAny'
+      fsGroup:
+        rule: 'RunAsAny'
+  
+  container-security-policy.yaml: |
+    # Container Security Requirements
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: container-security-requirements
+      namespace: policy-system
+    data:
+      requirements: |
+        security_policies:
+          - name: "no-privileged-containers"
+            description: "Containers must not run in privileged mode"
+            rule: "spec.containers[*].securityContext.privileged != true"
+            enforcement: "block"
+          
+          - name: "non-root-user"
+            description: "Containers must run as non-root user"
+            rule: "spec.containers[*].securityContext.runAsNonRoot == true"
+            enforcement: "block"
+          
+          - name: "read-only-filesystem"
+            description: "Container filesystems should be read-only when possible"
+            rule: "spec.containers[*].securityContext.readOnlyRootFilesystem == true"
+            enforcement: "warn"
+          
+          - name: "drop-capabilities"
+            description: "Containers must drop dangerous capabilities"
+            rule: "spec.containers[*].securityContext.capabilities.drop contains 'ALL'"
+            enforcement: "block"
+          
+          - name: "no-host-network"
+            description: "Pods must not use host network"
+            rule: "spec.hostNetwork != true"
+            enforcement: "block"
+          
+          - name: "no-host-pid"
+            description: "Pods must not use host PID namespace"
+            rule: "spec.hostPID != true"
+            enforcement: "block"
+
+  image-security-policy.yaml: |
+    # Image Security Requirements
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: image-security-requirements
+      namespace: policy-system
+    data:
+      requirements: |
+        image_policies:
+          - name: "trusted-registries"
+            description: "Images must come from approved registries"
+            rule: "spec.containers[*].image startsWith 'docker.io/' OR spec.containers[*].image startsWith 'gcr.io/' OR spec.containers[*].image startsWith 'registry.k8s.io/'"
+            enforcement: "block"
+          
+          - name: "no-latest-tag"
+            description: "Images must not use 'latest' tag"
+            rule: "spec.containers[*].image not endsWith ':latest'"
+            enforcement: "warn"
+          
+          - name: "vulnerability-scanning"
+            description: "Images must pass vulnerability scanning"
+            rule: "metadata.annotations['security.scan.passed'] == 'true'"
+            enforcement: "warn"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: network-security-policies
+  namespace: policy-system
+  labels:
+    policy-type: security
+    policy-subtype: network
+    demo: policy-enforcement
+data:
+  default-deny-policy.yaml: |
+    # Default deny all ingress traffic
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: default-deny-ingress
+      namespace: default
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Ingress
+  
+  allow-same-namespace.yaml: |
+    # Allow traffic within same namespace
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-same-namespace
+      namespace: default
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Ingress
+      ingress:
+      - from:
+        - namespaceSelector:
+            matchLabels:
+              name: default
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-policy-enforcer
+  namespace: policy-system
+  labels:
+    app: security-policy-enforcer
+    component: security
+    demo: policy-enforcement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: security-policy-enforcer
+  template:
+    metadata:
+      labels:
+        app: security-policy-enforcer
+        component: security
+        demo: policy-enforcement
+    spec:
+      serviceAccountName: policy-controller
+      containers:
+      - name: enforcer
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Security Policy Enforcer starting..."
+          echo "Enforcer ID: global-security-enforcer"
+          echo "Monitoring security policy compliance"
+          
+          # Simulate security policy enforcement
+          while true; do
+            echo "$(date): Scanning for security policy violations..."
+            echo "$(date): Checking privileged containers: 0 violations found"
+            echo "$(date): Checking root user containers: 0 violations found"
+            echo "$(date): Checking host network usage: 0 violations found"
+            echo "$(date): Checking image registry compliance: 2 warnings"
+            echo "$(date): Checking capability drops: 0 violations found"
+            
+            # Simulate cluster-specific enforcement
+            echo "$(date): Security enforcement by environment:"
+            echo "  • Development: 15 containers scanned, 0 violations"
+            echo "  • Staging: 12 containers scanned, 0 violations"
+            echo "  • Production: 28 containers scanned, 0 violations"
+            
+            echo "$(date): Security policy enforcer healthy"
+            sleep 50
+          done
+        env:
+        - name: ENFORCER_ID
+          value: "global-security-enforcer"
+        - name: SCAN_INTERVAL
+          value: "50s"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

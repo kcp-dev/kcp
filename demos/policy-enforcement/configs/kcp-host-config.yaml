@@ -1,0 +1,28 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: policy-kcp
+networking:
+  apiServerPort: 40443
+  apiServerAddress: "127.0.0.1"
+nodes:
+- role: control-plane
+  image: kindest/node:v1.27.3
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "region=global,cluster=kcp,demo=policy-enforcement,role=policy-host"
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        enable-admission-plugins: "NodeRestriction,ResourceQuota,PodSecurityPolicy"
+- role: worker
+  image: kindest/node:v1.27.3
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "region=global,cluster=kcp,demo=policy-enforcement,role=policy-worker"

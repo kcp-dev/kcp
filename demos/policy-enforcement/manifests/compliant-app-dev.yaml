@@ -1,0 +1,66 @@
+# Policy-compliant application for development environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliant-webapp-dev
+  namespace: default
+  labels:
+    app: compliant-webapp
+    environment: development
+    version: v1.0.0
+    owner: dev-team
+    data-classification: internal
+  annotations:
+    description: "Development web application demonstrating policy compliance"
+    contact: "dev-team@company.com"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compliant-webapp
+      environment: development
+  template:
+    metadata:
+      labels:
+        app: compliant-webapp
+        environment: development
+        version: v1.0.0
+        owner: dev-team
+        data-classification: internal
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: webapp
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
