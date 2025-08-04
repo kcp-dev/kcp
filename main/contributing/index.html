@@ -14,7 +14,7 @@
         <link rel="prev" href="../developers/investigations/transparent-multi-cluster/">
       
       
-        <link rel="next" href="coding/">
+        <link rel="next" href="getting-started/">
       
       
       <link rel="icon" href="../favicons/favicon.ico">
@@ -1904,11 +1904,11 @@
   
   
     <li class="md-nav__item">
-      <a href="coding/" class="md-nav__link">
+      <a href="getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Coding Guidelines & Conventions
+    Getting Started
   </span>
   
 
@@ -1925,11 +1925,11 @@
   
   
     <li class="md-nav__item">
-      <a href="getting-started/" class="md-nav__link">
+      <a href="coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Getting Started
+    Coding Guidelines & Conventions
   </span>
   
 
@@ -3281,6 +3281,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#subproject-maintainers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Subproject Maintainers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#approvers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Approvers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#contributors" class="md-nav__link">
     <span class="md-ellipsis">
       Contributors
@@ -3415,29 +3433,40 @@ which boils down to "let's be excellent to each other". Code of Conduct violatio
 Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
 contribution. See the <a href="https://github.com/kcp-dev/kcp/tree/main/DCO">DCO</a> file for details.</p>
+<p>For how to correctly set this on your commits, check out the <a href="getting-started/#developer-certificate-of-origin-dco">Getting Started</a> guide.</p>
 <h2 id="community-roles">Community Roles</h2>
 <h3 id="maintainers">Maintainers</h3>
 <p>The project maintainers are the central <a href="https://github.com/kcp-dev/kcp/blob/main/GOVERNANCE.md">gonvernance entity</a> of
 kcp. They review and approve PRs into all projects in the kcp-dev GitHub organization and decide on project direction
-and other decisions.</p>
+and other governance matters.</p>
+<h3 id="subproject-maintainers">Subproject Maintainers</h3>
+<p>The kcp-dev GitHub organization hosts several subprojects that utilize or extend kcp in some form. These subprojects
+might take on additional subproject maintainers that participate in code review and project goal decisions to steer
+their respective subprojects.</p>
+<h3 id="approvers">Approvers</h3>
+<p>Consistent contributors with a specific area of expertise in the code base might be chosen to be approvers by the
+(subproject) maintainers. Approvers are allowed to approve (and subsequently, merge) code for parts of a specific project.
+Approvers are generally not allowed to have full approval rights for a (sub)project but only specific folders within it.</p>
 <h3 id="contributors">Contributors</h3>
 <p>People that are consistently contributing to the project (through code, documentation or other means) are considered
 project contributors. They are invited by maintainers to join the kcp-dev GitHub organization, which allows them
 to submit PRs that do not need approval to run CI jobs in Prow.</p>
+<p>Contributors are able to LGTM pull requests in the kcp-dev GitHub organization, but they cannot merge them.</p>
 <h2 id="project-management">Project Management</h2>
 <h3 id="priorities-milestones">Priorities &amp; Milestones</h3>
 <p>We prioritize issues and features both synchronously (during community meetings) and asynchronously (Slack/GitHub conversations).</p>
-<p>We group issues together into milestones. Each milestone represents a set of new features and bug fixes that we want users to try out. We aim for each milestone to take about a month from start to finish.</p>
+<p>We group issues together into milestones. Each milestone represents a planned kcp release and subsequently can be open for a period of 3-5 months.</p>
 <p>You can see the <a href="https://github.com/kcp-dev/kcp/milestones?direction=asc&amp;sort=due_date&amp;state=open">current list of milestones</a> in GitHub.</p>
 <p>For a given issue or pull request, its milestone may be:</p>
 <ul>
 <li><strong>unset/unassigned</strong>: we haven't looked at this yet, or if we have, we aren't sure if we want to do it and it needs more community discussion</li>
-<li><strong>assigned to a named milestone</strong></li>
+<li><strong>assigned to a version milestone</strong></li>
 <li><strong>assigned to <code>TBD</code></strong> - we have looked at this, decided that it is important and we eventually would like to do it, but we aren't sure exactly when</li>
 </ul>
 <p>If you are confident about the target milestone for your issue or PR, please set it. If you don’t have permissions, please ask &amp; we’ll set it for you.</p>
 <h3 id="epics">Epics</h3>
-<p>We use the <a href="https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3Aepic+">epic label</a> to track large features that typically involve multiple stories. When creating a new epic, please use the <a href="https://github.com/kcp-dev/kcp/issues/new?assignees=&amp;labels=epic&amp;template=epic.md&amp;title=">epic issue template</a>.</p>
+<p>We sometimes use the <a href="https://github.com/kcp-dev/kcp/issues?q=is%3Aopen+is%3Aissue+label%3Aepic+">epic label</a> to track large features that typically involve multiple stories.
+When creating a new epic, please use the <a href="https://github.com/kcp-dev/kcp/issues/new?assignees=&amp;labels=epic&amp;template=epic.md&amp;title=">epic issue template</a>.</p>
 <p>Please make sure that you fill in all the sections of the template (it's ok if some of this is done later, after creating the issue). If you need help with anything, please let us know.</p>
 <h4 id="story-tasks">Story Tasks</h4>
 <p>Story tasks in an epic should generally represent an independent chunk of work that can be implemented. These don't necessarily need to be copied to standalone GitHub issues; it's ok if we just track the story in the epic as a task. On a case by case basis, if a story seems large enough that it warrants its own issue, we can discuss creating one.</p>
