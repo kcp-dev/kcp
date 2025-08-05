@@ -70,8 +70,10 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 		lcsUpd.Finalizers = append(lcsUpd.Finalizers, customFinalizer)
 		_, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Update(ctx, lcsUpd, v1.UpdateOptions{})
 		require.NoError(c, err, "error updating logicalcluster")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for finalizer to be applied and workspace to be deleted")
 
-		// delete the workspace
+	// delete the workspace
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		err = clientset.Cluster(fixtureRoot).TenancyV1alpha1().Workspaces().Delete(ctx, wsName, v1.DeleteOptions{})
 		require.NoError(c, err, "error deleting workspace")
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for finalizer to be applied and workspace to be deleted")
