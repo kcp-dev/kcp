@@ -48,7 +48,7 @@ jobs:
       with:
         distribution: goreleaser
         version: latest
-        args: release --timeout 60m
+        args: release --timeout 60m --parallelism 1 --fail-fast
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
@@ -59,7 +59,7 @@ jobs:
       with:
         distribution: goreleaser
         version: latest
-        args: release --timeout 60m --snapshot
+        args: release --timeout 60m --snapshot --parallelism 1 --fail-fast
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
