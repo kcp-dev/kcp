@@ -20,16 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -262,7 +259,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	deleteErr = c.deleter.Delete(ctx, logicalClusterCopy)
 	if deleteErr == nil {
 		logger.V(4).Info("finished deleting logical cluster content", "duration", time.Since(startTime))
-		return c.finalizeWorkspace(ctx, logicalClusterCopy)
+		return c.finalizeLogicalCluster(ctx, logicalClusterCopy)
 	}
 
 	errs := []error{deleteErr}
@@ -276,13 +273,13 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-// finalizeNamespace removes the specified finalizer and finalizes the logical cluster.
-func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.LogicalCluster) error {
+// finalizeLogicalCluster removes the specified finalizer and finalizes the logical cluster.
+func (c *Controller) finalizeLogicalCluster(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
-	for i := range ws.Finalizers {
-		if ws.Finalizers[i] == deletion.LogicalClusterDeletionFinalizer {
-			ws.Finalizers = append(ws.Finalizers[:i], ws.Finalizers[i+1:]...)
-			clusterName := logicalcluster.From(ws)
+	for i := range lc.Finalizers {
+		if lc.Finalizers[i] == deletion.LogicalClusterDeletionFinalizer {
+			lc.Finalizers = append(lc.Finalizers[:i], lc.Finalizers[i+1:]...)
+			clusterName := logicalcluster.From(lc)
 
 			// TODO(hasheddan): ClusterRole and ClusterRoleBinding cleanup
 			// should be handled by garbage collection when the controller is
@@ -296,52 +293,8 @@ func (c *Controller) finalizeWorkspace(ctx context.Context, ws *corev1alpha1.Log
 				return fmt.Errorf("could not delete clusterrolebindings for logical cluster %s: %w", clusterName, err)
 			}
 
-			if ws.Spec.Owner != nil {
-				gvr := schema.GroupVersionResource{
-					Resource: ws.Spec.Owner.Resource,
-				}
-				comps := strings.SplitN(ws.Spec.Owner.APIVersion, "/", 2)
-				if len(comps) == 2 {
-					gvr.Group = comps[0]
-					gvr.Version = comps[1]
-				} else {
-					gvr.Version = comps[0]
-				}
-				uid := ws.Spec.Owner.UID
-				logger = logger.WithValues("owner.gvr", gvr, "owner.uid", uid, "owner.name", ws.Spec.Owner.Name, "owner.namespace", ws.Spec.Owner.Namespace, "owner.cluster", ws.Spec.Owner.Cluster)
-
-				// remove finalizer from owner
-				logger.Info("checking owner for finalizer")
-				clusterPath := logicalcluster.NewPath(ws.Spec.Owner.Cluster)
-				obj, err := c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Get(ctx, ws.Spec.Owner.Name, metav1.GetOptions{})
-				if err != nil && !apierrors.IsNotFound(err) {
-					return fmt.Errorf("could not get owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
-				} else if err == nil && obj.GetUID() != uid {
-					logger.Info("owner has changed, skipping finalizer removal")
-					return fmt.Errorf("could not get owner %s %s/%s in cluster %s is of wrong UID: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
-				} else if err == nil {
-					finalizers := sets.New[string](obj.GetFinalizers()...)
-					if finalizers.Has(corev1alpha1.LogicalClusterFinalizer) {
-						logger.Info("removing finalizer from owner")
-						finalizers.Delete(corev1alpha1.LogicalClusterFinalizer)
-						obj.SetFinalizers(sets.List[string](finalizers))
-						if obj, err = c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
-							return fmt.Errorf("could not remove finalizer from owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
-						}
-					}
-
-					// delete owner
-					if obj.GetDeletionTimestamp().IsZero() && ws.Spec.DirectlyDeletable {
-						logger.Info("deleting owner")
-						if err := c.dynamicFrontProxyClient.Cluster(clusterPath).Resource(gvr).Namespace(ws.Spec.Owner.Namespace).Delete(ctx, ws.Spec.Owner.Name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}}); err != nil && !apierrors.IsNotFound(err) {
-							return fmt.Errorf("could not delete owner %s %s/%s in cluster %s: %w", gvr, ws.Spec.Owner.Namespace, ws.Spec.Owner.Name, ws.Spec.Owner.Cluster, err)
-						}
-					}
-				}
-			}
-
 			logger.V(2).Info("removing finalizer from LogicalCluster")
-			_, err := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(clusterName.Path()).Update(ctx, ws, metav1.UpdateOptions{})
+			_, err := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(clusterName.Path()).Update(ctx, lc, metav1.UpdateOptions{})
 			return err
 		}
 	}
