@@ -466,7 +466,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		var authIndex authentication.AuthenticatorIndex
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
 			authIndexState := authentication.NewIndex(ctx, genericConfig.Authentication.APIAudiences)
-			authentication.NewShardWatcher(c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
+			authentication.NewShardWatcher(ctx, c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
 
 			genericConfig.Authentication.Authenticator = authenticatorunion.New(
 				genericConfig.Authentication.Authenticator,
