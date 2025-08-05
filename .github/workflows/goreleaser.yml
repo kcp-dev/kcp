@@ -25,6 +25,17 @@ jobs:
       with:
         go-version: v1.24.5
 
+    - name: Download go modules
+      run: |
+        echo "Downloading modules for go.mod"
+        go mod download
+        for gomod in **/go.mod; do
+          echo "Downloading modules for $gomod"
+          cd $(dirname $gomod)
+          go mod download
+          cd -
+        done
+
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
 
