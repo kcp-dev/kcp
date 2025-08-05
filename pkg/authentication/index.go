@@ -207,6 +207,9 @@ func (c *state) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool)
 		authenticatorKeys []authenticatorKey
 	)
 
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
 	for shardKey, authenticatorsMap := range c.workspaceTypeAuthenticators {
 		var found bool
 		authenticatorKeys, found = authenticatorsMap[wsType]

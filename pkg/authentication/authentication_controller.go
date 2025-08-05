@@ -215,7 +215,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return err
 		}
 
-		watcher := NewShardWatcher(shard.Name, client, &c.authIndex)
+		watcher := NewShardWatcher(ctx, shard.Name, client, &c.authIndex)
 		c.shardWatchers[shard.Name] = watcher
 	}
 
@@ -242,10 +242,11 @@ type shardWatcher struct {
 	state                       *state
 	workspaceTypeInformer       cache.SharedIndexInformer
 	workspaceAuthConfigInformer cache.SharedIndexInformer
-	stopCh                      chan struct{}
+	cancel                      context.CancelFunc
 }
 
 func NewShardWatcher(
+	ctx context.Context,
 	shardName string,
 	shardClient kcpclientset.ClusterInterface,
 	state *state,
@@ -288,15 +289,17 @@ func NewShardWatcher(
 		},
 	})
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	watcher := &shardWatcher{
 		state:                       state,
 		workspaceTypeInformer:       wtInformer,
 		workspaceAuthConfigInformer: wacInformer,
-		stopCh:                      make(chan struct{}),
+		cancel:                      cancel,
 	}
 
-	go wacInformer.Run(watcher.stopCh)
-	go wtInformer.Run(watcher.stopCh)
+	go wacInformer.Run(ctx.Done())
+	go wtInformer.Run(ctx.Done())
 
 	// no need to wait. We only care about events and they arrive when they arrive.
 
@@ -304,7 +307,10 @@ func NewShardWatcher(
 }
 
 func (w *shardWatcher) Stop() {
-	close(w.stopCh)
+	if w.cancel != nil {
+		w.cancel()
+		w.cancel = nil
+	}
 }
 
 func (w *shardWatcher) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
