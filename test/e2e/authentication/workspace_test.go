@@ -19,10 +19,12 @@ package authentication
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/xrstf/mockoidc"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +36,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
+	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -53,49 +56,239 @@ func TestWorkspaceOIDC(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err)
 
-	// start a mock OIDC server that will listen on a random port
+	// start a two mock OIDC servers that will listen on random ports
 	// (only for discovery and keyset handling, no actual login workflows)
-	m, ca := startMockOIDC(t, server)
-	defer m.Shutdown() //nolint:errcheck
+	mockA, ca := startMockOIDC(t, server)
+	mockB, _ := startMockOIDC(t, server)
 
-	// setup a new workspace auth config that uses mockoidc's server
-	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "mockoidc",
+	// setup a new workspace auth config that uses mockoidc's server, one for
+	// each of our mockoidc servers
+	authConfigA := createWorkspaceAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockA, ca)
+	authConfigB := createWorkspaceAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockB, ca)
+
+	// use these configs in new WorkspaceTypes and create one extra workspace type that allows
+	// both mockoidc issuers
+	wsTypeA := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfigA)
+	wsTypeB := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfigB)
+	wsTypeC := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfigA, authConfigB)
+
+	// create a new workspace with our new type
+	t.Log("Creating Workspaces...")
+	teamAPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsTypeA)))
+	teamBPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-b"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsTypeB)))
+	teamCPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-c"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsTypeC)))
+
+	// sanity check: owner can access their own workspaces
+	for _, path := range []logicalcluster.Path{teamAPath, teamBPath, teamCPath} {
+		t.Logf("The workspace owner should be allowed to list ConfigMaps in %s...", path)
+		_, err = kubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		require.NoError(t, err)
+	}
+
+	// grant permissions to random users and groups
+	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamAPath, []rbacv1.Subject{{
+		Kind: "User",
+		Name: "oidc:user-a@example.com",
+	}, {
+		Kind: "Group",
+		Name: "oidc:developers",
+	}})
+
+	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamBPath, []rbacv1.Subject{{
+		Kind: "User",
+		Name: "oidc:user-b@example.com",
+	}, {
+		Kind: "Group",
+		Name: "oidc:testers",
+	}, {
+		Kind: "Group",
+		Name: "oidc:developers",
+	}})
+
+	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamCPath, []rbacv1.Subject{{
+		Kind: "User",
+		Name: "oidc:user-c@example.com",
+	}, {
+		Kind: "Group",
+		Name: "oidc:developers",
+	}})
+
+	// random user with random token should have no access
+	randoKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken("invalid-token", kcpConfig))
+	require.NoError(t, err)
+
+	for _, path := range []logicalcluster.Path{teamAPath, teamBPath, teamCPath} {
+		t.Logf("An unauthenticated user shouldn't be able to list ConfigMaps in %s...", path)
+
+		_, err = randoKubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		require.Error(t, err)
+	}
+
+	testcases := []struct {
+		name            string
+		username        string
+		email           string
+		groups          []string
+		mock            *mockoidc.MockOIDC
+		workspaceAccess map[logicalcluster.Path]bool
+	}{
+		{
+			name:     "user-a@example.com should be able to access workspace A only",
+			username: "user-a",
+			email:    "user-a@example.com",
+			groups:   nil,
+			mock:     mockA,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: true,
+				teamBPath: false,
+				teamCPath: false, // user is authenticated but has no permissions in this workspace
+			},
 		},
-		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
-			JWT: []tenancyv1alpha1.JWTAuthenticator{
-				mockJWTAuthenticator(t, m, ca),
+		{
+			name:     "user-b@example.com should be able to access workspace B only",
+			username: "user-b",
+			email:    "user-b@example.com",
+			groups:   nil,
+			mock:     mockB,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: false,
+				teamBPath: true,
+				teamCPath: false, // user is authenticated but has no permissions in this workspace
+			},
+		},
+		{
+			name:     "user-a@example.com (developers) should be able to access workspace A and C",
+			username: "user-a",
+			email:    "user-a@example.com",
+			groups:   []string{"developers"},
+			mock:     mockA,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: true,
+				teamBPath: false,
+				teamCPath: true,
+			},
+		},
+		{
+			name:     "Any user in the developers group should be able to access workspace A and C",
+			username: "random-user",
+			email:    "rando@example.com",
+			groups:   []string{"developers"},
+			mock:     mockA,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: true,
+				teamBPath: false, // false is correct since B does allow developers in, but only from its own issuer!
+				teamCPath: true,
+			},
+		},
+		{
+			name:     "User C, signed by issuer A, is allowed to access workspace C",
+			username: "user-c",
+			email:    "user-c@example.com",
+			groups:   nil,
+			mock:     mockA,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: false,
+				teamBPath: false,
+				teamCPath: true,
+			},
+		},
+		{
+			name:     "User C, signed by issuer B, is allowed to access workspace C",
+			username: "user-c",
+			email:    "user-c@example.com",
+			groups:   nil,
+			mock:     mockB,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: false,
+				teamBPath: false,
+				teamCPath: true,
 			},
 		},
 	}
 
-	t.Log("Creating WorkspaceAuthenticationConfguration...")
-	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
-	require.NoError(t, err)
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
 
-	// use this config in a new WorkspaceType
-	wsType := &tenancyv1alpha1.WorkspaceType{
+			token := createOIDCToken(t, testcase.mock, testcase.username, testcase.email, testcase.groups)
+
+			client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
+			require.NoError(t, err)
+
+			for workspace, expectedResult := range testcase.workspaceAccess {
+				t.Run(workspace.Base(), func(t *testing.T) {
+					t.Parallel()
+
+					if expectedResult {
+						// Initialization of the JWT authenticator happens asynchronously and depends both
+						// on the cluster index knowing the WorkspaceType and the authenticator itself
+						// performing OIDC discovery.
+
+						require.Eventually(t, func() bool {
+							_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+
+							return err == nil
+						}, wait.ForeverTestTimeout, 500*time.Millisecond)
+					} else {
+						_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+						require.Error(t, err, "user should have no access")
+					}
+				})
+			}
+		})
+	}
+}
+
+func createWorkspaceAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {
+	name := fmt.Sprintf("mockoidc-%d", rand.Int())
+
+	// setup a new workspace auth config that uses mockoidc's server
+	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "with-oidc",
+			Name: name,
 		},
-		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
-			AuthenticationConfigurations: []tenancyv1alpha1.AuthenticationConfigurationReference{{
-				Name: authConfig.Name,
-			}},
+		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+			JWT: []tenancyv1alpha1.JWTAuthenticator{
+				mockJWTAuthenticator(t, mock, ca),
+			},
 		},
 	}
 
-	t.Log("Creating WorkspaceType...")
-	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wsType, metav1.CreateOptions{})
+	t.Logf("Creating WorkspaceAuthenticationConfguration %s...", name)
+	_, err := client.Cluster(workspace).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	// create a new workspace with our new type
-	t.Log("Creating Workspace...")
-	team1Path, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team1"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType.Name)))
+	return name
+}
 
-	// grant permissions to OIDC user
-	email := "test@example.com"
+func createWorkspaceType(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, authConfigNames ...string) string {
+	name := fmt.Sprintf("with-oidc-%d", rand.Int())
+
+	configs := []tenancyv1alpha1.AuthenticationConfigurationReference{}
+	for _, name := range authConfigNames {
+		configs = append(configs, tenancyv1alpha1.AuthenticationConfigurationReference{
+			Name: name,
+		})
+	}
+
+	// setup a new workspace auth config that uses mockoidc's server
+	wsType := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			AuthenticationConfigurations: configs,
+		},
+	}
+
+	t.Logf("Creating WorkspaceType %s...", name)
+	_, err := client.Cluster(workspace).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wsType, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	return name
+}
+
+func grantWorkspaceAccess(t *testing.T, ctx context.Context, client kcpkubernetesclientset.ClusterInterface, workspace logicalcluster.Path, subjects []rbacv1.Subject) {
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "allow-oidc-user",
@@ -104,51 +297,10 @@ func TestWorkspaceOIDC(t *testing.T) {
 			Kind: "ClusterRole",
 			Name: "cluster-admin",
 		},
-		Subjects: []rbacv1.Subject{{
-			Kind: "User",
-			Name: fmt.Sprintf("oidc:%s", email),
-		}, {
-			Kind: "Group",
-			Name: "oidc:developers",
-		}},
+		Subjects: subjects,
 	}
 
-	t.Log("Grating OIDC permissions...")
-	_, err = kubeClusterClient.Cluster(team1Path).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	t.Log("Creating ClusterRoleBinding...")
+	_, err := client.Cluster(workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
 	require.NoError(t, err)
-
-	// sanity check: owner can access their own workspace
-	t.Log("Owner should be allowed to list ConfigMaps.")
-	_, err = kubeClusterClient.Cluster(team1Path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-
-	// random user with random token should have no access
-	randoKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken("invalid-token", kcpConfig))
-	require.NoError(t, err)
-
-	t.Log("An unauthenticated user shouldn't be able to list ConfigMaps.")
-	_, err = randoKubeClusterClient.Cluster(team1Path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
-	require.Error(t, err)
-
-	// A user with a valid token from the issuer however should be allowed in.
-	// Test that both group and user claims work as expected.
-	adminToken := createOIDCToken(t, m, "the-admin", email, []string{"admins"})
-	devToken := createOIDCToken(t, m, "the-dev", "developer@example.com", []string{"developers"})
-
-	t.Logf("OIDC-authenticated users should be able to list ConfigMaps.")
-
-	for _, token := range []string{adminToken, devToken} {
-		authenticatedKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
-		require.NoError(t, err)
-
-		// Initialization of the JWT authenticator happens asynchronously and depends both
-		// on the cluster index knowing the WorkspaceType and the authenticator itself
-		// performing OIDC discovery.
-
-		require.Eventually(t, func() bool {
-			_, err := authenticatedKubeClusterClient.Cluster(team1Path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
-
-			return err == nil
-		}, wait.ForeverTestTimeout, 500*time.Millisecond)
-	}
 }
