@@ -3,7 +3,7 @@ description: >
   Improve consistency and reusability of self-service and policy enforcement across multiple Kubernetes clusters.
 ---
 
-# Self-service policy
+# Self-service Policy
 
 ## Goal
 

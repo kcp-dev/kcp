@@ -1,12 +1,14 @@
-### workspaces
+# Storage to REST Patterns
 
-kcp promises to support 1 mln of workspaces. 
-A workspace is like a Kubernetes endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime and others) 
+## Logical Clusters
+
+kcp promises to support 1 million logical clusters. 
+A logical cluster is like a Kubernetes endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime and others) 
 and user interfaces (kubectl, helm, web console, ...) can talk to, just like to a Kubernetes cluster.
-Thus creating a workspace must be efficient, both in terms of storage and compute.
+Thus creating a logical cluster must be efficient, both in terms of storage and compute.
 It also must provide isolation, just like regular clusters.
 
-### etcd
+## etcd
 
 etcd is the primary datastore used by kcp. 
 It stores data in a key-value store. 
@@ -52,7 +54,7 @@ Creating a workspace on the storage layer is very efficient because it boils dow
 It also provides isolation on the lowest possible level.
 Data is filtered by the database engine.
 
-### the generic registry
+## Generic Registry
 
 kcp is based on the generic apiserver library provided by Kubernetes. 
 The central type provided by the library that interacts with a storage layer is called the generic registry. 
