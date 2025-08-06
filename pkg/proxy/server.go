@@ -115,7 +115,12 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 
 	if hasWorkspaceAuth {
 		// This controller is similar to the index controller, but keeps track of the per-workspace authenticators.
-		s.AuthController = authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, nil)
+		ctrl, err := authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start authentication controller: %w", err)
+		}
+
+		s.AuthController = ctrl
 
 		// When workspace auth is enabled, it depends on the target cluster whether
 		// a custom authenticator exists or not. This needs to be determined before

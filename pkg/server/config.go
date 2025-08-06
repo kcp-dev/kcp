@@ -409,6 +409,22 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
 
+	// Prepare an authentication index to be used later by a middleware. We start it early
+	// because it can potentially fail and the BuildHandlerChainFunc() has no way to return
+	// an error.
+	var authIndex authentication.AuthenticatorIndex
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+		// Start an index and a shard watcher to fill this index;
+		// the shard watcher's lifetime is tied to the given context.
+		authIndexState := authentication.NewIndex(ctx, c.GenericConfig.Authentication.APIAudiences)
+		_, err := authentication.NewShardWatcher(ctx, c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start shard watcher: %w", err)
+		}
+
+		authIndex = authIndexState
+	}
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -463,17 +479,11 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// Wrap authenticator with a per-workspace authenticator if desired. This authenticator
 		// requires the WorkspaceAuth middleware to have looked up and injected the relevant
 		// authenticator into the request context already.
-		var authIndex authentication.AuthenticatorIndex
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
-			authIndexState := authentication.NewIndex(ctx, genericConfig.Authentication.APIAudiences)
-			authentication.NewShardWatcher(ctx, c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
-
 			genericConfig.Authentication.Authenticator = authenticatorunion.New(
 				genericConfig.Authentication.Authenticator,
 				authentication.NewWorkspaceAuthenticator(),
 			)
-
-			authIndex = authIndexState
 		}
 
 		// There is ordering here in play:
