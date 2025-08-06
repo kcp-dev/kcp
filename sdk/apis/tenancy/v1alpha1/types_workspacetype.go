@@ -155,12 +155,12 @@ type APIExportReference struct {
 
 // AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.
 type AuthenticationConfigurationReference struct {
-	// configuration is the name of the WorkspaceAuthenticationConfiguration.
+	// name is the name of the WorkspaceAuthenticationConfiguration.
 	//
 	// +required
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
-	Configuration string `json:"configuration"`
+	Name string `json:"name"`
 }
 
 // APIBindingLifecycleMode defines how the lifecycle of an APIBinding is

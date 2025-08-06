@@ -81,7 +81,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 		},
 		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
 			AuthenticationConfigurations: []tenancyv1alpha1.AuthenticationConfigurationReference{{
-				Configuration: authConfig.Name,
+				Name: authConfig.Name,
 			}},
 		},
 	}

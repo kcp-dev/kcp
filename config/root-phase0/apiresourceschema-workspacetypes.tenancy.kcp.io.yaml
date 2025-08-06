@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250725-9ac3dc4fe.workspacetypes.tenancy.kcp.io
+  name: v250806-4c99c4583.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -62,11 +62,11 @@ spec:
                 description: AuthenticationConfigurationReference provides the fields
                   necessary to resolve a WorkspaceAuthenticationConfiguration.
                 properties:
-                  configuration:
-                    description: configuration is the name of the WorkspaceAuthenticationConfiguration.
+                  name:
+                    description: name is the name of the WorkspaceAuthenticationConfiguration.
                     type: string
                 required:
-                - configuration
+                - name
                 type: object
               type: array
             defaultAPIBindingLifecycle:

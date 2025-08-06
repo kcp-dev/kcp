@@ -21,7 +21,7 @@ package v1alpha1
 // AuthenticationConfigurationReferenceApplyConfiguration represents a declarative configuration of the AuthenticationConfigurationReference type for use
 // with apply.
 type AuthenticationConfigurationReferenceApplyConfiguration struct {
-	Configuration *string `json:"configuration,omitempty"`
+	Name *string `json:"name,omitempty"`
 }
 
 // AuthenticationConfigurationReferenceApplyConfiguration constructs a declarative configuration of the AuthenticationConfigurationReference type for use with
@@ -30,10 +30,10 @@ func AuthenticationConfigurationReference() *AuthenticationConfigurationReferenc
 	return &AuthenticationConfigurationReferenceApplyConfiguration{}
 }
 
-// WithConfiguration sets the Configuration field in the declarative configuration to the given value
+// WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Configuration field is set to the value of the last call.
-func (b *AuthenticationConfigurationReferenceApplyConfiguration) WithConfiguration(value string) *AuthenticationConfigurationReferenceApplyConfiguration {
-	b.Configuration = &value
+// If called multiple times, the Name field is set to the value of the last call.
+func (b *AuthenticationConfigurationReferenceApplyConfiguration) WithName(value string) *AuthenticationConfigurationReferenceApplyConfiguration {
+	b.Name = &value
 	return b
 }

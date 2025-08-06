@@ -64,11 +64,11 @@ spec:
                   description: AuthenticationConfigurationReference provides the fields
                     necessary to resolve a WorkspaceAuthenticationConfiguration.
                   properties:
-                    configuration:
-                      description: configuration is the name of the WorkspaceAuthenticationConfiguration.
+                    name:
+                      description: name is the name of the WorkspaceAuthenticationConfiguration.
                       type: string
                   required:
-                  - configuration
+                  - name
                   type: object
                 type: array
               defaultAPIBindingLifecycle:
