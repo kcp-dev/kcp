@@ -43,6 +43,9 @@ func WithWorkspaceAuthResolver(handler http.Handler, authIndex AuthenticatorInde
 			return
 		}
 
+		// make the authenticator always add the target cluster to the user scopes
+		authn = withClusterScope(authn)
+
 		req = req.WithContext(WithWorkspaceAuthenticator(req.Context(), authn))
 		handler.ServeHTTP(w, req)
 	})

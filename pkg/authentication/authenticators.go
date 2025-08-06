@@ -17,9 +17,13 @@ limitations under the License.
 package authentication
 
 import (
+	"fmt"
 	"net/http"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/user"
+
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 type workspaceAuthenticator struct{}
@@ -35,4 +39,38 @@ func (a *workspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authen
 	}
 
 	return reqAuthenticator.AuthenticateRequest(req)
+}
+
+type clusterScoper struct {
+	delegate authenticator.Request
+}
+
+func withClusterScope(delegate authenticator.Request) authenticator.Request {
+	return &clusterScoper{
+		delegate: delegate,
+	}
+}
+
+func (a *clusterScoper) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	response, authenticated, ok := a.delegate.AuthenticateRequest(req)
+	if authenticated {
+		cluster := lookup.ClusterNameFrom(req.Context())
+
+		extra := response.User.GetExtra()
+		if extra == nil {
+			extra = map[string][]string{}
+		}
+		if true {
+			extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster))
+		}
+
+		response.User = &user.DefaultInfo{
+			Name:   response.User.GetName(),
+			UID:    response.User.GetUID(),
+			Groups: response.User.GetGroups(),
+			Extra:  extra,
+		}
+	}
+
+	return response, authenticated, ok
 }
