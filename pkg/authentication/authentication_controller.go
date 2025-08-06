@@ -73,7 +73,7 @@ func NewController(
 	shardInformer corev1alpha1informers.ShardInformer,
 	clientGetter ClusterClientGetter,
 	baseAudiences authenticator.Audiences,
-) *Controller {
+) (*Controller, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{
@@ -93,7 +93,7 @@ func NewController(
 		shardWatchers: map[string]*shardWatcher{},
 	}
 
-	_, _ = shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := shardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			shard := obj.(*corev1alpha1.Shard)
 			c.enqueueShard(ctx, shard)
@@ -116,8 +116,11 @@ func NewController(
 			c.stopShard(shard.Name)
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start Shard informer: %w", err)
+	}
 
-	return c
+	return c, nil
 }
 
 // Start the controller. It does not really do anything, but to keep the shape of a normal
@@ -215,7 +218,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return err
 		}
 
-		watcher := NewShardWatcher(ctx, shard.Name, client, &c.authIndex)
+		watcher, err := NewShardWatcher(ctx, shard.Name, client, &c.authIndex)
+		if err != nil {
+			return fmt.Errorf("failed to start shard watcher: %w", err)
+		}
+
 		c.shardWatchers[shard.Name] = watcher
 	}
 
@@ -250,9 +257,9 @@ func NewShardWatcher(
 	shardName string,
 	shardClient kcpclientset.ClusterInterface,
 	state *state,
-) *shardWatcher {
+) (*shardWatcher, error) {
 	wacInformer := tenancyv1alpha1informers.NewWorkspaceAuthenticationConfigurationClusterInformer(shardClient, resyncPeriod, nil)
-	_, _ = wacInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := wacInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
 			state.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
@@ -269,9 +276,12 @@ func NewShardWatcher(
 			state.DeleteWorkspaceAuthenticationConfiguration(shardName, wac)
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start WorkspaceAuthenticationConfiguration informer: %w", err)
+	}
 
 	wtInformer := tenancyv1alpha1informers.NewWorkspaceTypeClusterInformer(shardClient, resyncPeriod, nil)
-	_, _ = wtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = wtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			wt := obj.(*tenancyv1alpha1.WorkspaceType)
 			state.UpsertWorkspaceType(shardName, wt)
@@ -288,6 +298,9 @@ func NewShardWatcher(
 			state.DeleteWorkspaceType(shardName, wt)
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start WorkspaceType informer: %w", err)
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -303,7 +316,7 @@ func NewShardWatcher(
 
 	// no need to wait. We only care about events and they arrive when they arrive.
 
-	return watcher
+	return watcher, nil
 }
 
 func (w *shardWatcher) Stop() {
