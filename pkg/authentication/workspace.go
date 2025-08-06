@@ -22,14 +22,10 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 )
 
-type workspaceAuthenticator struct {
-	authIndex AuthenticatorIndex
-}
+type workspaceAuthenticator struct{}
 
-func NewWorkspaceAuthenticator(authIndex AuthenticatorIndex) authenticator.Request {
-	return &workspaceAuthenticator{
-		authIndex: authIndex,
-	}
+func NewWorkspaceAuthenticator() authenticator.Request {
+	return &workspaceAuthenticator{}
 }
 
 func (a *workspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {

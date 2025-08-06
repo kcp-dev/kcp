@@ -470,7 +470,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 			genericConfig.Authentication.Authenticator = authenticatorunion.New(
 				genericConfig.Authentication.Authenticator,
-				authentication.NewWorkspaceAuthenticator(authIndexState),
+				authentication.NewWorkspaceAuthenticator(),
 			)
 
 			authIndex = authIndexState
@@ -491,7 +491,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// the authentication middleware can run, as it needs to know about the
 		// workspace authenticator.
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
-			apiHandler = authentication.WithWorkspaceAuthentication(apiHandler, authIndex)
+			apiHandler = authentication.WithWorkspaceAuthResolver(apiHandler, authIndex)
 		}
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
