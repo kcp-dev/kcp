@@ -25,7 +25,7 @@
     
     
       
-        <title>Transparent multi-cluster - docs.kcp.io</title>
+        <title>Transparent Multi-Cluster - docs.kcp.io</title>
       
     
     
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Transparent multi-cluster
+              Transparent Multi-Cluster
             
           </span>
         </div>
@@ -1489,29 +1489,10 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+    
+    
+      
         
-  
-  <span class="md-ellipsis">
-    Storage to rest patterns
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
       
         
       
@@ -1527,10 +1508,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2" >
         
           
-          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1541,8 +1522,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2">
             <span class="md-nav__icon md-icon"></span>
             Controllers
           </label>
@@ -1569,9 +1550,51 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../controllers/client-go/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    client-go
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage to REST Patterns
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -1748,7 +1771,7 @@
         
   
   <span class="md-ellipsis">
-    Logical clusters
+    Logical Clusters
   </span>
   
 
@@ -1790,7 +1813,7 @@
         
   
   <span class="md-ellipsis">
-    Self-service policy
+    Self-service Policy
   </span>
   
 
@@ -1820,7 +1843,7 @@
           
   
   <span class="md-ellipsis">
-    Transparent multi-cluster
+    Transparent Multi-Cluster
   </span>
   
 
@@ -1831,7 +1854,7 @@
         
   
   <span class="md-ellipsis">
-    Transparent multi-cluster
+    Transparent Multi-Cluster
   </span>
   
 
@@ -1851,15 +1874,6 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#note-this-was-a-prototype-that-was-not-continued-the-ideas-here-are-still-valid-and-could-be-picked-up-by-a-future-project" class="md-nav__link">
-    <span class="md-ellipsis">
-      NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.
-    </span>
-  </a>
-  
-</li>
       
         <li class="md-nav__item">
   <a href="#goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail" class="md-nav__link">
@@ -3404,15 +3418,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#note-this-was-a-prototype-that-was-not-continued-the-ideas-here-are-still-valid-and-could-be-picked-up-by-a-future-project" class="md-nav__link">
-    <span class="md-ellipsis">
-      NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail" class="md-nav__link">
     <span class="md-ellipsis">
       Goal: The majority of applications and teams should have workflows where cluster is a detail
@@ -3538,8 +3543,11 @@
   
 
 
-<h1 id="transparent-multi-cluster">Transparent multi-cluster</h1>
-<h2 id="note-this-was-a-prototype-that-was-not-continued-the-ideas-here-are-still-valid-and-could-be-picked-up-by-a-future-project">NOTE: This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.</h2>
+<h1 id="transparent-multi-cluster">Transparent Multi-Cluster</h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project. </p>
+</div>
 <p>A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can "break-glass" and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it's a detail determined by some human or automated process.</p>
 <p>A key area of investigation for <code>kcp</code> is exploring transparency of workloads to clusters. Aspirationally we want Kube workloads to be resilient to the operational characteristics of the underlying infrastructure and clusters orthogonally to the workload, by isolating the user from knowing of the details of the infrastructure. If workload APIs are more consistently "node-less" and "cluster-agnostic" that opens up ways to drive workload consistency across a large swathe of the compute landscape.</p>
 <h2 id="goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail">Goal: The majority of applications and teams should have workflows where cluster is a detail</h2>

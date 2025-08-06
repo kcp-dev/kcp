@@ -25,7 +25,7 @@
     
     
       
-        <title>Logical clusters - docs.kcp.io</title>
+        <title>Logical Clusters - docs.kcp.io</title>
       
     
     
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Logical clusters
+              Logical Clusters
             
           </span>
         </div>
@@ -1489,29 +1489,10 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+    
+    
+      
         
-  
-  <span class="md-ellipsis">
-    Storage to rest patterns
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
       
         
       
@@ -1527,10 +1508,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2" >
         
           
-          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1541,8 +1522,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2">
             <span class="md-nav__icon md-icon"></span>
             Controllers
           </label>
@@ -1569,9 +1550,51 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../controllers/client-go/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    client-go
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage to REST Patterns
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -1757,7 +1780,7 @@
           
   
   <span class="md-ellipsis">
-    Logical clusters
+    Logical Clusters
   </span>
   
 
@@ -1768,7 +1791,7 @@
         
   
   <span class="md-ellipsis">
-    Logical clusters
+    Logical Clusters
   </span>
   
 
@@ -1980,7 +2003,7 @@
         
   
   <span class="md-ellipsis">
-    Self-service policy
+    Self-service Policy
   </span>
   
 
@@ -2001,7 +2024,7 @@
         
   
   <span class="md-ellipsis">
-    Transparent multi-cluster
+    Transparent Multi-Cluster
   </span>
   
 
@@ -3604,7 +3627,7 @@
   
 
 
-<h1 id="logical-clusters">Logical clusters</h1>
+<h1 id="logical-clusters">Logical Clusters</h1>
 <p>Kubernetes evolved from and was influenced by earlier systems that had weaker internal tenancy than a general-purpose compute platform requires. The namespace, quota, admission, and RBAC concepts were all envisioned quite early in the project, but evolved with Kubernetes and not all impacts to future evolution were completely anticipated. Tenancy within clusters is handled at the resource and namespace level, and within a namespace there are a limited number of boundaries. Most organizations use either namespace or cluster separation as their primary unit of self service, with variations leveraging a rich ecosystem of tools.</p>
 <p>The one concrete component that cannot be tenanted are API resources - from a Kubernetes perspective we have too much history and ecosystem to desire a change, and so intra-cluster tenancy will always be at its weakest when users desire to add diverse extensions and tools. In addition, controllers are practically limited to a cluster scope or a namespace scope by the design of our APIs and authorization models and so intra-cluster tenancy for extensions is particularly weak (you can't prevent an ingress controller from viewing "all secrets").</p>
 <p>Our admission chain has historically been very powerful and allowed deep policy to be enforced for tenancy, but the lack of a dynamic plugin model in golang has limited us to what can be accomplished to external RPC webhooks which have a number of significant performance and reliability impacts (especially when coupled to the cluster the webhook is acting on). If we want to have larger numbers of tenants or stronger subdivision, we need to consider improving the scalability of our policy chain in a number of dimensions.</p>

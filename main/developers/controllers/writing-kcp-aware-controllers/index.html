@@ -14,10 +14,10 @@
         <link rel="canonical" href="https://docs.kcp.io/kcp/main/developers/controllers/writing-kcp-aware-controllers/">
       
       
-        <link rel="prev" href="../../storage-to-rest-patterns/">
+        <link rel="prev" href="../../">
       
       
-        <link rel="next" href="../../internals/etcd-structure/">
+        <link rel="next" href="../client-go/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -1487,33 +1487,14 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+  
+    
+    
+      
         
-  
-  <span class="md-ellipsis">
-    Storage to rest patterns
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
       
         
       
@@ -1527,10 +1508,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1541,8 +1522,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_2">
             <span class="md-nav__icon md-icon"></span>
             Controllers
           </label>
@@ -1601,20 +1582,26 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#keys-for-objects-in-listersindexers" class="md-nav__link">
+  <a href="#multicluster-runtime" class="md-nav__link">
     <span class="md-ellipsis">
-      Keys for Objects in Listers/Indexers
+      multicluster-runtime
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="multicluster-runtime">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#providers-for-kcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Providers for kcp
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#encodingdecoding-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      Encoding/Decoding Keys
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1627,9 +1614,51 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../client-go/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    client-go
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../storage-to-rest-patterns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Storage to REST Patterns
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -1806,7 +1835,7 @@
         
   
   <span class="md-ellipsis">
-    Logical clusters
+    Logical Clusters
   </span>
   
 
@@ -1848,7 +1877,7 @@
         
   
   <span class="md-ellipsis">
-    Self-service policy
+    Self-service Policy
   </span>
   
 
@@ -1869,7 +1898,7 @@
         
   
   <span class="md-ellipsis">
-    Transparent multi-cluster
+    Transparent Multi-Cluster
   </span>
   
 
@@ -3305,20 +3334,26 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#keys-for-objects-in-listersindexers" class="md-nav__link">
+  <a href="#multicluster-runtime" class="md-nav__link">
     <span class="md-ellipsis">
-      Keys for Objects in Listers/Indexers
+      multicluster-runtime
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="multicluster-runtime">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#providers-for-kcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Providers for kcp
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#encodingdecoding-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      Encoding/Decoding Keys
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3341,68 +3376,30 @@
 
 
 <h1 id="writing-kcp-aware-controllers">Writing kcp-aware Controllers</h1>
-<h2 id="keys-for-objects-in-listersindexers">Keys for Objects in Listers/Indexers</h2>
-<p>When you need to get an object from a kcp-aware lister or an indexer, you can't just pass the object's name to the
-<code>Get()</code> function, like you do with a typical controller targeting Kubernetes. Projects using kcp's copy of client-go
-are using a modified key function.</p>
-<p>Here are what keys look like for an object <code>foo</code> for both cluster-scoped and namespace-scoped varieties:</p>
-<table>
-<thead>
-<tr>
-<th>Organization</th>
-<th>Workspace</th>
-<th>Logical Cluster</th>
-<th>Namespace</th>
-<th>Key</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>-</td>
-<td>-</td>
-<td>root</td>
-<td>-</td>
-<td>root</td>
-</tr>
-<tr>
-<td>-</td>
-<td>-</td>
-<td>root</td>
-<td>default</td>
-<td>default/root</td>
-</tr>
-<tr>
-<td>root</td>
-<td>my-org</td>
-<td>root:my-org</td>
-<td>-</td>
-<td>root:my-org</td>
-</tr>
-<tr>
-<td>root</td>
-<td>my-org</td>
-<td>root:my-org</td>
-<td>default</td>
-<td>default/root:my-org</td>
-</tr>
-<tr>
-<td>my-org</td>
-<td>my-workspace</td>
-<td>my-org:my-workspace</td>
-<td>-</td>
-<td>my-org:my-workspace</td>
-</tr>
-<tr>
-<td>my-org</td>
-<td>my-workspace</td>
-<td>my-org:my-workspace</td>
-<td>default</td>
-<td>default/my-org:my-workspace</td>
-</tr>
-</tbody>
-</table>
-<h2 id="encodingdecoding-keys">Encoding/Decoding Keys</h2>
-<p>Use the <code>github.com/kcp-dev/apimachinery/pkg/cache</code> package to encode and decode keys.</p>
+<p>While kcp follows the Kubernetes Resource Model (KRM) closely, its multi-tenancy capabilities via workspaces / logical clusters
+make normal Kubernetes controllers somewhat limited in usefulness, since they generally expect a single Kubernetes API endpoint
+(which would correspond to a single logical cluster). While kcp exposes something called <a href="../../../concepts/workspaces/virtual-workspaces/">virtual workspaces</a>,
+their API semantics are also different from standard Kubernetes API endpoints and thus, controllers written for Kubernetes
+cannot be used against them.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>kcp has previously maintained a <a href="https://github.com/kubernetes-sigs/controller-runtime">controller-runtime</a> fork under <a href="https://github.com/kcp-dev/controller-runtime">kcp-dev/controller-runtime</a>.
+While it likely still works, we recommend migration to multicluster-runtime (see below).</p>
+</div>
+<h2 id="multicluster-runtime">multicluster-runtime</h2>
+<p><a href="https://github.com/kubernetes-sigs/multicluster-runtime">multicluster-runtime</a> is an effort initiated by kcp developers in the upstream
+community to provide a framework for building multi-cluster controllers. multicluster-runtime is <strong>not</strong> a fork of controller-runtime,
+instead it is a sort of "addon" built on top of controller-runtime's excellent Go generic support. While the project is relatively young
+and deemed experimental, we are confident in its ability to provide a great controller development experience for kcp.</p>
+<p>The runtime itself is generic and needs a so-called provider that provides it with information about the fleet of clusters
+it is supposed to reconcile over. A small ecosystem of providers exists already. The relevant provider for writing kcp-aware
+controllers is described below.</p>
+<p>For more information, also feel free to check out the <a href="https://www.youtube.com/watch?v=Tz8IcMSY7jw">talk introducing multicluster-runtime at KubeCon + CloudNativeCon EU in London, 2025</a>.</p>
+<h3 id="providers-for-kcp">Providers for kcp</h3>
+<p>kcp hosts a repository for kcp-specific provider implementations at <a href="https://github.com/kcp-dev/multicluster-provider">kcp-dev/multicluster-provider</a>.</p>
+<p>Which provider to choose depends on the controller that is to be written, but there is a good chance you want to write a controller for resources
+distributed via an <a href="../../../concepts/apis/exporting-apis/">APIExport</a>. In that case, you should choose the <code>apiexport</code> provider from the repository.</p>
+<p>The provider repository also includes examples, including <a href="https://github.com/kcp-dev/multicluster-provider/tree/main/examples/apiexport">one for the <code>apiexport</code> provider</a>.</p>
 
 
 
