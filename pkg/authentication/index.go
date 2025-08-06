@@ -81,7 +81,7 @@ func (c *state) UpsertWorkspaceType(shard string, wst *tenancyv1alpha1.Workspace
 	for _, authConfig := range wst.Spec.AuthenticationConfigurations {
 		authenticators = append(authenticators, authenticatorKey{
 			cluster: clusterName,
-			name:    authConfig.Configuration,
+			name:    authConfig.Name,
 		})
 	}
 
