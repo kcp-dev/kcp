@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"net"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -74,6 +75,14 @@ func startMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoi
 	m, err := mockoidc.RunTLS(tlsConfig)
 	require.NoError(t, err)
 
+	// Since most tests run in parallel, the main test will end sooner than the subtests and so
+	// if we'd use `defer m.Shutdown()`, that defer would run before the subtests are even executed.
+	// t.Cleanup() is a bit more picky and to avoid repetitive closures, this function sets up the
+	// necessary shutdown code already.
+	t.Cleanup(func() {
+		require.NoError(t, m.Shutdown())
+	})
+
 	return m, ca
 }
 
@@ -102,6 +111,8 @@ func mockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA) ten
 	}
 }
 
+var tokenLock sync.Mutex
+
 func createOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email string, groups []string) string {
 	var (
 		cfg                 = mock.Config()
@@ -111,6 +122,10 @@ func createOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email strin
 		codeChallenge       = "nothing-to-see-here"
 		codeChallengeMethod = cfg.CodeChallengeMethodsSupported[0]
 	)
+
+	// NewSession() is not concurrency safe, but we want to allow parallel tests.
+	tokenLock.Lock()
+	defer tokenLock.Unlock()
 
 	session, err := mock.SessionStore.NewSession(scope, nonce, &mockoidc.MockUser{
 		Subject: subject,
