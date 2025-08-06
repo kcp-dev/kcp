@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xrstf/mockoidc"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -237,6 +238,72 @@ func TestWorkspaceOIDC(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUserScope(t *testing.T) {
+	framework.Suite(t, "control-plane")
+
+	ctx := context.Background()
+
+	// start kcp and setup clients
+	server := kcptesting.SharedKcpServer(t)
+
+	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("oidc-scope"))
+
+	kcpConfig := server.BaseConfig(t)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+
+	mock, ca := startMockOIDC(t, server)
+	authConfig := createWorkspaceAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca)
+	wsType := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfig)
+
+	// create a new workspace with our new type
+	t.Log("Creating Workspaces...")
+	teamPath, teamWs := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
+
+	var (
+		userName       = "peter"
+		userEmail      = "peter@example.com"
+		userGroups     = []string{"developers", "admins"}
+		expectedGroups = []string{}
+	)
+
+	for _, group := range userGroups {
+		expectedGroups = append(expectedGroups, "oidc:"+group)
+	}
+
+	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, []rbacv1.Subject{{
+		Kind: "User",
+		Name: "oidc:" + userEmail,
+	}})
+
+	token := createOIDCToken(t, mock, userName, userEmail, userGroups)
+
+	peterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
+	require.NoError(t, err)
+
+	t.Logf("Creating SelfSubjectAccessReview in %s", teamPath)
+
+	var review *authenticationv1.SelfSubjectReview
+	require.Eventually(t, func() bool {
+		request := &authenticationv1.SelfSubjectReview{}
+
+		var err error
+		review, err = peterClient.Cluster(teamPath).AuthenticationV1().SelfSubjectReviews().Create(ctx, request, metav1.CreateOptions{})
+		if err != nil {
+			t.Log(err)
+		}
+
+		return err == nil
+	}, wait.ForeverTestTimeout, 500*time.Millisecond)
+
+	user := review.Status.UserInfo
+	require.Equal(t, "oidc:"+userEmail, user.Username)
+	require.Subset(t, user.Groups, expectedGroups)
+	require.Equal(t, user.Extra["authentication.kcp.io/scopes"], authenticationv1.ExtraValue{"cluster:" + teamWs.Spec.Cluster})
 }
 
 func createWorkspaceAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {

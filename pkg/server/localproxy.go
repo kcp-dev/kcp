@@ -199,6 +199,7 @@ func WithLocalProxy(
 			cluster.Name = clusterName
 		}
 		ctx = request.WithCluster(ctx, cluster)
+		ctx = lookup.WithClusterName(ctx, cluster.Name)
 		ctx = lookup.WithWorkspaceType(ctx, r.Type)
 
 		handler.ServeHTTP(w, req.WithContext(ctx))
