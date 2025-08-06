@@ -25,11 +25,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-// WithWorkspaceAuthentication looks up the target cluster in the given auth index
+// WithWorkspaceAuthResolver looks up the target cluster in the given auth index
 // to populate a possible workspace authenticator in the request's context. This
 // is used to let other middlewares know about the existence of additional auth
 // options.
-func WithWorkspaceAuthentication(handler http.Handler, authIndex AuthenticatorIndex) http.Handler {
+func WithWorkspaceAuthResolver(handler http.Handler, authIndex AuthenticatorIndex) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		wsType := lookup.WorkspaceTypeFrom(req.Context())
 		if wsType.Empty() {

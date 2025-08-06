@@ -121,7 +121,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		// a custom authenticator exists or not. This needs to be determined before
 		// the optionalAuthentication middleware can run, as it needs to know about
 		// the workspace authenticator.
-		handler = authentication.WithWorkspaceAuthentication(handler, s.AuthController)
+		handler = authentication.WithWorkspaceAuthResolver(handler, s.AuthController)
 	}
 
 	if hasShardMapping {
