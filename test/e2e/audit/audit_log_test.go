@@ -31,6 +31,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -53,7 +54,7 @@ func TestAuditLogs(t *testing.T) {
 	cfg := server.BaseConfig(t)
 
 	t.Log("Creating org workspace")
-	wsPath, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	workspaceKubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 

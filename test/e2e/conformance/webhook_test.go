@@ -38,6 +38,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
@@ -90,7 +91,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 	dirPath := filepath.Dir(server.KubeconfigPath())
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	ws2Path, ws2 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	paths := []logicalcluster.Path{ws1Path, ws2Path}
@@ -210,7 +211,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 	dirPath := filepath.Dir(server.KubeconfigPath())
 	testWebhook.StartTLS(t, filepath.Join(dirPath, "apiserver.crt"), filepath.Join(dirPath, "apiserver.key"), cfg.Host, port)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	ws2Path, ws2 := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	paths := []logicalcluster.Path{ws1Path, ws2Path}

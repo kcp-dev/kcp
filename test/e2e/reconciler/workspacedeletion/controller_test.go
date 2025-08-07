@@ -62,7 +62,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "create and clean workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Create a workspace with a shard")
 				workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
@@ -194,7 +194,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "nested workspace cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				orgPath, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Should have finalizer in org workspace")
 				require.Eventually(t, func() bool {

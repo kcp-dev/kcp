@@ -36,6 +36,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
@@ -50,7 +51,7 @@ func TestServiceAccounts(t *testing.T) {
 	t.Cleanup(cancelFunc)
 
 	server := kcptesting.SharedKcpServer(t)
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
@@ -279,7 +280,7 @@ func TestServiceAccounts(t *testing.T) {
 				// See https://github.com/kcp-dev/kcp/issues/3397
 				t.Skip()
 				t.Log("Create namespace with the same name")
-				otherOrgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+				otherOrgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, otherOrgPath)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{

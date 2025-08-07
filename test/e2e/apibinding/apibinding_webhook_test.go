@@ -45,6 +45,7 @@ import (
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
@@ -64,7 +65,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
@@ -249,7 +250,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
