@@ -70,8 +70,8 @@ for prow_image_version in $(sed -nE -e '/kcp-dev\/infra/ s#^.*:([1-9.-rc]+)-[1-9
     fi
 done
 
-if ! go version | grep -q "go${minimum_go_version}"; then
-    echo "  Wrong go version installed, expected ${minimum_go_version}"
+if [[ "$CI" == true ]] && ! go version | grep -q "go${build_go_version}"; then
+    echo "  Wrong go version detected, expected ${build_go_version}"
     errors=$((errors + 1))
 fi
 
