@@ -38,7 +38,6 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 func TestPartitionSet(t *testing.T) {
@@ -49,7 +48,7 @@ func TestPartitionSet(t *testing.T) {
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	partitionClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("partitionset"))
 
 	cfg := server.BaseConfig(t)
@@ -269,7 +268,7 @@ func TestPartitionSetAdmission(t *testing.T) {
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	partitionClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("partitionset-admission"))
 
 	cfg := server.BaseConfig(t)

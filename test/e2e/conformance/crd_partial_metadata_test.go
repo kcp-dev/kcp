@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -53,7 +54,7 @@ func TestPartialMetadataCRD(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	workspacePath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	workspacePath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	workspaceCRDClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating crd cluster client")
 
@@ -164,7 +165,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	cfg := server.BaseConfig(t)
 
 	// Create ws1. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
-	workspace1Path, workspace1 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	workspace1Path, workspace1 := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating workspace1 CRD client")
 
@@ -229,7 +230,7 @@ func TestPartialMetadataSameCRDMultipleWorkspaces(t *testing.T) {
 	}, kcptestinghelpers.Is(conditionsv1alpha1.ConditionType(apiextensionsv1.Established)))
 
 	// Create ws2. Using the root shard because both ws1 and ws2 must be on the same shard to exercise this issue.
-	workspace2Path, workspace2 := framework.NewOrganizationFixture(t, server, kcptesting.WithRootShard()) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	workspace2Path, workspace2 := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	require.NoError(t, err)
 
 	// Install CRD with only v2

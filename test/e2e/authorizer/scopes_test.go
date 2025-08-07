@@ -36,6 +36,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -47,7 +48,7 @@ func TestSubjectAccessReview(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	wsPath, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	clusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -170,7 +171,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
-	wsPath, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	t.Log("User scoped to a another workspace has no access in the beginning")
 	foreignConfig := rest.CopyConfig(cfg)

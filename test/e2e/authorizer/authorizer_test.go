@@ -47,6 +47,7 @@ import (
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -73,7 +74,7 @@ func TestAuthorizer(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	org1, _ := framework.NewOrganizationFixture(t, server, kcptesting.WithNamePrefix("org1")) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	org1, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithNamePrefix("org1"), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	org2, _ := framework.NewRootShardOrganizationFixture(t, server, kcptesting.PrivilegedWorkspaceOption(kcptesting.WithNamePrefix("org2")), framework.WithRequiredGroups("empty-group"))
 
 	kcptesting.NewWorkspaceFixture(t, server, org1, kcptesting.WithName("workspace1"))

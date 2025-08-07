@@ -61,6 +61,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -96,7 +97,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct wildwest cluster client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
@@ -342,7 +343,7 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	ws1Path, ws1 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("workspace1"))
 	ws2Path, ws2 := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("workspace2"))
 
@@ -571,7 +572,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Cleanup(cancel)
 
 	// Need to Create a Producer w/ APIExport
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	claimerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("claimer"))
 	sheriffProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider"))
 	serviceProviderSheriffsNotUsed, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider-unused"))
@@ -849,7 +850,7 @@ func TestAPIExportClaimableBuiltInAPIsDrift(t *testing.T) {
 	require.NoError(t, err, "failed to construct discovery client for server")
 
 	t.Logf("Creating a normal workspace")
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	anyPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	t.Logf("Gathering APIs for %s", anyPath)
