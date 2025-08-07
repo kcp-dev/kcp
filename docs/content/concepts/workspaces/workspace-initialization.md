@@ -97,10 +97,77 @@ You can use this url to construct a kubeconfig for your controller. To do so, us
 
 When writing a custom initializer, the following needs to be taken into account:
 
-* You need to use the kcp-dev controller-runtime fork, as regular controller-runtime is not able to work as under the hood all LogicalClusters have the sam name
+* We strongly recommend to use the kcp [initializingworkspace multicluster-provider](github.com/kcp-dev/multicluster-provider) to build your custom initializer
 * You need to update LogicalClusters using patches; They cannot be updated using the update api
 
 Keeping this in mind, you can use the following example as a starting point for your intitialization controller
+
+=== "reconcile.go"
+
+    ```Go
+    package main
+
+    import (
+      "context"
+      "slices"
+     
+      "github.com/go-logr/logr"
+      kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+      "github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+      ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+      "sigs.k8s.io/controller-runtime/pkg/cluster"
+      "sigs.k8s.io/controller-runtime/pkg/reconcile"
+      mcbuilder "sigs.k8s.io/multicluster-runtime/pkg/builder"
+      mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
+      mcreconcile "sigs.k8s.io/multicluster-runtime/pkg/reconcile"
+     )
+     
+     type Reconciler struct {
+      Log             logr.Logger
+      InitializerName kcpcorev1alpha1.LogicalClusterInitializer
+      ClusterGetter   func(context.Context, string) (cluster.Cluster, error)
+     }
+     
+     func (r *Reconciler) Reconcile(ctx context.Context, req mcreconcile.Request) (reconcile.Result, error) {
+      log := r.Log.WithValues("clustername", req.ClusterName)
+      log.Info("Reconciling")
+     
+      // create a client scoped to the logical cluster the request came from
+      cluster, err := r.ClusterGetter(ctx, req.ClusterName)
+      if err != nil {
+       return reconcile.Result{}, err
+      }
+      client := cluster.GetClient()
+     
+      lc := &kcpcorev1alpha1.LogicalCluster{}
+      if err := client.Get(ctx, req.NamespacedName, lc); err != nil {
+       return reconcile.Result{}, err
+      }
+     
+      // check if your initializer is still set on the logicalcluster
+      if slices.Contains(lc.Status.Initializers, r.InitializerName) {
+     
+       // your logic to initialize a Workspace goes here
+       log.Info("Starting to initialize cluster")
+     
+       // after your initialization is done, don't forget to remove your initializer.
+       // You will need to use patch, to update the LogicalCluster
+       patch := ctrlclient.MergeFrom(lc.DeepCopy())
+       lc.Status.Initializers = initialization.EnsureInitializerAbsent(r.InitializerName, lc.Status.Initializers)
+       if err := client.Status().Patch(ctx, lc, patch); err != nil {
+        return reconcile.Result{}, err
+       }
+      }
+     
+      return reconcile.Result{}, nil
+     }
+     
+     func (r *Reconciler) SetupWithManager(mgr mcmanager.Manager) error {
+      return mcbuilder.ControllerManagedBy(mgr).
+       For(&kcpcorev1alpha1.LogicalCluster{}).
+       Complete(r)
+     }
+    ```
 
 === "main.go"
 
@@ -112,139 +179,72 @@ Keeping this in mind, you can use the following example as a starting point for 
       "fmt"
       "log/slog"
       "os"
-      "slices"
       "strings"
-
+     
       "github.com/go-logr/logr"
       kcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-      "github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+      "github.com/kcp-dev/multicluster-provider/initializingworkspaces"
+      "golang.org/x/sync/errgroup"
+      "k8s.io/client-go/kubernetes/scheme"
       "k8s.io/client-go/tools/clientcmd"
       ctrl "sigs.k8s.io/controller-runtime"
-      "sigs.k8s.io/controller-runtime/pkg/client"
-      "sigs.k8s.io/controller-runtime/pkg/kcp"
       "sigs.k8s.io/controller-runtime/pkg/manager"
-      "sigs.k8s.io/controller-runtime/pkg/reconcile"
-    )
-
-    type Reconciler struct {
-      Client          client.Client
-      Log             logr.Logger
-      InitializerName kcpcorev1alpha1.LogicalClusterInitializer
-    }
-
-    func main() {
+      mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
+     )
+     
+     // glue and setup code
+     func main() {
       if err := execute(); err != nil {
-        fmt.Println(err)
-        os.Exit(1)
+       fmt.Println(err)
+       os.Exit(1)
       }
-    }
-
-    func execute() error {
-      kubeconfigpath := "<path-to-kubeconfig>"
-
+     }
+     func execute() error {
+      // your kubeconfig here
+      kubeconfigpath := "<your-kubeconfig>"
+     
       config, err := clientcmd.BuildConfigFromFlags("", kubeconfigpath)
       if err != nil {
-        return err
+       return err
       }
-
-      logger := logr.FromSlogHandler(slog.NewTextHandler(os.Stderr, nil))
-      ctrl.SetLogger(logger)
-
-      mgr, err := kcp.NewClusterAwareManager(config, manager.Options{
-        Logger: logger,
-      })
-      if err != nil {
-        return err
-      }
-      if err := kcpcorev1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-        return err
-      }
-
+     
       // since the initializers name is is the last part of the hostname, we can take it from there
       initializerName := config.Host[strings.LastIndex(config.Host, "/")+1:]
-
-      r := Reconciler{
-        Client:          mgr.GetClient(),
-        Log:             mgr.GetLogger().WithName("initializer-controller"),
-        InitializerName: kcpcorev1alpha1.LogicalClusterInitializer(initializerName),
+     
+      provider, err := initializingworkspaces.New(config, initializingworkspaces.Options{InitializerName: initializerName})
+      if err != nil {
+       return err
       }
-
+     
+      logger := logr.FromSlogHandler(slog.NewTextHandler(os.Stderr, nil))
+      ctrl.SetLogger(logger)
+     
+      mgr, err := mcmanager.New(config, provider, manager.Options{Logger: logger})
+      if err != nil {
+       return err
+      }
+     
+      // add the logicalcluster scheme
+      if err := kcpcorev1alpha1.AddToScheme(scheme.Scheme); err != nil {
+       return err
+      }
+     
+      r := Reconciler{
+       Log:             mgr.GetLogger().WithName("initializer-controller"),
+       InitializerName: kcpcorev1alpha1.LogicalClusterInitializer(initializerName),
+       ClusterGetter:   mgr.GetCluster,
+      }
+     
       if err := r.SetupWithManager(mgr); err != nil {
-        return err
+       return err
       }
       mgr.GetLogger().Info("Setup complete")
-
-      if err := mgr.Start(context.Background()); err != nil {
-        return err
-      }
-
-      return nil
-    }
-
-    func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-      return ctrl.NewControllerManagedBy(mgr).
-        For(&kcpcorev1alpha1.LogicalCluster{}).
-        // we need to use kcp.WithClusterInContext here to target the correct logical clusters during reconciliation
-        Complete(kcp.WithClusterInContext(r))
-    }
-
-    func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-      log := r.Log.WithValues("clustername", req.ClusterName)
-      log.Info("Reconciling")
-
-      lc := &kcpcorev1alpha1.LogicalCluster{}
-      if err := r.Client.Get(ctx, req.NamespacedName, lc); err != nil {
-        return reconcile.Result{}, err
-      }
-
-      // check if your initializer is still set on the logicalcluster
-      if slices.Contains(lc.Status.Initializers, r.InitializerName) {
-
-        log.Info("Starting to initialize cluster")
-        // your logic here to initialize a Workspace
-
-        // after your initialization is done, don't forget to remove your initializer
-        // Since LogicalCluster objects cannot be directly updated, we need to create a patch.
-        patch := client.MergeFrom(lc.DeepCopy())
-        lc.Status.Initializers = initialization.EnsureInitializerAbsent(r.InitializerName, lc.Status.Initializers)
-        if err := r.Client.Status().Patch(ctx, lc, patch); err != nil {
-          return reconcile.Result{}, err
-        }
-      }
-
-      return reconcile.Result{}, nil
-    }
-    ```
-
-=== "kubeconfig"
-
-    ```yaml
-    apiVersion: v1
-    clusters:
-    - cluster:
-        certificate-authority-data: <your-certificate-authority>
-        # obtain the server url from the status of your WorkspaceType
-        server: "<initializing-workspace-url>"
-      name: finalizer
-    contexts:
-    - context:
-        cluster: finalizer
-        user: <user-with-sufficient-permissions>
-      name: finalizer
-    current-context: finalizer
-    kind: Config
-    preferences: {}
-    users:
-    - name: <user-with-sufficient-permissions>
-      user:
-        token: <user-token>
-    ```
-
-=== "go.mod"
-
-    ```Go
-    ...
-    // replace upstream controller-runtime with kcp cluster aware fork
-    replace sigs.k8s.io/controller-runtime v0.19.7 => github.com/kcp-dev/controller-runtime v0.19.0-kcp.1
-    ...
+     
+      // start the provider and manager
+      g, ctx := errgroup.WithContext(context.Background())
+      g.Go(func() error { return provider.Run(ctx, mgr) })
+      g.Go(func() error { return mgr.Start(ctx) })
+     
+      return g.Wait()
+     }
     ```
