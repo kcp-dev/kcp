@@ -63,9 +63,10 @@ type UseWorkspaceOptions struct {
 	startingConfig   *clientcmdapi.Config
 
 	// for testing
-	modifyConfig   func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
-	getAPIBindings func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error)
-	userHomeDir    func() (string, error)
+	newKCPClusterClient func(config clientcmd.ClientConfig) (kcpclientset.ClusterInterface, error)
+	modifyConfig        func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
+	getAPIBindings      func(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error)
+	userHomeDir         func() (string, error)
 }
 
 // NewUseWorkspaceOptions returns a new UseWorkspaceOptions.
@@ -73,6 +74,7 @@ func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOp
 	return &UseWorkspaceOptions{
 		Options: base.NewOptions(streams),
 
+		newKCPClusterClient: newKCPClusterClient,
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
 		},
@@ -91,13 +93,15 @@ func (o *UseWorkspaceOptions) Complete(args []string) error {
 		o.Name = args[0]
 	}
 
-	var err error
-	o.startingConfig, err = o.ClientConfig.ConfigAccess().GetStartingConfig()
-	if err != nil {
-		return err
+	if o.startingConfig == nil {
+		var err error
+		o.startingConfig, err = o.ClientConfig.ConfigAccess().GetStartingConfig()
+		if err != nil {
+			return err
+		}
 	}
 
-	kcpClusterClient, err := newKCPClusterClient(o.ClientConfig)
+	kcpClusterClient, err := o.newKCPClusterClient(o.ClientConfig)
 	if err != nil {
 		return err
 	}
