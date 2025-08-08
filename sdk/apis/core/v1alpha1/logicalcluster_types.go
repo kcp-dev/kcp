@@ -52,9 +52,9 @@ const (
 	// LogicalClusterName is the name of the LogicalCluster singleton.
 	LogicalClusterName = "cluster"
 
-	// LogicalClusterFinalizer attached to the owner of the LogicalCluster resource (usually a Workspace) so that we can control
+	// LogicalClusterFinalizerName attached to the owner of the LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources.
-	LogicalClusterFinalizer = "core.kcp.io/logicalcluster"
+	LogicalClusterFinalizerName = "core.kcp.io/logicalcluster"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
