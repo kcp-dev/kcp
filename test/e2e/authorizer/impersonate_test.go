@@ -31,6 +31,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -47,7 +48,7 @@ func TestImpersonation(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	org, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	org, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	_, wsObj := kcptesting.NewWorkspaceFixture(t, server, org)
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
@@ -95,7 +96,7 @@ func TestImpersonateScoping(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	org, ws := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	org, ws := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)

@@ -32,6 +32,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -151,7 +152,7 @@ func TestWorkspaces(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			t.Cleanup(cancelFunc)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+			orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 			// create clients
 			kcpConfig := server.BaseConfig(t)

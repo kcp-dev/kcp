@@ -42,6 +42,7 @@ import (
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -66,7 +67,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
 	// and fill its quota to capacity, subsequent workspaces have independent quota.
@@ -126,7 +127,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 			ctx, cancelFunc := context.WithCancel(ctx)
 			t.Cleanup(cancelFunc)
 
-			orgPath, _ := framework.NewOrganizationFixture(t, source) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+			orgPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 			apiProviderPath, _ := kcptesting.NewWorkspaceFixture(t, source, orgPath, kcptesting.WithName("api-provider"))
 			userPath, _ := kcptesting.NewWorkspaceFixture(t, source, orgPath, kcptesting.WithName("user"))
 
@@ -264,7 +265,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	group := framework.UniqueGroup(".io")
 
@@ -346,7 +347,7 @@ func TestClusterScopedQuota(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kcp cluster client")
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	// Create more than 1 workspace with the same quota restrictions to validate that after we create the first workspace
 	// and fill its quota to capacity, subsequent workspaces have independent quota.

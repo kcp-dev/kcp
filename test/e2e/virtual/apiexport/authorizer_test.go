@@ -74,7 +74,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	// see https://docs.google.com/drawings/d/1_sOiFZReAfypuUDyHS9rwpxbZgJNJuxdvbgXXgu2KAQ/edit for topology
 	serviceProvider1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
@@ -519,7 +519,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	cfg := server.BaseConfig(t)
 
 	// We list shards so we create fake consumers in each shard. This way APIExportEndpointSlice url will be available in each shard.
@@ -925,7 +925,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	servicePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider"))
 	userPath, userWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer"))
