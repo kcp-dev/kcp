@@ -176,7 +176,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 
 	workspaceReference := fmt.Sprintf("Workspace %q (type %s)", o.Name, logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String())
 	if preExisting {
-		if ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path {
+		if structuredWorkspaceType != nil && (ws.Spec.Type.Name != "" && ws.Spec.Type.Name != structuredWorkspaceType.Name || ws.Spec.Type.Path != structuredWorkspaceType.Path) {
 			wsTypeString := logicalcluster.NewPath(ws.Spec.Type.Path).Join(string(ws.Spec.Type.Name)).String()
 			structuredWorkspaceTypeString := logicalcluster.NewPath(structuredWorkspaceType.Path).Join(string(structuredWorkspaceType.Name)).String()
 			return fmt.Errorf("workspace %q cannot be created with type %s, it already exists with different type %s", o.Name, structuredWorkspaceTypeString, wsTypeString)
