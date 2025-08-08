@@ -19,7 +19,7 @@ package fuzzer
 import (
 	"strings"
 
-	fuzz "github.com/google/gofuzz"
+	"sigs.k8s.io/randfill"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,36 +32,36 @@ import (
 // Funcs returns the fuzzer functions for the apiserverinternal api group.
 func Funcs(codecs runtimeserializer.CodecFactory) []any {
 	return []any{
-		func(r *metav1.ManagedFieldsEntry, c fuzz.Continue) {
+		func(r *metav1.ManagedFieldsEntry, c randfill.Continue) {
 			// match the fuzzer default content for runtime.Object
 			r.APIVersion = "v1"
 		},
-		func(r *v1alpha2.APIExport, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha2.APIExport, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
 		},
-		func(r *v1alpha1.APIExport, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.APIExport, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
 		},
-		func(r *v1alpha1.APIExportSpec, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.APIExportSpec, c randfill.Continue) {
+			c.FillNoCustom(r)
 
 			r.LatestResourceSchemas = []string{
-				nonEmptyString(c.RandString) + "." + nonEmptyString(c.RandString) + "." + nonEmptyString(c.RandString),
+				nonEmptyString(c.String) + "." + nonEmptyString(c.String) + "." + nonEmptyString(c.String),
 			}
 		},
-		func(r *v1alpha2.APIExportSpec, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha2.APIExportSpec, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.Resources = nil
 			for range c.Intn(5) {
-				name := nonEmptyString(c.RandString)
-				group := nonEmptyString(c.RandString)
-				schema := nonEmptyString(c.RandString) + "." + name + "." + group
+				name := nonEmptyString(c.String)
+				group := nonEmptyString(c.String)
+				schema := nonEmptyString(c.String) + "." + name + "." + group
 				r.Resources = append(r.Resources, v1alpha2.ResourceSchema{
 					Group:  group,
 					Name:   name,
@@ -73,13 +73,13 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 			}
 			r.PermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
 				for range numVerbs {
-					verbs = append(verbs, nonEmptyString(c.RandString))
+					verbs = append(verbs, nonEmptyString(c.String))
 				}
 				r.PermissionClaims = append(r.PermissionClaims, v1alpha2.PermissionClaim{
 					GroupResource: v1alpha2.GroupResource{
@@ -91,26 +91,26 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				})
 			}
 		},
-		func(r *v1alpha2.APIBinding, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha2.APIBinding, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
 		},
-		func(r *v1alpha1.APIBinding, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.APIBinding, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
 		},
-		func(r *v1alpha1.APIBindingSpec, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.APIBindingSpec, c randfill.Continue) {
+			c.FillNoCustom(r)
 
 			r.PermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 
 				apc := v1alpha1.AcceptablePermissionClaim{
 					PermissionClaim: v1alpha1.PermissionClaim{
@@ -119,27 +119,27 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 							Resource: resource,
 						},
 						IdentityHash: identityHash,
-						All:          c.RandBool(),
+						All:          c.Bool(),
 					},
 				}
 
 				if !apc.All {
 					apc.ResourceSelector = []v1alpha1.ResourceSelector{}
 					for range c.Intn(5) + 1 {
-						apc.ResourceSelector = append(apc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.RandString), Namespace: nonEmptyString(c.RandString)})
+						apc.ResourceSelector = append(apc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.String), Namespace: nonEmptyString(c.String)})
 					}
 				}
 
 				r.PermissionClaims = append(r.PermissionClaims, apc)
 			}
 		},
-		func(r *v1alpha1.APIBindingStatus, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.APIBindingStatus, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.AppliedPermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 
 				pc := v1alpha1.PermissionClaim{
 					GroupResource: v1alpha1.GroupResource{
@@ -147,13 +147,13 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 						Resource: resource,
 					},
 					IdentityHash: identityHash,
-					All:          c.RandBool(),
+					All:          c.Bool(),
 				}
 
 				if !pc.All {
 					pc.ResourceSelector = []v1alpha1.ResourceSelector{}
 					for range c.Intn(5) + 1 {
-						pc.ResourceSelector = append(pc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.RandString), Namespace: nonEmptyString(c.RandString)})
+						pc.ResourceSelector = append(pc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.String), Namespace: nonEmptyString(c.String)})
 					}
 				}
 
@@ -161,9 +161,9 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 			}
 			r.ExportPermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 
 				pc := v1alpha1.PermissionClaim{
 					GroupResource: v1alpha1.GroupResource{
@@ -171,29 +171,29 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 						Resource: resource,
 					},
 					IdentityHash: identityHash,
-					All:          c.RandBool(),
+					All:          c.Bool(),
 				}
 
 				if !pc.All {
 					pc.ResourceSelector = []v1alpha1.ResourceSelector{}
 					for range c.Intn(5) + 1 {
-						pc.ResourceSelector = append(pc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.RandString), Namespace: nonEmptyString(c.RandString)})
+						pc.ResourceSelector = append(pc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.String), Namespace: nonEmptyString(c.String)})
 					}
 				}
 				r.ExportPermissionClaims = append(r.ExportPermissionClaims, pc)
 			}
 		},
-		func(r *v1alpha2.APIBindingSpec, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha2.APIBindingSpec, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.PermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
 				for range numVerbs {
-					verbs = append(verbs, nonEmptyString(c.RandString))
+					verbs = append(verbs, nonEmptyString(c.String))
 				}
 
 				selector := v1alpha2.PermissionClaimSelector{}
@@ -205,7 +205,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 					labels := make(map[string]string)
 					numLabels := c.Intn(5) + 1
 					for range numLabels {
-						labels[nonEmptyString(c.RandString)] = nonEmptyString(c.RandString)
+						labels[nonEmptyString(c.String)] = nonEmptyString(c.String)
 					}
 					selector.MatchLabels = labels
 				default:
@@ -213,10 +213,10 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 					expressions := make([]metav1.LabelSelectorRequirement, numExpressions)
 					for range numExpressions {
 						expressions = append(expressions, metav1.LabelSelectorRequirement{
-							Key:      nonEmptyString(c.RandString),
+							Key:      nonEmptyString(c.String),
 							Operator: metav1.LabelSelectorOpIn,
 							Values: []string{
-								nonEmptyString(c.RandString),
+								nonEmptyString(c.String),
 							},
 						})
 					}
@@ -239,17 +239,17 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				})
 			}
 		},
-		func(r *v1alpha2.APIBindingStatus, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha2.APIBindingStatus, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.AppliedPermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
 				for range numVerbs {
-					verbs = append(verbs, nonEmptyString(c.RandString))
+					verbs = append(verbs, nonEmptyString(c.String))
 				}
 
 				selector := v1alpha2.PermissionClaimSelector{}
@@ -261,7 +261,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 					labels := make(map[string]string)
 					numLabels := c.Intn(5) + 1
 					for range numLabels {
-						labels[nonEmptyString(c.RandString)] = nonEmptyString(c.RandString)
+						labels[nonEmptyString(c.String)] = nonEmptyString(c.String)
 					}
 					selector.MatchLabels = labels
 				default:
@@ -269,10 +269,10 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 					expressions := make([]metav1.LabelSelectorRequirement, numExpressions)
 					for range numExpressions {
 						expressions = append(expressions, metav1.LabelSelectorRequirement{
-							Key:      nonEmptyString(c.RandString),
+							Key:      nonEmptyString(c.String),
 							Operator: metav1.LabelSelectorOpIn,
 							Values: []string{
-								nonEmptyString(c.RandString),
+								nonEmptyString(c.String),
 							},
 						})
 					}
@@ -293,13 +293,13 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 			}
 			r.ExportPermissionClaims = nil
 			for range c.Intn(5) {
-				group := nonEmptyString(c.RandString)
-				resource := nonEmptyString(c.RandString)
-				identityHash := nonEmptyString(c.RandString)
+				group := nonEmptyString(c.String)
+				resource := nonEmptyString(c.String)
+				identityHash := nonEmptyString(c.String)
 				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
 				for range numVerbs {
-					verbs = append(verbs, nonEmptyString(c.RandString))
+					verbs = append(verbs, nonEmptyString(c.String))
 				}
 				r.ExportPermissionClaims = append(r.ExportPermissionClaims, v1alpha2.PermissionClaim{
 					GroupResource: v1alpha2.GroupResource{
@@ -311,25 +311,25 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				})
 			}
 		},
-		func(r *v1alpha1.Identity, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.Identity, c randfill.Continue) {
+			c.FillNoCustom(r)
 
 			r.SecretRef = &corev1.SecretReference{}
-			c.Fuzz(r.SecretRef)
+			c.Fill(r.SecretRef)
 		},
-		func(r *v1alpha2.APIExportList, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha2.APIExportList, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
 		},
-		func(r *v1alpha1.APIExportList, c fuzz.Continue) {
-			c.FuzzNoCustom(r)
+		func(r *v1alpha1.APIExportList, c randfill.Continue) {
+			c.FillNoCustom(r)
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
 		},
-		func(r *v1alpha1.APIResourceSchemaSpec, c fuzz.Continue) {
+		func(r *v1alpha1.APIResourceSchemaSpec, c randfill.Continue) {
 			r.Conversion = &v1alpha1.CustomResourceConversion{}
 
 			none := v1alpha1.ConversionStrategyType("None")
@@ -340,18 +340,18 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 
 			if r.Conversion.Strategy == webhook {
 				r.Conversion.Webhook = &v1alpha1.WebhookConversion{}
-				c.Fuzz(r.Conversion.Webhook)
+				c.Fill(r.Conversion.Webhook)
 			}
 		},
 	}
 }
 
-// TOODO(mjudeikis): This will go away after we rebase to 1.32 and can use new fuzzer.
-func nonEmptyString(f func() string) string {
-	s := f()
+// TODO(mjudeikis): This will go away after we rebase to 1.32 and can use new fuzzer.
+// TODO(ntnn): The new fuzzer randfill.Continue.String function can
+// contain dots, which breaks the apiversion conversion tests.
+func nonEmptyString(f func(n int) string) string {
+	s := f(0)
 	switch {
-	case len(s) == 0:
-		return nonEmptyString(f)
 	case strings.Contains(s, "."):
 		return nonEmptyString(f)
 	default:

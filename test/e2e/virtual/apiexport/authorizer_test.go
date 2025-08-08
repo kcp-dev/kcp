@@ -631,7 +631,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 
 	// Bind to second tenant workspace so url pops up. So we use this to check tenant1 access.
 	for _, shard := range shards.Items {
-		tenant2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName(shard.Name+"-tenant-2"))
+		tenant2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("%s-tenant-2", shard.Name))
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err = kcpClient.Cluster(tenant2Path).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
 			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)

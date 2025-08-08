@@ -36,11 +36,11 @@ import (
 	"k8s.io/apiserver/pkg/quota/v1/generic"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
+	"k8s.io/apiserver/pkg/util/compatibility"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	utilversion "k8s.io/component-base/version"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/controlplane"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
@@ -222,7 +222,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	})
 
 	// Set effective version to the default kube version of the vendored libs.
-	c.GenericConfig.EffectiveVersion = utilversion.DefaultKubeEffectiveVersion()
+	c.GenericConfig.EffectiveVersion = compatibility.DefaultBuildEffectiveVersion()
 
 	c.KubeClusterClient, err = kcpkubernetesclientset.NewForConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
@@ -575,8 +575,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// make sure the informer gets started, otherwise conversions will not work!
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
-	c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName}) //nolint:errcheck
-	c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})             //nolint:errcheck
+	_ = c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})
 
 	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDClusterLister{
 		kcpClusterClient:  c.KcpClusterClient,

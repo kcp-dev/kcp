@@ -55,7 +55,7 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	//    └── test
 	wsName := "test"
 	fixtureRoot, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
-	testPath, _ := kcptesting.NewWorkspaceFixture(t, server, fixtureRoot, kcptesting.WithName(wsName))
+	testPath, _ := kcptesting.NewWorkspaceFixture(t, server, fixtureRoot, kcptesting.WithName("%s", wsName))
 
 	clientset, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client set")

@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/randfill"
 
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
@@ -245,8 +245,8 @@ func removeAnnotations(t *testing.T, object runtime.Object, annotationsToRemove 
 
 // fuzzInternalObject fuzzes an arbitrary runtime object using the appropriate
 // fuzzer registered with the apitesting package.
-func fuzzInternalObject(t *testing.T, fuzzer *fuzz.Fuzzer, object runtime.Object) runtime.Object {
-	fuzzer.Fuzz(object)
+func fuzzInternalObject(t *testing.T, fuzzer *randfill.Filler, object runtime.Object) runtime.Object {
+	fuzzer.Fill(object)
 
 	j, err := apimeta.TypeAccessor(object)
 	if err != nil {
