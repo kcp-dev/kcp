@@ -96,7 +96,7 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 		ws, err := clientset.Cluster(fixtureRoot).TenancyV1alpha1().Workspaces().Get(ctx, wsName, v1.GetOptions{})
 		require.NoError(c, err, "error getting workspace")
 		require.NotEqual(c, nil, ws.DeletionTimestamp)
-		require.Contains(c, ws.Finalizers, corev1alpha1.LogicalClusterFinalizer)
+		require.Contains(c, ws.Finalizers, corev1alpha1.LogicalClusterFinalizerName)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to be marked for deletion")
 
 	// remove the custom finalizer from the logicalcluster object

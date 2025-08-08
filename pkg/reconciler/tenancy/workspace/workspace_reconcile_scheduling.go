@@ -141,7 +141,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
-		hasFinalizer := sets.New[string](workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizer)
+		hasFinalizer := sets.New[string](workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizerName)
 
 		parentThis, err := r.getLogicalCluster(logicalcluster.From(workspace))
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -180,7 +180,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			workspace.Annotations[workspaceClusterAnnotationKey] = cluster.String()
 		}
 		if !hasFinalizer {
-			workspace.Finalizers = append(workspace.Finalizers, corev1alpha1.LogicalClusterFinalizer)
+			workspace.Finalizers = append(workspace.Finalizers, corev1alpha1.LogicalClusterFinalizerName)
 		}
 		if !hasShard || !hasCluster || !hasFinalizer {
 			// this is the first part of our two-phase commit

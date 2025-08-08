@@ -93,13 +93,13 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: ptr.To(metav1.Now()),
 					Finalizers: []string{
-						corev1alpha1.LogicalClusterFinalizer,
+						corev1alpha1.LogicalClusterFinalizerName,
 						"other-finalizer",
 					},
 				},
 			},
 			expFinalizers: []string{
-				corev1alpha1.LogicalClusterFinalizer,
+				corev1alpha1.LogicalClusterFinalizerName,
 				"other-finalizer",
 			},
 		},
@@ -110,7 +110,7 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: ptr.To(metav1.Now()),
 					Finalizers: []string{
-						corev1alpha1.LogicalClusterFinalizer,
+						corev1alpha1.LogicalClusterFinalizerName,
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceStatus{
@@ -128,7 +128,7 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: ptr.To(metav1.Now()),
 					Finalizers: []string{
-						corev1alpha1.LogicalClusterFinalizer,
+						corev1alpha1.LogicalClusterFinalizerName,
 					},
 					Annotations: map[string]string{
 						workspaceClusterAnnotationKey: "test",
@@ -144,7 +144,7 @@ func TestReconcile(t *testing.T) {
 			// we do not remove our finalizers in this case, as we wait
 			// for another reconciliation loop
 			expFinalizers: []string{
-				corev1alpha1.LogicalClusterFinalizer,
+				corev1alpha1.LogicalClusterFinalizerName,
 			},
 			// we do expect our logicalCluster to be removed
 			expLogicalClusters: map[string]*corev1alpha1.LogicalCluster{},
@@ -156,7 +156,7 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: ptr.To(metav1.Now()),
 					Finalizers: []string{
-						corev1alpha1.LogicalClusterFinalizer,
+						corev1alpha1.LogicalClusterFinalizerName,
 					},
 				},
 			},
