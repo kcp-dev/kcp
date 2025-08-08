@@ -369,6 +369,7 @@ test: WHAT ?= ./...
 test: ## Run tests
 	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration')
 	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
+	cd cli && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
 
 .PHONY: test-integration
 ifdef USE_GOTESTSUM

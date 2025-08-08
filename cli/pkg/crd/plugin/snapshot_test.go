@@ -365,6 +365,8 @@ metadata:
   creationTimestamp: null
   name: testing.endpoints.core
 spec:
+  conversion:
+    strategy: None
   group: ""
   names:
     kind: Endpoints
@@ -584,6 +586,8 @@ metadata:
   creationTimestamp: null
   name: testing.services.core
 spec:
+  conversion:
+    strategy: None
   group: ""
   names:
     kind: Service
