@@ -36,12 +36,12 @@ func init() {
 	legacyregistry.MustRegister(logicalClusterCount)
 }
 
-// IncrementLogicalClusterCount increments the count for the given shard
+// IncrementLogicalClusterCount increments the count for the given shard.
 func IncrementLogicalClusterCount(shardName string) {
 	logicalClusterCount.WithLabelValues(shardName).Inc()
 }
 
-// DecrementLogicalClusterCount decrements the count for the given shard
+// DecrementLogicalClusterCount decrements the count for the given shard.
 func DecrementLogicalClusterCount(shardName string) {
 	logicalClusterCount.WithLabelValues(shardName).Dec()
 }

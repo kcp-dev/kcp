@@ -23,12 +23,6 @@ import (
 	"sync"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
-	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
-	"github.com/kcp-dev/logicalcluster/v3"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -40,8 +34,15 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcprbaclisters "github.com/kcp-dev/client-go/listers/rbac/v1"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
+	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
@@ -77,13 +78,21 @@ func NewController(
 	}
 
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(obj, _ interface{}) { c.enqueue(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
+		AddFunc: func(obj any) {
+			c.enqueue(obj)
+			c.handleMetrics(obj)
+		},
+		UpdateFunc: func(oldObj, newObj any) {
+			c.enqueue(newObj)
+			c.handleMetrics(newObj)
+		},
+		DeleteFunc: func(obj any) {
+			c.enqueue(obj)
+			c.handleMetricsOnDelete(obj)
+		},
 	})
-
 	_, _ = clusterRoleBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
+		FilterFunc: func(obj any) bool {
 			crb, ok := obj.(*rbacv1.ClusterRoleBinding)
 			if !ok {
 				return false
@@ -91,9 +100,9 @@ func NewController(
 			return crb.Name == workspaceAdminClusterRoleBindingName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueCRB(obj) },
-			UpdateFunc: func(obj, _ interface{}) { c.enqueueCRB(obj) },
-			DeleteFunc: func(obj interface{}) { c.enqueueCRB(obj) },
+			AddFunc:    func(obj any) { c.enqueueCRB(obj) },
+			UpdateFunc: func(obj, _ any) { c.enqueueCRB(obj) },
+			DeleteFunc: func(obj any) { c.enqueueCRB(obj) },
 		},
 	}))
 
@@ -114,7 +123,7 @@ type Controller struct {
 	shardName                string
 }
 
-func (c *Controller) enqueue(obj interface{}) {
+func (c *Controller) enqueue(obj any) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -125,7 +134,7 @@ func (c *Controller) enqueue(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueCRB(obj interface{}) {
+func (c *Controller) enqueueCRB(obj any) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -195,14 +204,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	logicalCluster, err := c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			c.mu.Lock()
-			if c.countedClusters[clusterName.String()] {
-				delete(c.countedClusters, clusterName.String())
-				kcpmetrics.DecrementLogicalClusterCount(c.shardName)
-				logger.V(4).Info("LogicalCluster deleted, decremented metrics", "cluster", clusterName)
-			}
-			c.mu.Unlock()
-		} else {
 			logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		}
 		return nil
@@ -215,18 +216,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		logger.V(4).Info("LogicalCluster is being deleted, skipping")
 		return nil
 	}
-
-	c.mu.Lock()
-	clusterKey := string(logicalcluster.From(logicalCluster))
-	alreadyCounted := c.countedClusters[clusterKey]
-	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseReady && !alreadyCounted {
-		c.countedClusters[clusterKey] = true
-		kcpmetrics.IncrementLogicalClusterCount(c.shardName)
-	} else if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && alreadyCounted {
-		delete(c.countedClusters, clusterKey)
-		kcpmetrics.DecrementLogicalClusterCount(c.shardName)
-	}
-	c.mu.Unlock()
 
 	// need to create ClusterRoleBinding for owner.
 	ownerAnnotation := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
@@ -278,4 +267,43 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	old.RoleRef = newBinding.RoleRef
 	_, err = c.kubeClusterClient.Cluster(clusterName.Path()).RbacV1().ClusterRoleBindings().Update(ctx, newBinding, metav1.UpdateOptions{})
 	return err
+}
+
+func (c *Controller) handleMetrics(obj any) {
+	logicalCluster, ok := obj.(*corev1alpha1.LogicalCluster)
+	if !ok {
+		return
+	}
+
+	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+		c.mu.Lock()
+		clusterKey := string(logicalcluster.From(logicalCluster))
+		if !c.countedClusters[clusterKey] {
+			c.countedClusters[clusterKey] = true
+			kcpmetrics.IncrementLogicalClusterCount(c.shardName)
+		}
+		c.mu.Unlock()
+	}
+}
+
+func (c *Controller) handleMetricsOnDelete(obj any) {
+	logicalCluster, ok := obj.(*corev1alpha1.LogicalCluster)
+	if !ok {
+		if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+			logicalCluster, ok = tombstone.Obj.(*corev1alpha1.LogicalCluster)
+			if !ok {
+				return
+			}
+		} else {
+			return
+		}
+	}
+
+	c.mu.Lock()
+	clusterKey := string(logicalcluster.From(logicalCluster))
+	if c.countedClusters[clusterKey] {
+		delete(c.countedClusters, clusterKey)
+		kcpmetrics.DecrementLogicalClusterCount(c.shardName)
+	}
+	c.mu.Unlock()
 }
