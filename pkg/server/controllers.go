@@ -292,6 +292,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		return fmt.Errorf("failed to build token generator: %w", err)
 	}
 	controller, err := serviceaccountcontroller.NewTokensController(
+		klog.FromContext(ctx).WithValues("controller", controllerName),
 		s.KubeSharedInformerFactory.Core().V1().ServiceAccounts(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
 		kubeClient,
