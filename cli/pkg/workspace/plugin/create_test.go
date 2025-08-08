@@ -48,6 +48,7 @@ func TestCreate(t *testing.T) {
 		config clientcmdapi.Config
 
 		existingWorkspaces []string // existing workspaces
+		skipInitialType    bool
 		markReady          bool
 
 		newWorkspaceName                 string
@@ -103,6 +104,18 @@ func TestCreate(t *testing.T) {
 		},
 		{
 			name: "create, already existing",
+			config: clientcmdapi.Config{CurrentContext: "test",
+				Contexts:  map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"test": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingWorkspaces: []string{"bar"},
+			skipInitialType:    true,
+			newWorkspaceName:   "bar",
+			ignoreExisting:     true,
+		},
+		{
+			name: "create, already existing, use after creation",
 			config: clientcmdapi.Config{CurrentContext: "test",
 				Contexts:  map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
 				Clusters:  map[string]*clientcmdapi.Cluster{"test": {Server: "https://test/clusters/root:foo"}},
@@ -257,7 +270,9 @@ func TestCreate(t *testing.T) {
 
 			opts := NewCreateWorkspaceOptions(genericclioptions.NewTestIOStreamsDiscard())
 			opts.Name = tt.newWorkspaceName
-			opts.Type = workspaceType.Path + ":" + string(workspaceType.Name)
+			if !tt.skipInitialType {
+				opts.Type = workspaceType.Path + ":" + string(workspaceType.Name)
+			}
 			opts.IgnoreExisting = tt.ignoreExisting
 			opts.EnterAfterCreate = tt.useAfterCreation
 			opts.ReadyWaitTimeout = time.Second
