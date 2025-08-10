@@ -236,6 +236,7 @@ func (b *BindOptions) parsePermissionClaim(claim string, accepted bool) error {
 	}
 	// TODO(mjudeikis): Once we add support for selectors/
 	parsedClaim.Selector = apisv1alpha2.PermissionClaimSelector{MatchAll: true}
+	parsedClaim.Verbs = []string{"*"}
 
 	if accepted {
 		b.acceptedPermissionClaims = append(b.acceptedPermissionClaims, parsedClaim)
