@@ -66,29 +66,26 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			continue
 		}
 
-		// generate URLs for initializing workspaces
-		for _, virtualWorkspaceName := range []string{initializingworkspaces.VirtualWorkspaceName} {
-			u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
-			if err != nil {
-				// Should never happen
-				logger.Error(err, "error parsing shard.spec.virtualWorkspaceURL", "virtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL)
-				continue
-			}
-
-			u.Path = path.Join(
-				u.Path,
-				virtualworkspacesoptions.DefaultRootPathPrefix,
-				virtualWorkspaceName,
-				string(initialization.InitializerForType(wt)),
-			)
-
-			desiredURLs.Insert(u.String())
+		u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
+		if err != nil {
+			// Should never happen
+			logger.Error(err, "error parsing shard.spec.virtualWorkspaceURL", "virtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL)
+			continue
 		}
 
-		wt.Status.VirtualWorkspaces = nil
+		u.Path = path.Join(
+			u.Path,
+			virtualworkspacesoptions.DefaultRootPathPrefix,
+			initializingworkspaces.VirtualWorkspaceName,
+			string(initialization.InitializerForType(wt)),
+		)
+
+		desiredURLs.Insert(u.String())
 	}
 
-	for _, u := range sets.List(desiredURLs) {
+	wt.Status.VirtualWorkspaces = nil
+
+	for _, u := range sets.List[string](desiredURLs) {
 		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
 			URL: u,
 		})
