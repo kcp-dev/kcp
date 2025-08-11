@@ -24,8 +24,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"testing"
 
+	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
@@ -42,7 +42,7 @@ func KcpCliPluginCommand(plugin string) (string, []string) {
 // returns stdout and stderr as bytes.Buffer and an error if any.
 // The exitcode can be retreived from the error if it is of type
 // *exec.ExitError.
-func RunKcpCliPlugin(t *testing.T, plugin string, kubeconfigPath string, args []string) (*bytes.Buffer, *bytes.Buffer, error) {
+func RunKcpCliPlugin(t kcptesting.TestingT, kubeconfigPath string, plugin string, args []string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
 
 	// TODO switch to t.Context in go1.24
