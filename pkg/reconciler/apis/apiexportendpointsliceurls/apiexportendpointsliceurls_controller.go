@@ -25,7 +25,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,6 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
+	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -133,37 +133,37 @@ func NewController(
 
 	_, _ = apiExportEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 	})
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](newObj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(objOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
 		},
 	})
 
 	_, _ = globalAPIExportEndpointSliceClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, " from cache")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, " from cache")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
 		},
 	}))
 
@@ -216,7 +216,7 @@ func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1al
 			} else if !exists {
 				continue
 			}
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of APIBinding")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of APIBinding")
 		}
 	}
 	{
@@ -245,7 +245,7 @@ func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1al
 			} else if !exists {
 				continue
 			}
-			c.enqueueAPIExportEndpointSlice(objOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, "because of APIBinding from cache")
+			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, "because of APIBinding from cache")
 		}
 	}
 }
@@ -362,19 +362,4 @@ func InstallIndexers(
 	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
 	})
-}
-
-func objOrTombstone[T runtime.Object](obj any) T {
-	if t, ok := obj.(T); ok {
-		return t
-	}
-	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		if t, ok := tombstone.Obj.(T); ok {
-			return t
-		}
-
-		panic(fmt.Errorf("tombstone %T is not a %T", tombstone, new(T)))
-	}
-
-	panic(fmt.Errorf("%T is not a %T", obj, new(T)))
 }

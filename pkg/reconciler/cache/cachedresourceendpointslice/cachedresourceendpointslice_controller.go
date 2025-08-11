@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -38,6 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
+	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -105,25 +105,25 @@ func NewController(
 
 	_, _ = cachedResourceEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(objOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueCachedResourceEndpointSlice(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(objOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](newObj), logger)
+			c.enqueueCachedResourceEndpointSlice(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(objOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueCachedResourceEndpointSlice(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
 		},
 	})
 
 	_, _ = cachedResourceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSliceByCachedResource(objOrTombstone[*cachev1alpha1.CachedResource](obj), logger)
+			c.enqueueCachedResourceEndpointSliceByCachedResource(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResource](obj), logger)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.enqueueCachedResourceEndpointSliceByCachedResource(objOrTombstone[*cachev1alpha1.CachedResource](newObj), logger)
+			c.enqueueCachedResourceEndpointSliceByCachedResource(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResource](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSliceByCachedResource(objOrTombstone[*cachev1alpha1.CachedResource](obj), logger)
+			c.enqueueCachedResourceEndpointSliceByCachedResource(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResource](obj), logger)
 		},
 	})
 
@@ -266,21 +266,6 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	}
 
 	return requeue, utilerrors.NewAggregate(errs)
-}
-
-func objOrTombstone[T runtime.Object](obj any) T {
-	if t, ok := obj.(T); ok {
-		return t
-	}
-	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-		if t, ok := tombstone.Obj.(T); ok {
-			return t
-		}
-
-		panic(fmt.Errorf("tombstone %T is not a %T", tombstone, new(T)))
-	}
-
-	panic(fmt.Errorf("%T is not a %T", obj, new(T)))
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.

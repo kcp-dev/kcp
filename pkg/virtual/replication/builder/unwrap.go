@@ -38,6 +38,7 @@ import (
 	clientgocache "k8s.io/client-go/tools/cache"
 
 	cachedresourcesreplication "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/replication/apidomainkey"
@@ -191,21 +192,6 @@ type unwrappingWatch struct {
 	informer clientgocache.SharedIndexInformer
 }
 
-func objOrTombstone[T runtime.Object](obj any) T {
-	if t, ok := obj.(T); ok {
-		return t
-	}
-	if tombstone, ok := obj.(clientgocache.DeletedFinalStateUnknown); ok {
-		if t, ok := tombstone.Obj.(T); ok {
-			return t
-		}
-
-		panic(fmt.Errorf("tombstone %T is not a %T", tombstone, new(T)))
-	}
-
-	panic(fmt.Errorf("%T is not a %T", obj, new(T)))
-}
-
 func newUnwrappingWatch(
 	ctx context.Context,
 	innerObjGVR schema.GroupVersionResource,
@@ -265,7 +251,7 @@ func newUnwrappingWatch(
 
 	handler, err := scopedCachedObjectsInformer.AddEventHandler(clientgocache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			cachedObj := objOrTombstone[*cachev1alpha1.CachedObject](obj)
+			cachedObj := utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedObject](obj)
 			if cachedObj.GetLabels() == nil {
 				return false
 			}
@@ -276,7 +262,7 @@ func newUnwrappingWatch(
 		},
 		Handler: clientgocache.ResourceEventHandlerDetailedFuncs{
 			AddFunc: func(obj interface{}, isInInitialList bool) {
-				cachedObj := objOrTombstone[*cachev1alpha1.CachedObject](obj)
+				cachedObj := utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedObject](obj)
 				if isInInitialList {
 					if innerListOpts.SendInitialEvents == nil || !*innerListOpts.SendInitialEvents {
 						// The user explicitly requests to not send the initial list.
@@ -306,7 +292,7 @@ func newUnwrappingWatch(
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				cachedObj := objOrTombstone[*cachev1alpha1.CachedObject](newObj)
+				cachedObj := utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedObject](newObj)
 				innerObj, err := unwrapWithMatchingSelectors(cachedObj)
 				if err != nil {
 					w.resultChan <- watch.Event{
@@ -324,7 +310,7 @@ func newUnwrappingWatch(
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				cachedObj := objOrTombstone[*cachev1alpha1.CachedObject](obj)
+				cachedObj := utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedObject](obj)
 				innerObj, err := unwrapWithMatchingSelectors(cachedObj)
 				if err != nil {
 					w.resultChan <- watch.Event{
