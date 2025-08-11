@@ -20,125 +20,53 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/kcp-dev/kcp/sdk/testing/env"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
 
-// KcpCliPluginCommand returns the cli args to run the workspace plugin directly or
-// via go run (depending on whether NO_GORUN is set).
-func KcpCliPluginCommand() []string {
-	if env.NoGoRunEnvSet() {
-		return []string{"kubectl", "kcp"}
-	} else {
-		cmdPath := filepath.Join(kcptestinghelpers.RepositoryDir(), "cmd", "kubectl-kcp")
-		return []string{"go", "run", cmdPath}
-	}
+// KcpCliPluginCommand returns the expected workdir and cli args to run
+// a plugin via go run.
+func KcpCliPluginCommand(plugin string) (string, []string) {
+	workdir := filepath.Join(kcptestinghelpers.RepositoryDir(), "cli")
+	// go run requires `./`, but filepath.Join just omits it
+	cmdPath := "./" + filepath.Join("cmd", "kubectl-"+plugin)
+	return workdir, []string{"go", "run", cmdPath}
 }
 
-// RunKcpCliPlugin runs the kcp workspace plugin with the provided subcommand and
-// returns the combined stderr and stdout output.
-func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, subcommand []string) []byte {
+// RunKcpCliPlugin runs the kcp plugin with the provided args and
+// returns stdout and stderr as bytes.Buffer and an error if any.
+// The exitcode can be retreived from the error if it is of type
+// *exec.ExitError.
+func RunKcpCliPlugin(t *testing.T, plugin string, kubeconfigPath string, args []string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
 
+	// TODO switch to t.Context in go1.24
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	cmdParts := append(KcpCliPluginCommand(), subcommand...)
+	workdir, cmdParts := KcpCliPluginCommand(plugin)
+	cmdParts = append(cmdParts, args...)
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+	cmd.Dir = workdir
 
 	cmd.Env = os.Environ()
 	// TODO(marun) Consider configuring the workspace plugin with args instead of this env
 	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath))
 
-	t.Logf("running: KUBECONFIG=%s %s", kubeconfigPath, strings.Join(cmdParts, " "))
+	t.Logf("running in %q: KUBECONFIG=%s %s", workdir, kubeconfigPath, strings.Join(cmdParts, " "))
 
-	var output, _, combined bytes.Buffer
-	var lock sync.Mutex
-	cmd.Stdout = split{a: locked{mu: &lock, w: &combined}, b: &output}
-	cmd.Stderr = locked{mu: &lock, w: &combined}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	err := cmd.Run()
 	if err != nil {
-		t.Logf("kcp plugin output:\n%s", combined.String())
+		t.Logf("kcp plugin output:\n  stdout: %s\n  stderr: %s\n", stdout.String(), stderr.String())
 	}
-	require.NoError(t, err, "error running kcp plugin command")
-	return output.Bytes()
-}
-
-// KubectlApply runs kubectl apply -f with the supplied input piped to stdin and returns
-// the combined stderr and stdout output.
-func KubectlApply(t *testing.T, kubeconfigPath string, input []byte) []byte {
-	t.Helper()
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	cmdParts := []string{"kubectl", "--kubeconfig", kubeconfigPath, "apply", "-f", "-"}
-	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	stdin, err := cmd.StdinPipe()
-	require.NoError(t, err)
-	_, err = stdin.Write(input)
-	require.NoError(t, err)
-	// Close to ensure kubectl doesn't keep waiting for input
-	err = stdin.Close()
-	require.NoError(t, err)
-
-	t.Logf("running: %s", strings.Join(cmdParts, " "))
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("kubectl apply output:\n%s", output)
-	}
-	require.NoError(t, err)
-
-	return output
-}
-
-// Kubectl runs kubectl with the given arguments and returns the combined stderr and stdout.
-func Kubectl(t *testing.T, kubeconfigPath string, args ...string) []byte {
-	t.Helper()
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
-	cmdParts := append([]string{"kubectl", "--kubeconfig", kubeconfigPath}, args...)
-	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	t.Logf("running: %s", strings.Join(cmdParts, " "))
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Logf("kubectl output:\n%s", output)
-	}
-	require.NoError(t, err)
-
-	return output
-}
-
-type locked struct {
-	mu *sync.Mutex
-	w  io.Writer
-}
-
-func (w locked) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.w.Write(p)
-}
-
-type split struct {
-	a, b io.Writer
-}
-
-func (w split) Write(p []byte) (int, error) {
-	w.a.Write(p) //nolint:errcheck
-	return w.b.Write(p)
+	return stdout, stderr, err
 }
