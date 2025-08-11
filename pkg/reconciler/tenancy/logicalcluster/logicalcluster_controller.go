@@ -203,10 +203,10 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	logicalCluster, err := c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		}
-		return nil
+		return nil // nothing we can do here
 	}
 
 	logger = logging.WithObject(logger, logicalCluster)
@@ -275,15 +275,13 @@ func (c *Controller) handleMetrics(obj any) {
 		return
 	}
 
-	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
-		c.mu.Lock()
-		clusterKey := string(logicalcluster.From(logicalCluster))
-		if !c.countedClusters[clusterKey] {
-			c.countedClusters[clusterKey] = true
-			kcpmetrics.IncrementLogicalClusterCount(c.shardName)
-		}
-		c.mu.Unlock()
+	c.mu.Lock()
+	clusterKey := string(logicalcluster.From(logicalCluster))
+	if !c.countedClusters[clusterKey] {
+		c.countedClusters[clusterKey] = true
+		kcpmetrics.IncrementLogicalClusterCount(c.shardName)
 	}
+	c.mu.Unlock()
 }
 
 func (c *Controller) handleMetricsOnDelete(obj any) {
