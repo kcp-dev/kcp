@@ -46,7 +46,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -168,13 +168,13 @@ func NewController(
 	// APIBinding handlers
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger, "")
+			c.enqueueAPIBinding(tombstone.Obj[*apisv1alpha2.APIBinding](obj), logger, "")
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger, "")
+			c.enqueueAPIBinding(tombstone.Obj[*apisv1alpha2.APIBinding](obj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger, "")
+			c.enqueueAPIBinding(tombstone.Obj[*apisv1alpha2.APIBinding](obj), logger, "")
 		},
 	})
 
@@ -186,13 +186,13 @@ func NewController(
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.enqueueCRD(utilreconciler.ObjOrTombstone[*apiextensionsv1.CustomResourceDefinition](obj), logger)
+				c.enqueueCRD(tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](obj), logger)
 			},
 			UpdateFunc: func(_, obj interface{}) {
-				c.enqueueCRD(utilreconciler.ObjOrTombstone[*apiextensionsv1.CustomResourceDefinition](obj), logger)
+				c.enqueueCRD(tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](obj), logger)
 			},
 			DeleteFunc: func(obj interface{}) {
-				crd := utilreconciler.ObjOrTombstone[*apiextensionsv1.CustomResourceDefinition](obj)
+				crd := tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](obj)
 
 				// If something deletes one of our bound CRDs, we need to keep track of it so when we're reconciling,
 				// we know we need to recreate it. This set is there to fight against stale informers still seeing
@@ -207,61 +207,61 @@ func NewController(
 	// APIExport handlers
 	_, _ = apiExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger, "")
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger, "")
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger, "")
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger, "")
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger, "")
 		},
 	}))
 	_, _ = globalAPIExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger, "")
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger, "")
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger, "")
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger, "")
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger, "")
 		},
 	}))
 
 	// APIResourceSchema handlers
 	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIResourceSchema(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 	}))
 	_, _ = globalAPIResourceSchemaInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIResourceSchema(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIResourceSchema](obj), logger, "")
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger, "")
 		},
 	}))
 
 	// LogicalCluster handlers
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueLogicalCluster(utilreconciler.ObjOrTombstone[*corev1alpha1.LogicalCluster](obj), logger, "")
+			c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](obj), logger, "")
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			was := old.(*corev1alpha1.LogicalCluster).Annotations[ResourceBindingsAnnotationKey]
 			is := obj.(*corev1alpha1.LogicalCluster).Annotations[ResourceBindingsAnnotationKey]
 			if was != is {
-				c.enqueueLogicalCluster(utilreconciler.ObjOrTombstone[*corev1alpha1.LogicalCluster](obj), logger, "")
+				c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](obj), logger, "")
 			}
 		},
 	}))
@@ -269,13 +269,13 @@ func NewController(
 	// APIConversion handlers
 	_, _ = apiConversionInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIConversion(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
+			c.enqueueAPIConversion(tombstone.Obj[*apisv1alpha1.APIConversion](obj), logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueAPIConversion(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
+			c.enqueueAPIConversion(tombstone.Obj[*apisv1alpha1.APIConversion](obj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIConversion(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIConversion](obj), logger)
+			c.enqueueAPIConversion(tombstone.Obj[*apisv1alpha1.APIConversion](obj), logger)
 		},
 	}))
 

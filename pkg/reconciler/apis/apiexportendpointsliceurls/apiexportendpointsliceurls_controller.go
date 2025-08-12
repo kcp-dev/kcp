@@ -39,7 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -133,37 +133,37 @@ func NewController(
 
 	_, _ = apiExportEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 	})
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(tombstone.Obj[*apisv1alpha2.APIBinding](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](newObj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(tombstone.Obj[*apisv1alpha2.APIBinding](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSliceByAPIBinding(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIBinding](obj), logger)
+			c.enqueueAPIExportEndpointSliceByAPIBinding(tombstone.Obj[*apisv1alpha2.APIBinding](obj), logger)
 		},
 	})
 
 	_, _ = globalAPIExportEndpointSliceClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, " from cache")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, " from cache")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj), logger, " from cache")
 		},
 	}))
 
@@ -216,7 +216,7 @@ func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1al
 			} else if !exists {
 				continue
 			}
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of APIBinding")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of APIBinding")
 		}
 	}
 	{
@@ -245,7 +245,7 @@ func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1al
 			} else if !exists {
 				continue
 			}
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, "because of APIBinding from cache")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, "because of APIBinding from cache")
 		}
 	}
 }

@@ -40,7 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -106,34 +106,34 @@ func NewController(
 
 	_, _ = apiExportEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](newObj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj), logger, "")
 		},
 	})
 
 	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlicesForAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger)
+			c.enqueueAPIExportEndpointSlicesForAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExportEndpointSlicesForAPIExport(utilreconciler.ObjOrTombstone[*apisv1alpha2.APIExport](obj), logger)
+			c.enqueueAPIExportEndpointSlicesForAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger)
 		},
 	}))
 
 	_, _ = partitionClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueuePartition(utilreconciler.ObjOrTombstone[*topologyv1alpha1.Partition](obj), logger)
+			c.enqueuePartition(tombstone.Obj[*topologyv1alpha1.Partition](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueuePartition(utilreconciler.ObjOrTombstone[*topologyv1alpha1.Partition](newObj), logger)
+			c.enqueuePartition(tombstone.Obj[*topologyv1alpha1.Partition](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueuePartition(utilreconciler.ObjOrTombstone[*topologyv1alpha1.Partition](obj), logger)
+			c.enqueuePartition(tombstone.Obj[*topologyv1alpha1.Partition](obj), logger)
 		},
 	}))
 
@@ -202,7 +202,7 @@ func (c *controller) enqueueAPIExportEndpointSlicesForAPIExport(export *apisv1al
 		} else if !exists {
 			continue
 		}
-		c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of referenced APIExport")
+		c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of referenced APIExport")
 	}
 }
 
@@ -221,7 +221,7 @@ func (c *controller) enqueuePartition(obj *topologyv1alpha1.Partition, logger lo
 	}
 
 	for _, slice := range slices {
-		c.enqueueAPIExportEndpointSlice(utilreconciler.ObjOrTombstone[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of Partition change")
+		c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of Partition change")
 	}
 }
 

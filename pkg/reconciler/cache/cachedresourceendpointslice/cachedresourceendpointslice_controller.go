@@ -37,7 +37,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
-	utilreconciler "github.com/kcp-dev/kcp/pkg/reconciler/utils"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -105,25 +105,25 @@ func NewController(
 
 	_, _ = cachedResourceEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](newObj), logger)
+			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
 		},
 	})
 
 	_, _ = cachedResourceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSliceByCachedResource(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResource](obj), logger)
+			c.enqueueCachedResourceEndpointSliceByCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](obj), logger)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.enqueueCachedResourceEndpointSliceByCachedResource(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResource](newObj), logger)
+			c.enqueueCachedResourceEndpointSliceByCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](newObj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSliceByCachedResource(utilreconciler.ObjOrTombstone[*cachev1alpha1.CachedResource](obj), logger)
+			c.enqueueCachedResourceEndpointSliceByCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](obj), logger)
 		},
 	})
 
