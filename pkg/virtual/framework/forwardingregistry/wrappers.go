@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/registry/rest"
 )
 
 func WithStaticLabelSelector(labelSelector labels.Requirements) StorageWrapper {
@@ -63,6 +64,16 @@ func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requir
 			}
 
 			return obj, err
+		}
+
+		delegateCollectionDeleterFunc := storage.CollectionDeleterFunc
+		storage.CollectionDeleterFunc = func(ctx context.Context, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions, listOptions *internalversion.ListOptions) (runtime.Object, error) {
+			selector := listOptions.LabelSelector
+			if selector == nil {
+				selector = labels.Everything()
+			}
+			listOptions.LabelSelector = selector.Add(labelSelectorFrom(ctx)...)
+			return delegateCollectionDeleterFunc.DeleteCollection(ctx, deleteValidation, options, listOptions)
 		}
 
 		delegateWatcher := storage.WatcherFunc

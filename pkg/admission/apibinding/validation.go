@@ -29,6 +29,7 @@ func ValidateAPIBinding(apiBinding *apisv1alpha2.APIBinding) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateAPIBindingReference(apiBinding.Spec.Reference, field.NewPath("spec", "reference"))...)
+	allErrs = append(allErrs, ValidateAPIBindingPermissionClaims(apiBinding.Spec.PermissionClaims, field.NewPath("spec", "permissionClaims"))...)
 
 	return allErrs
 }
@@ -59,6 +60,28 @@ func ValidateAPIBindingReference(reference apisv1alpha2.BindingReference, path *
 		allErrs = append(allErrs, field.Required(path.Child("export"), ""))
 	} else if reference.Export.Name == "" {
 		allErrs = append(allErrs, field.Required(path.Child("export").Child("name"), ""))
+	}
+
+	return allErrs
+}
+
+// ValidateAPIBindingPermissionClaims validates an APIBinding's PermissionClaims.
+func ValidateAPIBindingPermissionClaims(permissionClaims []apisv1alpha2.AcceptablePermissionClaim, path *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for i := range permissionClaims {
+		claimPath := path.Index(i)
+
+		if permissionClaims[i].Selector.MatchAll {
+			if len(permissionClaims[i].Selector.MatchLabels) > 0 {
+				allErrs = append(allErrs, field.Invalid(claimPath.Child("selector").Child("matchLabels"), permissionClaims[i].Selector, "matchLabels cannot be used with matchAll"))
+			}
+			if len(permissionClaims[i].Selector.MatchExpressions) > 0 {
+				allErrs = append(allErrs, field.Invalid(claimPath.Child("selector").Child("matchExpressions"), permissionClaims[i].Selector, "matchExpressions cannot be used with matchAll"))
+			}
+		} else if len(permissionClaims[i].Selector.MatchLabels) == 0 && len(permissionClaims[i].Selector.MatchExpressions) == 0 {
+			allErrs = append(allErrs, field.Required(claimPath.Child("selector"), "either one of matchAll, matchLabels, or matchExpressions must be set"))
+		}
 	}
 
 	return allErrs

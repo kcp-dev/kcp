@@ -22,6 +22,8 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -117,8 +119,21 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 		}
 
 		for _, claim := range binding.Spec.PermissionClaims {
-			if claim.State != apisv1alpha2.ClaimAccepted || claim.Group != normalizedGR.Group || claim.Resource != normalizedGR.Resource || !claim.Selector.MatchAll {
+			if claim.State != apisv1alpha2.ClaimAccepted || claim.Group != normalizedGR.Group || claim.Resource != normalizedGR.Resource {
 				continue
+			}
+
+			if !claim.Selector.MatchAll {
+				selector, err := metav1.LabelSelectorAsSelector(&claim.Selector.LabelSelector)
+				if err != nil {
+					logger.Error(err, "error calculating permission claim label key and value",
+						"claim", claim.String())
+					continue
+				}
+
+				if !selector.Matches(klabels.Set(resourceLabels)) {
+					continue
+				}
 			}
 
 			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)

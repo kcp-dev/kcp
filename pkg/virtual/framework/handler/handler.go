@@ -23,6 +23,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
 
@@ -32,6 +33,8 @@ type HandlerFactory func(rootAPIServerConfig genericapiserver.CompletedConfig) (
 type VirtualWorkspace struct {
 	framework.RootPathResolver
 	authorizer.Authorizer
+	admission.Mutator
+	admission.Validator
 	framework.ReadyChecker
 	HandlerFactory
 }
