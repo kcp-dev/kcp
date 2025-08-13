@@ -26,9 +26,21 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
-func CheckAPIExportAccess(ctx context.Context, user user.Info, apiExportName string, authz authorizer.Authorizer) error {
+func CheckAPIExportAccess(ctx context.Context, u user.Info, apiExportName string, authz authorizer.Authorizer) error {
+	groups := u.GetGroups()
+	if sourceCluster, ok := u.GetExtra()["authentication.kubernetes.io/cluster-name"]; ok {
+		groups = append(groups, "system:cluster:"+sourceCluster[0])
+	}
+
+	userWithSource := &user.DefaultInfo{
+		Name:   u.GetName(),
+		UID:    u.GetUID(),
+		Groups: groups,
+		Extra:  u.GetExtra(),
+	}
+
 	bindAttr := authorizer.AttributesRecord{
-		User:            user,
+		User:            userWithSource,
 		Verb:            "bind",
 		APIGroup:        apisv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      apisv1alpha1.SchemeGroupVersion.Version,
