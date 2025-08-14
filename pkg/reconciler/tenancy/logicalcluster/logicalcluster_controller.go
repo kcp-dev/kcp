@@ -74,7 +74,7 @@ func NewController(
 		logicalClusterLister:     logicalClusterInformer.Lister(),
 		clusterRoleBindingLister: clusterRoleBindingInformer.Lister(),
 		shardName:                shardName,
-		countedClusters:          make(map[string]bool),
+		countedClusters:          make(map[string]string),
 	}
 
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -84,7 +84,7 @@ func NewController(
 		},
 		UpdateFunc: func(oldObj, newObj any) {
 			c.enqueue(newObj)
-			c.handleMetrics(newObj)
+			c.handleMetricsOnUpdate(oldObj, newObj)
 		},
 		DeleteFunc: func(obj any) {
 			c.enqueue(obj)
@@ -119,7 +119,7 @@ type Controller struct {
 
 	clusterRoleBindingLister kcprbaclisters.ClusterRoleBindingClusterLister
 	mu                       sync.Mutex
-	countedClusters          map[string]bool
+	countedClusters          map[string]string
 	shardName                string
 }
 
@@ -276,12 +276,45 @@ func (c *Controller) handleMetrics(obj any) {
 	}
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	clusterKey := string(logicalcluster.From(logicalCluster))
-	if !c.countedClusters[clusterKey] {
-		c.countedClusters[clusterKey] = true
-		kcpmetrics.IncrementLogicalClusterCount(c.shardName)
+	phase := string(logicalCluster.Status.Phase)
+	if _, exists := c.countedClusters[clusterKey]; !exists {
+		c.countedClusters[clusterKey] = phase
+		if phase != "" {
+			kcpmetrics.IncrementLogicalClusterCount(c.shardName, phase)
+		}
 	}
-	c.mu.Unlock()
+}
+
+func (c *Controller) handleMetricsOnUpdate(oldObj, newObj any) {
+	oldLogicalCluster, ok := oldObj.(*corev1alpha1.LogicalCluster)
+	if !ok {
+		return
+	}
+
+	newLogicalCluster, ok := newObj.(*corev1alpha1.LogicalCluster)
+	if !ok {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	clusterKey := string(logicalcluster.From(newLogicalCluster))
+	oldPhase := string(oldLogicalCluster.Status.Phase)
+	newPhase := string(newLogicalCluster.Status.Phase)
+
+	if oldPhase != newPhase {
+		if oldPhase != "" {
+			kcpmetrics.DecrementLogicalClusterCount(c.shardName, oldPhase)
+		}
+		if newPhase != "" {
+			kcpmetrics.IncrementLogicalClusterCount(c.shardName, newPhase)
+		}
+		c.countedClusters[clusterKey] = newPhase
+	}
 }
 
 func (c *Controller) handleMetricsOnDelete(obj any) {
@@ -298,10 +331,13 @@ func (c *Controller) handleMetricsOnDelete(obj any) {
 	}
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	clusterKey := string(logicalcluster.From(logicalCluster))
-	if c.countedClusters[clusterKey] {
+	if phase, exists := c.countedClusters[clusterKey]; exists {
 		delete(c.countedClusters, clusterKey)
-		kcpmetrics.DecrementLogicalClusterCount(c.shardName)
+		if phase != "" {
+			kcpmetrics.DecrementLogicalClusterCount(c.shardName, phase)
+		}
 	}
-	c.mu.Unlock()
 }
