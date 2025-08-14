@@ -65,7 +65,7 @@ func TestDynamicRestMapper(t *testing.T) {
 	extensionsClusterClient, err := kcpapiextensionsv1client.NewForConfig(cfg)
 	require.NoError(t, err, "error creating apiextensions cluster client")
 
-	workspace := kcptesting.NewLowLevelWorkspaceFixture(t, kcpClientSet, kcpClientSet, core.RootCluster.Path(), kcptesting.WithName(name))
+	workspace := kcptesting.NewLowLevelWorkspaceFixture(t, kcpClientSet, kcpClientSet, core.RootCluster.Path(), kcptesting.WithName("%s", name))
 
 	logicalClusterName := logicalcluster.Name(workspace.Spec.Cluster)
 

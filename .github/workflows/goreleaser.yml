@@ -23,7 +23,18 @@ jobs:
 
     - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # tag=v5.5.0
       with:
-        go-version: v1.23.10
+        go-version: v1.24.5
+
+    - name: Download go modules
+      run: |
+        echo "Downloading modules for go.mod"
+        go mod download
+        for gomod in **/go.mod; do
+          echo "Downloading modules for $gomod"
+          cd $(dirname $gomod)
+          go mod download
+          cd -
+        done
 
     - name: Delete non-semver tags
       run: 'git tag -d $(git tag -l | grep -v "^v")'
@@ -37,7 +48,7 @@ jobs:
       with:
         distribution: goreleaser
         version: latest
-        args: release --timeout 60m
+        args: release --timeout 60m --parallelism 1 --fail-fast
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
@@ -48,7 +59,7 @@ jobs:
       with:
         distribution: goreleaser
         version: latest
-        args: release --timeout 60m --snapshot
+        args: release --timeout 60m --snapshot --parallelism 1 --fail-fast
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
