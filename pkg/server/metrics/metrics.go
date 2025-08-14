@@ -25,10 +25,10 @@ var (
 	logicalClusterCount = metrics.NewGaugeVec(
 		&metrics.GaugeOpts{
 			Name:           "kcp_logicalcluster_count",
-			Help:           "Number of logical clusters currently running on this shard.",
+			Help:           "Number of logical clusters currently running with specific phases on this shard.",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"shard"},
+		[]string{"shard", "phase"},
 	)
 )
 
@@ -36,12 +36,12 @@ func init() {
 	legacyregistry.MustRegister(logicalClusterCount)
 }
 
-// IncrementLogicalClusterCount increments the count for the given shard.
-func IncrementLogicalClusterCount(shardName string) {
-	logicalClusterCount.WithLabelValues(shardName).Inc()
+// IncrementLogicalClusterCount increments the count for the given shard and phase.
+func IncrementLogicalClusterCount(shardName string, phase string) {
+	logicalClusterCount.WithLabelValues(shardName, phase).Inc()
 }
 
-// DecrementLogicalClusterCount decrements the count for the given shard.
-func DecrementLogicalClusterCount(shardName string) {
-	logicalClusterCount.WithLabelValues(shardName).Dec()
+// DecrementLogicalClusterCount decrements the count for the given shard and phase.
+func DecrementLogicalClusterCount(shardName string, phase string) {
+	logicalClusterCount.WithLabelValues(shardName, phase).Dec()
 }
