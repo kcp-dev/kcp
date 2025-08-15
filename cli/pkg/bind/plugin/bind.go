@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
@@ -35,6 +36,9 @@ import (
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
+	apishelpers "github.com/kcp-dev/kcp/cli/pkg/helpers/apis/apis"
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
@@ -143,6 +147,58 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
+	if err != nil {
+		return fmt.Errorf("current URL %q does not point to workspace", config.Host)
+	}
+
+	preferredAPIBindingVersion, err := pluginhelpers.PreferredVersion(config, schema.GroupResource{
+		Group:    apis.GroupName,
+		Resource: "apibindings",
+	})
+	if err != nil {
+		return fmt.Errorf("service discovery failed: %w", err)
+	}
+
+	apiBinding, err := b.newAPIBinding(preferredAPIBindingVersion)
+	if err != nil {
+		return fmt.Errorf("failed to create APIBinding: %w", err)
+	}
+
+	kcpClusterClient, err := newKCPClusterClient(config)
+	if err != nil {
+		return err
+	}
+
+	if err := apiBinding.Create(ctx, kcpClusterClient.Cluster(currentClusterName)); err != nil {
+		return fmt.Errorf("failed to create APIBinding: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(b.Out, "apibinding %s created. Waiting to successfully bind ...\n", apiBinding.Name()); err != nil {
+		return err
+	}
+
+	// wait for phase to be bound
+	if !apiBinding.IsBound() {
+		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, b.BindWaitTimeout, true, func(ctx context.Context) (done bool, err error) {
+			if err = apiBinding.Refresh(ctx, kcpClusterClient.Cluster(currentClusterName)); err != nil {
+				return false, err
+			}
+
+			return apiBinding.IsBound(), nil
+		}); err != nil {
+			return fmt.Errorf("could not bind %s: %w", apiBinding.Name(), err)
+		}
+	}
+
+	if _, err := fmt.Fprintf(b.Out, "%s created and bound.\n", apiBinding.Name()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BindOptions) newAPIBinding(preferredAPIBindingVersion string) (apishelpers.APIBinding, error) {
 	path, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
 
 	// if a custom name is not provided, default it to <apiExportname>.
@@ -151,67 +207,52 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		apiBindingName = apiExportName
 	}
 
-	_, currentClusterName, err := pluginhelpers.ParseClusterURL(config.Host)
-	if err != nil {
-		return fmt.Errorf("current URL %q does not point to workspace", config.Host)
-	}
+	var binding apishelpers.APIBinding
 
-	binding := &apisv1alpha2.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: apiBindingName,
-		},
-		Spec: apisv1alpha2.APIBindingSpec{
-			Reference: apisv1alpha2.BindingReference{
-				Export: &apisv1alpha2.ExportBindingReference{
-					Path: path.String(),
-					Name: apiExportName,
+	switch preferredAPIBindingVersion {
+	case "v1alpha2":
+		binding = apishelpers.NewAPIBinding(&apisv1alpha2.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: apiBindingName,
+			},
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
+						Path: path.String(),
+						Name: apiExportName,
+					},
 				},
 			},
-		},
+		})
+
+	case "v1alpha1":
+		binding = apishelpers.NewAPIBinding(&apisv1alpha1.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: apiBindingName,
+			},
+			Spec: apisv1alpha1.APIBindingSpec{
+				Reference: apisv1alpha1.BindingReference{
+					Export: &apisv1alpha1.ExportBindingReference{
+						Path: path.String(),
+						Name: apiExportName,
+					},
+				},
+			},
+		})
+
+	default:
+		return nil, fmt.Errorf("%s is not supported by this plugin", preferredAPIBindingVersion)
 	}
 
-	if len(b.acceptedPermissionClaims) > 0 {
-		binding.Spec.PermissionClaims = b.acceptedPermissionClaims
-	}
-	if len(b.rejectedPermissionClaims) > 0 {
-		binding.Spec.PermissionClaims = append(binding.Spec.PermissionClaims, b.rejectedPermissionClaims...)
+	claims := []apisv1alpha2.AcceptablePermissionClaim{}
+	claims = append(claims, b.acceptedPermissionClaims...)
+	claims = append(claims, b.rejectedPermissionClaims...)
+
+	if err := binding.SetPermissionClaims(claims); err != nil {
+		return nil, fmt.Errorf("invalid permission claims: %w", err)
 	}
 
-	kcpclient, err := newKCPClusterClient(config)
-	if err != nil {
-		return err
-	}
-
-	createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintf(b.Out, "apibinding %s created. Waiting to successfully bind ...\n", binding.Name); err != nil {
-		return err
-	}
-
-	// wait for phase to be bound
-	if createdBinding.Status.Phase != apisv1alpha2.APIBindingPhaseBound {
-		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, b.BindWaitTimeout, true, func(ctx context.Context) (done bool, err error) {
-			createdBinding, err := kcpclient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-			if createdBinding.Status.Phase == apisv1alpha2.APIBindingPhaseBound {
-				return true, nil
-			}
-			return false, nil
-		}); err != nil {
-			return fmt.Errorf("could not bind %s: %w", binding.Name, err)
-		}
-	}
-
-	if _, err := fmt.Fprintf(b.Out, "%s created and bound.\n", binding.Name); err != nil {
-		return err
-	}
-
-	return nil
+	return binding, nil
 }
 
 func (b *BindOptions) parsePermissionClaim(claim string, accepted bool) error {

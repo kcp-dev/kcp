@@ -21,6 +21,10 @@ import (
 	"net/url"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
+
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
@@ -41,4 +45,31 @@ func ParseClusterURL(host string) (*url.URL, logicalcluster.Path, error) {
 	}
 
 	return nil, logicalcluster.Path{}, fmt.Errorf("current cluster URL %s is not pointing to a workspace", u)
+}
+
+func PreferredVersion(config *rest.Config, gr schema.GroupResource) (string, error) {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to create discovery client: %w", err)
+	}
+
+	prefResources, err := discovery.ServerPreferredResources(discoveryClient)
+	if err != nil {
+		return "", fmt.Errorf("failed to discover APIs: %w", err)
+	}
+
+	for _, resList := range prefResources {
+		listGV, err := schema.ParseGroupVersion(resList.GroupVersion)
+		if err != nil {
+			continue
+		}
+
+		for _, res := range resList.APIResources {
+			if listGV.Group == gr.Group && res.Name == gr.Resource {
+				return listGV.Version, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("server does not serve %v", gr)
 }
