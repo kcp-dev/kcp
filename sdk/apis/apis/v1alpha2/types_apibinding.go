@@ -117,8 +117,6 @@ const (
 
 // PermissionClaimSelector configures scoped access to objects
 // of a claimed resource.
-//
-// +kubebuilder:validation:XValidation:rule="(has(self.matchAll) && self.matchAll)",message="a selector is required. Only \"matchAll\" is currently implemented"
 type PermissionClaimSelector struct {
 	metav1.LabelSelector `json:",inline"`
 

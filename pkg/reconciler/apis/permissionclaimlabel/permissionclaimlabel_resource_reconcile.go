@@ -34,7 +34,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
@@ -48,7 +48,7 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 
 	actualClaimLabels := make(map[string]string)
 	for k, v := range obj.GetLabels() {
-		if strings.HasPrefix(k, apisv1alpha1.APIExportPermissionClaimLabelPrefix) {
+		if strings.HasPrefix(k, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
 			actualClaimLabels[k] = v
 		}
 	}
