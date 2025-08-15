@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -43,6 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
+	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 )
 
 const resyncPeriod = 10 * time.Hour
@@ -164,12 +164,13 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	rt := cacheclient.WithCacheServiceRoundTripper(serverConfig.LoopbackClientConfig)
 	rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
 	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
+	requestInfoResolver := requestinfo.NewFactory()
 	rt = cacheclient.WithShardNameFromObjectRoundTripper(
 		rt,
 		func(rq *http.Request) (string, string, error) {
-			if serverConfig.Config.RequestInfoResolver == nil {
-				return "", "", errors.New("no RequestInfoResolver provided")
-			}
+			// if serverConfig.Config.RequestInfoResolver == nil {
+			// 	return "", "", errors.New("no RequestInfoResolver provided")
+			// }
 			// the k8s request info resolver expects a cluster-less path, but the client we're using knows how to
 			// add the cluster we are targeting to the path before this round-tripper fires, so we need to strip it
 			// to use the k8s library
@@ -184,7 +185,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 			// into anything on the network, just inspected by the k8s request info libraries
 			clone := rq.Clone(rq.Context())
 			clone.URL.Path = strings.Join(parts[3:], "/")
-			requestInfo, err := serverConfig.Config.RequestInfoResolver.NewRequestInfo(clone)
+			requestInfo, err := requestInfoResolver.NewRequestInfo(clone)
 			if err != nil {
 				return "", "", err
 			}
