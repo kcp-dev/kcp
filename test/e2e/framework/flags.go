@@ -57,7 +57,7 @@ func init() {
 	flag.StringVar(&testConfig.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
 	flag.Var(cliflag.NewMapStringString(&testConfig.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
 	flag.BoolVar(&testConfig.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
-	flag.StringVar(&testConfig.suites, "suites", "control-plane", "A comma-delimited list of suites to run.")
+	flag.StringVar(&testConfig.suites, "suites", "control-plane,cli", "A comma-delimited list of suites to run.")
 
 	kcptesting.InitExternalServer(func() (string, map[string]string) {
 		complete()
