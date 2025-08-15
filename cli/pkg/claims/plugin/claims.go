@@ -19,14 +19,11 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
-	"strings"
 
 	"github.com/spf13/cobra"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/rest"
@@ -34,7 +31,8 @@ import (
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
-	apiv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	apishelpers "github.com/kcp-dev/kcp/cli/pkg/helpers/apis/apis"
+	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
@@ -90,6 +88,14 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current URL %q does not point to workspace", cfg.Host)
 	}
 
+	preferredAPIBindingVersion, err := pluginhelpers.PreferredVersion(cfg, schema.GroupResource{
+		Group:    apis.GroupName,
+		Resource: "apibindings",
+	})
+	if err != nil {
+		return fmt.Errorf("service discovery failed: %w", err)
+	}
+
 	kcpClusterClient, err := newKCPClusterClient(g.ClientConfig)
 	if err != nil {
 		return fmt.Errorf("error while creating kcp client %w", err)
@@ -98,38 +104,24 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 	out := printers.GetNewTabWriter(g.Out)
 	defer out.Flush()
 
-	err = printHeaders(out)
-	if err != nil {
-		return fmt.Errorf("error: %w", err)
-	}
-
-	allErrors := []error{}
-	apibindings := []apiv1alpha2.APIBinding{}
 	// List permission claims for all bindings in current workspace.
+
+	var bindingsList apishelpers.APIBindingList
 	if g.allBindings {
-		bindings, err := kcpClusterClient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
+		bindings, err := apishelpers.ListAPIBindings(ctx, kcpClusterClient.Cluster(currentClusterName), preferredAPIBindingVersion)
 		if err != nil {
-			return fmt.Errorf("error listing apibindings in %q workspace: %w", currentClusterName, err)
+			return fmt.Errorf("error listing APIBindings in %q workspace: %w", currentClusterName, err)
 		}
-		apibindings = append(apibindings, bindings.Items...)
+		bindingsList = bindings
 	} else {
-		binding, err := kcpClusterClient.Cluster(currentClusterName).ApisV1alpha2().APIBindings().Get(ctx, g.APIBindingName, metav1.GetOptions{})
+		binding, err := apishelpers.GetAPIBinding(ctx, kcpClusterClient.Cluster(currentClusterName), preferredAPIBindingVersion, g.APIBindingName)
 		if err != nil {
-			return fmt.Errorf("error finding apibinding: %w", err)
+			return fmt.Errorf("error finding APIBinding: %w", err)
 		}
-		apibindings = append(apibindings, *binding)
+		bindingsList = apishelpers.NewAPIBindingList(binding)
 	}
 
-	for _, b := range apibindings {
-		for _, claim := range b.Spec.PermissionClaims {
-			err := printDetails(out, b.Name, claim.Group+"-"+claim.Resource, string(claim.State))
-			if err != nil {
-				allErrors = append(allErrors, err)
-			}
-		}
-	}
-
-	return utilerrors.NewAggregate(allErrors)
+	return bindingsList.PrintPermissionClaims(out)
 }
 
 func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclientset.ClusterInterface, error) {
@@ -146,15 +138,4 @@ func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclientset.Clus
 	clusterConfig.Host = u.String()
 	clusterConfig.UserAgent = rest.DefaultKubernetesUserAgent()
 	return kcpclientset.NewForConfig(clusterConfig)
-}
-
-func printHeaders(out io.Writer) error {
-	columnNames := []string{"APIBINDING", "RESOURCE GROUP-VERSION", "STATUS"}
-	_, err := fmt.Fprintf(out, "%s\n", strings.Join(columnNames, "\t"))
-	return err
-}
-
-func printDetails(w io.Writer, name, binding, status string) error {
-	_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", name, binding, status)
-	return err
 }
