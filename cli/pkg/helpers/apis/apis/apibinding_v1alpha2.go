@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
@@ -96,14 +97,19 @@ func listAPIBindingsV1alpha2(ctx context.Context, client kcpclientset.Interface)
 }
 
 func (l *apiBindingListV1alpha2) PrintPermissionClaims(out io.Writer) error {
-	columnNames := []string{"APIBINDING", "RESOURCE GROUP-VERSION", "STATUS"}
+	columnNames := []string{"APIBINDING", "GROUP-RESOURCE", "STATUS"}
 	if _, err := fmt.Fprintf(out, "%s\n", strings.Join(columnNames, "\t")); err != nil {
 		return err
 	}
 
 	for _, binding := range l.bindings {
 		for _, claim := range binding.Spec.PermissionClaims {
-			if _, err := fmt.Fprintf(out, "%s\t%s\t%s\n", binding.Name, claim.Group+"-"+claim.Resource, string(claim.State)); err != nil {
+			claimed := schema.GroupResource{
+				Group:    claim.Group,
+				Resource: claim.Resource,
+			}
+
+			if _, err := fmt.Fprintf(out, "%s\t%s\t%s\n", binding.Name, claimed.String(), string(claim.State)); err != nil {
 				return err
 			}
 		}
