@@ -38,6 +38,7 @@ import (
 
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -52,10 +53,12 @@ func TestServiceAccounts(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
-	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Log("Creating namespace")
@@ -186,11 +189,12 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err)
 			})
 
-			t.Run("Access another workspace in the same org", func(t *testing.T) {
-				// See https://github.com/kcp-dev/kcp/issues/3397
-				t.Skip()
-				t.Log("Create workspace with the same name ")
-				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+			t.Run("Access another workspace in the same org and shard", func(t *testing.T) {
+				t.Log("Create workspace with the same name")
+				// Ensure this new workspace is scheduled onto the same shard, so that it and the ServiceAccount
+				// can be resolved. See https://github.com/kcp-dev/kcp/issues/3510 for tracking multi-shard support.
+				opts := kcptesting.WithShard(kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, ws).Name)
+				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, opts)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,
