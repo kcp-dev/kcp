@@ -59,7 +59,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create Organization and Workspaces
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	exportClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	partitionClusterPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
@@ -204,7 +204,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 	t.Logf("Setup provider workspace")
 	var orgPath, providerPath logicalcluster.Path
 	{
-		orgPath, _ = framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+		orgPath, _ = kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 		providerPath, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider"))
 
 		serviceProviderClient, err := kcpclientset.NewForConfig(cfg)
