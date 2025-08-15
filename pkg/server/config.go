@@ -479,7 +479,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// that path itself, instead of the rest of the handler chain above handling it.
 		mux := http.NewServeMux()
 		mux.Handle("/", apiHandler)
-		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
+		*c.preHandlerChainMux = []*http.ServeMux{mux}
 		apiHandler = mux
 
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made
