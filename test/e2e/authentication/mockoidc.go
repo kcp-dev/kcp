@@ -86,7 +86,7 @@ func startMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoi
 	return m, ca
 }
 
-func mockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA) tenancyv1alpha1.JWTAuthenticator {
+func mockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA, userPrefix, groupPrefix string) tenancyv1alpha1.JWTAuthenticator {
 	cfg := m.Config()
 
 	caCert, _, err := ca.Config.GetPEMBytes()
@@ -101,11 +101,11 @@ func mockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA) ten
 		ClaimMappings: tenancyv1alpha1.ClaimMappings{
 			Username: tenancyv1alpha1.PrefixedClaimOrExpression{
 				Claim:  "email",
-				Prefix: ptr.To("oidc:"),
+				Prefix: ptr.To(userPrefix),
 			},
 			Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
 				Claim:  "groups",
-				Prefix: ptr.To("oidc:"),
+				Prefix: ptr.To(groupPrefix),
 			},
 		},
 	}

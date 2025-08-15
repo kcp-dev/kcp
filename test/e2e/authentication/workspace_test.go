@@ -34,6 +34,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -205,6 +206,18 @@ func TestWorkspaceOIDC(t *testing.T) {
 				teamCPath: true,
 			},
 		},
+		{
+			name:     "impersonating system groups is not allowed and those groups will be stripped",
+			username: "hacker",
+			email:    "hacker@1337code.no",
+			groups:   []string{bootstrap.SystemKcpAdminGroup, "system:masters"},
+			mock:     mockB,
+			workspaceAccess: map[logicalcluster.Path]bool{
+				teamAPath: false,
+				teamBPath: false,
+				teamCPath: false,
+			},
+		},
 	}
 
 	for _, testcase := range testcases {
@@ -306,6 +319,106 @@ func TestUserScope(t *testing.T) {
 	require.Equal(t, user.Extra["authentication.kcp.io/scopes"], authenticationv1.ExtraValue{"cluster:" + teamWs.Spec.Cluster})
 }
 
+func TestForbiddenSystemAccess(t *testing.T) {
+	framework.Suite(t, "control-plane")
+
+	ctx := context.Background()
+
+	// start kcp and setup clients
+	server := kcptesting.SharedKcpServer(t)
+
+	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("oidc-scope"))
+
+	kcpConfig := server.BaseConfig(t)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+
+	mock, ca := startMockOIDC(t, server)
+
+	// create an evil AuthConfig that would not prefix OIDC-provided groups, theoretically allowing
+	// users to become part of system groups.
+	// setup a new workspace auth config that uses mockoidc's server
+	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "evil-oidc",
+		},
+		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+			JWT: []tenancyv1alpha1.JWTAuthenticator{
+				mockJWTAuthenticator(t, mock, ca, "", ""),
+			},
+		},
+	}
+
+	t.Logf("Creating WorkspaceAuthenticationConfguration %s...", authConfig.Name)
+	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	wsType := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfig.Name)
+
+	// create a new workspace with our new type
+	t.Log("Creating Workspaces...")
+	teamPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
+
+	// give a dummy user access
+	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, []rbacv1.Subject{{
+		Kind: "User",
+		Name: "dummy@example.com",
+	}})
+
+	// wait until the authenticator is ready
+	token := createOIDCToken(t, mock, "dummy", "dummy@example.com", nil)
+
+	client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
+	require.NoError(t, err)
+
+	t.Log("Waiting for authenticator to be ready...")
+	require.Eventually(t, func() bool {
+		_, err := client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+
+		return err == nil
+	}, wait.ForeverTestTimeout, 500*time.Millisecond)
+
+	// Now that we know that the authenticator is ready, run the actual tests that ensure we do NOT
+	// gain access based on our system names / groups.
+
+	testcases := []struct {
+		name     string
+		username string
+		email    string
+		groups   []string
+	}{
+		{
+			name:     fmt.Sprintf("%s should not give workspace access", bootstrap.SystemKcpAdminGroup),
+			username: "al",
+			email:    "al@bundy.com",
+			groups:   []string{bootstrap.SystemKcpAdminGroup},
+		},
+		{
+			name:     "shard-admin should not be admitted",
+			username: "al",
+			email:    "shard-admin",
+			groups:   nil,
+		},
+	}
+
+	t.Log("Testing tokens...")
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+
+			token := createOIDCToken(t, mock, testcase.username, testcase.email, testcase.groups)
+
+			client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
+			require.NoError(t, err)
+
+			_, err = client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			require.Error(t, err, "user should have no access")
+		})
+	}
+}
+
 func createWorkspaceAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {
 	name := fmt.Sprintf("mockoidc-%d", rand.Int())
 
@@ -316,7 +429,7 @@ func createWorkspaceAuthentication(t *testing.T, ctx context.Context, client kcp
 		},
 		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
 			JWT: []tenancyv1alpha1.JWTAuthenticator{
-				mockJWTAuthenticator(t, mock, ca),
+				mockJWTAuthenticator(t, mock, ca, "oidc:", "oidc:"),
 			},
 		},
 	}

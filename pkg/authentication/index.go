@@ -235,5 +235,14 @@ func (c *state) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool)
 		return nil, false
 	}
 
-	return authenticatorunion.New(authenticators...), true
+	authenticator := authenticatorunion.New(authenticators...)
+
+	// ensure that per-workspace auth cannot be used to become a system: user/group
+	authenticator = ForbidSystemUsernames(authenticator)
+	filtered := &GroupFilter{
+		Authenticator:     authenticator,
+		DropGroupPrefixes: []string{"system:"},
+	}
+
+	return filtered, true
 }

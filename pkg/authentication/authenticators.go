@@ -26,51 +26,39 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-type workspaceAuthenticator struct{}
-
 func NewWorkspaceAuthenticator() authenticator.Request {
-	return &workspaceAuthenticator{}
-}
+	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+		reqAuthenticator, ok := WorkspaceAuthenticatorFrom(req.Context())
+		if !ok {
+			return nil, false, nil
+		}
 
-func (a *workspaceAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	reqAuthenticator, ok := WorkspaceAuthenticatorFrom(req.Context())
-	if !ok {
-		return nil, false, nil
-	}
-
-	return reqAuthenticator.AuthenticateRequest(req)
-}
-
-type clusterScoper struct {
-	delegate authenticator.Request
+		return reqAuthenticator.AuthenticateRequest(req)
+	})
 }
 
 func withClusterScope(delegate authenticator.Request) authenticator.Request {
-	return &clusterScoper{
-		delegate: delegate,
-	}
-}
+	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+		response, authenticated, ok := delegate.AuthenticateRequest(req)
+		if authenticated {
+			cluster := lookup.ClusterNameFrom(req.Context())
 
-func (a *clusterScoper) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	response, authenticated, ok := a.delegate.AuthenticateRequest(req)
-	if authenticated {
-		cluster := lookup.ClusterNameFrom(req.Context())
+			extra := response.User.GetExtra()
+			if extra == nil {
+				extra = map[string][]string{}
+			}
+			if true {
+				extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster))
+			}
 
-		extra := response.User.GetExtra()
-		if extra == nil {
-			extra = map[string][]string{}
+			response.User = &user.DefaultInfo{
+				Name:   response.User.GetName(),
+				UID:    response.User.GetUID(),
+				Groups: response.User.GetGroups(),
+				Extra:  extra,
+			}
 		}
-		if true {
-			extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster))
-		}
 
-		response.User = &user.DefaultInfo{
-			Name:   response.User.GetName(),
-			UID:    response.User.GetUID(),
-			Groups: response.User.GetGroups(),
-			Extra:  extra,
-		}
-	}
-
-	return response, authenticated, ok
+		return response, authenticated, ok
+	})
 }
