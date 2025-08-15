@@ -97,7 +97,7 @@ func listAPIBindingsV1alpha2(ctx context.Context, client kcpclientset.Interface)
 }
 
 func (l *apiBindingListV1alpha2) PrintPermissionClaims(out io.Writer) error {
-	columnNames := []string{"APIBINDING", "GROUP-RESOURCE", "STATUS"}
+	columnNames := []string{"APIBINDING", "GROUP-RESOURCE", "VERBS", "STATUS"}
 	if _, err := fmt.Fprintf(out, "%s\n", strings.Join(columnNames, "\t")); err != nil {
 		return err
 	}
@@ -109,7 +109,9 @@ func (l *apiBindingListV1alpha2) PrintPermissionClaims(out io.Writer) error {
 				Resource: claim.Resource,
 			}
 
-			if _, err := fmt.Fprintf(out, "%s\t%s\t%s\n", binding.Name, claimed.String(), string(claim.State)); err != nil {
+			verbs := strings.Join(claim.Verbs, ",")
+
+			if _, err := fmt.Fprintf(out, "%s\t%s\t%s\t%s\n", binding.Name, claimed.String(), verbs, string(claim.State)); err != nil {
 				return err
 			}
 		}
