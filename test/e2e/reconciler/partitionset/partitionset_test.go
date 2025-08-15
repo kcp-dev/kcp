@@ -38,6 +38,8 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+
+	_ "github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 func TestPartitionSet(t *testing.T) {
