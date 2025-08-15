@@ -81,6 +81,19 @@ func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
 // It also trims "/clusters/" prefix from the URL.
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		cl, err := request.ValidClusterFrom(req.Context())
+		if err == nil {
+			// TODO(ntnn): Lets see if this breaks something.
+			// TBH it would make sense to have a safeguard here, I'd
+			// prefer early errors instead of silent failures.
+			responsewriters.ErrorNegotiated(
+				apierrors.NewBadRequest(
+					fmt.Sprintf("cluster path %q already exists in the request context", cl.Name.String()),
+				),
+				errorCodecs, schema.GroupVersion{},
+				w, req)
+			return
+		}
 		path, newURL, found, err := ClusterPathFromAndStrip(req)
 		if err != nil {
 			responsewriters.ErrorNegotiated(
