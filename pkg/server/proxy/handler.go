@@ -83,12 +83,13 @@ func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// use the handler for that mapping, else use default handler - kcp.
 	// Mappings are done from most specific to least specific:
 	// Example: /clusters/cluster1/ will be matched before /clusters/ .
+	url, errorCode := h.resolveURL(r)
+	if errorCode != 0 {
+		http.Error(w, http.StatusText(errorCode), errorCode)
+		return
+	}
+
 	for _, m := range h.Mappings {
-		url, errorCode := h.resolveURL(r)
-		if errorCode != 0 {
-			http.Error(w, http.StatusText(errorCode), errorCode)
-			return
-		}
 		if strings.HasPrefix(url, m.Path) {
 			m.Handler.ServeHTTP(w, r)
 			return

@@ -56,6 +56,21 @@ spec:
                   additionalWorkspaceLabels are a set of labels that will be added to a
                   Workspace on creation.
                 type: object
+              authenticationConfigurations:
+                description: |-
+                  authenticationConfigurations are additional authentication options that should apply to any
+                  workspace using this workspace type.
+                items:
+                  description: AuthenticationConfigurationReference provides the fields
+                    necessary to resolve a WorkspaceAuthenticationConfiguration.
+                  properties:
+                    name:
+                      description: name is the name of the WorkspaceAuthenticationConfiguration.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               defaultAPIBindingLifecycle:
                 description: Configure the lifecycle behaviour of defaultAPIBindings.
                 enum:

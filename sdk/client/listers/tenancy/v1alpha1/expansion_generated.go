@@ -26,6 +26,14 @@ type WorkspaceClusterListerExpansion interface{}
 // WorkspaceLister.
 type WorkspaceListerExpansion interface{}
 
+// WorkspaceAuthenticationConfigurationClusterListerExpansion allows custom methods to be added to
+// WorkspaceAuthenticationConfigurationClusterLister.
+type WorkspaceAuthenticationConfigurationClusterListerExpansion interface{}
+
+// WorkspaceAuthenticationConfigurationListerExpansion allows custom methods to be added to
+// WorkspaceAuthenticationConfigurationLister.
+type WorkspaceAuthenticationConfigurationListerExpansion interface{}
+
 // WorkspaceTypeClusterListerExpansion allows custom methods to be added to
 // WorkspaceTypeClusterLister.
 type WorkspaceTypeClusterListerExpansion interface{}

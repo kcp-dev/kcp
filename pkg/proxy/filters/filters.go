@@ -24,26 +24,51 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/pkg/authentication"
 )
 
 // WithOptionalAuthentication creates a handler that authenticates a request
 // if a ClientCert is presented but passes through to the next handler if one is
-// not.
+// not. It will also call the authenticator present in the request context, if
+// any, to support per-workspace authentication.
 // When additionalAuthMethods is true we also attempt to authenticate even when
 // no client cert is detected in the request.
 func WithOptionalAuthentication(handler, failed http.Handler, auth authenticator.Request, additionalAuthMethods bool) http.Handler {
-	if auth == nil {
-		return handler
-	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if (req.TLS == nil || len(req.TLS.PeerCertificates) == 0) && !additionalAuthMethods {
+		// Do not accidentally modify the variables in the scope of WithOptionalAuthentication().
+		var (
+			authenticator  = auth
+			additionalAuth = additionalAuthMethods
+		)
+
+		// If an authenticator for the workspace exists,
+		// it offers an alternative way to authenticate.
+		reqAuthenticator, ok := authentication.WorkspaceAuthenticatorFrom(req.Context())
+		if ok {
+			if auth != nil {
+				authenticator = authenticatorunion.New(auth, reqAuthenticator)
+			} else {
+				authenticator = reqAuthenticator
+			}
+			additionalAuth = true
+		}
+
+		if authenticator == nil {
 			handler.ServeHTTP(w, req)
 			return
 		}
-		resp, ok, err := auth.AuthenticateRequest(req)
+
+		if (req.TLS == nil || len(req.TLS.PeerCertificates) == 0) && !additionalAuth {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		resp, ok, err := authenticator.AuthenticateRequest(req)
 		if err != nil || !ok {
 			if err != nil {
 				logger := klog.FromContext(req.Context())
