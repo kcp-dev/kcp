@@ -180,8 +180,8 @@ func (b *BindOptions) Run(ctx context.Context) error {
 
 	// wait for phase to be bound
 	if !apiBinding.IsBound() {
-		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, b.BindWaitTimeout, true, func(ctx context.Context) (done bool, err error) {
-			if err = apiBinding.Refresh(ctx, kcpClusterClient.Cluster(currentClusterName)); err != nil {
+		if err := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, b.BindWaitTimeout, true, func(ctx context.Context) (bool, error) {
+			if err := apiBinding.Refresh(ctx, kcpClusterClient.Cluster(currentClusterName)); err != nil {
 				return false, err
 			}
 
