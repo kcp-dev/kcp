@@ -436,6 +436,7 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 		kubeClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoleBindings(),
+		s.Options.Extra.ShardName,
 	)
 
 	return s.registerController(&controllerWrapper{
