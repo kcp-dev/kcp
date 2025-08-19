@@ -22,11 +22,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -93,15 +91,18 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		return apierrors.NewInternalError(err)
 	}
 
-	if a.GetResource().GroupResource() == apisv1alpha1.Resource("apibindings") {
+	// Skip if the object is not an APIBinding
+	// (v1alpha2 doesn't mean the resource version, we're only taking the resource from that package)
+	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apibindings") {
+		return nil
+	}
+
+	// If we're working with v1alpha1 object, check the overhanging permission claims
+	if a.GetResource().GroupVersion() == apisv1alpha1.SchemeGroupVersion {
 		ab := &apisv1alpha1.APIBinding{}
 		if err := validateOverhangingPermissionClaims(ctx, a, ab); err != nil {
 			return admission.NewForbidden(a, err)
 		}
-	}
-
-	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apibindings") {
-		return nil
 	}
 
 	u, ok := a.GetObject().(*unstructured.Unstructured)
@@ -109,33 +110,36 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	apiBinding := &apisv1alpha2.APIBinding{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding); err != nil {
+	ab, err := getAPIBinding(u, a.GetResource().Version)
+	if err != nil {
 		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 	}
 
-	if apiBinding.Spec.Reference.Export == nil {
+	if !ab.BindingReference().HasExport() {
 		// should not happen due to validation.
 		return nil
 	}
 
-	var oldAPIBinding *apisv1alpha2.APIBinding
+	exportPath := ab.BindingReference().ExportPath()
+	exportName := ab.BindingReference().ExportName()
+
+	var oldAPIBinding apiBinding
 	if a.GetOperation() == admission.Update {
 		u, ok := a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
 
-		oldAPIBinding = &apisv1alpha2.APIBinding{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, oldAPIBinding); err != nil {
+		oldAPIBinding, err = getAPIBinding(u, a.GetResource().Version)
+		if err != nil {
 			return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 		}
 	}
 
 	switch {
 	case a.GetOperation() == admission.Create,
-		a.GetOperation() == admission.Update && !reflect.DeepEqual(apiBinding.Spec.Reference, oldAPIBinding.Spec.Reference),
-		a.GetOperation() == admission.Update && apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey] != oldAPIBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey]:
+		a.GetOperation() == admission.Update && !ab.BindingReference().DeepEqual(oldAPIBinding.BindingReference()),
+		a.GetOperation() == admission.Update && ab.Labels()[apisv1alpha1.InternalAPIBindingExportLabelKey] != oldAPIBinding.Labels()[apisv1alpha1.InternalAPIBindingExportLabelKey]:
 
 		// unified forbidden error that does not leak workspace existence
 		action := "create"
@@ -143,18 +147,18 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 			action = "update"
 		}
 		forbidden := admission.NewForbidden(a, fmt.Errorf("unable to %s APIBinding: no permission to bind to export %s", action,
-			logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path).Join(apiBinding.Spec.Reference.Export.Name).String()))
+			logicalcluster.NewPath(exportPath).Join(exportName).String()))
 
 		// get cluster name of export
 		var exportClusterName logicalcluster.Name
-		if apiBinding.Spec.Reference.Export.Path == "" {
+		if exportPath == "" {
 			exportClusterName = clusterName
-		} else if apiBinding.Spec.Reference.Export.Path == core.RootCluster.String() {
+		} else if exportPath == core.RootCluster.String() {
 			// special case to allow bootstrapping
 			exportClusterName = core.RootCluster
 		} else {
-			path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
-			export, err := o.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
+			path := logicalcluster.NewPath(exportPath)
+			export, err := o.getAPIExport(path, exportName)
 			if err != nil {
 				return forbidden
 			}
@@ -162,17 +166,19 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 		}
 
 		// set labels
-		if apiBinding.Labels == nil {
-			apiBinding.Labels = make(map[string]string)
+		lbls := ab.Labels()
+		if lbls == nil {
+			lbls = map[string]string{}
 		}
-		apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey] = permissionclaims.ToAPIBindingExportLabelValue(
+		lbls[apisv1alpha1.InternalAPIBindingExportLabelKey] = permissionclaims.ToAPIBindingExportLabelValue(
 			exportClusterName,
-			apiBinding.Spec.Reference.Export.Name,
+			exportName,
 		)
+		ab.SetLabels(lbls)
 	}
 
 	// write back
-	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apiBinding)
+	raw, err := ab.ToUnstructured()
 	if err != nil {
 		return err
 	}
@@ -189,6 +195,8 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return apierrors.NewInternalError(err)
 	}
 
+	// Skip if the object is not an APIBinding
+	// (v1alpha2 doesn't mean the resource version, we're only taking the resource from that package)
 	if a.GetResource().GroupResource() != apisv1alpha2.Resource("apibindings") {
 		return nil
 	}
@@ -198,37 +206,40 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	apiBinding := &apisv1alpha2.APIBinding{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, apiBinding); err != nil {
+	ab, err := getAPIBinding(u, a.GetResource().Version)
+	if err != nil {
 		return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 	}
 
 	// Object validation
 	var errs field.ErrorList
-	var oldAPIBinding *apisv1alpha2.APIBinding
+	var oldAPIBinding apiBinding
 	switch a.GetOperation() {
 	case admission.Create:
-		errs = ValidateAPIBinding(apiBinding)
+		errs = ab.Validate()
 	case admission.Update:
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetOldObject())
 		}
-		oldAPIBinding = &apisv1alpha2.APIBinding{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, oldAPIBinding); err != nil {
+		oldAPIBinding, err = getAPIBinding(u, a.GetResource().Version)
+		if err != nil {
 			return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 		}
 
-		errs = ValidateAPIBindingUpdate(oldAPIBinding, apiBinding)
+		errs = ab.ValidateUpdate(oldAPIBinding)
 	}
 	if len(errs) > 0 {
 		return admission.NewForbidden(a, fmt.Errorf("%v", errs))
 	}
 
+	exportPath := ab.BindingReference().ExportPath()
+	exportName := ab.BindingReference().ExportName()
+
 	switch {
 	case a.GetOperation() == admission.Create,
-		a.GetOperation() == admission.Update && !reflect.DeepEqual(apiBinding.Spec.Reference, oldAPIBinding.Spec.Reference),
-		a.GetOperation() == admission.Update && apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey] != oldAPIBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey]:
+		a.GetOperation() == admission.Update && !ab.BindingReference().DeepEqual(oldAPIBinding.BindingReference()),
+		a.GetOperation() == admission.Update && ab.Labels()[apisv1alpha1.InternalAPIBindingExportLabelKey] != oldAPIBinding.Labels()[apisv1alpha1.InternalAPIBindingExportLabelKey]:
 
 		// unified forbidden error that does not leak workspace existence
 		action := "create"
@@ -236,18 +247,18 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 			action = "update"
 		}
 		forbidden := admission.NewForbidden(a, fmt.Errorf("unable to %s APIBinding: no permission to bind to export %s", action,
-			logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path).Join(apiBinding.Spec.Reference.Export.Name).String()))
+			logicalcluster.NewPath(exportPath).Join(exportName).String()))
 
 		// get cluster name of export
 		var exportClusterName logicalcluster.Name
-		if apiBinding.Spec.Reference.Export.Path == "" {
+		if exportPath == "" {
 			exportClusterName = clusterName
-		} else if apiBinding.Spec.Reference.Export.Path == core.RootCluster.String() {
+		} else if exportPath == core.RootCluster.String() {
 			// special case to allow bootstrapping
 			exportClusterName = core.RootCluster
 		} else {
-			path := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
-			export, err := o.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
+			path := logicalcluster.NewPath(exportPath)
+			export, err := o.getAPIExport(path, exportName)
 			if err != nil {
 				return forbidden
 			}
@@ -255,15 +266,15 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		}
 
 		// Access check
-		if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), exportClusterName, apiBinding.Spec.Reference.Export.Name); err != nil {
+		if err := o.checkAPIExportAccess(ctx, a.GetUserInfo(), exportClusterName, exportName); err != nil {
 			return forbidden
 		}
 
 		// Verify the labels
-		value := apiBinding.Labels[apisv1alpha1.InternalAPIBindingExportLabelKey]
+		value := ab.Labels()[apisv1alpha1.InternalAPIBindingExportLabelKey]
 		if expected := permissionclaims.ToAPIBindingExportLabelValue(
 			exportClusterName,
-			apiBinding.Spec.Reference.Export.Name,
+			exportName,
 		); value != expected {
 			return admission.NewForbidden(a, field.Invalid(field.NewPath("metadata").Child("labels").Key(apisv1alpha1.InternalAPIBindingExportLabelKey), value, fmt.Sprintf("must be set to %q", expected)))
 		}
