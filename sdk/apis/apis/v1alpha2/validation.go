@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,18 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apibinding
+package v1alpha2
 
 import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
-
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // ValidateAPIBinding validates an APIBinding.
-func ValidateAPIBinding(apiBinding *apisv1alpha2.APIBinding) field.ErrorList {
+func ValidateAPIBinding(apiBinding *APIBinding) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateAPIBindingReference(apiBinding.Spec.Reference, field.NewPath("spec", "reference"))...)
@@ -34,7 +32,7 @@ func ValidateAPIBinding(apiBinding *apisv1alpha2.APIBinding) field.ErrorList {
 }
 
 // ValidateAPIBindingUpdate validates an updated APIBinding.
-func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha2.APIBinding) field.ErrorList {
+func ValidateAPIBindingUpdate(oldBinding, newBinding *APIBinding) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, ValidateAPIBinding(newBinding)...)
@@ -52,7 +50,7 @@ func ValidateAPIBindingUpdate(oldBinding, newBinding *apisv1alpha2.APIBinding) f
 }
 
 // ValidateAPIBindingReference validates an APIBinding's BindingReference.
-func ValidateAPIBindingReference(reference apisv1alpha2.BindingReference, path *field.Path) field.ErrorList {
+func ValidateAPIBindingReference(reference BindingReference, path *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if reference.Export == nil {
