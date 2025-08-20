@@ -39,15 +39,9 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient cor
 	}
 
 	return func(w http.ResponseWriter, req *http.Request) {
-		_, newURL, _, err := ClusterPathFromAndStrip(req)
-		if err != nil {
-			responsewriters.InternalError(w, req, err)
-			return
-		}
-
 		isException := false
 		for _, prefix := range allowedPathPrefixes {
-			if strings.HasPrefix(newURL.String(), prefix) {
+			if strings.HasPrefix(req.URL.String(), prefix) {
 				isException = true
 			}
 		}
