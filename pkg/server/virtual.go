@@ -85,6 +85,13 @@ func newVirtualConfig(
 		return nil, err
 	}
 
+	admissionOptions := virtualoptions.NewAdmission()
+	if err := admissionOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return c.Extra.VirtualWorkspaces
+	}); err != nil {
+		return nil, err
+	}
+
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,

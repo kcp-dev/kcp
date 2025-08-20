@@ -17,10 +17,14 @@ limitations under the License.
 package dynamic
 
 import (
+	"context"
+
+	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
+	kcpadmission "github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 )
 
@@ -33,8 +37,27 @@ type DynamicVirtualWorkspace struct {
 	authorizer.Authorizer
 	framework.ReadyChecker
 
+	Mutator   kcpadmission.Mutator
+	Validator kcpadmission.Validator
+
 	// BootstrapAPISetManagement creates, initializes and returns an apidefinition.APIDefinitionSetGetter.
 	// Usually it would also set up some logic that will call the apiserver.CreateServingInfoFor() method
 	// to add an apidefinition.APIDefinition in the apidefinition.APIDefinitionSetGetter on some event.
 	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error)
+}
+
+func (vw *DynamicVirtualWorkspace) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	if vw.Mutator != nil {
+		return vw.Mutator.Admit(ctx, a, o)
+	}
+
+	return nil
+}
+
+func (vw *DynamicVirtualWorkspace) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
+	if vw.Validator != nil {
+		return vw.Validator.Validate(ctx, a, o)
+	}
+
+	return nil
 }

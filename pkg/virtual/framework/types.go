@@ -21,6 +21,8 @@ import (
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
 )
 
 // RootPathResolverFunc is the type of a function that, based on the URL path of a request,
@@ -50,7 +52,7 @@ type RootPathResolver interface {
 }
 
 // ReadyFunc is the type of readiness check functions exposed by types
-// implementing the VtualWorkspace interface.
+// implementing the VirtualWorkspace interface.
 type ReadyFunc func() error
 
 func (r ReadyFunc) IsReady() error {
@@ -74,6 +76,8 @@ type ReadyChecker interface {
 // in a limited number of group/versions, implemented as Rest storages.
 type VirtualWorkspace interface {
 	authorizer.Authorizer
+	admission.Mutator
+	admission.Validator
 	RootPathResolver
 	ReadyChecker
 	Register(name string, rootAPIServerConfig genericapiserver.CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) (genericapiserver.DelegationTarget, error)

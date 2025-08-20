@@ -44,6 +44,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -173,6 +174,13 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	if err := o.Authorization.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return rootAPIServerConfig.Extra.VirtualWorkspaces
+	}); err != nil {
+		return err
+	}
+
+	admissionOptions := virtualoptions.NewAdmission()
+	if err := admissionOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
 		return rootAPIServerConfig.Extra.VirtualWorkspaces
 	}); err != nil {
 		return err
