@@ -557,9 +557,6 @@ spec:
                       x-kubernetes-validations:
                       - message: Permission claim selector is immutable
                         rule: self == oldSelf
-                      - message: a selector is required. Only "matchAll" is currently
-                          implemented
-                        rule: (has(self.matchAll) && self.matchAll)
                     state:
                       enum:
                       - Accepted
@@ -710,9 +707,6 @@ spec:
                       x-kubernetes-validations:
                       - message: Permission claim selector is immutable
                         rule: self == oldSelf
-                      - message: a selector is required. Only "matchAll" is currently
-                          implemented
-                        rule: (has(self.matchAll) && self.matchAll)
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes
