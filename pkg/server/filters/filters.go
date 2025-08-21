@@ -44,10 +44,6 @@ type (
 const (
 	workspaceAnnotation = "tenancy.kcp.io/workspace"
 
-	// inactiveAnnotation is the annotation denoting a logical cluster should be
-	// deemed unreachable.
-	inactiveAnnotation = "internal.kcp.io/inactive"
-
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota
 )
