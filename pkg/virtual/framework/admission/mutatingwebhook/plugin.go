@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.io/VWMutatingWebhook"
+	PluginName = "apis.kcp.io/VirtualWorkspaceMutatingWebhook"
 )
 
 type Plugin struct {

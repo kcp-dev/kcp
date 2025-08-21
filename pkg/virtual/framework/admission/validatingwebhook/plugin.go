@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	PluginName = "apis.kcp.io/qqqqqq"
+	PluginName = "apis.kcp.io/VirtualWorkspaceValidatingWebhook"
 )
 
 type Plugin struct {

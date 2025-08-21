@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	admissionmetrics "k8s.io/apiserver/pkg/admission/metrics"
 	apiserverapi "k8s.io/apiserver/pkg/apis/apiserver"
 	apiserverapiv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	apiserverapiv1alpha1 "k8s.io/apiserver/pkg/apis/apiserver/v1alpha1"
@@ -73,7 +74,7 @@ func (s *Admission) ApplyTo(config *genericapiserver.Config, virtualWorkspaces f
 		return err
 	}
 
-	// config.AdmissionControl = admissionmetrics.WithStepMetrics(admissionChain)
-	config.AdmissionControl = admissionChain
+	config.AdmissionControl = admissionmetrics.WithStepMetrics(admissionChain)
+
 	return nil
 }
