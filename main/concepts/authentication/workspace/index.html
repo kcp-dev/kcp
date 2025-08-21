@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Bind to an APIExport
+        <meta name="description" content="How to admit users into workspaces by using custom JWT validators.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_bind_apiexport/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/authentication/workspace/">
       
       
-        <link rel="prev" href="../kcp_bind/">
+        <link rel="prev" href="../oidc/">
       
       
-        <link rel="next" href="../kcp_claims/">
+        <link rel="next" href="../../authorization/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +25,7 @@
     
     
       
-        <title>kcp bind apiexport - docs.kcp.io</title>
+        <title>Per-Workspace Authentication - docs.kcp.io</title>
       
     
     
@@ -79,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#examples" class="md-skip">
+        <a href="#per-workspace-authentication" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              kcp bind apiexport
+              Per-Workspace Authentication
             
           </span>
         </div>
@@ -271,11 +271,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../concepts/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -331,13 +333,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -616,6 +616,8 @@
       
   
   
+    
+  
   
   
     
@@ -644,21 +646,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -669,13 +672,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -691,7 +694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/terminology/" class="md-nav__link">
+      <a href="../../terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -712,7 +715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -762,7 +765,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../../workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -795,7 +798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -816,7 +819,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -837,7 +840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -897,7 +900,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/apis/" class="md-nav__link ">
+            <a href="../../apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -930,7 +933,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -951,7 +954,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -972,7 +975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -993,7 +996,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1019,6 +1022,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1038,18 +1043,16 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authentication/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1066,7 +1069,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Authentication
@@ -1082,7 +1085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="../oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1100,10 +1103,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../concepts/authentication/workspace/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Per-Workspace Authentication
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1112,6 +1135,131 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#feature-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Feature Gate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      OIDC
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Limitations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-0-enabling-the-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 0: Enabling the Feature
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-auth-configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Auth Configs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-workspace-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Workspace Type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Workspaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Authorization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Testing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1157,7 +1305,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1190,7 +1338,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1248,7 +1396,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1281,7 +1429,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1302,7 +1450,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1323,7 +1471,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1377,7 +1525,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1410,7 +1558,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2202,8 +2350,6 @@
       
   
   
-    
-  
   
   
     
@@ -2220,22 +2366,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2246,13 +2391,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             Reference
@@ -2265,10 +2410,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -2316,11 +2459,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
         
           
           <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
@@ -2334,7 +2479,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6_2">
             <span class="md-nav__icon md-icon"></span>
             CLI
@@ -2348,7 +2493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2369,7 +2514,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2390,7 +2535,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2408,28 +2553,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    kcp bind apiexport
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2438,60 +2565,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options inherited from parent commands
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      See Also
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2504,7 +2577,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2525,7 +2598,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2546,7 +2619,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2567,7 +2640,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2588,7 +2661,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2609,7 +2682,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2630,7 +2703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2651,7 +2724,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2672,7 +2745,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2693,7 +2766,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2714,7 +2787,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2735,7 +2808,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2756,7 +2829,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2777,7 +2850,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2798,7 +2871,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2929,7 +3002,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2950,7 +3023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2971,7 +3044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2992,7 +3065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3013,7 +3086,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3088,7 +3161,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3109,7 +3182,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3184,7 +3257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3205,7 +3278,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3280,7 +3353,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3301,7 +3374,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3355,6 +3428,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -3363,38 +3438,107 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
+  <a href="#feature-gate" class="md-nav__link">
     <span class="md-ellipsis">
-      Examples
+      Feature Gate
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      Options
+      Overview
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
+  <a href="#oidc" class="md-nav__link">
     <span class="md-ellipsis">
-      Options inherited from parent commands
+      OIDC
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#limitations" class="md-nav__link">
     <span class="md-ellipsis">
-      See Also
+      Limitations
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-0-enabling-the-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 0: Enabling the Feature
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-auth-configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Auth Configs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-workspace-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Workspace Type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Workspaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Authorization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Testing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3416,60 +3560,98 @@
   
 
 
-  <h1>kcp bind apiexport</h1>
-
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp bind apiexport &lt;workspace_path:apiexport-name&gt; [flags]
-</code></pre></div>
-<h3 id="examples">Examples</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># Create an APIBinding named &quot;my-binding&quot; that binds to the APIExport &quot;my-export&quot; in the &quot;root:my-service&quot; workspace.
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>kubectl kcp bind apiexport root:my-service:my-export --name my-binding
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a># Create an APIBinding named &quot;my-binding&quot; that binds to the APIExport &quot;my-export&quot; in the &quot;root:my-service&quot; workspace with accepted permission claims.
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>kubectl kcp bind apiexport root:my-service:my-export --name my-binding --accept-permission-claim secrets.core,configmaps.core
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a># Create an APIBinding named &quot;my-binding&quot; that binds to the APIExport &quot;my-export&quot; in the &quot;root:my-service&quot; workspace with rejected permission claims.
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>kubectl kcp bind apiexport root:my-service:my-export --name my-binding --reject-permission-claim secrets.core,configmaps.core
-</code></pre></div>
-<h3 id="options">Options</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --accept-permission-claim strings   List of accepted permission claims for the APIBinding. Format:  --accept-permission-claim resource.group
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --as-uid string                     UID to impersonate for the operation
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --certificate-authority string      Path to a cert file for the certificate authority
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --context string                    The name of the kubeconfig context to use
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      --disable-compression               If true, opt-out of response compression for all requests to the server
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  -h, --help                              help for apiexport
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --insecure-skip-tls-verify          If true, the server&#39;s certificate will not be checked for validity. This will make your HTTPS connections insecure
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --kubeconfig string                 path to the kubeconfig file
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      --name string                       Name of the APIBinding to create.
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  -n, --namespace string                  If present, the namespace scope for this CLI request
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      --password string                   Password for basic authentication to the API server
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      --proxy-url string                  If provided, this URL will be used to connect via proxy
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      --reject-permission-claim strings   List of rejected permission claims for the APIBinding. Format:  --reject-permission-claim resource.group
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      --server string                     The address and port of the Kubernetes API server
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>      --timeout duration                  Duration to wait for APIBinding to be created successfully. (default 30s)
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>      --tls-server-name string            If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>      --token string                      Bearer token for authentication to the API server
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>      --user string                       The name of the kubeconfig user to use
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>      --username string                   Username for basic authentication to the API server
-</code></pre></div>
-<h3 id="options-inherited-from-parent-commands">Options inherited from parent commands</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>      --add_dir_header                   If true, adds the file directory to the header of the log messages
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>      --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>      --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>      --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>      --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>      --log_file_max_size uint           Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>      --logtostderr                      log to standard error instead of files (default true)
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>      --one_output                       If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>      --skip_headers                     If true, avoid header prefixes in the log messages
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>      --skip_log_headers                 If true, avoid headers when opening log files (no effect when -logtostderr=true)
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>      --stderrthreshold severity         logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true) (default 2)
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>  -v, --v Level                          number for the log level verbosity
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>      --vmodule moduleSpec               comma-separated list of pattern=N settings for file-filtered logging
-</code></pre></div>
-<h3 id="see-also">See Also</h3>
+<h1 id="per-workspace-authentication">Per-Workspace Authentication</h1>
+<p>kcp supports a range of authentication options, but all of them are global and applicable to every workspace in a kcp system. However when integrating with external partners and services, it can be beneficial to be able to admit users into a workspace that do not necessarily have access to kcp as a whole.</p>
+<p>To enable this, kcp supports per-workspace authentication. In this model, a <code>WorkspaceType</code> configures a set of additional OIDC validators that are then used by kcp in addition to the global authentication mechanisms configured with CLI flags. Every workspace using these custom workspace types will then have these additional auth methods available.</p>
+<p>This document describes how to enable and use this feature. Please refer to <a href="../oidc/">OIDC Configuration</a> for more information about the global OIDC configuration.</p>
+<h2 id="feature-gate">Feature Gate</h2>
+<p>The feature is guarded by a feature gate called <code>WorkspaceAuthentication</code>, which is disabled by default. It can be independently enabled on any front-proxy and/or any kcp shard servers, though it is recommended and intended to enable it on front-proxies only. The shard support is mainly for testing and developing.</p>
+<p>Add <code>--feature-gates=WorkspaceAuthentication=true</code> to the CLI flags on the front-proxy to enable the feature.</p>
+<h2 id="overview">Overview</h2>
+<p>Extra authentication for a workspace is configured using <code>WorkspaceAuthenticationConfiguration</code> (colloquially called "auth configs") objects, which can be thought of as CRD variants of the Kubernetes authentication configuration (as described in <a href="../oidc/">OIDC Configuration</a>). Each auth config contains a set of JWT validators that are capable of validating an incoming JWT bearer token.</p>
+<p>Workspace types then reference a set of auth configs, and their configuration will apply to all their workspaces/logicalclusters. Compared to many other settings in a <code>WorkspaceType</code> that work only as a preset for <em>new</em> workspaces, the configured auth configs will continue to affect workspaces, so when a <code>WorkspaceType</code> is changed, this will impact existing workspaces, too.</p>
+<p>For every incoming HTTPS request, kcp will then resolve the logicalcluster, determine the used workspace type, assemble the list of auth configs and create an authenticator suitable for exactly the one logicalcluster targeted by the request. This workspace authenticator is an <em>alternative</em> to kcp's regular authentication (i.e. it forms a union with it).</p>
+<p>This authentication can happen in the front-proxy or on each shard individually. However only the front-proxy has a global view across all shards and will be able to reliably resolve everything necessary. The shard-local per-workspace authentication really only works on a single
+shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code>, auth configs and <code>LogicalClusters</code> are on the same local shard. Because of this, it's recommended to use the front-proxy to handle per-workspace authentication.</p>
+<h2 id="oidc">OIDC</h2>
+<p>It is important to understand how the per-workspace authenticators interact with the global ones. Most importantly, how audiences are handled.</p>
+<p>kcp has a <code>--api-audiences</code> flag that configures the global JWT audience claim that every single JWT needs to contain in order for it to be admitted. These global audiences are also required when using per-workspace authentication.</p>
+<p>For example, suppose kcp is started with <code>--api-audiences=https://kcp.example.com</code> and there is a <code>WorkspaceAuthenticationConfiguration</code> that defines a JWT validator using the audience <code>https://corp.initech.com</code>. For a token to be admitted into a workspace that uses this auth config, the token will have to contain <em>both</em> audiences. This is to ensure the token is actually meant to be used in kcp, regardless of which audiences are then configured per workspace.</p>
+<h2 id="limitations">Limitations</h2>
+<p>This feature has some small limitations that users should keep in mind:</p>
 <ul>
-<li><a href="../kcp_bind/">kcp bind</a> – Bind different types into current workspace.</li>
+<li>As mentioned above, the JWT validation for a workspace is not 100% independent from the global kcp authentication: tokens will need to contain kcp's global API audience (configured with <code>--api-audiences</code>) and any audience configured in the auth configs. You cannot have a token not contain kcp's global audience.</li>
+<li><code>WorkspaceAuthenticationConfiguration</code> objects must reside in the same logicalcluster as the <code>WorkspaceType</code>.</li>
+<li>Workspace authenticators are started asynchronously and it will take a couple of seconds for them to be ready.</li>
+<li>The workspace authentication in the localproxy, as part of a single shard server, only knows about the data on the local shard and cannot handle cross-shard authentication. Users are advised to use the front-proxy instead.</li>
+<li>Even when the feature is disabled on all shards and all front-proxies, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating <code>WorkspaceAuthenticationConfiguration</code> objects if needed.</li>
 </ul>
+<h2 id="example">Example</h2>
+<p>In this example we want to create a workspace where users with tokens from our local OIDC provider are admitted to.</p>
+<h3 id="step-0-enabling-the-feature">Step 0: Enabling the Feature</h3>
+<p>Add <code>--feature-gates=WorkspaceAuthentication=true</code> to the CLI flags on the front-proxy to enable the feature. When developing or just testing, you can also add the feature gate to the kcp process like</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start<span class="w"> </span>--feature-gates<span class="o">=</span><span class="nv">WorkspaceAuthentication</span><span class="o">=</span><span class="nb">true</span>
+</code></pre></div>
+<h3 id="step-1-auth-configs">Step 1: Auth Configs</h3>
+<p>First we need to create a <code>WorkspaceAuthenticationConfiguration</code> object in kcp:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceAuthenticationConfiguration</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-auth-config</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">jwt</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">issuer</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">        </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;url of the issuer&gt;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="nt">certificateAuthority</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">          </span><span class="no">&lt;ca-file-content&gt;</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">        </span><span class="nt">audiences</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;client-id&gt;</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nt">audienceMatchPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MatchAny</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">claimMappings</span><span class="p">:</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="nt">groups</span><span class="p">:</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">          </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;jwt-claim-name&gt;</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">          </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="nt">claimValidationRules</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">userValidationRules</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+</code></pre></div>
+<p>Conveniently, this CRD has the exact same structure as Kubernetes' own <code>AuthenticationConfiguration</code>.</p>
+<h3 id="step-2-workspace-type">Step 2: Workspace Type</h3>
+<p>Next we need to have a workspace type that uses our new auth config. You can edit an existing workspace type or create a new one. In this example we will create a new one:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">with-auth</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">authenticationConfigurations</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-auth-config</span>
+</code></pre></div>
+<p>Remember that changing a workspace type would affect all existing workspaces, too, not just newly created ones.</p>
+<h3 id="step-3-workspaces">Step 3: Workspaces</h3>
+<p>Now we're already create to create workspaces using the new type. This can be done on the command line:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w"> </span>--type<span class="w"> </span>with-auth
+</code></pre></div>
+<h3 id="step-4-authorization">Step 4: Authorization</h3>
+<p>It's now time to configure permissions for your new users. Depending on the configuration and claims in the auth config, a suitable <code>ClusterRoleBinding</code> could look like this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRoleBinding</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">make-externals-admins</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">roleRef</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster-admin</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nt">subjects</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Group</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oidc:admins</span>
+</code></pre></div>
+<p>The CRB above would grant all users in the <code>admins</code> group cluster-admin permission inside the workspace.</p>
+<p>Create the ClusterRoleBinding inside the new workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root:my-workspace
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>--filename<span class="w"> </span>clusterrolebinding.yaml
+</code></pre></div>
+<h3 id="step-5-testing">Step 5: Testing</h3>
+<p>Your setup is now complete. You can take a token produced by your OIDC provider (remember that it needs to include both kcp's global audience and your own audience settings) and authenticate to your workspace.</p>
 
 
 

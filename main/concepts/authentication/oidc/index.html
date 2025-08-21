@@ -17,7 +17,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../../authorization/">
+        <link rel="next" href="../workspace/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -1035,6 +1035,8 @@
       
         
       
+        
+      
     
     
       
@@ -1150,6 +1152,27 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workspace/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Per-Workspace Authentication
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -3369,168 +3392,152 @@ For more details on Kubernetes specific configuration, please refer to this <a h
 <h2 id="configure-kcp-oidc-authentication-using-oidc-flags">Configure kcp OIDC Authentication Using OIDC Flags</h2>
 <p>kcp server will configure the OIDC authentication using the same Kubernetes control plane settings, to start kcp with OIDC authentication enabled, you can simply pass OIDC flags during the start of the kcp server:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>--oidc-issuer-url<span class="o">=</span>&lt;url<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>issuer&gt;<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>--oidc-client-id<span class="o">=</span>&lt;client-id&gt;<span class="se">\</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>--oidc-groups-claim<span class="o">=</span>&lt;jwt-claim-name&gt;<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>--oidc-ca-file<span class="o">=</span>&lt;ca-file-path&gt;
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--oidc-issuer-url<span class="w"> </span><span class="s2">&quot;&lt;url of the issuer&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--oidc-client-id<span class="w"> </span><span class="s2">&quot;&lt;client-id&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--oidc-groups-claim<span class="w"> </span><span class="s2">&quot;&lt;jwt-claim-name&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--oidc-ca-file<span class="w"> </span><span class="s2">&quot;&lt;ca-file-path&gt;&quot;</span>
 </code></pre></div>
 <ul>
-<li>
-<p><code>--oidc-issuer-url</code> URL of the provider that allows the API server to discover public signing keys.</p>
-</li>
-<li>
-<p><code>--oidc-client-id</code> A client id that all tokens must be issued for.</p>
-</li>
-<li>
-<p><code>--oidc-groups-claim</code> JWT claim to use as the user's group.</p>
-</li>
-<li>
-<p><code>--oidc-ca-file</code> The path to the certificate for the CA that signed your identity provider's web certificate.</p>
-</li>
+<li><code>--oidc-issuer-url</code> – URL of the provider that allows the API server to discover public signing keys.</li>
+<li><code>--oidc-client-id</code> – A client ID that all tokens must be issued for.</li>
+<li><code>--oidc-groups-claim</code> – JWT claim to use as the user's group.</li>
+<li><code>--oidc-ca-file</code> – The path to the certificate for the CA that signed your identity provider's web certificate.</li>
 </ul>
 <p>You can also set:</p>
 <ul>
-<li>
-<p><code>--oidc-username-claim</code> JWT claim to use as the user name.</p>
-</li>
-<li>
-<p><code>--oidc-required-claim</code> A key=value pair that describes a required claim in the ID Token.</p>
-</li>
-<li>
-<p><code>--oidc-signing-algs</code> The signing algorithms accepted.</p>
-</li>
-<li>
-<p><code>--oidc-username-prefix</code> Prefix prepended to username claims to prevent clashes with existing names.</p>
-</li>
-<li>
-<p><code>--oidc-groups-prefix</code> Prefix prepended to group claims to prevent clashes with existing names</p>
-</li>
+<li><code>--oidc-username-claim</code> – JWT claim to use as the user name.</li>
+<li><code>--oidc-required-claim</code> – A key=value pair that describes a required claim in the ID Token.</li>
+<li><code>--oidc-signing-algs</code> – The signing algorithms accepted.</li>
+<li><code>--oidc-username-prefix</code> – Prefix prepended to username claims to prevent clashes with existing names.</li>
+<li><code>--oidc-groups-prefix</code> – Prefix prepended to group claims to prevent clashes with existing names</li>
 </ul>
 <h2 id="configure-kcp-oidc-authentication-using-structured-authentication-configuration">Configure kcp OIDC Authentication Using Structured Authentication Configuration</h2>
 <p>Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
 Please note that if you specify <code>--authentication-config</code> along with any of the <code>--oidc-*</code> command line arguments, this will be treated as a misconfiguration.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>apiVersion:<span class="w"> </span>apiserver.config.k8s.io/v1beta1
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>kind:<span class="w"> </span>AuthenticationConfiguration
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apiserver.config.k8s.io/v1beta1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AuthenticationConfiguration</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># list of authenticators to authenticate Kubernetes users using JWT compliant tokens.</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># the maximum number of allowed authenticators is 64.</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>jwt:
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>-<span class="w"> </span>issuer:
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="c1"># url must be unique across all authenticators.</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="c1"># url must not conflict with issuer configured in --service-account-issuer.</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span>url:<span class="w"> </span>https://example.com<span class="w"> </span><span class="c1"># Same as --oidc-issuer-url.</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="c1"># discoveryURL, if specified, overrides the URL used to fetch discovery</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="c1"># information instead of using &quot;{url}/.well-known/openid-configuration&quot;.</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="c1"># The exact value specified is used, so &quot;/.well-known/openid-configuration&quot;</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="c1"># must be included in discoveryURL if needed.</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="c1">#</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="c1"># The &quot;issuer&quot; field in the fetched discovery information must match the &quot;issuer.url&quot; field</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="c1"># in the AuthenticationConfiguration and will be used to validate the &quot;iss&quot; claim in the presented JWT.</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="c1"># This is for scenarios where the well-known and jwks endpoints are hosted at a different</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="c1"># location than the issuer (such as locally in the cluster).</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="c1"># discoveryURL must be different from url if specified and must be unique across all authenticators.</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span>discoveryURL:<span class="w"> </span>https://discovery.example.com/.well-known/openid-configuration
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="c1"># PEM encoded CA certificates used to validate the connection when fetching</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">    </span><span class="c1"># discovery information. If not set, the system verifier will be used.</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="c1"># Same value as the content of the file referenced by the --oidc-ca-file flag.</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span>certificateAuthority:<span class="w"> </span>&lt;PEM<span class="w"> </span>encoded<span class="w"> </span>CA<span class="w"> </span>certificates&gt;
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">    </span><span class="c1"># audiences is the set of acceptable audiences the JWT must be issued to.</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="c1"># At least one of the entries must match the &quot;aud&quot; claim in presented JWTs.</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">    </span>audiences:
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span>-<span class="w"> </span>my-app<span class="w"> </span><span class="c1"># Same as --oidc-client-id.</span>
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span>-<span class="w"> </span>my-other-app
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="c1"># this is required to be set to &quot;MatchAny&quot; when multiple audiences are specified.</span>
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">    </span>audienceMatchPolicy:<span class="w"> </span>MatchAny
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">  </span><span class="c1"># rules applied to validate token claims to authenticate users.</span>
-<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">  </span>claimValidationRules:
-<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">    </span><span class="c1"># Same as --oidc-required-claim key=value.</span>
-<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="w">  </span>-<span class="w"> </span>claim:<span class="w"> </span>hd
-<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a><span class="w">    </span>requiredValue:<span class="w"> </span>example.com
-<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a><span class="w">    </span><span class="c1"># Instead of claim and requiredValue, you can use expression to validate the claim.</span>
-<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="w">    </span><span class="c1"># expression is a CEL expression that evaluates to a boolean.</span>
-<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="w">    </span><span class="c1"># all the expressions must evaluate to true for validation to succeed.</span>
-<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a><span class="w">  </span>-<span class="w"> </span>expression:<span class="w"> </span><span class="s1">&#39;claims.hd == &quot;example.com&quot;&#39;</span>
-<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="w">    </span><span class="c1"># Message customizes the error message seen in the API server logs when the validation fails.</span>
-<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="w">    </span>message:<span class="w"> </span>the<span class="w"> </span>hd<span class="w"> </span>claim<span class="w"> </span>must<span class="w"> </span>be<span class="w"> </span><span class="nb">set</span><span class="w"> </span>to<span class="w"> </span>example.com
-<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a><span class="w">  </span>-<span class="w"> </span>expression:<span class="w"> </span><span class="s1">&#39;claims.exp - claims.nbf &lt;= 86400&#39;</span>
-<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a><span class="w">    </span>message:<span class="w"> </span>total<span class="w"> </span>token<span class="w"> </span>lifetime<span class="w"> </span>must<span class="w"> </span>not<span class="w"> </span>exceed<span class="w"> </span><span class="m">24</span><span class="w"> </span>hours
-<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a><span class="w">  </span>claimMappings:
-<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a><span class="w">    </span><span class="c1"># username represents an option for the username attribute.</span>
-<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a><span class="w">    </span><span class="c1"># This is the only required attribute.</span>
-<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a><span class="w">    </span>username:
-<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a><span class="w">      </span><span class="c1"># Same as --oidc-username-claim. Mutually exclusive with username.expression.</span>
-<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a><span class="w">      </span>claim:<span class="w"> </span><span class="s2">&quot;sub&quot;</span>
-<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a><span class="w">      </span><span class="c1"># Same as --oidc-username-prefix. Mutually exclusive with username.expression.</span>
-<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a><span class="w">      </span><span class="c1"># if username.claim is set, username.prefix is required.</span>
-<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a><span class="w">      </span><span class="c1"># Explicitly set it to &quot;&quot; if no prefix is desired.</span>
-<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a><span class="w">      </span>prefix:<span class="w"> </span><span class="s2">&quot;&quot;</span>
-<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a><span class="w">      </span><span class="c1"># Mutually exclusive with username.claim and username.prefix.</span>
-<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a><span class="w">      </span><span class="c1"># expression is a CEL expression that evaluates to a string.</span>
-<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a><span class="w">      </span><span class="c1">#</span>
-<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a><span class="w">      </span><span class="c1"># 1.  If username.expression uses &#39;claims.email&#39;, then &#39;claims.email_verified&#39; must be used in</span>
-<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a><span class="w">      </span><span class="c1">#     username.expression or extra[*].valueExpression or claimValidationRules[*].expression.</span>
-<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a><span class="w">      </span><span class="c1">#     An example claim validation rule expression that matches the validation automatically</span>
-<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a><span class="w">      </span><span class="c1">#     applied when username.claim is set to &#39;email&#39; is &#39;claims.?email_verified.orValue(true) == true&#39;.</span>
-<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a><span class="w">      </span><span class="c1">#     By explicitly comparing the value to true, we let type-checking see the result will be a boolean, and</span>
-<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a><span class="w">      </span><span class="c1">#     to make sure a non-boolean email_verified claim will be caught at runtime.</span>
-<a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a><span class="w">      </span><span class="c1"># 2.  If the username asserted based on username.expression is the empty string, the authentication</span>
-<a id="__codelineno-1-65" name="__codelineno-1-65" href="#__codelineno-1-65"></a><span class="w">      </span><span class="c1">#     request will fail.</span>
-<a id="__codelineno-1-66" name="__codelineno-1-66" href="#__codelineno-1-66"></a><span class="w">      </span>expression:<span class="w"> </span><span class="s1">&#39;claims.username + &quot;:external-user&quot;&#39;</span>
-<a id="__codelineno-1-67" name="__codelineno-1-67" href="#__codelineno-1-67"></a><span class="w">    </span><span class="c1"># groups represents an option for the groups attribute.</span>
-<a id="__codelineno-1-68" name="__codelineno-1-68" href="#__codelineno-1-68"></a><span class="w">    </span>groups:
-<a id="__codelineno-1-69" name="__codelineno-1-69" href="#__codelineno-1-69"></a><span class="w">      </span><span class="c1"># Same as --oidc-groups-claim. Mutually exclusive with groups.expression.</span>
-<a id="__codelineno-1-70" name="__codelineno-1-70" href="#__codelineno-1-70"></a><span class="w">      </span>claim:<span class="w"> </span><span class="s2">&quot;sub&quot;</span>
-<a id="__codelineno-1-71" name="__codelineno-1-71" href="#__codelineno-1-71"></a><span class="w">      </span><span class="c1"># Same as --oidc-groups-prefix. Mutually exclusive with groups.expression.</span>
-<a id="__codelineno-1-72" name="__codelineno-1-72" href="#__codelineno-1-72"></a><span class="w">      </span><span class="c1"># if groups.claim is set, groups.prefix is required.</span>
-<a id="__codelineno-1-73" name="__codelineno-1-73" href="#__codelineno-1-73"></a><span class="w">      </span><span class="c1"># Explicitly set it to &quot;&quot; if no prefix is desired.</span>
-<a id="__codelineno-1-74" name="__codelineno-1-74" href="#__codelineno-1-74"></a><span class="w">      </span>prefix:<span class="w"> </span><span class="s2">&quot;&quot;</span>
-<a id="__codelineno-1-75" name="__codelineno-1-75" href="#__codelineno-1-75"></a><span class="w">      </span><span class="c1"># Mutually exclusive with groups.claim and groups.prefix.</span>
-<a id="__codelineno-1-76" name="__codelineno-1-76" href="#__codelineno-1-76"></a><span class="w">      </span><span class="c1"># expression is a CEL expression that evaluates to a string or a list of strings.</span>
-<a id="__codelineno-1-77" name="__codelineno-1-77" href="#__codelineno-1-77"></a><span class="w">      </span>expression:<span class="w"> </span><span class="s1">&#39;claims.roles.split(&quot;,&quot;)&#39;</span>
-<a id="__codelineno-1-78" name="__codelineno-1-78" href="#__codelineno-1-78"></a><span class="w">    </span><span class="c1"># uid represents an option for the uid attribute.</span>
-<a id="__codelineno-1-79" name="__codelineno-1-79" href="#__codelineno-1-79"></a><span class="w">    </span>uid:
-<a id="__codelineno-1-80" name="__codelineno-1-80" href="#__codelineno-1-80"></a><span class="w">      </span><span class="c1"># Mutually exclusive with uid.expression.</span>
-<a id="__codelineno-1-81" name="__codelineno-1-81" href="#__codelineno-1-81"></a><span class="w">      </span>claim:<span class="w"> </span><span class="s1">&#39;sub&#39;</span>
-<a id="__codelineno-1-82" name="__codelineno-1-82" href="#__codelineno-1-82"></a><span class="w">      </span><span class="c1"># Mutually exclusive with uid.claim</span>
-<a id="__codelineno-1-83" name="__codelineno-1-83" href="#__codelineno-1-83"></a><span class="w">      </span><span class="c1"># expression is a CEL expression that evaluates to a string.</span>
-<a id="__codelineno-1-84" name="__codelineno-1-84" href="#__codelineno-1-84"></a><span class="w">      </span>expression:<span class="w"> </span><span class="s1">&#39;claims.sub&#39;</span>
-<a id="__codelineno-1-85" name="__codelineno-1-85" href="#__codelineno-1-85"></a><span class="w">    </span><span class="c1"># extra attributes to be added to the UserInfo object. Keys must be domain-prefix path and must be unique.</span>
-<a id="__codelineno-1-86" name="__codelineno-1-86" href="#__codelineno-1-86"></a><span class="w">    </span>extra:
-<a id="__codelineno-1-87" name="__codelineno-1-87" href="#__codelineno-1-87"></a><span class="w">      </span><span class="c1"># key is a string to use as the extra attribute key.</span>
-<a id="__codelineno-1-88" name="__codelineno-1-88" href="#__codelineno-1-88"></a><span class="w">      </span><span class="c1"># key must be a domain-prefix path (e.g. example.org/foo). All characters before the first &quot;/&quot; must be a valid</span>
-<a id="__codelineno-1-89" name="__codelineno-1-89" href="#__codelineno-1-89"></a><span class="w">      </span><span class="c1"># subdomain as defined by RFC 1123. All characters trailing the first &quot;/&quot; must</span>
-<a id="__codelineno-1-90" name="__codelineno-1-90" href="#__codelineno-1-90"></a><span class="w">      </span><span class="c1"># be valid HTTP Path characters as defined by RFC 3986.</span>
-<a id="__codelineno-1-91" name="__codelineno-1-91" href="#__codelineno-1-91"></a><span class="w">      </span><span class="c1"># k8s.io, kubernetes.io and their subdomains are reserved for Kubernetes use and cannot be used.</span>
-<a id="__codelineno-1-92" name="__codelineno-1-92" href="#__codelineno-1-92"></a><span class="w">      </span><span class="c1"># key must be lowercase and unique across all extra attributes.</span>
-<a id="__codelineno-1-93" name="__codelineno-1-93" href="#__codelineno-1-93"></a><span class="w">    </span>-<span class="w"> </span>key:<span class="w"> </span><span class="s1">&#39;example.com/tenant&#39;</span>
-<a id="__codelineno-1-94" name="__codelineno-1-94" href="#__codelineno-1-94"></a><span class="w">      </span><span class="c1"># valueExpression is a CEL expression that evaluates to a string or a list of strings.</span>
-<a id="__codelineno-1-95" name="__codelineno-1-95" href="#__codelineno-1-95"></a><span class="w">      </span>valueExpression:<span class="w"> </span><span class="s1">&#39;claims.tenant&#39;</span>
-<a id="__codelineno-1-96" name="__codelineno-1-96" href="#__codelineno-1-96"></a><span class="w">  </span><span class="c1"># validation rules applied to the final user object.</span>
-<a id="__codelineno-1-97" name="__codelineno-1-97" href="#__codelineno-1-97"></a><span class="w">  </span>userValidationRules:
-<a id="__codelineno-1-98" name="__codelineno-1-98" href="#__codelineno-1-98"></a><span class="w">    </span><span class="c1"># expression is a CEL expression that evaluates to a boolean.</span>
-<a id="__codelineno-1-99" name="__codelineno-1-99" href="#__codelineno-1-99"></a><span class="w">    </span><span class="c1"># all the expressions must evaluate to true for the user to be valid.</span>
-<a id="__codelineno-1-100" name="__codelineno-1-100" href="#__codelineno-1-100"></a><span class="w">  </span>-<span class="w"> </span>expression:<span class="w"> </span><span class="s2">&quot;!user.username.startsWith(&#39;system:&#39;)&quot;</span>
-<a id="__codelineno-1-101" name="__codelineno-1-101" href="#__codelineno-1-101"></a><span class="w">    </span><span class="c1"># Message customizes the error message seen in the API server logs when the validation fails.</span>
-<a id="__codelineno-1-102" name="__codelineno-1-102" href="#__codelineno-1-102"></a><span class="w">    </span>message:<span class="w"> </span><span class="s1">&#39;username cannot used reserved system: prefix&#39;</span>
-<a id="__codelineno-1-103" name="__codelineno-1-103" href="#__codelineno-1-103"></a><span class="w">  </span>-<span class="w"> </span>expression:<span class="w"> </span><span class="s2">&quot;user.groups.all(group, !group.startsWith(&#39;system:&#39;))&quot;</span>
-<a id="__codelineno-1-104" name="__codelineno-1-104" href="#__codelineno-1-104"></a><span class="w">    </span>message:<span class="w"> </span><span class="s1">&#39;groups cannot used reserved system: prefix&#39;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">jwt</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">issuer</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="c1"># url must be unique across all authenticators.</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="c1"># url must not conflict with issuer configured in --service-account-issuer.</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.com</span><span class="w"> </span><span class="c1"># Same as --oidc-issuer-url.</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="c1"># discoveryURL, if specified, overrides the URL used to fetch discovery</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="c1"># information instead of using &quot;{url}/.well-known/openid-configuration&quot;.</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="c1"># The exact value specified is used, so &quot;/.well-known/openid-configuration&quot;</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="c1"># must be included in discoveryURL if needed.</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="c1">#</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="c1"># The &quot;issuer&quot; field in the fetched discovery information must match the &quot;issuer.url&quot; field</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">      </span><span class="c1"># in the AuthenticationConfiguration and will be used to validate the &quot;iss&quot; claim in the presented JWT.</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">      </span><span class="c1"># This is for scenarios where the well-known and jwks endpoints are hosted at a different</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="c1"># location than the issuer (such as locally in the cluster).</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="c1"># discoveryURL must be different from url if specified and must be unique across all authenticators.</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span><span class="nt">discoveryURL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://discovery.example.com/.well-known/openid-configuration</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">      </span><span class="c1"># PEM encoded CA certificates used to validate the connection when fetching</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">      </span><span class="c1"># discovery information. If not set, the system verifier will be used.</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">      </span><span class="c1"># Same value as the content of the file referenced by the --oidc-ca-file flag.</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">      </span><span class="nt">certificateAuthority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;PEM encoded CA certificates&gt;</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">      </span><span class="c1"># audiences is the set of acceptable audiences the JWT must be issued to.</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">      </span><span class="c1"># At least one of the entries must match the &quot;aud&quot; claim in presented JWTs.</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">      </span><span class="c1"># Note that when per-workspace authentication is used, every token admitted into a workspace</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">      </span><span class="c1"># must also match these audiences, regardless of the workspace&#39;s configuration.</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">      </span><span class="nt">audiences</span><span class="p">:</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-app</span><span class="w"> </span><span class="c1"># Same as --oidc-client-id.</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-other-app</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">      </span><span class="c1"># this is required to be set to &quot;MatchAny&quot; when multiple audiences are specified.</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">      </span><span class="nt">audienceMatchPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MatchAny</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">    </span><span class="c1"># rules applied to validate token claims to authenticate users.</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="w">    </span><span class="nt">claimValidationRules</span><span class="p">:</span>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a><span class="w">        </span><span class="c1"># Same as --oidc-required-claim key=value.</span>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">hd</span>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="w">        </span><span class="nt">requiredValue</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.com</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="w">        </span><span class="c1"># Instead of claim and requiredValue, you can use expression to validate the claim.</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a><span class="w">        </span><span class="c1"># expression is a CEL expression that evaluates to a boolean.</span>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="w">        </span><span class="c1"># all the expressions must evaluate to true for validation to succeed.</span>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;claims.hd</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">&quot;example.com&quot;&#39;</span>
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a><span class="w">        </span><span class="c1"># Message customizes the error message seen in the API server logs when the validation fails.</span>
+<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">the hd claim must be set to example.com</span>
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;claims.exp</span><span class="nv"> </span><span class="s">-</span><span class="nv"> </span><span class="s">claims.nbf</span><span class="nv"> </span><span class="s">&lt;=</span><span class="nv"> </span><span class="s">86400&#39;</span>
+<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">total token lifetime must not exceed 24 hours</span>
+<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a><span class="w">    </span><span class="nt">claimMappings</span><span class="p">:</span>
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a><span class="w">      </span><span class="c1"># username represents an option for the username attribute.</span>
+<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a><span class="w">      </span><span class="c1"># This is the only required attribute.</span>
+<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a><span class="w">      </span><span class="nt">username</span><span class="p">:</span>
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a><span class="w">        </span><span class="c1"># Same as --oidc-username-claim. Mutually exclusive with username.expression.</span>
+<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a><span class="w">        </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sub&quot;</span>
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a><span class="w">        </span><span class="c1"># Same as --oidc-username-prefix. Mutually exclusive with username.expression.</span>
+<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a><span class="w">        </span><span class="c1"># if username.claim is set, username.prefix is required.</span>
+<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a><span class="w">        </span><span class="c1"># Explicitly set it to &quot;&quot; if no prefix is desired.</span>
+<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a><span class="w">        </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a><span class="w">        </span><span class="c1"># Mutually exclusive with username.claim and username.prefix.</span>
+<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a><span class="w">        </span><span class="c1"># expression is a CEL expression that evaluates to a string.</span>
+<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a><span class="w">        </span><span class="c1">#</span>
+<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a><span class="w">        </span><span class="c1"># 1.  If username.expression uses &#39;claims.email&#39;, then &#39;claims.email_verified&#39; must be used in</span>
+<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a><span class="w">        </span><span class="c1">#     username.expression or extra[*].valueExpression or claimValidationRules[*].expression.</span>
+<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a><span class="w">        </span><span class="c1">#     An example claim validation rule expression that matches the validation automatically</span>
+<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a><span class="w">        </span><span class="c1">#     applied when username.claim is set to &#39;email&#39; is &#39;claims.?email_verified.orValue(true) == true&#39;.</span>
+<a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a><span class="w">        </span><span class="c1">#     By explicitly comparing the value to true, we let type-checking see the result will be a boolean, and</span>
+<a id="__codelineno-1-65" name="__codelineno-1-65" href="#__codelineno-1-65"></a><span class="w">        </span><span class="c1">#     to make sure a non-boolean email_verified claim will be caught at runtime.</span>
+<a id="__codelineno-1-66" name="__codelineno-1-66" href="#__codelineno-1-66"></a><span class="w">        </span><span class="c1"># 2.  If the username asserted based on username.expression is the empty string, the authentication</span>
+<a id="__codelineno-1-67" name="__codelineno-1-67" href="#__codelineno-1-67"></a><span class="w">        </span><span class="c1">#     request will fail.</span>
+<a id="__codelineno-1-68" name="__codelineno-1-68" href="#__codelineno-1-68"></a><span class="w">        </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;claims.username</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">&quot;:external-user&quot;&#39;</span>
+<a id="__codelineno-1-69" name="__codelineno-1-69" href="#__codelineno-1-69"></a><span class="w">      </span><span class="c1"># groups represents an option for the groups attribute.</span>
+<a id="__codelineno-1-70" name="__codelineno-1-70" href="#__codelineno-1-70"></a><span class="w">      </span><span class="nt">groups</span><span class="p">:</span>
+<a id="__codelineno-1-71" name="__codelineno-1-71" href="#__codelineno-1-71"></a><span class="w">        </span><span class="c1"># Same as --oidc-groups-claim. Mutually exclusive with groups.expression.</span>
+<a id="__codelineno-1-72" name="__codelineno-1-72" href="#__codelineno-1-72"></a><span class="w">        </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sub&quot;</span>
+<a id="__codelineno-1-73" name="__codelineno-1-73" href="#__codelineno-1-73"></a><span class="w">        </span><span class="c1"># Same as --oidc-groups-prefix. Mutually exclusive with groups.expression.</span>
+<a id="__codelineno-1-74" name="__codelineno-1-74" href="#__codelineno-1-74"></a><span class="w">        </span><span class="c1"># if groups.claim is set, groups.prefix is required.</span>
+<a id="__codelineno-1-75" name="__codelineno-1-75" href="#__codelineno-1-75"></a><span class="w">        </span><span class="c1"># Explicitly set it to &quot;&quot; if no prefix is desired.</span>
+<a id="__codelineno-1-76" name="__codelineno-1-76" href="#__codelineno-1-76"></a><span class="w">        </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<a id="__codelineno-1-77" name="__codelineno-1-77" href="#__codelineno-1-77"></a><span class="w">        </span><span class="c1"># Mutually exclusive with groups.claim and groups.prefix.</span>
+<a id="__codelineno-1-78" name="__codelineno-1-78" href="#__codelineno-1-78"></a><span class="w">        </span><span class="c1"># expression is a CEL expression that evaluates to a string or a list of strings.</span>
+<a id="__codelineno-1-79" name="__codelineno-1-79" href="#__codelineno-1-79"></a><span class="w">        </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;claims.roles.split(&quot;,&quot;)&#39;</span>
+<a id="__codelineno-1-80" name="__codelineno-1-80" href="#__codelineno-1-80"></a><span class="w">      </span><span class="c1"># uid represents an option for the uid attribute.</span>
+<a id="__codelineno-1-81" name="__codelineno-1-81" href="#__codelineno-1-81"></a><span class="w">      </span><span class="nt">uid</span><span class="p">:</span>
+<a id="__codelineno-1-82" name="__codelineno-1-82" href="#__codelineno-1-82"></a><span class="w">        </span><span class="c1"># Mutually exclusive with uid.expression.</span>
+<a id="__codelineno-1-83" name="__codelineno-1-83" href="#__codelineno-1-83"></a><span class="w">        </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;sub&#39;</span>
+<a id="__codelineno-1-84" name="__codelineno-1-84" href="#__codelineno-1-84"></a><span class="w">        </span><span class="c1"># Mutually exclusive with uid.claim</span>
+<a id="__codelineno-1-85" name="__codelineno-1-85" href="#__codelineno-1-85"></a><span class="w">        </span><span class="c1"># expression is a CEL expression that evaluates to a string.</span>
+<a id="__codelineno-1-86" name="__codelineno-1-86" href="#__codelineno-1-86"></a><span class="w">        </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;claims.sub&#39;</span>
+<a id="__codelineno-1-87" name="__codelineno-1-87" href="#__codelineno-1-87"></a><span class="w">      </span><span class="c1"># extra attributes to be added to the UserInfo object. Keys must be domain-prefix path and must be unique.</span>
+<a id="__codelineno-1-88" name="__codelineno-1-88" href="#__codelineno-1-88"></a><span class="w">      </span><span class="nt">extra</span><span class="p">:</span>
+<a id="__codelineno-1-89" name="__codelineno-1-89" href="#__codelineno-1-89"></a><span class="w">          </span><span class="c1"># key is a string to use as the extra attribute key.</span>
+<a id="__codelineno-1-90" name="__codelineno-1-90" href="#__codelineno-1-90"></a><span class="w">          </span><span class="c1"># key must be a domain-prefix path (e.g. example.org/foo). All characters before the first &quot;/&quot; must be a valid</span>
+<a id="__codelineno-1-91" name="__codelineno-1-91" href="#__codelineno-1-91"></a><span class="w">          </span><span class="c1"># subdomain as defined by RFC 1123. All characters trailing the first &quot;/&quot; must</span>
+<a id="__codelineno-1-92" name="__codelineno-1-92" href="#__codelineno-1-92"></a><span class="w">          </span><span class="c1"># be valid HTTP Path characters as defined by RFC 3986.</span>
+<a id="__codelineno-1-93" name="__codelineno-1-93" href="#__codelineno-1-93"></a><span class="w">          </span><span class="c1"># k8s.io, kubernetes.io and their subdomains are reserved for Kubernetes use and cannot be used.</span>
+<a id="__codelineno-1-94" name="__codelineno-1-94" href="#__codelineno-1-94"></a><span class="w">          </span><span class="c1"># key must be lowercase and unique across all extra attributes.</span>
+<a id="__codelineno-1-95" name="__codelineno-1-95" href="#__codelineno-1-95"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;example.com/tenant&#39;</span>
+<a id="__codelineno-1-96" name="__codelineno-1-96" href="#__codelineno-1-96"></a><span class="w">          </span><span class="c1"># valueExpression is a CEL expression that evaluates to a string or a list of strings.</span>
+<a id="__codelineno-1-97" name="__codelineno-1-97" href="#__codelineno-1-97"></a><span class="w">          </span><span class="nt">valueExpression</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;claims.tenant&#39;</span>
+<a id="__codelineno-1-98" name="__codelineno-1-98" href="#__codelineno-1-98"></a><span class="w">    </span><span class="c1"># validation rules applied to the final user object.</span>
+<a id="__codelineno-1-99" name="__codelineno-1-99" href="#__codelineno-1-99"></a><span class="w">    </span><span class="nt">userValidationRules</span><span class="p">:</span>
+<a id="__codelineno-1-100" name="__codelineno-1-100" href="#__codelineno-1-100"></a><span class="w">        </span><span class="c1"># expression is a CEL expression that evaluates to a boolean.</span>
+<a id="__codelineno-1-101" name="__codelineno-1-101" href="#__codelineno-1-101"></a><span class="w">        </span><span class="c1"># all the expressions must evaluate to true for the user to be valid.</span>
+<a id="__codelineno-1-102" name="__codelineno-1-102" href="#__codelineno-1-102"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;!user.username.startsWith(&#39;system:&#39;)&quot;</span>
+<a id="__codelineno-1-103" name="__codelineno-1-103" href="#__codelineno-1-103"></a><span class="w">        </span><span class="c1"># Message customizes the error message seen in the API server logs when the validation fails.</span>
+<a id="__codelineno-1-104" name="__codelineno-1-104" href="#__codelineno-1-104"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;username</span><span class="nv"> </span><span class="s">cannot</span><span class="nv"> </span><span class="s">used</span><span class="nv"> </span><span class="s">reserved</span><span class="nv"> </span><span class="s">system:</span><span class="nv"> </span><span class="s">prefix&#39;</span>
+<a id="__codelineno-1-105" name="__codelineno-1-105" href="#__codelineno-1-105"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">expression</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;user.groups.all(group,</span><span class="nv"> </span><span class="s">!group.startsWith(&#39;system:&#39;))&quot;</span>
+<a id="__codelineno-1-106" name="__codelineno-1-106" href="#__codelineno-1-106"></a><span class="w">        </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;groups</span><span class="nv"> </span><span class="s">cannot</span><span class="nv"> </span><span class="s">used</span><span class="nv"> </span><span class="s">reserved</span><span class="nv"> </span><span class="s">system:</span><span class="nv"> </span><span class="s">prefix&#39;</span>
 </code></pre></div>
 <p>To set up the AuthenticationConfiguration, similarly to the previous example with OIDC flags(<code>--oidc-issuer-url</code>, <code>--oidc-client-id</code>, <code>--oidc-groups-claim</code>, <code>--oidc-ca-file</code>), you can set it in the file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>apiVersion:<span class="w"> </span>apiserver.config.k8s.io/v1beta1
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>kind:<span class="w"> </span>AuthenticationConfiguration
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>jwt:
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>-<span class="w"> </span>issuer:
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span>url:<span class="w"> </span>&lt;url<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>issuer&gt;
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span>certificateAuthority:<span class="w"> </span><span class="p">|</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span>&lt;ca-file-content&gt;
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span>audiences:
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span>-<span class="w"> </span>&lt;client-id&gt;
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span>audienceMatchPolicy:<span class="w"> </span>MatchAny
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>claimMappings:
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span>groups:
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span>claim:<span class="w"> </span>&lt;jwt-claim-name&gt;
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span>prefix:<span class="w"> </span><span class="s2">&quot;&quot;</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span>claimValidationRules:<span class="w"> </span><span class="o">[]</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span>userValidationRules:<span class="w"> </span><span class="o">[]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apiserver.config.k8s.io/v1beta1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AuthenticationConfiguration</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">jwt</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">issuer</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;url of the issuer&gt;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">certificateAuthority</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">        </span><span class="no">&lt;ca-file-content&gt;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">audiences</span><span class="p">:</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;client-id&gt;</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">audienceMatchPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MatchAny</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">claimMappings</span><span class="p">:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">groups</span><span class="p">:</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="nt">claim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;jwt-claim-name&gt;</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="nt">claimValidationRules</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="nt">userValidationRules</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </code></pre></div>
 <p>To start the kcp server with the specified OIDC authentication configuration, pass the file path to the <code>--authentication-config</code> flag.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kcp<span class="w"> </span>start<span class="w"> </span>--authentication-config<span class="w"> </span>&lt;auth-config-file-path&gt;

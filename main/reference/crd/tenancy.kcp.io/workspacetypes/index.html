@@ -1030,6 +1030,8 @@
       
         
       
+        
+      
     
     
       
@@ -1085,6 +1087,27 @@
   
   <span class="md-ellipsis">
     OIDC Setup
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../concepts/authentication/workspace/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Per-Workspace Authentication
   </span>
   
 
@@ -3463,6 +3486,61 @@ More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architec
 <div class="property-description">
 <p>additionalWorkspaceLabels are a set of labels that will be added to a
 Workspace on creation.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.authenticationConfigurations">.spec.authenticationConfigurations</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>authenticationConfigurations are additional authentication options that should apply to any
+workspace using this workspace type.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.authenticationConfigurations[*]">.spec.authenticationConfigurations[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.authenticationConfigurations[*].name">.spec.authenticationConfigurations[*].name</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>name is the name of the WorkspaceAuthenticationConfiguration.</p>
 
 </div>
 
