@@ -39,6 +39,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/pkg/server/proxy"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -198,6 +199,8 @@ func WithLocalProxy(
 			cluster.Name = clusterName
 		}
 		ctx = request.WithCluster(ctx, cluster)
+		ctx = lookup.WithClusterName(ctx, cluster.Name)
+		ctx = lookup.WithWorkspaceType(ctx, r.Type)
 
 		handler.ServeHTTP(w, req.WithContext(ctx))
 	})

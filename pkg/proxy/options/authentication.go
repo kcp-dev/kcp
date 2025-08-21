@@ -36,8 +36,8 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	kcpauthentication "github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	kcpauthentication "github.com/kcp-dev/kcp/pkg/proxy/authentication"
 )
 
 const resyncPeriod = 10 * time.Hour

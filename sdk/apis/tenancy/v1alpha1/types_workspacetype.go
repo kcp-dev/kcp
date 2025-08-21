@@ -127,6 +127,12 @@ type WorkspaceTypeSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=InitializeOnly;Maintain
 	DefaultAPIBindingLifecycle *APIBindingLifecycleMode `json:"defaultAPIBindingLifecycle,omitempty"`
+
+	// authenticationConfigurations are additional authentication options that should apply to any
+	// workspace using this workspace type.
+	//
+	// +optional
+	AuthenticationConfigurations []AuthenticationConfigurationReference `json:"authenticationConfigurations,omitempty"`
 }
 
 // APIExportReference provides the fields necessary to resolve an APIExport.
@@ -145,6 +151,16 @@ type APIExportReference struct {
 	// +kubebuilder:validation:Required
 	// +kube:validation:MinLength=1
 	Export string `json:"export"`
+}
+
+// AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.
+type AuthenticationConfigurationReference struct {
+	// name is the name of the WorkspaceAuthenticationConfiguration.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kube:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // APIBindingLifecycleMode defines how the lifecycle of an APIBinding is

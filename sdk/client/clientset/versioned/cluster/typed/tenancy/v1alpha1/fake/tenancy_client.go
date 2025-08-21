@@ -45,6 +45,10 @@ func (c *TenancyV1alpha1ClusterClient) Workspaces() kcptenancyv1alpha1.Workspace
 	return newFakeWorkspaceClusterClient(c)
 }
 
+func (c *TenancyV1alpha1ClusterClient) WorkspaceAuthenticationConfigurations() kcptenancyv1alpha1.WorkspaceAuthenticationConfigurationClusterInterface {
+	return newFakeWorkspaceAuthenticationConfigurationClusterClient(c)
+}
+
 func (c *TenancyV1alpha1ClusterClient) WorkspaceTypes() kcptenancyv1alpha1.WorkspaceTypeClusterInterface {
 	return newFakeWorkspaceTypeClusterClient(c)
 }
@@ -56,6 +60,10 @@ type TenancyV1alpha1Client struct {
 
 func (c *TenancyV1alpha1Client) Workspaces() tenancyv1alpha1.WorkspaceInterface {
 	return newFakeWorkspaceClient(c.Fake, c.ClusterPath)
+}
+
+func (c *TenancyV1alpha1Client) WorkspaceAuthenticationConfigurations() tenancyv1alpha1.WorkspaceAuthenticationConfigurationInterface {
+	return newFakeWorkspaceAuthenticationConfigurationClient(c.Fake, c.ClusterPath)
 }
 
 func (c *TenancyV1alpha1Client) WorkspaceTypes() tenancyv1alpha1.WorkspaceTypeInterface {

@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/component-base/featuregate"
 )
 
 // Config qualify a kcp server to start
@@ -34,6 +34,7 @@ type Config struct {
 	DataDir     string
 	ClientCADir string
 	BindAddress string
+	Features    featuregate.MutableFeatureGate
 
 	LogToConsole bool
 	RunInProcess bool
@@ -64,9 +65,12 @@ func (c Config) BuildArgs(t TestingT) ([]string, error) {
 		"--embedded-etcd-peer-port=" + etcdPeerPort,
 		"--embedded-etcd-wal-size-bytes=" + strconv.Itoa(5*1000), // 5KB
 		"--kubeconfig-path=" + c.KubeconfigPath(),
-		"--feature-gates=" + fmt.Sprintf("%s", utilfeature.DefaultFeatureGate),
 		"--audit-log-path", filepath.Join(c.ArtifactDir, "kcp.audit"),
 		"--v=4",
+	}
+
+	if c.Features != nil {
+		args = append(args, "--feature-gates="+fmt.Sprintf("%s", c.Features))
 	}
 
 	if c.BindAddress != "" {
@@ -102,6 +106,19 @@ func WithScratchDirectories(artifactDir, dataDir string) Option {
 func WithCustomArguments(args ...string) Option {
 	return func(cfg *Config) {
 		cfg.Args = args
+	}
+}
+
+// WithFeatures configures one or more features.
+func WithFeatures(m map[string]bool) Option {
+	return func(cfg *Config) {
+		if cfg.Features == nil {
+			cfg.Features = featuregate.NewFeatureGate()
+		}
+
+		if err := cfg.Features.SetFromMap(m); err != nil {
+			panic(fmt.Sprintf("Failed to set features: %v", err))
+		}
 	}
 }
 

@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	"k8s.io/apiserver/pkg/quota/v1/generic"
@@ -57,8 +58,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
@@ -406,6 +409,22 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
 	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
 
+	// Prepare an authentication index to be used later by a middleware. We start it early
+	// because it can potentially fail and the BuildHandlerChainFunc() has no way to return
+	// an error.
+	var authIndex authentication.AuthenticatorIndex
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+		// Start an index and a shard watcher to fill this index;
+		// the shard watcher's lifetime is tied to the given context.
+		authIndexState := authentication.NewIndex(ctx, c.GenericConfig.Authentication.APIAudiences)
+		_, err := authentication.NewShardWatcher(ctx, c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start shard watcher: %w", err)
+		}
+
+		authIndex = authIndexState
+	}
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -457,6 +476,16 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
 
+		// Wrap authenticator with a per-workspace authenticator if desired. This authenticator
+		// requires the WorkspaceAuth middleware to have looked up and injected the relevant
+		// authenticator into the request context already.
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+			genericConfig.Authentication.Authenticator = authenticatorunion.New(
+				genericConfig.Authentication.Authenticator,
+				authentication.NewWorkspaceAuthenticator(),
+			)
+		}
+
 		// There is ordering here in play:
 		// 1. Default handlers up to impersonation gatekeeper preventing impersonation of the privileged user.
 		// 2. Rest of the handlers up to Authz
@@ -466,6 +495,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = kcpfilters.WithImpersonationGatekeeper(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
+
+		// When workspace auth is enabled, it depends on the target cluster whether
+		// a custom authenticator exists or not. This needs to be determined before
+		// the authentication middleware can run, as it needs to know about the
+		// workspace authenticator.
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+			apiHandler = authentication.WithWorkspaceAuthResolver(apiHandler, authIndex)
+		}
 
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.

@@ -33,6 +33,10 @@ func (c *FakeTenancyV1alpha1) Workspaces() v1alpha1.WorkspaceInterface {
 	return newFakeWorkspaces(c)
 }
 
+func (c *FakeTenancyV1alpha1) WorkspaceAuthenticationConfigurations() v1alpha1.WorkspaceAuthenticationConfigurationInterface {
+	return newFakeWorkspaceAuthenticationConfigurations(c)
+}
+
 func (c *FakeTenancyV1alpha1) WorkspaceTypes() v1alpha1.WorkspaceTypeInterface {
 	return newFakeWorkspaceTypes(c)
 }
