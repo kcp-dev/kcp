@@ -177,10 +177,12 @@ served to clients. See [Build Your Controller](#build-your-controller) for more 
 When a consumer creates an `APIBinding` that binds to an `APIExport`, the API provider who owns the `APIExport`
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
-APIExports the consumer has created `APIBindings` for, or from APIs that are built in to kcp. The API provider
-requests access to these additional resources by adding `PermissionClaims` for the desired API's group, resource, and
-identity hash to their `APIExport`. The API provider is responsible for specifying what operations are required for the
-requested resource by setting the appropriate [API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs).
+APIExports the consumer has created `APIBindings` for, or from APIs that are built in to kcp.
+
+The API provider requests access to these additional resources by adding `PermissionClaims` for the desired API's
+group, resource, and identity hash to their `APIExport`. The API provider is responsible for specifying what operations
+are required for the requested resource by setting the appropriate
+[API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs).
 Let's take the example `APIExport` from above and add permission claims for `ConfigMaps` and `Things`:
 
 ```yaml
@@ -211,10 +213,18 @@ spec:
 4. `"*"` is a special "verb" that matches any possible verb
 
 This is essentially a request from the API provider, asking each consumer to grant permission for the claimed
-resources. If the consumer does not accept a permission claim, the API provider is not allowed to access the claimed
-resources. Consumer acceptance of permission claims is part of the `APIBinding` spec. The operations allowed on the
-resource are the intersection of the verbs defined in the `APIExport` and the verbs accepted in the appropriate
-`APIBinding`. For more details, see the section on [APIBindings](#apibinding).
+resources. The consumer can, via `APIBinding`, accept or reject the service provider's request to access these
+resources, i.e. accept or reject PermissionClaims.
+
+Additionally, the consumer can choose between giving access to all instances (objects) of a claimed resource
+and giving access only to a subset of instances. In the latter case, the consumer can specify labels when accepting
+the PermissionClaim, so the service provider can only access instances which have these specified labels
+(this is also known as a label selector).
+
+The set of operations that the service provider can perform on the claimed resource is the intersection of the verbs
+defined in the `APIExport` and the verbs accepted in the appropriate `APIBinding`.
+
+For more details, see the section on [APIBindings](#apibinding).
 
 ### Maximal Permission Policy
 
@@ -420,8 +430,13 @@ spec:
 
 #### Permission Claims
 
-Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other `APIExports`.
-When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all `APIBindings`. New permission claims on the other hand are NOT automatically accepted.
+Furthermore, `APIBindings` provide the `APIExport` owner access to additional resources defined in an `APIExport`'s
+permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted.
+The resources can be builtin Kubernetes resources or resources bound with other `APIBindings`.
+
+!!! information
+    When an `APIExport` is changed after workspaces have bound to it, new or changed APIs are automatically propagated
+    to all `APIBindings`. New permission claims on the other hand are NOT automatically accepted.
 
 Returning to our example, we can grant the requested permissions in the `APIBinding`:
 
@@ -450,7 +465,8 @@ spec:
       matchAll: true
 ```
 
-It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas`in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.
+It should be noted that `APIBindings` do not create `CRDs` or `APIResourceSchemas` in the workspace.
+Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.
 
 ##### Verbs
 
@@ -459,10 +475,51 @@ the verbs in the APIBinding and the verbs in the appropriate APIExport.
 
 ##### Selector
 
-`APIBindings` allow API consumers to scope an API provider's access to claimed resources via the `selector` field on a permission claim. This means that providers will only be able to see and access those objects matched by the `selector`.
+`APIBindings` allow API consumers to scope an API provider's access to claimed resources via the `selector` field on
+a permission claim. This means that providers will only be able to see and access those objects matched by
+the `selector`.
+
+There are two types of selectors at the moment:
+
+- `matchAll`: gives the service provider access to all objects of a claimed resource
+- label selector: gives the service provider access only to objects which are satisfying the given label selector
+
+The `matchAll` selector is shown in the example above.
+
+A label selector can be defined using `matchLabels` or `matchExpressions`:
+
+- `matchLabels` specifies a set of labels (key-value pairs). For the selector to match, **all** of the listed labels
+  must be present on the object.
+- `matchExpressions` specifies a set of expressions that are evaluated against object’s labels. If multiple expressions
+  are specified, **all must evaluate to `true`** for the selector to match.
+
+```yaml
+...
+  permissionClaims:
+  - resource: configmaps
+    verbs: ["get", "list", "create"]
+    state: Accepted
+    selector:
+      matchLabels:
+        env: prod
+        app: logbook
+  - resource: things
+    group: somegroup.kcp.io
+    identityHash: 5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
+    verbs: ["*"]
+    state: Accepted
+    selector:
+      matchExpressions:
+        - key: env
+          operator: In
+          values: ["prod", "staging"]
+```
 
 !!! information
-    Currently, only `selector.matchAll=true` is supported, giving the provider that owns the `APIExport` full access to all objects of a claimed resource. Additional selectors are planned for upcoming releases.
+    Special attention is needed by the service provider when creating or updating an object via the APIExport Virtual
+    Workspace. If `matchLabels` is used, the specified labels will be automatically applied to the object that's being
+    applied even if not specified by the service provider. However, that's not the case for `matchExpressions`,
+    in which case the service provider needs to explicitly specify labels upon applying the object.
 
 ---
 
