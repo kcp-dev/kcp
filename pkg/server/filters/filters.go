@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/munnerz/goautoneg"
@@ -45,21 +44,11 @@ type (
 const (
 	workspaceAnnotation = "tenancy.kcp.io/workspace"
 
-	// inactiveAnnotation is the annotation denoting a logical cluster should be
-	// deemed unreachable.
-	inactiveAnnotation = "internal.kcp.io/inactive"
-
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota
 )
 
 var (
-	// reClusterName is a regular expression for cluster names. It is based on
-	// modified RFC 1123. It allows for 63 characters for single name and includes
-	// KCP specific ':' separator for workspace nesting. We are not re-using k8s
-	// validation regex because its purpose is for single name validation.
-	reClusterName = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?:)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
-
 	errorScheme = runtime.NewScheme()
 	errorCodecs = serializer.NewCodecFactory(errorScheme)
 )
@@ -87,6 +76,20 @@ func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
 // It also trims "/clusters/" prefix from the URL.
 func WithClusterScope(apiHandler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		cl, err := request.ValidClusterFrom(req.Context())
+		if err == nil {
+			// This is a failsafe - this should not happen.
+			// If a cluste is already set in the request context it
+			// should not be present in the URL path.
+			responsewriters.ErrorNegotiated(
+				apierrors.NewBadRequest(
+					fmt.Sprintf("found cluster %q in the request context, when trying to read cluster from URL", cl.Name.String()),
+				),
+				errorCodecs, schema.GroupVersion{},
+				w, req)
+			return
+		}
+
 		path, newURL, found, err := ClusterPathFromAndStrip(req)
 		if err != nil {
 			responsewriters.ErrorNegotiated(
