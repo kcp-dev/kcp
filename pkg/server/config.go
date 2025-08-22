@@ -69,7 +69,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
-	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
@@ -406,9 +405,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		virtualWorkspaceServerProxyTransport = transport
 	}
 
-	// Make sure to set our RequestInfoResolver that is capable of populating a RequestInfo even for /services/... URLs.
-	c.GenericConfig.RequestInfoResolver = requestinfo.NewKCPRequestInfoResolver()
-
 	// Prepare an authentication index to be used later by a middleware. We start it early
 	// because it can potentially fail and the BuildHandlerChainFunc() has no way to return
 	// an error.
@@ -424,7 +420,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 		authIndex = authIndexState
 	}
-
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -516,7 +511,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// that path itself, instead of the rest of the handler chain above handling it.
 		mux := http.NewServeMux()
 		mux.Handle("/", apiHandler)
-		*c.preHandlerChainMux = append(*c.preHandlerChainMux, mux)
+		*c.preHandlerChainMux = []*http.ServeMux{mux}
 		apiHandler = mux
 
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made

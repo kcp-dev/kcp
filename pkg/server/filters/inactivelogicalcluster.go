@@ -30,6 +30,12 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
+const (
+	// InactiveAnnotation is the annotation denoting a logical cluster should be
+	// deemed unreachable.
+	InactiveAnnotation = "internal.kcp.io/inactive"
+)
+
 // WithBlockInactiveLogicalClusters ensures that any requests to logical
 // clusters marked inactive are rejected.
 func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient corev1alpha1informers.LogicalClusterClusterInformer) http.HandlerFunc {
@@ -39,15 +45,9 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient cor
 	}
 
 	return func(w http.ResponseWriter, req *http.Request) {
-		_, newURL, _, err := ClusterPathFromAndStrip(req)
-		if err != nil {
-			responsewriters.InternalError(w, req, err)
-			return
-		}
-
 		isException := false
 		for _, prefix := range allowedPathPrefixes {
-			if strings.HasPrefix(newURL.String(), prefix) {
+			if strings.HasPrefix(req.URL.String(), prefix) {
 				isException = true
 			}
 		}
@@ -56,7 +56,7 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient cor
 		if cluster != nil && !cluster.Name.Empty() && !isException {
 			logicalCluster, err := kcpClusterClient.Cluster(cluster.Name).Lister().Get(corev1alpha1.LogicalClusterName)
 			if err == nil {
-				if ann, ok := logicalCluster.ObjectMeta.Annotations[inactiveAnnotation]; ok && ann == "true" {
+				if ann, ok := logicalCluster.ObjectMeta.Annotations[InactiveAnnotation]; ok && ann == "true" {
 					responsewriters.ErrorNegotiated(
 						apierrors.NewForbidden(corev1alpha1.Resource("logicalclusters"), cluster.Name.String(), errors.New("logical cluster is marked inactive")),
 						errorCodecs, schema.GroupVersion{}, w, req,
