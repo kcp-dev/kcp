@@ -39,6 +39,9 @@ type CreateContextOptions struct {
 	// Overwrite indicates the context should be updated if it already exists. This is required to perform the update.
 	Overwrite bool
 
+	// KeepCurrent indicates whether to keep the current context. When creating a new context, if KeepCurrent is true, the current context will be preserved.
+	KeepCurrent bool
+
 	startingConfig *clientcmdapi.Config
 
 	// for testing
@@ -68,10 +71,13 @@ func (o *CreateContextOptions) Complete(args []string) error {
 		return err
 	}
 
-	var err error
-	o.startingConfig, err = o.ClientConfig.ConfigAccess().GetStartingConfig()
-	if err != nil {
-		return err
+	// Get the starting config if it hasn't been set yet.
+	if o.startingConfig == nil {
+		var err error
+		o.startingConfig, err = o.ClientConfig.ConfigAccess().GetStartingConfig()
+		if err != nil {
+			return err
+		}
 	}
 
 	if o.Name == "" && len(args) > 0 {
@@ -121,6 +127,11 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 	newContext.Cluster = o.Name
 	newKubeConfig.Contexts[o.Name] = &newContext
 	newKubeConfig.CurrentContext = o.Name
+
+	// If KeepCurrent is true, preserve the current context.
+	if o.KeepCurrent {
+		newKubeConfig.CurrentContext = config.CurrentContext
+	}
 
 	if err := o.modifyConfig(o.ClientConfig.ConfigAccess(), newKubeConfig); err != nil {
 		return err

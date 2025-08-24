@@ -54,6 +54,7 @@ func TestCreate(t *testing.T) {
 		newWorkspaceName                 string
 		newWorkspaceType                 *tenancyv1alpha1.WorkspaceTypeReference
 		useAfterCreation, ignoreExisting bool
+		createContextName                string
 
 		expected *clientcmdapi.Config
 		wantErr  bool
@@ -189,6 +190,52 @@ func TestCreate(t *testing.T) {
 			newWorkspaceType: &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal"},
 			wantErr:          true,
 		},
+		{
+			name: "create with create-context only",
+			config: clientcmdapi.Config{CurrentContext: "test",
+				Contexts:  map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"test": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingWorkspaces: []string{"test"},
+			createContextName:  "bar",
+			useAfterCreation:   false,
+			markReady:          true,
+			expected: &clientcmdapi.Config{CurrentContext: "test",
+				Contexts: map[string]*clientcmdapi.Context{
+					"test": {Cluster: "test", AuthInfo: "test"},
+					"bar":  {Cluster: "bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"test": {Server: "https://test/clusters/root:foo"},
+					"bar":  {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+		},
+		{
+			name: "create with create-context and enter",
+			config: clientcmdapi.Config{CurrentContext: "test",
+				Contexts:  map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+				Clusters:  map[string]*clientcmdapi.Cluster{"test": {Server: "https://test/clusters/root:foo"}},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+			existingWorkspaces: []string{"test"},
+			createContextName:  "bar",
+			useAfterCreation:   true,
+			markReady:          true,
+			expected: &clientcmdapi.Config{CurrentContext: "bar",
+				Contexts: map[string]*clientcmdapi.Context{
+					"test": {Cluster: "test", AuthInfo: "test"},
+					"bar":  {Cluster: "bar", AuthInfo: "test"},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"test": {Server: "https://test/clusters/root:foo"},
+					"bar":  {Server: "https://test/clusters/root:foo"},
+				},
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+			},
+		},
 	}
 	for _, tt := range tests {
 		// TODO(sttts): tt has a data race here due to the parallel test execution. But unaliasing it breaks the tests. WTF.
@@ -272,6 +319,9 @@ func TestCreate(t *testing.T) {
 			opts.Name = tt.newWorkspaceName
 			if !tt.skipInitialType {
 				opts.Type = workspaceType.Path + ":" + string(workspaceType.Name)
+			}
+			if tt.createContextName != "" {
+				opts.CreateContextName = tt.createContextName
 			}
 			opts.IgnoreExisting = tt.ignoreExisting
 			opts.EnterAfterCreate = tt.useAfterCreation

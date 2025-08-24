@@ -62,6 +62,9 @@ type CreateWorkspaceOptions struct {
 
 	kcpClusterClient kcpclientset.ClusterInterface
 
+	// CreateContextName is the name of the context to create after workspace creation (if set).
+	CreateContextName string
+
 	// for testing - passed to UseWorkspaceOptions
 	newKCPClusterClient func(config clientcmd.ClientConfig) (kcpclientset.ClusterInterface, error)
 	modifyConfig        func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error
@@ -111,6 +114,7 @@ func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
 	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
 	cmd.Flags().StringVar(&o.LocationSelector, "location-selector", o.LocationSelector, "A label selector to select the scheduling location of the created workspace.")
+	cmd.Flags().StringVar(&o.CreateContextName, "create-context", o.CreateContextName, "Create a kubeconfig context for the new workspace with the given name.")
 }
 
 // Run creates a workspace.
@@ -231,6 +235,56 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Create context if --create-context is set
+	if o.CreateContextName != "" {
+		createContextOptions := NewCreateContextOptions(o.IOStreams)
+		createContextOptions.Name = o.CreateContextName
+		createContextOptions.ClientConfig = o.ClientConfig
+		createContextOptions.KeepCurrent = false
+
+		// If --enter is not set, do not switch to the new context
+		if !o.EnterAfterCreate {
+			createContextOptions.KeepCurrent = true
+		}
+
+		startingConfig, err := o.ClientConfig.RawConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get raw config: %w", err)
+		}
+		createContextOptions.startingConfig = &startingConfig
+
+		// if err := o.modifyConfig(o.ClientConfig.ConfigAccess(), &startingConfig); err != nil {
+		// 	return err
+		// }
+
+		// only for unit test needs
+		if o.modifyConfig != nil {
+			createContextOptions.modifyConfig = o.modifyConfig
+		}
+
+		if err := createContextOptions.Complete(nil); err != nil {
+			return err
+		}
+		if err := createContextOptions.Validate(); err != nil {
+			return err
+		}
+
+		err = createContextOptions.Run(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create context: %w", err)
+		}
+
+		// Print output
+		if o.EnterAfterCreate {
+			fmt.Fprintf(o.Out, "Created context %q and switched to it.\n", o.CreateContextName)
+		} else {
+			fmt.Fprintf(o.Out, "Created context %q.\n", o.CreateContextName)
+		}
+
+		return nil
+	}
+
+	// If --enter is set, enter the newly created workspace
 	if o.EnterAfterCreate {
 		useOptions := NewUseWorkspaceOptions(o.IOStreams)
 		useOptions.Name = ws.Name
