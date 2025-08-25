@@ -3776,6 +3776,7 @@ Users can then authorize access to this resource type in their workspace by acce
 <a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a><span class="w">        </span><span class="nt">matchAll</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <p>Operations allowed on the resources for which permission claim is accepted is defined as the intersection of the verbs in the <code>APIBinding</code> and the verbs in the <code>APIExport</code>. Verbs in this case are matching the verbs used by the <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs">Kubernetes API</a>. There is the possibility to further limit the access claim to single resources.</p>
+<p>PermissionClaims allows for additional selectors, for more details, check out the <a href="../apis/exporting-apis/#apibinding">APIBindings documentation</a>.</p>
 <h2 id="dig-deeper-into-apiexports">Dig Deeper into APIExports</h2>
 <p>Switching back to the service provider persona:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>root:wildwest:cowboys-service

@@ -3789,10 +3789,11 @@ served to clients. See <a href="#build-your-controller">Build Your Controller</a
 <p>When a consumer creates an <code>APIBinding</code> that binds to an <code>APIExport</code>, the API provider who owns the <code>APIExport</code>
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
-APIExports the consumer has created <code>APIBindings</code> for, or from APIs that are built in to kcp. The API provider
-requests access to these additional resources by adding <code>PermissionClaims</code> for the desired API's group, resource, and
-identity hash to their <code>APIExport</code>. The API provider is responsible for specifying what operations are required for the
-requested resource by setting the appropriate <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs">API verbs</a>.
+APIExports the consumer has created <code>APIBindings</code> for, or from APIs that are built in to kcp.</p>
+<p>The API provider requests access to these additional resources by adding <code>PermissionClaims</code> for the desired API's
+group, resource, and identity hash to their <code>APIExport</code>. The API provider is responsible for specifying what operations
+are required for the requested resource by setting the appropriate
+<a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs">API verbs</a>.
 Let's take the example <code>APIExport</code> from above and add permission claims for <code>ConfigMaps</code> and <code>Things</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
@@ -3821,10 +3822,15 @@ Let's take the example <code>APIExport</code> from above and add permission clai
 <li><code>"*"</code> is a special "verb" that matches any possible verb</li>
 </ol>
 <p>This is essentially a request from the API provider, asking each consumer to grant permission for the claimed
-resources. If the consumer does not accept a permission claim, the API provider is not allowed to access the claimed
-resources. Consumer acceptance of permission claims is part of the <code>APIBinding</code> spec. The operations allowed on the
-resource are the intersection of the verbs defined in the <code>APIExport</code> and the verbs accepted in the appropriate
-<code>APIBinding</code>. For more details, see the section on <a href="#apibinding">APIBindings</a>.</p>
+resources. The consumer can, via <code>APIBinding</code>, accept or reject the service provider's request to access these
+resources, i.e. accept or reject PermissionClaims.</p>
+<p>Additionally, the consumer can choose between giving access to all instances (objects) of a claimed resource
+and giving access only to a subset of instances. In the latter case, the consumer can specify labels when accepting
+the PermissionClaim, so the service provider can only access instances which have these specified labels
+(this is also known as a label selector).</p>
+<p>The set of operations that the service provider can perform on the claimed resource is the intersection of the verbs
+defined in the <code>APIExport</code> and the verbs accepted in the appropriate <code>APIBinding</code>.</p>
+<p>For more details, see the section on <a href="#apibinding">APIBindings</a>.</p>
 <h3 id="maximal-permission-policy">Maximal Permission Policy</h3>
 <p>If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
 permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
@@ -3997,8 +4003,14 @@ TODO
 <a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;root:api-provider&quot;</span><span class="w"> </span><span class="c1"># path of your api-provider workspace</span>
 </code></pre></div>
 <h4 id="permission-claims_1">Permission Claims</h4>
-<p>Furthermore, <code>APIBindings</code> provide the <code>APIExport</code> owner access to additional resources defined in an <code>APIExport</code>'s permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted. The resources can be builtin Kubernetes resources or resources from other <code>APIExports</code>.
-When an <code>APIExport</code> is changed after workspaces have bound to it, new or changed APIs are automatically propagated to all <code>APIBindings</code>. New permission claims on the other hand are NOT automatically accepted.</p>
+<p>Furthermore, <code>APIBindings</code> provide the <code>APIExport</code> owner access to additional resources defined in an <code>APIExport</code>'s
+permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted.
+The resources can be builtin Kubernetes resources or resources bound with other <code>APIBindings</code>.</p>
+<div class="admonition information">
+<p class="admonition-title">Information</p>
+<p>When an <code>APIExport</code> is changed after workspaces have bound to it, new or changed APIs are automatically propagated
+to all <code>APIBindings</code>. New permission claims on the other hand are NOT automatically accepted.</p>
+</div>
 <p>Returning to our example, we can grant the requested permissions in the <code>APIBinding</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIBinding</span>
@@ -4023,23 +4035,62 @@ When an <code>APIExport</code> is changed after workspaces have bound to it, new
 <a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">    </span><span class="nt">selector</span><span class="p">:</span>
 <a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="w">      </span><span class="nt">matchAll</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
-<p>It should be noted that <code>APIBindings</code> do not create <code>CRDs</code> or <code>APIResourceSchemas</code>in the workspace. Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.</p>
+<p>It should be noted that <code>APIBindings</code> do not create <code>CRDs</code> or <code>APIResourceSchemas</code> in the workspace.
+Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.</p>
 <h5 id="verbs">Verbs</h5>
 <p>Operations allowed on the resources for which permission claims are accepted is defined as the intersection of
 the verbs in the APIBinding and the verbs in the appropriate APIExport.</p>
 <h5 id="selector">Selector</h5>
-<p><code>APIBindings</code> allow API consumers to scope an API provider's access to claimed resources via the <code>selector</code> field on a permission claim. This means that providers will only be able to see and access those objects matched by the <code>selector</code>.</p>
+<p><code>APIBindings</code> allow API consumers to scope an API provider's access to claimed resources via the <code>selector</code> field on
+a permission claim. This means that providers will only be able to see and access those objects matched by
+the <code>selector</code>.</p>
+<p>There are two types of selectors at the moment:</p>
+<ul>
+<li><code>matchAll</code>: gives the service provider access to all objects of a claimed resource</li>
+<li>label selector: gives the service provider access only to objects which are satisfying the given label selector</li>
+</ul>
+<p>The <code>matchAll</code> selector is shown in the example above.</p>
+<p>A label selector can be defined using <code>matchLabels</code> or <code>matchExpressions</code>:</p>
+<ul>
+<li><code>matchLabels</code> specifies a set of labels (key-value pairs). For the selector to match, <strong>all</strong> of the listed labels
+  must be present on the object.</li>
+<li><code>matchExpressions</code> specifies a set of expressions that are evaluated against object’s labels. If multiple expressions
+  are specified, <strong>all must evaluate to <code>true</code></strong> for the selector to match.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nn">...</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">permissionClaims</span><span class="p">:</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">configmaps</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;get&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;list&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;create&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">    </span><span class="nt">selector</span><span class="p">:</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">      </span><span class="nt">matchLabels</span><span class="p">:</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">        </span><span class="nt">env</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prod</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">logbook</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">things</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">somegroup.kcp.io</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">    </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">    </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="nt">selector</span><span class="p">:</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">      </span><span class="nt">matchExpressions</span><span class="p">:</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">env</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">          </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">In</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">          </span><span class="nt">values</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;prod&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;staging&quot;</span><span class="p p-Indicator">]</span>
+</code></pre></div>
 <div class="admonition information">
 <p class="admonition-title">Information</p>
-<p>Currently, only <code>selector.matchAll=true</code> is supported, giving the provider that owns the <code>APIExport</code> full access to all objects of a claimed resource. Additional selectors are planned for upcoming releases.</p>
+<p>Special attention is needed by the service provider when creating or updating an object via the APIExport Virtual
+Workspace. If <code>matchLabels</code> is used, the specified labels will be automatically applied to the object that's being
+applied even if not specified by the service provider. However, that's not the case for <code>matchExpressions</code>,
+in which case the service provider needs to explicitly specify labels upon applying the object.</p>
 </div>
 <hr />
 <p>In practice, bound APIs behave similarly to other resources in kcp or Kubernetes. This means you can query for imported APIs using <code>kubectl api-resources</code>. Additionally you can use <code>kubectl explain</code> to get a detailed view on all fields of the API.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># inside consumer workspace</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>api-resources<span class="w"> </span>--api-group<span class="o">=</span><span class="s1">&#39;example.kcp.io&#39;</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>NAME<span class="w">      </span>SHORTNAMES<span class="w">   </span>APIVERSION<span class="w">                </span>NAMESPACED<span class="w">   </span>KIND
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>widgets<span class="w">                </span>example.kcp.io/v1alpha1<span class="w">   </span><span class="nb">false</span><span class="w">        </span>Widget
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># inside consumer workspace</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>api-resources<span class="w"> </span>--api-group<span class="o">=</span><span class="s1">&#39;example.kcp.io&#39;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>NAME<span class="w">      </span>SHORTNAMES<span class="w">   </span>APIVERSION<span class="w">                </span>NAMESPACED<span class="w">   </span>KIND
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>widgets<span class="w">                </span>example.kcp.io/v1alpha1<span class="w">   </span><span class="nb">false</span><span class="w">        </span>Widget
 </code></pre></div>
 <p>Furthermore, you can use the <code>.status.boundResources</code> field to precisely identify which <code>APIResourceSchemas</code> have been imported.</p>
 
