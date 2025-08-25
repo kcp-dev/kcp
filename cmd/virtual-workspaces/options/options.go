@@ -55,7 +55,8 @@ type Options struct {
 
 	Logs *logs.Options
 
-	CoreVirtualWorkspaces corevwoptions.Options
+	CoreVirtualWorkspaces     corevwoptions.Options
+	VirtualWorkspaceAdmission corevwoptions.Admission
 
 	ProfilerAddress string
 }
@@ -74,8 +75,9 @@ func NewOptions() *Options {
 		Audit:          *genericapiserveroptions.NewAuditOptions(),
 		Logs:           logs.NewOptions(),
 
-		CoreVirtualWorkspaces: *corevwoptions.NewOptions(),
-		ProfilerAddress:       "",
+		CoreVirtualWorkspaces:     *corevwoptions.NewOptions(),
+		VirtualWorkspaceAdmission: *corevwoptions.NewAdmission(),
+		ProfilerAddress:           "",
 	}
 
 	opts.SecureServing.ServerCert.CertKey.CertFile = filepath.Join(".", ".kcp", "apiserver.crt")

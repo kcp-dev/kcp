@@ -295,7 +295,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	t.Logf("set up service provider with permission claims")
 	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, false, providerPath, cfg, permissionClaims)
 
-	t.Logf("set up binding")
+	t.Logf("Set up binding")
 	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, permissionClaimsToAcceptable(permissionClaims)...)
 
 	t.Logf("Validate that the permission claims are valid")
@@ -477,7 +477,7 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 	t.Logf("set up service provider with permission claims")
 	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, false, providerPath, cfg, permissionClaims)
 
-	t.Logf("set up binding")
+	t.Logf("Set up binding")
 	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, permissionClaimsToAcceptable(permissionClaims)...)
 
 	t.Logf("Validate that the permission claims are valid")
@@ -589,6 +589,252 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 	require.NotNil(t, configMap)
 }
 
+func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
+
+	cfg := server.BaseConfig(t)
+
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
+	require.NoError(t, err, "failed to construct kube client for server")
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
+
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+
+	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	require.NoError(t, err)
+	identityHash := sheriffExport.Status.IdentityHash
+
+	t.Logf("Found identity hash: %v", identityHash)
+	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
+	permissionClaims := defaultPermissionsClaims(identityHash)
+
+	t.Logf("set up service provider with permission claims")
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, false, providerPath, cfg, permissionClaims)
+
+	apcModifiers := []func([]apisv1alpha2.AcceptablePermissionClaim){
+		selectorForResource("", "configmaps", "", apisv1alpha2.PermissionClaimSelector{
+			LabelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"test": "test",
+				},
+			},
+		}),
+		selectorForResource("", "secrets", "", apisv1alpha2.PermissionClaimSelector{
+			LabelSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "test",
+						Operator: metav1.LabelSelectorOpIn,
+						Values:   []string{"test1", "test2"},
+					},
+				},
+			},
+		}),
+	}
+
+	t.Logf("Set up binding")
+	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, permissionClaimsToAcceptable(permissionClaims, apcModifiers...)...)
+
+	t.Logf("Validate that the permission claims are valid")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
+	binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	require.NoError(t, err)
+	if !reflect.DeepEqual(permissionClaims, binding.Status.ExportPermissionClaims) {
+		require.Emptyf(t, cmp.Diff(permissionClaims, binding.Status.ExportPermissionClaims), "ExportPermissionClaims incorrect")
+	}
+
+	t.Logf("Validate that the permission claims were all applied")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsApplied), "unable to see claims applied")
+
+	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerPath)
+	apiExportVWCfg := rest.CopyConfig(cfg)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		var found bool
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		require.NoError(t, err)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	vwKubeClient, err := kcpkubernetesclientset.NewForConfig(apiExportVWCfg)
+	require.NoError(t, err, "error building kube client for %q", consumerPath)
+
+	t.Logf("Create test resources in the consumer workspace")
+	configMap1 := testConfigMapWithLabels(1, map[string]string{"env": "random1"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Create(ctx, configMap1, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating configmap 1")
+
+	configMap2 := testConfigMapWithLabels(2, map[string]string{"test": "test", "env": "random2"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Create(ctx, configMap2, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating configmap 2")
+
+	secret1 := testSecretMapWithLabels(1, map[string]string{"test": "test", "env": "random1"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Create(ctx, secret1, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating secret 1")
+
+	secret2 := testSecretMapWithLabels(2, map[string]string{"test": "test1", "env": "random2"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Create(ctx, secret2, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating secret 2")
+
+	secret3 := testSecretMapWithLabels(3, map[string]string{"test": "test2", "env": "prod3"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Create(ctx, secret3, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating secret 3")
+
+	t.Logf("Make sure configmaps list shows only one item") // test-configmap-2 is expected
+	// It takes some time for the permissions to be applied in the sharded setup, so we need to retry a couple of times
+	var configmaps *corev1.ConfigMapList
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		var cmErr error
+		configmaps, cmErr = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		if cmErr != nil {
+			return false, cmErr.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error listing configmaps")
+	require.Len(t, configmaps.Items, 1, "expected 1 configmaps") // test-configmap-2
+	require.Equal(t, configMap2.Name, configmaps.Items[0].Name, "expected to get configmap test-configmap-2")
+
+	secrets, err := vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing secrets in the virtual workspace")
+	require.Len(t, secrets.Items, 2, "expected 2 secrets") // test-secret-2 and test-secret-3
+	for _, secret := range secrets.Items {                 // we do this because we don't know if secrets are sorted in the response
+		if secret.Name != secret2.Name && secret.Name != secret3.Name {
+			require.Fail(t, "unexpected secret found", secret.Name)
+		}
+	}
+
+	t.Logf("Create a configmap without labels in consumer workspace %q", consumerPath)
+	configMap3 := testConfigMapWithLabels(3, nil)
+	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Create(ctx, configMap3, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating configmap")
+
+	configMap3, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMap3.Name, metav1.GetOptions{})
+	require.NoError(t, err, "error getting created configmap")
+	require.GreaterOrEqual(t, len(configMap3.Labels), 2, "expected at least two labels on configmap") // claimed + test labels
+	require.Equal(t, "test", configMap3.Labels["test"], "expected label test to equal test")
+
+	t.Logf("Create a secret with no required labels in consumer workspace %q", consumerPath)
+	secret4 := testSecretMapWithLabels(4, map[string]string{"env": "prod"})
+	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Create(ctx, secret4, metav1.CreateOptions{})
+	require.Error(t, err, "expected error creating secret without labels due to matchExpressions")
+
+	t.Logf("Create a secret with labels in consumer workspace %q", consumerPath)
+	secret4.Labels = map[string]string{"test": "test1"}
+	secret4, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Create(ctx, secret4, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating test secret")
+
+	t.Logf("Verifying the label is correctly persisted on a created secret %q", consumerPath)
+	secret4, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Get(ctx, secret4.Name, metav1.GetOptions{})
+	require.NoError(t, err, "error getting created secret")
+	require.GreaterOrEqual(t, len(secret4.Labels), 2, "expected at least two labels on secret") // claimed + test
+	require.Equal(t, "test1", secret4.Labels["test"], "expected label test to equal test1")
+
+	t.Logf("Delete a configmap without label selector")
+	err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Delete(ctx, configMap1.Name, metav1.DeleteOptions{})
+	require.Error(t, err, "expected error deleting configmap without label")
+
+	t.Logf("Delete a configmap with label selector")
+	err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Delete(ctx, configMap2.Name, metav1.DeleteOptions{})
+	require.NoError(t, err, "error deleting configmap with label")
+
+	t.Logf("Delete a secret without label selector")
+	err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Delete(ctx, secret1.Name, metav1.DeleteOptions{})
+	require.Error(t, err, "expected error deleting secret without label")
+
+	t.Logf("Delete a secret with label selector")
+	err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Delete(ctx, secret2.Name, metav1.DeleteOptions{})
+	require.NoError(t, err, "error deleting secret with label")
+
+	t.Logf("Update configmap with a new label")
+	configMap3.Labels["tier"] = "random1"
+	configMap3, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(ctx, configMap3, metav1.UpdateOptions{})
+	require.NoError(t, err, "error updating configmap with new label")
+	require.Equal(t, "random1", configMap3.Labels["tier"], "expected label tier to equal random1")
+	require.Equal(t, "test", configMap3.Labels["test"], "expected label test to equal test")
+
+	t.Logf("Update configmap to drop the selector label") // no-op because of mutation
+	delete(configMap3.Labels, "test")
+	configMap3, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(ctx, configMap3, metav1.UpdateOptions{})
+	require.NoError(t, err, "error updating configmap with new label")
+	require.Equal(t, "test", configMap3.Labels["test"], "expected label test to equal test")
+
+	t.Logf("Update configmap to modifty the selector label") // error because selector label is a protected label
+	configMap3.Labels["test"] = "test1"
+	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(ctx, configMap3, metav1.UpdateOptions{})
+	require.Error(t, err, "expected error updating configmap with new label")
+
+	t.Logf("Update secret with a new label")
+	secret4.Labels["tier"] = "random1"
+	secret4, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(ctx, secret4, metav1.UpdateOptions{})
+	require.NoError(t, err, "error updating secret with new label")
+	require.Equal(t, "random1", secret4.Labels["tier"], "expected label tier to equal random1")
+	require.Equal(t, "test1", secret4.Labels["test"], "expected label test to equal test1")
+
+	t.Logf("Update secret to drop the selector label") // error because no mutation for matchExpressions
+	delete(secret4.Labels, "test")
+	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(ctx, secret4, metav1.UpdateOptions{})
+	require.Error(t, err, "error updating secret with new label")
+
+	t.Logf("Update secret to modifty the selector label") // error because selector label is a protected label
+	secret4.Labels["test"] = "test3"
+	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(ctx, secret4, metav1.UpdateOptions{})
+	require.Error(t, err, "expected error updating secret with new label")
+
+	t.Logf("List configmaps after operations via VW")
+	configmaps, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing configmaps inside %q", consumerPath)
+	require.Len(t, configmaps.Items, 1, "expected 1 configmaps inside %q", consumerPath) // 1 test configmap with label
+
+	t.Logf("List configmaps after operations via workspace")
+	configmaps, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing configmaps inside %q", consumerPath)
+	require.Len(t, configmaps.Items, 3, "expected 3 configmaps inside %q", consumerPath) // default kube + 1 test configmap without label + 1 test configmaps with label
+
+	t.Logf("List secrets after secrets via VW")
+	secrets, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing secrets inside %q", consumerPath)
+	require.Len(t, secrets.Items, 2, "expected 2 secrets inside %q", consumerPath) // 2 test secrets with labels
+
+	t.Logf("List secrets after secrets via workspace")
+	secrets, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing secrets inside %q", consumerPath)
+	require.Len(t, secrets.Items, 3, "expected 3 secrets inside %q", consumerPath) // 3 test secrets (one without label)
+
+	t.Logf("Delete all configmaps from the VW")
+	err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+	require.NoError(t, err, "error deleting all configmaps")
+
+	t.Logf("List configmaps after delete all via workspace")
+	configmaps, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "error listing configmaps inside %q", consumerPath)
+	require.Len(t, configmaps.Items, 2, "expected 2 configmaps inside %q", consumerPath) // kube default + 1 test configmap without label
+}
+
 func readonlyVerbsForResource(group, resource, identityHash string) func([]apisv1alpha2.PermissionClaim) {
 	return func(pcs []apisv1alpha2.PermissionClaim) {
 		for i, pc := range pcs {
@@ -619,7 +865,39 @@ func verbsForResource(group, resource, identityHash string, verbs []string) func
 	}
 }
 
-func permissionClaimsToAcceptable(permissionClaims []apisv1alpha2.PermissionClaim) []apisv1alpha2.AcceptablePermissionClaim {
+func selectorForResource(group, resource, identityHash string, selector apisv1alpha2.PermissionClaimSelector) func([]apisv1alpha2.AcceptablePermissionClaim) {
+	return func(pcs []apisv1alpha2.AcceptablePermissionClaim) {
+		for i, pc := range pcs {
+			if pc.GroupResource.Group == group && pc.GroupResource.Resource == resource && pc.IdentityHash == identityHash {
+				pcs[i].Selector = selector
+			}
+		}
+	}
+}
+
+func testConfigMapWithLabels(num int, labels map[string]string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("test-configmap-%d", num),
+			Namespace: "default",
+			Labels:    labels,
+		},
+		Data: map[string]string{"test": "test"},
+	}
+}
+
+func testSecretMapWithLabels(num int, labels map[string]string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("test-secret-%d", num),
+			Namespace: "default",
+			Labels:    labels,
+		},
+		Data: map[string][]byte{"test": []byte("test")},
+	}
+}
+
+func permissionClaimsToAcceptable(permissionClaims []apisv1alpha2.PermissionClaim, modifiers ...func([]apisv1alpha2.AcceptablePermissionClaim)) []apisv1alpha2.AcceptablePermissionClaim {
 	acceptablePermissionClaims := []apisv1alpha2.AcceptablePermissionClaim{}
 	for _, pc := range permissionClaims {
 		acceptablePermissionClaims = append(acceptablePermissionClaims, apisv1alpha2.AcceptablePermissionClaim{
@@ -631,6 +909,10 @@ func permissionClaimsToAcceptable(permissionClaims []apisv1alpha2.PermissionClai
 			},
 			State: apisv1alpha2.ClaimAccepted,
 		})
+	}
+
+	for _, modifier := range modifiers {
+		modifier(acceptablePermissionClaims)
 	}
 
 	return acceptablePermissionClaims

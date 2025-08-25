@@ -178,6 +178,12 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
+	if err := o.VirtualWorkspaceAdmission.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
+		return rootAPIServerConfig.Extra.VirtualWorkspaces
+	}); err != nil {
+		return err
+	}
+
 	sharedExternalURLGetter := func() string {
 		return o.ShardExternalURL
 	}

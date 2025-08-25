@@ -95,10 +95,14 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Get(ctx, name, *options, subResources...)
 	}
-	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, _ rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	s.CreaterFunc = func(ctx context.Context, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
 		unstructuredObj, ok := obj.(*unstructured.Unstructured)
 		if !ok {
 			return nil, fmt.Errorf("not an Unstructured: %T", obj)
+		}
+
+		if err := createValidation(ctx, obj); err != nil {
+			return nil, err
 		}
 
 		delegate, err := client(ctx)
@@ -108,8 +112,18 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
 	}
-	s.GracefulDeleterFunc = func(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	s.GracefulDeleterFunc = func(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+
+		preDeleteObj, err := delegate.Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, false, err
+		}
+
+		err = deleteValidation(ctx, preDeleteObj)
 		if err != nil {
 			return nil, false, err
 		}
@@ -171,7 +185,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		return delegate.List(ctx, v1ListOptions)
 	}
-	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, _ rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
 		if err != nil {
 			return nil, false, err
@@ -228,6 +242,11 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 				return delegate.Create(ctx, unstructuredObj, updateToCreateOptions(options), subResources...)
 			}
+
+			if err := updateValidation(ctx, obj, oldObj); err != nil {
+				return nil, err
+			}
+
 			return delegate.Update(ctx, unstructuredObj, *options, subResources...)
 		}
 

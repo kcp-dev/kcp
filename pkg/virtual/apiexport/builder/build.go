@@ -39,6 +39,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	aeadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
@@ -77,6 +78,8 @@ func BuildVirtualWorkspace(
 	}
 
 	readyCh := make(chan struct{})
+
+	apiExportAdmission := aeadmission.NewSelectorAdmission(kcpInformers.Apis().V1alpha2().APIBindings(), kubeClusterClient)
 
 	boundOrClaimedWorkspaceContent := &virtualdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
@@ -220,6 +223,8 @@ func BuildVirtualWorkspace(
 			return apiReconciler, nil
 		},
 		Authorizer: newAuthorizer(kubeClusterClient, deepSARClient, cachedKcpInformers, kcpInformers),
+		Mutator:    apiExportAdmission,
+		Validator:  apiExportAdmission,
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{

@@ -365,6 +365,8 @@ spec:
 
 Operations allowed on the resources for which permission claim is accepted is defined as the intersection of the verbs in the `APIBinding` and the verbs in the `APIExport`. Verbs in this case are matching the verbs used by the [Kubernetes API](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs). There is the possibility to further limit the access claim to single resources.
 
+PermissionClaims allows for additional selectors, for more details, check out the [APIBindings documentation](./apis/exporting-apis.md#apibinding).
+
 ## Dig Deeper into APIExports
 
 Switching back to the service provider persona:
