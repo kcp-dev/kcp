@@ -253,10 +253,6 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		}
 		createContextOptions.startingConfig = &startingConfig
 
-		// if err := o.modifyConfig(o.ClientConfig.ConfigAccess(), &startingConfig); err != nil {
-		// 	return err
-		// }
-
 		// only for unit test needs
 		if o.modifyConfig != nil {
 			createContextOptions.modifyConfig = o.modifyConfig
