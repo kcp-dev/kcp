@@ -68,41 +68,55 @@ spec:
                             for a single prefixed claim or expression.
                           properties:
                             claim:
+                              minLength: 1
                               type: string
                             expression:
+                              minLength: 1
                               type: string
                             prefix:
                               type: string
-                          required:
-                          - claim
                           type: object
+                          x-kubernetes-validations:
+                          - message: either claim or expression must be specified
+                            rule: has(self.claim) || has(self.expression)
+                          - message: claim and expression cannot both be specified
+                            rule: '!(has(self.claim) && has(self.expression))'
+                          - message: prefix can only be specified when claim is specified
+                            rule: '!(has(self.prefix)) || has(self.claim)'
                         uid:
                           description: ClaimOrExpression provides the configuration
                             for a single claim or expression.
                           properties:
                             claim:
+                              minLength: 1
                               type: string
                             expression:
+                              minLength: 1
                               type: string
-                          required:
-                          - claim
                           type: object
+                          x-kubernetes-validations:
+                          - message: claim and expression cannot both be specified
+                            rule: '!(has(self.claim) && has(self.expression))'
                         username:
                           description: PrefixedClaimOrExpression provides the configuration
                             for a single prefixed claim or expression.
                           properties:
                             claim:
+                              minLength: 1
                               type: string
                             expression:
+                              minLength: 1
                               type: string
                             prefix:
                               type: string
-                          required:
-                          - claim
                           type: object
-                      required:
-                      - groups
-                      - username
+                          x-kubernetes-validations:
+                          - message: either claim or expression must be specified
+                            rule: has(self.claim) || has(self.expression)
+                          - message: claim and expression cannot both be specified
+                            rule: '!(has(self.claim) && has(self.expression))'
+                          - message: prefix can only be specified when claim is specified
+                            rule: '!(has(self.prefix)) || has(self.claim)'
                       type: object
                     claimValidationRules:
                       items:
@@ -110,19 +124,31 @@ spec:
                           for a single claim validation rule.
                         properties:
                           claim:
+                            minLength: 1
                             type: string
                           expression:
+                            minLength: 1
                             type: string
                           message:
+                            minLength: 1
                             type: string
                           requiredValue:
+                            minLength: 1
                             type: string
-                        required:
-                        - claim
-                        - expression
-                        - message
-                        - requiredValue
                         type: object
+                        x-kubernetes-validations:
+                        - message: either claim or expression must be specified
+                          rule: has(self.claim) || has(self.expression)
+                        - message: claim and expression cannot both be specified
+                          rule: '!(has(self.claim) && has(self.expression))'
+                        - message: requiredValue can only be specified when claim
+                            is specified
+                          rule: (has(self.expression) && !has(self.requiredValue))
+                            || (has(self.claim) && has(self.requiredValue))
+                        - message: message can only be specified when expression is
+                            specified
+                          rule: (has(self.expression) && has(self.message)) || (has(self.claim)
+                            && !has(self.message))
                       type: array
                     issuer:
                       description: Issuer provides the configuration for an external
