@@ -102,18 +102,30 @@ const (
 )
 
 // ClaimValidationRule provides the configuration for a single claim validation rule.
+// +kubebuilder:validation:XValidation:rule="has(self.claim) || has(self.expression)",message="either claim or expression must be specified"
+// +kubebuilder:validation:XValidation:rule="!(has(self.claim) && has(self.expression))",message="claim and expression cannot both be specified"
+// +kubebuilder:validation:XValidation:rule="(has(self.expression) && !has(self.requiredValue)) || (has(self.claim) && has(self.requiredValue))",message="requiredValue can only be specified when claim is specified"
+// +kubebuilder:validation:XValidation:rule="(has(self.expression) && has(self.message)) || (has(self.claim) && !has(self.message))",message="message can only be specified when expression is specified"
 type ClaimValidationRule struct {
-	Claim         string `json:"claim"`
-	RequiredValue string `json:"requiredValue"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Claim string `json:"claim,omitempty"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	RequiredValue string `json:"requiredValue,omitempty"`
 
-	Expression string `json:"expression"`
-	Message    string `json:"message"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Expression string `json:"expression,omitempty"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Message string `json:"message,omitempty"`
 }
 
 // ClaimMappings provides the configuration for claim mapping.
 type ClaimMappings struct {
-	Username PrefixedClaimOrExpression `json:"username"`
-	Groups   PrefixedClaimOrExpression `json:"groups"`
+	Username PrefixedClaimOrExpression `json:"username,omitempty"`
+	Groups   PrefixedClaimOrExpression `json:"groups,omitempty"`
 	// +optional
 	UID ClaimOrExpression `json:"uid,omitempty"`
 	// +optional
@@ -121,18 +133,28 @@ type ClaimMappings struct {
 }
 
 // PrefixedClaimOrExpression provides the configuration for a single prefixed claim or expression.
+// +kubebuilder:validation:XValidation:rule="has(self.claim) || has(self.expression)",message="either claim or expression must be specified"
+// +kubebuilder:validation:XValidation:rule="!(has(self.claim) && has(self.expression))",message="claim and expression cannot both be specified"
+// +kubebuilder:validation:XValidation:rule="!(has(self.prefix)) || has(self.claim)",message="prefix can only be specified when claim is specified"
 type PrefixedClaimOrExpression struct {
-	Claim string `json:"claim"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Claim string `json:"claim,omitempty"`
 	// +optional
 	Prefix *string `json:"prefix,omitempty"`
 	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression,omitempty"`
 }
 
 // ClaimOrExpression provides the configuration for a single claim or expression.
+// +kubebuilder:validation:XValidation:rule="!(has(self.claim) && has(self.expression))",message="claim and expression cannot both be specified"
 type ClaimOrExpression struct {
-	Claim string `json:"claim"`
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Claim string `json:"claim,omitempty"`
+	// +optional
+	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression,omitempty"`
 }
 
