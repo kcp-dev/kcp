@@ -240,12 +240,9 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 		createContextOptions := NewCreateContextOptions(o.IOStreams)
 		createContextOptions.Name = o.CreateContextName
 		createContextOptions.ClientConfig = o.ClientConfig
-		createContextOptions.KeepCurrent = false
 
-		// If --enter is not set, do not switch to the new context
-		if !o.EnterAfterCreate {
-			createContextOptions.KeepCurrent = true
-		}
+		// If --enter is set, switch to the new context
+		createContextOptions.KeepCurrent = !o.EnterAfterCreate
 
 		startingConfig, err := o.ClientConfig.RawConfig()
 		if err != nil {
@@ -265,8 +262,7 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 			return err
 		}
 
-		err = createContextOptions.Run(ctx)
-		if err != nil {
+		if err := createContextOptions.Run(ctx); err != nil {
 			return fmt.Errorf("failed to create context: %w", err)
 		}
 
