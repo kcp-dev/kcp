@@ -47,9 +47,7 @@ func withClusterScope(delegate authenticator.Request) authenticator.Request {
 			if extra == nil {
 				extra = map[string][]string{}
 			}
-			if true {
-				extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster))
-			}
+			extra["authentication.kcp.io/scopes"] = append(extra["authentication.kcp.io/scopes"], fmt.Sprintf("cluster:%s", cluster))
 
 			response.User = &user.DefaultInfo{
 				Name:   response.User.GetName(),
