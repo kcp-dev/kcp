@@ -282,7 +282,7 @@ func TestUserScope(t *testing.T) {
 		userName       = "peter"
 		userEmail      = "peter@example.com"
 		userGroups     = []string{"developers", "admins"}
-		expectedGroups = []string{}
+		expectedGroups = []string{"system:authenticated"}
 	)
 
 	for _, group := range userGroups {
