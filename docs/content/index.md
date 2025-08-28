@@ -37,14 +37,17 @@ guide.
 
 There are several ways to communicate with us:
 
-- The [`#kcp-users` channel](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) in the [Kubernetes Slack workspace](https://slack.k8s.io).
-- Our mailing lists:
-    - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions.
+- On the [Kubernetes Slack workspace](https://slack.k8s.io).
+    - [`#kcp-users`](https://app.slack.com/client/T09NY5SBT/C021U8WSAFK) for discussions and questions regarding kcp's setup and usage.
+    - [`#kcp-dev`](https://kubernetes.slack.com/archives/C09C7UP1VLM) for conversations about developing kcp itself.
+- Our mailing lists.
     - [kcp-users](https://groups.google.com/g/kcp-users) for discussions among users and potential users.
-- By joining the kcp-dev mailing list, you should receive an invite to our bi-weekly community meetings.
-- See recordings of past community meetings on [YouTube](https://www.youtube.com/channel/UCfP_yS5uYix0ppSbm2ltS5Q).
-- The next community meeting dates are available via our [CNCF community group](https://community.cncf.io/kcp/).
-- Check the [community meeting notes document](https://docs.google.com/document/d/1PrEhbmq1WfxFv1fTikDBZzXEIJkUWVHdqDFxaY1Ply4) for future and past meeting agendas.
+    - [kcp-dev](https://groups.google.com/g/kcp-dev) for development discussions.
+- The bi-weekly community meetings.
+    - By joining the kcp-dev mailing list, you should receive an invite to our bi-weekly community meetings.
+    - The next community meeting dates are also available via our [CNCF community group](https://community.cncf.io/kcp/).
+    - Check the [community meeting notes document](https://docs.google.com/document/d/1PrEhbmq1WfxFv1fTikDBZzXEIJkUWVHdqDFxaY1Ply4) for future and past meeting agendas.
+    - See recordings of past community meetings on [YouTube](https://www.youtube.com/channel/UCfP_yS5uYix0ppSbm2ltS5Q).
 - Browse the [shared Google Drive](https://drive.google.com/drive/folders/1FN7AZ_Q1CQor6eK0gpuKwdGFNwYI517M?usp=sharing) to share design docs, notes, etc.
     - Members of the kcp-dev mailing list can view this drive.
 
