@@ -80,7 +80,7 @@ func NewController(
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			c.enqueue(obj)
-			c.handleMetrics(obj)
+			c.handleMetricsOnAdd(obj)
 		},
 		UpdateFunc: func(oldObj, newObj any) {
 			c.enqueue(newObj)
