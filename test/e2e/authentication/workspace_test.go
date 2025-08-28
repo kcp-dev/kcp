@@ -30,6 +30,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -415,6 +416,135 @@ func TestForbiddenSystemAccess(t *testing.T) {
 
 			_, err = client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 			require.Error(t, err, "user should have no access")
+		})
+	}
+}
+
+func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
+	framework.Suite(t, "control-plane")
+
+	// start kcp and setup clients
+	server := kcptesting.SharedKcpServer(t)
+
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("oidc-acceptable"))
+
+	kcpConfig := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+
+	testcases := map[string]struct {
+		authConfig    *tenancyv1alpha1.WorkspaceAuthenticationConfiguration
+		expectedError string
+	}{
+		"empty": {
+			authConfig:    &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{},
+			expectedError: "spec.jwt: Required value",
+		},
+		"minimal-claim": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim: "email",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"minimal-expression": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Expression: "concat('oidc:', email)",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Expression: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"claim-and-expression": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim:      "email",
+									Expression: "concat('oidc:', email)",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim:      "roles",
+									Expression: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: "claim and expression cannot both be specified",
+		},
+		"expression-and-prefix": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Prefix:     ptr.To("random-prefix:"),
+									Expression: "concat('oidc:', email)",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Prefix:     ptr.To("group-random-prefix:"),
+									Expression: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: "prefix can only be specified when claim is specified",
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			t.Logf("Creating WorkspaceAuthenticationConfguration %s...", name)
+			tc.authConfig.Name = name
+			_, err := kcpClusterClient.Cluster(wsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(t.Context(), tc.authConfig, metav1.CreateOptions{})
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
