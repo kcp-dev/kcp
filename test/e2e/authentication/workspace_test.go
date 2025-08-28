@@ -419,6 +419,136 @@ func TestForbiddenSystemAccess(t *testing.T) {
 	}
 }
 
+func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
+	framework.Suite(t, "control-plane")
+
+	// start kcp and setup clients
+	server := kcptesting.SharedKcpServer(t)
+
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("oidc-acceptable"))
+
+	kcpConfig := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+
+	testcases := map[string]struct {
+		authConfig    *tenancyv1alpha1.WorkspaceAuthenticationConfiguration
+		expectedError string
+	}{
+		"empty": {
+			authConfig:    &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{},
+			expectedError: "spec.jwt: Required value",
+		},
+		"minimal-claim": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						tenancyv1alpha1.JWTAuthenticator{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim: "email",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"minimal-expression": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						tenancyv1alpha1.JWTAuthenticator{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Expression: "concat('oidc:', email)",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Expression: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"claim-and-expression": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						tenancyv1alpha1.JWTAuthenticator{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim:      "email",
+									Expression: "concat('oidc:', email)",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Claim:      "roles",
+									Expression: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: "claim and expression cannot both be specified",
+		},
+		"expression-and-prefix": {
+			authConfig: &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+				Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+					JWT: []tenancyv1alpha1.JWTAuthenticator{
+						tenancyv1alpha1.JWTAuthenticator{
+							Issuer: tenancyv1alpha1.Issuer{
+								URL: "https://example.com",
+							},
+							ClaimMappings: tenancyv1alpha1.ClaimMappings{
+								Username: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Prefix:     "random-prefix:",
+									Expression: "concat('oidc:', email)",
+								},
+								Groups: tenancyv1alpha1.PrefixedClaimOrExpression{
+									Prefix:     "group-random-prefix:",
+									Expression: "groups",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: "prefix can only be specified when claim is specified",
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tc.authConfig.Name = name
+
+			t.Logf("Creating WorkspaceAuthenticationConfguration %s...", name)
+			_, err := kcpClusterClient.Cluster(wsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(t.Context(), tc.authConfig, metav1.CreateOptions{})
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func createWorkspaceAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {
 	name := fmt.Sprintf("mockoidc-%d", rand.Int())
 

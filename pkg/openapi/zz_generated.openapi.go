@@ -4074,7 +4074,6 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"username", "groups"},
 			},
 		},
 		Dependencies: []string{
@@ -4091,9 +4090,8 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"claim": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"expression": {
@@ -4103,7 +4101,6 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"claim"},
 			},
 		},
 	}
@@ -4118,34 +4115,29 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimValidationRule(ref common.ReferenceCa
 				Properties: map[string]spec.Schema{
 					"claim": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"requiredValue": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"message": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"claim", "requiredValue", "expression", "message"},
 			},
 		},
 	}
@@ -4363,9 +4355,8 @@ func schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"claim": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"prefix": {
@@ -4381,7 +4372,6 @@ func schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"claim"},
 			},
 		},
 	}
