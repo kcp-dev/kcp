@@ -177,7 +177,7 @@ func TestResolverWithWarrants(t *testing.T) {
 		},
 		{
 			name:                 "base with foreign service account warrant",
-			user:                 &user.DefaultInfo{Name: "user-a", Extra: map[string][]string{rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:foo","extra":{"authentication.kubernetes.io/cluster-name": ["another"]}}`}}},
+			user:                 &user.DefaultInfo{Name: "user-a", Extra: map[string][]string{rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:foo","extra":{"authentication.kcp.io/cluster-name": ["another"]}}`}}},
 			wantResourceRules:    []authorizer.ResourceRuleInfo{getPods, getNodes},
 			wantNonResourceRules: []authorizer.NonResourceRuleInfo{getRoot, getHealthz},
 		},
