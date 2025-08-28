@@ -269,7 +269,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *Controller) handleMetrics(obj any) {
+func (c *Controller) handleMetricsOnAdd(obj any) {
 	logicalCluster, ok := obj.(*corev1alpha1.LogicalCluster)
 	if !ok {
 		return
