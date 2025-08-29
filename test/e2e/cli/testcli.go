@@ -18,7 +18,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -52,6 +51,11 @@ func newTestCli(t *testing.T) *testCli {
 	return tc
 }
 
+func (tc *testCli) runKubectl(t *testing.T, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
+	t.Helper()
+	return framework.RunKubectl(t, tc.kubeconfigPath, args)
+}
+
 func (tc *testCli) runPlugin(t *testing.T, plugin string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
 	return framework.RunKcpCliPlugin(t, tc.kubeconfigPath, plugin, args)
@@ -74,16 +78,12 @@ func writeKubeconfig(t *testing.T, server kcptestingserver.RunningServer) string
 func (tc *testCli) workspaceShouldExist(t *testing.T, wsName string) {
 	t.Helper()
 
-	// TODO replace with t.Context() in go1.24
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	clientset, err := kcpclientset.NewForConfig(tc.server.BaseConfig(t))
 	if err != nil {
 		t.Error("failed to create clientset:", err)
 	}
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := clientset.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, wsName, v1.GetOptions{})
+		_, err := clientset.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(t.Context(), wsName, v1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
