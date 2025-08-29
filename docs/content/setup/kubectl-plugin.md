@@ -21,6 +21,9 @@ $ kubectl krew install kcp-dev/kcp
 $ kubectl krew install kcp-dev/ws
 $ kubectl krew install kcp-dev/create-workspace
 ```
+!!! Note
+    When Installed directly from the repo we use `kubectl create workspace`
+    instead of `kubectl create-workspace`
 
 The plugins will be [automatically discovered by your current `kubectl` binary](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/):
 
