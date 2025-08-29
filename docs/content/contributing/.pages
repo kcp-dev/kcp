@@ -2,5 +2,6 @@ nav:
     - index.md
     - getting-started.md
     - coding.md
+    - governance
     - continuous-integration
     - guides
