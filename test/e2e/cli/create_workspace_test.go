@@ -17,8 +17,10 @@ limitations under the License.
 package cli
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -44,6 +46,27 @@ func TestCreateWorkspace(t *testing.T) {
 	t.Log("Creating the same workspace with --ignore-existing does not error")
 	_, _, err = tc.runPlugin(t, "create-workspace", wsName, "--ignore-existing")
 	require.NoError(t, err)
+}
+
+func TestCreateWorkspaceCreateContext(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "cli")
+
+	tc := newTestCli(t)
+	wsName := "test-create-workspace-create-context"
+
+	t.Log("Creating a workspace does not error")
+	_, _, err := tc.runPlugin(t, "create-workspace", wsName, "--create-context=new-context")
+	require.NoError(t, err)
+	tc.workspaceShouldExist(t, wsName)
+
+	t.Log("The new context exists in the kubeconfig")
+	parsed := tc.readKubeconfig(t)
+	kubeCtx, exists := parsed.Contexts["new-context"]
+	require.True(t, exists, "expected context new-context to exist in kubeconfig")
+	kubeCluster, exists := parsed.Clusters[kubeCtx.Cluster]
+	require.True(t, exists, "expected cluster %q to exist in kubeconfig", kubeCtx.Cluster)
+	assert.True(t, strings.HasSuffix(kubeCluster.Server, wsName), "expected cluster server to point to the new workspace")
 }
 
 func TestCreateWorkspaceEnter(t *testing.T) {
