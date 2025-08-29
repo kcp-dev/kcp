@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -73,6 +74,13 @@ func writeKubeconfig(t *testing.T, server kcptestingserver.RunningServer) string
 	require.NoError(t, err)
 
 	return kubeconfigPath
+}
+
+func (tc *testCli) readKubeconfig(t *testing.T) clientcmdapi.Config {
+	t.Helper()
+	config, err := clientcmd.LoadFromFile(tc.kubeconfigPath)
+	require.NoError(t, err)
+	return *config
 }
 
 func (tc *testCli) workspaceShouldExist(t *testing.T, wsName string) {
