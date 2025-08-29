@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
@@ -33,6 +32,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/integration/framework"
 )
 
@@ -57,23 +57,31 @@ func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset
 	require.NoError(t, err, "failed to create workspace %q", workspace.Name)
 
 	t.Logf("Wait until the %q workspace is ready", workspace.Name)
-	require.Eventually(t, func() bool {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		workspace, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-		require.NoError(t, err, "failed to get workspace")
-		if actual, expected := workspace.Status.Phase, corev1alpha1.LogicalClusterPhaseReady; actual != expected {
-			return false
+		if err != nil {
+			return false, err.Error()
 		}
-		return workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady
-	}, 1*time.Minute, 100*time.Millisecond)
+		if phase := workspace.Status.Phase; phase != corev1alpha1.LogicalClusterPhaseReady {
+			return false, "workspace is not ready, is " + string(phase)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Delete workspace %q", workspace.Name)
 	err = kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Delete(ctx, workspace.Name, metav1.DeleteOptions{})
 	require.NoError(t, err, "failed to delete workspace %s", workspace.Name)
 
 	t.Logf("Ensure workspace %q is removed", workspace.Name)
-	require.Eventually(t, func() bool {
-		_, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
-		return apierrors.IsNotFound(err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		ws, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return true, ""
+			}
+			return false, err.Error()
+		}
+		return ws == nil, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	// See https://github.com/kcp-dev/kcp/issues/3488
@@ -96,9 +104,10 @@ func TestWorkspaceDeletionLeak(t *testing.T) {
 	createAndDeleteWs(ctx, t, kcpClient, "leak-test")
 
 	t.Logf("Check for leftover goroutines")
-	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		if err := goleak.Find(curGoroutines); err != nil {
-			collect.Errorf("found leaking goroutines: %#v", err)
+			return false, err.Error()
 		}
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "eventually there will be no random goroutines running while checking for leaks")
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
