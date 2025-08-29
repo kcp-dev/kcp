@@ -18,7 +18,9 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,17 +51,30 @@ func newTestCli(t *testing.T) *testCli {
 	tc.server = kcptesting.SharedKcpServer(t)
 	tc.kubeconfigPath = writeKubeconfig(t, tc.server)
 
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		t.Logf("Test failed, dumping kubeconfig for debugging:\n%s", func() string {
+			data, err := os.ReadFile(tc.kubeconfigPath)
+			if err != nil {
+				return err.Error()
+			}
+			return strings.TrimSpace(string(data))
+		}())
+	})
+
 	return tc
 }
 
 func (tc *testCli) runKubectl(t *testing.T, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
-	return framework.RunKubectl(t, tc.kubeconfigPath, args)
+	return framework.RunKubectl(t, tc.kubeconfigPath, args...)
 }
 
 func (tc *testCli) runPlugin(t *testing.T, plugin string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
-	return framework.RunKcpCliPlugin(t, tc.kubeconfigPath, plugin, args)
+	return framework.RunKcpCliPlugin(t, tc.kubeconfigPath, plugin, args...)
 }
 
 func writeKubeconfig(t *testing.T, server kcptestingserver.RunningServer) string {
