@@ -55,7 +55,7 @@ func KcpCliPluginCommand(plugin string) (string, []string) {
 // returns stdout and stderr as bytes.Buffer and an error if any.
 // The exitcode can be retreived from the error if it is of type
 // *exec.ExitError.
-func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, plugin string, args []string) (*bytes.Buffer, *bytes.Buffer, error) {
+func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, plugin string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
 
 	workdir, cmdParts := KcpCliPluginCommand(plugin)
@@ -65,7 +65,7 @@ func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, plugin string, args []
 	cmd.Dir = workdir
 	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath))
 
-	t.Logf("running in %q: KUBECONFIG=%s %q %s", workdir, kubeconfigPath, cmdParts[0], strings.Join(cmdParts, " "))
+	t.Logf("running in %q: KUBECONFIG=%s %s", workdir, kubeconfigPath, strings.Join(cmdParts, " "))
 
 	err := cmd.Run()
 	if err != nil {
