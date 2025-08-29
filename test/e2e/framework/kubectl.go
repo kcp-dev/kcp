@@ -18,16 +18,29 @@ package framework
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"testing"
 
-	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 )
+
+func baseCmd(t *testing.T, name string, args ...string) (*exec.Cmd, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), name, args...)
+	cmd.Env = os.Environ()
+
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	stderr := &bytes.Buffer{}
+	cmd.Stderr = stderr
+
+	return cmd, stdout, stderr
+}
 
 // KcpCliPluginCommand returns the expected workdir and cli args to run
 // a plugin via go run.
@@ -42,31 +55,36 @@ func KcpCliPluginCommand(plugin string) (string, []string) {
 // returns stdout and stderr as bytes.Buffer and an error if any.
 // The exitcode can be retreived from the error if it is of type
 // *exec.ExitError.
-func RunKcpCliPlugin(t kcptesting.TestingT, kubeconfigPath string, plugin string, args []string) (*bytes.Buffer, *bytes.Buffer, error) {
+func RunKcpCliPlugin(t *testing.T, kubeconfigPath string, plugin string, args []string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
-
-	// TODO switch to t.Context in go1.24
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
 
 	workdir, cmdParts := KcpCliPluginCommand(plugin)
 	cmdParts = append(cmdParts, args...)
-	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	cmd.Dir = workdir
 
-	cmd.Env = os.Environ()
-	// TODO(marun) Consider configuring the workspace plugin with args instead of this env
+	cmd, stdout, stderr := baseCmd(t, cmdParts[0], cmdParts[1:]...)
+	cmd.Dir = workdir
 	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath))
 
-	t.Logf("running in %q: KUBECONFIG=%s %s", workdir, kubeconfigPath, strings.Join(cmdParts, " "))
+	t.Logf("running in %q: KUBECONFIG=%s %q %s", workdir, kubeconfigPath, cmdParts[0], strings.Join(cmdParts, " "))
 
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
 	err := cmd.Run()
 	if err != nil {
 		t.Logf("kcp plugin output:\n  stdout: %s\n  stderr: %s\n", stdout.String(), stderr.String())
+	}
+	return stdout, stderr, err
+}
+
+func RunKubectl(t *testing.T, kubeconfigPath string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
+	t.Helper()
+
+	cmd, stdout, stderr := baseCmd(t, "kubectl", args...)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath))
+
+	t.Logf("running: KUBECONFIG=%s kubectl %s", kubeconfigPath, strings.Join(args, " "))
+
+	err := cmd.Run()
+	if err != nil {
+		t.Logf("kubectl output:\n  stdout: %s\n  stderr: %s\n", stdout.String(), stderr.String())
 	}
 	return stdout, stderr, err
 }
