@@ -75,6 +75,18 @@ func UnmarshalResourceBindingsAnnotation(ann string) (ResourceBindingsAnnotation
 	return rbs, nil
 }
 
+// GetResourceBindings reads ResourceBindingsAnnotation from LogicalCluster's annotation.
+func GetResourceBindings(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
+	const jsonEmptyObj = "{}"
+
+	ann := lc.Annotations[ResourceBindingsAnnotationKey]
+	if ann == "" {
+		ann = jsonEmptyObj
+	}
+
+	return UnmarshalResourceBindingsAnnotation(ann)
+}
+
 // WithLockedResources tries to lock the resources for the given binding. It
 // returns those resources that got successfully locked. If a resource is already
 // locked by another binding, it is skipped and returned in the second return

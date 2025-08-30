@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250523-2b8c1d3c5.cachedresources.cache.kcp.io
+  name: v250830-080348246.cachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -212,6 +212,42 @@ spec:
               required:
               - cache
               - local
+              type: object
+            resourceSchemaSource:
+              description: ResourceSchemaSource is a reference to the schema object
+                of the cached resource.
+              properties:
+                apiResourceSchema:
+                  description: APIResourceSchema defines an APIResourceSchema as the
+                    source of the schema.
+                  properties:
+                    clusterName:
+                      description: ClusterName is the name of the cluster where the
+                        APIResourceSchema is defined.
+                      minLength: 1
+                      type: string
+                    name:
+                      description: Name is the APIResourceSchema name.
+                      minLength: 1
+                      type: string
+                  required:
+                  - clusterName
+                  - name
+                  type: object
+                crd:
+                  description: CRD defines a CRD as the source of the schema.
+                  properties:
+                    name:
+                      description: Name is the CRD name.
+                      minLength: 1
+                      type: string
+                    resourceVersion:
+                      description: ResourceVersion is the resource version of the
+                        source CRD object.
+                      type: string
+                  required:
+                  - name
+                  type: object
               type: object
           type: object
       required:

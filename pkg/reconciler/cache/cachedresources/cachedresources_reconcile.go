@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/crypto"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -68,6 +69,20 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			updateOrVerifyIdentitySecretHash: c.updateOrVerifyIdentitySecretHash,
 			secretNamespace:                  c.secretNamespace,
 		},
+		&schemaSource{
+			getLogicalCluster:    c.getLogicalCluster,
+			getAPIBinding:        c.getAPIBinding,
+			getAPIExport:         c.getAPIExport,
+			getAPIResourceSchema: c.getAPIResourceSchema,
+			listCRDsByGR:         c.listCRDsByGR,
+		},
+		&replicateResourceSchema{
+			getAPIResourceSchema:          c.getAPIResourceSchema,
+			getLocalAPIResourceSchema:     c.getLocalAPIResourceSchema,
+			getCRD:                        c.getCRD,
+			createCachedAPIResourceSchema: c.createCachedAPIResourceSchema,
+			updateCreateAPIResourceSchema: c.updateCreateAPIResourceSchema,
+		},
 		&endpointSlice{
 			getEndpointSlice:    c.getEndpointSlice,
 			createEndpointSlice: c.createEndpointSlice,
@@ -92,7 +107,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			dynRESTMapper:                  c.dynRESTMapper,
 			cacheKcpInformers:              c.cacheKcpInformers,
 			discoveringDynamicKcpInformers: c.discoveringDynamicKcpInformers,
-			callback:                       c.enqueue,
+			callback:                       func(obj interface{}) { c.enqueueCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](obj), "") },
 			controllerRegistry:             c.controllerRegistry,
 		},
 	}
