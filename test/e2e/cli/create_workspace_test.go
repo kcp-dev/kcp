@@ -55,13 +55,51 @@ func TestCreateWorkspaceCreateContext(t *testing.T) {
 	tc := newTestCli(t)
 	wsName := "test-create-workspace-create-context"
 
+	preParsed := tc.readKubeconfig(t)
+
 	t.Log("Creating a workspace does not error")
-	_, _, err := tc.runPlugin(t, "create-workspace", wsName, "--create-context=new-context")
+	stdout, _, err := tc.runPlugin(t, "create-workspace", wsName, "--create-context=new-context")
 	require.NoError(t, err)
 	tc.workspaceShouldExist(t, wsName)
 
+	require.Equal(t, strings.Join([]string{
+		`Workspace "` + wsName + `" (type root:organization) created. Waiting for it to be ready...`,
+		`Workspace "` + wsName + `" (type root:organization) is ready to use.`,
+		`Created context "new-context".`,
+	}), strings.TrimSpace(stdout.String()))
+
 	t.Log("The new context exists in the kubeconfig")
 	parsed := tc.readKubeconfig(t)
+	assert.Equal(t, preParsed.CurrentContext, parsed.CurrentContext)
+
+	kubeCtx, exists := parsed.Contexts["new-context"]
+	require.True(t, exists, "expected context new-context to exist in kubeconfig")
+	kubeCluster, exists := parsed.Clusters[kubeCtx.Cluster]
+	require.True(t, exists, "expected cluster %q to exist in kubeconfig", kubeCtx.Cluster)
+	assert.True(t, strings.HasSuffix(kubeCluster.Server, wsName), "expected cluster server to point to the new workspace")
+}
+
+func TestCreateWorkspaceCreateContextEnter(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "cli")
+
+	tc := newTestCli(t)
+	wsName := "test-create-workspace-create-context-enter"
+
+	t.Log("Creating a workspace does not error")
+	stdout, _, err := tc.runPlugin(t, "create-workspace", wsName, "--create-context=new-context", "--enter")
+	require.NoError(t, err)
+	tc.workspaceShouldExist(t, wsName)
+
+	require.Equal(t, strings.Join([]string{
+		`Workspace "` + wsName + `" (type root:organization) created. Waiting for it to be ready...`,
+		`Workspace "` + wsName + `" (type root:organization) is ready to use.`,
+		`Created context "new-context" and switched to it.`,
+	}), strings.TrimSpace(stdout.String()))
+
+	t.Log("The new context exists in the kubeconfig")
+	parsed := tc.readKubeconfig(t)
+	assert.Equal(t, "new-context", parsed.CurrentContext)
 	kubeCtx, exists := parsed.Contexts["new-context"]
 	require.True(t, exists, "expected context new-context to exist in kubeconfig")
 	kubeCluster, exists := parsed.Clusters[kubeCtx.Cluster]
