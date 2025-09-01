@@ -77,6 +77,10 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	for gr := range apiResourceSchemas {
 		identities[gr] = apiExport.Status.IdentityHash
 	}
+	resSchemaStorage, err := c.getResourceStorageFromAPIExport(ctx, apiExport)
+	if err != nil {
+		return err
+	}
 
 	clusterName := logicalcluster.From(apiExport)
 
@@ -226,7 +230,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs)
-			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
+			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs, resSchemaStorage[gvr.GroupResource()])
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
 				logger.Error(err, "error creating api definition", "gvr", gvr)
@@ -315,4 +319,27 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	}
 
 	return apiResourceSchemas, nil
+}
+
+func (c *APIReconciler) getResourceStorageFromAPIExport(ctx context.Context, apiExport *apisv1alpha2.APIExport) (map[schema.GroupResource]*apisv1alpha2.ResourceSchemaStorage, error) {
+	logger := klog.FromContext(ctx)
+	resourceSchemaStorage := map[schema.GroupResource]*apisv1alpha2.ResourceSchemaStorage{}
+	for _, resourceSchema := range apiExport.Spec.Resources {
+		apiExportClusterName := logicalcluster.From(apiExport)
+		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return nil, err
+		}
+		if apierrors.IsNotFound(err) {
+			logger.WithValues(
+				"schema", resourceSchema.Schema,
+				"exportClusterName", apiExportClusterName,
+				"exportName", apiExport.Name,
+			).V(3).Info("APIResourceSchema for APIExport not found")
+			continue
+		}
+		resourceSchemaStorage[schema.GroupResource{Group: apiResourceSchema.Spec.Group, Resource: apiResourceSchema.Spec.Names.Plural}] = &resourceSchema.Storage
+	}
+
+	return resourceSchemaStorage, nil
 }

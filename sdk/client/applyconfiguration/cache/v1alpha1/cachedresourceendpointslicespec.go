@@ -22,6 +22,7 @@ package v1alpha1
 // with apply.
 type CachedResourceEndpointSliceSpecApplyConfiguration struct {
 	CachedResource *CachedResourceReferenceApplyConfiguration `json:"cachedResource,omitempty"`
+	Partition      *string                                    `json:"partition,omitempty"`
 }
 
 // CachedResourceEndpointSliceSpecApplyConfiguration constructs a declarative configuration of the CachedResourceEndpointSliceSpec type for use with
@@ -35,5 +36,13 @@ func CachedResourceEndpointSliceSpec() *CachedResourceEndpointSliceSpecApplyConf
 // If called multiple times, the CachedResource field is set to the value of the last call.
 func (b *CachedResourceEndpointSliceSpecApplyConfiguration) WithCachedResource(value *CachedResourceReferenceApplyConfiguration) *CachedResourceEndpointSliceSpecApplyConfiguration {
 	b.CachedResource = value
+	return b
+}
+
+// WithPartition sets the Partition field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Partition field is set to the value of the last call.
+func (b *CachedResourceEndpointSliceSpecApplyConfiguration) WithPartition(value string) *CachedResourceEndpointSliceSpecApplyConfiguration {
+	b.Partition = &value
 	return b
 }

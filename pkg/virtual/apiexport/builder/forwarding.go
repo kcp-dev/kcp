@@ -156,3 +156,8 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 		}, subresourceStorages
 	}
 }
+
+func provideDelegatingReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc) apiserver.RestProviderFunc {
+	storageFuncs, _ := registry.ProvideReadOnlyRestStorage(ctx, dynamicClusterClientFunc, nil, nil)
+	return storageFuncs
+}

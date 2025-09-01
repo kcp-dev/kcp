@@ -467,9 +467,6 @@ spec:
                       default:
                         crd: {}
                       description: Storage defines how the resource is stored.
-                      oneOf:
-                      - required:
-                        - crd
                       properties:
                         crd:
                           description: |-
@@ -478,7 +475,45 @@ spec:
                             Like in vanilla Kubernetes, users can then create, update and delete
                             custom resources.
                           type: object
+                        virtual:
+                          description: |-
+                            Reference points to another object that has a URL to a virtual workspace
+                            in a "url" field in its status. The object can be of any kind.
+                          properties:
+                            group:
+                              type: string
+                            identitySecretRef:
+                              description: |-
+                                SecretReference represents a Secret Reference. It has enough information to retrieve secret
+                                in any namespace
+                              properties:
+                                name:
+                                  description: name is unique within a namespace to
+                                    reference a secret resource.
+                                  type: string
+                                namespace:
+                                  description: namespace defines the space within
+                                    which the secret name must be unique.
+                                  type: string
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - identitySecretRef
+                          - name
+                          - resource
+                          - version
+                          type: object
                       type: object
+                      x-kubernetes-validations:
+                      - message: Exactly one of crd or virtual must be set
+                        rule: has(self.crd) != has(self.virtual)
                   required:
                   - group
                   - name

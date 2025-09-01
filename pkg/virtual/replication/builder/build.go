@@ -79,13 +79,15 @@ func BuildVirtualWorkspace(
 			if !ok {
 				return false, "", requestContext
 			}
-
-			if targetCluster.Wildcard {
+			parsedKey, err := apidomainkey.Parse(apiDomain)
+			if err != nil {
 				return false, "", requestContext
 			}
 
-			parsedKey, err := apidomainkey.Parse(apiDomain)
-			if err != nil {
+			targetCluster.Wildcard = false
+			targetCluster.Name = parsedKey.CachedResourceCluster
+
+			if targetCluster.Wildcard {
 				return false, "", requestContext
 			}
 

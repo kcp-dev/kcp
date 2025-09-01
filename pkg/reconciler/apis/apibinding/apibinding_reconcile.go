@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -381,44 +382,13 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			)
 		}
 
-		// Try to get the bound CRD
-		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName(sch))
-		if err != nil && !apierrors.IsNotFound(err) {
-			conditions.MarkFalse(
-				apiBinding,
-				apisv1alpha2.APIExportValid,
-				apisv1alpha2.InternalErrorReason,
-				conditionsv1alpha1.ConditionSeverityError,
-				"Invalid APIExport. Please contact the APIExport owner to resolve",
-			)
+		// Merge any current storage versions with new ones
+		storageVersions := sets.New[string]()
 
-			return reconcileStatusContinue, fmt.Errorf(
-				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-				SystemBoundCRDsClusterName, boundCRDName(sch),
-				logicalcluster.From(apiBinding), apiBinding.Name,
-				apiExportPath, apiExport.Name,
-				apiExportPath, resourceSchema.Schema,
-				err,
-			)
-		}
-
-		if err == nil {
-			// Bound CRD already exists
-			if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
-				logger.V(4).Info("CRD is not established", "conditions", fmt.Sprintf("%#v", existingCRD.Status.Conditions))
-				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
-				continue
-			} else if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
-				logger.V(4).Info("CRD is terminating")
-				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
-				continue
-			}
-		} else {
-			// Need to create bound CRD
-			crd, err := generateCRD(sch)
-			if err != nil {
-				logger.Error(err, "error generating CRD")
-
+		if resourceSchema.Storage.CRD != nil {
+			// Try to get the bound CRD
+			existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName(sch))
+			if err != nil && !apierrors.IsNotFound(err) {
 				conditions.MarkFalse(
 					apiBinding,
 					apisv1alpha2.APIExportValid,
@@ -427,83 +397,138 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					"Invalid APIExport. Please contact the APIExport owner to resolve",
 				)
 
-				return reconcileStatusContinue, nil
-			}
-			logger = logging.WithObject(logger, crd).WithValues(
-				"groupResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
-			)
-
-			// The crd was deleted and needs to be recreated. `existingCRD` might be non-nil if
-			// the lister is behind, so explicitly set to nil to ensure recreation.
-			if r.deletedCRDTracker.Has(crd.Name) {
-				logger.V(4).Info("bound CRD was deleted - need to recreate")
-				existingCRD = nil
+				return reconcileStatusContinue, fmt.Errorf(
+					"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+					SystemBoundCRDsClusterName, boundCRDName(sch),
+					logicalcluster.From(apiBinding), apiBinding.Name,
+					apiExportPath, apiExport.Name,
+					apiExportPath, resourceSchema.Schema,
+					err,
+				)
 			}
 
-			// Create bound CRD
-			logger.V(2).Info("creating CRD")
-			if _, err := r.createCRD(ctx, SystemBoundCRDsClusterName.Path(), crd); err != nil {
-				schemaClusterName := logicalcluster.From(sch)
-				if apierrors.IsInvalid(err) {
-					status := apierrors.APIStatus(nil)
-					// The error is guaranteed to implement APIStatus here
-					errors.As(err, &status)
+			if err == nil {
+				// Bound CRD already exists
+				if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
+					logger.V(4).Info("CRD is not established", "conditions", fmt.Sprintf("%#v", existingCRD.Status.Conditions))
+					needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
+					continue
+				} else if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
+					logger.V(4).Info("CRD is terminating")
+					needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
+					continue
+				}
+			} else {
+				// Need to create bound CRD
+				crd, err := generateCRD(sch)
+				if err != nil {
+					logger.Error(err, "error generating CRD")
+
+					conditions.MarkFalse(
+						apiBinding,
+						apisv1alpha2.APIExportValid,
+						apisv1alpha2.InternalErrorReason,
+						conditionsv1alpha1.ConditionSeverityError,
+						"Invalid APIExport. Please contact the APIExport owner to resolve",
+					)
+
+					return reconcileStatusContinue, nil
+				}
+				logger = logging.WithObject(logger, crd).WithValues(
+					"groupResource", fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, crd.Spec.Group),
+				)
+
+				// The crd was deleted and needs to be recreated. `existingCRD` might be non-nil if
+				// the lister is behind, so explicitly set to nil to ensure recreation.
+				if r.deletedCRDTracker.Has(crd.Name) {
+					logger.V(4).Info("bound CRD was deleted - need to recreate")
+					existingCRD = nil
+				}
+
+				// Create bound CRD
+				logger.V(2).Info("creating CRD")
+				if _, err := r.createCRD(ctx, SystemBoundCRDsClusterName.Path(), crd); err != nil {
+					schemaClusterName := logicalcluster.From(sch)
+					if apierrors.IsInvalid(err) {
+						status := apierrors.APIStatus(nil)
+						// The error is guaranteed to implement APIStatus here
+						errors.As(err, &status)
+						conditions.MarkFalse(
+							apiBinding,
+							apisv1alpha2.BindingUpToDate,
+							apisv1alpha2.APIResourceSchemaInvalidReason,
+							conditionsv1alpha1.ConditionSeverityError,
+							"APIResourceSchema %s|%s is invalid: %v",
+							schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
+						)
+						// Only change InitialBindingCompleted if it's false
+						if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
+							conditions.MarkFalse(
+								apiBinding,
+								apisv1alpha2.InitialBindingCompleted,
+								apisv1alpha2.APIResourceSchemaInvalidReason,
+								conditionsv1alpha1.ConditionSeverityError,
+								"APIResourceSchema %s|%s is invalid: %v",
+								schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
+							)
+						}
+
+						logger.Error(err, "error creating CRD")
+
+						return reconcileStatusContinue, nil
+					}
+
 					conditions.MarkFalse(
 						apiBinding,
 						apisv1alpha2.BindingUpToDate,
-						apisv1alpha2.APIResourceSchemaInvalidReason,
+						apisv1alpha2.InternalErrorReason,
 						conditionsv1alpha1.ConditionSeverityError,
-						"APIResourceSchema %s|%s is invalid: %v",
-						schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
+						"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
 					)
 					// Only change InitialBindingCompleted if it's false
 					if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
 						conditions.MarkFalse(
 							apiBinding,
 							apisv1alpha2.InitialBindingCompleted,
-							apisv1alpha2.APIResourceSchemaInvalidReason,
+							apisv1alpha2.InternalErrorReason,
 							conditionsv1alpha1.ConditionSeverityError,
-							"APIResourceSchema %s|%s is invalid: %v",
-							schemaClusterName, resourceSchema.Schema, status.Status().Details.Causes,
+							"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
 						)
 					}
 
-					logger.Error(err, "error creating CRD")
-
-					return reconcileStatusContinue, nil
+					return reconcileStatusContinue, err
 				}
 
-				conditions.MarkFalse(
-					apiBinding,
-					apisv1alpha2.BindingUpToDate,
-					apisv1alpha2.InternalErrorReason,
-					conditionsv1alpha1.ConditionSeverityError,
-					"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
-				)
-				// Only change InitialBindingCompleted if it's false
-				if conditions.IsFalse(apiBinding, apisv1alpha2.InitialBindingCompleted) {
-					conditions.MarkFalse(
-						apiBinding,
-						apisv1alpha2.InitialBindingCompleted,
-						apisv1alpha2.InternalErrorReason,
-						conditionsv1alpha1.ConditionSeverityError,
-						"An internal error prevented the APIBinding process from completing. Please contact your system administrator for assistance",
-					)
-				}
+				r.deletedCRDTracker.Remove(crd.Name)
 
-				return reconcileStatusContinue, err
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
+				continue
 			}
 
-			r.deletedCRDTracker.Remove(crd.Name)
+			if existingCRD != nil {
+				storageVersions.Insert(existingCRD.Status.StoredVersions...)
+			}
+		} else if resourceSchema.Storage.Virtual != nil {
+			err = checkVirtualResource(ctx, r.cacheDynamicClusterClient, logicalcluster.From(apiExport), resourceSchema.Storage.Virtual)
+			if err != nil {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha2.APIExportValid,
+					apisv1alpha2.InternalErrorReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"Invalid APIExport. Please contact the APIExport owner to resolve",
+				)
 
-			needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
-			continue
-		}
-
-		// Merge any current storage versions with new ones
-		storageVersions := sets.New[string]()
-		if existingCRD != nil {
-			storageVersions.Insert(existingCRD.Status.StoredVersions...)
+				return reconcileStatusContinue, fmt.Errorf(
+					"error getting endpoint slice %s.%s %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+					resourceSchema.Storage.Virtual.Resource, resourceSchema.Storage.Virtual.Group,
+					apiExportPath, resourceSchema.Storage.Virtual.Name,
+					logicalcluster.From(apiBinding), apiBinding.Name,
+					apiExportPath, apiExport.Name,
+					apiExportPath, resourceSchema.Schema,
+					err,
+				)
+			}
 		}
 
 		for _, b := range apiBinding.Status.BoundResources {
@@ -592,6 +617,28 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	}
 
 	return reconcileStatusContinue, nil
+}
+
+func checkVirtualResource(ctx context.Context, dynamicClusterClient kcpdynamic.ClusterInterface, cluster logicalcluster.Name, virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual) error {
+	list, err := dynamicClusterClient.Cluster(logicalcluster.NewPath(cluster.String())).Resource(schema.GroupVersionResource{
+		Group:    virtualStorage.Group,
+		Version:  virtualStorage.Version,
+		Resource: virtualStorage.Resource,
+	}).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for i := range list.Items {
+		if list.Items[i].GetName() == virtualStorage.Name {
+			return nil
+		}
+	}
+
+	return apierrors.NewNotFound(schema.GroupResource{
+		Group:    virtualStorage.Group,
+		Resource: virtualStorage.Resource,
+	}, virtualStorage.Name)
 }
 
 func boundCRDName(schema *apisv1alpha1.APIResourceSchema) string {

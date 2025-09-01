@@ -48,6 +48,11 @@ const (
 	// Enables cache apis and controllers.
 	CacheAPIs featuregate.Feature = "CacheAPIs"
 
+	// owner: @gman0
+	// alpha: v0.1
+	// Enables virtual resources APIServer and related controllers.
+	VirtualResources featuregate.Feature = "VirtualResources"
+
 	// owner: @mjudeikis
 	// alpha: v0.1
 	// Enables VirtualWorkspace urls on APIExport. This enables to use Deprecated APIExport VirtualWorkspace urls.

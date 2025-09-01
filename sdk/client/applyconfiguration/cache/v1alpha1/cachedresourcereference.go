@@ -21,6 +21,7 @@ package v1alpha1
 // CachedResourceReferenceApplyConfiguration represents a declarative configuration of the CachedResourceReference type for use
 // with apply.
 type CachedResourceReferenceApplyConfiguration struct {
+	Path *string `json:"path,omitempty"`
 	Name *string `json:"name,omitempty"`
 }
 
@@ -28,6 +29,14 @@ type CachedResourceReferenceApplyConfiguration struct {
 // apply.
 func CachedResourceReference() *CachedResourceReferenceApplyConfiguration {
 	return &CachedResourceReferenceApplyConfiguration{}
+}
+
+// WithPath sets the Path field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Path field is set to the value of the last call.
+func (b *CachedResourceReferenceApplyConfiguration) WithPath(value string) *CachedResourceReferenceApplyConfiguration {
+	b.Path = &value
+	return b
 }
 
 // WithName sets the Name field in the declarative configuration to the given value
