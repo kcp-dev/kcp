@@ -2808,11 +2808,17 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref common.ReferenceCal
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"),
 						},
 					},
+					"virtual": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reference points to another object that has a URL to a virtual workspace in a \"url\" field in its status. The object can be of any kind.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"},
 	}
 }
 
@@ -2832,19 +2838,45 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref common.Refer
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"reference": {
+					"group": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reference points to another object that has a URL to a virtual workspace in a \"url\" field in its status. The object can be of any kind.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"identitySecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.SecretReference"),
 						},
 					},
 				},
-				Required: []string{"reference"},
+				Required: []string{"group", "version", "resource", "name", "identitySecretRef"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+			"k8s.io/api/core/v1.SecretReference"},
 	}
 }
 
@@ -3311,6 +3343,13 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.R
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceReference"),
 						},
 					},
+					"partition": {
+						SchemaProps: spec.SchemaProps{
+							Description: "partition (optional) points to a partition that is used for filtering the endpoints of the APIExport part of the slice.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"cachedResource"},
 			},
@@ -3327,6 +3366,20 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 				Description: "CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conditions is a list of conditions that apply to the CachedResourceEndpointSlice.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
 					"endpoints": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -3349,11 +3402,18 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 							},
 						},
 					},
+					"shardSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shardSelector is the selector used to filter the shards. It is used to filter the shards when determining partition scope when deriving the endpoints. This is set by owning shard, and is used by follower shards to determine if its inscope or not.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpoint"},
+			"github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceEndpoint", "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
 	}
 }
 
@@ -3413,6 +3473,13 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref common.Reference
 				Description: "CachedResourceReference is a reference to a CachedResource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is a logical cluster path where the CachedResource is defined. If the path is unset, the logical cluster of the object holding the reference is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Description: "name is the name of the CachedResource the reference points to.",

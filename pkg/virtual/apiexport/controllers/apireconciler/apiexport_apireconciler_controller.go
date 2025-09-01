@@ -53,7 +53,7 @@ const (
 	ControllerName = "kcp-virtual-apiexport-api-reconciler"
 )
 
-type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error)
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.

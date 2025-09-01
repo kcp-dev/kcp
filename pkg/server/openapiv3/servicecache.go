@@ -18,6 +18,7 @@ package openapiv3
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -76,20 +77,24 @@ func WithOpenAPIv3(handler http.Handler, c *ServiceCache) http.Handler {
 type ServiceCache struct {
 	config *common.OpenAPIV3Config
 
-	specGetter CRDSpecGetter
-	crdLister  kcp.ClusterAwareCRDClusterLister
+	crdSpecGetter CRDSpecGetter
+	crdLister     kcp.ClusterAwareCRDClusterLister
+
+	vrSpecsGetter SpecsGetter
 
 	services    *lru.Cache
 	staticSpecs map[string]cached.Value[*spec3.OpenAPI]
 }
 
-func NewServiceCache(config *common.OpenAPIV3Config, crdLister kcp.ClusterAwareCRDClusterLister, specGetter CRDSpecGetter, serviceCacheSize int) *ServiceCache {
+type SpecsGetter func(ctx context.Context) (map[string]map[string]cached.Value[*spec3.OpenAPI], error)
+
+func NewServiceCache(config *common.OpenAPIV3Config, crdLister kcp.ClusterAwareCRDClusterLister, crdSpecGetter CRDSpecGetter, serviceCacheSize int) *ServiceCache {
 	return &ServiceCache{
-		config:      config,
-		specGetter:  specGetter,
-		crdLister:   crdLister,
-		services:    lru.New(serviceCacheSize),
-		staticSpecs: map[string]cached.Value[*spec3.OpenAPI]{},
+		config:        config,
+		crdSpecGetter: crdSpecGetter,
+		crdLister:     crdLister,
+		services:      lru.New(serviceCacheSize),
+		staticSpecs:   map[string]cached.Value[*spec3.OpenAPI]{},
 	}
 }
 
@@ -121,6 +126,10 @@ func (c *ServiceCache) RegisterStaticAPIs(cont *restful.Container) error {
 	return nil
 }
 
+func (c *ServiceCache) RegisterVRSpecsGetter(f SpecsGetter) {
+	c.vrSpecsGetter = f
+}
+
 func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -131,6 +140,11 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log := klog.FromContext(ctx).WithValues("cluster", clusterName, "path", r.URL.Path)
+
+	var vrSpecs map[string]map[string]cached.Value[*spec3.OpenAPI]
+	if c.vrSpecsGetter != nil {
+		vrSpecs, err = c.vrSpecsGetter(ctx)
+	}
 
 	// get both real CRDs and bound CRD from APIBindings
 	crds, err := c.crdLister.Cluster(clusterName).List(ctx, labels.Everything())
@@ -144,19 +158,19 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	copy(orderedCRDs, crds)
 	sort.Sort(byClusterAndName(orderedCRDs))
 
-	// get the specs for all CRDs
-	specs := make([]map[string]cached.Value[*spec3.OpenAPI], 0, len(orderedCRDs))
+	// get the crdSpecs for all CRDs
+	crdSpecs := make([]map[string]cached.Value[*spec3.OpenAPI], 0, len(orderedCRDs))
 	for _, crd := range orderedCRDs {
-		versionSpecs, err := c.specGetter.GetCRDSpecs(logicalcluster.From(crd), crd.Name)
+		versionSpecs, err := c.crdSpecGetter.GetCRDSpecs(logicalcluster.From(crd), crd.Name)
 		if err != nil {
 			responsewriters.InternalError(w, r, err)
 			return
 		}
-		specs = append(specs, versionSpecs)
+		crdSpecs = append(crdSpecs, versionSpecs)
 	}
 
 	// get the OpenAPI service from cache or create a new one
-	key, err := apiConfigurationKey(orderedCRDs, specs)
+	key, err := apiConfigurationKey(orderedCRDs, crdSpecs, vrSpecs)
 	if err != nil {
 		responsewriters.InternalError(w, r, err)
 		return
@@ -176,7 +190,7 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// add static and dynamic APIs
-		addSpecs(service, c.staticSpecs, orderedCRDs, specs, log)
+		addSpecs(service, c.staticSpecs, vrSpecs, orderedCRDs, crdSpecs, log)
 
 		// remember for next time
 		c.services.Add(key, m)
@@ -189,16 +203,24 @@ func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	service.ServeHTTP(w, r)
 }
 
-func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*spec3.OpenAPI], crds []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI], log logr.Logger) {
+func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*spec3.OpenAPI], vrSpecs map[string]map[string]cached.Value[*spec3.OpenAPI], crds []*apiextensionsv1.CustomResourceDefinition, crdSpecs []map[string]cached.Value[*spec3.OpenAPI], log logr.Logger) {
 	// start with static specs
 	byGroupVersionSpecs := make(map[string][]cached.Value[*spec3.OpenAPI])
 	for gvPath, spec := range static {
 		byGroupVersionSpecs[gvPath] = []cached.Value[*spec3.OpenAPI]{spec}
 	}
 
+	// add virtual resource specs
+	for _, gvPathSpec := range vrSpecs {
+		for gvPath, spec := range gvPathSpec {
+			fmt.Printf("\n<> XXXXX adding vrSpec gvPath=%s XXX\n\n", gvPath)
+			byGroupVersionSpecs[gvPath] = []cached.Value[*spec3.OpenAPI]{spec}
+		}
+	}
+
 	// add dynamic specs
 	for i, crd := range crds {
-		spec := specs[i]
+		spec := crdSpecs[i]
 		if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
 			continue
 		}
@@ -238,10 +260,10 @@ func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*
 	}
 }
 
-func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition, specs []map[string]cached.Value[*spec3.OpenAPI]) (string, error) {
+func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition, crdSpecs []map[string]cached.Value[*spec3.OpenAPI], vrSpecs map[string]map[string]cached.Value[*spec3.OpenAPI]) (string, error) {
 	var buf bytes.Buffer
 	for i, crd := range orderedCRDs {
-		spec := specs[i]
+		spec := crdSpecs[i]
 		if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
 			continue
 		}
@@ -265,6 +287,27 @@ func apiConfigurationKey(orderedCRDs []*apiextensionsv1.CustomResourceDefinition
 			buf.WriteString(etag)
 
 			firstVersion = false
+		}
+
+		buf.WriteRune(';')
+	}
+	for vwURL, gvPathSpec := range vrSpecs {
+		buf.WriteString(vwURL)
+		buf.WriteRune(':')
+		firstGVPath := true
+		for gvPath, spec := range gvPathSpec {
+			if !firstGVPath {
+				buf.WriteByte(',')
+			}
+			_, etag, err := spec.Get()
+			if err != nil {
+				return "", err
+			}
+			buf.WriteString(gvPath)
+			buf.WriteRune(':')
+			buf.WriteString(etag)
+
+			firstGVPath = false
 		}
 
 		buf.WriteRune(';')

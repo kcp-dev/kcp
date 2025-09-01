@@ -53,6 +53,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 		{"core.kcp.io", "shards"},
 		{"cache.kcp.io", "cachedobjects"},
 		{"cache.kcp.io", "cachedresources"},
+		{"cache.kcp.io", "cachedresourceendpointslices"},
 		{"tenancy.kcp.io", "workspacetypes"},
 		{"rbac.authorization.k8s.io", "roles"},
 		{"rbac.authorization.k8s.io", "clusterroles"},

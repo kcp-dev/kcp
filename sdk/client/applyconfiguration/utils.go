@@ -148,6 +148,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.ResourceSchemaApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorage"):
 		return &apisv1alpha2.ResourceSchemaStorageApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorageVirtual"):
+		return &apisv1alpha2.ResourceSchemaStorageVirtualApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ScopedPermissionClaim"):
 		return &apisv1alpha2.ScopedPermissionClaimApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("VirtualWorkspace"):

@@ -13,10 +13,6 @@
 - op: add
   path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/permissionClaims/items/properties/group/default
   value: ""
-- op: add
-  path: /spec/versions/name=v1alpha2/schema/openAPIV3Schema/properties/spec/properties/resources/items/properties/storage/oneOf
-  value:
-    - required: ["crd"]
 
 # conversion for core resources does not happen via webhooks, but is short-circuited to the
 # schema's Convert functions directly, but the CRD still needs to define a conversion.

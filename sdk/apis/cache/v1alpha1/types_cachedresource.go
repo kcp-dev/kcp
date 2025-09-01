@@ -141,6 +141,17 @@ const (
 )
 
 const (
+	// CachedResourceInvalidReferenceReason is a reason for the CachedResourceValid condition of APIBinding that the referenced
+	// CachedResource reference is invalid.
+	CachedResourceInvalidReferenceReason = "CachedResourceInvalidReference"
+	// CachedResourceNotFoundReason is a reason for the CachedResourceValid condition that the referenced CachedResource is not found.
+	CachedResourceNotFoundReason = "CachedResourceNotFound"
+
+	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
+	InternalErrorReason = "InternalError"
+)
+
+const (
 	CachedResourceSourceSchemaReplicated conditionsv1alpha1.ConditionType = "CachedResourceSourceSchemaReplicated"
 
 	SourceSchemaReplicatedFailedReason = "SourceSchemaReplicatedFailed"
@@ -224,6 +235,13 @@ type ResourceCount struct {
 
 // CachedResourceReference is a reference to a CachedResource.
 type CachedResourceReference struct {
+	// path is a logical cluster path where the CachedResource is defined.
+	// If the path is unset, the logical cluster of the object holding the reference is used.
+	//
+	// +optional
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path,omitempty"`
+
 	// name is the name of the CachedResource the reference points to.
 	//
 	// +required
