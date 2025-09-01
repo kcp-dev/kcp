@@ -112,7 +112,7 @@ func (o *CreateWorkspaceOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
 	cmd.Flags().StringVar(&o.Type, "type", o.Type, "A workspace type. The default type depends on where this child workspace is created.")
 	cmd.Flags().BoolVar(&o.EnterAfterCreate, "enter", o.EnterAfterCreate, "Immediately enter the created workspace")
-	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path.")
+	cmd.Flags().BoolVar(&o.IgnoreExisting, "ignore-existing", o.IgnoreExisting, "Ignore if the workspace already exists. Requires none or absolute type path. Overwrites the context if --create-context is set.")
 	cmd.Flags().StringVar(&o.LocationSelector, "location-selector", o.LocationSelector, "A label selector to select the scheduling location of the created workspace.")
 	cmd.Flags().StringVar(&o.CreateContextName, "create-context", o.CreateContextName, "Create a kubeconfig context for the new workspace with the given name.")
 }
@@ -239,7 +239,9 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 	if o.CreateContextName != "" {
 		createContextOptions := NewCreateContextOptions(o.IOStreams)
 		createContextOptions.Name = o.CreateContextName
+		createContextOptions.ClusterURL = ws.Spec.URL
 		createContextOptions.ClientConfig = o.ClientConfig
+		createContextOptions.Overwrite = o.IgnoreExisting
 
 		// If --enter is set, switch to the new context
 		createContextOptions.KeepCurrent = !o.EnterAfterCreate

@@ -42,6 +42,10 @@ type CreateContextOptions struct {
 	// KeepCurrent indicates whether to keep the current context. When creating a new context, if KeepCurrent is true, the current context will be preserved.
 	KeepCurrent bool
 
+	// ClusterURL is the URL of the cluster to use for the new context.
+	// If empty, the current context's cluster will be used.
+	ClusterURL string
+
 	startingConfig *clientcmdapi.Config
 
 	// for testing
@@ -122,6 +126,9 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 
 	newKubeConfig := o.startingConfig.DeepCopy()
 	newCluster := *currentCluster
+	if o.ClusterURL != "" {
+		newCluster.Server = o.ClusterURL
+	}
 	newKubeConfig.Clusters[o.Name] = &newCluster
 	newContext := *currentContext
 	newContext.Cluster = o.Name
