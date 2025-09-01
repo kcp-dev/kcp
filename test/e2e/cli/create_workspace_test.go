@@ -31,20 +31,19 @@ func TestCreateWorkspace(t *testing.T) {
 	framework.Suite(t, "cli")
 
 	tc := newTestCli(t)
-	wsName := "test-create-workspace"
 
 	t.Log("Creating a workspace does not error")
-	_, _, err := tc.runPlugin(t, "create-workspace", wsName)
+	_, _, err := tc.runPlugin(t, "create-workspace", tc.wsName)
 	require.NoError(t, err)
-	tc.workspaceShouldExist(t, wsName)
+	tc.workspaceShouldExist(t, tc.wsName)
 
 	t.Log("Creating the same workspace again fails")
-	_, stderr, err := tc.runPlugin(t, "create-workspace", wsName)
+	_, stderr, err := tc.runPlugin(t, "create-workspace", tc.wsName)
 	require.Error(t, err)
 	require.Contains(t, stderr.String(), "already exists")
 
 	t.Log("Creating the same workspace with --ignore-existing does not error")
-	_, _, err = tc.runPlugin(t, "create-workspace", wsName, "--ignore-existing")
+	_, _, err = tc.runPlugin(t, "create-workspace", tc.wsName, "--ignore-existing")
 	require.NoError(t, err)
 }
 
@@ -53,20 +52,18 @@ func TestCreateWorkspaceCreateContext(t *testing.T) {
 	framework.Suite(t, "cli")
 
 	tc := newTestCli(t)
-	wsName := "test-create-workspace-create-context"
-
 	preParsed := tc.readKubeconfig(t)
 
 	t.Log("Creating a workspace does not error")
-	stdout, _, err := tc.runPlugin(t, "create-workspace", wsName, "--create-context=new-context")
+	stdout, _, err := tc.runPlugin(t, "create-workspace", tc.wsName, "--create-context=new-context")
 	require.NoError(t, err)
-	tc.workspaceShouldExist(t, wsName)
+	tc.workspaceShouldExist(t, tc.wsName)
 
 	require.Equal(t, strings.Join([]string{
-		`Workspace "` + wsName + `" (type root:organization) created. Waiting for it to be ready...`,
-		`Workspace "` + wsName + `" (type root:organization) is ready to use.`,
+		`Workspace "` + tc.wsName + `" (type root:organization) created. Waiting for it to be ready...`,
+		`Workspace "` + tc.wsName + `" (type root:organization) is ready to use.`,
 		`Created context "new-context".`,
-	}), strings.TrimSpace(stdout.String()))
+	}, "\n"), strings.TrimSpace(stdout.String()))
 
 	t.Log("The new context exists in the kubeconfig")
 	parsed := tc.readKubeconfig(t)
@@ -74,9 +71,10 @@ func TestCreateWorkspaceCreateContext(t *testing.T) {
 
 	kubeCtx, exists := parsed.Contexts["new-context"]
 	require.True(t, exists, "expected context new-context to exist in kubeconfig")
+
 	kubeCluster, exists := parsed.Clusters[kubeCtx.Cluster]
 	require.True(t, exists, "expected cluster %q to exist in kubeconfig", kubeCtx.Cluster)
-	assert.True(t, strings.HasSuffix(kubeCluster.Server, wsName), "expected cluster server to point to the new workspace")
+	assert.True(t, strings.HasSuffix(kubeCluster.Server, tc.wsName), "expected cluster server to point to the new workspace")
 }
 
 func TestCreateWorkspaceCreateContextEnter(t *testing.T) {
@@ -84,27 +82,28 @@ func TestCreateWorkspaceCreateContextEnter(t *testing.T) {
 	framework.Suite(t, "cli")
 
 	tc := newTestCli(t)
-	wsName := "test-create-workspace-create-context-enter"
 
 	t.Log("Creating a workspace does not error")
-	stdout, _, err := tc.runPlugin(t, "create-workspace", wsName, "--create-context=new-context", "--enter")
+	stdout, _, err := tc.runPlugin(t, "create-workspace", tc.wsName, "--create-context=new-context", "--enter")
 	require.NoError(t, err)
-	tc.workspaceShouldExist(t, wsName)
+	tc.workspaceShouldExist(t, tc.wsName)
 
 	require.Equal(t, strings.Join([]string{
-		`Workspace "` + wsName + `" (type root:organization) created. Waiting for it to be ready...`,
-		`Workspace "` + wsName + `" (type root:organization) is ready to use.`,
+		`Workspace "` + tc.wsName + `" (type root:organization) created. Waiting for it to be ready...`,
+		`Workspace "` + tc.wsName + `" (type root:organization) is ready to use.`,
 		`Created context "new-context" and switched to it.`,
-	}), strings.TrimSpace(stdout.String()))
+	}, "\n"), strings.TrimSpace(stdout.String()))
 
 	t.Log("The new context exists in the kubeconfig")
 	parsed := tc.readKubeconfig(t)
 	assert.Equal(t, "new-context", parsed.CurrentContext)
+
 	kubeCtx, exists := parsed.Contexts["new-context"]
 	require.True(t, exists, "expected context new-context to exist in kubeconfig")
+
 	kubeCluster, exists := parsed.Clusters[kubeCtx.Cluster]
 	require.True(t, exists, "expected cluster %q to exist in kubeconfig", kubeCtx.Cluster)
-	assert.True(t, strings.HasSuffix(kubeCluster.Server, wsName), "expected cluster server to point to the new workspace")
+	assert.True(t, strings.HasSuffix(kubeCluster.Server, tc.wsName), "expected cluster server to point to the new workspace")
 }
 
 func TestCreateWorkspaceEnter(t *testing.T) {
@@ -112,15 +111,14 @@ func TestCreateWorkspaceEnter(t *testing.T) {
 	framework.Suite(t, "cli")
 
 	tc := newTestCli(t)
-	wsName := "test-create-workspace-enter"
 
 	t.Log("Creating a workspace and entering it does not error")
-	_, _, err := tc.runPlugin(t, "create-workspace", wsName, "--enter")
+	_, _, err := tc.runPlugin(t, "create-workspace", tc.wsName, "--enter")
 	require.NoError(t, err)
-	tc.workspaceShouldExist(t, wsName)
+	tc.workspaceShouldExist(t, tc.wsName)
 
 	t.Log("The current workspace is set to the new workspace")
 	stdout, _, err := tc.runPlugin(t, "ws", ".", "--short")
 	require.NoError(t, err)
-	require.Equal(t, "root:"+wsName+"\n", stdout.String())
+	require.Equal(t, "root:"+tc.wsName+"\n", stdout.String())
 }

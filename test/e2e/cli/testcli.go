@@ -41,6 +41,7 @@ import (
 
 type testCli struct {
 	server         kcptestingserver.RunningServer
+	wsName         string
 	kubeconfigPath string
 }
 
@@ -49,6 +50,7 @@ func newTestCli(t *testing.T) *testCli {
 
 	tc := &testCli{}
 	tc.server = kcptesting.SharedKcpServer(t)
+	tc.wsName = safeResourceName(t.Name())
 	tc.kubeconfigPath = writeKubeconfig(t, tc.server)
 
 	t.Cleanup(func() {
@@ -65,6 +67,14 @@ func newTestCli(t *testing.T) *testCli {
 	})
 
 	return tc
+}
+
+func safeResourceName(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, "_", "-")
+	s = strings.ReplaceAll(s, "/", "-")
+	s = strings.ReplaceAll(s, " ", "-")
+	return strings.TrimSpace(s)
 }
 
 func (tc *testCli) runKubectl(t *testing.T, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
