@@ -144,14 +144,15 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	verb := "Created"
 	if existedBefore {
-		if o.startingConfig.CurrentContext == o.Name {
-			_, err = fmt.Fprintf(o.Out, "Updated context %q.\n", o.Name)
-		} else {
-			_, err = fmt.Fprintf(o.Out, "Updated context %q and switched to it.\n", o.Name)
-		}
+		verb = "Updated"
+	}
+
+	if o.KeepCurrent || o.startingConfig.CurrentContext == o.Name {
+		_, err = fmt.Fprintf(o.Out, "%s context %q.\n", verb, o.Name)
 	} else {
-		_, err = fmt.Fprintf(o.Out, "Created context %q and switched to it.\n", o.Name)
+		_, err = fmt.Fprintf(o.Out, "%s context %q and switched to it.\n", verb, o.Name)
 	}
 
 	return err

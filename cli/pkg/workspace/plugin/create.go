@@ -268,13 +268,6 @@ func (o *CreateWorkspaceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create context: %w", err)
 		}
 
-		// Print output
-		if o.EnterAfterCreate {
-			fmt.Fprintf(o.Out, "Created context %q and switched to it.\n", o.CreateContextName)
-		} else {
-			fmt.Fprintf(o.Out, "Created context %q.\n", o.CreateContextName)
-		}
-
 		return nil
 	}
 
