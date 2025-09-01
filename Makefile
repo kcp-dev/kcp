@@ -282,6 +282,10 @@ COMPLETE_SUITES_ARG = -args $(SUITES_ARG)
 endif
 TEST_FEATURE_GATES ?= WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true
 PROXY_FEATURE_GATES ?= $(TEST_FEATURE_GATES)
+COVERAGE ?=
+ifdef COVERAGE
+COVER = -test.gocoverdir=$(PWD)/.coverage/$(1)
+endif
 
 .PHONY: test-e2e
 ifdef USE_GOTESTSUM
@@ -292,7 +296,7 @@ test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-all ## Run e2e tests
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
-		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
+		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(call COVER,e2e) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
 
 
 .PHONY: test-e2e-shared-minimal
@@ -317,7 +321,7 @@ test-e2e-shared-minimal: build-all
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
 	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
-		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
+		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(call COVER,e2e-shared) $(WHAT) $(TEST_ARGS) \
 		-args --kcp-kubeconfig=$(WORK_DIR)/.kcp/admin.kubeconfig $(SUITES_ARG) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
@@ -342,7 +346,7 @@ test-e2e-sharded-minimal: build-all
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
-	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
+	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(call COVER,e2e-sharded) $(WHAT) $(TEST_ARGS) \
 		-args --kcp-kubeconfig=$(WORK_DIR)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(WORK_DIR)/.kcp-0/admin.kubeconfig$(shell if [ $(SHARDS) -gt 1 ]; then seq 1 $$[$(SHARDS) - 1]; fi | while read n; do echo -n ",shard-$$n=$(WORK_DIR)/.kcp-$$n/admin.kubeconfig"; done) \
 		$(SUITES_ARG) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
@@ -368,9 +372,9 @@ endif
 test: WHAT ?= ./...
 # We will need to move into the sub package, of sdk to run those tests.
 test: ## Run tests
-	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration')
-	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
-	cd cli && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
+	$(GO_TEST) -race $(COUNT_ARG) -cover -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration') $(call COVER,unit)
+	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -cover -covermode=atomic $(TEST_ARGS) $(WHAT) $(call COVER,unit-sdk)
+	cd cli && $(GO_TEST) -race $(COUNT_ARG) -cover -covermode=atomic $(TEST_ARGS) $(WHAT) $(call COVER,unit-cli)
 
 .PHONY: test-integration
 ifdef USE_GOTESTSUM
@@ -378,7 +382,7 @@ test-integration: $(GOTESTSUM)
 endif
 test-integration: WHAT ?= ./test/integration...
 test-integration: ## Run integration tests
-	$(GO_TEST) $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS)
+	$(GO_TEST) $(COUNT_ARG) $(PARALLELISM_ARG) $(call COVER,integration) $(TEST_ARGS) $(WHAT)
 
 .PHONY: verify-k8s-deps
 verify-k8s-deps: ## Verify kubernetes deps
@@ -404,6 +408,7 @@ verify-modules: modules  ## Verify go modules are up to date
 clean: clean-workdir ## Clean all
 	rm -fr $(TOOLS_DIR)
 	rm -f $(GOBIN_DIR)/*
+	rm -f coverage.*.txt
 
 .PHONY: clean-workdir
 clean-workdir: WORK_DIR ?= $(PWD)
