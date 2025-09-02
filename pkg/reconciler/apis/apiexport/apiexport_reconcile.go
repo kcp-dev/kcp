@@ -154,6 +154,9 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 		apiExport.Status.VirtualWorkspaces = nil
 	}
 
+	// Ensure that all exported virtual resources have their identities present,
+	// and that they match
+
 	return nil
 }
 

@@ -232,9 +232,7 @@ func BuildVirtualWorkspace(
 					}
 
 					var storageBuilder apiserver.RestProviderFunc
-					if resSchStorage.CRD != nil {
-						storageBuilder = provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
-					} else if resSchStorage.Virtual != nil {
+					if resSchStorage != nil && resSchStorage.Virtual != nil {
 						endpointsSlices, err := kcpClusterClient.Cluster(logicalcluster.From(apiResourceSchema).Path()).CacheV1alpha1().CachedResourceEndpointSlices().List(ctx, metav1.ListOptions{})
 						if err != nil {
 							cancelFn()
@@ -253,6 +251,8 @@ func BuildVirtualWorkspace(
 						storageBuilder = provideDelegatingReadOnlyRestStorage(ctx, func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
 							return impersonatedVWDynamicClientGetter(ctx, url)
 						})
+					} else {
+						storageBuilder = provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
 					}
 
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)

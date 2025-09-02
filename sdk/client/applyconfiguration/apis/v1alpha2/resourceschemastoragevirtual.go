@@ -18,18 +18,14 @@ limitations under the License.
 
 package v1alpha2
 
-import (
-	v1 "k8s.io/api/core/v1"
-)
-
 // ResourceSchemaStorageVirtualApplyConfiguration represents a declarative configuration of the ResourceSchemaStorageVirtual type for use
 // with apply.
 type ResourceSchemaStorageVirtualApplyConfiguration struct {
-	Group             *string             `json:"group,omitempty"`
-	Version           *string             `json:"version,omitempty"`
-	Resource          *string             `json:"resource,omitempty"`
-	Name              *string             `json:"name,omitempty"`
-	IdentitySecretRef *v1.SecretReference `json:"identitySecretRef,omitempty"`
+	Group        *string `json:"group,omitempty"`
+	Version      *string `json:"version,omitempty"`
+	Resource     *string `json:"resource,omitempty"`
+	Name         *string `json:"name,omitempty"`
+	IdentityHash *string `json:"identityHash,omitempty"`
 }
 
 // ResourceSchemaStorageVirtualApplyConfiguration constructs a declarative configuration of the ResourceSchemaStorageVirtual type for use with
@@ -70,10 +66,10 @@ func (b *ResourceSchemaStorageVirtualApplyConfiguration) WithName(value string) 
 	return b
 }
 
-// WithIdentitySecretRef sets the IdentitySecretRef field in the declarative configuration to the given value
+// WithIdentityHash sets the IdentityHash field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the IdentitySecretRef field is set to the value of the last call.
-func (b *ResourceSchemaStorageVirtualApplyConfiguration) WithIdentitySecretRef(value v1.SecretReference) *ResourceSchemaStorageVirtualApplyConfiguration {
-	b.IdentitySecretRef = &value
+// If called multiple times, the IdentityHash field is set to the value of the last call.
+func (b *ResourceSchemaStorageVirtualApplyConfiguration) WithIdentityHash(value string) *ResourceSchemaStorageVirtualApplyConfiguration {
+	b.IdentityHash = &value
 	return b
 }
