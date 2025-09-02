@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/group"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
@@ -42,6 +43,8 @@ func WithWorkspaceAuthResolver(handler http.Handler, authIndex AuthenticatorInde
 			handler.ServeHTTP(w, req)
 			return
 		}
+
+		authn = group.NewAuthenticatedGroupAdder(authn)
 
 		// make the authenticator always add the target cluster to the user scopes
 		authn = withClusterScope(authn)

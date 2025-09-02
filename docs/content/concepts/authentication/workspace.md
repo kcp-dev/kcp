@@ -45,6 +45,8 @@ This feature has some small limitations that users should keep in mind:
 * Workspace authenticators are started asynchronously and it will take a couple of seconds for them to be ready.
 * The workspace authentication in the localproxy, as part of a single shard server, only knows about the data on the local shard and cannot handle cross-shard authentication. Users are advised to use the front-proxy instead.
 * Even when the feature is disabled on all shards and all front-proxies, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating `WorkspaceAuthenticationConfiguration` objects if needed.
+* It is not possible to authenticate users with a username starting with with `system:` through per-workspace authentication.
+* It is not possible to assign groups starting with `system:` to users authenticated via per-workspace authentication, e.g. via claim mappings.
 
 ## Example
 
