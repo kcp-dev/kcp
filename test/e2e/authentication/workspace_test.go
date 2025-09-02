@@ -122,7 +122,6 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	for _, path := range []logicalcluster.Path{teamAPath, teamBPath, teamCPath} {
 		t.Logf("An unauthenticated user shouldn't be able to list ConfigMaps in %s...", path)
-
 		_, err = randoKubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
 		require.Error(t, err)
 	}
@@ -241,7 +240,6 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 						require.Eventually(t, func() bool {
 							_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
-
 							return err == nil
 						}, wait.ForeverTestTimeout, 500*time.Millisecond)
 					} else {
@@ -377,7 +375,6 @@ func TestForbiddenSystemAccess(t *testing.T) {
 	t.Log("Waiting for authenticator to be ready...")
 	require.Eventually(t, func() bool {
 		_, err := client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
-
 		return err == nil
 	}, wait.ForeverTestTimeout, 500*time.Millisecond)
 
