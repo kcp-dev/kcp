@@ -2866,17 +2866,17 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref common.Refer
 							Format:  "",
 						},
 					},
-					"identitySecretRef": {
+					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/api/core/v1.SecretReference"),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 				},
-				Required: []string{"group", "version", "resource", "name", "identitySecretRef"},
+				Required: []string{"group", "version", "resource", "name", "identityHash"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/api/core/v1.SecretReference"},
 	}
 }
 

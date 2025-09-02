@@ -635,6 +635,8 @@ func checkVirtualResource(ctx context.Context, dynamicClusterClient kcpdynamic.C
 		}
 	}
 
+	// Do discovery, ensure the GVR referenced is at the VW.
+
 	return apierrors.NewNotFound(schema.GroupResource{
 		Group:    virtualStorage.Group,
 		Resource: virtualStorage.Resource,

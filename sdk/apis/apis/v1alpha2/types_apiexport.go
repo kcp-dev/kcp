@@ -201,8 +201,8 @@ type ResourceSchemaStorageVirtual struct {
 	Version  string `json:"version"`
 	Resource string `json:"resource"`
 
-	Name              string                  `json:"name"`
-	IdentitySecretRef *corev1.SecretReference `json:"identitySecretRef"`
+	Name         string `json:"name"`
+	IdentityHash string `json:"identityHash"`
 
 	// Resource selector TBD.
 	// We are not sure if it belongs here.
