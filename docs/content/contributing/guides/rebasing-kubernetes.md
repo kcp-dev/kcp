@@ -1,7 +1,7 @@
 # Rebasing Kubernetes
 
 This describes the process of rebasing kcp onto a new Kubernetes version. For the examples below, we'll be rebasing
-onto v1.31.0
+onto v1.33.3
 
 # 1. Update kcp-dev/apimachinery
 
@@ -11,7 +11,7 @@ onto v1.31.0
       Kubernetes repo. This is not required, but probably a good idea.
    2. Update the primary Kubernetes dependencies:
       ```
-      go get -u k8s.io/api@v0.31.0  k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0
+      go get k8s.io/api@v0.31.0  k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0
       ```
    3. Run `go mod tidy`.
 3. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that
@@ -25,19 +25,15 @@ onto v1.31.0
 # 2. Update kcp-dev/code-generator
 
 1. Create a new branch for the update, such as `1.26-prep`.
-2. Update go.mod:
+2. Update `go.mod`:
    1. You may need to change the go version at the top of the file to match what's in go.mod in the root of the
       Kubernetes repo. This is not required, but probably a good idea.
    2. Update the primary Kubernetes dependencies:
       ```
-      go get -u k8s.io/apimachinery@v0.31.0 k8s.io/code-generator@v0.31.0
+      go get k8s.io/apimachinery@v0.31.0 k8s.io/code-generator@v0.31.0
       ```
    3. Run `go mod tidy`.
-3. Update Kubernetes tooling versions in the `Makefile`:
-   1. `KUBE_CLIENT_GEN_VER := v0.31.0`
-   2. `KUBE_LISTER_GEN_VER := v0.31.0`
-   3. `KUBE_INFORMER_GEN_VER := v0.31.0`
-   4. `KUBE_APPLYCONFIGURATION_GEN_VER := v0.31.0`
+3. Repeat step 2 for `examples/go.mod`:
 4. Update generators, if needed:
    1. Manually review upstream to check for any changes to these generators in the `kubernetes` repository:
       1. staging/src/k8s.io/code-generator/cmd/client-gen
@@ -46,20 +42,10 @@ onto v1.31.0
    2. If there were any substantive changes, make the corresponding edits to our generators.
    3. You'll probably want to commit your changes at this point.
 5. Run `make codegen`. You'll probably want to commit these changes as a standalone commit.
-   1. Note: `examples` is separate go module, so you may need to run `go mod tidy` in that directory and update the
-      go.mod file accordingly if you make changes to the code-generator.
 6. Run `make lint test build` and fix any issues you encounter.
 7. Commit any remaining changes.
 8. Push to your fork.
-      1. Open a PR; get it reviewed and merged.
-9. Push release:
-    ```
-    REF=upstream/main
-    REMOTE=upstream
-    TAG=v2.3.0
-    git tag --sign --message "$TAG" "$TAG" "$REF"
-    git push "$REMOTE" "$TAG"
-    ```
+9. Open a PR; get it reviewed and merged.
 
 # 3. Update kcp-dev/client-go
 1. Create a new branch for the update, such as `1.26-prep`.
@@ -68,18 +54,16 @@ onto v1.31.0
       Kubernetes repo. This is not required, but probably a good idea.
    2. Update the `kcp-dev/apimachinery` dependency:
       ```
-      go get -u github.com/kcp-dev/apimachinery@main
+      go get github.com/kcp-dev/apimachinery@main github.com/kcp-dev/code-generator@main
       ```
    3. That should have updated the primary Kubernetes dependencies, but in case it didn't, you can do so manually:
       ```
-      go get -u k8s.io/api@v0.31.0 k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0 k8s.io/apiextensions-apiserver@v0.31.0
+      go get k8s.io/api@v0.31.0 k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0 k8s.io/apiextensions-apiserver@v0.31.0
       ```
    4. Run `go mod tidy`.
-   5. Update the kcp code-generator tooling version in the `Makefile`:
-      1. Look up the latest commit from the main branch in https://github.com/kcp-dev/code-generator.
-      2. Adjust `go.mod` accordingly.
-3. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that
-   changed upstream.
+3. Run `hack/populate-copies.sh`, this will copy files originally copied
+   from upstream over the local copies. Review the changes and ensure
+   changes from upstream are handled.
 4. Run `make codegen`. You'll probably want to commit these changes as a standalone commit.
 5. Run `make lint` and fix any issues you encounter.
 6. Commit any remaining changes.
@@ -110,24 +94,6 @@ Commits merged into `kcp-dev/kubernetes` follow this commit message format:
   - In general, these commits are used to maintain the codebase in ways that are
     branch-specific, like the update of generated files or dependencies.
 
-## Spreadsheet of Carry Commits from Previous Release
-
-If the old branch (generally also the default branch) is `upstream/kcp-feature-logical-cluster-1.24-v3`
-and the old version is `v1.24.3`, then a tsv file containing the set of carry commits that need to be
-considered for cherry-picking later can be generated using:
-
-```sh
-# create column headers
-echo 'Comment Sha\tSummary\tCommit link\tPR link\tAction' > ~/Documents/v1.24.3.tsv
-
-# populate the sheet
-git log $( git merge-base upstream/kcp-feature-logical-clusters-1.24-v3 v1.24.3 )..upstream/kcp-feature-logical-clusters-1.24-v3 --ancestry-path --reverse --no-merges --pretty='tformat:%h%x09%s%x09https://github.com/kcp-dev/kubernetes/commit/%h?w=1' | grep -E $'\t''UPSTREAM: .'$'\t' | sed -E 's~UPSTREAM: ([0-9]+)(:.)~UPSTREAM: \1\2\thttps://github.com/kubernetes/kubernetes/pull/\1~' >> ~/Documents/v1.24.3.tsv
-```
-
-The tsv file can be imported into a google sheets spreadsheet to track the progress of picking commits
-to the new rebase branch. The spreadsheet can also be a way of communicating with rebase reviewers.
-For an example, please see the [spreadsheet used for the v1.27.3 rebase](https://docs.google.com/spreadsheets/d/15k9sih-xBKICuLUHj4HMrqYf60mliaslImqqv6fGSJI/edit?usp=sharing).
-
 ## Rebase Process
 
 1. First and foremost, take notes of what worked/didn't work well. Update this guide based on your experiences!
@@ -137,85 +103,64 @@ For an example, please see the [spreadsheet used for the v1.27.3 rebase](https:/
    - "New" version: the new Kubernetes version on top of which you are rebasing
 4. The `upstream` in e.g. `upstream/kcp-feature-logical-cluster-1.24-v3` is the name of the git remote that points
    to github.com/kcp-dev/kubernetes. Please adjust the commands below if your remote is named differently.
-5. Prepare the old branch for rebasing:
-   1. In this example, the old version is 1.31.0, and the new version is 1.31.0
-   2. Create a new temporary branch to clean up the accumulated commits on the old branch:
-      ```
-      git checkout -b kcp-1.31-clean upstream/kcp-feature-logical-cluster-1.31-v3
-      ```
-   3. Start by doing a soft git reset so your working directory contains all the changes from the branch in an
-      uncommitted state:
-      ```
-      git reset v1.31.1 # this must be whatever upstream commit was the starting point for the old branch
-      ```
-   4. Revert the following types of changes:
-      - go.mod/go.sum
-      - Generated clients, listers, informers, applyconfigurations
-      - vendor/*
-      ```
-      git checkout go.mod go.sum vendor
-
-      # for any untracked files
-      git clean -n -d vendor/* # to check what files would be removed
-      git clean -f vendor/* # actually remove the new untracked files
-      ```
-   5. Create a single baseline commit:
-      ```
-      git add .
-      git commit -m 'UPSTREAM: <carry>: baseline for kcp 1.31'
-      ```
-6. Create a baseline branch that starts from the new version. We'll use this to cherry-pick any commits from
-   upstream that we need to continue carrying (i.e., they have not yet merged into the new version).
+5. Prepare a list of commits:
+    1. Checkout the current fork branch:
+       ```
+       git checkout kcp-dev/kcp-1.32.3
+       ```
+    2. Export the commits to cherry-pick them:
+       ```
+       git log --oneline --reverse --no-merges --no-decorate v1.32.3..HEAD \
+           | grep -v '<drop>' > commits.txt
+       ```
+       You will use this commits.txt to also note conflicts and changes
+       you had to make, so reviewers know where to focus their
+       attention.
+6. Prepare a branch to cherry-pick the commits onto:
    ```
-   git checkout -b kcp-1.31-baseline v1.31.1
-   ```
-7. Review the list of carry commits in the spreadsheet generated above. Look
-   for commit messages of the format
-   `UPSTREAM: 12345: ...`. The number indicates the upstream pull request. You'll need to inspect each pull request
-   to determine when it was merged. Anything that merged **before** the rebase version can be ignored and omitted
-   from the baseline branch. Anything that merged **after** the rebase version as well as anything not yet merged
-   must be cherry-picked to the baseline branch. For example, in 1.24, we have `UPSTREAM: 111898: Reflector: support
-   logging Unstructured type`. This was added in 1.31, and therefore needs to be cherry-picked to the
-   `kcp-1.31-baseline` branch.
-8. Create a branch where you'll attempt to do the rebase. This will start from the cleaned up old version branch:
-   ```
-   git checkout -b kcp-1.31-rebase kcp-1.31-clean
-   ```
-9. Rebase onto the baseline branch you created above:
-   ```
-   git rebase kcp-1.31-baseline
+   git reset --hard v1.33.3
    ```
 
-   You will likely encounter numerous conflicts. This is 100% normal! Go through each file and resolve them as best
-   as you can. Make notes of any particular changes you have questions about, so you don't forget them.
-10. Update kcp dependencies, for all kcp repositories that changed. For example:
-    ```
-    hack/pin-dependency.sh github.com/kcp-dev/logicalcluster/v3 v3.0.4
-    hack/pin-dependency.sh github.com/kcp-dev/apimachinery/v2 767ac05aebce82530dee46e9dab8c7bb47f1c823
-    hack/pin-dependency.sh github.com/kcp-dev/client-go 654321d8cac56f9944e8cf801dc15e37b3a582f3
-    ```
-11. Review changes to the origins of pkg/genericcontrolplane to see if similar changes are needed in the new version:
+Note: To make validating changes easier you can use these functions:
 
-   | Destination                                                      | Source(s)                                            |
-   |------------------------------------------------------------------|------------------------------------------------------|
-   | pkg/genericcontrolplane                                          | cmd/kube-apiserver/app, pkg/kubeapiserver/admission  |
-   | pkg/genericcontrolplane/apis/apis.go                             | pkg/controlplane/instance.go                         |
-   | pkg/genericcontrolplane/options.go                               | cmd/kube-apiserver/app/options/options.go            |
-   | pkg/api/genericcontrolplane/scheme.go                            | pkg/api/legacyscheme/scheme.go                       |
-   | pkg/apis/core/install/genericcontrolplane/install.go             | pkg/apis/core/install/install.go                     |
-   | pkg/apis/core/register_generic_control_plane.go                  | pkg/apis/core/register.go                            |
-   | pkg/apis/core/v1/register_generic_control_plane.go               | pkg/apis/core/v1/register.go                         |
-   | staging/src/k8s.io/api/core/v1/register_generic_control_plane.go | staging/src/k8s.io/api/core/v1/register.go           |
-   | pkg/registry/core/rest/genericcontrolplane/storage_core.go       | pkg/registry/core/rest/storage_core.go               |
-   | pkg/kubeapiserver/legacy_storage_factory_builder.go              | pkg/kubeapiserver/default_storage_factory_builder.go |
+```bash
+# record the changed files between the version kcp will jump
+git diff --name-only v1.32.3 v1.33.3 > ../changed_files.txt
 
-12. Update generated clients, informers, listers, etc. because we generate logical cluster aware versions of these
-   for Kubernetes to use:
-   ```
-   hack/update-codegen.sh
-   ```
+# list_changed_files lists the files changed in the current commit
+list_changed_files() {
+    for changed_file in $(git diff --name-only @ @~1); do
+        if grep -q "$changed_file" ../changed_files.txt; then
+            echo "./$changed_file"
+        fi
+    done
+}
 
-13. Check if any new controllers were added to Kubernetes. If so, determine if they are relevant to the control
+# view_changed_files shows the diff of the files changed in the current
+# commit
+view_changed_files() {
+    local changed="$(list_changed_files)"
+    [[ -z "$changed" ]] && return 0
+    git diff-tree -r -p @  -- $changed
+}
+```
+
+If a commit applied clean and `list_changed_files` shows no output, you
+can move on to the next commit because there were no changes to the
+files that commit touched between the two kube versions.
+
+Additionally `view_changed_files` only shows the changes of the
+currently cherry-picked commit to files that were changed betwene the
+two kube versions.
+
+7. Cherry-pick each commit one by one.
+   1. If you encounter conflicts resolve them as best as you can.
+   2. If you have to make substantial changes document it in the commit
+      message, add your signed-off-by and add a note in your commits.txt.
+   3. Check the changes with `list_changed_files` and `view_changed_files`
+      (see above).
+
+8. Check if any new controllers were added to Kubernetes. If so, determine if they are relevant to the control
     plane, or if they're specific to workloads (anything related to pods/nodes/etc.). If they're for the control
     plane and you think they should be enabled in kcp, you have 1 of 2 choices:
 
@@ -226,12 +171,60 @@ For an example, please see the [spreadsheet used for the v1.27.3 rebase](https:/
 
     For option 2, follow what we did in kcp in either the garbage collector or quota controllers.
 
-14. Check if any new admission plugins were added to Kubernetes. Decide if we need them in kcp. If so, make a note
+11. Check if any new admission plugins were added to Kubernetes. Decide if we need them in kcp. If so, make a note
     of them, and we'll add them to kcp below.
 
-15. Push your commits to your fork of Kubernetes in GitHub.
 
-16. Open a pull request for review **against the baseline branch, e.g. kcp-1.26-baseline**, but mark it `WIP` and maybe
+12. Update kcp dependencies, for all kcp repositories that changed. For example:
+    ```
+    hack/pin-dependency.sh github.com/kcp-dev/logicalcluster/v3 v3.0.4
+    hack/pin-dependency.sh github.com/kcp-dev/apimachinery/v2 kcp-1.33.3
+    hack/pin-dependency.sh github.com/kcp-dev/client-go kcp-1.33.3
+    ```
+
+13. Commmit the dependency updates:
+    ```
+    git add .
+    git commit -m 'CARRY: <drop>: Add KCP dependencies'
+    ```
+
+14. Update the vendor directory:
+   ```
+   hack/update-vendor.sh
+   git add .
+   git commit -m 'CARRY: <drop>: Update vendor'
+   ```
+
+15. Update generated clients, informers, listers, etc. because we generate logical cluster aware versions of these
+   for Kubernetes to use:
+   ```
+   hack/update-codegen.sh
+   ```
+
+   This can delete the `zz_generated.validations.go` - this is expected
+   as we drop the validation-gen generator. See
+   https://github.com/kcp-dev/kcp/issues/3562a for details.
+
+   This step can pin kube dependencies to versions instead of v0.0.0,
+   which can lead to opaque errors laters.
+   To fix this run:
+   ```
+   gsed -e '/k8s.io/ s#v0.33.3#v0.0.0#' -i "go.mod"
+   find staging -iname go.mod \
+       | while read go_mod; do
+           gsed -e '/k8s.io/ s#v0.33.3#v0.0.0#' -i "$go_mod"
+       done
+   ```
+
+16. Commit the generated code changes:
+    ```
+    git add .
+    git commit -m 'CARRY: <drop>: Update generated code'
+    ```
+
+17. Push your commits to your fork of Kubernetes in GitHub.
+
+18. Open a pull request for review **against the baseline branch, e.g. kcp-1.26-baseline**, but mark it `WIP` and maybe
     even open it in draft mode - you don't want to merge anything just yet.
 
 # 5. Update kcp-dev/kcp
