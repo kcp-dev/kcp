@@ -3585,6 +3585,8 @@ shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code
 <li>Workspace authenticators are started asynchronously and it will take a couple of seconds for them to be ready.</li>
 <li>The workspace authentication in the localproxy, as part of a single shard server, only knows about the data on the local shard and cannot handle cross-shard authentication. Users are advised to use the front-proxy instead.</li>
 <li>Even when the feature is disabled on all shards and all front-proxies, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating <code>WorkspaceAuthenticationConfiguration</code> objects if needed.</li>
+<li>It is not possible to authenticate users with a username starting with with <code>system:</code> through per-workspace authentication.</li>
+<li>It is not possible to assign groups starting with <code>system:</code> to users authenticated via per-workspace authentication, e.g. via claim mappings.</li>
 </ul>
 <h2 id="example">Example</h2>
 <p>In this example we want to create a workspace where users with tokens from our local OIDC provider are admitted to.</p>
