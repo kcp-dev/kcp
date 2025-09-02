@@ -42,6 +42,10 @@ type CreateContextOptions struct {
 	// KeepCurrent indicates whether to keep the current context. When creating a new context, if KeepCurrent is true, the current context will be preserved.
 	KeepCurrent bool
 
+	// ClusterURL is the URL of the cluster to use for the new context.
+	// If empty, the current context's cluster will be used.
+	ClusterURL string
+
 	startingConfig *clientcmdapi.Config
 
 	// for testing
@@ -122,6 +126,9 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 
 	newKubeConfig := o.startingConfig.DeepCopy()
 	newCluster := *currentCluster
+	if o.ClusterURL != "" {
+		newCluster.Server = o.ClusterURL
+	}
 	newKubeConfig.Clusters[o.Name] = &newCluster
 	newContext := *currentContext
 	newContext.Cluster = o.Name
@@ -137,14 +144,15 @@ func (o *CreateContextOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	verb := "Created"
 	if existedBefore {
-		if o.startingConfig.CurrentContext == o.Name {
-			_, err = fmt.Fprintf(o.Out, "Updated context %q.\n", o.Name)
-		} else {
-			_, err = fmt.Fprintf(o.Out, "Updated context %q and switched to it.\n", o.Name)
-		}
+		verb = "Updated"
+	}
+
+	if o.KeepCurrent || o.startingConfig.CurrentContext == o.Name {
+		_, err = fmt.Fprintf(o.Out, "%s context %q.\n", verb, o.Name)
 	} else {
-		_, err = fmt.Fprintf(o.Out, "Created context %q and switched to it.\n", o.Name)
+		_, err = fmt.Fprintf(o.Out, "%s context %q and switched to it.\n", verb, o.Name)
 	}
 
 	return err
