@@ -19,7 +19,6 @@ package authentication
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -39,7 +38,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
-	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/authfixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -61,19 +60,19 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	// start a two mock OIDC servers that will listen on random ports
 	// (only for discovery and keyset handling, no actual login workflows)
-	mockA, ca := startMockOIDC(t, server)
-	mockB, _ := startMockOIDC(t, server)
+	mockA, ca := authfixtures.StartMockOIDC(t, server)
+	mockB, _ := authfixtures.StartMockOIDC(t, server)
 
 	// setup a new workspace auth config that uses mockoidc's server, one for
 	// each of our mockoidc servers
-	authConfigA := createWorkspaceAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockA, ca)
-	authConfigB := createWorkspaceAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockB, ca)
+	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockA, ca)
+	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockB, ca)
 
 	// use these configs in new WorkspaceTypes and create one extra workspace type that allows
 	// both mockoidc issuers
-	wsTypeA := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfigA)
-	wsTypeB := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfigB)
-	wsTypeC := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfigA, authConfigB)
+	wsTypeA := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc-a", authConfigA)
+	wsTypeB := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc-b", authConfigB)
+	wsTypeC := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc-c", authConfigA, authConfigB)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
@@ -89,7 +88,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 	}
 
 	// grant permissions to random users and groups
-	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamAPath, []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamAPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user-a@example.com",
 	}, {
@@ -97,7 +96,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 		Name: "oidc:developers",
 	}})
 
-	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamBPath, []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamBPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user-b@example.com",
 	}, {
@@ -108,7 +107,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 		Name: "oidc:developers",
 	}})
 
-	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamCPath, []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamCPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user-c@example.com",
 	}, {
@@ -225,7 +224,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			token := createOIDCToken(t, testcase.mock, testcase.username, testcase.email, testcase.groups)
+			token := authfixtures.CreateOIDCToken(t, testcase.mock, testcase.username, testcase.email, testcase.groups)
 
 			client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
 			require.NoError(t, err)
@@ -270,9 +269,9 @@ func TestUserScope(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err)
 
-	mock, ca := startMockOIDC(t, server)
-	authConfig := createWorkspaceAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca)
-	wsType := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfig)
+	mock, ca := authfixtures.StartMockOIDC(t, server)
+	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca)
+	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
@@ -289,12 +288,12 @@ func TestUserScope(t *testing.T) {
 		expectedGroups = append(expectedGroups, "oidc:"+group)
 	}
 
-	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:" + userEmail,
 	}})
 
-	token := createOIDCToken(t, mock, userName, userEmail, userGroups)
+	token := authfixtures.CreateOIDCToken(t, mock, userName, userEmail, userGroups)
 
 	peterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
 	require.NoError(t, err)
@@ -336,7 +335,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err)
 
-	mock, ca := startMockOIDC(t, server)
+	mock, ca := authfixtures.StartMockOIDC(t, server)
 
 	// create an evil AuthConfig that would not prefix OIDC-provided groups, theoretically allowing
 	// users to become part of system groups.
@@ -347,7 +346,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 		},
 		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
 			JWT: []tenancyv1alpha1.JWTAuthenticator{
-				mockJWTAuthenticator(t, mock, ca, "", ""),
+				authfixtures.MockJWTAuthenticator(t, mock, ca, "", ""),
 			},
 		},
 	}
@@ -356,20 +355,20 @@ func TestForbiddenSystemAccess(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	wsType := createWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, authConfig.Name)
+	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig.Name)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
 	teamPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
 
 	// give a dummy user access
-	grantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "dummy@example.com",
 	}})
 
 	// wait until the authenticator is ready
-	token := createOIDCToken(t, mock, "dummy", "dummy@example.com", nil)
+	token := authfixtures.CreateOIDCToken(t, mock, "dummy", "dummy@example.com", nil)
 
 	client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
 	require.NoError(t, err)
@@ -409,7 +408,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
 
-			token := createOIDCToken(t, mock, testcase.username, testcase.email, testcase.groups)
+			token := authfixtures.CreateOIDCToken(t, mock, testcase.username, testcase.email, testcase.groups)
 
 			client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
 			require.NoError(t, err)
@@ -547,70 +546,4 @@ func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 			}
 		})
 	}
-}
-
-func createWorkspaceAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {
-	name := fmt.Sprintf("mockoidc-%d", rand.Int())
-
-	// setup a new workspace auth config that uses mockoidc's server
-	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
-			JWT: []tenancyv1alpha1.JWTAuthenticator{
-				mockJWTAuthenticator(t, mock, ca, "oidc:", "oidc:"),
-			},
-		},
-	}
-
-	t.Logf("Creating WorkspaceAuthenticationConfguration %s...", name)
-	_, err := client.Cluster(workspace).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	return name
-}
-
-func createWorkspaceType(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, authConfigNames ...string) string {
-	name := fmt.Sprintf("with-oidc-%d", rand.Int())
-
-	configs := []tenancyv1alpha1.AuthenticationConfigurationReference{}
-	for _, name := range authConfigNames {
-		configs = append(configs, tenancyv1alpha1.AuthenticationConfigurationReference{
-			Name: name,
-		})
-	}
-
-	// setup a new workspace auth config that uses mockoidc's server
-	wsType := &tenancyv1alpha1.WorkspaceType{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
-			AuthenticationConfigurations: configs,
-		},
-	}
-
-	t.Logf("Creating WorkspaceType %s...", name)
-	_, err := client.Cluster(workspace).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wsType, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	return name
-}
-
-func grantWorkspaceAccess(t *testing.T, ctx context.Context, client kcpkubernetesclientset.ClusterInterface, workspace logicalcluster.Path, subjects []rbacv1.Subject) {
-	crb := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "allow-oidc-user",
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: "cluster-admin",
-		},
-		Subjects: subjects,
-	}
-
-	t.Log("Creating ClusterRoleBinding...")
-	_, err := client.Cluster(workspace).RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
-	require.NoError(t, err)
 }
