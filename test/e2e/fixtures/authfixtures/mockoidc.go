@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package authentication
+package authfixtures
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"math/rand"
 	"net"
 	"path/filepath"
 	"sync"
@@ -28,15 +31,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xrstf/mockoidc"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
-func startMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoidc.MockOIDC, *crypto.CA) {
+func StartMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoidc.MockOIDC, *crypto.CA) {
 	// start a mock OIDC server that will listen on a random port
 	// (only for discovery and keyset handling, no actual login workflows)
 	caDir := server.CADirectory()
@@ -86,7 +93,7 @@ func startMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoi
 	return m, ca
 }
 
-func mockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA, userPrefix, groupPrefix string) tenancyv1alpha1.JWTAuthenticator {
+func MockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA, userPrefix, groupPrefix string) tenancyv1alpha1.JWTAuthenticator {
 	cfg := m.Config()
 
 	caCert, _, err := ca.Config.GetPEMBytes()
@@ -113,7 +120,7 @@ func mockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA, use
 
 var tokenLock sync.Mutex
 
-func createOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email string, groups []string) string {
+func CreateOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email string, groups []string) string {
 	var (
 		cfg                 = mock.Config()
 		now                 = mockoidc.NowFunc()
@@ -158,4 +165,26 @@ func createOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email strin
 	require.NoError(t, err)
 
 	return token
+}
+
+func CreateWorkspaceOIDCAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {
+	name := fmt.Sprintf("mockoidc-%d", rand.Int())
+
+	// setup a new workspace auth config that uses mockoidc's server
+	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+			JWT: []tenancyv1alpha1.JWTAuthenticator{
+				MockJWTAuthenticator(t, mock, ca, "oidc:", "oidc:"),
+			},
+		},
+	}
+
+	t.Logf("Creating WorkspaceAuthenticationConfguration %s...", name)
+	_, err := client.Cluster(workspace).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	return name
 }
