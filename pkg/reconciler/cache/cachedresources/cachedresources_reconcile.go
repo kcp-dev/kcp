@@ -240,7 +240,7 @@ func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logic
 }
 
 func (c *Controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) error {
-	secret, err := c.getSecret(ctx, clusterName, c.secretNamespace, cachedResource.Name)
+	secret, err := c.getSecret(ctx, clusterName, cachedResource.Spec.Identity.SecretRef.Namespace, cachedResource.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err
 	}
