@@ -18,6 +18,7 @@ package cachedresources
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -32,10 +34,9 @@ import (
 
 // identity creates identity secret for the published resource and computes hash of the secret.
 type identity struct {
-	ensureSecretNamespaceExists      func(ctx context.Context, clusterName logicalcluster.Name)
-	getSecret                        func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error)
-	createIdentitySecret             func(ctx context.Context, clusterName logicalcluster.Path, name string) error
-	updateOrVerifyIdentitySecretHash func(ctx context.Context, clusterName logicalcluster.Name, CachedResource *cachev1alpha1.CachedResource) error
+	ensureSecretNamespaceExists func(ctx context.Context, clusterName logicalcluster.Name, defaultSecretNamespace string)
+	getSecret                   func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error)
+	createIdentitySecret        func(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, name string) error
 
 	secretNamespace string
 }
@@ -52,7 +53,7 @@ func (r *identity) reconcile(ctx context.Context, cachedResource *cachev1alpha1.
 	clusterName := logicalcluster.From(cachedResource)
 
 	if identity.SecretRef == nil {
-		r.ensureSecretNamespaceExists(ctx, clusterName)
+		r.ensureSecretNamespaceExists(ctx, clusterName, r.secretNamespace)
 
 		// See if the generated secret already exists (for whatever reason)
 		_, err := r.getSecret(ctx, clusterName, r.secretNamespace, cachedResource.Name)
@@ -64,7 +65,7 @@ func (r *identity) reconcile(ctx context.Context, cachedResource *cachev1alpha1.
 			)
 		}
 		if errors.IsNotFound(err) {
-			if err := r.createIdentitySecret(ctx, clusterName.Path(), cachedResource.Name); err != nil {
+			if err := r.createIdentitySecret(ctx, clusterName.Path(), r.secretNamespace, cachedResource.Name); err != nil {
 				conditions.MarkFalse(
 					cachedResource,
 					cachev1alpha1.CachedResourceIdentityValid,
@@ -90,7 +91,7 @@ func (r *identity) reconcile(ctx context.Context, cachedResource *cachev1alpha1.
 	}
 
 	// Ref exists - make sure it's valid
-	if err := r.updateOrVerifyIdentitySecretHash(ctx, clusterName, cachedResource); err != nil {
+	if err := r.updateOrVerifyIdentitySecretHash(ctx, clusterName, cachedResource, r.secretNamespace); err != nil {
 		conditions.MarkFalse(
 			cachedResource,
 			cachev1alpha1.CachedResourceIdentityValid,
@@ -103,5 +104,41 @@ func (r *identity) reconcile(ctx context.Context, cachedResource *cachev1alpha1.
 		return reconcileStatusStop, err
 	}
 
+	conditions.MarkTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid)
+
 	return reconcileStatusContinue, nil
+}
+
+func (r *identity) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource, defaultSecretNamespace string) error {
+	secret, err := r.getSecret(ctx, clusterName, cachedResource.Spec.Identity.SecretRef.Namespace, cachedResource.Spec.Identity.SecretRef.Name)
+	if err != nil {
+		return err
+	}
+
+	hash, err := IdentityHash(secret)
+	if err != nil {
+		return err
+	}
+
+	if cachedResource.Status.IdentityHash == "" {
+		cachedResource.Status.IdentityHash = hash
+	}
+
+	if cachedResource.Status.IdentityHash != hash {
+		return fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, cachedResource.Status.IdentityHash)
+	}
+
+	return nil
+}
+
+// TODO: This is copy from apiexport controller. We should move it to a shared location.
+func IdentityHash(secret *corev1.Secret) (string, error) {
+	key := secret.Data[apisv1alpha1.SecretKeyAPIExportIdentity]
+	if len(key) == 0 {
+		return "", fmt.Errorf("secret is missing data.%s", apisv1alpha1.SecretKeyAPIExportIdentity)
+	}
+
+	hashBytes := sha256.Sum256(key)
+	hash := fmt.Sprintf("%x", hashBytes)
+	return hash, nil
 }

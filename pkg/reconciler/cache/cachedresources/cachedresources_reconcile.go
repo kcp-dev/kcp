@@ -18,8 +18,6 @@ package cachedresources
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +39,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/tombstone"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 )
 
 type reconcileStatus int
@@ -63,11 +60,10 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 	reconcilers := []reconciler{
 		&finalizer{},
 		&identity{
-			ensureSecretNamespaceExists:      c.ensureSecretNamespaceExists,
-			getSecret:                        c.getSecret,
-			createIdentitySecret:             c.createIdentitySecret,
-			updateOrVerifyIdentitySecretHash: c.updateOrVerifyIdentitySecretHash,
-			secretNamespace:                  c.secretNamespace,
+			ensureSecretNamespaceExists: c.ensureSecretNamespaceExists,
+			getSecret:                   c.getSecret,
+			createIdentitySecret:        c.createIdentitySecret,
+			secretNamespace:             c.secretNamespace,
 		},
 		&schemaSource{
 			getLogicalCluster:    c.getLogicalCluster,
@@ -208,13 +204,13 @@ func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster log
 	return resources, nil
 }
 
-func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name) {
+func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name, defaultSecretNamespace string) {
 	logger := klog.FromContext(ctx)
 	ctx = klog.NewContext(ctx, logger)
-	if _, err := c.getNamespace(clusterName, c.secretNamespace); errors.IsNotFound(err) {
+	if _, err := c.getNamespace(clusterName, defaultSecretNamespace); errors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        c.secretNamespace,
+				Name:        defaultSecretNamespace,
 				Annotations: map[string]string{logicalcluster.AnnotationKey: clusterName.String()},
 			},
 		}
@@ -226,8 +222,8 @@ func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 	}
 }
 
-func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, apiExportName string) error {
-	secret, err := GenerateIdentitySecret(ctx, c.secretNamespace, apiExportName)
+func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, cachedResourceName string) error {
+	secret, err := GenerateIdentitySecret(ctx, defaultSecretNamespace, cachedResourceName)
 	if err != nil {
 		return err
 	}
@@ -237,42 +233,6 @@ func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logic
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(2).Info("creating identity secret")
 	return c.createSecret(ctx, clusterName, secret)
-}
-
-func (c *Controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) error {
-	secret, err := c.getSecret(ctx, clusterName, cachedResource.Spec.Identity.SecretRef.Namespace, cachedResource.Spec.Identity.SecretRef.Name)
-	if err != nil {
-		return err
-	}
-
-	hash, err := IdentityHash(secret)
-	if err != nil {
-		return err
-	}
-
-	if cachedResource.Status.IdentityHash == "" {
-		cachedResource.Status.IdentityHash = hash
-	}
-
-	if cachedResource.Status.IdentityHash != hash {
-		return fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, cachedResource.Status.IdentityHash)
-	}
-
-	conditions.MarkTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid)
-
-	return nil
-}
-
-// TODO: This is copy from apiexport controller. We should move it to a shared location.
-func IdentityHash(secret *corev1.Secret) (string, error) {
-	key := secret.Data[apisv1alpha1.SecretKeyAPIExportIdentity]
-	if len(key) == 0 {
-		return "", fmt.Errorf("secret is missing data.%s", apisv1alpha1.SecretKeyAPIExportIdentity)
-	}
-
-	hashBytes := sha256.Sum256(key)
-	hash := fmt.Sprintf("%x", hashBytes)
-	return hash, nil
 }
 
 // TODO: This is copy from apiexport controller. We should move it to a shared location.
