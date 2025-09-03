@@ -316,6 +316,7 @@ func TestUserScope(t *testing.T) {
 	require.Equal(t, "oidc:"+userEmail, user.Username)
 	require.Subset(t, user.Groups, expectedGroups)
 	require.Equal(t, user.Extra["authentication.kcp.io/scopes"], authenticationv1.ExtraValue{"cluster:" + teamWs.Spec.Cluster})
+	require.Equal(t, user.Extra["authentication.kcp.io/cluster-name"], authenticationv1.ExtraValue{teamWs.Spec.Cluster})
 }
 
 func TestForbiddenSystemAccess(t *testing.T) {
