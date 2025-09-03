@@ -310,8 +310,8 @@ extra:
   - cluster:logical-cluster-1
 ```
 This user will only be allowed to access resources in `logical-cluster-1`,
-falling back to be considered as user `system:anonymous` with group
-`system:authenticated` in all other logical clusters.
+falling back to be considered as user `system:anonymous` with groups
+`system:authenticated` and `system:cluster:logical-cluster-1` in all other logical clusters.
 
 Each extra field can contain multiple scopes, separated by a comma:
 ```yaml
@@ -322,8 +322,10 @@ extra:
   - cluster:logical-cluster-1,cluster:logical-cluster-2
 ```
 This user is allowed to operate in both `logical-cluster-1` and
-`logical-cluster-2`, falling back to be considered as user `system:anonymous`
-with group `system:authenticated` in all other logical clusters.
+`logical-cluster-2`, falling back to be considered as user
+`system:anonymous` with groups `system:authenticated`,
+`system:cluster:logical-cluster-1` and
+`system:cluster:logical-cluster-2` in all other logical clusters.
 
 If multiple `authentication.kcp.io/scopes` values are set, the intersection is
 taken:
@@ -335,9 +337,10 @@ extra:
   - cluster:logical-cluster-1,cluster:logical-cluster-2
   - cluster:logical-cluster-2,cluster:logical-cluster-3
 ```
-This user is only allowed to operate in `logical-cluster-2`, falling back to be
-considered as user `system:anonymous` with group `system:authenticated` in all
-other logical clusters.
+This user is only allowed to operate in `logical-cluster-2`, falling
+back to be considered as user `system:anonymous` with groups
+`system:authenticated` and `cluster:logical-cluster-2` in all other
+logical clusters.
 
 The intersection can be empty, in which case it falls back in every logical
 cluster.
@@ -377,3 +380,10 @@ but not to act as the warrant user itself. E.g. in auditing or admission control
 the primary user is still the one that is acting.
 
 Warrants can be nested, i.e. a warrant can contain another warrant.
+
+#### Warrants and cross-workspace access
+
+Users with warrants are also being considered as user `system:anonymous`
+with groups `system:authenticated` and
+`system:cluster:<logical-cluster>` in the logical cluster the warrant is
+scoped to in all other logical clusters.
