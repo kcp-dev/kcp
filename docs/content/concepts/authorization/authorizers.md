@@ -125,6 +125,10 @@ roleRef:
   name: cluster-admin
 ```
 
+##### Cross-Workspace
+
+###### Service Accounts
+
 A service-account defined in a workspace implicitly is granted access to it.
 
 A service-account defined in a different workspace is NOT given access to it.
@@ -135,6 +139,14 @@ A service-account defined in a different workspace is NOT given access to it.
     parent workspace.
 
     Service accounts declared within a workspace don't have access to initializing workspaces.
+
+###### Foreign Users
+
+Users can either be global kcp users or users that originate from a specific workspace, e.g. through an OIDC provider configured for that workspace.
+
+Users that do not originate from the workspace the request is being made to and are not global kcp users are only visible as `system:anonymous`
+with groups `system:authenticated` and `system:cluster:<logical-cluster>`, where `<logical-cluster>` is the name of the logical cluster backing
+the workspace they originated from.
 
 #### System CRD Authorizer
 
@@ -270,13 +282,21 @@ The webhook will receive JSON-marshalled `SubjectAccessReview` objects, that (co
       "group2"
     ],
     "extra": {
-      "authorization.kubernetes.io/cluster-name": ["root"]
+      "authorization.kcp.io/cluster-name": ["root"]
     }
   }
 }
 ```
 
-    The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
+The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
+
+!!! note
+    In the past the cluster name was provided in the `authorization.kubernetes.io/cluster-name` extra field instead of `authorization.kcp.io/cluster-name`.
+    This field is deprecated as of kcp v0.28.3 and will be removed in a future release.
+
+!!! note
+    Request payloads can also contain the `authentication.kcp.io/cluster-name` and `authentication.kcp.io/scopes` extra fields if the user originates from the workspace the request is made against.
+    If the users authenticated against another workspace than the target of the request these fields will not be present - instead the user will be seen as `system:anonymous` with groups `system:authenticated` and `system:cluster:<logical-cluster>`, where `<logical-cluster>` is the name of the logical cluster backing the workspace they authenticated against.
 
 ### Authorizer Order
 
@@ -310,8 +330,8 @@ extra:
   - cluster:logical-cluster-1
 ```
 This user will only be allowed to access resources in `logical-cluster-1`,
-falling back to be considered as user `system:anonymous` with group
-`system:authenticated` in all other logical clusters.
+falling back to be considered as user `system:anonymous` with groups
+`system:authenticated` and `system:cluster:logical-cluster-1` in all other logical clusters.
 
 Each extra field can contain multiple scopes, separated by a comma:
 ```yaml
@@ -322,8 +342,10 @@ extra:
   - cluster:logical-cluster-1,cluster:logical-cluster-2
 ```
 This user is allowed to operate in both `logical-cluster-1` and
-`logical-cluster-2`, falling back to be considered as user `system:anonymous`
-with group `system:authenticated` in all other logical clusters.
+`logical-cluster-2`, falling back to be considered as user
+`system:anonymous` with groups `system:authenticated`,
+`system:cluster:logical-cluster-1` and
+`system:cluster:logical-cluster-2` in all other logical clusters.
 
 If multiple `authentication.kcp.io/scopes` values are set, the intersection is
 taken:
@@ -335,9 +357,10 @@ extra:
   - cluster:logical-cluster-1,cluster:logical-cluster-2
   - cluster:logical-cluster-2,cluster:logical-cluster-3
 ```
-This user is only allowed to operate in `logical-cluster-2`, falling back to be
-considered as user `system:anonymous` with group `system:authenticated` in all
-other logical clusters.
+This user is only allowed to operate in `logical-cluster-2`, falling
+back to be considered as user `system:anonymous` with groups
+`system:authenticated` and `cluster:logical-cluster-2` in all other
+logical clusters.
 
 The intersection can be empty, in which case it falls back in every logical
 cluster.
