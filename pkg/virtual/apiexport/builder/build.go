@@ -49,6 +49,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
@@ -184,29 +185,7 @@ func BuildVirtualWorkspace(
 						})
 					}
 
-					var storageBuilder apiserver.RestProviderFunc
-					if resSchStorage != nil && resSchStorage.Virtual != nil {
-						endpointsSlices, err := kcpClusterClient.Cluster(logicalcluster.From(apiResourceSchema).Path()).CacheV1alpha1().CachedResourceEndpointSlices().List(ctx, metav1.ListOptions{})
-						if err != nil {
-							cancelFn()
-							return nil, fmt.Errorf("<><> error listing cachedresourceendpointslices: %v", err)
-						}
-						if len(endpointsSlices.Items) == 0 {
-							cancelFn()
-							return nil, fmt.Errorf("<><> CachedResourceEndpoints not yet populated")
-						}
-						if len(endpointsSlices.Items[0].Status.CachedResourceEndpoints) == 0 {
-							cancelFn()
-							return nil, fmt.Errorf("<><> CachedResourceEndpoint URLs not yet populated")
-						}
-						url := endpointsSlices.Items[0].Status.CachedResourceEndpoints[0].URL
-						storageBuilder = provideDelegatingReadOnlyRestStorage(ctx, func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
-							return impersonatedVWDynamicClientGetter(ctx, url)
-						})
-					} else {
-						storageBuilder = provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
-					}
-
+					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -229,6 +208,10 @@ func BuildVirtualWorkspace(
 						apibindingVersion,
 						restProvider,
 					)
+				},
+				func() (virtualapidefinition.VirtualAPIDefinition, error) {
+					ctx, cancelFn := context.WithCancel(context.Background())
+
 				},
 			)
 			if err != nil {
@@ -354,4 +337,14 @@ type apiDefinitionWithCancel struct {
 func (d *apiDefinitionWithCancel) TearDown() {
 	d.cancelFn()
 	d.APIDefinition.TearDown()
+}
+
+type virtualApiDefinitionWithCancel struct {
+	virtualapidefinition.VirtualAPIDefinition
+	cancelFn func()
+}
+
+func (d *virtualApiDefinitionWithCancel) TearDown() {
+	d.cancelFn()
+	d.VirtualAPIDefinition.TearDown()
 }

@@ -218,7 +218,7 @@ func TestRouting(t *testing.T) {
 		delegate:        delegate,
 	}
 
-	handler := &resourceHandler{
+	handler := &crdResourceHandler{
 		apiSetRetriever:         apiSetRetriever,
 		delegate:                delegate,
 		versionDiscoveryHandler: versionDiscoveryHandler,

@@ -36,6 +36,7 @@ import (
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
@@ -263,6 +264,22 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				preservedGVR = append(preservedGVR, gvrString(gvr))
 			}
 		}
+	}
+
+	// Serve virtual resources.
+
+	newVirtualSet := virtualapidefinition.VirtualAPIDefinitionSet{}
+
+	for _, res := range apiExport.Spec.Resources {
+		if res.Storage.Virtual == nil {
+			continue
+		}
+		virtApiDefinition, err := c.createVirtualAPIDefinition()
+		if err != nil {
+			logger.Error(err, "### error creating virtual api definition")
+		}
+
+		newVirtualSet = append(newVirtualSet, virtApiDefinition)
 	}
 
 	// cleanup old definitions
