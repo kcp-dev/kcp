@@ -112,6 +112,7 @@ func BuildVirtualWorkspace(
 			if err != nil {
 				return false, "", requestContext
 			}
+			fmt.Printf("### ReplVW url=%v, targetCluster=%#v\n", urlPath, targetCluster)
 
 			completedContext = genericapirequest.WithCluster(requestContext, targetCluster)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)

@@ -277,7 +277,7 @@ func newUnwrappingWatch(
 		field = innerListOpts.FieldSelector
 	}
 	attrFunc := storage.DefaultClusterScopedAttr
-	if namespaced {
+	if namespaced && namespace != "" {
 		attrFunc = storage.DefaultNamespaceScopedAttr
 	}
 	unwrapWithMatchingSelectors := func(cachedObj *cachev1alpha1.CachedObject) (*unstructured.Unstructured, error) {
@@ -307,7 +307,7 @@ func newUnwrappingWatch(
 			valid := cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectGroup] == innerObjGVR.Group &&
 				cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectVersion] == innerObjGVR.Version &&
 				cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectResource] == innerObjGVR.Resource
-			if namespaced {
+			if namespaced && namespace != "" {
 				valid = valid && cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectOriginalNamespace] == namespace
 			}
 			return valid
@@ -339,10 +339,11 @@ func newUnwrappingWatch(
 					return
 				}
 				for _, cluster := range syntheticClusters() {
-					setCluster(innerObj, cluster)
+					obj := innerObj.DeepCopy()
+					setCluster(obj, cluster)
 					w.resultChan <- watch.Event{
 						Type:   watch.Added,
-						Object: innerObj,
+						Object: obj,
 					}
 				}
 			},
@@ -360,10 +361,11 @@ func newUnwrappingWatch(
 					return
 				}
 				for _, cluster := range syntheticClusters() {
-					setCluster(innerObj, cluster)
+					obj := innerObj.DeepCopy()
+					setCluster(obj, cluster)
 					w.resultChan <- watch.Event{
 						Type:   watch.Added,
-						Object: innerObj,
+						Object: obj,
 					}
 				}
 			},
@@ -382,10 +384,11 @@ func newUnwrappingWatch(
 					return
 				}
 				for _, cluster := range syntheticClusters() {
-					setCluster(innerObj, cluster)
+					obj := innerObj.DeepCopy()
+					setCluster(obj, cluster)
 					w.resultChan <- watch.Event{
 						Type:   watch.Added,
-						Object: innerObj,
+						Object: obj,
 					}
 				}
 			},
@@ -433,12 +436,15 @@ func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.G
 		attrFunc = storage.DefaultNamespaceScopedAttr
 	}
 
-	latestResourceVersion := "0"
-
 	clusters := syntheticClusters()
+
+	fmt.Printf("### newUnwrappingList len(cachedObjs)=%d, len(clusters)=%d\n", len(cachedObjs), len(clusters))
+
 	if len(clusters) == 0 {
 		return innerList, nil
 	}
+
+	latestResourceVersion := "0"
 
 	for i := range cachedObjs {
 		item := cachedObjs[i].(*cachev1alpha1.CachedObject)
@@ -483,8 +489,8 @@ func syntheticClustersProvider(targetCluster genericapirequest.Cluster, identity
 				return nil
 			}
 			clustersForBindings := listClustersInBindings(bindings)
+			fmt.Printf("### syntheticClustersProvider, wildcard: %#v\n", sets.List[logicalcluster.Name](clustersForBindings))
 			return sets.List[logicalcluster.Name](clustersForBindings)
-
 		} else {
 			bindings, err := listAPIBindingsByCachedResource(identityHash, wrappedGR, globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), localKcpInformers.Apis().V1alpha2().APIBindings())
 			if err != nil {
@@ -492,8 +498,10 @@ func syntheticClustersProvider(targetCluster genericapirequest.Cluster, identity
 			}
 			clustersForBindings := listClustersInBindings(bindings)
 			if clustersForBindings.Has(targetCluster.Name) {
+				fmt.Printf("### syntheticClustersProvider, cluster: %#v\n", sets.List[logicalcluster.Name](clustersForBindings))
 				return []logicalcluster.Name{targetCluster.Name}
 			}
+			fmt.Printf("### syntheticClustersProvider, cluster: nothing ; wanted=%s, have=%#v\n", targetCluster.Name, clustersForBindings.UnsortedList())
 			return nil
 		}
 	}

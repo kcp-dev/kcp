@@ -62,6 +62,10 @@ func (a *wrappedResourceAuthorizer) Authorize(ctx context.Context, attr authoriz
 		return authorizer.DecisionDeny, "write access to CachedResource is not allowed from virtual workspace", nil
 	}
 
+	if targetCluster.Wildcard {
+		return authorizer.DecisionAllow, "", nil
+	}
+
 	authz, err := a.newDelegatedAuthorizer(targetCluster.Name)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
