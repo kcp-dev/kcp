@@ -288,10 +288,11 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	return c.reconcile(ctx, apiExport, apiDomainKey)
 }
 
-func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
+func (c *APIReconciler) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	apiSet, ok := c.apiSets[key]
+	fmt.Printf("### APIReconciler GetAPIDefinitionSet key=%s\n", key)
 	return apiSet, ok, nil
 }

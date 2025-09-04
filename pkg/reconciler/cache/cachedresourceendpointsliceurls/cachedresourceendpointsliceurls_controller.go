@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -118,8 +119,8 @@ func NewController(
 			}
 			return obj, err
 		},
-		listAPIExportsByCachedResourceEndpointSlice: func(slice *cachev1alpha1.CachedResourceEndpointSlice) ([]*apisv1alpha2.APIExport, error) {
-			apiExports, err := indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](localAPIExportClusterInformer.Informer().GetIndexer(), globalAPIExportClusterInformer.Informer().GetIndexer(), indexers.APIExportByVirtualResources, logicalcluster.From(slice).Path().Join(slice.Name).String())
+		listAPIExportsByCachedResourceIdentityAndGR: func(identityHash string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
+			apiExports, err := indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](localAPIExportClusterInformer.Informer().GetIndexer(), globalAPIExportClusterInformer.Informer().GetIndexer(), indexers.APIExportByVirtualResourceIdentitiesAndGRs, indexers.VirtualResourceIdentityAndGRKey(identityHash, gr))
 			if err != nil {
 				return nil, err
 			}
@@ -237,7 +238,7 @@ type controller struct {
 	queue     workqueue.TypedRateLimitingInterface[string]
 	shardName string
 
-	listAPIExportsByCachedResourceEndpointSlice func(slice *cachev1alpha1.CachedResourceEndpointSlice) ([]*apisv1alpha2.APIExport, error)
+	listAPIExportsByCachedResourceIdentityAndGR func(identityHash string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error)
 	listAPIBindingsByAPIExports                 func(exports []*apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	getMyShard                                  func() (*corev1alpha1.Shard, error)
 	getCachedResource                           func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
@@ -332,10 +333,10 @@ func InstallIndexers(
 	localAPIExportClusterInformer, globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 ) {
 	indexers.AddIfNotPresentOrDie(localAPIExportClusterInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.APIExportByVirtualResources: indexers.IndexAPIExportByVirtualResources,
+		indexers.APIExportByVirtualResourceIdentitiesAndGRs: indexers.IndexAPIExportByVirtualResourceIdentitiesAndGRs,
 	})
 	indexers.AddIfNotPresentOrDie(globalAPIExportClusterInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.APIExportByVirtualResources: indexers.IndexAPIExportByVirtualResources,
+		indexers.APIExportByVirtualResourceIdentitiesAndGRs: indexers.IndexAPIExportByVirtualResourceIdentitiesAndGRs,
 	})
 	indexers.AddIfNotPresentOrDie(localCachedResourceClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
