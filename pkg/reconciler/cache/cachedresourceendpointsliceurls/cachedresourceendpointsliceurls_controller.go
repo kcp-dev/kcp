@@ -56,7 +56,6 @@ const (
 )
 
 func listAPIBindingsByAPIExport(apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer, export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
-	fmt.Printf("### listAPIBindingsByAPIExport %s|%s %s|%s 1\n", logicalcluster.From(export), export.Name)
 	// binding keys by full path
 	keys := sets.New[string]()
 	if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
@@ -64,7 +63,6 @@ func listAPIBindingsByAPIExport(apiBindingInformer apisv1alpha2informers.APIBind
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("### listAPIBindingsByAPIExport %s|%s 2 pathKeys=%v\n", logicalcluster.From(export), export.Name, pathKeys)
 		keys.Insert(pathKeys...)
 	}
 
@@ -72,7 +70,6 @@ func listAPIBindingsByAPIExport(apiBindingInformer apisv1alpha2informers.APIBind
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("### listAPIBindingsByAPIExport %s|%s 3 clusterKeys=%v\n", logicalcluster.From(export), export.Name, clusterKeys)
 	keys.Insert(clusterKeys...)
 
 	bindings := make([]*apisv1alpha2.APIBinding, 0, keys.Len())
@@ -87,7 +84,6 @@ func listAPIBindingsByAPIExport(apiBindingInformer apisv1alpha2informers.APIBind
 		}
 		bindings = append(bindings, binding.(*apisv1alpha2.APIBinding))
 	}
-	fmt.Printf("### listAPIBindingsByAPIExport %s|%s 4 len(bindings)=%d\n", logicalcluster.From(export), export.Name, len(bindings))
 	return bindings, nil
 }
 
@@ -127,7 +123,6 @@ func NewController(
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("### len(listAPIExportsByCachedResourceEndpointSlice)=%d \n", len(apiExports))
 			return apiExports, nil
 		},
 		listAPIBindingsByAPIExports: func(exports []*apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
@@ -139,7 +134,6 @@ func NewController(
 				}
 				bindings = append(bindings, bindingsForExport...)
 			}
-			fmt.Printf("### XXX len(listAPIBindingsByAPIExports)=%d \n", len(bindings))
 			return bindings, nil
 		},
 		patchCachedResourceEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.CachedResourceEndpointSliceApplyConfiguration) error {
@@ -201,9 +195,6 @@ func NewController(
 }
 
 func (c *controller) enqueueAPIBinding(obj *apisv1alpha2.APIBinding, logger logr.Logger) {
-
-	fmt.Printf("### enqueueAPIBinding %s %s|%s\n", c.shardName, logicalcluster.From(obj), obj.Name)
-
 	exportPath := logicalcluster.NewPath(obj.Spec.Reference.Export.Path)
 	if exportPath.Empty() {
 		exportPath = logicalcluster.From(obj).Path()

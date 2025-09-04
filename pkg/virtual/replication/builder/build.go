@@ -79,23 +79,10 @@ func BuildVirtualWorkspace(
 			if !ok {
 				return false, "", requestContext
 			}
-			parsedKey, err := apidomainkey.Parse(apiDomain)
+			_, err := apidomainkey.Parse(apiDomain)
 			if err != nil {
 				return false, "", requestContext
 			}
-
-			targetCluster.Wildcard = false
-			targetCluster.Name = parsedKey.CachedResourceCluster
-
-			if targetCluster.Wildcard {
-				return false, "", requestContext
-			}
-
-			if targetCluster.Name != parsedKey.CachedResourceCluster {
-				return false, "", requestContext
-			}
-
-			// We only accept requests for CachedResource's local cluster.
 
 			completedContext = genericapirequest.WithCluster(requestContext, targetCluster)
 			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)

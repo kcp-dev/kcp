@@ -30,13 +30,10 @@ func (s *Server) OpenAPIv3SpecGetter() func(ctx context.Context) (map[string]map
 		}
 
 		log := klog.FromContext(ctx).WithName("virtualresource-openapiv3-getter").WithValues("cluster", cluster)
-		log.Info("hellooooo")
 
 		trackedResourcesForEndpoint := func() map[string]map[schema.GroupVersion]sets.Set[string] {
 			s.lock.RLock()
 			defer s.lock.RUnlock()
-
-			fmt.Printf("\n<><> trackedResourcesForEndpoint len(resourcesForGroupVersion)=%d len(endpointsForGroupResource)=%d <>\n", len(s.resourcesForGroupVersion[cluster]), len(s.endpointsForGroupResource[cluster]))
 
 			resourcesForGroupVersion := s.resourcesForGroupVersion[cluster]
 			if len(resourcesForGroupVersion) == 0 {

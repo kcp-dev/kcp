@@ -40,7 +40,7 @@ const (
 	// APIExportEndpointSliceByAPIExport is the indexer name for retrieving APIExportEndpointSlices by their APIExport's Reference Path and Name.
 	APIExportEndpointSliceByAPIExport = "APIExportEndpointSliceByAPIExport"
 
-	APIExportByVirtualResources = "APIExportByVirtualResources"
+	APIExportByVirtualResourceIdentities = "APIExportByVirtualResourceIdentities"
 )
 
 // IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
@@ -101,20 +101,20 @@ func IndexAPIExportEndpointSliceByAPIExport(obj interface{}) ([]string, error) {
 	return result, nil
 }
 
-func IndexAPIExportByVirtualResources(obj interface{}) ([]string, error) {
+func IndexAPIExportByVirtualResourceIdentities(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha2.APIExport)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
 	}
 
-	virtualResources := sets.New[string]()
+	virtualResourceIdentities := sets.New[string]()
 
 	clusterPath := logicalcluster.NewPath(apiExport.GetAnnotations()[core.LogicalClusterPathAnnotationKey])
 	clusterName := logicalcluster.From(apiExport).Path()
 	insertKeys := func(virtualResourceName string) {
-		virtualResources.Insert(clusterName.Join(virtualResourceName).String())
+		virtualResourceIdentities.Insert(clusterName.Join(virtualResourceName).String())
 		if !clusterPath.Empty() {
-			virtualResources.Insert(clusterPath.Join(virtualResourceName).String())
+			virtualResourceIdentities.Insert(clusterPath.Join(virtualResourceName).String())
 		}
 	}
 
@@ -122,13 +122,8 @@ func IndexAPIExportByVirtualResources(obj interface{}) ([]string, error) {
 		if res.Storage.Virtual == nil {
 			continue
 		}
-		insertKeys(res.Storage.Virtual.Name)
+		insertKeys(res.Storage.Virtual.IdentityHash)
 	}
 
-	list := sets.List[string](virtualResources)
-	if len(list) > 0 {
-		fmt.Printf("### IndexAPIExportByVirtualResources:%v\n", list)
-	}
-
-	return list, nil
+	return sets.List[string](virtualResourceIdentities), nil
 }

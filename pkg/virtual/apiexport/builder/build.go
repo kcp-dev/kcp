@@ -168,53 +168,6 @@ func BuildVirtualWorkspace(
 				}
 
 				return vwDynamicClient, nil
-
-				cluster, err := genericapirequest.ValidClusterFrom(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("error getting valid cluster from context: %w", err)
-				}
-
-				user, found := genericapirequest.UserFrom(ctx)
-				if !found {
-					return nil, fmt.Errorf("error getting user from context")
-				}
-
-				// Wildcard requests cannot be impersonated against a concrete cluster.
-				if cluster.Wildcard {
-					return vwDynamicClient, nil
-				}
-
-				// Add a warrant of a fake local service account giving full access
-				warrant := validation.Warrant{
-					User:   "system:serviceaccount:default:rest",
-					Groups: []string{bootstrap.SystemKcpAdminGroup},
-					Extra: map[string][]string{
-						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
-					},
-				}
-
-				bs, err := json.Marshal(warrant)
-				if err != nil {
-					return nil, fmt.Errorf("error marshaling warrant: %w", err)
-				}
-
-				// Impersonate the request user and add the warrant as an extra
-				impersonationConfig := rest.CopyConfig(vwCfg)
-				impersonationConfig.Impersonate = rest.ImpersonationConfig{
-					UserName: user.GetName(),
-					Groups:   user.GetGroups(),
-					UID:      user.GetUID(),
-					Extra:    user.GetExtra(),
-				}
-				if impersonationConfig.Impersonate.Extra == nil {
-					impersonationConfig.Impersonate.Extra = map[string][]string{}
-				}
-				impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey] = append(impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey], string(bs))
-				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
-				if err != nil {
-					return nil, fmt.Errorf("error generating dynamic client: %w", err)
-				}
-				return impersonatedClient, nil
 			}
 
 			apiReconciler, err := apireconciler.NewAPIReconciler(
@@ -247,7 +200,6 @@ func BuildVirtualWorkspace(
 							return nil, fmt.Errorf("<><> CachedResourceEndpoint URLs not yet populated")
 						}
 						url := endpointsSlices.Items[0].Status.CachedResourceEndpoints[0].URL
-						fmt.Printf("\n\n\n<> VW ENDPOINT URL %q <>\n\n\n", url)
 						storageBuilder = provideDelegatingReadOnlyRestStorage(ctx, func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
 							return impersonatedVWDynamicClientGetter(ctx, url)
 						})
