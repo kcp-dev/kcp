@@ -75,7 +75,7 @@ func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHea
 	}
 
 	for k, values := range user.GetExtra() {
-		// Key must be encoded to enable e.g authentication.kubernetes.io/cluster-name
+		// Key must be encoded to enable e.g authentication.kcp.io/cluster-name
 		// This is decoded in the RequestHeader auth handler
 		encodedKey := url.PathEscape(k)
 		for _, v := range values {
