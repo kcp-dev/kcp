@@ -96,12 +96,13 @@ func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version s
 			}
 			targetCluster := genericapirequest.ClusterFrom(ctx)
 			if targetCluster.Wildcard {
-				panic("### unwrapping cached resource: getter function for wildcard cluster")
+				// ???
+				panic("wildcard in get request")
 			}
 
 			bindings, err := listAPIBindingsByCachedResource(cr.Status.IdentityHash, wrappedGVR.GroupResource(), globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), localKcpInformers.Apis().V1alpha2().APIBindings())
 			if err != nil {
-				return nil, fmt.Errorf("### internal error: %v", err)
+				return nil, fmt.Errorf("internal error: %v", err)
 			}
 			clustersForBindings := listClustersInBindings(bindings)
 			if !clustersForBindings.Has(targetCluster.Name) {
@@ -438,8 +439,6 @@ func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.G
 
 	clusters := syntheticClusters()
 
-	fmt.Printf("### newUnwrappingList len(cachedObjs)=%d, len(clusters)=%d\n", len(cachedObjs), len(clusters))
-
 	if len(clusters) == 0 {
 		return innerList, nil
 	}
@@ -489,7 +488,6 @@ func syntheticClustersProvider(targetCluster genericapirequest.Cluster, identity
 				return nil
 			}
 			clustersForBindings := listClustersInBindings(bindings)
-			fmt.Printf("### syntheticClustersProvider, wildcard: %#v\n", sets.List[logicalcluster.Name](clustersForBindings))
 			return sets.List[logicalcluster.Name](clustersForBindings)
 		} else {
 			bindings, err := listAPIBindingsByCachedResource(identityHash, wrappedGR, globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), localKcpInformers.Apis().V1alpha2().APIBindings())
@@ -498,10 +496,8 @@ func syntheticClustersProvider(targetCluster genericapirequest.Cluster, identity
 			}
 			clustersForBindings := listClustersInBindings(bindings)
 			if clustersForBindings.Has(targetCluster.Name) {
-				fmt.Printf("### syntheticClustersProvider, cluster: %#v\n", sets.List[logicalcluster.Name](clustersForBindings))
 				return []logicalcluster.Name{targetCluster.Name}
 			}
-			fmt.Printf("### syntheticClustersProvider, cluster: nothing ; wanted=%s, have=%#v\n", targetCluster.Name, clustersForBindings.UnsortedList())
 			return nil
 		}
 	}
