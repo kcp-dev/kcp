@@ -32,6 +32,9 @@ const (
 
 	// ByGVRAndLogicalClusterAndNamespace is the name for the index that indexes by an object's gvr, logical cluster and namespace.
 	ByGVRAndLogicalClusterAndNamespace = "kcp-byGVRAndLogicalClusterAndNamespace"
+
+	// ByGVRAndLogicalCluster is the name for the index that indexes by an object's gvr, logical cluster and namespace.
+	ByGVRAndLogicalCluster = "kcp-byGVRAndLogicalClusterAndNamespace"
 )
 
 // IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name.
@@ -104,8 +107,11 @@ func IndexByGVRAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) 
 	}
 	namespace := labels[LabelKeyObjectOriginalNamespace]
 
-	key := GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), namespace)
-	return []string{key}, nil
+	GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), namespace)
+	return []string{
+		GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), namespace),
+		GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), ""),
+	}, nil
 }
 
 // GVRAndLogicalClusterAndNamespace creates an index key from the given parameters.
