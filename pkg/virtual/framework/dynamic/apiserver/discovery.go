@@ -37,6 +37,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dyncamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 )
 
 var (
@@ -51,8 +52,9 @@ func init() {
 }
 
 type versionDiscoveryHandler struct {
-	apiSetRetriever apidefinition.APIDefinitionSetGetter
-	delegate        http.Handler
+	apiSetRetriever        apidefinition.APIDefinitionSetGetter
+	virtualApiSetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter
+	delegate               http.Handler
 }
 
 func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -126,6 +128,33 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		// TODO(david): Add scale sub-resource ???
 	}
 
+	if !foundGroupVersion {
+		virtualApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
+		if err != nil {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+				errorCodecs, schema.GroupVersion{},
+				w, req)
+			return
+		}
+		if hasLocationKey {
+			for _, virtApiDefinition := range virtualApiSet {
+				virtResources, err := virtApiDefinition.GetAPIResources()
+				if err != nil {
+					fmt.Printf("### versionDiscoveryHandler GetAPIResources err=%v\n", err)
+					continue
+				}
+				for _, virtRes := range virtResources {
+					if requestedGroup != virtRes.Group || requestedVersion != virtRes.Version {
+						continue
+					}
+					foundGroupVersion = true
+					apiResourcesForDiscovery = append(apiResourcesForDiscovery, virtRes)
+				}
+			}
+		}
+	}
+
 	resourceListerFunc := discovery.APIResourceListerFunc(func() []metav1.APIResource {
 		return apiResourcesForDiscovery
 	})
@@ -168,8 +197,9 @@ func supportedVerbs(storage rest.Storage) metav1.Verbs {
 }
 
 type groupDiscoveryHandler struct {
-	apiSetRetriever apidefinition.APIDefinitionSetGetter
-	delegate        http.Handler
+	apiSetRetriever        apidefinition.APIDefinitionSetGetter
+	virtualApiSetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter
+	delegate               http.Handler
 }
 
 func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -229,6 +259,47 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		}
 	}
 
+	if !foundGroup {
+		virtualApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
+		if err != nil {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+				errorCodecs, schema.GroupVersion{},
+				w, req)
+			return
+		}
+		if hasLocationKey {
+			for _, virtApiDefinition := range virtualApiSet {
+				virtGroups, err := virtApiDefinition.GetAPIGroups()
+				if err != nil {
+					fmt.Printf("### groupDiscoveryHandler GetAPIGroups err=%v\n", err)
+					continue
+				}
+				for _, virtGroup := range virtGroups {
+					if virtGroup.Name != requestedGroup {
+						continue
+					}
+					foundGroup = true
+
+					for _, version := range virtGroup.Versions {
+						gv := metav1.GroupVersion{
+							Group:   virtGroup.Name,
+							Version: version.Version,
+						}
+
+						if !versionsForDiscoveryMap[gv] {
+							versionsForDiscoveryMap[gv] = true
+							apiVersionsForDiscovery = append(apiVersionsForDiscovery, metav1.GroupVersionForDiscovery{
+								GroupVersion: version.GroupVersion,
+								Version:      version.Version,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
 	sortGroupDiscoveryByKubeAwareVersion(apiVersionsForDiscovery)
 
 	if !foundGroup {
@@ -248,8 +319,9 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 }
 
 type rootDiscoveryHandler struct {
-	apiSetRetriever apidefinition.APIDefinitionSetGetter
-	delegate        http.Handler
+	apiSetRetriever        apidefinition.APIDefinitionSetGetter
+	virtualApiSetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter
+	delegate               http.Handler
 }
 
 func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -313,6 +385,26 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		}
 		groupList = append(groupList, g)
 	}
+
+	virtApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
+	if err != nil {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+			errorCodecs, schema.GroupVersion{},
+			w, req)
+		return
+	}
+	if hasLocationKey {
+		for _, virtApiDefinition := range virtApiSet {
+			virtGroups, err := virtApiDefinition.GetAPIGroups()
+			if err != nil {
+				fmt.Printf("### rootDiscoveryHandler GetAPIGroups err=%v\n", err)
+				continue
+			}
+			groupList = append(groupList, virtGroups...) // TODO ^^^
+		}
+	}
+
 	responsewriters.WriteObjectNegotiated(miniaggregator.DiscoveryCodecs, negotiation.DefaultEndpointRestrictions, schema.GroupVersion{}, w, req, http.StatusOK, &metav1.APIGroupList{Groups: groupList}, false)
 }
 

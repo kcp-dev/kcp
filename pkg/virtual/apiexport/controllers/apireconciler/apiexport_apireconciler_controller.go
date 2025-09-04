@@ -40,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -55,6 +56,8 @@ const (
 
 type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error)
 
+type CreateVirtualAPIDefinitionFunc func() (virtualapidefinition.VirtualAPIDefinition, error)
+
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
 func NewAPIReconciler(
@@ -63,6 +66,7 @@ func NewAPIReconciler(
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
+	createVirtualAPIDefinition CreateVirtualAPIDefinitionFunc,
 ) (*APIReconciler, error) {
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
@@ -85,6 +89,7 @@ func NewAPIReconciler(
 
 		createAPIDefinition:           createAPIDefinition,
 		createAPIBindingAPIDefinition: createAPIBindingAPIDefinition,
+		createVirtualAPIDefinition:    createVirtualAPIDefinition,
 
 		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
 	}
@@ -139,6 +144,7 @@ type APIReconciler struct {
 
 	createAPIDefinition           CreateAPIDefinitionFunc
 	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
+	createVirtualAPIDefinition    CreateVirtualAPIDefinitionFunc
 
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet

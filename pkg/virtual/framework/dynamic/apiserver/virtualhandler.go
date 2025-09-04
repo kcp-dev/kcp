@@ -38,12 +38,13 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
-// resourceHandler serves the `/apis` and `/api` endpoints.
-type resourceHandler struct {
-	apiSetRetriever         apidefinition.APIDefinitionSetGetter
+// virtualResourceHandler serves the `/apis` and `/api` endpoints.
+type virtualResourceHandler struct {
+	virtApiSetRetriever     virtualapidefinition.VirtualAPIDefinitionSetGetter
 	versionDiscoveryHandler *versionDiscoveryHandler
 	groupDiscoveryHandler   *groupDiscoveryHandler
 	rootDiscoveryHandler    *rootDiscoveryHandler
@@ -66,8 +67,8 @@ type resourceHandler struct {
 	maxRequestBodyBytes int64
 }
 
-func newResourceHandler(
-	apiSetRetriever apidefinition.APIDefinitionSetGetter,
+func newVirtualResourceHandler(
+	virtApiSetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter,
 	versionDiscoveryHandler *versionDiscoveryHandler,
 	groupDiscoveryHandler *groupDiscoveryHandler,
 	rootDiscoveryHandler *rootDiscoveryHandler,
@@ -77,9 +78,9 @@ func newResourceHandler(
 	requestTimeout time.Duration,
 	minRequestTimeout time.Duration,
 	maxRequestBodyBytes int64,
-	staticOpenAPISpec *spec.Swagger) (*resourceHandler, error) {
-	ret := &resourceHandler{
-		apiSetRetriever:         apiSetRetriever,
+	staticOpenAPISpec *spec.Swagger) (*crdResourceHandler, error) {
+	ret := &crdResourceHandler{
+		virtApiSetRetriever:     virtApiSetRetriever,
 		versionDiscoveryHandler: versionDiscoveryHandler,
 		groupDiscoveryHandler:   groupDiscoveryHandler,
 		rootDiscoveryHandler:    rootDiscoveryHandler,
@@ -94,7 +95,7 @@ func newResourceHandler(
 	return ret, nil
 }
 
-func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	requestInfo, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok {
@@ -222,7 +223,7 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (r *resourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
+func (r *virtualResourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
 	requestScope := apiDef.GetRequestScope()
 	storage := apiDef.GetStorage()
 
@@ -275,7 +276,7 @@ func (r *resourceHandler) serveResource(w http.ResponseWriter, req *http.Request
 	return nil
 }
 
-func (r *resourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
+func (r *virtualResourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
 	requestScope := apiDef.GetSubResourceRequestScope("status")
 	storage := apiDef.GetSubResourceStorage("status")
 
