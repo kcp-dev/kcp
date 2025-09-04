@@ -49,7 +49,6 @@ type Server struct {
 	vwTlsConfig      *tls.Config
 
 	groupManagers *clusterAwareGroupManager
-	handlers      *proxyToVirtualWorkspace
 
 	lock                        sync.RWMutex
 	groups                      map[logicalcluster.Name]map[string]metav1.APIGroup
@@ -59,16 +58,10 @@ type Server struct {
 }
 
 func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTarget) (*Server, error) {
-	handlers, err := newProxyToVirtualWorkspace(c.Extra.VWClientConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	s := &Server{
 		Extra:                       c.Extra,
 		delegate:                    delegationTarget,
 		groupManagers:               newClusterAwareGroupManager(c.Generic.DiscoveryAddresses, c.Generic.Serializer),
-		handlers:                    handlers,
 		groups:                      make(map[logicalcluster.Name]map[string]metav1.APIGroup),
 		apiResourcesForGroupVersion: make(map[logicalcluster.Name]map[schema.GroupVersion][]metav1.APIResource),
 		resourcesForGroupVersion:    make(map[logicalcluster.Name]map[schema.GroupVersion]sets.Set[string]),
@@ -91,14 +84,8 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 	}
 	s.GenericAPIServer.DiscoveryGroupManager = s.groupManagers
 
-	// apisHandler := s.newApisHandler()
-
-	// s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", apisHandler)
-	// s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/apis/", apisHandler)
-
 	s.GenericAPIServer.Handler.GoRestfulContainer.Filter(func(req *restful.Request, res *restful.Response, chain *restful.FilterChain) {
 		pathParts := splitPath(req.Request.URL.Path)
-		fmt.Printf("\nUUUU path=%v\n", pathParts)
 
 		ctx := req.Request.Context()
 		requestInfo, ok := request.RequestInfoFrom(ctx)
@@ -183,7 +170,7 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 				if res.Version == "" {
 					res.Version = version.Version
 				}
-				apiResources = append(apiResources, *res.DeepCopy())
+				apiResources = append(apiResources, res)
 				break
 			}
 		}
@@ -227,15 +214,12 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 		scopedResources[gv].Insert(res.Name)
 	}
 
-	fmt.Printf("\n\nYYYY scopedResourceInfos=%#v s.resourceInfos=%#v \n\n\n", scopedApiResources, s.apiResourcesForGroupVersion)
-
 	// Store the vw url.
 
 	if _, ok := s.endpointsForGroupResource[cluster][gr]; !ok {
 		s.endpointsForGroupResource[cluster] = make(map[schema.GroupResource]string)
 	}
 	s.endpointsForGroupResource[cluster][gr] = vwEndpointURL
-	fmt.Printf("\n\n<><> FINISHING ADDING HANDLER grEndpointMap=%#v cluster=%s gr=%v <><>\n\n", s.endpointsForGroupResource, cluster, gr)
 
 	return nil
 }
@@ -255,7 +239,6 @@ func splitPath(path string) []string {
 func (s *Server) newApisHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := splitPath(r.URL.Path)
-		// fmt.Printf("\nAAAA path=%v s.grEndpointMap=%#v ; s.groupInfos=%#v ; s.resourceInfos=%#v\n", pathParts, s.endpointsForGroupResource, s.groups, s.apiResourcesForGroupVersion)
 		switch len(pathParts) {
 		case 3:
 			s.handleAPIResourceList(w, r)
@@ -268,8 +251,6 @@ func (s *Server) newApisHandler() http.HandlerFunc {
 }
 
 func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nAAAA path=%s handleAPIResourceList 0\n", r.URL.Path)
-
 	pathParts := splitPath(r.URL.Path)
 	if len(pathParts) != 3 {
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
@@ -285,10 +266,9 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reqInfo, hasReqInfo := genericapirequest.RequestInfoFrom(ctx)
+	_, hasReqInfo := genericapirequest.RequestInfoFrom(ctx)
 	if !hasReqInfo {
 		warning.AddWarning(ctx, "", "request info missing in context")
-		// fmt.Printf("\nAAAA path=%s handleResource 2\n", r.URL.Path)
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -301,18 +281,13 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 	var knownVersionedResources []metav1.APIResource
 	s.lock.RLock()
 	if gvResources := s.apiResourcesForGroupVersion[cluster.Name]; gvResources != nil {
-		fmt.Printf("\nAAAA path=%s handleAPIResourceList has cluster %s\n", r.URL.Path, cluster.Name)
-		fmt.Printf("\nAAAA path=%s handleAPIResourceList needs gv=%s\n", r.URL.Path, gv)
-		fmt.Printf("\nAAAA path=%s handleAPIResourceList RequestInfo=%#v\n", r.URL.Path, reqInfo)
 		for _, res := range gvResources[gv] {
-			fmt.Printf("\nAAAA path=%s handleAPIResourceList adding res=%#v\n", r.URL.Path, res)
 			knownVersionedResources = append(knownVersionedResources, *res.DeepCopy())
 		}
 	}
 	s.lock.RUnlock()
 
 	if len(knownVersionedResources) == 0 {
-		fmt.Printf("\nAAAA path=%s handleAPIResourceList clusterName=%s 5\n", r.URL.Path, cluster.Name)
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -321,20 +296,15 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 	apiResourceList.GroupVersion = gv.String()
 	apiResourceList.APIResources = knownVersionedResources
 
-	fmt.Printf("\nAAAA path=%s handleAPIResourceList 6\n", r.URL.Path)
-
 	responsewriters.WriteObjectNegotiated(s.GenericAPIServer.Serializer, negotiation.DefaultEndpointRestrictions, schema.GroupVersion{}, w, r, http.StatusOK, apiResourceList, false)
 }
 
 func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nAAAA path=%s handleResource 0\n", r.URL.Path)
-
 	ctx := r.Context()
 
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil {
 		warning.AddWarning(ctx, "", "cluster missing in context")
-		fmt.Printf("\nAAAA path=%s handleResource 1\n", r.URL.Path)
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -342,7 +312,6 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	reqInfo, hasReqInfo := genericapirequest.RequestInfoFrom(ctx)
 	if !hasReqInfo {
 		warning.AddWarning(ctx, "", "request info missing in context")
-		fmt.Printf("\nAAAA path=%s handleResource 2\n", r.URL.Path)
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -388,8 +357,6 @@ func (s *Server) getEndpointsForCluster(cluster logicalcluster.Name) map[schema.
 
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-
-	fmt.Printf("\n<><> getEndpointsForCluster(cluster=%s), s.grEndpointMap=%#v <><>\n", cluster, s.endpointsForGroupResource)
 
 	if grEndpoints := s.endpointsForGroupResource[cluster]; grEndpoints != nil {
 		for k, v := range s.endpointsForGroupResource[cluster] {

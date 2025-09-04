@@ -47,8 +47,6 @@ func (c *Config) Complete() CompletedConfig {
 		apiopenapi.NewDefinitionNamer(runtime.NewScheme()),
 	)
 
-	// cfg.Generic.EnableDiscovery = false
-
 	return CompletedConfig{&cfg}
 }
 
@@ -66,8 +64,6 @@ func NewConfig(cfg *genericapiserver.Config, vwClientConfig *rest.Config) (*Conf
 			VWClientConfig: vwClientConfig,
 		},
 	}
-
-	fmt.Printf("<> VWClientConfig %#v <>\n", ret.Extra.VWClientConfig)
 
 	return ret, nil
 }

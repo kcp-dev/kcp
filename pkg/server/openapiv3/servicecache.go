@@ -213,7 +213,6 @@ func addSpecs(service *handler3.OpenAPIService, static map[string]cached.Value[*
 	// add virtual resource specs
 	for _, gvPathSpec := range vrSpecs {
 		for gvPath, spec := range gvPathSpec {
-			fmt.Printf("\n<> XXXXX adding vrSpec gvPath=%s XXX\n\n", gvPath)
 			byGroupVersionSpecs[gvPath] = []cached.Value[*spec3.OpenAPI]{spec}
 		}
 	}
