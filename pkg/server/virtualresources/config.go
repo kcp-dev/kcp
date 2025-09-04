@@ -1,8 +1,6 @@
 package virtualresources
 
 import (
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"

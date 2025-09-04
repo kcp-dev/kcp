@@ -18,11 +18,11 @@ package cachedresourceendpointsliceurls
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"path"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -44,7 +44,7 @@ type result struct {
 
 func (c *controller) reconcile(ctx context.Context, slice *cachev1alpha1.CachedResourceEndpointSlice) (bool, error) {
 	return endpointsReconciler{
-		listAPIExportsByCachedResourceEndpointSlice: c.listAPIExportsByCachedResourceEndpointSlice,
+		listAPIExportsByCachedResourceIdentityAndGR: c.listAPIExportsByCachedResourceIdentityAndGR,
 		listAPIBindingsByAPIExports:                 c.listAPIBindingsByAPIExports,
 		getMyShard:                                  c.getMyShard,
 		getCachedResource:                           c.getCachedResource,
@@ -53,7 +53,7 @@ func (c *controller) reconcile(ctx context.Context, slice *cachev1alpha1.CachedR
 }
 
 type endpointsReconciler struct {
-	listAPIExportsByCachedResourceEndpointSlice func(slice *cachev1alpha1.CachedResourceEndpointSlice) ([]*apisv1alpha2.APIExport, error)
+	listAPIExportsByCachedResourceIdentityAndGR func(identityHash string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error)
 	listAPIBindingsByAPIExports                 func(exports []*apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	getMyShard                                  func() (*corev1alpha1.Shard, error)
 	getCachedResource                           func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
@@ -67,27 +67,20 @@ func (r endpointsReconciler) reconcile(ctx context.Context, slice *cachev1alpha1
 		}
 	}
 
-	fmt.Println("### endpointsReconciler.reconcile 1")
-
 	rs, err := r.updateEndpoints(ctx, slice)
 	if err != nil {
-		fmt.Println("### endpointsReconciler.reconcile 2")
 		return true, err
 	}
 	if rs == nil {
 		// No change, nothing to do.
-		fmt.Println("### endpointsReconciler.reconcile 3")
 		return false, nil
 	}
 
-	fmt.Println("### endpointsReconciler.reconcile 4")
 	// Patch the object
 	patch := cachev1alpha1apply.CachedResourceEndpointSlice(slice.Name)
 	if rs.remove {
-		fmt.Println("### endpointsReconciler.reconcile 5")
 		patch.WithStatus(cachev1alpha1apply.CachedResourceEndpointSliceStatus())
 	} else {
-		fmt.Println("### endpointsReconciler.reconcile 6")
 		patch.WithStatus(cachev1alpha1apply.CachedResourceEndpointSliceStatus().
 			WithCachedResourceEndpoints(cachev1alpha1apply.CachedResourceEndpoint().WithURL(rs.url)))
 	}
@@ -96,54 +89,19 @@ func (r endpointsReconciler) reconcile(ctx context.Context, slice *cachev1alpha1
 	if err != nil {
 		return true, err
 	}
-	fmt.Println("### endpointsReconciler.reconcile 7")
 	return false, nil
 }
 
 func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev1alpha1.CachedResourceEndpointSlice) (*result, error) {
-	fmt.Println("### endpointsReconciler.updateEndpoints 1")
-
 	logger := klog.FromContext(ctx)
 
 	thisShard, err := r.getMyShard()
 	if err != nil {
-		fmt.Println("### endpointsReconciler.updateEndpoints 2")
 		return nil, err
 	}
 
 	if thisShard.Spec.VirtualWorkspaceURL == "" {
 		// We don't have VW URLs, bail out.
-		fmt.Println("### endpointsReconciler.updateEndpoints 3")
-		return nil, nil
-	}
-
-	exports, err := r.listAPIExportsByCachedResourceEndpointSlice(slice)
-	if err != nil {
-		fmt.Println("### endpointsReconciler.updateEndpoints 4")
-		return nil, err
-	}
-	bindings, err := r.listAPIBindingsByAPIExports(exports)
-	if err != nil {
-		fmt.Println("### endpointsReconciler.updateEndpoints 5")
-		return nil, err
-	}
-
-	if len(bindings) == 0 {
-		fmt.Println("### endpointsReconciler.updateEndpoints 6")
-		// We don't have any consumers, so clean up all endpoints.
-		return &result{
-			remove: true,
-		}, nil
-	}
-
-	shardSelector, err := labels.Parse(slice.Status.ShardSelector)
-	if err != nil {
-		fmt.Println("### endpointsReconciler.updateEndpoints 7")
-		return nil, err
-	}
-	if !shardSelector.Matches(labels.Set(thisShard.Labels)) {
-		fmt.Println("### endpointsReconciler.updateEndpoints 8")
-		// We don't belong in the partition, so do nothing.
 		return nil, nil
 	}
 
@@ -153,8 +111,36 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev
 	}
 	cr, err := r.getCachedResource(crPath, slice.Spec.CachedResource.Name)
 	if err != nil {
-		fmt.Println("### endpointsReconciler.updateEndpoints 9")
 		return nil, err
+	}
+
+	exports, err := r.listAPIExportsByCachedResourceIdentityAndGR(cr.Status.IdentityHash, schema.GroupResource{
+		Group:    cr.Spec.Group,
+		Resource: cr.Spec.Resource,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	bindings, err := r.listAPIBindingsByAPIExports(exports)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(bindings) == 0 {
+		// We don't have any consumers, so clean up all endpoints.
+		return &result{
+			remove: true,
+		}, nil
+	}
+
+	shardSelector, err := labels.Parse(slice.Status.ShardSelector)
+	if err != nil {
+		return nil, err
+	}
+	if !shardSelector.Matches(labels.Set(thisShard.Labels)) {
+		// We don't belong in the partition, so do nothing.
+		return nil, nil
 	}
 
 	// Construct the Replication VW URL and try to add it to the slice.
@@ -166,7 +152,6 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev
 			err, "error parsing shard.spec.virtualWorkspaceURL",
 			"VirtualWorkspaceURL", thisShard.Spec.VirtualWorkspaceURL,
 		)
-		fmt.Println("### endpointsReconciler.updateEndpoints 10")
 		// Can't do much more...
 		return nil, nil
 	}
@@ -184,12 +169,10 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev
 
 	for _, u := range slice.Status.CachedResourceEndpoints {
 		if u.URL == completeVWAddr {
-			fmt.Println("### endpointsReconciler.updateEndpoints 11")
 			// VW URL already in the endpoint slice, nothing to do.
 			return nil, nil
 		}
 	}
-	fmt.Println("### endpointsReconciler.updateEndpoints 12")
 
 	return &result{
 		url: completeVWAddr,
