@@ -3587,6 +3587,7 @@ shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code
 <li>Even when the feature is disabled on all shards and all front-proxies, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating <code>WorkspaceAuthenticationConfiguration</code> objects if needed.</li>
 <li>It is not possible to authenticate users with a username starting with with <code>system:</code> through per-workspace authentication.</li>
 <li>It is not possible to assign groups starting with <code>system:</code> to users authenticated via per-workspace authentication, e.g. via claim mappings.</li>
+<li>It is not possible to set keys containing <code>kcp.io</code> through the extra mappings in the authentication configuration.</li>
 </ul>
 <h2 id="example">Example</h2>
 <p>In this example we want to create a workspace where users with tokens from our local OIDC provider are admitted to.</p>
