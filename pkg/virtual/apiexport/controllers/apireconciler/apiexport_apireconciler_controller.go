@@ -26,6 +26,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -56,7 +57,19 @@ const (
 
 type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error)
 
-type CreateVirtualAPIDefinitionFunc func() (virtualapidefinition.VirtualAPIDefinition, error)
+type CreateVirtualAPIDefinitionFunc func(cluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string) (virtualapidefinition.VirtualAPIDefinition, error)
+
+func (c *APIReconciler) SetCreateAPIDefinition(f CreateAPIDefinitionFunc) {
+	c.createAPIDefinition = f
+}
+
+func (c *APIReconciler) SetCreateAPIBindingAPIDefinition(f func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)) {
+	c.createAPIBindingAPIDefinition = f
+}
+
+func (c *APIReconciler) SetCreateVirtualAPIDefinition(f CreateVirtualAPIDefinitionFunc) {
+	c.createVirtualAPIDefinition = f
+}
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
@@ -64,9 +77,6 @@ func NewAPIReconciler(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
-	createAPIDefinition CreateAPIDefinitionFunc,
-	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
-	createVirtualAPIDefinition CreateVirtualAPIDefinitionFunc,
 ) (*APIReconciler, error) {
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
@@ -87,11 +97,8 @@ func NewAPIReconciler(
 			},
 		),
 
-		createAPIDefinition:           createAPIDefinition,
-		createAPIBindingAPIDefinition: createAPIBindingAPIDefinition,
-		createVirtualAPIDefinition:    createVirtualAPIDefinition,
-
-		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
+		apiSets:        map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
+		virtualApiSets: map[dynamiccontext.APIDomainKey]virtualapidefinition.VirtualAPIDefinitionSet{},
 	}
 
 	indexers.AddIfNotPresentOrDie(
@@ -146,8 +153,9 @@ type APIReconciler struct {
 	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
 	createVirtualAPIDefinition    CreateVirtualAPIDefinitionFunc
 
-	mutex   sync.RWMutex // protects the map, not the values!
-	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
+	mutex          sync.RWMutex // protects the map, not the values!
+	apiSets        map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
+	virtualApiSets map[dynamiccontext.APIDomainKey]virtualapidefinition.VirtualAPIDefinitionSet
 }
 
 func (c *APIReconciler) enqueueAPIResourceSchema(apiResourceSchema *apisv1alpha1.APIResourceSchema, logger logr.Logger) {
@@ -301,4 +309,13 @@ func (c *APIReconciler) GetAPIDefinitionSet(ctx context.Context, key dynamiccont
 	apiSet, ok := c.apiSets[key]
 	fmt.Printf("### APIReconciler GetAPIDefinitionSet key=%s\n", key)
 	return apiSet, ok, nil
+}
+
+func (c *APIReconciler) GetVirtualAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (virtualapidefinition.VirtualAPIDefinitionSet, bool, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	virtApiSet, ok := c.virtualApiSets[key]
+	fmt.Printf("### APIReconciler GetAPIDefinitionSet key=%s\n", key)
+	return virtApiSet, ok, nil
 }

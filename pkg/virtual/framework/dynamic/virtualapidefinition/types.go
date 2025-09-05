@@ -18,10 +18,12 @@ package virtualapidefinition
 
 import (
 	"context"
+	"net/http"
 
 	// "k8s.io/apiserver/pkg/endpoints/handlers"
 	// "k8s.io/apiserver/pkg/registry/rest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	// "github.com/kcp-dev/logicalcluster/v3"
 
@@ -35,13 +37,14 @@ type VirtualAPIDefinition interface {
 	// GetOpenAPISpec
 	GetAPIGroups() ([]metav1.APIGroup, error)
 	GetAPIResources() ([]metav1.APIResource, error)
+	GetProxy() (http.Handler, error)
 
 	// TearDown shuts down long-running connections.
 	TearDown()
 }
 
 // APIDefinitionSet contains the APIDefinition objects for the APIs of an API domain.
-type VirtualAPIDefinitionSet []VirtualAPIDefinition
+type VirtualAPIDefinitionSet map[schema.GroupResource]VirtualAPIDefinition
 
 // VirtualAPIDefinitionSetGetter provides access to the API definitions of a API domain, based on the API domain key.
 type VirtualAPIDefinitionSetGetter interface {

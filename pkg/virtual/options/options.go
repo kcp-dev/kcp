@@ -61,12 +61,13 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
+	cacheConfig *rest.Config,
 	rootPathPrefix string,
 	shardExternalURL func() string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers, wildcardKcpInformers)
+	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, shardExternalURL, config, cacheConfig, cachedKcpInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}

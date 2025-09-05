@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,24 +22,18 @@ import (
 	"strings"
 	"time"
 
-	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/apiserver/pkg/endpoints/handlers"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/metrics"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/apiserver/pkg/registry/rest"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 // virtualResourceHandler serves the `/apis` and `/api` endpoints.
@@ -78,8 +72,8 @@ func newVirtualResourceHandler(
 	requestTimeout time.Duration,
 	minRequestTimeout time.Duration,
 	maxRequestBodyBytes int64,
-	staticOpenAPISpec *spec.Swagger) (*crdResourceHandler, error) {
-	ret := &crdResourceHandler{
+	staticOpenAPISpec *spec.Swagger) (*virtualResourceHandler, error) {
+	ret := &virtualResourceHandler{
 		virtApiSetRetriever:     virtApiSetRetriever,
 		versionDiscoveryHandler: versionDiscoveryHandler,
 		groupDiscoveryHandler:   groupDiscoveryHandler,
@@ -131,7 +125,12 @@ func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 
 	locationKey := dynamiccontext.APIDomainKeyFrom(ctx)
 
-	apiDefs, hasLocationKey, err := r.apiSetRetriever.GetAPIDefinitionSet(ctx, locationKey)
+	fmt.Printf("### WOHOOO locationKey=%#v\n", locationKey)
+
+	r.delegate.ServeHTTP(w, req)
+	return
+
+	virtApiDefs, hasLocationKey, err := r.virtApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, locationKey)
 	if err != nil {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
@@ -144,29 +143,12 @@ func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	apiDef, hasAPIDef := apiDefs[schema.GroupVersionResource{
+	virtApiDef, hasAPIDef := virtApiDefs[schema.GroupResource{
 		Group:    requestInfo.APIGroup,
-		Version:  requestInfo.APIVersion,
 		Resource: requestInfo.Resource,
 	}]
 	if !hasAPIDef {
 		r.delegate.ServeHTTP(w, req)
-		return
-	}
-
-	apiResourceSchema := apiDef.GetAPIResourceSchema()
-	var apiResourceVersion *apisv1alpha1.APIResourceVersion
-	for i := range apiResourceSchema.Spec.Versions {
-		if v := &apiResourceSchema.Spec.Versions[i]; v.Name == requestInfo.APIVersion {
-			apiResourceVersion = v
-			break
-		}
-	}
-	if apiResourceVersion == nil {
-		responsewriters.ErrorNegotiated(
-			apierrors.NewInternalError(fmt.Errorf("unable to find API version %q in API definition", requestInfo.APIVersion)),
-			errorCodecs, schema.GroupVersion{},
-			w, req)
 		return
 	}
 
@@ -180,123 +162,23 @@ func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		string(types.ApplyPatchType),
 	}
 
-	// HACK: Support resources of the client-go scheme the way existing clients expect it:
-	//   - Support Strategic Merge Patch (used by default on these resources by kubectl)
-	//   - Support the Protobuf content type on Create / Update resources
-	//     (by simply converting the request to the json content type),
-	//     since protobuf content type is expected to be supported in a number of client
-	//     contexts (like controller-runtime for example)
-	if kubernetesscheme.Scheme.IsGroupRegistered(requestInfo.APIGroup) {
-		supportedTypes = append(supportedTypes, string(types.StrategicMergePatchType))
-		req, err := apiextensionsapiserver.ConvertProtobufRequestsToJson(verb, req, schema.GroupVersionKind{
-			Group:   requestInfo.APIGroup,
-			Version: requestInfo.APIVersion,
-			Kind:    apiResourceSchema.Spec.Names.Kind,
-		})
-		if err != nil {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewInternalError(err),
-				codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
-			)
-			return
-		}
-	}
-
-	var handlerFunc http.HandlerFunc
-	subresources := apiResourceVersion.Subresources
-	switch {
-	case subresource == "status" && subresources.Status != nil:
-		handlerFunc = r.serveStatus(w, req, requestInfo, apiDef, supportedTypes)
-	case len(subresource) == 0:
-		handlerFunc = r.serveResource(w, req, requestInfo, apiDef, supportedTypes)
-	default:
-		responsewriters.ErrorNegotiated(
-			apierrors.NewNotFound(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Name),
-			codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
-		)
-	}
-
-	if handlerFunc != nil {
-		handlerFunc = metrics.InstrumentHandlerFunc(verb, requestInfo.APIGroup, requestInfo.APIVersion, resource, subresource, scope, metrics.APIServerComponent, false, "", handlerFunc)
-		handlerFunc.ServeHTTP(w, req)
-		return
-	}
+	handlerFunc := metrics.InstrumentHandlerFunc(verb, requestInfo.APIGroup, requestInfo.APIVersion, resource, subresource, scope, metrics.APIServerComponent, false, "", r.serveResource(w, req, requestInfo, virtApiDef, supportedTypes))
+	handlerFunc.ServeHTTP(w, req)
 }
 
-func (r *virtualResourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
-	requestScope := apiDef.GetRequestScope()
-	storage := apiDef.GetStorage()
-
-	switch requestInfo.Verb {
-	case "get":
-		if storage, isAble := storage.(rest.Getter); isAble {
-			return handlers.GetResource(storage, requestScope)
-		}
-	case "list":
-		if listerStorage, isAble := storage.(rest.Lister); isAble {
-			if watcherStorage, isAble := storage.(rest.Watcher); isAble {
-				forceWatch := false
-				return handlers.ListResource(listerStorage, watcherStorage, requestScope, forceWatch, r.minRequestTimeout)
-			}
-		}
-	case "watch":
-		if listerStorage, isAble := storage.(rest.Lister); isAble {
-			if watcherStorage, isAble := storage.(rest.Watcher); isAble {
-				forceWatch := true
-				return handlers.ListResource(listerStorage, watcherStorage, requestScope, forceWatch, r.minRequestTimeout)
-			}
-		}
-	case "create":
-		if storage, isAble := storage.(rest.Creater); isAble {
-			return handlers.CreateResource(storage, requestScope, r.admission)
-		}
-	case "update":
-		if storage, isAble := storage.(rest.Updater); isAble {
-			return handlers.UpdateResource(storage, requestScope, r.admission)
-		}
-	case "patch":
-		if storage, isAble := storage.(rest.Patcher); isAble {
-			return handlers.PatchResource(storage, requestScope, r.admission, supportedTypes)
-		}
-	case "delete":
-		if storage, isAble := storage.(rest.GracefulDeleter); isAble {
-			allowsOptions := true
-			return handlers.DeleteResource(storage, allowsOptions, requestScope, r.admission)
-		}
-	case "deletecollection":
-		if storage, isAble := storage.(rest.CollectionDeleter); isAble {
-			checkBody := true
-			return handlers.DeleteCollection(storage, checkBody, requestScope, r.admission)
-		}
+func (r *virtualResourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, virtApiDef virtualapidefinition.VirtualAPIDefinition, supportedTypes []string) http.HandlerFunc {
+	proxy, err := virtApiDef.GetProxy()
+	if err != nil {
+		responsewriters.InternalError(w, req, err)
+		return nil
 	}
-	responsewriters.ErrorNegotiated(
+
+	return proxy.ServeHTTP
+
+	/*responsewriters.ErrorNegotiated(
 		apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb),
 		codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
 	)
 	return nil
-}
-
-func (r *virtualResourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
-	requestScope := apiDef.GetSubResourceRequestScope("status")
-	storage := apiDef.GetSubResourceStorage("status")
-
-	switch requestInfo.Verb {
-	case "get":
-		if storage, isAble := storage.(rest.Getter); isAble {
-			return handlers.GetResource(storage, requestScope)
-		}
-	case "update":
-		if storage, isAble := storage.(rest.Updater); isAble {
-			return handlers.UpdateResource(storage, requestScope, r.admission)
-		}
-	case "patch":
-		if storage, isAble := storage.(rest.Patcher); isAble {
-			return handlers.PatchResource(storage, requestScope, r.admission, supportedTypes)
-		}
-	}
-	responsewriters.ErrorNegotiated(
-		apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb),
-		codecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, req,
-	)
-	return nil
+	*/
 }

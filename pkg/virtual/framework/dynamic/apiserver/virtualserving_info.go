@@ -4,47 +4,32 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 
-	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
-	structuraldefaulting "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
-	apiservervalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
-	"k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
-	"k8s.io/apiextensions-apiserver/pkg/crdserverscheme"
-	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/conversion"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/managedfields"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apiserver/pkg/endpoints/handlers"
-	"k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	utilopenapi "k8s.io/apiserver/pkg/util/openapi"
+	discoveryclient "k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
-	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 type virtualServingInfo struct {
 	logicalClusterName logicalcluster.Name
 
-	vwURL       string
-	vwTlsConfig *tls.Config
+	vwURL          string
+	vwClientConfig *rest.Config
+	vwTlsConfig    *tls.Config
+	gr             schema.GroupResource
 }
 
 var _ virtualapidefinition.VirtualAPIDefinition = (*virtualServingInfo)(nil)
@@ -120,19 +105,110 @@ func CreateVirtualServingInfoFor(ctx context.Context, genericConfig genericapise
 	}
 
 	return &virtualServingInfo{
-		vwURL:       selectedEndpointURL,
-		vwTlsConfig: tlsConfig,
+		vwURL:          selectedEndpointURL,
+		vwClientConfig: rest.CopyConfig(genericConfig.LoopbackClientConfig),
+		vwTlsConfig:    tlsConfig,
+		gr:             gr,
 	}, nil
 }
 
-func (def *virtualServingInfo) GetAPIGroups() ([]metav1.APIGroup, error) {
+func (def *virtualServingInfo) newDiscoveryClient() (*discoveryclient.DiscoveryClient, error) {
+	config := *def.vwClientConfig
+	config.Host = def.vwURL + fmt.Sprintf("/clusters/%s", def.logicalClusterName.String())
 
+	dc, err := discoveryclient.NewDiscoveryClientForConfig(&config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create discovery client for gr=%q, endpoint=%q: %v", def.gr, config.Host, err)
+	}
+
+	return dc, nil
+}
+
+func (def *virtualServingInfo) GetAPIGroups() ([]metav1.APIGroup, error) {
+	dc, err := def.newDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+
+	apiGroupList, err := dc.ServerGroups()
+	if err != nil {
+		return nil, fmt.Errorf("discovery client failed to list api groups for endpoint=%q: %v", fmt.Sprintf("%s/clusters/%s", def.vwURL, def.logicalClusterName), err)
+	}
+
+	return apiGroupList.Groups, nil
 }
 
 func (def *virtualServingInfo) GetAPIResources() ([]metav1.APIResource, error) {
+	dc, err := def.newDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
 
+	apiGroupList, err := dc.ServerGroups()
+	if err != nil {
+		return nil, fmt.Errorf("discovery client failed to list api groups for endpoint=%q: %v", fmt.Sprintf("%s/clusters/%s", def.vwURL, def.logicalClusterName), err)
+	}
+
+	var apiGroup *metav1.APIGroup
+	for _, group := range apiGroupList.Groups {
+		if group.Name == def.gr.Group {
+			apiGroup = group.DeepCopy()
+			break
+		}
+	}
+	if apiGroup == nil {
+		return nil, fmt.Errorf("group %s not found in %s discovery", def.gr.Group, def.vwURL)
+	}
+
+	// Get all versions in the found group that are serving the bound resource.
+
+	var apiResources []metav1.APIResource
+	for _, version := range apiGroup.Versions {
+		apiResourceList, err := dc.ServerResourcesForGroupVersion(version.GroupVersion)
+		if err != nil {
+			return nil, fmt.Errorf("discovery client failed to list resources for group/version %s in %s: %v", version.GroupVersion, def.vwURL, err)
+		}
+
+		for _, res := range apiResourceList.APIResources {
+			if res.Name == def.gr.Resource {
+				res = *res.DeepCopy()
+				if res.Group == "" {
+					res.Group = apiGroup.Name
+				}
+				if res.Version == "" {
+					res.Version = version.Version
+				}
+				apiResources = append(apiResources, res)
+				break
+			}
+		}
+	}
+
+	if apiResources == nil {
+		return nil, fmt.Errorf("resource %s/%s not found in %s", def.gr.Group, def.gr.Resource, def.vwURL)
+	}
+
+	return apiResources, nil
+}
+
+func (def *virtualServingInfo) GetProxy() (http.Handler, error) {
+	scopedURL, err := url.Parse(urlWithCluster(def.vwURL, def.logicalClusterName))
+	if err != nil {
+		return nil, err
+	}
+
+	handler := httputil.NewSingleHostReverseProxy(scopedURL)
+	handler.Transport = &http.Transport{
+		TLSClientConfig: def.vwTlsConfig,
+	}
+
+	return handler, nil
 }
 
 func (def *virtualServingInfo) TearDown() {
 
+}
+
+func urlWithCluster(vwURL string, cluster logicalcluster.Name) string {
+	return fmt.Sprintf("%s/clusters/%s", vwURL, cluster)
 }

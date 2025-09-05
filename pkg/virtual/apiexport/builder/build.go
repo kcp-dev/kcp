@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -71,9 +71,11 @@ const (
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
+	shardExternalURL func() string,
 	cfg *rest.Config,
 	kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
+	cacheKcpDynamicClient kcpdynamic.ClusterInterface,
 	cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
@@ -83,6 +85,68 @@ func BuildVirtualWorkspace(
 	readyCh := make(chan struct{})
 
 	apiExportAdmission := aeadmission.NewSelectorAdmission(kcpInformers.Apis().V1alpha2().APIBindings(), kubeClusterClient)
+
+	dynamicClient, err := kcpdynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("error creating privileged dynamic kcp client: %w", err)
+	}
+
+	impersonatedDynamicClientGetter := func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
+		cluster, err := genericapirequest.ValidClusterFrom(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error getting valid cluster from context: %w", err)
+		}
+
+		user, found := genericapirequest.UserFrom(ctx)
+		if !found {
+			return nil, fmt.Errorf("error getting user from context")
+		}
+
+		// Wildcard requests cannot be impersonated against a concrete cluster.
+		if cluster.Wildcard {
+			return dynamicClient, nil
+		}
+
+		// Add a warrant of a fake local service account giving full access
+		warrant := validation.Warrant{
+			User:   "system:serviceaccount:default:rest",
+			Groups: []string{bootstrap.SystemKcpAdminGroup},
+			Extra: map[string][]string{
+				serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
+			},
+		}
+
+		bs, err := json.Marshal(warrant)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling warrant: %w", err)
+		}
+
+		// Impersonate the request user and add the warrant as an extra
+		impersonationConfig := rest.CopyConfig(cfg)
+		impersonationConfig.Impersonate = rest.ImpersonationConfig{
+			UserName: user.GetName(),
+			Groups:   user.GetGroups(),
+			UID:      user.GetUID(),
+			Extra:    user.GetExtra(),
+		}
+		if impersonationConfig.Impersonate.Extra == nil {
+			impersonationConfig.Impersonate.Extra = map[string][]string{}
+		}
+		impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey] = append(impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey], string(bs))
+		impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error generating dynamic client: %w", err)
+		}
+		return impersonatedClient, nil
+	}
+	apiReconciler, err := apireconciler.NewAPIReconciler(
+		kcpClusterClient,
+		cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
+		cachedKcpInformers.Apis().V1alpha2().APIExports(),
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	boundOrClaimedWorkspaceContent := &virtualdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
@@ -106,117 +170,41 @@ func BuildVirtualWorkspace(
 		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			dynamicClient, err := kcpdynamic.NewForConfig(cfg)
-			if err != nil {
-				return nil, fmt.Errorf("error creating privileged dynamic kcp client: %w", err)
-			}
+			apiReconciler.SetCreateAPIDefinition(func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error) {
+				ctx, cancelFn := context.WithCancel(context.Background())
 
-			impersonatedDynamicClientGetter := func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
-				cluster, err := genericapirequest.ValidClusterFrom(ctx)
+				var wrapper forwardingregistry.StorageWrapper
+				if len(optionalLabelRequirements) > 0 {
+					wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
+						return optionalLabelRequirements
+					})
+				}
+
+				storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
+				def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 				if err != nil {
-					return nil, fmt.Errorf("error getting valid cluster from context: %w", err)
+					cancelFn()
+					return nil, err
 				}
+				return &apiDefinitionWithCancel{
+					APIDefinition: def,
+					cancelFn:      cancelFn,
+				}, nil
+			})
 
-				user, found := genericapirequest.UserFrom(ctx)
-				if !found {
-					return nil, fmt.Errorf("error getting user from context")
-				}
-
-				// Wildcard requests cannot be impersonated against a concrete cluster.
-				if cluster.Wildcard {
-					return dynamicClient, nil
-				}
-
-				// Add a warrant of a fake local service account giving full access
-				warrant := validation.Warrant{
-					User:   "system:serviceaccount:default:rest",
-					Groups: []string{bootstrap.SystemKcpAdminGroup},
-					Extra: map[string][]string{
-						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
-					},
-				}
-
-				bs, err := json.Marshal(warrant)
+			apiReconciler.SetCreateAPIBindingAPIDefinition(func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
+				restProvider, err := provideAPIExportFilteredRestStorage(ctx, impersonatedDynamicClientGetter, clusterName, apiExportName)
 				if err != nil {
-					return nil, fmt.Errorf("error marshaling warrant: %w", err)
+					return nil, err
 				}
 
-				// Impersonate the request user and add the warrant as an extra
-				impersonationConfig := rest.CopyConfig(cfg)
-				impersonationConfig.Impersonate = rest.ImpersonationConfig{
-					UserName: user.GetName(),
-					Groups:   user.GetGroups(),
-					UID:      user.GetUID(),
-					Extra:    user.GetExtra(),
-				}
-				if impersonationConfig.Impersonate.Extra == nil {
-					impersonationConfig.Impersonate.Extra = map[string][]string{}
-				}
-				impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey] = append(impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey], string(bs))
-				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
-				if err != nil {
-					return nil, fmt.Errorf("error generating dynamic client: %w", err)
-				}
-				return impersonatedClient, nil
-			}
-			impersonatedVWDynamicClientGetter := func(ctx context.Context, url string) (kcpdynamic.ClusterInterface, error) {
-				vwCfg := rest.CopyConfig(cfg)
-				vwCfg.Host = url
-
-				vwDynamicClient, err := kcpdynamic.NewForConfig(vwCfg)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create dynamic client: %v", err)
-				}
-
-				return vwDynamicClient, nil
-			}
-
-			apiReconciler, err := apireconciler.NewAPIReconciler(
-				kcpClusterClient,
-				cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
-				cachedKcpInformers.Apis().V1alpha2().APIExports(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error) {
-					ctx, cancelFn := context.WithCancel(context.Background())
-
-					var wrapper forwardingregistry.StorageWrapper
-					if len(optionalLabelRequirements) > 0 {
-						wrapper = forwardingregistry.WithLabelSelector(func(_ context.Context) labels.Requirements {
-							return optionalLabelRequirements
-						})
-					}
-
-					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
-					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
-					if err != nil {
-						cancelFn()
-						return nil, err
-					}
-					return &apiDefinitionWithCancel{
-						APIDefinition: def,
-						cancelFn:      cancelFn,
-					}, nil
-				},
-				func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error) {
-					restProvider, err := provideAPIExportFilteredRestStorage(ctx, impersonatedDynamicClientGetter, clusterName, apiExportName)
-					if err != nil {
-						return nil, err
-					}
-
-					return apiserver.CreateServingInfoFor(
-						mainConfig,
-						schemas.ApisKcpDevSchemas["apibindings"],
-						apibindingVersion,
-						restProvider,
-					)
-				},
-				func() (virtualapidefinition.VirtualAPIDefinition, error) {
-					ctx, cancelFn := context.WithCancel(context.Background())
-
-				},
-			)
-			if err != nil {
-				return nil, err
-			}
+				return apiserver.CreateServingInfoFor(
+					mainConfig,
+					schemas.ApisKcpDevSchemas["apibindings"],
+					apibindingVersion,
+					restProvider,
+				)
+			})
 
 			if err := mainConfig.AddPostStartHook(apireconciler.ControllerName, func(hookContext genericapiserver.PostStartHookContext) error {
 				defer close(readyCh)
@@ -237,6 +225,32 @@ func BuildVirtualWorkspace(
 			}); err != nil {
 				return nil, err
 			}
+
+			return apiReconciler, nil
+		},
+		BootstrapVirtualAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (virtualapidefinition.VirtualAPIDefinitionSetGetter, error) {
+			apiReconciler.SetCreateVirtualAPIDefinition(func(cluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string) (virtualapidefinition.VirtualAPIDefinition, error) {
+				ctx, cancelFn := context.WithCancel(context.Background())
+				def, err := apiserver.CreateVirtualServingInfoFor(
+					ctx,
+					mainConfig,
+					cluster,
+					gr,
+					endpointSliceGVR,
+					endpointSliceName,
+					cacheKcpDynamicClient,
+					shardExternalURL(),
+				)
+				if err != nil {
+					cancelFn()
+					return nil, err
+				}
+
+				return &virtualApiDefinitionWithCancel{
+					VirtualAPIDefinition: def,
+					cancelFn:             cancelFn,
+				}, nil
+			})
 
 			return apiReconciler, nil
 		},
