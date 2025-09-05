@@ -47,6 +47,7 @@ This feature has some small limitations that users should keep in mind:
 * Even when the feature is disabled on all shards and all front-proxies, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating `WorkspaceAuthenticationConfiguration` objects if needed.
 * It is not possible to authenticate users with a username starting with with `system:` through per-workspace authentication.
 * It is not possible to assign groups starting with `system:` to users authenticated via per-workspace authentication, e.g. via claim mappings.
+* It is not possible to set keys containing `kcp.io` through the extra mappings in the authentication configuration.
 
 ## Example
 

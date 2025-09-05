@@ -167,8 +167,13 @@ func CreateOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email strin
 	return token
 }
 
-func CreateWorkspaceOIDCAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA) string {
+func CreateWorkspaceOIDCAuthentication(t *testing.T, ctx context.Context, client kcpclientset.ClusterInterface, workspace logicalcluster.Path, mock *mockoidc.MockOIDC, ca *crypto.CA, extraMapping []tenancyv1alpha1.ExtraMapping) string {
 	name := fmt.Sprintf("mockoidc-%d", rand.Int())
+
+	jwtAuth := MockJWTAuthenticator(t, mock, ca, "oidc:", "oidc:")
+	if len(extraMapping) > 0 {
+		jwtAuth.ClaimMappings.Extra = extraMapping
+	}
 
 	// setup a new workspace auth config that uses mockoidc's server
 	authConfig := &tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
@@ -176,9 +181,7 @@ func CreateWorkspaceOIDCAuthentication(t *testing.T, ctx context.Context, client
 			Name: name,
 		},
 		Spec: tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
-			JWT: []tenancyv1alpha1.JWTAuthenticator{
-				MockJWTAuthenticator(t, mock, ca, "oidc:", "oidc:"),
-			},
+			JWT: []tenancyv1alpha1.JWTAuthenticator{jwtAuth},
 		},
 	}
 

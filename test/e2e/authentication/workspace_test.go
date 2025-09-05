@@ -65,8 +65,8 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	// setup a new workspace auth config that uses mockoidc's server, one for
 	// each of our mockoidc servers
-	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockA, ca)
-	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockB, ca)
+	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockA, ca, nil)
+	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockB, ca, nil)
 
 	// use these configs in new WorkspaceTypes and create one extra workspace type that allows
 	// both mockoidc issuers
@@ -268,7 +268,22 @@ func TestUserScope(t *testing.T) {
 	require.NoError(t, err)
 
 	mock, ca := authfixtures.StartMockOIDC(t, server)
-	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca)
+	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca,
+		[]tenancyv1alpha1.ExtraMapping{
+			{
+				Key:             "authentication.kcp.io/scopes",
+				ValueExpression: "['cluster:my-test-cluster']",
+			},
+			{
+				Key:             "kcp.io/test",
+				ValueExpression: "'test-value'",
+			},
+			{
+				Key:             "other.example.com/test",
+				ValueExpression: "'pass-value'",
+			},
+		},
+	)
 	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig)
 
 	// create a new workspace with our new type
@@ -280,6 +295,14 @@ func TestUserScope(t *testing.T) {
 		userEmail      = "peter@example.com"
 		userGroups     = []string{"developers", "admins"}
 		expectedGroups = []string{"system:authenticated"}
+		expectedExtras = map[string]authenticationv1.ExtraValue{
+			// authentication.kcp.io/scopes from the extra mapping has
+			// been scrubbed and only the expected cluster:<id> is set
+			"authentication.kcp.io/scopes":       {"cluster:" + teamWs.Spec.Cluster},
+			"authentication.kcp.io/cluster-name": {teamWs.Spec.Cluster},
+			// kcp.io/test from the extra mapping should be scrubbed
+			"other.example.com/test": {"pass-value"},
+		}
 	)
 
 	for _, group := range userGroups {
@@ -314,8 +337,7 @@ func TestUserScope(t *testing.T) {
 	user := review.Status.UserInfo
 	require.Equal(t, "oidc:"+userEmail, user.Username)
 	require.Subset(t, user.Groups, expectedGroups)
-	require.Equal(t, user.Extra["authentication.kcp.io/scopes"], authenticationv1.ExtraValue{"cluster:" + teamWs.Spec.Cluster})
-	require.Equal(t, user.Extra["authentication.kcp.io/cluster-name"], authenticationv1.ExtraValue{teamWs.Spec.Cluster})
+	require.Subset(t, user.Extra, expectedExtras)
 }
 
 func TestForbiddenSystemAccess(t *testing.T) {
