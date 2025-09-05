@@ -77,6 +77,12 @@ func BuildVirtualWorkspace(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	cacheKcpDynamicClient kcpdynamic.ClusterInterface,
 	cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory,
+
+	shardVirtualWorkspaceCAFile string,
+	shardVirtualWorkspaceURL string,
+	shardClientCertFile string,
+	shardClientKeyFile string,
+
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -239,8 +245,14 @@ func BuildVirtualWorkspace(
 					endpointSliceGVR,
 					endpointSliceName,
 					cacheKcpDynamicClient,
-					shardExternalURL(),
+					shardVirtualWorkspaceCAFile,
+					//"https://127.0.0.1"+mainConfig.ExternalAddress,
+					shardVirtualWorkspaceURL,
+					shardClientCertFile,
+					shardClientKeyFile,
+					// shardVirtualWorkspaceURL,// "https://127.0.0.1"+mainConfig.ExternalAddress,
 				)
+
 				if err != nil {
 					cancelFn()
 					return nil, err

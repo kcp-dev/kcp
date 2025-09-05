@@ -35,9 +35,9 @@ import (
 // VirtualAPIDefinition provides access to all the information needed to serve a given API resource.
 type VirtualAPIDefinition interface {
 	// GetOpenAPISpec
-	GetAPIGroups() ([]metav1.APIGroup, error)
-	GetAPIResources() ([]metav1.APIResource, error)
-	GetProxy() (http.Handler, error)
+	GetAPIGroups(ctx context.Context) ([]metav1.APIGroup, error)
+	GetAPIResources(ctx context.Context) ([]metav1.APIResource, error)
+	GetProxy(ctx context.Context) (http.Handler, error)
 
 	// TearDown shuts down long-running connections.
 	TearDown()

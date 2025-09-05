@@ -92,6 +92,7 @@ func newVirtualResourceHandler(
 func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	requestInfo, ok := apirequest.RequestInfoFrom(ctx)
+
 	if !ok {
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("no RequestInfo found in the context")),
@@ -124,11 +125,6 @@ func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 
 	locationKey := dynamiccontext.APIDomainKeyFrom(ctx)
-
-	fmt.Printf("### WOHOOO locationKey=%#v\n", locationKey)
-
-	r.delegate.ServeHTTP(w, req)
-	return
 
 	virtApiDefs, hasLocationKey, err := r.virtApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, locationKey)
 	if err != nil {
@@ -167,7 +163,7 @@ func (r *virtualResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Requ
 }
 
 func (r *virtualResourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, virtApiDef virtualapidefinition.VirtualAPIDefinition, supportedTypes []string) http.HandlerFunc {
-	proxy, err := virtApiDef.GetProxy()
+	proxy, err := virtApiDef.GetProxy(req.Context())
 	if err != nil {
 		responsewriters.InternalError(w, req, err)
 		return nil
