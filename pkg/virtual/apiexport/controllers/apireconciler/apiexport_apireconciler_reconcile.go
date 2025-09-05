@@ -274,12 +274,23 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 		if res.Storage.Virtual == nil {
 			continue
 		}
-		virtApiDefinition, err := c.createVirtualAPIDefinition()
+		gr := schema.GroupResource{
+			Group:    res.Group,
+			Resource: res.Name,
+		}
+		endpointGVR := schema.GroupVersionResource{
+			Group:    res.Storage.Virtual.Group,
+			Version:  res.Storage.Virtual.Version,
+			Resource: res.Storage.Virtual.Resource,
+		}
+		virtApiDefinition, err := c.createVirtualAPIDefinition(logicalcluster.From(apiExport), gr, endpointGVR, res.Storage.Virtual.Name)
 		if err != nil {
 			logger.Error(err, "### error creating virtual api definition")
 		}
-
-		newVirtualSet = append(newVirtualSet, virtApiDefinition)
+		newVirtualSet[schema.GroupResource{
+			Group:    res.Group,
+			Resource: res.Name,
+		}] = virtApiDefinition
 	}
 
 	// cleanup old definitions
