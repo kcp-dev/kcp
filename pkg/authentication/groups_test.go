@@ -29,6 +29,7 @@ import (
 
 type requestAuthenticator struct {
 	groups []string
+	extra  map[string][]string
 }
 
 func (a *requestAuthenticator) AuthenticateRequest(*http.Request) (*authenticator.Response, bool, error) {
@@ -36,11 +37,13 @@ func (a *requestAuthenticator) AuthenticateRequest(*http.Request) (*authenticato
 		User: &user.DefaultInfo{
 			Name:   "system:unsecured",
 			Groups: a.groups,
+			Extra:  a.extra,
 		},
 	}, true, nil
 }
 
 func TestGroupFilter(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name                                     string
 		passOnGroups, dropGroups                 sets.Set[string]
@@ -114,6 +117,7 @@ func TestGroupFilter(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			filter := &GroupFilter{
 				Authenticator:       &requestAuthenticator{groups: tc.requestedGroups},
 				PassOnGroups:        tc.passOnGroups,

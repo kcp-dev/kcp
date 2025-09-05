@@ -239,10 +239,14 @@ func (c *state) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool)
 
 	// ensure that per-workspace auth cannot be used to become a system: user/group
 	authenticator = ForbidSystemUsernames(authenticator)
-	filtered := &GroupFilter{
+	groupFiltered := &GroupFilter{
 		Authenticator:     authenticator,
 		DropGroupPrefixes: []string{"system:"},
 	}
+	extraFiltered := &ExtraFilter{
+		Authenticator:        groupFiltered,
+		DropExtraKeyContains: []string{"kcp.io"},
+	}
 
-	return filtered, true
+	return extraFiltered, true
 }

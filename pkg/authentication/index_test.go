@@ -34,6 +34,8 @@ import (
 )
 
 func TestCrossShardWorkspaceType(t *testing.T) {
+	t.Parallel()
+
 	const (
 		shardName   = "shard-1"
 		teamCluster = "logicalteamcluster"
