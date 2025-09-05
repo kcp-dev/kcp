@@ -128,7 +128,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		// TODO(david): Add scale sub-resource ???
 	}
 
-	if !foundGroupVersion {
+	if !foundGroupVersion && r.virtualApiSetRetriever != nil {
 		virtualApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
 		if err != nil {
 			responsewriters.ErrorNegotiated(
@@ -139,7 +139,7 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		}
 		if hasLocationKey {
 			for _, virtApiDefinition := range virtualApiSet {
-				virtResources, err := virtApiDefinition.GetAPIResources()
+				virtResources, err := virtApiDefinition.GetAPIResources(ctx)
 				if err != nil {
 					fmt.Printf("### versionDiscoveryHandler GetAPIResources err=%v\n", err)
 					continue
@@ -259,7 +259,7 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	if !foundGroup {
+	if !foundGroup && r.virtualApiSetRetriever != nil {
 		virtualApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
 		if err != nil {
 			responsewriters.ErrorNegotiated(
@@ -270,7 +270,7 @@ func (r *groupDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 		}
 		if hasLocationKey {
 			for _, virtApiDefinition := range virtualApiSet {
-				virtGroups, err := virtApiDefinition.GetAPIGroups()
+				virtGroups, err := virtApiDefinition.GetAPIGroups(ctx)
 				if err != nil {
 					fmt.Printf("### groupDiscoveryHandler GetAPIGroups err=%v\n", err)
 					continue
@@ -386,22 +386,24 @@ func (r *rootDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		groupList = append(groupList, g)
 	}
 
-	virtApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
-	if err != nil {
-		responsewriters.ErrorNegotiated(
-			apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
-			errorCodecs, schema.GroupVersion{},
-			w, req)
-		return
-	}
-	if hasLocationKey {
-		for _, virtApiDefinition := range virtApiSet {
-			virtGroups, err := virtApiDefinition.GetAPIGroups()
-			if err != nil {
-				fmt.Printf("### rootDiscoveryHandler GetAPIGroups err=%v\n", err)
-				continue
+	if r.virtualApiSetRetriever != nil {
+		virtApiSet, hasLocationKey, err := r.virtualApiSetRetriever.GetVirtualAPIDefinitionSet(ctx, apiDomainKey)
+		if err != nil {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewInternalError(fmt.Errorf("unable to determine API definition set: %w", err)),
+				errorCodecs, schema.GroupVersion{},
+				w, req)
+			return
+		}
+		if hasLocationKey {
+			for _, virtApiDefinition := range virtApiSet {
+				virtGroups, err := virtApiDefinition.GetAPIGroups(ctx)
+				if err != nil {
+					fmt.Printf("### rootDiscoveryHandler GetAPIGroups err=%v\n", err)
+					continue
+				}
+				groupList = append(groupList, virtGroups...) // TODO ^^^
 			}
-			groupList = append(groupList, virtGroups...) // TODO ^^^
 		}
 	}
 

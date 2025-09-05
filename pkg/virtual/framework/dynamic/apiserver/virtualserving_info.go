@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	discoveryclient "k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -26,60 +27,101 @@ import (
 type virtualServingInfo struct {
 	logicalClusterName logicalcluster.Name
 
-	vwURL          string
-	vwClientConfig *rest.Config
-	vwTlsConfig    *tls.Config
-	gr             schema.GroupResource
+	shardVirtualWorkspaceURL string
+	vwClientConfig           *rest.Config
+	vwTlsConfig              *tls.Config
+	gr                       schema.GroupResource
+	cacheDynamicClient       kcpdynamic.ClusterInterface
+	exportCluster            logicalcluster.Name
+	endpointSliceGVR         schema.GroupVersionResource
+	endpointSliceName        string
 }
 
 var _ virtualapidefinition.VirtualAPIDefinition = (*virtualServingInfo)(nil)
 
-func CreateVirtualServingInfoFor(ctx context.Context, genericConfig genericapiserver.CompletedConfig, exportCluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string, cacheDynamicClient kcpdynamic.ClusterInterface, thisShardURL string) (virtualapidefinition.VirtualAPIDefinition, error) {
-	list, err := cacheDynamicClient.Cluster(logicalcluster.NewPath(exportCluster.String())).Resource(schema.GroupVersionResource{
-		Group:    endpointSliceGVR.Group,
-		Version:  endpointSliceGVR.Version,
-		Resource: endpointSliceGVR.Resource,
-	}).List(ctx, metav1.ListOptions{})
+func CreateVirtualServingInfoFor(ctx context.Context, genericConfig genericapiserver.CompletedConfig, exportCluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string, cacheDynamicClient kcpdynamic.ClusterInterface, shardVirtualWorkspaceCAFile string,
+	shardVirtualWorkspaceURL string,
+	shardClientCertFile string,
+	shardClientKeyFile string,
+) (virtualapidefinition.VirtualAPIDefinition, error) {
+	vwClientConfig := rest.CopyConfig(genericConfig.LoopbackClientConfig)
+	vwClientConfig.TLSClientConfig = rest.TLSClientConfig{
+		CAFile:   shardVirtualWorkspaceCAFile,
+		CertFile: shardClientCertFile,
+		KeyFile:  shardClientKeyFile,
+	}
+
+	tlsConfig, err := rest.TLSConfigFor(vwClientConfig)
 	if err != nil {
 		return nil, err
 	}
 
+	return &virtualServingInfo{
+		shardVirtualWorkspaceURL: shardVirtualWorkspaceURL,
+		vwClientConfig:           vwClientConfig,
+		vwTlsConfig:              tlsConfig,
+		gr:                       gr,
+		cacheDynamicClient:       cacheDynamicClient,
+		exportCluster:            exportCluster,
+		endpointSliceGVR:         endpointSliceGVR,
+		endpointSliceName:        endpointSliceName,
+	}, nil
+}
+
+func (def *virtualServingInfo) getVWUrl(ctx context.Context) (string, bool, error) {
+	list, err := def.cacheDynamicClient.Cluster(logicalcluster.NewPath(def.exportCluster.String())).Resource(schema.GroupVersionResource{
+		Group:    def.endpointSliceGVR.Group,
+		Version:  def.endpointSliceGVR.Version,
+		Resource: def.endpointSliceGVR.Resource,
+	}).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("### CreateVirtualServingInfoFor 2 err=%v\n", err)
+		return "", false, err
+	}
+
 	var endpointSlice *unstructured.Unstructured
 	for i := range list.Items {
-		if list.Items[i].GetName() == endpointSliceName {
+		if list.Items[i].GetName() == def.endpointSliceName {
 			endpointSlice = &list.Items[i]
+			fmt.Printf("### CreateVirtualServingInfoFor 3\n")
 			break
 		}
 	}
 
 	if endpointSlice == nil {
-		return nil, apierrors.NewNotFound(schema.GroupResource{
-			Group:    endpointSliceGVR.Group,
-			Resource: endpointSliceGVR.Resource,
-		}, endpointSliceName)
+		fmt.Printf("### CreateVirtualServingInfoFor 4\n")
+		return "", false, apierrors.NewNotFound(schema.GroupResource{
+			Group:    def.endpointSliceGVR.Group,
+			Resource: def.endpointSliceGVR.Resource,
+		}, def.endpointSliceName)
 	}
 
 	endpoints, found, err := unstructured.NestedSlice(endpointSlice.Object, "status", "endpoints")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status.endpoints: %w", err)
+		fmt.Printf("### CreateVirtualServingInfoFor 5 err=%v\n", err)
+		return "", false, fmt.Errorf("failed to get status.endpoints: %w ; %#v", err, endpointSlice)
 	}
 	if !found {
-		return nil, fmt.Errorf("status.endpoints not found")
+		fmt.Printf("### CreateVirtualServingInfoFor 6\n")
+		return "", false, fmt.Errorf("status.endpoints not found")
 	}
 
 	var urls []string
 	for i, ep := range endpoints {
+		fmt.Printf("### CreateVirtualServingInfoFor 7\n")
 		endpointMap, ok := ep.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("endpoint at index %d is not an object", i)
+			return "", false, fmt.Errorf("endpoint at index %d is not an object", i)
 		}
 
 		url, found, err := unstructured.NestedString(endpointMap, "url")
 		if err != nil {
-			return nil, fmt.Errorf("failed to get url from endpoint at index %d: %w", i, err)
+			fmt.Printf("### CreateVirtualServingInfoFor 8 err=%v\n", err)
+			return "", false, fmt.Errorf("failed to get url from endpoint at index %d: %w", i, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("missing url in endpoint at index %d", i)
+			fmt.Printf("### CreateVirtualServingInfoFor 9\n")
+			return "", false, fmt.Errorf("missing url in endpoint at index %d", i)
 		}
 
 		urls = append(urls, url)
@@ -87,34 +129,27 @@ func CreateVirtualServingInfoFor(ctx context.Context, genericConfig genericapise
 
 	var selectedEndpointURL string
 	for _, url := range urls {
-		if strings.HasPrefix(url, thisShardURL) {
+		if strings.HasPrefix(url, def.shardVirtualWorkspaceURL) {
 			if selectedEndpointURL == "" {
 				selectedEndpointURL = url
 			} else {
-				return nil, fmt.Errorf("ambiguous virtual workspace endpoints in endpoint slice: %q and %q for shard %q", selectedEndpointURL, url, thisShardURL)
+				fmt.Printf("### CreateVirtualServingInfoFor 10\n")
+				return "", false, fmt.Errorf("ambiguous virtual workspace endpoints in endpoint slice: %q and %q for shard %q", selectedEndpointURL, url, def.shardVirtualWorkspaceURL)
 			}
 		}
 	}
+	fmt.Printf("### CreateVirtualServingInfoFor 11\n")
 	if selectedEndpointURL == "" {
-		return nil, fmt.Errorf("no suitable virtual workspace endpoint found")
+		fmt.Printf("### CreateVirtualServingInfoFor 12\n")
+		return "", true, fmt.Errorf("no suitable virtual workspace endpoint found")
 	}
 
-	tlsConfig, err := rest.TLSConfigFor(genericConfig.LoopbackClientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &virtualServingInfo{
-		vwURL:          selectedEndpointURL,
-		vwClientConfig: rest.CopyConfig(genericConfig.LoopbackClientConfig),
-		vwTlsConfig:    tlsConfig,
-		gr:             gr,
-	}, nil
+	return selectedEndpointURL, false, nil
 }
 
-func (def *virtualServingInfo) newDiscoveryClient() (*discoveryclient.DiscoveryClient, error) {
+func (def *virtualServingInfo) newDiscoveryClient(vwURL string, cluster genericapirequest.Cluster) (*discoveryclient.DiscoveryClient, error) {
 	config := *def.vwClientConfig
-	config.Host = def.vwURL + fmt.Sprintf("/clusters/%s", def.logicalClusterName.String())
+	config.Host = urlWithCluster(vwURL, cluster)
 
 	dc, err := discoveryclient.NewDiscoveryClientForConfig(&config)
 	if err != nil {
@@ -124,29 +159,45 @@ func (def *virtualServingInfo) newDiscoveryClient() (*discoveryclient.DiscoveryC
 	return dc, nil
 }
 
-func (def *virtualServingInfo) GetAPIGroups() ([]metav1.APIGroup, error) {
-	dc, err := def.newDiscoveryClient()
+func (def *virtualServingInfo) GetAPIGroups(ctx context.Context) ([]metav1.APIGroup, error) {
+	vwURL, shouldRetry, err := def.getVWUrl(ctx)
+	if err != nil {
+		if shouldRetry {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	dc, err := def.newDiscoveryClient(vwURL, *genericapirequest.ClusterFrom(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	apiGroupList, err := dc.ServerGroups()
 	if err != nil {
-		return nil, fmt.Errorf("discovery client failed to list api groups for endpoint=%q: %v", fmt.Sprintf("%s/clusters/%s", def.vwURL, def.logicalClusterName), err)
+		return nil, fmt.Errorf("discovery client failed to list api groups for endpoint=%q: %v", fmt.Sprintf("%s/clusters/%s", vwURL, def.logicalClusterName), err)
 	}
 
 	return apiGroupList.Groups, nil
 }
 
-func (def *virtualServingInfo) GetAPIResources() ([]metav1.APIResource, error) {
-	dc, err := def.newDiscoveryClient()
+func (def *virtualServingInfo) GetAPIResources(ctx context.Context) ([]metav1.APIResource, error) {
+	vwURL, shouldRetry, err := def.getVWUrl(ctx)
+	if err != nil {
+		if shouldRetry {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	dc, err := def.newDiscoveryClient(vwURL, *genericapirequest.ClusterFrom(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	apiGroupList, err := dc.ServerGroups()
 	if err != nil {
-		return nil, fmt.Errorf("discovery client failed to list api groups for endpoint=%q: %v", fmt.Sprintf("%s/clusters/%s", def.vwURL, def.logicalClusterName), err)
+		return nil, fmt.Errorf("discovery client failed to list api groups for endpoint=%q: %v", fmt.Sprintf("%s/clusters/%s", vwURL, def.logicalClusterName), err)
 	}
 
 	var apiGroup *metav1.APIGroup
@@ -157,7 +208,7 @@ func (def *virtualServingInfo) GetAPIResources() ([]metav1.APIResource, error) {
 		}
 	}
 	if apiGroup == nil {
-		return nil, fmt.Errorf("group %s not found in %s discovery", def.gr.Group, def.vwURL)
+		return nil, fmt.Errorf("group %s not found in %s discovery", def.gr.Group, vwURL)
 	}
 
 	// Get all versions in the found group that are serving the bound resource.
@@ -166,7 +217,7 @@ func (def *virtualServingInfo) GetAPIResources() ([]metav1.APIResource, error) {
 	for _, version := range apiGroup.Versions {
 		apiResourceList, err := dc.ServerResourcesForGroupVersion(version.GroupVersion)
 		if err != nil {
-			return nil, fmt.Errorf("discovery client failed to list resources for group/version %s in %s: %v", version.GroupVersion, def.vwURL, err)
+			return nil, fmt.Errorf("discovery client failed to list resources for group/version %s in %s: %v", version.GroupVersion, vwURL, err)
 		}
 
 		for _, res := range apiResourceList.APIResources {
@@ -185,14 +236,22 @@ func (def *virtualServingInfo) GetAPIResources() ([]metav1.APIResource, error) {
 	}
 
 	if apiResources == nil {
-		return nil, fmt.Errorf("resource %s/%s not found in %s", def.gr.Group, def.gr.Resource, def.vwURL)
+		return nil, fmt.Errorf("resource %s/%s not found in %s", def.gr.Group, def.gr.Resource, vwURL)
 	}
 
 	return apiResources, nil
 }
 
-func (def *virtualServingInfo) GetProxy() (http.Handler, error) {
-	scopedURL, err := url.Parse(urlWithCluster(def.vwURL, def.logicalClusterName))
+func (def *virtualServingInfo) GetProxy(ctx context.Context) (http.Handler, error) {
+	vwURL, shouldRetry, err := def.getVWUrl(ctx)
+	if err != nil {
+		if shouldRetry {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	scopedURL, err := url.Parse(urlWithCluster(vwURL, *genericapirequest.ClusterFrom(ctx)))
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +268,9 @@ func (def *virtualServingInfo) TearDown() {
 
 }
 
-func urlWithCluster(vwURL string, cluster logicalcluster.Name) string {
-	return fmt.Sprintf("%s/clusters/%s", vwURL, cluster)
+func urlWithCluster(vwURL string, cluster genericapirequest.Cluster) string {
+	if cluster.Wildcard {
+		return fmt.Sprintf("%s/clusters/*", vwURL)
+	}
+	return fmt.Sprintf("%s/clusters/%s", vwURL, cluster.Name)
 }

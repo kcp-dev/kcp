@@ -57,7 +57,7 @@ const (
 
 type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error)
 
-type CreateVirtualAPIDefinitionFunc func(cluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string) (virtualapidefinition.VirtualAPIDefinition, error)
+type CreateVirtualAPIDefinitionFunc func(exportCluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string) (virtualapidefinition.VirtualAPIDefinition, error)
 
 func (c *APIReconciler) SetCreateAPIDefinition(f CreateAPIDefinitionFunc) {
 	c.createAPIDefinition = f

@@ -47,6 +47,11 @@ type Options struct {
 	RootPathPrefix   string
 	ShardExternalURL string
 
+	ShardVirtualWorkspaceCAFile string
+	ShardVirtualWorkspaceURL    string
+	ShardClientCertFile         string
+	ShardClientKeyFile          string
+
 	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
@@ -103,6 +108,12 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 
 	flags.StringVar(&o.Context, "context", o.Context, "Name of the context in the kubeconfig file to use")
 	flags.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")
+
+	flags.StringVar(&o.ShardVirtualWorkspaceCAFile, "shard-virtual-workspace-ca-file", o.ShardVirtualWorkspaceCAFile, "Path to a CA certificate file that is valid for the virtual workspace server.")
+	flags.StringVar(&o.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
+	flags.StringVar(&o.ShardClientCertFile, "shard-client-cert-file", o.ShardClientCertFile, "Path to a client certificate file the shard uses to communicate with other system components.")
+	flags.StringVar(&o.ShardClientKeyFile, "shard-client-key-file", o.ShardClientKeyFile, "Path to a client certificate key file the shard uses to communicate with other system components.")
+
 }
 
 func (o *Options) Validate() error {
@@ -121,6 +132,19 @@ func (o *Options) Validate() error {
 	}
 	if !strings.HasPrefix(o.RootPathPrefix, "/") {
 		errs = append(errs, fmt.Errorf("RootPathPrefix %q must start with /", o.RootPathPrefix))
+	}
+
+	if o.ShardVirtualWorkspaceCAFile == "" {
+		errs = append(errs, fmt.Errorf("ShardVirtualWorkspaceCAFile is required"))
+	}
+	if o.ShardVirtualWorkspaceURL == "" {
+		errs = append(errs, fmt.Errorf("ShardVirtualWorkspaceURL is required"))
+	}
+	if o.ShardClientCertFile == "" {
+		errs = append(errs, fmt.Errorf("ShardClientCertFile is required"))
+	}
+	if o.ShardClientKeyFile == "" {
+		errs = append(errs, fmt.Errorf("ShardClientKeyFile is required"))
 	}
 
 	return utilerrors.NewAggregate(errs)

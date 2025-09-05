@@ -33,7 +33,12 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
-type APIExport struct{}
+type APIExport struct {
+	ShardVirtualWorkspaceCAFile string
+	ShardVirtualWorkspaceURL    string
+	ShardClientCertFile         string
+	ShardClientKeyFile          string
+}
 
 func New() *APIExport {
 	return &APIExport{}
@@ -78,5 +83,5 @@ func (o *APIExport) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), shardExternalURL, config, kubeClusterClient, deepSARClient, kcpClusterClient, cacheKcpDynamicClient, cachedKcpInformers, wildcardKcpInformers)
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), shardExternalURL, config, kubeClusterClient, deepSARClient, kcpClusterClient, cacheKcpDynamicClient, cachedKcpInformers, wildcardKcpInformers, o.ShardVirtualWorkspaceCAFile, o.ShardVirtualWorkspaceURL, o.ShardClientCertFile, o.ShardClientKeyFile)
 }

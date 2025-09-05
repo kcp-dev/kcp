@@ -48,6 +48,8 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
+import "github.com/davecgh/go-spew/spew"
+
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 	opts := options.NewOptions()
 
@@ -101,6 +103,15 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
+
+	// XXX
+	o.CoreVirtualWorkspaces.APIExport.ShardClientCertFile = o.ShardClientCertFile
+	o.CoreVirtualWorkspaces.APIExport.ShardClientKeyFile = o.ShardClientKeyFile
+	o.CoreVirtualWorkspaces.APIExport.ShardVirtualWorkspaceCAFile = o.ShardVirtualWorkspaceCAFile
+	o.CoreVirtualWorkspaces.APIExport.ShardVirtualWorkspaceURL = o.ShardVirtualWorkspaceURL
+
+	fmt.Printf("### virtual workspaces options %#v\n", o)
+	spew.Dump(o)
 
 	// Don't throttle
 	nonIdentityConfig.QPS = -1
