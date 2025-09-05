@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	genericapiserver "k8s.io/apiserver/pkg/server"
+	// genericapiserver "k8s.io/apiserver/pkg/server"
 	discoveryclient "k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 
@@ -39,17 +39,8 @@ type virtualServingInfo struct {
 
 var _ virtualapidefinition.VirtualAPIDefinition = (*virtualServingInfo)(nil)
 
-func CreateVirtualServingInfoFor(ctx context.Context, genericConfig genericapiserver.CompletedConfig, exportCluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string, cacheDynamicClient kcpdynamic.ClusterInterface, shardVirtualWorkspaceCAFile string,
-	shardVirtualWorkspaceURL string,
-	shardClientCertFile string,
-	shardClientKeyFile string,
-) (virtualapidefinition.VirtualAPIDefinition, error) {
-	vwClientConfig := rest.CopyConfig(genericConfig.LoopbackClientConfig)
-	vwClientConfig.TLSClientConfig = rest.TLSClientConfig{
-		CAFile:   shardVirtualWorkspaceCAFile,
-		CertFile: shardClientCertFile,
-		KeyFile:  shardClientKeyFile,
-	}
+func CreateVirtualServingInfoFor(ctx context.Context, clientConfig *rest.Config, exportCluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string, cacheDynamicClient kcpdynamic.ClusterInterface, shardVirtualWorkspaceURL string) (virtualapidefinition.VirtualAPIDefinition, error) {
+	vwClientConfig := rest.CopyConfig(clientConfig)
 
 	tlsConfig, err := rest.TLSConfigFor(vwClientConfig)
 	if err != nil {

@@ -239,17 +239,14 @@ func BuildVirtualWorkspace(
 				ctx, cancelFn := context.WithCancel(context.Background())
 				def, err := apiserver.CreateVirtualServingInfoFor(
 					ctx,
-					mainConfig,
+					cfg,
 					cluster,
 					gr,
 					endpointSliceGVR,
 					endpointSliceName,
 					cacheKcpDynamicClient,
-					shardVirtualWorkspaceCAFile,
 					//"https://127.0.0.1"+mainConfig.ExternalAddress,
 					shardVirtualWorkspaceURL,
-					shardClientCertFile,
-					shardClientKeyFile,
 					// shardVirtualWorkspaceURL,// "https://127.0.0.1"+mainConfig.ExternalAddress,
 				)
 
