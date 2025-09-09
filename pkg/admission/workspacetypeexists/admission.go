@@ -182,8 +182,12 @@ func (o *workspacetypeExists) Admit(ctx context.Context, a admission.Attributes,
 }
 
 func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, ref tenancyv1alpha1.WorkspaceTypeReference) (*tenancyv1alpha1.WorkspaceType, error) {
+	return resolveWorkspaceTypeReference(workspacePath, ref, o.getType)
+}
+
+func resolveWorkspaceTypeReference(workspacePath logicalcluster.Path, ref tenancyv1alpha1.WorkspaceTypeReference, getter func(logicalcluster.Path, string) (*tenancyv1alpha1.WorkspaceType, error)) (*tenancyv1alpha1.WorkspaceType, error) {
 	if ref.Path != "" {
-		wt, err := o.getType(logicalcluster.NewPath(ref.Path), string(ref.Name))
+		wt, err := getter(logicalcluster.NewPath(ref.Path), string(ref.Name))
 		if err != nil {
 			return nil, apierrors.NewInternalError(err)
 		}
@@ -191,18 +195,19 @@ func (o *workspacetypeExists) resolveTypeRef(workspacePath logicalcluster.Path, 
 		return wt, err
 	}
 
+	currentPath := workspacePath
 	for {
-		wt, err := o.getType(workspacePath, string(ref.Name))
+		wt, err := getter(currentPath, string(ref.Name))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				parent, hasParent := workspacePath.Parent()
-				if !hasParent && workspacePath != core.RootCluster.Path() {
+				parent, hasParent := currentPath.Parent()
+				if !hasParent && currentPath != core.RootCluster.Path() {
 					// fall through with root cluster. We always check types in there as last chance.
 					parent = core.RootCluster.Path()
 				} else if !hasParent {
 					return nil, fmt.Errorf("workspace type %q cannot be resolved", ref.String())
 				}
-				workspacePath = parent
+				currentPath = parent
 				continue
 			}
 			return nil, apierrors.NewInternalError(err)
@@ -439,7 +444,12 @@ func (r *transitiveTypeResolver) resolve(wt *tenancyv1alpha1.WorkspaceType, seen
 
 	ret := make([]*tenancyv1alpha1.WorkspaceType, 0, len(wt.Spec.Extend.With))
 	for _, baseTypeRef := range wt.Spec.Extend.With {
-		qualifiedName := logicalcluster.NewPath(baseTypeRef.Path).Join(tenancyv1alpha1.ObjectName(baseTypeRef.Name)).String()
+		baseType, err := resolveWorkspaceTypeReference(canonicalPathFrom(wt), baseTypeRef, r.getter)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find inherited workspace type %s", baseTypeRef.Name)
+		}
+
+		qualifiedName := canonicalPathFrom(baseType).Join(baseType.Name).String()
 		if pathSeen[qualifiedName] {
 			// seen in this path already. That's a cycle.
 			for i, t := range path {
@@ -455,10 +465,6 @@ func (r *transitiveTypeResolver) resolve(wt *tenancyv1alpha1.WorkspaceType, seen
 			continue // already seen trunk
 		}
 
-		baseType, err := r.getter(logicalcluster.NewPath(baseTypeRef.Path), tenancyv1alpha1.ObjectName(baseTypeRef.Name))
-		if err != nil {
-			return nil, fmt.Errorf("unable to find inherited workspace type %s", qualifiedName)
-		}
 		ret = append(ret, baseType)
 
 		parents, err := r.resolve(baseType, seen, pathSeen, path)
