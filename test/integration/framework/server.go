@@ -133,6 +133,13 @@ func (s *InProcessServer) Start(ctx context.Context, t kcptestingserver.TestingT
 		t.Fatalf("failed to create server config: %v", err)
 	}
 
+	if config.Options.Virtual.Enabled {
+		for _, createVirtualWorkspaceFunc := range s.Config.ExtraVirtualWorkspacesCreateFuncs {
+			config.Options.Virtual.VirtualWorkspaces.ExtraCreateVirtualWorkspaceFuncs =
+				append(config.Options.Virtual.VirtualWorkspaces.ExtraCreateVirtualWorkspaceFuncs, createVirtualWorkspaceFunc)
+		}
+	}
+
 	completedConfig, err := config.Complete()
 	if err != nil {
 		t.Fatalf("failed to complete server config: %v", err)

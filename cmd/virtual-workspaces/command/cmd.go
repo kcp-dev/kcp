@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,8 +48,6 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
-
-import "github.com/davecgh/go-spew/spew"
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 	opts := options.NewOptions()
