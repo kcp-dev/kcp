@@ -77,6 +77,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.AcceptablePermissionClaim":                   schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BindingReference":                            schema_sdk_apis_apis_v1alpha2_BindingReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResource":                            schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceNames":                       schema_sdk_apis_apis_v1alpha2_BoundAPIResourceNames(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema":                      schema_sdk_apis_apis_v1alpha2_BoundAPIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ExportBindingReference":                      schema_sdk_apis_apis_v1alpha2_ExportBindingReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.GroupResource":                               schema_sdk_apis_apis_v1alpha2_GroupResource(ref),
@@ -2453,8 +2454,12 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 					"schema": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Schema references the APIResourceSchema that is bound to this API.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"),
+						},
+					},
+					"names": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceNames"),
 						},
 					},
 					"storageVersions": {
@@ -2478,11 +2483,59 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"group", "resource", "schema"},
+				Required: []string{"group", "resource"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceNames", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_BoundAPIResourceNames(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"singular": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"shortNames": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"listKind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"singular", "shortNames", "kind", "listKind"},
+			},
+		},
 	}
 }
 

@@ -460,3 +460,13 @@ func Convert_v1alpha1_PermissionClaim_To_v1alpha2_ScopedPermissionClaim(in *apis
 
 	return nil
 }
+
+func Convert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(in *apisv1alpha1.BoundAPIResource, out *BoundAPIResource, s kubeconversion.Scope) error {
+	out.Schema = (*BoundAPIResourceSchema)(&in.Schema)
+	return nil
+}
+
+func Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPIResource, out *apisv1alpha1.BoundAPIResource, s kubeconversion.Scope) error {
+	out.Schema = apisv1alpha1.BoundAPIResourceSchema(*in.Schema)
+	return nil
+}

@@ -273,8 +273,11 @@ type BoundAPIResource struct {
 
 	// Schema references the APIResourceSchema that is bound to this API.
 	//
-	// +required
-	Schema BoundAPIResourceSchema `json:"schema"`
+	// +optional
+	Schema *BoundAPIResourceSchema `json:"schema,omitempty"`
+
+	// +optional
+	Names *BoundAPIResourceNames `json:"names,omitempty"`
 
 	// storageVersions lists all versions of a resource that were ever persisted. Tracking these
 	// versions allows a migration path for stored versions in etcd. The field is mutable
@@ -287,6 +290,13 @@ type BoundAPIResource struct {
 	// +optional
 	// +listType=set
 	StorageVersions []string `json:"storageVersions,omitempty"`
+}
+
+type BoundAPIResourceNames struct {
+	Singular   string   `json:"singular"`
+	ShortNames []string `json:"shortNames"`
+	Kind       string   `json:"kind"`
+	ListKind   string   `json:"listKind"`
 }
 
 // BoundAPIResourceSchema is a reference to an APIResourceSchema.

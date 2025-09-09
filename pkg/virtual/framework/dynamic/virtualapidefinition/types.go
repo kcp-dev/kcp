@@ -25,11 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	// "github.com/kcp-dev/logicalcluster/v3"
-
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	// apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	// discoveryapi "k8s.io/apiserver/pkg/endpoints/discovery"
 )
 
 // VirtualAPIDefinition provides access to all the information needed to serve a given API resource.
