@@ -738,6 +738,24 @@ spec:
                       description: group is the group of the bound API. Empty string
                         for the core API group.
                       type: string
+                    names:
+                      properties:
+                        kind:
+                          type: string
+                        listKind:
+                          type: string
+                        shortNames:
+                          items:
+                            type: string
+                          type: array
+                        singular:
+                          type: string
+                      required:
+                      - kind
+                      - listKind
+                      - shortNames
+                      - singular
+                      type: object
                     resource:
                       description: |-
                         resource is the resource of the bound API.
@@ -787,7 +805,6 @@ spec:
                   required:
                   - group
                   - resource
-                  - schema
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
