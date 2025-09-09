@@ -622,6 +622,23 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 			want:    sets.New[string]("root:universal", "root:organization", "root:org:type"),
 			wantErr: true,
 		},
+		{
+			name: "extending types without explicit path",
+			types: map[string]*tenancyv1alpha1.WorkspaceType{
+				"root:org:base":      newType("root:org:base").WorkspaceType,
+				"root:org:universal": newType("root:org:universal").WorkspaceType,
+			},
+			input: func() *tenancyv1alpha1.WorkspaceType {
+				wt := newType("root:org:extended").WorkspaceType
+				wt.Spec.Extend.With = []tenancyv1alpha1.WorkspaceTypeReference{
+					{Name: "base"},
+					{Name: "universal", Path: "root:org"},
+				}
+				return wt
+			}(),
+			want:    sets.New[string]("root:org:base", "root:org:universal", "root:org:extended"),
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
