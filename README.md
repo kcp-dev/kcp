@@ -20,6 +20,22 @@ providers as well as enterprise IT departments offering APIs within their compan
 
 **NB:** In May 2023, the kcp project was restructured and components related to workload scheduling (e.g. the syncer) and the transparent multi cluster (tmc) code were removed due to lack of interest/maintainers. Please refer to the [`main-pre-tmc-removal` branch](https://github.com/kcp-dev/kcp/tree/main-pre-tmc-removal) if you are interested in the related code.
 
+## Getting Started
+
+**For Users:** Follow our [Setup & Quick Start](https://docs.kcp.io/kcp/main/setup/quickstart/) guide to download and run kcp.
+
+**For Developers:** To build and run kcp from source:
+```bash
+# Build and run from source
+go run ./cmd/kcp start
+
+# In another terminal:
+export KUBECONFIG=.kcp/admin.kubeconfig && kubectl get workspaces
+```
+
+**Learn More:**
+- [Concepts & Tenancy Guide](https://docs.kcp.io/kcp/main/concepts/quickstart-tenancy-and-apis/) - Learn about workspaces, workspace types, and APIs
+
 ## Documentation
 
 Please visit [docs.kcp.io/kcp](https://docs.kcp.io/kcp/latest) for our documentation.
