@@ -117,7 +117,7 @@ func (o *Options) NewVirtualWorkspaces(
 		extraVirtualWorkspaces = append(extraVirtualWorkspaces, namedVirtualWorkspaceSet...)
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces, replications)
+	all, err := Merge(apiexports, initializingworkspaces, replications, extraVirtualWorkspaces)
 	if err != nil {
 		return nil, err
 	}

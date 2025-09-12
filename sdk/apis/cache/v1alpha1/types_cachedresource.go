@@ -178,6 +178,8 @@ type CachedResourceStatus struct {
 	// +optional
 	ResourceSchemaSource *CachedResourceSchemaSource `json:"resourceSchemaSource,omitempty"`
 
+	Schema string `json:"schema"`
+
 	// Phase of the workspace (Initializing, Ready, Unavailable).
 	//
 	// +kubebuilder:default=Initializing

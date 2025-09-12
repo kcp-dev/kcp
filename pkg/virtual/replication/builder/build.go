@@ -145,52 +145,51 @@ func BuildVirtualWorkspace(
 				"apiresourceschemas": localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 			}
 
+			// Install indexers.
+
+			// CachedResources indexers.
+			indexers.AddIfNotPresentOrDie(
+				globalKcpInformers.Cache().V1alpha1().CachedObjects().Informer().GetIndexer(),
+				cache.Indexers{
+					cachedresourcesreplication.ByGVRAndLogicalClusterAndNamespace: cachedresourcesreplication.IndexByGVRAndLogicalClusterAndNamespace,
+				},
+			)
+
+			// APIExport indexers.
+			indexers.AddIfNotPresentOrDie(
+				globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
+				cache.Indexers{
+					indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+				},
+			)
+			indexers.AddIfNotPresentOrDie(
+				localKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
+				cache.Indexers{
+					indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+				},
+			)
+			indexers.AddIfNotPresentOrDie(
+				globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
+				cache.Indexers{
+					indexers.APIExportByVirtualResourceIdentitiesAndGRs: indexers.IndexAPIExportByVirtualResourceIdentitiesAndGRs,
+				},
+			)
+			indexers.AddIfNotPresentOrDie(
+				localKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
+				cache.Indexers{
+					indexers.APIExportByVirtualResourceIdentitiesAndGRs: indexers.IndexAPIExportByVirtualResourceIdentitiesAndGRs,
+				},
+			)
+
+			// APIBinding indexers.
+			indexers.AddIfNotPresentOrDie(localKcpInformers.Apis().V1alpha2().APIBindings().Informer().GetIndexer(), cache.Indexers{
+				indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+			})
+
+			// Wait for caches to be synced.
+
 			if err := mainConfig.AddPostStartHook(replication.VirtualWorkspaceName, func(hookContext genericapiserver.PostStartHookContext) error {
 				defer close(readyCh)
-
-				// CachedResources indexers.
-
-				indexers.AddIfNotPresentOrDie(
-					globalKcpInformers.Cache().V1alpha1().CachedObjects().Informer().GetIndexer(),
-					cache.Indexers{
-						cachedresourcesreplication.ByGVRAndLogicalClusterAndNamespace: cachedresourcesreplication.IndexByGVRAndLogicalClusterAndNamespace,
-					},
-				)
-
-				// APIExport indexers.
-
-				indexers.AddIfNotPresentOrDie(
-					globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
-					cache.Indexers{
-						indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-					},
-				)
-				indexers.AddIfNotPresentOrDie(
-					localKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
-					cache.Indexers{
-						indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-					},
-				)
-				indexers.AddIfNotPresentOrDie(
-					globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
-					cache.Indexers{
-						indexers.APIExportByVirtualResourceIdentitiesAndGRs: indexers.IndexAPIExportByVirtualResourceIdentitiesAndGRs,
-					},
-				)
-				indexers.AddIfNotPresentOrDie(
-					localKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
-					cache.Indexers{
-						indexers.APIExportByVirtualResourceIdentitiesAndGRs: indexers.IndexAPIExportByVirtualResourceIdentitiesAndGRs,
-					},
-				)
-
-				// APIBinding indexers.
-
-				indexers.AddIfNotPresentOrDie(localKcpInformers.Apis().V1alpha2().APIBindings().Informer().GetIndexer(), cache.Indexers{
-					indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
-				})
-
-				// Wait for caches to be synced.
 
 				for name, informer := range globalInformers {
 					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
