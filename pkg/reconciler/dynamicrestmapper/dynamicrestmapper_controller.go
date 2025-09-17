@@ -155,6 +155,18 @@ func NewController(
 		},
 	})
 
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueueAPIBindingUpdate(objOrTombstone(oldObj).(*apisv1alpha2.APIBinding))
+		},
+	})
+
+	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueueCRDUpdate(objOrTombstone(oldObj).(*apiextensionsv1.CustomResourceDefinition))
+		},
+	})
+
 	return c, nil
 }
 
@@ -204,13 +216,116 @@ func diffResourceBindingsAnn(oldAnn, newAnn apibinding.ResourceBindingsAnnotatio
 	return
 }
 
+func (c *Controller) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinition) {
+	gr := schema.GroupResource{
+		Group:    crd.Spec.Group,
+		Resource: crd.Spec.Names.Plural,
+	}
+
+	lc, err := c.getLogicalCluster(logicalcluster.From(crd), corev1alpha1.LogicalClusterName)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	boundResourcesAnn, err := apibinding.GetResourceBindings(lc)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	if _, hasCRD := boundResourcesAnn[gr.String()]; !hasCRD {
+		// The CRD is not bound?
+		return
+	}
+
+	it := queueItem{
+		ClusterName:         logicalcluster.From(crd),
+		ClusterResourceName: corev1alpha1.LogicalClusterName,
+		Op:                  opUpdate,
+	}
+	it.ToAdd = apibinding.ResourceBindingsAnnotation{
+		gr.String(): apibinding.ExpirableLock{
+			Lock: apibinding.Lock{
+				CRD: true,
+			},
+		},
+	}
+
+	keyBytes, err := json.Marshal(&it)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	key := string(keyBytes)
+
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).WithName(crd.Name).
+		V(4).Info("queueing ResourceBindingsAnnotation patch because of CRD")
+	c.queue.Add(key)
+}
+
+func (c *Controller) enqueueAPIBindingUpdate(apiBinding *apisv1alpha2.APIBinding) {
+	lc, err := c.getLogicalCluster(logicalcluster.From(apiBinding), corev1alpha1.LogicalClusterName)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	boundResourcesAnn, err := apibinding.GetResourceBindings(lc)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	it := queueItem{
+		ClusterName:         logicalcluster.From(apiBinding),
+		ClusterResourceName: corev1alpha1.LogicalClusterName,
+		Op:                  opUpdate,
+	}
+	it.ToAdd = make(apibinding.ResourceBindingsAnnotation)
+
+	for _, boundRes := range apiBinding.Status.BoundResources {
+		gr := schema.GroupResource{
+			Group:    boundRes.Group,
+			Resource: boundRes.Resource,
+		}
+		if _, hasBinding := boundResourcesAnn[gr.String()]; !hasBinding {
+			continue
+		}
+
+		it.ToAdd[gr.String()] = apibinding.ExpirableLock{
+			Lock: apibinding.Lock{
+				Name: apiBinding.Name,
+			},
+		}
+	}
+
+	keyBytes, err := json.Marshal(&it)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	key := string(keyBytes)
+
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).WithName(apiBinding.Name).
+		V(4).Info("queueing ResourceBindingsAnnotation patch because of APIBinding")
+	c.queue.Add(key)
+}
+
 func (c *Controller) enqueueLogicalCluster(oldObj *corev1alpha1.LogicalCluster, newObj *corev1alpha1.LogicalCluster, op ctrlOp) {
 	oldBoundResourcesAnnStr := getResourceBindingsAnnJSON(oldObj)
 	newBoundResourcesAnnStr := getResourceBindingsAnnJSON(newObj)
 
+	var clusterName logicalcluster.Name
+	if oldObj != nil {
+		clusterName = logicalcluster.From(oldObj)
+	} else {
+		clusterName = logicalcluster.From(newObj)
+	}
+	fmt.Printf("### DYNAMICRESTMAPPER cluster=%s ; oldAnn=%s ; newAnn=%s\n", clusterName, oldBoundResourcesAnnStr, newBoundResourcesAnnStr)
+
 	if op == opUpdate && oldBoundResourcesAnnStr == newBoundResourcesAnnStr {
 		// Nothing to do.
-		return
+		// return
 	}
 
 	oldBoundResourcesAnn, err := apibinding.UnmarshalResourceBindingsAnnotation(oldBoundResourcesAnnStr)

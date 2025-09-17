@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 )
 
 // SheriffApplyConfiguration represents a declarative configuration of the Sheriff type for use

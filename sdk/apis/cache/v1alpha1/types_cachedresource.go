@@ -178,6 +178,7 @@ type CachedResourceStatus struct {
 	// +optional
 	ResourceSchemaSource *CachedResourceSchemaSource `json:"resourceSchemaSource,omitempty"`
 
+	// Schema is the name of the APIResourceSchema the cached resource is using.
 	Schema string `json:"schema"`
 
 	// Phase of the workspace (Initializing, Ready, Unavailable).

@@ -21,12 +21,11 @@ package fake
 import (
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	kcpv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/core/v1alpha1"
 	typedkcpcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	typedcorev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/core/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // logicalClusterClusterClient implements LogicalClusterClusterInterface

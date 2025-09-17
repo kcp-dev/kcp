@@ -50,11 +50,9 @@ func (r *schemaSource) reconcile(ctx context.Context, cachedResource *cachev1alp
 	if !cachedResource.DeletionTimestamp.IsZero() {
 		return reconcileStatusContinue, nil
 	}
-	if conditions.IsTrue(cachedResource, cachev1alpha1.CachedResourceSchemaSourceValid) {
-		return reconcileStatusContinue, nil
-	}
 
 	cachedResource.Status.ResourceSchemaSource = nil
+	cachedResource.Status.Schema = ""
 	conditions.Delete(cachedResource, cachev1alpha1.CachedResourceSourceSchemaReplicated)
 
 	gvr := schema.GroupVersionResource{
@@ -172,6 +170,8 @@ func (r *schemaSource) reconcile(ctx context.Context, cachedResource *cachev1alp
 					Name:        sourceSchema.Name,
 				},
 			}
+			cachedResource.Status.Schema = CachedAPIResourceSchemaName(cachedResource.UID, gvr.GroupResource())
+
 			return reconcileStatusContinue, nil
 		} else if bindingLock.CRD {
 			// The resource is backed by a CRD. Fall through to find that CRD.
@@ -235,5 +235,7 @@ func (r *schemaSource) reconcile(ctx context.Context, cachedResource *cachev1alp
 			Name: crd.Name,
 		},
 	}
+	cachedResource.Status.Schema = CachedAPIResourceSchemaName(cachedResource.UID, gvr.GroupResource())
+
 	return reconcileStatusStopAndRequeue, nil
 }

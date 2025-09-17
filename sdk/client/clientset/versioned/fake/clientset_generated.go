@@ -19,13 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/discovery"
-	fakediscovery "k8s.io/client-go/discovery/fake"
-	"k8s.io/client-go/testing"
-
 	applyconfiguration "github.com/kcp-dev/kcp/sdk/client/applyconfiguration"
 	clientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha1"
@@ -40,6 +33,12 @@ import (
 	faketenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1/fake"
 	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 	faketopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/discovery"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/testing"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

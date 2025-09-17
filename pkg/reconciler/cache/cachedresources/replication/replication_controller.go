@@ -238,7 +238,7 @@ func InstallIndexers(replicated *ReplicatedGVR) {
 	indexers.AddIfNotPresentOrDie(
 		replicated.Global.GetIndexer(),
 		cache.Indexers{
-			ByGVRAndShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace,
+			ByGVRAndShardAndLogicalClusterAndNamespaceAndName: IndexByShardAndLogicalClusterAndNamespace, // <-- IndexByShardAndLogicalClusterAndNamespace is actually IndexByGVRAndShardAndLogicalClusterAndNamespace
 		},
 	)
 }

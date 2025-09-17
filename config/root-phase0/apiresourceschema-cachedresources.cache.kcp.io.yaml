@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250830-080348246.cachedresources.cache.kcp.io
+  name: v250915-aa6fcd17d.cachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -249,6 +249,12 @@ spec:
                   - name
                   type: object
               type: object
+            schema:
+              description: Schema is the name of the APIResourceSchema the cached
+                resource is using.
+              type: string
+          required:
+          - schema
           type: object
       required:
       - spec

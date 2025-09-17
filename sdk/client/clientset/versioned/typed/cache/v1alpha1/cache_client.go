@@ -21,10 +21,9 @@ package v1alpha1
 import (
 	http "net/http"
 
-	rest "k8s.io/client-go/rest"
-
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
+	rest "k8s.io/client-go/rest"
 )
 
 type CacheV1alpha1Interface interface {

@@ -3651,6 +3651,14 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCal
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1.CachedResourceSchemaSource"),
 						},
 					},
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Schema is the name of the APIResourceSchema the cached resource is using.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Phase of the workspace (Initializing, Ready, Unavailable).",
@@ -3673,6 +3681,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCal
 						},
 					},
 				},
+				Required: []string{"schema"},
 			},
 		},
 		Dependencies: []string{

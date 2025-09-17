@@ -21,14 +21,13 @@ package v1alpha2
 import (
 	context "context"
 
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	applyconfigurationapisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha2"
+	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	applyconfigurationapisv1alpha2 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/apis/v1alpha2"
-	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
 )
 
 // APIBindingsGetter has a method to return a APIBindingInterface.

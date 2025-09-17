@@ -29,6 +29,7 @@ type CachedResourceStatusApplyConfiguration struct {
 	IdentityHash         *string                                       `json:"identityHash,omitempty"`
 	ResourceCounts       *ResourceCountApplyConfiguration              `json:"resourceCounts,omitempty"`
 	ResourceSchemaSource *CachedResourceSchemaSourceApplyConfiguration `json:"resourceSchemaSource,omitempty"`
+	Schema               *string                                       `json:"schema,omitempty"`
 	Phase                *cachev1alpha1.CachedResourcePhaseType        `json:"phase,omitempty"`
 	Conditions           *conditionsv1alpha1.Conditions                `json:"conditions,omitempty"`
 }
@@ -60,6 +61,14 @@ func (b *CachedResourceStatusApplyConfiguration) WithResourceCounts(value *Resou
 // If called multiple times, the ResourceSchemaSource field is set to the value of the last call.
 func (b *CachedResourceStatusApplyConfiguration) WithResourceSchemaSource(value *CachedResourceSchemaSourceApplyConfiguration) *CachedResourceStatusApplyConfiguration {
 	b.ResourceSchemaSource = value
+	return b
+}
+
+// WithSchema sets the Schema field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Schema field is set to the value of the last call.
+func (b *CachedResourceStatusApplyConfiguration) WithSchema(value string) *CachedResourceStatusApplyConfiguration {
+	b.Schema = &value
 	return b
 }
 

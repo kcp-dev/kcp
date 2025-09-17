@@ -19,6 +19,7 @@ package cachedresources
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -61,6 +62,9 @@ func ownAPIResourceSchema(cr *cachev1alpha1.CachedResource, sch *apisv1alpha1.AP
 			Name:       cr.Name,
 			UID:        cr.UID,
 		},
+	}
+	if !slices.Contains(sch.Finalizers, cachev1alpha1.CachedResourceFinalizer) {
+		sch.Finalizers = append(sch.Finalizers, cachev1alpha1.CachedResourceFinalizer)
 	}
 }
 
