@@ -5,7 +5,74 @@ description: >
 
 # Workspace Mounts
 
-Workspace mounts allow you to mount external Kubernetes-like API endpoints onto a workspace. When a workspace uses a mount, it does not have a LogicalCluster backing it. Instead, requests to the workspace are proxied to the external API endpoint specified by the mount object.
+Workspace mounts allow you to mount external Kubernetes-like API endpoints onto a workspace. When a workspace uses a mount, it does not have a LogicalCluster backing it. Instead, requests to the workspace are proxied to the external API endpoint specified by the mount object. 
+
+In a way it allows to have unified view of multiple clusters and workspaces under same workspace tree/hierarchy.
+
+## Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "KCP Instance"
+        subgraph "Workspace Tree"
+            root[root]
+            org1[org1]
+            projectA[project-a<br/>LogicalCluster]
+            projectB[project-b<br/>MOUNTED]
+            
+            root --> org1
+            org1 --> projectA
+            org1 --> projectB
+        end
+        
+        subgraph "Mount Objects"
+            extK8s[external-k8s<br/>status.URL: https://ext-k8s.com<br/>status.phase: Ready]
+        end
+        
+        subgraph "Front Proxy"
+            proxy[HTTP Handler<br/>1. Resolve workspace<br/>2. Lookup mount object<br/>3. Proxy to mount URL]
+        end
+        
+        projectB -.->|mount.ref| extK8s
+    end
+    
+    subgraph "External Systems"
+        realK8s[External K8s Cluster<br/>https://ext-k8s.com<br/>Full K8s API]
+    end
+    
+    client[Client Request<br/>/clusters/org1:project-b/api/v1/pods]
+    
+    client --> proxy
+    proxy --> extK8s
+    extK8s --> realK8s
+    
+    classDef mounted fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef regular fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef mount fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef external fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    
+    class projectB mounted
+    class projectA regular
+    class extK8s mount
+    class realK8s external
+```
+
+### Workspace Tree Structure
+
+```
+root/
+└── org1/
+    ├── project-a/                    # Traditional LogicalCluster workspace
+    │   ├── LogicalCluster object     # ✓ Has backing logical cluster
+    │   ├── /api/v1/configmaps       # ✓ Served by kcp directly  
+    │   └── /api/v1/secrets          # ✓ Standard Kubernetes APIs
+    │
+    └── project-b/                    # Mounted workspace
+        ├── spec.mount.ref            # ✗ No LogicalCluster object
+        │   └── "external-k8s"        # → References mount object
+        ├── /api/v1/pods             # → Proxied to https://ext-k8s.com/api/v1/pods . kcp does not have pods, but this is a mount.
+        └── /apis/apps/v1/deployments # → Proxied to https://ext-k8s.com/api/v1/deployments
+```
 
 ## How it works
 
