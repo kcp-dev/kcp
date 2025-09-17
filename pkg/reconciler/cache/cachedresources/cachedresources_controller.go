@@ -236,18 +236,6 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](obj), "") },
 	})
 
-	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of LogicalCluster update")
-		},
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of LogicalCluster update")
-		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of LogicalCluster update")
-		},
-	})
-
 	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of CRD update")
@@ -260,15 +248,15 @@ func NewController(
 		},
 	})
 
-	_, _ = apiResourceSchemaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of APIResourceSchema update")
+			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of APIBinding update")
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of APIResourceSchema update")
+			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of APIBinding update")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of APIResourceSchema update")
+			c.enqueueCachedResourcesInCluster(obj.(metav1.Object), " because of APIBinding update")
 		},
 	})
 

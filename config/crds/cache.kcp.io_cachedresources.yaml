@@ -252,6 +252,12 @@ spec:
                     - name
                     type: object
                 type: object
+              schema:
+                description: Schema is the name of the APIResourceSchema the cached
+                  resource is using.
+                type: string
+            required:
+            - schema
             type: object
         required:
         - spec
