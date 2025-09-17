@@ -7,13 +7,7 @@ description: >
 
 kcp provides kubectl plugins that simplify the operations with the kcp server.
 
-You can install the plugins from the current repo:
-
-```sh
-$ make install
-```
-
-or use [krew](https://krew.sigs.k8s.io/):
+You can install them using [krew](https://krew.sigs.k8s.io/):
 
 ```sh
 $ kubectl krew index add kcp-dev https://github.com/kcp-dev/krew-index.git
