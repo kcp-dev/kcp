@@ -3,3 +3,4 @@ nav:
     - workspace-types.md
     - virtual-workspaces.md
     - workspace-initialization.md
+    - mounts.md
