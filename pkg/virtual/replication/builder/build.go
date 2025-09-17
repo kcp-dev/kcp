@@ -39,8 +39,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	cachedresources "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
 	cachedresourcesreplication "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	builtinschemas "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
@@ -398,7 +398,22 @@ func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context
 	}
 
 	wrappedGVR := schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource)
-	wrappedSch, err := a.getAPIResourceSchema(logicalcluster.From(cachedResource), cachedresources.CachedAPIResourceSchemaName(cachedResource.UID, wrappedGVR.GroupResource()))
+	var wrappedSch *apisv1alpha1.APIResourceSchema
+
+	if builtinschemas.IsBuiltInAPI(apisv1alpha2.GroupResource{
+		Group: wrappedGVR.Group, Resource: wrappedGVR.Resource},
+	) {
+		wrappedSch, err = builtinschemas.GetBuiltInAPISchema(apisv1alpha2.GroupResource{
+			Group:    wrappedGVR.Group,
+			Resource: wrappedGVR.Resource,
+		})
+	} else {
+		if cachedResource.Spec.Schema == "" {
+			err = fmt.Errorf("missing schema")
+		} else {
+			wrappedSch, err = a.getAPIResourceSchema(logicalcluster.From(cachedResource), cachedResource.Spec.Schema)
+		}
+	}
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get schema for wrapped object in CachedResource %s|%s: %v", parsedKey.CachedResourceCluster, parsedKey.CachedResourceName, err)
 	}

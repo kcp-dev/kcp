@@ -545,7 +545,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		newBoundResource := apisv1alpha2.BoundAPIResource{
 			Group:    sch.Spec.Group,
 			Resource: sch.Spec.Names.Plural,
-			Schema: &apisv1alpha2.BoundAPIResourceSchema{
+			Schema: apisv1alpha2.BoundAPIResourceSchema{
 				Name:         sch.Name,
 				UID:          string(sch.UID),
 				IdentityHash: apiExport.Status.IdentityHash,
