@@ -21,12 +21,14 @@ package v1alpha2
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	kcpapisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	kcpv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
-	"github.com/kcp-dev/logicalcluster/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	kcpapisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	kcpv1alpha2 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 )
 
 // APIBindingsClusterGetter has a method to return a APIBindingClusterInterface.

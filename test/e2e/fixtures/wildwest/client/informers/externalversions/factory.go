@@ -23,16 +23,18 @@ import (
 	sync "sync"
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpversioned "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
-	kcpcluster "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
-	kcpinternalinterfaces "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/internalinterfaces"
-	kcpwildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/wildwest"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
+
+	kcpversioned "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
+	kcpcluster "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
+	kcpinternalinterfaces "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/internalinterfaces"
+	kcpwildwest "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/informers/externalversions/wildwest"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

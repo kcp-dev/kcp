@@ -19,10 +19,11 @@ limitations under the License.
 package fake
 
 import (
+	gentype "k8s.io/client-go/gentype"
+
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/cache/v1alpha1"
 	typedcachev1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
-	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCachedResourceEndpointSlices implements CachedResourceEndpointSliceInterface

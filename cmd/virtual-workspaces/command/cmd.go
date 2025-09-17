@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -49,11 +50,8 @@ import (
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+	conflictvw "github.com/kcp-dev/kcp/test/integration/virtualresources/conflict"
 )
-
-//
-import conflictvw "github.com/kcp-dev/kcp/test/integration/virtualresources/conflict"
-import "path"
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
 	opts := options.NewOptions()

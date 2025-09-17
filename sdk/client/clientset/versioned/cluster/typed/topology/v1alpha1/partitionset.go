@@ -21,12 +21,14 @@ package v1alpha1
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
-	kcpv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	kcptopologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
+	kcpv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 )
 
 // PartitionSetsClusterGetter has a method to return a PartitionSetClusterInterface.

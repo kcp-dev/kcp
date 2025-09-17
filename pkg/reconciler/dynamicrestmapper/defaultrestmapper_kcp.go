@@ -23,13 +23,12 @@ package dynamicrestmapper
 // internal mappings, to support update and deletion operations.
 // These are implemented separately, in defaultrestmapper_mutable.go.
 
-import "k8s.io/apimachinery/pkg/api/meta" // Import the source package of the original file.
-
 import (
 	"fmt"
 	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/meta" // Import the source package of the original file.
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )

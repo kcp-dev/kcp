@@ -21,9 +21,10 @@ package v1alpha2
 import (
 	http "net/http"
 
+	rest "k8s.io/client-go/rest"
+
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	scheme "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/scheme"
-	rest "k8s.io/client-go/rest"
 )
 
 type ApisV1alpha2Interface interface {

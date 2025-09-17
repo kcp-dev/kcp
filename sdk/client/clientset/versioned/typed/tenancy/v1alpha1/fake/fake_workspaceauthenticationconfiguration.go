@@ -19,10 +19,11 @@ limitations under the License.
 package fake
 
 import (
+	gentype "k8s.io/client-go/gentype"
+
 	v1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	typedtenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
-	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeWorkspaceAuthenticationConfigurations implements WorkspaceAuthenticationConfigurationInterface

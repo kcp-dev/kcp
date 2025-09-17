@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 const schemasMapAnnotation = "conflict.virtualresources.integration.tests.x-kcp.io/synthethic-schemas"
