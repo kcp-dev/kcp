@@ -54,6 +54,20 @@ type CachedResourceSpec struct {
 	// GroupVersionResource is the fully qualified name of the resource to be published.
 	GroupVersionResource `json:",inline"`
 
+	// Schema is the name of the equivalent APIResourceSchema that the resource is defined with.
+	// May be empty in case of built-in types.
+	//
+	// Schema is equivalent if:
+	//
+	// - the cached resource originates from an APIBinding, and the APIResourceSchema spec
+	//   of that bound resource matches the one defined in `Schema`.
+	//
+	// - the cached resource originates from a CRD, and the CRD spec matches the one defined
+	//   in `Schema`.
+	//
+	// +optional
+	Schema string `json:"schema"`
+
 	// identity points to a secret that contains the API identity in the 'key' file.
 	// The API identity allows access to CachedResource's resources via the APIExport.
 	//
@@ -174,13 +188,6 @@ type CachedResourceStatus struct {
 	// +optional
 	ResourceCounts *ResourceCount `json:"resourceCounts,omitempty"`
 
-	// ResourceSchemaSource is a reference to the schema object of the cached resource.
-	// +optional
-	ResourceSchemaSource *CachedResourceSchemaSource `json:"resourceSchemaSource,omitempty"`
-
-	// Schema is the name of the APIResourceSchema the cached resource is using.
-	Schema string `json:"schema"`
-
 	// Phase of the workspace (Initializing, Ready, Unavailable).
 	//
 	// +kubebuilder:default=Initializing
@@ -189,44 +196,6 @@ type CachedResourceStatus struct {
 	// Current processing state of the Workspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
-}
-
-// CachedResourceSchemaSource describes the source of resource schema.
-// Exactly one field is set.
-type CachedResourceSchemaSource struct {
-	// APIResourceSchema defines an APIResourceSchema as the source of the schema.
-	// +optional
-	APIResourceSchema *APIResourceSchemaSource `json:"apiResourceSchema,omitempty"`
-
-	// CRD defines a CRD as the source of the schema.
-	// +optional
-	CRD *CRDSchemaSource `json:"crd,omitempty"`
-}
-
-type APIResourceSchemaSource struct {
-	// ClusterName is the name of the cluster where the APIResourceSchema is defined.
-	//
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	ClusterName string `json:"clusterName"`
-
-	// Name is the APIResourceSchema name.
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-}
-
-type CRDSchemaSource struct {
-	// Name is the CRD name.
-	//
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-
-	// ResourceVersion is the resource version of the source CRD object.
-	//
-	// +optional
-	ResourceVersion string `json:"resourceVersion"`
 }
 
 // ResourceCount is the number of resources that match the label selector

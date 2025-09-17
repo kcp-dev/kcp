@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250915-aa6fcd17d.cachedresources.cache.kcp.io
+  name: v250917-5de3f8664.cachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -134,6 +134,19 @@ spec:
                 not provided by an api export.
               pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
               type: string
+            schema:
+              description: |-
+                Schema is the name of the equivalent APIResourceSchema that the resource is defined with.
+                May be empty in case of built-in types.
+
+                Schema is equivalent if:
+
+                - the cached resource originates from an APIBinding, and the APIResourceSchema spec
+                  of that bound resource matches the one defined in `Schema`.
+
+                - the cached resource originates from a CRD, and the CRD spec matches the one defined
+                  in `Schema`.
+              type: string
             version:
               description: version is the version of the resource.
               type: string
@@ -213,48 +226,6 @@ spec:
               - cache
               - local
               type: object
-            resourceSchemaSource:
-              description: ResourceSchemaSource is a reference to the schema object
-                of the cached resource.
-              properties:
-                apiResourceSchema:
-                  description: APIResourceSchema defines an APIResourceSchema as the
-                    source of the schema.
-                  properties:
-                    clusterName:
-                      description: ClusterName is the name of the cluster where the
-                        APIResourceSchema is defined.
-                      minLength: 1
-                      type: string
-                    name:
-                      description: Name is the APIResourceSchema name.
-                      minLength: 1
-                      type: string
-                  required:
-                  - clusterName
-                  - name
-                  type: object
-                crd:
-                  description: CRD defines a CRD as the source of the schema.
-                  properties:
-                    name:
-                      description: Name is the CRD name.
-                      minLength: 1
-                      type: string
-                    resourceVersion:
-                      description: ResourceVersion is the resource version of the
-                        source CRD object.
-                      type: string
-                  required:
-                  - name
-                  type: object
-              type: object
-            schema:
-              description: Schema is the name of the APIResourceSchema the cached
-                resource is using.
-              type: string
-          required:
-          - schema
           type: object
       required:
       - spec

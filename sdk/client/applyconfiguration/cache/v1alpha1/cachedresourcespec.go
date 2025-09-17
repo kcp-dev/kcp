@@ -26,6 +26,7 @@ import (
 // with apply.
 type CachedResourceSpecApplyConfiguration struct {
 	GroupVersionResourceApplyConfiguration `json:",inline"`
+	Schema                                 *string                             `json:"schema,omitempty"`
 	Identity                               *IdentityApplyConfiguration         `json:"identity,omitempty"`
 	LabelSelector                          *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
 }
@@ -57,6 +58,14 @@ func (b *CachedResourceSpecApplyConfiguration) WithVersion(value string) *Cached
 // If called multiple times, the Resource field is set to the value of the last call.
 func (b *CachedResourceSpecApplyConfiguration) WithResource(value string) *CachedResourceSpecApplyConfiguration {
 	b.GroupVersionResourceApplyConfiguration.Resource = &value
+	return b
+}
+
+// WithSchema sets the Schema field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Schema field is set to the value of the last call.
+func (b *CachedResourceSpecApplyConfiguration) WithSchema(value string) *CachedResourceSpecApplyConfiguration {
+	b.Schema = &value
 	return b
 }
 
