@@ -130,8 +130,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.BindingReferenceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResource"):
 		return &apisv1alpha2.BoundAPIResourceApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResourceNames"):
-		return &apisv1alpha2.BoundAPIResourceNamesApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResourceSchema"):
 		return &apisv1alpha2.BoundAPIResourceSchemaApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ExportBindingReference"):

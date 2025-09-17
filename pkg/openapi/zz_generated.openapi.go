@@ -77,7 +77,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.AcceptablePermissionClaim":                   schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BindingReference":                            schema_sdk_apis_apis_v1alpha2_BindingReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResource":                            schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref),
-		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceNames":                       schema_sdk_apis_apis_v1alpha2_BoundAPIResourceNames(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema":                      schema_sdk_apis_apis_v1alpha2_BoundAPIResourceSchema(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ExportBindingReference":                      schema_sdk_apis_apis_v1alpha2_ExportBindingReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.GroupResource":                               schema_sdk_apis_apis_v1alpha2_GroupResource(ref),
@@ -2451,12 +2450,8 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 					"schema": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Schema references the APIResourceSchema that is bound to this API.",
+							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"),
-						},
-					},
-					"names": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceNames"),
 						},
 					},
 					"storageVersions": {
@@ -2480,59 +2475,11 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"group", "resource"},
+				Required: []string{"group", "resource", "schema"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceNames", "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"},
-	}
-}
-
-func schema_sdk_apis_apis_v1alpha2_BoundAPIResourceNames(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"singular": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"shortNames": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"listKind": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"singular", "shortNames", "kind", "listKind"},
-			},
-		},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"},
 	}
 }
 
@@ -3465,13 +3412,6 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref common.Reference
 				Description: "CachedResourceReference is a reference to a CachedResource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"path": {
-						SchemaProps: spec.SchemaProps{
-							Description: "path is a logical cluster path where the CachedResource is defined. If the path is unset, the logical cluster of the object holding the reference is used.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Description: "name is the name of the CachedResource the reference points to.",
@@ -3518,8 +3458,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallb
 					},
 					"schema": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the name of the equivalent APIResourceSchema that the resource is defined with. May be empty in case of built-in types.\n\nSchema is equivalent if:\n\n- the cached resource originates from an APIBinding, and the APIResourceSchema spec\n  of that bound resource matches the one defined in `Schema`.\n\n- the cached resource originates from a CRD, and the CRD spec matches the one defined\n  in `Schema`.",
-							Default:     "",
+							Description: "Schema is the name of the equivalent APIResourceSchema that the resource is defined with. May be empty in case of built-in types. Schema is equivalent if: - the cached resource originates from an APIBinding, and the APIResourceSchema spec\n  of that bound resource matches the one defined in `Schema`.\n- the cached resource originates from a CRD, and the CRD spec matches the one defined\n  in `Schema`.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -59,12 +59,6 @@ spec:
                     description: name is the name of the CachedResource the reference
                       points to.
                     type: string
-                  path:
-                    description: |-
-                      path is a logical cluster path where the CachedResource is defined.
-                      If the path is unset, the logical cluster of the object holding the reference is used.
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
                 required:
                 - name
                 type: object
