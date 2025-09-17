@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250917-5de3f8664.cachedresources.cache.kcp.io
+  name: v250917-69aec5a47.cachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -138,12 +138,9 @@ spec:
               description: |-
                 Schema is the name of the equivalent APIResourceSchema that the resource is defined with.
                 May be empty in case of built-in types.
-
                 Schema is equivalent if:
-
                 - the cached resource originates from an APIBinding, and the APIResourceSchema spec
                   of that bound resource matches the one defined in `Schema`.
-
                 - the cached resource originates from a CRD, and the CRD spec matches the one defined
                   in `Schema`.
               type: string
