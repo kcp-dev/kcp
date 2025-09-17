@@ -109,8 +109,8 @@ func NewController(
 		getMyShard: func() (*corev1alpha1.Shard, error) {
 			return globalShardClusterInformer.Cluster(core.RootCluster).Lister().Get(shardName)
 		},
-		getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
-			return indexers.ByPathAndName[*cachev1alpha1.CachedResource](cachev1alpha1.Resource("cachedresources"), globalCachedResourcelusterInformer.Informer().GetIndexer(), path, name)
+		getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
+			return indexers.ByPathAndName[*cachev1alpha1.CachedResource](cachev1alpha1.Resource("cachedresources"), globalCachedResourcelusterInformer.Informer().GetIndexer(), cluster.Path(), name)
 		},
 		getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
 			obj, err := indexers.ByPathAndNameWithFallback[*cachev1alpha1.CachedResourceEndpointSlice](cachev1alpha1.Resource("cachedresourceendpointslices"), localCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), globalCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), cluster.Path(), name)
@@ -241,7 +241,7 @@ type controller struct {
 	listAPIExportsByCachedResourceIdentityAndGR func(identityHash string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error)
 	listAPIBindingsByAPIExports                 func(exports []*apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	getMyShard                                  func() (*corev1alpha1.Shard, error)
-	getCachedResource                           func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
+	getCachedResource                           func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error)
 	getCachedResourceEndpointSlice              func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
 	patchAPIExportEndpointSlice                 func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.CachedResourceEndpointSliceApplyConfiguration) error
 	patchCachedResourceEndpointSlice            func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.CachedResourceEndpointSliceApplyConfiguration) error
