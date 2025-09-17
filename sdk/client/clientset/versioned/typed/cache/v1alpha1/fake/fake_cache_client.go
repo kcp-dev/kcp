@@ -19,9 +19,10 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
+
+	v1alpha1 "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 )
 
 type FakeCacheV1alpha1 struct {

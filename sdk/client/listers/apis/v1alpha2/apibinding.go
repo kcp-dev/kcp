@@ -19,11 +19,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
-	kcpv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+
+	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	kcpv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 // APIBindingClusterLister helps list APIBindings across all workspaces,

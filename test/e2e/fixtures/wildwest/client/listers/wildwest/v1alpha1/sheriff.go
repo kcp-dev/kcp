@@ -19,11 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
-	kcpv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v3"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+
+	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	kcpv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 )
 
 // SheriffClusterLister helps list Sherifves across all workspaces,
