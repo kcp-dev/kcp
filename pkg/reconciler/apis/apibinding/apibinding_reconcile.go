@@ -413,7 +413,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
 				continue
 			}
-		} else {
+		} else if resourceSchema.Storage.CRD != nil {
 			// Need to create bound CRD
 			crd, err := generateCRD(sch)
 			if err != nil {
