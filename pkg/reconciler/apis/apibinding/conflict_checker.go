@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -51,9 +52,11 @@ type conflictChecker struct {
 func newConflictChecker(clusterName logicalcluster.Name,
 	listAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error),
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error),
+	getAPIExportByPath func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error),
 	getCRD func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error),
 	listCRDs func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error),
 ) (*conflictChecker, error) {
+	fmt.Printf("XXX 1\n")
 	ncc := &conflictChecker{
 		listAPIBindings:      listAPIBindings,
 		getAPIResourceSchema: getAPIResourceSchema,
@@ -69,10 +72,48 @@ func newConflictChecker(clusterName logicalcluster.Name,
 		return nil, err
 	}
 	for _, b := range bindings {
+		fmt.Printf("XXX 2\n")
+		apiExport, err := getAPIExportByPath(logicalcluster.NewPath(b.Spec.Reference.Export.Path), b.Spec.Reference.Export.Name)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("XXX 2 1\n")
+		storage := make(map[schema.GroupResource]apisv1alpha2.ResourceSchemaStorage)
+		for _, rs := range apiExport.Spec.Resources {
+			fmt.Printf("XXX 2 2\n")
+			storage[schema.GroupResource{
+				Group:    rs.Group,
+				Resource: rs.Name,
+			}] = rs.Storage
+		}
+
 		for _, br := range b.Status.BoundResources {
-			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, br.Schema.UID)
-			if err != nil {
-				return nil, err
+			fmt.Printf("XXX 3 storage=%#v\n", storage)
+			var crd *apiextensionsv1.CustomResourceDefinition
+			if st, hasResource := storage[schema.GroupResource{Group: br.Group, Resource: br.Resource}]; hasResource {
+				fmt.Printf("XXX 4\n")
+				if st.Virtual != nil {
+					fmt.Printf("XXX 5\n")
+					sch, err := getAPIResourceSchema(logicalcluster.Name(b.Status.APIExportClusterName), br.Schema.Name)
+					if err != nil {
+						return nil, err
+					}
+					// Create a synthethic CRD -- we need the resource names only.
+					crd = &apiextensionsv1.CustomResourceDefinition{
+						Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+							Group: sch.Spec.Group,
+							Names: sch.Spec.Names,
+						},
+					}
+				}
+			}
+			if crd == nil {
+				// Either the resource is CRD-based, or the export is no longer exporting
+				// this resource, in which case we don't know.
+				crd, err = ncc.getCRD(SystemBoundCRDsClusterName, br.Schema.UID)
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			ncc.crds = append(ncc.crds, crd)
