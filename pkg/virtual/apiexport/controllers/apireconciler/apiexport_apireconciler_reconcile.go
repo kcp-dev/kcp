@@ -36,7 +36,6 @@ import (
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
@@ -78,10 +77,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	for gr := range apiResourceSchemas {
 		identities[gr] = apiExport.Status.IdentityHash
 	}
-	resSchemaStorage, err := c.getResourceStorageFromAPIExport(ctx, apiExport)
-	if err != nil {
-		return err
-	}
+	resourceStorages := getResourceStoragesFromAPIExport(apiExport)
 
 	clusterName := logicalcluster.From(apiExport)
 
@@ -116,6 +112,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
 			claims[gr] = pc
+			resourceStorages[gr] = apisv1alpha2.ResourceSchemaStorage{
+				CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+			}
 			continue
 		}
 		if pc.Group == apis.GroupName {
@@ -131,6 +130,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 
 			apiResourceSchemas[gr] = apisSchema
 			claims[gr] = pc
+			resourceStorages[gr] = apisv1alpha2.ResourceSchemaStorage{
+				CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+			}
 			continue
 		}
 		if pc.IdentityHash == "" {
@@ -168,6 +170,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			if err != nil {
 				return err
 			}
+			candidateResourceStorages := getResourceStoragesFromAPIExport(export)
 			logger.V(4).Info("got APIResourceSchemas for candidate APIExport", "count", len(candidates))
 			for _, apiResourceSchema := range candidates {
 				logger := logger.WithValues(logging.FromPrefix("candidateAPIResourceSchema", apiResourceSchema)...)
@@ -181,6 +184,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = pc.IdentityHash
 				claims[gr] = pc
+				resourceStorages[gr] = candidateResourceStorages[gr]
 			}
 		}
 	}
@@ -231,7 +235,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs)
-			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs, resSchemaStorage[gvr.GroupResource()])
+			apiDefinition, err := c.createAPIDefinition(resourceStorages[gvr.GroupResource()], apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
 				logger.Error(err, "error creating api definition", "gvr", gvr)
@@ -266,32 +270,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 		}
 	}
 
-	// Serve virtual resources.
-
-	newVirtualSet := virtualapidefinition.VirtualAPIDefinitionSet{}
-
-	for _, res := range apiExport.Spec.Resources {
-		if res.Storage.Virtual == nil {
-			continue
-		}
-		gr := schema.GroupResource{
-			Group:    res.Group,
-			Resource: res.Name,
-		}
-		endpointGVR := schema.GroupVersionResource{
-			Group:    res.Storage.Virtual.Group,
-			Version:  res.Storage.Virtual.Version,
-			Resource: res.Storage.Virtual.Resource,
-		}
-		virtApiDefinition, err := c.createVirtualAPIDefinition(logicalcluster.From(apiExport), gr, endpointGVR, res.Storage.Virtual.Name)
-		if err != nil {
-			logger.Error(err, "### error creating virtual api definition")
-			return err
-		}
-		newVirtualSet[gr] = virtApiDefinition
-		fmt.Printf("### APIExport VW: adding virt %v\n", gr)
-	}
-
 	// cleanup old definitions
 	removedGVRs := []string{}
 	for gvr, oldDef := range oldSet {
@@ -306,7 +284,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.apiSets[apiDomainKey] = newSet
-	c.virtualApiSets[apiDomainKey] = newVirtualSet
 
 	return nil
 }
@@ -331,9 +308,6 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, resourceSchema := range apiExport.Spec.Resources {
 		apiExportClusterName := logicalcluster.From(apiExport)
-		if resourceSchema.Storage.Virtual != nil {
-			continue
-		}
 		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
@@ -352,25 +326,13 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	return apiResourceSchemas, nil
 }
 
-func (c *APIReconciler) getResourceStorageFromAPIExport(ctx context.Context, apiExport *apisv1alpha2.APIExport) (map[schema.GroupResource]*apisv1alpha2.ResourceSchemaStorage, error) {
-	logger := klog.FromContext(ctx)
-	resourceSchemaStorage := map[schema.GroupResource]*apisv1alpha2.ResourceSchemaStorage{}
-	for _, resourceSchema := range apiExport.Spec.Resources {
-		apiExportClusterName := logicalcluster.From(apiExport)
-		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return nil, err
-		}
-		if apierrors.IsNotFound(err) {
-			logger.WithValues(
-				"schema", resourceSchema.Schema,
-				"exportClusterName", apiExportClusterName,
-				"exportName", apiExport.Name,
-			).V(3).Info("APIResourceSchema for APIExport not found")
-			continue
-		}
-		resourceSchemaStorage[schema.GroupResource{Group: apiResourceSchema.Spec.Group, Resource: apiResourceSchema.Spec.Names.Plural}] = &resourceSchema.Storage
+func getResourceStoragesFromAPIExport(apiExport *apisv1alpha2.APIExport) map[schema.GroupResource]apisv1alpha2.ResourceSchemaStorage {
+	m := make(map[schema.GroupResource]apisv1alpha2.ResourceSchemaStorage)
+	for _, res := range apiExport.Spec.Resources {
+		m[schema.GroupResource{
+			Group:    res.Group,
+			Resource: res.Name,
+		}] = res.Storage
 	}
-
-	return resourceSchemaStorage, nil
+	return m
 }
