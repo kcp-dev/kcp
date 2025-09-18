@@ -290,66 +290,57 @@ func TestCRDs(t *testing.T) {
 	}
 }
 
-func getResource[T any](name string, resources []*T) (*T, error) {
+func getResource[T metav1.Object](name string, resources []T) (T, error) {
 	for _, res := range resources {
-		if res.(*metav1.ObjectMeta).GetName() == name {
+		if res.GetName() == name {
 			return res, nil
 		}
 	}
-	return nil, fmt.Errorf("err")
+	var zero T
+	return zero, fmt.Errorf("%s not found", name)
 }
 
 func TestVirtualResourceConflict(t *testing.T) {
-	schemas := map[string]*apisv1alpha1.APIResourceSchema{
-		"someprefix.acmeRS.acmeGR": schemaFor(t, createCRD("", "crd1", "acmeGR", "acmeRS")),
-	}
-	scenarios := []struct {
-		name           string
-		export         *apisv1alpha2.APIExport
-		binding        *apisv1alpha2.APIBinding
-		initialSchemas []*apisv1alpha1.APIResourceSchema
-		initialCRDs    []*apiextensionsv1.CustomResourceDefinition
-		incomingSchema *apisv1alpha1.APIResourceSchema
-		expectedErr    error
+	scenarios := map[string]struct {
+		initialExport   *apisv1alpha2.APIExport
+		initialBinding  *apisv1alpha2.APIBinding
+		initialSchemas  []*apisv1alpha1.APIResourceSchema
+		incomingExport  *apisv1alpha2.APIExport
+		incomingBinding *apisv1alpha2.APIBinding
+		incomingSchema  *apisv1alpha1.APIResourceSchema
+		expectedErr     error
 	}{
-		{
-			name: "creating conflicting CRD fails",
-			export: &apisv1alpha2.APIExport{
+		"creating conflicting CRD fails": {
+			initialExport: &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "my-vw-export",
+					Name: "my-export",
 				},
 				Spec: apisv1alpha2.APIExportSpec{
 					Resources: []apisv1alpha2.ResourceSchema{
-						{
-							Group:  "virtual.dev",
-							Name:   "things",
-							Schema: "today.things.virtual.dev",
-							Storage: apisv1alpha2.ResourceSchemaStorage{
-								Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{},
-							},
-						},
 						{
 							Group:  "wildwest.dev",
 							Name:   "cowboys",
 							Schema: "today.cowboys.wildwest.dev",
 							Storage: apisv1alpha2.ResourceSchemaStorage{
-								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+								Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{},
 							},
 						},
 					},
 				},
 			},
-			binding: &apisv1alpha2.APIBinding{
+			initialBinding: &apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-binding",
+				},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "my-export",
+						},
+					},
+				},
 				Status: apisv1alpha2.APIBindingStatus{
 					BoundResources: []apisv1alpha2.BoundAPIResource{
-						{
-							Group:    "virtual.dev",
-							Resource: "things",
-							Schema: apisv1alpha2.BoundAPIResourceSchema{
-								Name: "today.things.virtual.dev",
-								UID:  "today.things.virtual.dev/schema-uid",
-							},
-						},
 						{
 							Group:    "wildwest.dev",
 							Resource: "cowboys",
@@ -364,21 +355,6 @@ func TestVirtualResourceConflict(t *testing.T) {
 			initialSchemas: []*apisv1alpha1.APIResourceSchema{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "today.things.virtual.dev",
-						UID:  "today.things.virtual.dev/schema-uid",
-					},
-					Spec: apisv1alpha1.APIResourceSchemaSpec{
-						Group: "virtual.dev",
-						Names: apiextensionsv1.CustomResourceDefinitionNames{
-							Singular:   "thing",
-							Plural:     "things",
-							Kind:       "Thing",
-							ShortNames: []string{"th"},
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
 						Name: "today.cowboys.wildwest.dev",
 						UID:  "today.cowboys.wildwest.dev/schema-uid",
 					},
@@ -388,73 +364,98 @@ func TestVirtualResourceConflict(t *testing.T) {
 							Singular:   "cowboy",
 							Plural:     "cowboys",
 							Kind:       "Cowboy",
-							ShortNames: []string{"cw"},
+							ListKind:   "CowboyList",
+							ShortNames: []string{"cow"},
 						},
 					},
 				},
 			},
-			initialCRDs: []*apiextensionsv1.CustomResourceDefinition{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "today.cowboys.wildwest.dev/schema-uid",
+			incomingExport: &apisv1alpha2.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-new-export",
+				},
+				Spec: apisv1alpha2.APIExportSpec{
+					Resources: []apisv1alpha2.ResourceSchema{
+						{
+							Group:  "wildwest.dev",
+							Name:   "cowgirls",
+							Schema: "today.cowgirls.wildwest.dev",
+							Storage: apisv1alpha2.ResourceSchemaStorage{
+								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+							},
+						},
 					},
-					Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-						Group: "wildwest.dev",
-						Names: apiextensionsv1.CustomResourceDefinitionNames{
-							Singular:   "cowboy",
-							Plural:     "cowboys",
-							Kind:       "Cowboy",
-							ShortNames: []string{"cw"},
+				},
+			},
+			incomingBinding: &apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-new-binding",
+				},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "my-new-export",
+						},
+					},
+				},
+				Status: apisv1alpha2.APIBindingStatus{
+					BoundResources: []apisv1alpha2.BoundAPIResource{
+						{
+							Group:    "wildwest.dev",
+							Resource: "thunders",
+							Schema: apisv1alpha2.BoundAPIResourceSchema{
+								Name: "today.cowgirls.wildwest.dev",
+								UID:  "today.cowgirls.wildwest.dev/schema-uid",
+							},
 						},
 					},
 				},
 			},
 			incomingSchema: &apisv1alpha1.APIResourceSchema{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "today.thunders.weather.dev",
-					UID:  "today.thunders.weather.dev/schema-uid",
+					Name: "today.cowgirls.wildwest.dev",
+					UID:  "today.cowgirls.wildwest.dev/schema-uid",
 				},
 				Spec: apisv1alpha1.APIResourceSchemaSpec{
-					Group: "orange.dev",
+					Group: "wildwest.dev",
 					Names: apiextensionsv1.CustomResourceDefinitionNames{
-						Singular:   "thunder",
-						Plural:     "thunders",
-						Kind:       "Thunder",
-						ShortNames: []string{"th"},
+						Singular:   "cowgirl",
+						Plural:     "cowgirls",
+						Kind:       "Cowgirl",
+						ListKind:   "CowgirlList",
+						ShortNames: []string{"cow"},
 					},
 				},
 			},
+			expectedErr: fmt.Errorf(`naming conflict with APIBinding "my-binding" bound to local APIExport "my-export": spec.names.shortNames=[cw] is forbidden`),
 		},
 	}
-	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(t *testing.T) {
-			c, err := newConflictChecker(logicalcluster.From(scenario.binding),
+	for name, s := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			c, err := newConflictChecker(logicalcluster.From(s.incomingBinding),
 				func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
-					return []*apisv1alpha2.APIBinding{scenario.binding}, nil
+					return []*apisv1alpha2.APIBinding{s.initialBinding}, nil
 				},
 				func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-					return getResource(name+"x", schemas)
+					return getResource[*apisv1alpha1.APIResourceSchema](name, s.initialSchemas)
 				},
 				func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-					return scenario.export, nil
+					return getResource[*apisv1alpha2.APIExport](name, []*apisv1alpha2.APIExport{s.initialExport, s.incomingExport})
 				},
 				func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-					return &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
+					return getResource[*apiextensionsv1.CustomResourceDefinition](name, nil)
 				},
 				func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-					var crds []*apiextensionsv1.CustomResourceDefinition
-					for _, crd := range scenario.initialCRDs {
-						if logicalcluster.From(crd) == clusterName {
-							crds = append(crds, crd)
-						}
-					}
-					return crds, nil
+					return nil, nil
 				},
 			)
 			require.NoError(t, err, "failed to create conflict checker")
 
-			if err := c.Check(scenario.binding, scenario.incomingSchema); (err != nil) != scenario.wantErr {
-				t.Fatalf("error = %v, wantErr %v", err, scenario.wantErr)
+			err = c.Check(s.incomingBinding, s.incomingSchema)
+			if s.expectedErr == nil {
+				require.NoError(t, err, "conflictChecker.Check() failed unexpectedly")
+			} else {
+				require.EqualError(t, err, s.expectedErr.Error(), "conflictChecker.Check() returned an unexpected error")
 			}
 		})
 	}

@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -56,7 +57,6 @@ func newConflictChecker(clusterName logicalcluster.Name,
 	getCRD func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error),
 	listCRDs func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error),
 ) (*conflictChecker, error) {
-	fmt.Printf("XXX 1\n")
 	ncc := &conflictChecker{
 		listAPIBindings:      listAPIBindings,
 		getAPIResourceSchema: getAPIResourceSchema,
@@ -72,15 +72,13 @@ func newConflictChecker(clusterName logicalcluster.Name,
 		return nil, err
 	}
 	for _, b := range bindings {
-		fmt.Printf("XXX 2\n")
 		apiExport, err := getAPIExportByPath(logicalcluster.NewPath(b.Spec.Reference.Export.Path), b.Spec.Reference.Export.Name)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("XXX 2 1\n")
+
 		storage := make(map[schema.GroupResource]apisv1alpha2.ResourceSchemaStorage)
 		for _, rs := range apiExport.Spec.Resources {
-			fmt.Printf("XXX 2 2\n")
 			storage[schema.GroupResource{
 				Group:    rs.Group,
 				Resource: rs.Name,
@@ -88,21 +86,23 @@ func newConflictChecker(clusterName logicalcluster.Name,
 		}
 
 		for _, br := range b.Status.BoundResources {
-			fmt.Printf("XXX 3 storage=%#v\n", storage)
 			var crd *apiextensionsv1.CustomResourceDefinition
 			if st, hasResource := storage[schema.GroupResource{Group: br.Group, Resource: br.Resource}]; hasResource {
-				fmt.Printf("XXX 4\n")
 				if st.Virtual != nil {
-					fmt.Printf("XXX 5\n")
 					sch, err := getAPIResourceSchema(logicalcluster.Name(b.Status.APIExportClusterName), br.Schema.Name)
 					if err != nil {
 						return nil, err
 					}
-					// Create a synthethic CRD -- we need the resource names only.
+					// Create a synthethic CRD -- we need the resource names only for namesConflict().
 					crd = &apiextensionsv1.CustomResourceDefinition{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: string(sch.UID),
+						},
 						Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 							Group: sch.Spec.Group,
-							Names: sch.Spec.Names,
+						},
+						Status: apiextensionsv1.CustomResourceDefinitionStatus{
+							AcceptedNames: sch.Spec.Names,
 						},
 					}
 				}
