@@ -26,7 +26,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -41,7 +40,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -55,21 +53,7 @@ const (
 	ControllerName = "kcp-virtual-apiexport-api-reconciler"
 )
 
-type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements, resSchStorage *apisv1alpha2.ResourceSchemaStorage) (apidefinition.APIDefinition, error)
-
-type CreateVirtualAPIDefinitionFunc func(exportCluster logicalcluster.Name, gr schema.GroupResource, endpointSliceGVR schema.GroupVersionResource, endpointSliceName string) (virtualapidefinition.VirtualAPIDefinition, error)
-
-func (c *APIReconciler) SetCreateAPIDefinition(f CreateAPIDefinitionFunc) {
-	c.createAPIDefinition = f
-}
-
-func (c *APIReconciler) SetCreateAPIBindingAPIDefinition(f func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)) {
-	c.createAPIBindingAPIDefinition = f
-}
-
-func (c *APIReconciler) SetCreateVirtualAPIDefinition(f CreateVirtualAPIDefinitionFunc) {
-	c.createVirtualAPIDefinition = f
-}
+type CreateAPIDefinitionFunc func(resourceStorage apisv1alpha2.ResourceSchemaStorage, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
@@ -77,6 +61,8 @@ func NewAPIReconciler(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	createAPIDefinition CreateAPIDefinitionFunc,
+	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
 	c := &APIReconciler{
 		kcpClusterClient: kcpClusterClient,
@@ -97,8 +83,10 @@ func NewAPIReconciler(
 			},
 		),
 
-		apiSets:        map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
-		virtualApiSets: map[dynamiccontext.APIDomainKey]virtualapidefinition.VirtualAPIDefinitionSet{},
+		createAPIDefinition:           createAPIDefinition,
+		createAPIBindingAPIDefinition: createAPIBindingAPIDefinition,
+
+		apiSets: map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet{},
 	}
 
 	indexers.AddIfNotPresentOrDie(
@@ -151,11 +139,9 @@ type APIReconciler struct {
 
 	createAPIDefinition           CreateAPIDefinitionFunc
 	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error)
-	createVirtualAPIDefinition    CreateVirtualAPIDefinitionFunc
 
-	mutex          sync.RWMutex // protects the map, not the values!
-	apiSets        map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
-	virtualApiSets map[dynamiccontext.APIDomainKey]virtualapidefinition.VirtualAPIDefinitionSet
+	mutex   sync.RWMutex // protects the map, not the values!
+	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 }
 
 func (c *APIReconciler) enqueueAPIResourceSchema(apiResourceSchema *apisv1alpha1.APIResourceSchema, logger logr.Logger) {
@@ -302,20 +288,10 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 	return c.reconcile(ctx, apiExport, apiDomainKey)
 }
 
-func (c *APIReconciler) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
+func (c *APIReconciler) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	apiSet, ok := c.apiSets[key]
-	fmt.Printf("### APIReconciler GetAPIDefinitionSet key=%s\n", key)
 	return apiSet, ok, nil
-}
-
-func (c *APIReconciler) GetVirtualAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (virtualapidefinition.VirtualAPIDefinitionSet, bool, error) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	virtApiSet, ok := c.virtualApiSets[key]
-	fmt.Printf("### APIReconciler GetAPIDefinitionSet key=%s\n", key)
-	return virtApiSet, ok, nil
 }
