@@ -59,8 +59,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
@@ -116,8 +115,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 
 	source := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	// Test multiple workspaces in parallel
 	for i := range 5 {
@@ -251,8 +249,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
@@ -336,8 +333,7 @@ func TestClusterScopedQuota(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 

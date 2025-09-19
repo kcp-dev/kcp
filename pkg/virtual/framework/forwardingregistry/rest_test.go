@@ -92,8 +92,7 @@ func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExpo
 	}
 	table, _ := tableconvertor.New(headers)
 
-	ctx, cancelFn := context.WithCancel(context.Background())
-	t.Cleanup(cancelFn)
+	ctx := t.Context()
 
 	return forwardingregistry.NewStorage(
 		ctx,

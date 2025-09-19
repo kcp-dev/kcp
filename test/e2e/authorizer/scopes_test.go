@@ -17,7 +17,6 @@ limitations under the License.
 package authorizer
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"testing"
@@ -136,8 +135,7 @@ func TestSubjectAccessReview(t *testing.T) {
 			wantAllowed: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			req := &authorizationv1.SubjectAccessReview{
 				Spec: authorizationv1.SubjectAccessReviewSpec{
@@ -166,8 +164,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -285,8 +282,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			// impersonate as user, using the cfg as the base.
 			impersonationConfig := rest.CopyConfig(cfg)
