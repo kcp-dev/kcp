@@ -385,6 +385,8 @@ type singleResourceAPIDefinitionSetProvider struct {
 }
 
 func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
+	// TODO: make this into a contorller.
+
 	parsedKey, err := apidomainkey.Parse(key)
 	if err != nil {
 		return nil, false, err
