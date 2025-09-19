@@ -369,13 +369,10 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	fmt.Printf("### VR server handleResource 0\n")
-
 	apiExportIdentity := kcpfilters.IdentityFromContext(ctx)
 
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil {
-		fmt.Printf("### VR server handleResource 2\n")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -387,14 +384,12 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 
 	reqInfo, hasReqInfo := genericapirequest.RequestInfoFrom(ctx)
 	if !hasReqInfo {
-		fmt.Printf("### VR server handleResource 3\n")
 		warning.AddWarning(ctx, "", "request info missing in context")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
 
 	if !reqInfo.IsResourceRequest {
-		fmt.Printf("### VR server handleResource 4\n")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -408,13 +403,9 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 
 	handler := s.proxyFor(cluster, apiExportIdentity, gr)
 	if handler == nil {
-		fmt.Printf("### VR server handleResource 5\n")
-
-		fmt.Printf("### VR handleResource path=%s cluster=%s gr=%v\n", r.URL.Path, cluster.Name, schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource})
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
-	fmt.Printf("### VR server handleResource 6\n")
 
 	handler.ServeHTTP(w, r)
 }

@@ -315,14 +315,6 @@ func (c *Controller) enqueueLogicalCluster(oldObj *corev1alpha1.LogicalCluster, 
 	oldBoundResourcesAnnStr := getResourceBindingsAnnJSON(oldObj)
 	newBoundResourcesAnnStr := getResourceBindingsAnnJSON(newObj)
 
-	var clusterName logicalcluster.Name
-	if oldObj != nil {
-		clusterName = logicalcluster.From(oldObj)
-	} else {
-		clusterName = logicalcluster.From(newObj)
-	}
-	fmt.Printf("### DYNAMICRESTMAPPER cluster=%s ; oldAnn=%s ; newAnn=%s\n", clusterName, oldBoundResourcesAnnStr, newBoundResourcesAnnStr)
-
 	if op == opUpdate && oldBoundResourcesAnnStr == newBoundResourcesAnnStr {
 		// Nothing to do.
 		// return

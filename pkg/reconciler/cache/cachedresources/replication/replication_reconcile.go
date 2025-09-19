@@ -148,8 +148,6 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				gvr.Group = "core"
 			}
 
-			fmt.Printf("### CR REPLICATION: createObject %s (%s.%s), gvr=%q\n", obj.GetName(), obj.GetKind(), obj.GetAPIVersion(), gvr.String())
-
 			objBytes, err := json.Marshal(obj)
 			if err != nil {
 				return nil, err
@@ -189,8 +187,6 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				gvr.Group = "core"
 			}
 
-			fmt.Printf("### CR REPLICATION: updateObject %s (%s.%s), gvr=%q\n", obj.GetName(), obj.GetKind(), obj.GetAPIVersion(), gvr.String())
-
 			objBytes, err := json.Marshal(obj)
 			if err != nil {
 				return nil, err
@@ -225,8 +221,6 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Update(ctx, cacheObj, metav1.UpdateOptions{})
 		},
 		deleteObject: func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error {
-			fmt.Printf("### CR REPLICATION: deleteObject %s\n", name)
-
 			// deleting from cache - means we delete the wrapper object
 
 			gvr := gvrFromKey
