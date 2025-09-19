@@ -17,7 +17,6 @@ limitations under the License.
 package conformance
 
 import (
-	"context"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -55,8 +54,7 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	// using known path to cert and key
 	cfg := server.BaseConfig(t)
@@ -175,8 +173,7 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	// using known path to cert and key
 	cfg := server.BaseConfig(t)
