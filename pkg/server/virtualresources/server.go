@@ -43,6 +43,14 @@ func init() {
 	)
 }
 
+type apiDef struct {
+	apiGroups    map[string]metav1.APIGroup
+	apiResources map[schema.GroupVersion]map[string]metav1.APIResource
+
+	endpoints           map[schema.GroupResource]string
+	apiExportIdentities map[schema.GroupResource]string
+}
+
 type Server struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 	Extra            *ExtraConfig
@@ -51,22 +59,88 @@ type Server struct {
 
 	groupManagers *clusterAwareGroupManager
 
-	lock                        sync.RWMutex
-	groups                      map[logicalcluster.Name]map[string]metav1.APIGroup
-	apiResourcesForGroupVersion map[logicalcluster.Name]map[schema.GroupVersion][]metav1.APIResource
-	resourcesForGroupVersion    map[logicalcluster.Name]map[schema.GroupVersion]sets.Set[string]
-	endpointsForGroupResource   map[logicalcluster.Name]map[schema.GroupResource]string
+	lock              sync.RWMutex
+	apiDefs           map[logicalcluster.Name]apiDef
+	wildcardEndpoints map[string]map[schema.GroupResource]string
+}
+
+func newApiDef() apiDef {
+	return apiDef{
+		apiGroups:           make(map[string]metav1.APIGroup),
+		apiResources:        make(map[schema.GroupVersion]map[string]metav1.APIResource),
+		endpoints:           make(map[schema.GroupResource]string),
+		apiExportIdentities: make(map[schema.GroupResource]string),
+	}
+}
+
+func (d apiDef) addGroup(apiGroup metav1.APIGroup) {
+	existingApiGroup, ok := d.apiGroups[apiGroup.Name]
+	if !ok {
+		d.apiGroups[apiGroup.Name] = apiGroup
+		return
+	}
+
+	groupVersions := sets.New[string]()
+	for _, version := range existingApiGroup.Versions {
+		groupVersions.Insert(version.Version)
+	}
+	for _, version := range apiGroup.Versions {
+		groupVersions.Insert(version.Version)
+	}
+	apiGroup.Versions = make([]metav1.GroupVersionForDiscovery, len(groupVersions))
+	for i, version := range sets.List[string](groupVersions) {
+		apiGroup.Versions[i] = metav1.GroupVersionForDiscovery{
+			Version: version,
+			GroupVersion: schema.GroupVersion{
+				Group:   apiGroup.Name,
+				Version: version,
+			}.String(),
+		}
+	}
+	if len(apiGroup.Versions) > 0 {
+		apiGroup.PreferredVersion = apiGroup.Versions[len(apiGroup.Versions)-1]
+	}
+
+	d.apiGroups[apiGroup.Name] = apiGroup
+}
+
+func (d apiDef) addResource(apiResource metav1.APIResource) {
+	gv := schema.GroupVersion{
+		Group:   apiResource.Group,
+		Version: apiResource.Version,
+	}
+
+	if _, ok := d.apiResources[gv]; !ok {
+		d.apiResources[gv] = make(map[string]metav1.APIResource)
+	}
+	d.apiResources[gv][apiResource.Name] = apiResource
+}
+
+func (d apiDef) removeResource(gr schema.GroupResource) {
+	apiGroup, ok := d.apiGroups[gr.Group]
+	if !ok {
+		return
+	}
+
+	for _, version := range apiGroup.Versions {
+		gv := schema.GroupVersion{
+			Group:   gr.Group,
+			Version: version.Version,
+		}
+		delete(d.apiResources[gv], gr.Resource)
+		if len(d.apiResources[gv]) == 0 {
+			delete(d.apiResources, gv)
+		}
+	}
 }
 
 func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTarget) (*Server, error) {
 	s := &Server{
-		Extra:                       c.Extra,
-		delegate:                    delegationTarget,
-		groupManagers:               newClusterAwareGroupManager(c.Generic.DiscoveryAddresses, c.Generic.Serializer),
-		groups:                      make(map[logicalcluster.Name]map[string]metav1.APIGroup),
-		apiResourcesForGroupVersion: make(map[logicalcluster.Name]map[schema.GroupVersion][]metav1.APIResource),
-		resourcesForGroupVersion:    make(map[logicalcluster.Name]map[schema.GroupVersion]sets.Set[string]),
-		endpointsForGroupResource:   make(map[logicalcluster.Name]map[schema.GroupResource]string),
+		Extra:             c.Extra,
+		delegate:          delegationTarget,
+		groupManagers:     newClusterAwareGroupManager(c.Generic.DiscoveryAddresses, c.Generic.Serializer),
+		apiDefs:           make(map[logicalcluster.Name]apiDef),
+		wildcardEndpoints: make(map[string]map[schema.GroupResource]string),
 	}
 
 	tlsConfig, err := rest.TLSConfigFor(c.Extra.VWClientConfig)
@@ -126,7 +200,7 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 
 func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResource, vrEndpointURL, exportIdentity string) error {
 	config := *s.Extra.VWClientConfig
-	config.Host = vrEndpointURL + fmt.Sprintf(":%s/clusters/%s", exportIdentity, cluster.String())
+	config.Host = urlWithCluster(vrEndpointURL, exportIdentity, &genericapirequest.Cluster{Name: cluster})
 
 	dc, err := discoveryclient.NewDiscoveryClientForConfig(&config)
 	if err != nil {
@@ -184,48 +258,40 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	// Store the group we've found.
+	// Store the API definitions we've found.
 
 	s.groupManagers.AddGroupForCluster(cluster, apiGroup)
 
-	if _, ok := s.groups[cluster]; !ok {
-		s.groups[cluster] = make(map[string]metav1.APIGroup)
+	if _, ok := s.apiDefs[cluster]; !ok {
+		s.apiDefs[cluster] = newApiDef()
 	}
-	s.groups[cluster][gr.Group] = *apiGroup
-
-	// Store resource's gv.
-
-	if _, ok := s.apiResourcesForGroupVersion[cluster]; !ok {
-		s.apiResourcesForGroupVersion[cluster] = make(map[schema.GroupVersion][]metav1.APIResource)
-	}
-	if _, ok := s.resourcesForGroupVersion[cluster]; !ok {
-		s.resourcesForGroupVersion[cluster] = make(map[schema.GroupVersion]sets.Set[string])
-	}
-	scopedApiResources := s.apiResourcesForGroupVersion[cluster]
-	scopedResources := s.resourcesForGroupVersion[cluster]
-	for _, res := range apiResources {
-		gv := schema.GroupVersion{
-			Group:   res.Group,
-			Version: res.Version,
-		}
-		scopedApiResources[gv] = append(scopedApiResources[gv], res)
-		if _, ok := scopedResources[gv]; !ok {
-			scopedResources[gv] = sets.New[string]()
-		}
-		scopedResources[gv].Insert(res.Name)
+	if _, ok := s.wildcardEndpoints[exportIdentity]; !ok {
+		s.wildcardEndpoints[exportIdentity] = make(map[schema.GroupResource]string)
 	}
 
-	// Store the vw url.
-
-	if _, ok := s.endpointsForGroupResource[cluster][gr]; !ok {
-		s.endpointsForGroupResource[cluster] = make(map[schema.GroupResource]string)
+	s.apiDefs[cluster].addGroup(*apiGroup)
+	for _, apiResource := range apiResources {
+		s.apiDefs[cluster].addResource(apiResource)
 	}
-	s.endpointsForGroupResource[cluster][gr] = vrEndpointURL
+	s.apiDefs[cluster].endpoints[gr] = vrEndpointURL
+	s.apiDefs[cluster].apiExportIdentities[gr] = exportIdentity
+	s.wildcardEndpoints[exportIdentity][gr] = vrEndpointURL
 
 	return nil
 }
 
-func (s *Server) removeHandlerFor(cluster logicalcluster.Name, gr schema.GroupResource, vwEndpointURL string) error {
+func (s *Server) removeHandlerFor(cluster logicalcluster.Name, gr schema.GroupResource) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.groupManagers.RemoveGroupForCluster(cluster, gr.Group)
+	s.apiDefs[cluster].removeResource(gr)
+	exportIdentity := s.apiDefs[cluster].apiExportIdentities[gr]
+	delete(s.apiDefs[cluster].apiExportIdentities, gr)
+	delete(s.wildcardEndpoints[exportIdentity], gr)
+
+	// TODO: Handle group deletion, cluster deletion.
+
 	return nil
 }
 
@@ -281,8 +347,8 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 
 	var knownVersionedResources []metav1.APIResource
 	s.lock.RLock()
-	if gvResources := s.apiResourcesForGroupVersion[cluster.Name]; gvResources != nil {
-		for _, res := range gvResources[gv] {
+	if resources, ok := s.apiDefs[cluster.Name].apiResources[gv]; ok {
+		for _, res := range resources {
 			knownVersionedResources = append(knownVersionedResources, *res.DeepCopy())
 		}
 	}
@@ -303,57 +369,81 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	fmt.Printf("### VR server handleResource 0\n")
+
 	apiExportIdentity := kcpfilters.IdentityFromContext(ctx)
-	if apiExportIdentity == "" {
+
+	cluster := genericapirequest.ClusterFrom(ctx)
+	if cluster == nil {
+		fmt.Printf("### VR server handleResource 2\n")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
 
-	cluster := genericapirequest.ClusterFrom(ctx)
-	if cluster == nil {
+	if cluster.Wildcard && apiExportIdentity == "" {
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
 
 	reqInfo, hasReqInfo := genericapirequest.RequestInfoFrom(ctx)
 	if !hasReqInfo {
+		fmt.Printf("### VR server handleResource 3\n")
 		warning.AddWarning(ctx, "", "request info missing in context")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
 
 	if !reqInfo.IsResourceRequest {
+		fmt.Printf("### VR server handleResource 4\n")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
 
 	// cluster may be *, check if apiexport identity is in ctx
 
-	handler := s.proxyFor(cluster.Name, schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource})
+	gr := schema.GroupResource{
+		Group:    reqInfo.APIGroup,
+		Resource: reqInfo.Resource,
+	}
+
+	handler := s.proxyFor(cluster, apiExportIdentity, gr)
 	if handler == nil {
+		fmt.Printf("### VR server handleResource 5\n")
+
 		fmt.Printf("### VR handleResource path=%s cluster=%s gr=%v\n", r.URL.Path, cluster.Name, schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource})
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
+	fmt.Printf("### VR server handleResource 6\n")
 
 	handler.ServeHTTP(w, r)
 }
 
-func (s *Server) proxyFor(cluster *genericapirequest.Cluster, gr schema.GroupResource) http.Handler {
+func (s *Server) proxyFor(cluster *genericapirequest.Cluster, apiExportIdentity string, gr schema.GroupResource) http.Handler {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	endpoints := s.endpointsForGroupResource[cluster]
-	if endpoints == nil {
+	var grEndpointMap map[schema.GroupResource]string
+	if cluster.Wildcard {
+		grEndpointMap = s.wildcardEndpoints[apiExportIdentity]
+	} else {
+		grEndpointMap = s.apiDefs[cluster.Name].endpoints
+	}
+
+	if grEndpointMap == nil {
 		return nil
 	}
 
-	vwURL := endpoints[gr]
-	if vwURL == "" {
+	vrUrl := grEndpointMap[gr]
+	if vrUrl == "" {
 		return nil
 	}
 
-	handler, err := newProxy(cluster, vwURL, s.vwTlsConfig)
+	if apiExportIdentity == "" {
+		apiExportIdentity = s.apiDefs[cluster.Name].apiExportIdentities[gr]
+	}
+
+	handler, err := newProxy(cluster, vrUrl, apiExportIdentity, s.vwTlsConfig)
 	if err != nil {
 		return nil
 	}
@@ -361,23 +451,8 @@ func (s *Server) proxyFor(cluster *genericapirequest.Cluster, gr schema.GroupRes
 	return handler
 }
 
-func (s *Server) getEndpointsForCluster(cluster logicalcluster.Name) map[schema.GroupResource]string {
-	m := make(map[schema.GroupResource]string)
-
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	if grEndpoints := s.endpointsForGroupResource[cluster]; grEndpoints != nil {
-		for k, v := range s.endpointsForGroupResource[cluster] {
-			m[k] = v
-		}
-	}
-
-	return m
-}
-
-func newProxy(cluster logicalcluster.Name, vwURL string, vwTLSConfig *tls.Config) (http.Handler, error) {
-	scopedURL, err := url.Parse(urlWithCluster(vwURL, cluster))
+func newProxy(cluster *genericapirequest.Cluster, vwURL, apiExportIdentity string, vwTLSConfig *tls.Config) (http.Handler, error) {
+	scopedURL, err := url.Parse(urlWithCluster(vwURL, apiExportIdentity, cluster))
 	if err != nil {
 		return nil, err
 	}
@@ -390,6 +465,10 @@ func newProxy(cluster logicalcluster.Name, vwURL string, vwTLSConfig *tls.Config
 	return handler, nil
 }
 
-func urlWithCluster(vwURL string, cluster logicalcluster.Name) string {
-	return fmt.Sprintf("%s/clusters/%s", vwURL, cluster)
+func urlWithCluster(vwURL, apiExportIdentity string, cluster *genericapirequest.Cluster) string {
+	clusterName := cluster.Name
+	if cluster.Wildcard {
+		clusterName = "*"
+	}
+	return fmt.Sprintf("%s:%s/clusters/%s", vwURL, apiExportIdentity, clusterName)
 }

@@ -35,12 +35,16 @@ func (s *Server) OpenAPIv3SpecGetter() func(ctx context.Context) (map[string]map
 			s.lock.RLock()
 			defer s.lock.RUnlock()
 
-			resourcesForGroupVersion := s.resourcesForGroupVersion[cluster]
+			resourcesForGroupVersion := s.apiDefs[cluster].apiResources
 			if len(resourcesForGroupVersion) == 0 {
 				return nil
 			}
-			endpointsForGroupResource := s.endpointsForGroupResource[cluster]
+			endpointsForGroupResource := s.apiDefs[cluster].endpoints
 			if len(endpointsForGroupResource) == 0 {
+				return nil
+			}
+			identitiesForGroupResource := s.apiDefs[cluster].apiExportIdentities
+			if len(identitiesForGroupResource) == 0 {
 				return nil
 			}
 
@@ -48,14 +52,16 @@ func (s *Server) OpenAPIv3SpecGetter() func(ctx context.Context) (map[string]map
 			m := make(map[string]map[schema.GroupVersion]sets.Set[string])
 
 			for gr, endpoint := range endpointsForGroupResource {
-				if _, ok := m[endpoint]; !ok {
-					m[endpoint] = make(map[schema.GroupVersion]sets.Set[string])
+				qualifiedVirtualResourceEndpoint := fmt.Sprintf("%s:%s", endpoint, identitiesForGroupResource[gr])
+
+				if _, ok := m[qualifiedVirtualResourceEndpoint]; !ok {
+					m[qualifiedVirtualResourceEndpoint] = make(map[schema.GroupVersion]sets.Set[string])
 				}
 
 				foundResources := make(map[schema.GroupVersion]sets.Set[string])
 
 				for gv, resources := range resourcesForGroupVersion {
-					if resources.Has(gr.Resource) {
+					if _, hasResource := resources[gr.Resource]; hasResource {
 						if _, ok := foundResources[gv]; !ok {
 							foundResources[gv] = sets.New[string]()
 						}
@@ -63,7 +69,7 @@ func (s *Server) OpenAPIv3SpecGetter() func(ctx context.Context) (map[string]map
 					}
 				}
 
-				m[endpoint] = foundResources
+				m[qualifiedVirtualResourceEndpoint] = foundResources
 			}
 
 			return m
@@ -108,7 +114,7 @@ func (s *Server) OpenAPIv3SpecGetter() func(ctx context.Context) (map[string]map
 
 func newOpenAPIv3Root(config *rest.Config, vwURL string, cluster logicalcluster.Name) (clientopenapi3.Root, error) {
 	vwConfig := *config
-	vwConfig.Host = urlWithCluster(vwURL, cluster)
+	vwConfig.Host = fmt.Sprintf("%s/clusters/%s", vwURL, cluster)
 
 	vwDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(&vwConfig)
 	if err != nil {
