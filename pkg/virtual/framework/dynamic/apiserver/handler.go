@@ -41,8 +41,8 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
-// crdResourceHandler serves the `/apis` and `/api` endpoints.
-type crdResourceHandler struct {
+// resourceHandler serves the `/apis` and `/api` endpoints.
+type resourceHandler struct {
 	apiSetRetriever         apidefinition.APIDefinitionSetGetter
 	versionDiscoveryHandler *versionDiscoveryHandler
 	groupDiscoveryHandler   *groupDiscoveryHandler
@@ -66,7 +66,7 @@ type crdResourceHandler struct {
 	maxRequestBodyBytes int64
 }
 
-func newCRDResourceHandler(
+func newResourceHandler(
 	apiSetRetriever apidefinition.APIDefinitionSetGetter,
 	versionDiscoveryHandler *versionDiscoveryHandler,
 	groupDiscoveryHandler *groupDiscoveryHandler,
@@ -77,8 +77,8 @@ func newCRDResourceHandler(
 	requestTimeout time.Duration,
 	minRequestTimeout time.Duration,
 	maxRequestBodyBytes int64,
-	staticOpenAPISpec *spec.Swagger) (*crdResourceHandler, error) {
-	ret := &crdResourceHandler{
+	staticOpenAPISpec *spec.Swagger) (*resourceHandler, error) {
+	ret := &resourceHandler{
 		apiSetRetriever:         apiSetRetriever,
 		versionDiscoveryHandler: versionDiscoveryHandler,
 		groupDiscoveryHandler:   groupDiscoveryHandler,
@@ -94,7 +94,7 @@ func newCRDResourceHandler(
 	return ret, nil
 }
 
-func (r *crdResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	requestInfo, ok := apirequest.RequestInfoFrom(ctx)
 	if !ok {
@@ -222,7 +222,7 @@ func (r *crdResourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (r *crdResourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
+func (r *resourceHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
 	requestScope := apiDef.GetRequestScope()
 	storage := apiDef.GetStorage()
 
@@ -275,7 +275,7 @@ func (r *crdResourceHandler) serveResource(w http.ResponseWriter, req *http.Requ
 	return nil
 }
 
-func (r *crdResourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
+func (r *resourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
 	requestScope := apiDef.GetSubResourceRequestScope("status")
 	storage := apiDef.GetSubResourceStorage("status")
 

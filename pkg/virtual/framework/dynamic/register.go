@@ -20,7 +20,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 )
 
 // Register builds and returns a DynamicAPIServer which will serve APIs whose serving information is provided by an APISetRetriever.
@@ -31,19 +30,10 @@ func (vw *DynamicVirtualWorkspace) Register(vwName string, rootAPIServerConfig g
 		return nil, err
 	}
 
-	var virtApiSetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter
-	if vw.BootstrapVirtualAPISetManagement != nil {
-		virtApiSetRetriever, err = vw.BootstrapVirtualAPISetManagement(rootAPIServerConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	cfg := &apiserver.DynamicAPIServerConfig{
 		GenericConfig: &genericapiserver.RecommendedConfig{Config: *rootAPIServerConfig.Config, SharedInformerFactory: rootAPIServerConfig.SharedInformerFactory},
 		ExtraConfig: apiserver.DynamicAPIServerExtraConfig{
-			APISetRetriever:        apiSetRetriever,
-			VirtualAPISetRetriever: virtApiSetRetriever,
+			APISetRetriever: apiSetRetriever,
 		},
 	}
 

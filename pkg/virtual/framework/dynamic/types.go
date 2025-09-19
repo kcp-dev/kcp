@@ -26,7 +26,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	kcpadmission "github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 )
 
 var _ framework.VirtualWorkspace = (*DynamicVirtualWorkspace)(nil)
@@ -45,11 +44,6 @@ type DynamicVirtualWorkspace struct {
 	// Usually it would also set up some logic that will call the apiserver.CreateServingInfoFor() method
 	// to add an apidefinition.APIDefinition in the apidefinition.APIDefinitionSetGetter on some event.
 	BootstrapAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error)
-
-	// BootstrapVirtualAPISetManagement creates, initializes and returns an apidefinition.APIDefinitionSetGetter.
-	// Usually it would also set up some logic that will call the apiserver.CreateServingInfoFor() method
-	// to add an apidefinition.APIDefinition in the apidefinition.APIDefinitionSetGetter on some event.
-	BootstrapVirtualAPISetManagement func(mainConfig genericapiserver.CompletedConfig) (virtualapidefinition.VirtualAPIDefinitionSetGetter, error)
 }
 
 func (vw *DynamicVirtualWorkspace) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {

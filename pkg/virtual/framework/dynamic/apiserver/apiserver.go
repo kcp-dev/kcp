@@ -36,7 +36,6 @@ import (
 
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/virtualapidefinition"
 )
 
 var (
@@ -64,8 +63,7 @@ func init() {
 
 // DynamicAPIServerExtraConfig contains additional configuration for the DynamicAPIServer.
 type DynamicAPIServerExtraConfig struct {
-	APISetRetriever        apidefinition.APIDefinitionSetGetter
-	VirtualAPISetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter
+	APISetRetriever apidefinition.APIDefinitionSetGetter
 }
 
 // DynamicAPIServerConfig contains the configuration for the DynamicAPIServer.
@@ -77,9 +75,8 @@ type DynamicAPIServerConfig struct {
 // DynamicAPIServer contains state for a Kubernetes api server that can
 // dynamically serve resources based on an API definitions (provided by the APISetRetriever).
 type DynamicAPIServer struct {
-	GenericAPIServer       *genericapiserver.GenericAPIServer
-	APISetRetriever        apidefinition.APIDefinitionSetGetter
-	VirtualAPISetRetriever virtualapidefinition.VirtualAPIDefinitionSetGetter
+	GenericAPIServer *genericapiserver.GenericAPIServer
+	APISetRetriever  apidefinition.APIDefinitionSetGetter
 }
 
 type completedConfig struct {
@@ -130,9 +127,8 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 	})
 
 	s := &DynamicAPIServer{
-		GenericAPIServer:       genericServer,
-		APISetRetriever:        c.ExtraConfig.APISetRetriever,
-		VirtualAPISetRetriever: c.ExtraConfig.VirtualAPISetRetriever,
+		GenericAPIServer: genericServer,
+		APISetRetriever:  c.ExtraConfig.APISetRetriever,
 	}
 
 	delegateHandler := delegationTarget.UnprotectedHandler()
@@ -141,43 +137,26 @@ func (c completedConfig) New(virtualWorkspaceName string, delegationTarget gener
 	}
 
 	versionDiscoveryHandler := &versionDiscoveryHandler{
-		apiSetRetriever:        s.APISetRetriever,
-		virtualApiSetRetriever: s.VirtualAPISetRetriever,
-		delegate:               delegateHandler,
+		apiSetRetriever: s.APISetRetriever,
+		delegate:        delegateHandler,
 	}
 
 	groupDiscoveryHandler := &groupDiscoveryHandler{
-		apiSetRetriever:        s.APISetRetriever,
-		virtualApiSetRetriever: s.VirtualAPISetRetriever,
-		delegate:               delegateHandler,
+		apiSetRetriever: s.APISetRetriever,
+		delegate:        delegateHandler,
 	}
 
 	rootDiscoveryHandler := &rootDiscoveryHandler{
-		apiSetRetriever:        s.APISetRetriever,
-		virtualApiSetRetriever: s.VirtualAPISetRetriever,
-		delegate:               delegateHandler,
+		apiSetRetriever: s.APISetRetriever,
+		delegate:        delegateHandler,
 	}
 
-	virtualHandler, err := newVirtualResourceHandler(
-		s.VirtualAPISetRetriever,
-		versionDiscoveryHandler,
-		groupDiscoveryHandler,
-		rootDiscoveryHandler,
-		delegateHandler,
-		c.GenericConfig.AdmissionControl,
-		s.GenericAPIServer.Authorizer,
-		c.GenericConfig.RequestTimeout,
-		time.Duration(c.GenericConfig.MinRequestTimeout)*time.Second,
-		c.GenericConfig.MaxRequestBodyBytes,
-		s.GenericAPIServer.StaticOpenAPISpec,
-	)
-
-	crdHandler, err := newCRDResourceHandler(
+	crdHandler, err := newResourceHandler(
 		s.APISetRetriever,
 		versionDiscoveryHandler,
 		groupDiscoveryHandler,
 		rootDiscoveryHandler,
-		virtualHandler,
+		delegateHandler,
 		c.GenericConfig.AdmissionControl,
 		s.GenericAPIServer.Authorizer,
 		c.GenericConfig.RequestTimeout,
