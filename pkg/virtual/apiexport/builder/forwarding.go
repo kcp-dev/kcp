@@ -40,7 +40,6 @@ import (
 )
 
 func provideAPIExportFilteredRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, clusterName logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error) {
-
 	labelSelector := map[string]string{
 		apisv1alpha1.InternalAPIBindingExportLabelKey: permissionclaims.ToAPIBindingExportLabelValue(clusterName, exportName),
 	}
@@ -54,7 +53,6 @@ func provideAPIExportFilteredRestStorage(ctx context.Context, dynamicClusterClie
 
 // provideDelegatingRestStorage returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
 func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
-
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator validation.SchemaValidator, subresourcesSchemaValidator map[string]validation.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -157,9 +155,4 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
 		}, subresourceStorages
 	}
-}
-
-func provideDelegatingReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc) apiserver.RestProviderFunc {
-	storageFuncs, _ := registry.ProvideReadOnlyRestStorage(ctx, dynamicClusterClientFunc, nil, nil)
-	return storageFuncs
 }

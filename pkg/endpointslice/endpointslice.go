@@ -1,36 +1,13 @@
 package endpointslice
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-func GetUnstructuredByLogicalClusterAndGVRAndName(ctx context.Context, cluster logicalcluster.Name, dynamicClusterClient kcpdynamic.ClusterInterface, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
-	list, err := dynamicClusterClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(list.Items) == 0 {
-		return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
-	}
-	if len(list.Items) > 1 {
-		return nil, apierrors.NewInternalError(fmt.Errorf("multiple objects found"))
-	}
-
-	return &list.Items[0], nil
-}
-
-func ListURLsFromUnstructured(endpointSlice *unstructured.Unstructured) ([]string, error) {
+func ListURLsFromUnstructured(endpointSlice unstructured.Unstructured) ([]string, error) {
 	endpoints, found, err := unstructured.NestedSlice(endpointSlice.Object, "status", "endpoints")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get status.endpoints: %w", err)

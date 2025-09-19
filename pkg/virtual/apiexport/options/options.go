@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -33,12 +32,7 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
-type APIExport struct {
-	ShardVirtualWorkspaceCAFile string
-	ShardVirtualWorkspaceURL    string
-	ShardClientCertFile         string
-	ShardClientKeyFile          string
-}
+type APIExport struct{}
 
 func New() *APIExport {
 	return &APIExport{}
@@ -61,16 +55,11 @@ func (o *APIExport) Validate(flagPrefix string) []error {
 
 func (o *APIExport) NewVirtualWorkspaces(
 	rootPathPrefix string,
-	shardExternalURL func() string,
-	config, cacheConfig *rest.Config,
+	config *rest.Config,
 	cachedKcpInformers, wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "apiexport-virtual-workspace")
 	kcpClusterClient, err := kcpclientset.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	cacheKcpDynamicClient, err := kcpdynamic.NewForConfig(cacheConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -83,5 +72,5 @@ func (o *APIExport) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), shardExternalURL, config, kubeClusterClient, deepSARClient, kcpClusterClient, cacheKcpDynamicClient, cachedKcpInformers, wildcardKcpInformers, o.ShardVirtualWorkspaceCAFile, o.ShardVirtualWorkspaceURL, o.ShardClientCertFile, o.ShardClientKeyFile)
+	return builder.BuildVirtualWorkspace(path.Join(rootPathPrefix, builder.VirtualWorkspaceName), config, kubeClusterClient, deepSARClient, kcpClusterClient, cachedKcpInformers, wildcardKcpInformers)
 }

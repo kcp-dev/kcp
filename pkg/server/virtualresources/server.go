@@ -13,6 +13,7 @@ import (
 	// "k8s.io/apimachinery/pkg/runtime/schema"
 	restful "github.com/emicklei/go-restful/v3"
 
+	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -123,9 +124,9 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 	return s, nil
 }
 
-func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResource, vwEndpointURL string) error {
+func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResource, vrEndpointURL, exportIdentity string) error {
 	config := *s.Extra.VWClientConfig
-	config.Host = vwEndpointURL + fmt.Sprintf("/clusters/%s", cluster.String())
+	config.Host = vrEndpointURL + fmt.Sprintf(":%s/clusters/%s", exportIdentity, cluster.String())
 
 	dc, err := discoveryclient.NewDiscoveryClientForConfig(&config)
 	if err != nil {
@@ -149,7 +150,7 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 		}
 	}
 	if apiGroup == nil {
-		return fmt.Errorf("group %s not found in %s discovery", gr.Group, vwEndpointURL)
+		return fmt.Errorf("group %s not found in %s discovery", gr.Group, vrEndpointURL)
 	}
 
 	// Get all versions in the found group that are serving the bound resource.
@@ -158,7 +159,7 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 	for _, version := range apiGroup.Versions {
 		apiResourceList, err := dc.ServerResourcesForGroupVersion(version.GroupVersion)
 		if err != nil {
-			return fmt.Errorf("discovery client failed to list resources for group/version %s in %s: %v", version.GroupVersion, vwEndpointURL, err)
+			return fmt.Errorf("discovery client failed to list resources for group/version %s in %s: %v", version.GroupVersion, vrEndpointURL, err)
 		}
 
 		for _, res := range apiResourceList.APIResources {
@@ -177,7 +178,7 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 	}
 
 	if apiResources == nil {
-		return fmt.Errorf("resource %s/%s not found in %s", gr.Group, gr.Resource, vwEndpointURL)
+		return fmt.Errorf("resource %s/%s not found in %s", gr.Group, gr.Resource, vrEndpointURL)
 	}
 
 	s.lock.Lock()
@@ -219,7 +220,7 @@ func (s *Server) addHandlerFor(cluster logicalcluster.Name, gr schema.GroupResou
 	if _, ok := s.endpointsForGroupResource[cluster][gr]; !ok {
 		s.endpointsForGroupResource[cluster] = make(map[schema.GroupResource]string)
 	}
-	s.endpointsForGroupResource[cluster][gr] = vwEndpointURL
+	s.endpointsForGroupResource[cluster][gr] = vrEndpointURL
 
 	return nil
 }
@@ -302,9 +303,14 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	apiExportIdentity := kcpfilters.IdentityFromContext(ctx)
+	if apiExportIdentity == "" {
+		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
+		return
+	}
+
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil {
-		warning.AddWarning(ctx, "", "cluster missing in context")
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -321,8 +327,11 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// cluster may be *, check if apiexport identity is in ctx
+
 	handler := s.proxyFor(cluster.Name, schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource})
 	if handler == nil {
+		fmt.Printf("### VR handleResource path=%s cluster=%s gr=%v\n", r.URL.Path, cluster.Name, schema.GroupResource{Group: reqInfo.APIGroup, Resource: reqInfo.Resource})
 		s.delegate.UnprotectedHandler().ServeHTTP(w, r)
 		return
 	}
@@ -330,7 +339,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	handler.ServeHTTP(w, r)
 }
 
-func (s *Server) proxyFor(cluster logicalcluster.Name, gr schema.GroupResource) http.Handler {
+func (s *Server) proxyFor(cluster *genericapirequest.Cluster, gr schema.GroupResource) http.Handler {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

@@ -77,7 +77,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	for gr := range apiResourceSchemas {
 		identities[gr] = apiExport.Status.IdentityHash
 	}
-	resourceStorages := getResourceStoragesFromAPIExport(apiExport)
 
 	clusterName := logicalcluster.From(apiExport)
 
@@ -112,9 +111,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			shallow.Annotations[logicalcluster.AnnotationKey] = clusterName.String()
 			apiResourceSchemas[gr] = &shallow
 			claims[gr] = pc
-			resourceStorages[gr] = apisv1alpha2.ResourceSchemaStorage{
-				CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
-			}
 			continue
 		}
 		if pc.Group == apis.GroupName {
@@ -130,9 +126,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 
 			apiResourceSchemas[gr] = apisSchema
 			claims[gr] = pc
-			resourceStorages[gr] = apisv1alpha2.ResourceSchemaStorage{
-				CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
-			}
 			continue
 		}
 		if pc.IdentityHash == "" {
@@ -170,7 +163,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			if err != nil {
 				return err
 			}
-			candidateResourceStorages := getResourceStoragesFromAPIExport(export)
 			logger.V(4).Info("got APIResourceSchemas for candidate APIExport", "count", len(candidates))
 			for _, apiResourceSchema := range candidates {
 				logger := logger.WithValues(logging.FromPrefix("candidateAPIResourceSchema", apiResourceSchema)...)
@@ -184,7 +176,6 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = pc.IdentityHash
 				claims[gr] = pc
-				resourceStorages[gr] = candidateResourceStorages[gr]
 			}
 		}
 	}
@@ -235,7 +226,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs)
-			apiDefinition, err := c.createAPIDefinition(resourceStorages[gvr.GroupResource()], apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
+			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
 				logger.Error(err, "error creating api definition", "gvr", gvr)
@@ -324,15 +315,4 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	}
 
 	return apiResourceSchemas, nil
-}
-
-func getResourceStoragesFromAPIExport(apiExport *apisv1alpha2.APIExport) map[schema.GroupResource]apisv1alpha2.ResourceSchemaStorage {
-	m := make(map[schema.GroupResource]apisv1alpha2.ResourceSchemaStorage)
-	for _, res := range apiExport.Spec.Resources {
-		m[schema.GroupResource{
-			Group:    res.Group,
-			Resource: res.Name,
-		}] = res.Storage
-	}
-	return m
 }
