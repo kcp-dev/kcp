@@ -32,6 +32,7 @@ func New(clusterName logicalcluster.Name, cachedResource string) dynamiccontext.
 type Key struct {
 	CachedResourceCluster logicalcluster.Name
 	CachedResourceName    string
+	APIExportIdentity     string
 }
 
 func Parse(key dynamiccontext.APIDomainKey) (*Key, error) {

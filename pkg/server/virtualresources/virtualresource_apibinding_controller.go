@@ -3,7 +3,6 @@ package virtualresources
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,6 +22,7 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
@@ -77,6 +77,21 @@ func NewController(
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), localAPIExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
+		getUnstructuredEndpointSlice: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
+			list, err := dynamicClusterClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				return nil, err
+			}
+
+			if len(list.Items) == 0 {
+				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
+			}
+			if len(list.Items) > 1 {
+				return nil, apierrors.NewInternalError(fmt.Errorf("multiple objects found"))
+			}
+
+			return &list.Items[0], nil
+		},
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -95,10 +110,11 @@ type Controller struct {
 
 	server *Server
 
-	dynamicClusterClient kcpdynamic.ClusterInterface
-	getMyShard           func() (*corev1alpha1.Shard, error)
-	getAPIBinding        func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
-	getAPIExport         func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	dynamicClusterClient         kcpdynamic.ClusterInterface
+	getMyShard                   func() (*corev1alpha1.Shard, error)
+	getAPIBinding                func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	getAPIExport                 func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getUnstructuredEndpointSlice func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error)
 }
 
 func (c *Controller) enqueueAPIBinding(apiBinding *apisv1alpha2.APIBinding, logger logr.Logger) {
@@ -163,76 +179,22 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) getEndpointSliceURLs(ctx context.Context, cluster logicalcluster.Name, virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual) ([]string, error) {
-	list, err := c.dynamicClusterClient.Cluster(logicalcluster.NewPath(cluster.String())).Resource(schema.GroupVersionResource{
+func (c *Controller) getVirtualResourceURL(ctx context.Context, shardUrl string, cluster logicalcluster.Name, virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
+	endpointSlice, err := c.getUnstructuredEndpointSlice(ctx, cluster, schema.GroupVersionResource{
 		Group:    virtualStorage.Group,
 		Version:  virtualStorage.Version,
 		Resource: virtualStorage.Resource,
-	}).List(ctx, metav1.ListOptions{})
+	}, virtualStorage.Name)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	var endpointSlice *unstructured.Unstructured
-	for i := range list.Items {
-		if list.Items[i].GetName() == virtualStorage.Name {
-			endpointSlice = &list.Items[i]
-			break
-		}
-	}
-
-	if endpointSlice == nil {
-		return nil, apierrors.NewNotFound(schema.GroupResource{
-			Group:    virtualStorage.Group,
-			Resource: virtualStorage.Resource,
-		}, virtualStorage.Name)
-	}
-
-	endpoints, found, err := unstructured.NestedSlice(endpointSlice.Object, "status", "endpoints")
+	endpoints, err := endpointslice.ListURLsFromUnstructured(*endpointSlice)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status.endpoints: %w", err)
-	}
-	if !found {
-		return nil, fmt.Errorf("status.endpoints not found")
+		return "", err
 	}
 
-	var urls []string
-	for i, ep := range endpoints {
-		endpointMap, ok := ep.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("endpoint at index %d is not an object", i)
-		}
-
-		url, found, err := unstructured.NestedString(endpointMap, "url")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get url from endpoint at index %d: %w", i, err)
-		}
-		if !found {
-			return nil, fmt.Errorf("missing url in endpoint at index %d", i)
-		}
-
-		urls = append(urls, url)
-	}
-
-	return urls, nil
-}
-
-func selectEndpoint(thisShardURL string, urls []string) (string, error) {
-	selectedEndpoint := ""
-	for _, url := range urls {
-		if strings.HasPrefix(url, thisShardURL) {
-			if selectedEndpoint == "" {
-				selectedEndpoint = url
-			} else {
-				return "", fmt.Errorf("ambiguous virtual workspace endpoints in endpoint slice: %q and %q for shard %q", selectedEndpoint, url, thisShardURL)
-			}
-		}
-	}
-	if selectedEndpoint == "" {
-		return "", fmt.Errorf("no suitable virtual workspace endpoint found")
-	}
-
-	return selectedEndpoint, nil
+	return endpointslice.FindOneURL(shardUrl, endpoints)
 }
 
 func (c *Controller) process(ctx context.Context, key string) (bool, error) {
@@ -284,19 +246,12 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 			Resource: resource.Name,
 		}
 
-		endpointURLs, err := c.getEndpointSliceURLs(ctx, logicalcluster.From(export), resource.Storage.Virtual)
+		vrURL, err := c.getVirtualResourceURL(ctx, thisShard.Spec.VirtualWorkspaceURL, logicalcluster.From(export), resource.Storage.Virtual)
 		if err != nil {
 			return true, err
 		}
 
-		selectedEndpoint, err := selectEndpoint(thisShard.Spec.VirtualWorkspaceURL, endpointURLs)
-		if err != nil {
-			return true, err
-		}
-
-		logger.Info("ADDING HANDLER", "gr", resourceGR, "url", selectedEndpoint)
-
-		if err := c.server.addHandlerFor(clusterName, resourceGR, selectedEndpoint); err != nil {
+		if err := c.server.addHandlerFor(clusterName, resourceGR, vrURL, export.Status.IdentityHash); err != nil {
 			return true, err
 		}
 	}

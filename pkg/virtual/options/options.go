@@ -80,7 +80,7 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, shardExternalURL, config, cacheConfig, cachedKcpInformers, wildcardKcpInformers)
+	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}

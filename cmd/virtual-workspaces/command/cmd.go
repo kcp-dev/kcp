@@ -25,7 +25,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,15 +105,6 @@ func Run(ctx context.Context, o *options.Options) error {
 	if err != nil {
 		return err
 	}
-
-	// XXX
-	o.CoreVirtualWorkspaces.APIExport.ShardClientCertFile = o.ShardClientCertFile
-	o.CoreVirtualWorkspaces.APIExport.ShardClientKeyFile = o.ShardClientKeyFile
-	o.CoreVirtualWorkspaces.APIExport.ShardVirtualWorkspaceCAFile = o.ShardVirtualWorkspaceCAFile
-	o.CoreVirtualWorkspaces.APIExport.ShardVirtualWorkspaceURL = o.ShardVirtualWorkspaceURL
-
-	fmt.Printf("### virtual workspaces options %#v\n", o)
-	spew.Dump(o)
 
 	// Don't throttle
 	nonIdentityConfig.QPS = -1

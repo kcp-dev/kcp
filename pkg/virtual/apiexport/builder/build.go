@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -40,7 +39,6 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	aeadmission "github.com/kcp-dev/kcp/pkg/virtual/apiexport/admission"
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
@@ -51,10 +49,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
-	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -72,17 +68,10 @@ const (
 
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
-	shardExternalURL func() string,
 	cfg *rest.Config,
 	kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	cacheKcpDynamicClient kcpdynamic.ClusterInterface,
 	cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory,
-
-	shardVirtualWorkspaceCAFile string,
-	shardVirtualWorkspaceURL string,
-	shardClientCertFile string,
-	shardClientKeyFile string,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -168,42 +157,11 @@ func BuildVirtualWorkspace(
 				return impersonatedClient, nil
 			}
 
-			virtualResourceDynamicClientGetter := func(ctx context.Context, apiExportCluster logicalcluster.Name, virtualStorageDef *apisv1alpha2.ResourceSchemaStorageVirtual) (kcpdynamic.ClusterInterface, error) {
-				slice, err := endpointslice.GetUnstructuredByLogicalClusterAndGVRAndName(ctx, apiExportCluster, cacheKcpDynamicClient, schema.GroupVersionResource{
-					Group:    virtualStorageDef.Group,
-					Version:  virtualStorageDef.Version,
-					Resource: virtualStorageDef.Resource,
-				}, virtualStorageDef.Name)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get endpoint slice: %v", err)
-				}
-
-				endpoints, err := endpointslice.ListURLsFromUnstructured(slice)
-				if err != nil {
-					return nil, fmt.Errorf("failed to list virtual workspace URLs in endpoint slice: %v", err)
-				}
-
-				vwURL, err := endpointslice.FindOneURL(shardVirtualWorkspaceURL, endpoints)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get virtual workspace URL from endpoint slice: %v", err)
-				}
-
-				vwCfg := rest.CopyConfig(cfg)
-				vwCfg.Host = vwURL
-
-				vwDynamicClient, err := kcpdynamic.NewForConfig(vwCfg)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create dynamic client: %v", err)
-				}
-
-				return vwDynamicClient, nil
-			}
-
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				cachedKcpInformers.Apis().V1alpha2().APIExports(),
-				func(resourceStorage apisv1alpha2.ResourceSchemaStorage, apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
 					var wrapper forwardingregistry.StorageWrapper
@@ -213,16 +171,7 @@ func BuildVirtualWorkspace(
 						})
 					}
 
-					var dynClientGetter registry.DynamicClusterClientFunc
-					if resourceStorage.Virtual != nil {
-						dynClientGetter = func(ctx context.Context) (kcpdynamic.ClusterInterface, error) {
-							return virtualResourceDynamicClientGetter(ctx, logicalcluster.From(apiResourceSchema), resourceStorage.Virtual)
-						}
-					} else {
-						dynClientGetter = impersonatedDynamicClientGetter
-					}
-
-					storageBuilder := provideDelegatingRestStorage(ctx, dynClientGetter, identityHash, wrapper)
+					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
