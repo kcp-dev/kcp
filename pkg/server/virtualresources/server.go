@@ -13,7 +13,6 @@ import (
 	// "k8s.io/apimachinery/pkg/runtime/schema"
 	restful "github.com/emicklei/go-restful/v3"
 
-	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,6 +29,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+
+	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
 var (

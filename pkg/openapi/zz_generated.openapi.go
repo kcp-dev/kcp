@@ -3456,13 +3456,6 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
-					"schema": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Schema is the name of the equivalent APIResourceSchema that the resource is defined with. May be empty in case of built-in types. Schema is equivalent if: - the cached resource originates from an APIBinding, and the APIResourceSchema spec\n  of that bound resource matches the one defined in `Schema`.\n- the cached resource originates from a CRD, and the CRD spec matches the one defined\n  in `Schema`.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"identity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity allows access to CachedResource's resources via the APIExport.\n\nDifferent  CachedResource in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the  ublishedResource is moved.\n\nThe identity is defaulted. A secret with the name of the CachedResource is automatically created.",

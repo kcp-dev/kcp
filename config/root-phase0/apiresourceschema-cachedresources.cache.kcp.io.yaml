@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250917-69aec5a47.cachedresources.cache.kcp.io
+  name: v250920-de0c8484d.cachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -133,16 +133,6 @@ spec:
                 Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                 not provided by an api export.
               pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
-              type: string
-            schema:
-              description: |-
-                Schema is the name of the equivalent APIResourceSchema that the resource is defined with.
-                May be empty in case of built-in types.
-                Schema is equivalent if:
-                - the cached resource originates from an APIBinding, and the APIResourceSchema spec
-                  of that bound resource matches the one defined in `Schema`.
-                - the cached resource originates from a CRD, and the CRD spec matches the one defined
-                  in `Schema`.
               type: string
             version:
               description: version is the version of the resource.

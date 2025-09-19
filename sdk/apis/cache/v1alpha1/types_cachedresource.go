@@ -54,16 +54,6 @@ type CachedResourceSpec struct {
 	// GroupVersionResource is the fully qualified name of the resource to be published.
 	GroupVersionResource `json:",inline"`
 
-	// Schema is the name of the equivalent APIResourceSchema that the resource is defined with.
-	// May be empty in case of built-in types.
-	// Schema is equivalent if:
-	// - the cached resource originates from an APIBinding, and the APIResourceSchema spec
-	//   of that bound resource matches the one defined in `Schema`.
-	// - the cached resource originates from a CRD, and the CRD spec matches the one defined
-	//   in `Schema`.
-	// +optional
-	Schema string `json:"schema,omitempty"`
-
 	// identity points to a secret that contains the API identity in the 'key' file.
 	// The API identity allows access to CachedResource's resources via the APIExport.
 	//
