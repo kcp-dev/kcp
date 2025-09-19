@@ -435,8 +435,7 @@ func TestReplication(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
@@ -478,8 +477,7 @@ func TestReplicationDisruptive(t *testing.T) {
 			server := kcptesting.PrivateKcpServer(t,
 				kcptestingserver.WithCustomArguments("--token-auth-file", framework.DefaultTokenAuthFile),
 			)
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
+			ctx := t.Context()
 
 			kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 			kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)

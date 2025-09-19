@@ -39,9 +39,7 @@ func TestCreateFromFS(t *testing.T) {
 		{
 			name: "context cancelled",
 			ctx: func() context.Context {
-				ctx, cancel := context.WithCancel(context.TODO())
-				cancel()
-				return ctx
+				return t.Context()
 			}(),
 			grs: []metav1.GroupResource{
 				{Group: tenancy.GroupName, Resource: "workspaces"},

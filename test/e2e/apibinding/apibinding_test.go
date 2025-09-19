@@ -67,8 +67,7 @@ func TestAPIBindingAPIExportReferenceImmutability(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
@@ -167,8 +166,7 @@ func TestAPIBinding(t *testing.T) {
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	t.Logf("Check if we can access shards")
 	var shards *corev1alpha1.ShardList

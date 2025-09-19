@@ -17,7 +17,6 @@ limitations under the License.
 package conformance
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -50,8 +49,7 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	// using known path to cert and key
 	cfg := server.BaseConfig(t)

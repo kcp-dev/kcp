@@ -17,7 +17,6 @@ limitations under the License.
 package partitionset
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -44,8 +43,7 @@ import (
 
 func TestPartitionSet(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create organization and workspace.
@@ -264,8 +262,7 @@ func TestPartitionSet(t *testing.T) {
 
 func TestPartitionSetAdmission(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create organization and workspace.

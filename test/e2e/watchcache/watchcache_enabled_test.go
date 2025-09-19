@@ -54,8 +54,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	// note that we schedule the workspace on the root shard because
 	// we need a direct and privileged access to it for downloading the metrics
@@ -114,8 +113,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 	clusterConfig := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(clusterConfig)
 	require.NoError(t, err)
@@ -166,8 +164,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 	clusterConfig := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(clusterConfig)
 	require.NoError(t, err)

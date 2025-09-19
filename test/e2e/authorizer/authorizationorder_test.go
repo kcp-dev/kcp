@@ -41,8 +41,7 @@ func TestAuthorizationOrder(t *testing.T) {
 	t.Parallel()
 	t.Run("Authorization order 1", func(t *testing.T) {
 		webhookPort := "8080"
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		t.Cleanup(cancelFunc)
+		ctx := t.Context()
 		webhook1Stop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:allow")
 		t.Cleanup(webhook1Stop)
 
@@ -68,8 +67,7 @@ func TestAuthorizationOrder(t *testing.T) {
 
 	t.Run("Authorization order 2", func(t *testing.T) {
 		webhookPort := "8081"
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		t.Cleanup(cancelFunc)
+		ctx := t.Context()
 		webhook1Stop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:allow")
 		t.Cleanup(webhook1Stop)
 
@@ -101,8 +99,7 @@ func TestAuthorizationOrder(t *testing.T) {
 
 	t.Run("Default authorization order", func(t *testing.T) {
 		webhookPort := "8082"
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		t.Cleanup(cancelFunc)
+		ctx := t.Context()
 		webhookStop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
 		t.Cleanup(webhookStop)
 		// This will setup the test with the default authorization order: AlwaysAllowGroups,AlwaysAllowPaths,RBAC,Webhook

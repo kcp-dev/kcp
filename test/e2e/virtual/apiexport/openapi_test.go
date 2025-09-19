@@ -17,7 +17,6 @@ limitations under the License.
 package apiexport
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -47,8 +46,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
