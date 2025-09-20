@@ -17,7 +17,6 @@ limitations under the License.
 package cache
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"testing"
@@ -55,8 +54,7 @@ func TestCacheServerReplicationAPI(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	testCases := make([]struct {
 		name string
