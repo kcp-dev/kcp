@@ -59,7 +59,7 @@ func GenCachedObjectName(gvr schema.GroupVersionResource, namespace, name string
 	buf.WriteString(namespace)
 	buf.WriteString(name)
 
-	hash := sha256.Sum256([]byte(name))
+	hash := sha256.Sum256(buf.Bytes())
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 
 	return base36hash

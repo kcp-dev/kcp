@@ -133,17 +133,14 @@ const (
 )
 
 const (
-	// CachedResourceSchemaSourceValid represents status of the schema reference.
-	CachedResourceSchemaSourceValid conditionsv1alpha1.ConditionType = "CachedResourceSchemaSourceValid"
+	// CachedResourceInvalidReferenceReason is a reason for the CachedResourceValid condition that the referenced
+	// CachedResource reference is invalid.
+	CachedResourceInvalidReferenceReason = "CachedResourceInvalidReference"
+	// CachedResourceNotFoundReason is a reason for the CachedResourceValid condition that the referenced CachedResource is not found.
+	CachedResourceNotFoundReason = "CachedResourceNotFound"
 
-	SchemaSourceNotReadyReason = "SchemaSourceNotReady"
-	SchemaSourceInvalidReason  = "SchemaSourceInvalid"
-)
-
-const (
-	CachedResourceSourceSchemaReplicated conditionsv1alpha1.ConditionType = "CachedResourceSourceSchemaReplicated"
-
-	SourceSchemaReplicatedFailedReason = "SourceSchemaReplicatedFailed"
+	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
+	InternalErrorReason = "InternalError"
 )
 
 // These are valid reasons of published resource.
@@ -163,10 +160,6 @@ type CachedResourceStatus struct {
 	// +optional
 	ResourceCounts *ResourceCount `json:"resourceCounts,omitempty"`
 
-	// ResourceSchemaSource is a reference to the schema object of the cached resource.
-	// +optional
-	ResourceSchemaSource *CachedResourceSchemaSource `json:"resourceSchemaSource,omitempty"`
-
 	// Phase of the workspace (Initializing, Ready, Unavailable).
 	//
 	// +kubebuilder:default=Initializing
@@ -175,44 +168,6 @@ type CachedResourceStatus struct {
 	// Current processing state of the Workspace.
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
-}
-
-// CachedResourceSchemaSource describes the source of resource schema.
-// Exactly one field is set.
-type CachedResourceSchemaSource struct {
-	// APIResourceSchema defines an APIResourceSchema as the source of the schema.
-	// +optional
-	APIResourceSchema *APIResourceSchemaSource `json:"apiResourceSchema,omitempty"`
-
-	// CRD defines a CRD as the source of the schema.
-	// +optional
-	CRD *CRDSchemaSource `json:"crd,omitempty"`
-}
-
-type APIResourceSchemaSource struct {
-	// ClusterName is the name of the cluster where the APIResourceSchema is defined.
-	//
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	ClusterName string `json:"clusterName"`
-
-	// Name is the APIResourceSchema name.
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-}
-
-type CRDSchemaSource struct {
-	// Name is the CRD name.
-	//
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-
-	// ResourceVersion is the resource version of the source CRD object.
-	//
-	// +optional
-	ResourceVersion string `json:"resourceVersion"`
 }
 
 // ResourceCount is the number of resources that match the label selector

@@ -18,20 +18,19 @@ package cachedresourceendpointslice
 
 import (
 	"context"
-	"net/url"
-	"path"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 )
 
 type reconcileStatus int
@@ -49,10 +48,8 @@ type reconciler interface {
 func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) (bool, error) {
 	reconcilers := []reconciler{
 		&endpointsReconciler{
-			getLogicalCluster: c.getLogicalCluster,
 			getAPIBinding:     c.getAPIBinding,
 			getCachedResource: c.getCachedResource,
-			getMyShard:        c.getMyShard,
 		},
 	}
 
@@ -79,76 +76,93 @@ func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.Cac
 }
 
 type endpointsReconciler struct {
-	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 	getAPIBinding     func(clusterName logicalcluster.Name, bindingName string) (*apisv1alpha2.APIBinding, error)
 	getCachedResource func(clusterName logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error)
-	getMyShard        func() (*corev1alpha1.Shard, error)
+	getPartition      func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
 }
 
 func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) (reconcileStatus, error) {
-	logger := klog.FromContext(ctx)
-
-	shard, err := r.getMyShard()
+	_, err := r.getCachedResource(logicalcluster.From(endpoints), endpoints.Spec.CachedResource.Name)
 	if err != nil {
-		return reconcileStatusStopAndRequeue, err
+		if apierrors.IsNotFound(err) {
+			// Don't keep the endpoints if the CachedResource has been deleted.
+			endpoints.Status.CachedResourceEndpoints = nil
+			conditions.MarkFalse(
+				endpoints,
+				cachev1alpha1.CachedResourceValid,
+				cachev1alpha1.CachedResourceNotFoundReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Error getting CachedResource %s|%s",
+				logicalcluster.From(endpoints),
+				endpoints.Spec.CachedResource.Name,
+			)
+			// No need to try again.
+			return reconcileStatusContinue, nil
+		} else {
+			conditions.MarkFalse(
+				endpoints,
+				cachev1alpha1.CachedResourceValid,
+				cachev1alpha1.InternalErrorReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"Error getting CachedResource %s|%s",
+				logicalcluster.From(endpoints),
+				endpoints.Spec.CachedResource.Name,
+			)
+			return reconcileStatusStopAndRequeue, err
+		}
+	}
+	conditions.MarkTrue(endpoints, cachev1alpha1.CachedResourceValid)
+
+	// Check the partition selector.
+	var selector labels.Selector
+	if endpoints.Spec.Partition != "" {
+		partition, err := r.getPartition(logicalcluster.From(endpoints), endpoints.Spec.Partition)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Don't keep the endpoints if the Partition has been deleted and is still referenced.
+				endpoints.Status.CachedResourceEndpoints = nil
+				conditions.MarkFalse(
+					endpoints,
+					cachev1alpha1.PartitionValid,
+					cachev1alpha1.PartitionInvalidReferenceReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"%v",
+					err,
+				)
+				// No need to try again.
+				return reconcileStatusContinue, nil
+			} else {
+				conditions.MarkFalse(
+					endpoints,
+					cachev1alpha1.PartitionValid,
+					cachev1alpha1.InternalErrorReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"%v",
+					err,
+				)
+				return reconcileStatusStopAndRequeue, err
+			}
+		}
+		selector, err = metav1.LabelSelectorAsSelector(partition.Spec.Selector)
+		if err != nil {
+			conditions.MarkFalse(
+				endpoints,
+				cachev1alpha1.PartitionValid,
+				cachev1alpha1.PartitionInvalidReferenceReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"%v",
+				err,
+			)
+			return reconcileStatusStopAndRequeue, err
+		}
+	}
+	if selector == nil {
+		selector = labels.Everything()
 	}
 
-	addr, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
-	if err != nil {
-		// Should never happen
-		logger = logging.WithObject(logger, shard)
-		logger.Error(
-			err, "error parsing shard.spec.virtualWorkspaceURL",
-			"VirtualWorkspaceURL", shard.Spec.VirtualWorkspaceURL,
-		)
-		return reconcileStatusStop, nil
-	}
+	conditions.MarkTrue(endpoints, cachev1alpha1.PartitionValid)
 
-	// TODO(gmna0): this needs handling for per-shard URLs. To be completed
-	// once we do CachedResource aggregation with APIExports.
-
-	// Formats the Replication VW URL like so:
-	//   /services/replication/<CachedResource cluster>/<CachedResource name>
-	addr.Path = path.Join(
-		addr.Path,
-		virtualworkspacesoptions.DefaultRootPathPrefix,
-		"replication",
-		logicalcluster.From(endpoints).String(),
-		endpoints.Spec.CachedResource.Name,
-	)
-
-	addrUrl := addr.String()
-
-	_, err = r.getCachedResource(logicalcluster.From(endpoints), endpoints.Spec.CachedResource.Name)
-	if err == nil {
-		endpoints.Status.CachedResourceEndpoints = addURLIfNotPresent(endpoints.Status.CachedResourceEndpoints, addrUrl)
-		return reconcileStatusContinue, nil
-	}
-	if apierrors.IsNotFound(err) {
-		endpoints.Status.CachedResourceEndpoints = removeURLIfPresent(endpoints.Status.CachedResourceEndpoints, addrUrl)
-		return reconcileStatusContinue, nil
-	}
+	endpoints.Status.ShardSelector = selector.String()
 
 	return reconcileStatusStopAndRequeue, err
-}
-
-func addURLIfNotPresent(endpoints []cachev1alpha1.CachedResourceEndpoint, urlToAdd string) []cachev1alpha1.CachedResourceEndpoint {
-	for _, endpoint := range endpoints {
-		if endpoint.URL == urlToAdd {
-			// Already in endpoints slice, nothing to do.
-			return endpoints
-		}
-	}
-	return append(endpoints, cachev1alpha1.CachedResourceEndpoint{
-		URL: urlToAdd,
-	})
-}
-
-func removeURLIfPresent(endpoints []cachev1alpha1.CachedResourceEndpoint, urlToRemove string) []cachev1alpha1.CachedResourceEndpoint {
-	for i, endpoint := range endpoints {
-		if endpoint.URL == urlToRemove {
-			return append(endpoints[:i], endpoints[i+1:]...)
-		}
-	}
-	return endpoints
 }

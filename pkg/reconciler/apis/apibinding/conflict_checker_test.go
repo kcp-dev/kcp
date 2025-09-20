@@ -17,6 +17,7 @@ limitations under the License.
 package apibinding
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,6 +25,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -82,6 +84,9 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 		},
 		func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return apiResourceSchemas[name], nil
+		},
+		func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return &apisv1alpha2.APIExport{}, nil
 		},
 		func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
@@ -260,6 +265,9 @@ func TestCRDs(t *testing.T) {
 				func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 					return nil, nil
 				},
+				func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{}, nil
+				},
 				func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 					return nil, nil
 				},
@@ -282,6 +290,177 @@ func TestCRDs(t *testing.T) {
 	}
 }
 
+func getResource[T metav1.Object](name string, resources []T) (T, error) {
+	for _, res := range resources {
+		if res.GetName() == name {
+			return res, nil
+		}
+	}
+	var zero T
+	return zero, fmt.Errorf("%s not found", name)
+}
+
+func TestVirtualResourceConflict(t *testing.T) {
+	scenarios := map[string]struct {
+		initialExport   *apisv1alpha2.APIExport
+		initialBinding  *apisv1alpha2.APIBinding
+		initialSchemas  []*apisv1alpha1.APIResourceSchema
+		incomingExport  *apisv1alpha2.APIExport
+		incomingBinding *apisv1alpha2.APIBinding
+		incomingSchema  *apisv1alpha1.APIResourceSchema
+		expectedErr     error
+	}{
+		"creating conflicting CRD fails": {
+			initialExport: &apisv1alpha2.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-export",
+				},
+				Spec: apisv1alpha2.APIExportSpec{
+					Resources: []apisv1alpha2.ResourceSchema{
+						{
+							Group:  "wildwest.dev",
+							Name:   "cowboys",
+							Schema: "today.cowboys.wildwest.dev",
+							Storage: apisv1alpha2.ResourceSchemaStorage{
+								Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{},
+							},
+						},
+					},
+				},
+			},
+			initialBinding: &apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-binding",
+				},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "my-export",
+						},
+					},
+				},
+				Status: apisv1alpha2.APIBindingStatus{
+					BoundResources: []apisv1alpha2.BoundAPIResource{
+						{
+							Group:    "wildwest.dev",
+							Resource: "cowboys",
+							Schema: apisv1alpha2.BoundAPIResourceSchema{
+								Name: "today.cowboys.wildwest.dev",
+								UID:  "today.cowboys.wildwest.dev/schema-uid",
+							},
+						},
+					},
+				},
+			},
+			initialSchemas: []*apisv1alpha1.APIResourceSchema{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "today.cowboys.wildwest.dev",
+						UID:  "today.cowboys.wildwest.dev/schema-uid",
+					},
+					Spec: apisv1alpha1.APIResourceSchemaSpec{
+						Group: "wildwest.dev",
+						Names: apiextensionsv1.CustomResourceDefinitionNames{
+							Singular:   "cowboy",
+							Plural:     "cowboys",
+							Kind:       "Cowboy",
+							ListKind:   "CowboyList",
+							ShortNames: []string{"cow"},
+						},
+					},
+				},
+			},
+			incomingExport: &apisv1alpha2.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-new-export",
+				},
+				Spec: apisv1alpha2.APIExportSpec{
+					Resources: []apisv1alpha2.ResourceSchema{
+						{
+							Group:  "wildwest.dev",
+							Name:   "cowgirls",
+							Schema: "today.cowgirls.wildwest.dev",
+							Storage: apisv1alpha2.ResourceSchemaStorage{
+								CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+							},
+						},
+					},
+				},
+			},
+			incomingBinding: &apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-new-binding",
+				},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Name: "my-new-export",
+						},
+					},
+				},
+				Status: apisv1alpha2.APIBindingStatus{
+					BoundResources: []apisv1alpha2.BoundAPIResource{
+						{
+							Group:    "wildwest.dev",
+							Resource: "thunders",
+							Schema: apisv1alpha2.BoundAPIResourceSchema{
+								Name: "today.cowgirls.wildwest.dev",
+								UID:  "today.cowgirls.wildwest.dev/schema-uid",
+							},
+						},
+					},
+				},
+			},
+			incomingSchema: &apisv1alpha1.APIResourceSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "today.cowgirls.wildwest.dev",
+					UID:  "today.cowgirls.wildwest.dev/schema-uid",
+				},
+				Spec: apisv1alpha1.APIResourceSchemaSpec{
+					Group: "wildwest.dev",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Singular:   "cowgirl",
+						Plural:     "cowgirls",
+						Kind:       "Cowgirl",
+						ListKind:   "CowgirlList",
+						ShortNames: []string{"cow"},
+					},
+				},
+			},
+			expectedErr: fmt.Errorf(`naming conflict with APIBinding "my-binding" bound to local APIExport "my-export": spec.names.shortNames=[cw] is forbidden`),
+		},
+	}
+	for name, s := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			c, err := newConflictChecker(logicalcluster.From(s.incomingBinding),
+				func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+					return []*apisv1alpha2.APIBinding{s.initialBinding}, nil
+				},
+				func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+					return getResource[*apisv1alpha1.APIResourceSchema](name, s.initialSchemas)
+				},
+				func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return getResource[*apisv1alpha2.APIExport](name, []*apisv1alpha2.APIExport{s.initialExport, s.incomingExport})
+				},
+				func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+					return getResource[*apiextensionsv1.CustomResourceDefinition](name, nil)
+				},
+				func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+					return nil, nil
+				},
+			)
+			require.NoError(t, err, "failed to create conflict checker")
+
+			err = c.Check(s.incomingBinding, s.incomingSchema)
+			if s.expectedErr == nil {
+				require.NoError(t, err, "conflictChecker.Check() failed unexpectedly")
+			} else {
+				require.EqualError(t, err, s.expectedErr.Error(), "conflictChecker.Check() returned an unexpected error")
+			}
+		})
+	}
+}
+
 func createCRD(clusterName, name, group, resource string) *apiextensionsv1.CustomResourceDefinition {
 	return &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -293,6 +472,25 @@ func createCRD(clusterName, name, group, resource string) *apiextensionsv1.Custo
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: group,
 			Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: resource},
+		},
+	}
+}
+
+func apiExportWithVirtualResource(grs []schema.GroupResource) *apisv1alpha2.APIExport {
+	resources := make([]apisv1alpha2.ResourceSchema, 0, len(grs))
+	for _, gr := range grs {
+		resources = append(resources, apisv1alpha2.ResourceSchema{
+			Group:  gr.Group,
+			Name:   gr.Resource,
+			Schema: fmt.Sprintf("someprefix.%s", gr.String()),
+			Storage: apisv1alpha2.ResourceSchemaStorage{
+				Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{},
+			},
+		})
+	}
+	return &apisv1alpha2.APIExport{
+		Spec: apisv1alpha2.APIExportSpec{
+			Resources: resources,
 		},
 	}
 }

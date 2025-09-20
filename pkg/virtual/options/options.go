@@ -37,6 +37,8 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 type Options struct {
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
+
+	ExtraCreateVirtualWorkspaceFuncs []CreateVirtualWorkspacesFunc
 }
 
 func NewOptions() *Options {
@@ -59,8 +61,20 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
+type NamedVirtualWorkspaceSet []rootapiserver.NamedVirtualWorkspace
+
+type CreateVirtualWorkspacesFunc func(
+	config *rest.Config,
+	cacheConfig *rest.Config,
+	rootPathPrefix string,
+	shardExternalURL func() string,
+	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
+) ([]rootapiserver.NamedVirtualWorkspace, error)
+
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
+	cacheConfig *rest.Config,
 	rootPathPrefix string,
 	shardExternalURL func() string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
@@ -86,7 +100,24 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces, replications)
+	var extraVirtualWorkspaces []rootapiserver.NamedVirtualWorkspace
+	for _, createFunc := range o.ExtraCreateVirtualWorkspaceFuncs {
+		namedVirtualWorkspaceSet, err := createFunc(
+			config,
+			cacheConfig,
+			rootPathPrefix,
+			shardExternalURL,
+			wildcardKubeInformers,
+			wildcardKcpInformers,
+			cachedKcpInformers,
+		)
+		if err != nil {
+			return nil, err
+		}
+		extraVirtualWorkspaces = append(extraVirtualWorkspaces, namedVirtualWorkspaceSet...)
+	}
+
+	all, err := Merge(apiexports, initializingworkspaces, replications, extraVirtualWorkspaces)
 	if err != nil {
 		return nil, err
 	}

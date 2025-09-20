@@ -42,6 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
@@ -240,6 +241,16 @@ func InstallIndexers(
 			Kind:   "ValidatingAdmissionPolicyBinding",
 			Local:  localKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
 			Global: globalKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
+		},
+		cachev1alpha1.SchemeGroupVersion.WithResource("cachedresources"): {
+			Kind:   "CachedResource",
+			Local:  localKcpInformers.Cache().V1alpha1().CachedResources().Informer(),
+			Global: globalKcpInformers.Cache().V1alpha1().CachedResources().Informer(),
+		},
+		cachev1alpha1.SchemeGroupVersion.WithResource("cachedresourceendpointslices"): {
+			Kind:   "CachedResourceEndpointSlice",
+			Local:  localKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer(),
+			Global: globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 			Kind:   "Shard",

@@ -49,6 +49,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/cachedresource"
+	"github.com/kcp-dev/kcp/pkg/admission/cachedresourceendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
@@ -92,10 +93,11 @@ var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
 	crdnooverlappinggvr.PluginName,
 	reservedmetadata.PluginName,
 	permissionclaims.PluginName,
+	cachedresource.PluginName,
+	cachedresourceendpointslice.PluginName,
 	pathannotation.PluginName,
 	kubequota.PluginName,
 	mutatingadmissionpolicy.PluginName,
-	cachedresource.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -133,9 +135,10 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	crdnooverlappinggvr.Register(plugins)
 	reservedmetadata.Register(plugins)
 	permissionclaims.Register(plugins)
+	cachedresource.Register(plugins)
+	cachedresourceendpointslice.Register(plugins)
 	pathannotation.Register(plugins)
 	kubequota.Register(plugins)
-	cachedresource.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.New[string](
@@ -163,9 +166,10 @@ var defaultOnPluginsInKcp = sets.New[string](
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
 	permissionclaims.PluginName,
+	cachedresource.PluginName,
+	cachedresourceendpointslice.PluginName,
 	pathannotation.PluginName,
 	kubequota.PluginName,
-	cachedresource.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.

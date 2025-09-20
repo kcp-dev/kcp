@@ -164,6 +164,16 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		fmt.Sprintf("--audit-policy-file=%s", auditPolicyFile),
 	}
 
+	shardDir := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", index))
+	kcpDir := filepath.Join(workDirPath, ".kcp")
+	shardClientCert := filepath.Join(shardDir, "shard-client-cert.crt")
+	shardClientCertKey := filepath.Join(shardDir, "shard-client-cert.key")
+	args = append(args, fmt.Sprintf("--shard-client-cert-file=%s", shardClientCert))
+	args = append(args, fmt.Sprintf("--shard-client-key-file=%s", shardClientCertKey))
+	args = append(args, fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(kcpDir, "serving-ca.crt")))
+	args = append(args, fmt.Sprintf("--shard-virtual-workspace-url=https://%s",
+		net.JoinHostPort(hostIP, virtualWorkspacePort(index))))
+
 	return &VirtualWorkspace{
 		index:       index,
 		workDirPath: workDirPath,
