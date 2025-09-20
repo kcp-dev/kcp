@@ -1,0 +1,9 @@
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIBinding
+metadata:
+  name: cowboys
+spec:
+  reference:
+    export:
+      path: root:provider-rw
+      name: cowboys

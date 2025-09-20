@@ -1,0 +1,14 @@
+apiVersion: cache.kcp.io/v1alpha1
+kind: CachedResource
+metadata:
+  name: cowboys
+spec:
+  group: wildwest.dev
+  version: v1alpha1
+  resource: cowboys
+  # schema: today.cowboys.wildwest.dev
+  # For easier testing...
+  identity:
+    secretRef:
+      name: cowboys-cr
+      namespace: default

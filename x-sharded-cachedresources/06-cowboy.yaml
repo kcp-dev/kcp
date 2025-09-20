@@ -1,0 +1,6 @@
+apiVersion: wildwest.dev/v1alpha1
+kind: Cowboy
+metadata:
+  name: cowgirl
+spec:
+  intent: hehe

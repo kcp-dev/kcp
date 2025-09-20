@@ -1,0 +1,9 @@
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: Workspace
+metadata:
+  name: consumer-2-ro-root
+spec:
+  location:
+    selector:
+      matchLabels:
+        name: root
