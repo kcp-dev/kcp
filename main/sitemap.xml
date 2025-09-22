@@ -469,6 +469,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/helm/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/setup/integrations/</loc>
+        <lastmod>2025-09-22</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/integrations/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/setup/kubectl-plugin/</loc>
         <lastmod>2025-09-22</lastmod>
         <changefreq>daily</changefreq>
