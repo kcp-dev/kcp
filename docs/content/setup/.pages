@@ -3,3 +3,4 @@ nav:
     - quickstart.md
     - helm.md
     - kubectl-plugin.md
+    - integrations.md
