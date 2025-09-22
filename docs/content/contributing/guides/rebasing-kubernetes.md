@@ -150,7 +150,7 @@ can move on to the next commit because there were no changes to the
 files that commit touched between the two kube versions.
 
 Additionally `view_changed_files` only shows the changes of the
-currently cherry-picked commit to files that were changed betwene the
+currently cherry-picked commit to files that were changed between the
 two kube versions.
 
 7. Cherry-pick each commit one by one.
@@ -182,7 +182,7 @@ two kube versions.
     hack/pin-dependency.sh github.com/kcp-dev/client-go kcp-1.33.3
     ```
 
-13. Commmit the dependency updates:
+13. Commit the dependency updates:
     ```
     git add .
     git commit -m 'CARRY: <drop>: Add KCP dependencies'
