@@ -40,7 +40,11 @@ func KcpCliPluginCommand() []string {
 	if env.NoGoRunEnvSet() {
 		return []string{"kubectl", "kcp"}
 	} else {
-		cmdPath := filepath.Join(kcptestinghelpers.RepositoryDir(), "cmd", "kubectl-kcp")
+		repo, err := kcptestinghelpers.RepositoryDir()
+		if err != nil {
+			panic(err)
+		}
+		cmdPath := filepath.Join(repo, "cmd", "kubectl-kcp")
 		return []string{"go", "run", cmdPath}
 	}
 }

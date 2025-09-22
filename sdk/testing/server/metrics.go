@@ -74,7 +74,9 @@ func scrapeMetricsForServer(t TestingT, srv RunningServer) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	defer cancel()
-	require.NoError(t, ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, kcptestinghelpers.RepositoryDir(), jobName, filepath.Join(srv.CADirectory(), "apiserver.crt"), labels))
+	repoDir, err := kcptestinghelpers.RepositoryDir()
+	require.NoError(t, err)
+	require.NoError(t, ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, repoDir, jobName, filepath.Join(srv.CADirectory(), "apiserver.crt"), labels))
 }
 
 func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, jobName, caFile string, labels map[string]string) error {

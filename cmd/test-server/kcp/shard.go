@@ -94,8 +94,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	}
 
 	// setup command
-	var commandLine []string
-	commandLine = append(commandLine, kcptestingserver.StartKcpCommand(s.name)...)
+	workdir, commandLine := kcptestingserver.StartKcpCommand(s.name)
 	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
 		"--root-directory", s.runtimeDir,
@@ -114,6 +113,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
+	cmd.Dir = workdir
 	if err := os.MkdirAll(filepath.Dir(s.logFilePath), 0755); err != nil {
 		return err
 	}

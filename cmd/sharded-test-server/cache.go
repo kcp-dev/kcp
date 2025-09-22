@@ -52,7 +52,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 	)
 	cacheWorkingDir := filepath.Join(workingDir, ".kcp-cache")
 	cachePort := 8012
-	commandLine := kcptestingserver.Command("cache-server", "cache")
+	workdir, commandLine := kcptestingserver.Command("cache-server", "cache")
 	commandLine = append(
 		commandLine,
 		fmt.Sprintf("--root-directory=%s", cacheWorkingDir),
@@ -64,6 +64,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
+	cmd.Dir = workdir
 
 	logFilePath := filepath.Join(".kcp-cache", "kcp.log")
 	if logDirPath != "" {

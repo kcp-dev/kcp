@@ -131,7 +131,8 @@ func startFrontProxy(
 	}
 
 	// run front-proxy command
-	commandLine := append(kcptestingserver.Command("kcp-front-proxy", "front-proxy"),
+	workdir, commandLine := kcptestingserver.Command("kcp-front-proxy", "front-proxy")
+	commandLine = append(commandLine,
 		"--bind-address="+hostIP,
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
@@ -147,6 +148,7 @@ func startFrontProxy(
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
+	cmd.Dir = workdir
 
 	logFilePath := filepath.Join(workDirPath, ".kcp-front-proxy", "proxy.log")
 	if logDirPath != "" {

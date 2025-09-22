@@ -191,42 +191,43 @@ func newKcpServer(t TestingT, cfg Config) (*kcpServer, error) {
 	return s, nil
 }
 
-// StartKcpCommand returns the string tokens required to start kcp in
-// the currently configured mode (direct or via `go run`).
-func StartKcpCommand(identity string) []string {
-	command := Command("kcp", identity)
-	return append(command, "start")
+// StartKcpCommand returns the work dir and string tokens required to
+// start kcp in the currently configured mode (direct or via `go run`).
+func StartKcpCommand(identity string) (string, []string) {
+	workdir, command := Command("kcp", identity)
+	return workdir, append(command, "start")
 }
 
-// Command returns the string tokens required to start
-// the given executable in the currently configured mode (direct or
-// via `go run`).
-func Command(executableName, identity string) []string {
-	if env.RunDelveEnvSet() {
-		cmdPath := filepath.Join(kcptestinghelpers.RepositoryDir(), "cmd", executableName)
-		return []string{"dlv", "debug", "--api-version=2", "--headless", fmt.Sprintf("--listen=unix:dlv-%s.sock", identity), cmdPath, "--"}
+// Command returns the work dir and string tokens required to start the
+// given executable in the currently configured mode (direct or via `go
+// run`).
+func Command(executableName, identity string) (string, []string) {
+	if env.NoGoRunEnvSet() {
+		return "", []string{executableName}
 	}
 
-	// are we inside of the kcp repository?
-	repo := kcptestinghelpers.RepositoryDir()
-	wd, err := os.Getwd()
+	// Check if this is a clone of the kcp repository. If not return the
+	// executable as is, expecting the user to have it in PATH.
+	repo, err := kcptestinghelpers.RepositoryDir()
 	if err != nil {
-		panic(err)
-	}
-	inKcp := strings.HasPrefix(wd, repo+"/")
-
-	binary := executableName
-	if binDir := os.Getenv(kcpBinariesDirEnvDir); binDir == "" && inKcp {
-		binary = filepath.Join(kcptestinghelpers.RepositoryBinDir(), executableName)
-	} else if binDir != "" {
-		binary = filepath.Join(binDir, executableName)
+		return "", []string{executableName}
 	}
 
-	if env.NoGoRunEnvSet() || !inKcp {
-		return []string{binary}
+	cmdDir := filepath.Join("cmd", executableName)
+	fullPath := filepath.Join(repo, cmdDir)
+	cmdDir = "./" + cmdDir
+
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		// The command dir (e.g. $repo/cmd/kcp) does not exist, default
+		// to the executable name and expect it to be in PATH.
+		return "", []string{executableName}
 	}
 
-	return []string{"go", "run", filepath.Join(repo, "cmd", executableName)}
+	if env.RunDelveEnvSet() {
+		return repo, []string{"dlv", "debug", "--api-version=2", "--headless", fmt.Sprintf("--listen=unix:dlv-%s.sock", identity), cmdDir, "--"}
+	}
+
+	return repo, []string{"go", "run", cmdDir}
 }
 
 // Run runs the kcp server while the parent context is active. This call is not blocking,
@@ -301,13 +302,17 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 		return nil, fmt.Errorf("failed to build kcp args: %w", err)
 	}
 
-	commandLine := append(StartKcpCommand("KCP"), args...)
+	workdir, commandLine := StartKcpCommand("KCP")
+	commandLine = append(commandLine, args...)
 
 	t.Logf("running: %v", strings.Join(commandLine, " "))
 
 	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
 	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
 	cmd := exec.Command(commandLine[0], commandLine[1:]...) //nolint:gosec // G204: This is a test utility with controlled inputs
+	if workdir != "" {
+		cmd.Dir = workdir
+	}
 
 	// Create a new process group for the child/forked process (which is either 'go run ...' or just 'kcp
 	// ...'). This is necessary so the SIGTERM we send to terminate the kcp server works even with the

@@ -24,7 +24,7 @@ import (
 )
 
 // RepositoryDir returns the absolute path of kcp-dev/kcp repository on disk.
-func RepositoryDir() string {
+func RepositoryDir() (string, error) {
 	// Caller(0) returns the path to the calling test file rather than the path to this framework file. That
 	// precludes assuming how many directories are between the file and the repo root. It's therefore necessary
 	// to search in the hierarchy for an indication of a path that looks like the repo root.
@@ -35,18 +35,23 @@ func RepositoryDir() string {
 		if _, err := os.Stat(filepath.Join(currentDir, ".git")); err == nil {
 			break
 		} else if errors.Is(err, os.ErrNotExist) {
+			preDir := currentDir
 			currentDir, err = filepath.Abs(filepath.Join(currentDir, ".."))
 			if err != nil {
-				panic(err)
+				return "", err
+			}
+			if preDir == currentDir {
+				return "", errors.New("could not find kcp repository root")
 			}
 		} else {
-			panic(err)
+			return "", err
 		}
 	}
-	return currentDir
+	return currentDir, nil
 }
 
 // RepositoryBinDir returns the absolute path of <repo-dir>/bin. That's where `make build` produces our binaries.
-func RepositoryBinDir() string {
-	return filepath.Join(RepositoryDir(), "bin")
+func RepositoryBinDir() (string, error) {
+	repoDir, err := RepositoryDir()
+	return filepath.Join(repoDir, "bin"), err
 }
