@@ -4613,7 +4613,7 @@
 <p><strong>Logical Clusters</strong>: The underlying implementation construct for a Workspace. A logical cluster is a logical partition within the kcp data store (etcd), ensuring that objects from different workspaces are stored in disjoint key prefixes, which is the primary mechanism for enforcing isolation. The goal is to make creating a logical cluster as cheap and fast as creating a Kubernetes namespace.</p>
 </li>
 <li>
-<p><strong>Virtual Workspaces</strong>: Endpoints that provide a Kubernetes-like API interface, but are not backed by a logical cluster for storage. They provide a computed "view" of certain resources across logical clusters. The exact semantics depend on the virtual workspace implementation, diferent virtual workspace endpoints provide different views according to their role. Access to virtual workspace endpoint is guarded by RBAC.</p>
+<p><strong>Virtual Workspaces</strong>: Endpoints that provide a Kubernetes-like API interface, but are not backed by a logical cluster for storage. They provide a computed "view" of certain resources across logical clusters. The exact semantics depend on the virtual workspace implementation, different virtual workspace endpoints provide different views according to their role. Access to virtual workspace endpoint is guarded by RBAC.</p>
 </li>
 <li>
 <p><strong>Shards</strong>: A running instance of the kcp server process. Each shard hosts a set of logical clusters, and a full kcp installation can be composed of many shards to achieve horizontal scalability.</p>
