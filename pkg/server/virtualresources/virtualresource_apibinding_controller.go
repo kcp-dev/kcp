@@ -86,11 +86,18 @@ func NewController(
 			if len(list.Items) == 0 {
 				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
 			}
-			if len(list.Items) > 1 {
-				return nil, apierrors.NewInternalError(fmt.Errorf("multiple objects found"))
+
+			var slice *unstructured.Unstructured
+			for _, item := range list.Items {
+				if item.GetName() == name {
+					if slice != nil {
+						return nil, apierrors.NewInternalError(fmt.Errorf("multiple objects found"))
+					}
+					slice = &item
+				}
 			}
 
-			return &list.Items[0], nil
+			return slice, nil
 		},
 	}
 
