@@ -407,7 +407,7 @@ Within a multi-sharded kcp, each shard will offer its own service endpoint URL f
 
 If an `APIExportEndpointSlice` does not reference a `Partition` all the available endpoints are populated in its `status`. More on `Partitions` [here](./sharding/partitions.md).
 
-By default, kcp creates a non-partioned `APIExportEndpointSlice` for every `APIExport`.
+By default, kcp creates a non-partitioned `APIExportEndpointSlice` for every `APIExport`.
 
 ```sh
 kubectl get apiexportendpointslice/wildwest.dev -o yaml
