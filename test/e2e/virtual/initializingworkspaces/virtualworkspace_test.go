@@ -19,6 +19,7 @@ package initializingworkspaces
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"sort"
 	"strings"
@@ -27,6 +28,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -356,10 +358,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	t.Log("Ensure that LIST calls through the virtual workspace eventually show the correct values")
 	for _, wsName := range wsNames {
-		require.Eventually(t, func() bool {
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			_, err := sourceKcpClusterClient.CoreV1alpha1().Cluster(wsPath.Join(wsName)).LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
-			require.True(t, err == nil || errors.IsForbidden(err), "got %#v error getting logicalcluster %q, expected unauthorized or success", err, wsPath.Join(wsName))
-			return err == nil
+			require.NoError(c, err, "got %#v error getting logicalcluster %q, expected success", err, wsPath.Join(wsName))
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
@@ -522,12 +523,25 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 		t.Logf("Attempt to do something more than just removing our initializer %q, get denied", initializer)
 		patchBytes := patchBytesFor(logicalCluster, func(workspace *corev1alpha1.LogicalCluster) {
-			workspace.Status.Initializers = []corev1alpha1.LogicalClusterInitializer{"wrong"}
+			workspace.Status.Initializers = []corev1alpha1.LogicalClusterInitializer{"wrong:wrong"}
 		})
 		_, err = clusterClient.Cluster(wsClusterName.Path()).Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 		if !errors.IsInvalid(err) {
 			t.Fatalf("got %#v error from patch, expected invalid", err)
 		}
+		// Since Invalid is a generic error, which is not exclusive to an
+		// initializer failing our custom updateValidation, we need to check for it
+		// as well.
+		// Unfortunately, it is not possible to make use of
+		// field.Error.Origin to do so, as we convert our field.ErrorList into an
+		// errors.StatusError, thus loosing this information. As a result, our only
+		// option is to reconstruct the expected error.
+		expErrMsg := fmt.Sprintf("only removing the %q initializer is supported", initialization.InitializerForType(workspacetypes[initializer]))
+		// for now using contains seems to strike the best balance between
+		// identifying the error, while not making the test too brittle as
+		// kubernetes statusError creation use a lot of squashing an string
+		// manipulation to create the final exact message.
+		require.Contains(t, err.Error(), expErrMsg)
 
 		t.Logf("Remove just our initializer %q", initializer)
 		patchBytes = patchBytesFor(logicalCluster, func(workspace *corev1alpha1.LogicalCluster) {
