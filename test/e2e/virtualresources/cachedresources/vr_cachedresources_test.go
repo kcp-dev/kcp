@@ -3,6 +3,7 @@ package cachedresources
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"sync/atomic"
@@ -11,21 +12,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	// corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
+	tenancy1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
@@ -35,19 +39,6 @@ import (
 	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
-
-// Areas:
-// * Permissions:
-//   - Configure a user who shouldn't have access to the resources
-//   - Add the perms, test that access works
-//   - Validate that RO verbs work, RW verbs don't
-// * Binding:
-//   - Simple APIExport with a VR
-//   - Mixed: custom and virtual resources
-//   - Compare returned data
-//   - Check OpenAPI
-// * Virtual workspace:
-//   - Verify that all of this ^^ works with APIExport VW
 
 const XXX_timeout = math.MaxInt64
 
@@ -59,11 +50,12 @@ func TestCachedResources(t *testing.T) {
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	consumer2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
-	consumers := []logicalcluster.Path{
-		consumer1Path,
-		consumer2Path,
+	consumer1Path, consumer1WS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumer2Path, consumer2WS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPaths := sets.New(consumer1Path, consumer2Path)
+	consumerWorkspaces := map[logicalcluster.Path]*tenancy1alpha1.Workspace{
+		consumer1Path: consumer1WS,
+		consumer2Path: consumer2WS,
 	}
 
 	t.Logf("providerPath: %v", providerPath)
@@ -82,9 +74,6 @@ func TestCachedResources(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
-	require.NoError(t, err)
-
 	kcpApiExtensionClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
@@ -93,21 +82,17 @@ func TestCachedResources(t *testing.T) {
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
 
-	_ = kubeClusterClient
-	_ = wildwestClusterClient
-
 	//
 	// Prepare the provider cluster.
 	//
 
+	resourceNames := sets.New("cowboys", "sheriffs")
+
 	// Prepare wildwest.dev resources "cowboys" and "sheriffs":
 	// * Create CRD and generate its associated APIResourceSchema to be used with an APIExport later.
 	// * Create a CachedResource for that resource and wait until it's ready.
-	cachedResourceIdentities := map[string]string{
-		"cowboys":  "",
-		"sheriffs": "",
-	}
-	for resourceName := range cachedResourceIdentities {
+	cachedResourceIdentities := make(map[string]string)
+	for resourceName := range resourceNames {
 		gr := metav1.GroupResource{
 			Group:    "wildwest.dev",
 			Resource: resourceName,
@@ -120,6 +105,7 @@ func TestCachedResources(t *testing.T) {
 		sch, err := apisv1alpha1.CRDToAPIResourceSchema(crd, "today")
 		require.NoError(t, err)
 
+		t.Logf("Creating %s APIResourceSchema in %q", sch.Name, providerPath)
 		_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, sch, metav1.CreateOptions{})
 		require.NoError(t, err)
 
@@ -192,7 +178,7 @@ func TestCachedResources(t *testing.T) {
 	//
 
 	// Bind that APIExport in consumer workspaces and wait until the APIs are available and check that OpenAPI works too.
-	for _, consumerPath := range consumers {
+	for consumerPath := range consumerPaths {
 		t.Logf("Binding %s|%s in %s", providerPath, apiExport.Name, consumerPath)
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, &apisv1alpha2.APIBinding{
@@ -212,7 +198,7 @@ func TestCachedResources(t *testing.T) {
 			return err == nil, fmt.Sprintf("failed to create APIBinding: %v", err)
 		}, wait.ForeverTestTimeout, time.Second*1, "waiting to create apibinding")
 
-		for resourceName := range cachedResourceIdentities {
+		for resourceName := range resourceNames {
 			t.Logf("Waiting for %s.v1alpha1.wildwest.dev API to appear in %q", resourceName, consumerPath)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				resourcesList, err := kcpClusterClient.Cluster(consumerPath).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
@@ -234,80 +220,286 @@ func TestCachedResources(t *testing.T) {
 		}
 	}
 
-	// Get clients for the APIExport's VW.
+	// Map of Host->{Admissible workspaces}.
+	// A client from a certain host (e.g. a virtual workspace) may be able to reach only
+	// workspaces co-located on the same shard. This map holds these associations.
+	admissibleWorkspaces := make(map[string]sets.Set[logicalcluster.Path])
+	// cfg is configured with front-proxy addr, so both workspaces are reachable regardless of which shard they are on.
+	admissibleWorkspaces[cfg.Host] = sets.New(consumer1Path, consumer2Path)
+
+	// Generate APIExport VW client configs. The consumers could each be in a different
+	// shard, and so we need to wait until (possibly) both appear in APIExportEndpointSlice's
+	// endpoint URLs.
+	apiExportVWClientConfigs := make(map[string]*rest.Config)
+	for consumerPath, consumerWS := range consumerWorkspaces {
+		t.Logf("Creating APIExport VW client for consumer in %q", consumerPath)
+
+		var vwURL string
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			// First, we get the APIExportEndpointSlice, and then we extract the URL that fits the consumer's workspace host, i.e. the shard URL.
+
+			apiExportEndpointSlice, err := kcpClusterClient.ApisV1alpha1().Cluster(providerPath).APIExportEndpointSlices().Get(ctx, apiExport.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err.Error()
+			}
+
+			var found bool
+			vwURL, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWS,
+				framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+			if err != nil {
+				return false, err.Error()
+			}
+			return found, fmt.Sprintf("URL for workspace %q not found in APIExportEndpointSlice %s|%s", consumerPath, providerPath, apiExport.Name)
+		}, wait.ForeverTestTimeout, time.Second*1, "waiting for three cowboys")
+
+		if _, ok := apiExportVWClientConfigs[vwURL]; !ok {
+			vwCfg := rest.CopyConfig(cfg)
+			vwCfg.Host = vwURL
+			apiExportVWClientConfigs[vwURL] = vwCfg
+		}
+
+		if _, ok := admissibleWorkspaces[vwURL]; !ok {
+			admissibleWorkspaces[vwURL] = make(sets.Set[logicalcluster.Path])
+		}
+		admissibleWorkspaces[vwURL].Insert(consumerPath)
+	}
 
 	//
 	// Verify.
 	//
 
-	// 1. List in consumers, make sure nothing shows up.
-	// 2. Create a watch in consumer, wait until an event appears.
-	// 3. Create a resource in provider, consumer should see one obj, close watch.
-	// 4.
-
-	for _, consumerPath := range consumers {
+	// Make sure there are no cowboys or sheriffs in either of the consumer workspaces at the beginning.
+	for consumerPath := range consumerPaths {
 		t.Logf("Ensure that there are no Cowboys in %q", consumerPath)
 		cowboysList, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
 		require.NoError(t, err)
 		require.Empty(t, cowboysList.Items, "there should be no Cowboy objects at this point in time")
 
-		/*t.Logf("Ensure that there are no Sheriffs in %q", consumerPath)
-		sheriffsList, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Sherifves().List(ctx, metav1.ListOptions{})
+		t.Logf("Ensure that there are no Sheriffs in %q", consumerPath)
+		sheriffsList, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Sheriffs().List(ctx, metav1.ListOptions{})
 		require.NoError(t, err)
-		require.Empty(t, sheriffsList.Items, "there should be no Sheriff objects at this point in time")*/
+		require.Empty(t, sheriffsList.Items, "there should be no Sheriff objects at this point in time")
 	}
 
-	t.Logf("Starting wildcard watch for Cowboys")
-	watchCowboys, err := wildwestClusterClient.WildwestV1alpha1().Cowboys().Watch(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	defer watchCowboys.Stop()
+	t.Log("Verify watching and wildcards work")
 
-	/*t.Logf("Starting wildcard watch for Sheriffs")
-	watchSheriffs, err := wildwestClusterClient.WildwestV1alpha1().Sherifves().Watch(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	defer watchSheriffs.Stop()*/
+	resourceCounters := map[string]*int32{
+		"cowboys":  ptr.To[int32](0),
+		"sheriffs": ptr.To[int32](0),
+	}
+	var watchStopFuncs []func()
+	defer func() {
+		for _, stop := range watchStopFuncs {
+			stop()
+		}
+	}()
 
-	incOnAdded := func(counter *int32, w watch.Interface) {
-		for {
-			select {
-			case e, more := <-w.ResultChan():
-				if !more {
-					return
+	// Create a watch for each resource we're interested in (Cowboys and Sheriffs)
+	// against each APIExport VW endpoint we've found above.
+	for resourceName, counter := range resourceCounters {
+		for _, cfg := range apiExportVWClientConfigs {
+			dynClient, err := kcpdynamic.NewForConfig(cfg)
+			require.NoError(t, err)
+
+			t.Logf("Creating a wildcard watch for %s against %q", resourceName, cfg.Host)
+
+			w, err := dynClient.Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
+				Watch(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+			resultCh := w.ResultChan()
+
+			// We'll increment the counter each time we see an Added event.
+
+			go func() {
+				for {
+					select {
+					case e, more := <-resultCh:
+						if !more {
+							return
+						}
+						if e.Type == watch.Added {
+							atomic.AddInt32(counter, 1)
+						}
+					case <-ctx.Done():
+						w.Stop()
+						return
+					}
 				}
-				if e.Type == watch.Added {
-					atomic.AddInt32(counter, 1)
-				}
-			case <-ctx.Done():
-				w.Stop()
-				return
-			}
+			}()
+
+			watchStopFuncs = append(watchStopFuncs, w.Stop)
 		}
 	}
 
-	var seenCowboys /*, seenSheriffs*/ int32
-	go incOnAdded(&seenCowboys, watchCowboys)
-	/*go incOnAdded(&seenSheriffs, watchSheriffs)*/
-
+	// Create one Cowboy and one Sheriff in the provider workspace.
+	// Eventually we should see two of each in the resourcesCounter,
+	// i.e. one for each consumer workspace.
 	t.Logf("Creating a Cowboy in %q", providerPath)
-	_, err = wildwestClusterClient.Cluster(providerPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+	cowboyOne, err := wildwestClusterClient.Cluster(providerPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cowboy-1",
+			Name: "cowboys-1",
 		},
 	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	t.Logf("Creating a Sheriff in %q", providerPath)
+	sheriffOne, err := wildwestClusterClient.Cluster(providerPath).WildwestV1alpha1().Sheriffs().Create(ctx, &wildwestv1alpha1.Sheriff{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "sheriffs-1",
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
 
+	// Finally wait for the counters to be updated, and equal to two.
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		count := atomic.LoadInt32(&seenCowboys)
-		return count == 3, fmt.Sprintf("expected to see 3 Cowboys, got %d", count)
-	}, wait.ForeverTestTimeout, time.Second*1, "waiting for three cowboys")
+		for resourceName, counter := range resourceCounters {
+			count := atomic.LoadInt32(counter)
+			if count != 2 {
+				return false, fmt.Sprintf("expected to see 2 %s from wildcard watches, got %d", resourceName, count)
+			} else {
+				t.Logf("Seen 2 %s from wildcard watches", resourceName)
+			}
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Second*1, "waiting for two cowboys and two sheriffs")
 
-	/*kcptestinghelpers.Eventually(t, func() (bool, string) {
-		count := atomic.LoadInt32(&seenSheriffs)
-		return count == 3, fmt.Sprintf("expected to see 3 Sheriffs, got %d", count)
-	}, wait.ForeverTestTimeout, time.Second*1, "waiting for three sheriffs")*/
+	t.Log("Stopping watches")
+	for _, stop := range watchStopFuncs {
+		// Intentionally run stop() twice. Watches shouldn't panic because of that.
+		stop()
+		stop()
+	}
 
-	/*t.Logf("Make sure cowboys API group does NOT show up in workspace %q openapi v3 endpoint", providerPath)
-	providerOpenAPIV3 := providerWorkspaceClient.Cluster(providerPath).Discovery().OpenAPIV3()
-	paths, err := providerOpenAPIV3.Paths()
-	require.NoError(t, err, "error retrieving %q openapi v3 paths", providerPath)
-	require.NotContainsf(t, paths, "apis/"+wildwestv1alpha1.SchemeGroupVersion.String(), "should not have %s API group in %q openapi v3 paths", wildwest.GroupName, providerPath)*/
+	// Make sure listing * for Cowboys and Sheriffs returns two items for each.
+	for resourceName := range resourceNames {
+		counter := 0
+		for _, cfg := range apiExportVWClientConfigs {
+			dynClient, err := kcpdynamic.NewForConfig(cfg)
+			require.NoError(t, err)
+
+			t.Logf("Wildcard listing for %s against %q should return two items", resourceName, cfg.Host)
+
+			list, err := dynClient.Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
+				List(ctx, metav1.ListOptions{})
+			require.NoError(t, err)
+
+			counter += len(list.Items)
+		}
+
+		require.Equal(t, 2, counter, "Wildcard listing should return two %s", resourceName)
+	}
+
+	// Make sure listing and getting resources in a specific cluster works,
+	// both through APIExport VW and regular workspace, and that it has expected
+	// contents.
+	wildwestResourceNamespaces := map[string]string{
+		cowboyOne.Name:  cowboyOne.Namespace,
+		sheriffOne.Name: sheriffOne.Namespace,
+	}
+	namespaceableResource := func(namespace string, nsRes dynamic.NamespaceableResourceInterface) dynamic.ResourceInterface {
+		if namespace == "" {
+			return nsRes
+		}
+		return nsRes.Namespace(namespace)
+	}
+	// Get all dynamic clients in a single slice so that we can do this
+	// all in one go.
+	var cfgs []*rest.Config
+	for _, c := range apiExportVWClientConfigs {
+		cfgs = append(cfgs, c)
+	}
+	dynClients := make(map[string]kcpdynamic.ClusterInterface)
+	for _, cfg := range append(cfgs, cfg) {
+		dynClient, err := kcpdynamic.NewForConfig(cfg)
+		require.NoError(t, err)
+		dynClients[cfg.Host] = dynClient
+	}
+	for resourceName := range resourceNames {
+		// We'll need these for object comparison below.
+		cowboyOneNormalized := cowboyOne.DeepCopy()
+		cowboyOneNormalized.APIVersion = wildwestv1alpha1.SchemeGroupVersion.String()
+		cowboyOneNormalized.Kind = "Cowboy"
+		cowboyOneNormalized.Annotations = make(map[string]string)
+
+		sheriffOneNormalized := sheriffOne.DeepCopy()
+		sheriffOneNormalized.APIVersion = wildwestv1alpha1.SchemeGroupVersion.String()
+		sheriffOneNormalized.Kind = "Sheriff"
+		sheriffOneNormalized.Annotations = make(map[string]string)
+
+		for consumerPath, consumerWS := range consumerWorkspaces {
+			// Set the cluster name to the expected values.
+			cowboyOneNormalized.Annotations[logicalcluster.AnnotationKey] = consumerWS.Spec.Cluster
+			sheriffOneNormalized.Annotations[logicalcluster.AnnotationKey] = consumerWS.Spec.Cluster
+
+			cowboyOneNormalizedUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cowboyOneNormalized)
+			require.NoError(t, err)
+
+			sheriffOneNormalizedUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sheriffOneNormalized)
+			require.NoError(t, err)
+
+			wildwestObjsNormalizedUnstructured := map[string]map[string]interface{}{
+				cowboyOneNormalized.Name:  normalizeUnstructuredMap(cowboyOneNormalizedUnstructured),
+				sheriffOneNormalized.Name: normalizeUnstructuredMap(sheriffOneNormalizedUnstructured),
+			}
+
+			for host, dynClient := range dynClients {
+				if !admissibleWorkspaces[host].Has(consumerPath) {
+					continue
+				}
+
+				objName := resourceName + "-1"
+				objNamespace := wildwestResourceNamespaces[objName]
+
+				t.Logf("Listing %s resources in %q through %q should return one object", resourceName, consumerPath, host)
+				list, err := namespaceableResource(
+					objNamespace,
+					dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
+						Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName))).
+					List(ctx, metav1.ListOptions{})
+				require.NoError(t, err)
+				require.Equal(t, 1, len(list.Items), "Unexpected number of items in %s list in %q when listing through %q", resourceName, consumerPath, host)
+
+				require.NoError(t, err)
+				require.EqualValues(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(list.Items[0].Object))
+
+				t.Logf("Getting a %s resource named %s in %q through %q should return that object", resourceName, objName, consumerPath, host)
+				obj, err := namespaceableResource(
+					objNamespace,
+					dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
+						Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName))).
+					Get(ctx, objName, metav1.GetOptions{})
+				require.NoError(t, err)
+				require.EqualValues(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(obj.Object))
+			}
+		}
+	}
+}
+
+func normalizeUnstructuredMap(origObj map[string]interface{}) map[string]interface{} {
+	obj := maps.Clone(origObj)
+
+	meta, hasMeta := obj["metadata"].(map[string]interface{})
+	if hasMeta {
+		delete(meta, "creationTimestamp")
+		delete(meta, "resourceVersion")
+		delete(meta, "selfLink")
+		delete(meta, "uid")
+		delete(meta, "generation")
+		delete(meta, "managedFields")
+
+		ann, hasAnn := meta["annotations"].(map[string]interface{})
+		if hasAnn {
+			// TODO(gman0): HACK! https://github.com/kcp-dev/kcp/issues/3478
+			// Partial metadata objects have this annotation added.
+			// This will go away once we have full objects.
+			delete(ann, "kcp.io/original-api-version")
+		}
+	}
+
+	// TODO(gman0): HACK! https://github.com/kcp-dev/kcp/issues/3478
+	// We need to remove spec and status, because we're getting only metadata for now.
+	// This will go away once we have full objects.
+	delete(obj, "spec")
+	delete(obj, "status")
+
+	return obj
 }
