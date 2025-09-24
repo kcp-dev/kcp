@@ -40,6 +40,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cachedresourcesreplication "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
 	"github.com/kcp-dev/kcp/pkg/tombstone"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -66,6 +67,12 @@ func unwrapCachedObject(obj *cachev1alpha1.CachedObject) (*unstructured.Unstruct
 		return nil, fmt.Errorf("failed to decode inner object: %w", err)
 	}
 	inner.SetResourceVersion(obj.GetResourceVersion())
+
+	// Remove internal annotations from the object before exposing it to the client.
+	if ann := inner.GetAnnotations(); ann != nil {
+		delete(ann, shard.AnnotationKey)
+		inner.SetAnnotations(ann)
+	}
 
 	return inner, nil
 }
