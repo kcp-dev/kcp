@@ -188,7 +188,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		auditFilePath = filepath.Join(v.logDirPath, fmt.Sprintf("kcp-virtual-workspaces-%d-audit.log", v.index))
 	}
 
-	commandLine := kcptestingserver.Command("virtual-workspaces", strings.ToLower(prefix))
+	workdir, commandLine := kcptestingserver.Command("virtual-workspaces", strings.ToLower(prefix))
 	commandLine = append(commandLine, v.args...)
 	commandLine = append(
 		commandLine,
@@ -202,6 +202,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
+	cmd.Dir = workdir
 
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
 		return err

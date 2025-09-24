@@ -41,7 +41,11 @@ func complete() {
 		panic(errors.New("only one of --use-default-kcp-server and --kcp-kubeconfig should be set"))
 	}
 	if testConfig.useDefaultKCPServer {
-		testConfig.kcpKubeconfig = filepath.Join(kcptestinghelpers.RepositoryDir(), ".kcp", "admin.kubeconfig")
+		repo, err := kcptestinghelpers.RepositoryDir()
+		if err != nil {
+			panic(err)
+		}
+		testConfig.kcpKubeconfig = filepath.Join(repo, ".kcp", "admin.kubeconfig")
 	}
 	if len(testConfig.kcpKubeconfig) > 0 && len(testConfig.shardKubeconfigs) == 0 {
 		testConfig.shardKubeconfigs = map[string]string{corev1alpha1.RootShard: testConfig.kcpKubeconfig}

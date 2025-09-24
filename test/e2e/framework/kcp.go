@@ -25,9 +25,16 @@ import (
 )
 
 // DefaultTokenAuthFile returns the default auth tokens file.
-var DefaultTokenAuthFile = filepath.Join(kcptestinghelpers.RepositoryDir(), "test", "e2e", "framework", "auth-tokens.csv")
+var DefaultTokenAuthFile string
 
 func init() {
+	repo, err := kcptestinghelpers.RepositoryDir()
+	if err != nil {
+		panic(err)
+	}
+
+	DefaultTokenAuthFile = filepath.Join(repo, "test", "e2e", "framework", "auth-tokens.csv")
+
 	var args []string
 	args = append(args, "--token-auth-file", DefaultTokenAuthFile) //nolint:gocritic // no.
 	args = append(args, "--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true")
