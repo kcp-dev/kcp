@@ -58,6 +58,17 @@ is technically in some form still there.
 Using an operator like the aforementioned Etcd Druid can greatly help in performing backups and
 restores.
 
+### Encryption
+
+kcp supports encryption-at-rest for its storage backend, allowing administrators to configure
+encryption keys or integration with external key-management systems to encrypt data written to disk.
+
+Please refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
+for more information on configuring and using encryption in kcp.
+
+Since each shard and its etcd is independent from other shards, the encryption configuration can be
+different per shard, if desired.
+
 ### Scaling
 
 etcd can be scaled to some degree by adding more resources and/or more members to an etcd cluster,
