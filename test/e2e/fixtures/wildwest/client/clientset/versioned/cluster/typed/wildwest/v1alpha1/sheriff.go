@@ -31,13 +31,13 @@ import (
 	kcpv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
 
-// SherifvesClusterGetter has a method to return a SheriffClusterInterface.
+// SheriffsClusterGetter has a method to return a SheriffClusterInterface.
 // A group's cluster client should implement this interface.
-type SherifvesClusterGetter interface {
-	Sherifves() SheriffClusterInterface
+type SheriffsClusterGetter interface {
+	Sheriffs() SheriffClusterInterface
 }
 
-// SheriffClusterInterface can operate on Sherifves across all clusters,
+// SheriffClusterInterface can operate on Sheriffs across all clusters,
 // or scope down to one cluster and return a kcpv1alpha1.SheriffInterface.
 type SheriffClusterInterface interface {
 	Cluster(logicalcluster.Path) kcpv1alpha1.SheriffInterface
@@ -46,25 +46,25 @@ type SheriffClusterInterface interface {
 	SheriffClusterExpansion
 }
 
-type sherifvesClusterInterface struct {
+type sheriffsClusterInterface struct {
 	clientCache kcpclient.Cache[*kcpv1alpha1.WildwestV1alpha1Client]
 }
 
 // Cluster scopes the client down to a particular cluster.
-func (c *sherifvesClusterInterface) Cluster(clusterPath logicalcluster.Path) kcpv1alpha1.SheriffInterface {
+func (c *sheriffsClusterInterface) Cluster(clusterPath logicalcluster.Path) kcpv1alpha1.SheriffInterface {
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 
-	return c.clientCache.ClusterOrDie(clusterPath).Sherifves()
+	return c.clientCache.ClusterOrDie(clusterPath).Sheriffs()
 }
 
-// List returns the entire collection of all Sherifves across all clusters.
-func (c *sherifvesClusterInterface) List(ctx context.Context, opts v1.ListOptions) (*kcpwildwestv1alpha1.SheriffList, error) {
-	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).Sherifves().List(ctx, opts)
+// List returns the entire collection of all Sheriffs across all clusters.
+func (c *sheriffsClusterInterface) List(ctx context.Context, opts v1.ListOptions) (*kcpwildwestv1alpha1.SheriffList, error) {
+	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).Sheriffs().List(ctx, opts)
 }
 
-// Watch begins to watch all Sherifves across all clusters.
-func (c *sherifvesClusterInterface) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).Sherifves().Watch(ctx, opts)
+// Watch begins to watch all Sheriffs across all clusters.
+func (c *sheriffsClusterInterface) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return c.clientCache.ClusterOrDie(logicalcluster.Wildcard).Sheriffs().Watch(ctx, opts)
 }

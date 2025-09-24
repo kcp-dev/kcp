@@ -31,10 +31,10 @@ import (
 	scheme "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/scheme"
 )
 
-// SherifvesGetter has a method to return a SheriffInterface.
+// SheriffsGetter has a method to return a SheriffInterface.
 // A group's client should implement this interface.
-type SherifvesGetter interface {
-	Sherifves() SheriffInterface
+type SheriffsGetter interface {
+	Sheriffs() SheriffInterface
 }
 
 // SheriffInterface has methods to work with Sheriff resources.
@@ -55,16 +55,16 @@ type SheriffInterface interface {
 	SheriffExpansion
 }
 
-// sherifves implements SheriffInterface
-type sherifves struct {
+// sheriffs implements SheriffInterface
+type sheriffs struct {
 	*gentype.ClientWithListAndApply[*wildwestv1alpha1.Sheriff, *wildwestv1alpha1.SheriffList, *applyconfigurationwildwestv1alpha1.SheriffApplyConfiguration]
 }
 
-// newSherifves returns a Sherifves
-func newSherifves(c *WildwestV1alpha1Client) *sherifves {
-	return &sherifves{
+// newSheriffs returns a Sheriffs
+func newSheriffs(c *WildwestV1alpha1Client) *sheriffs {
+	return &sheriffs{
 		gentype.NewClientWithListAndApply[*wildwestv1alpha1.Sheriff, *wildwestv1alpha1.SheriffList, *applyconfigurationwildwestv1alpha1.SheriffApplyConfiguration](
-			"sherifves",
+			"sheriffs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",

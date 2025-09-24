@@ -33,8 +33,8 @@ func (c *FakeWildwestV1alpha1) Cowboys(namespace string) v1alpha1.CowboyInterfac
 	return newFakeCowboys(c, namespace)
 }
 
-func (c *FakeWildwestV1alpha1) Sherifves() v1alpha1.SheriffInterface {
-	return newFakeSherifves(c)
+func (c *FakeWildwestV1alpha1) Sheriffs() v1alpha1.SheriffInterface {
+	return newFakeSheriffs(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

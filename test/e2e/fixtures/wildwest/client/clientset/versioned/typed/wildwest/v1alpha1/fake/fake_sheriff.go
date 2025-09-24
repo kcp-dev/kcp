@@ -26,18 +26,18 @@ import (
 	typedwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
 
-// fakeSherifves implements SheriffInterface
-type fakeSherifves struct {
+// fakeSheriffs implements SheriffInterface
+type fakeSheriffs struct {
 	*gentype.FakeClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration]
 	Fake *FakeWildwestV1alpha1
 }
 
-func newFakeSherifves(fake *FakeWildwestV1alpha1) typedwildwestv1alpha1.SheriffInterface {
-	return &fakeSherifves{
+func newFakeSheriffs(fake *FakeWildwestV1alpha1) typedwildwestv1alpha1.SheriffInterface {
+	return &fakeSheriffs{
 		gentype.NewFakeClientWithListAndApply[*v1alpha1.Sheriff, *v1alpha1.SheriffList, *wildwestv1alpha1.SheriffApplyConfiguration](
 			fake.Fake,
 			"",
-			v1alpha1.SchemeGroupVersion.WithResource("sherifves"),
+			v1alpha1.SchemeGroupVersion.WithResource("sheriffs"),
 			v1alpha1.SchemeGroupVersion.WithKind("Sheriff"),
 			func() *v1alpha1.Sheriff { return &v1alpha1.Sheriff{} },
 			func() *v1alpha1.SheriffList { return &v1alpha1.SheriffList{} },

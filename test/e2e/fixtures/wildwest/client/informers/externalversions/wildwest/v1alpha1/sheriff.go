@@ -39,7 +39,7 @@ import (
 )
 
 // SheriffClusterInformer provides access to a shared informer and lister for
-// Sherifves.
+// Sheriffs.
 type SheriffClusterInformer interface {
 	Cluster(logicalcluster.Name) SheriffInformer
 	ClusterWithContext(context.Context, logicalcluster.Name) SheriffInformer
@@ -69,13 +69,13 @@ func NewFilteredSheriffClusterInformer(client kcpcluster.ClusterInterface, resyn
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WildwestV1alpha1().Sherifves().List(context.Background(), options)
+				return client.WildwestV1alpha1().Sheriffs().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WildwestV1alpha1().Sherifves().Watch(context.Background(), options)
+				return client.WildwestV1alpha1().Sheriffs().Watch(context.Background(), options)
 			},
 		},
 		&kcpwildwestv1alpha1.Sheriff{},
@@ -127,7 +127,7 @@ func (i *sheriffInformer) Lister() kcpv1alpha1.SheriffLister {
 }
 
 // SheriffInformer provides access to a shared informer and lister for
-// Sherifves.
+// Sheriffs.
 type SheriffInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() kcpv1alpha1.SheriffLister
@@ -155,13 +155,13 @@ func NewFilteredSheriffInformer(client kcpversioned.Interface, resyncPeriod time
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WildwestV1alpha1().Sherifves().List(context.Background(), options)
+				return client.WildwestV1alpha1().Sheriffs().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.WildwestV1alpha1().Sherifves().Watch(context.Background(), options)
+				return client.WildwestV1alpha1().Sheriffs().Watch(context.Background(), options)
 			},
 		},
 		&kcpwildwestv1alpha1.Sheriff{},

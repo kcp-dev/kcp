@@ -34,7 +34,7 @@ import (
 type WildwestV1alpha1ClusterInterface interface {
 	WildwestV1alpha1ClusterScoper
 	CowboysClusterGetter
-	SherifvesClusterGetter
+	SheriffsClusterGetter
 }
 
 type WildwestV1alpha1ClusterScoper interface {
@@ -57,8 +57,8 @@ func (c *WildwestV1alpha1ClusterClient) Cowboys() CowboyClusterInterface {
 	return &cowboysClusterInterface{clientCache: c.clientCache}
 }
 
-func (c *WildwestV1alpha1ClusterClient) Sherifves() SheriffClusterInterface {
-	return &sherifvesClusterInterface{clientCache: c.clientCache}
+func (c *WildwestV1alpha1ClusterClient) Sheriffs() SheriffClusterInterface {
+	return &sheriffsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new WildwestV1alpha1ClusterClient for the given config.

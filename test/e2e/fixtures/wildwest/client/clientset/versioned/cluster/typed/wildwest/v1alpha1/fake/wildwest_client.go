@@ -45,7 +45,7 @@ func (c *WildwestV1alpha1ClusterClient) Cowboys() kcpwildwestv1alpha1.CowboyClus
 	return newFakeCowboyClusterClient(c)
 }
 
-func (c *WildwestV1alpha1ClusterClient) Sherifves() kcpwildwestv1alpha1.SheriffClusterInterface {
+func (c *WildwestV1alpha1ClusterClient) Sheriffs() kcpwildwestv1alpha1.SheriffClusterInterface {
 	return newFakeSheriffClusterClient(c)
 }
 
@@ -58,7 +58,7 @@ func (c *WildwestV1alpha1Client) Cowboys(namespace string) wildwestv1alpha1.Cowb
 	return newFakeCowboyClient(c.Fake, namespace, c.ClusterPath)
 }
 
-func (c *WildwestV1alpha1Client) Sherifves() wildwestv1alpha1.SheriffInterface {
+func (c *WildwestV1alpha1Client) Sheriffs() wildwestv1alpha1.SheriffInterface {
 	return newFakeSheriffClient(c.Fake, c.ClusterPath)
 }
 
