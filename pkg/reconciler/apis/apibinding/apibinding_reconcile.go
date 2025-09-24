@@ -321,7 +321,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return reconcileStatusContinue, err
 	}
 
-	checker, err := newConflictChecker(logicalcluster.From(apiBinding), r.listAPIBindings, r.getAPIResourceSchema, r.getCRD, r.listCRDs)
+	checker, err := newConflictChecker(logicalcluster.From(apiBinding), r.listAPIBindings, r.getAPIResourceSchema, r.getAPIExportByPath, r.getCRD, r.listCRDs)
 	if err != nil {
 		return reconcileStatusContinue, err
 	}
@@ -413,7 +413,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
 				continue
 			}
-		} else {
+		} else if resourceSchema.Storage.CRD != nil {
 			// Need to create bound CRD
 			crd, err := generateCRD(sch)
 			if err != nil {

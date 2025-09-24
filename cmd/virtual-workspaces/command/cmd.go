@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/pkg/version"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
@@ -44,8 +46,10 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+	conflictvw "github.com/kcp-dev/kcp/test/integration/virtualresources/conflict"
 )
 
 func NewCommand(ctx context.Context, errout io.Writer) *cobra.Command {
@@ -185,7 +189,24 @@ func Run(ctx context.Context, o *options.Options) error {
 		return o.ShardExternalURL
 	}
 
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	o.CoreVirtualWorkspaces.ExtraCreateVirtualWorkspaceFuncs = []virtualoptions.CreateVirtualWorkspacesFunc{
+		func(
+			config, cacheConfig *rest.Config,
+			rootPathPrefix string,
+			shardExternalURL func() string,
+			wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
+			wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
+		) ([]virtualrootapiserver.NamedVirtualWorkspace, error) {
+			return conflictvw.BuildConflictVirtualWorkspace(
+				config,
+				path.Join(rootPathPrefix, conflictvw.ConflictVWName),
+				wildcardKcpInformers,
+				cacheKcpInformers,
+			)
+		},
+	}
+
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, cacheConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
 	if err != nil {
 		return err
 	}

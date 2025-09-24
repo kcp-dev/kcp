@@ -19,6 +19,7 @@ package indexers
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -26,6 +27,7 @@ import (
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
 const (
@@ -38,6 +40,9 @@ const (
 	APIExportByClaimedIdentities = "APIExportByClaimedIdentities"
 	// APIExportEndpointSliceByAPIExport is the indexer name for retrieving APIExportEndpointSlices by their APIExport's Reference Path and Name.
 	APIExportEndpointSliceByAPIExport = "APIExportEndpointSliceByAPIExport"
+
+	APIExportByVirtualResourceIdentities       = "APIExportByVirtualResourceIdentities"
+	APIExportByVirtualResourceIdentitiesAndGRs = "APIExportByVirtualResourceIdentitiesAndGRs"
 )
 
 // IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
@@ -96,4 +101,55 @@ func IndexAPIExportEndpointSliceByAPIExport(obj interface{}) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func IndexAPIExportByVirtualResourceIdentities(obj interface{}) ([]string, error) {
+	apiExport, ok := obj.(*apisv1alpha2.APIExport)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
+	}
+
+	virtualResourceIdentities := sets.New[string]()
+
+	clusterPath := logicalcluster.NewPath(apiExport.GetAnnotations()[core.LogicalClusterPathAnnotationKey])
+	clusterName := logicalcluster.From(apiExport).Path()
+	insertKeys := func(virtualResourceName string) {
+		virtualResourceIdentities.Insert(clusterName.Join(virtualResourceName).String())
+		if !clusterPath.Empty() {
+			virtualResourceIdentities.Insert(clusterPath.Join(virtualResourceName).String())
+		}
+	}
+
+	for _, res := range apiExport.Spec.Resources {
+		if res.Storage.Virtual == nil {
+			continue
+		}
+		insertKeys(res.Storage.Virtual.IdentityHash)
+	}
+
+	return sets.List[string](virtualResourceIdentities), nil
+}
+
+func IndexAPIExportByVirtualResourceIdentitiesAndGRs(obj interface{}) ([]string, error) {
+	apiExport, ok := obj.(*apisv1alpha2.APIExport)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
+	}
+
+	keys := sets.New[string]()
+
+	for _, res := range apiExport.Spec.Resources {
+		if res.Storage.Virtual != nil {
+			keys.Insert(VirtualResourceIdentityAndGRKey(res.Storage.Virtual.IdentityHash, schema.GroupResource{
+				Group:    res.Group,
+				Resource: res.Name,
+			}))
+		}
+	}
+
+	return sets.List[string](keys), nil
+}
+
+func VirtualResourceIdentityAndGRKey(identityHash string, gr schema.GroupResource) string {
+	return fmt.Sprintf("%s:%s", gr.String(), identityHash)
 }

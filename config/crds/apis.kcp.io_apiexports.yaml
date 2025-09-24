@@ -467,9 +467,6 @@ spec:
                       default:
                         crd: {}
                       description: Storage defines how the resource is stored.
-                      oneOf:
-                      - required:
-                        - crd
                       properties:
                         crd:
                           description: |-
@@ -478,7 +475,32 @@ spec:
                             Like in vanilla Kubernetes, users can then create, update and delete
                             custom resources.
                           type: object
+                        virtual:
+                          description: |-
+                            Reference points to another object that has a URL to a virtual workspace
+                            in a "url" field in its status. The object can be of any kind.
+                          properties:
+                            group:
+                              type: string
+                            identityHash:
+                              type: string
+                            name:
+                              type: string
+                            resource:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - identityHash
+                          - name
+                          - resource
+                          - version
+                          type: object
                       type: object
+                      x-kubernetes-validations:
+                      - message: Exactly one of crd or virtual must be set
+                        rule: has(self.crd) != has(self.virtual)
                   required:
                   - group
                   - name

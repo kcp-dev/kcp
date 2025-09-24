@@ -22,10 +22,12 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/client"
 )
 
 const (
 	byCachedResourceAndLogicalCluster = "byCachedResourceAndLogicalCluster"
+	byPartitionAndLogicalCluster      = "byPartitionAndLogicalCluster"
 )
 
 // indexCachedResourceEndpointSliceByCachedResourceAndLogicalCluster is an index function that maps a reference to CachedResource and its cluster to a key.
@@ -46,4 +48,25 @@ func cachedResourceEndpointSliceByCachedResourceAndLogicalCluster(cachedResource
 		key += "|" + cluster.String()
 	}
 	return key
+}
+
+// indexAPIExportEndpointSlicesByPartitionFunc is an index function that maps a Partition to the key for its
+// spec.partition.
+func indexAPIExportEndpointSlicesByPartitionFunc(obj interface{}) ([]string, error) {
+	slice, ok := obj.(*cachev1alpha1.CachedResourceEndpointSlice)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be CachedResourceEndpointSlice, but is %T", obj)
+	}
+
+	if slice.Spec.Partition != "" {
+		clusterName := logicalcluster.From(slice).Path()
+		if !ok {
+			// this will never happen due to validation
+			return []string{}, fmt.Errorf("cluster information missing")
+		}
+		key := client.ToClusterAwareKey(clusterName, slice.Spec.Partition)
+		return []string{key}, nil
+	}
+
+	return []string{}, nil
 }
