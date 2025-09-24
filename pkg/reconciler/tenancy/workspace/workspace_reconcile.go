@@ -18,13 +18,11 @@ package workspace
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
-	restclient "k8s.io/client-go/rest"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/client-go/kubernetes"
@@ -61,36 +59,18 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspac
 		return shards[0].(*corev1alpha1.Shard), nil
 	}
 
-	// kcpLogicalClusterAdminClientFor returns a kcp client (i.e. a client that implements kcpclient.ClusterInterface) for the given shard.
-	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
-	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
 	kcpDirectClientFor := func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
 		if shard.Name == c.shardName {
 			return c.kcpClusterClient, nil
 		}
-		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
-		shardConfig.Host = shard.Spec.BaseURL
-		shardClient, err := kcpclientset.NewForConfig(shardConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create shard %q kube client: %w", shard.Name, err)
-		}
-		return shardClient, nil
+		return c.clientPool.getKcpClient(shard.Name, shard.Spec.BaseURL)
 	}
 
-	// kubeLogicalClusterAdminClientFor returns a kube client (i.e. a client that implements kubernetes.ClusterInterface) for the given shard.
-	// the returned client establishes a direct connection with the shard with credentials stored in r.logicalClusterAdminConfig.
-	// TODO:(p0lyn0mial): make it more efficient, maybe we need a per shard client pool or we could use an HTTPRoundTripper
 	kubeDirectClientFor := func(shard *corev1alpha1.Shard) (kubernetes.ClusterInterface, error) {
 		if shard.Name == c.shardName {
 			return c.kubeClusterClient, nil
 		}
-		shardConfig := restclient.CopyConfig(c.logicalClusterAdminConfig)
-		shardConfig.Host = shard.Spec.BaseURL
-		shardClient, err := kubernetes.NewForConfig(shardConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create shard %q kube client: %w", shard.Name, err)
-		}
-		return shardClient, nil
+		return c.clientPool.getKubeClient(shard.Name, shard.Spec.BaseURL)
 	}
 
 	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {

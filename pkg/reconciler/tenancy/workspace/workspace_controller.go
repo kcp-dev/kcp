@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +50,77 @@ import (
 const (
 	ControllerName = "kcp-workspace"
 )
+
+type clientPool struct {
+	mu          sync.RWMutex
+	kcpClients  map[string]kcpclientset.ClusterInterface
+	kubeClients map[string]kubernetes.ClusterInterface
+	adminConfig *rest.Config
+}
+
+func newClientPool(adminConfig *rest.Config) *clientPool {
+	return &clientPool{
+		kcpClients:  make(map[string]kcpclientset.ClusterInterface),
+		kubeClients: make(map[string]kubernetes.ClusterInterface),
+		adminConfig: adminConfig,
+	}
+}
+
+// getKcpClient returns a kcp client (i.e. a client that implements kcpclient.ClusterInterface) for the given shard.
+// the returned client establishes a direct connection with the shard with credentials stored in adminConfig.
+// clients are cached per shard to prevent connection leaks.
+func (p *clientPool) getKcpClient(shardName, baseURL string) (kcpclientset.ClusterInterface, error) {
+	p.mu.RLock()
+	if client, exists := p.kcpClients[shardName]; exists {
+		p.mu.RUnlock()
+		return client, nil
+	}
+	p.mu.RUnlock()
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if client, exists := p.kcpClients[shardName]; exists {
+		return client, nil
+	}
+
+	shardConfig := rest.CopyConfig(p.adminConfig)
+	shardConfig.Host = baseURL
+	client, err := kcpclientset.NewForConfig(shardConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shard %q kcp client: %w", shardName, err)
+	}
+	p.kcpClients[shardName] = client
+	return client, nil
+}
+
+// getKubeClient returns a kube client (i.e. a client that implements kubernetes.ClusterInterface) for the given shard.
+// the returned client establishes a direct connection with the shard with credentials stored in adminConfig.
+// clients are cached per shard to prevent connection leaks.
+func (p *clientPool) getKubeClient(shardName, baseURL string) (kubernetes.ClusterInterface, error) {
+	p.mu.RLock()
+	if client, exists := p.kubeClients[shardName]; exists {
+		p.mu.RUnlock()
+		return client, nil
+	}
+	p.mu.RUnlock()
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if client, exists := p.kubeClients[shardName]; exists {
+		return client, nil
+	}
+
+	shardConfig := rest.CopyConfig(p.adminConfig)
+	shardConfig.Host = baseURL
+	client, err := kubernetes.NewForConfig(shardConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shard %q kube client: %w", shardName, err)
+	}
+	p.kubeClients[shardName] = client
+	return client, nil
+}
 
 func NewController(
 	shardName string,
@@ -87,6 +159,8 @@ func NewController(
 
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
 		logicalClusterLister:  logicalClusterInformer.Lister(),
+
+		clientPool: newClientPool(logicalClusterAdminConfig),
 
 		commit: committer.NewCommitter[*tenancyv1alpha1.Workspace, tenancyv1alpha1client.WorkspaceInterface, *tenancyv1alpha1.WorkspaceSpec, *tenancyv1alpha1.WorkspaceStatus](kcpClusterClient.TenancyV1alpha1().Workspaces()),
 	}
@@ -131,6 +205,9 @@ type Controller struct {
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
+
+	// clientPool manages reusable clients to prevent connection leaks
+	clientPool *clientPool
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, old, new *workspaceResource) error
