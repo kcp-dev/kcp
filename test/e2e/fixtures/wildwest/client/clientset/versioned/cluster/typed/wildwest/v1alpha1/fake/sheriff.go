@@ -39,7 +39,7 @@ func newFakeSheriffClusterClient(fake *WildwestV1alpha1ClusterClient) typedkcpwi
 	return &sheriffClusterClient{
 		kcpgentype.NewFakeClusterClientWithList[*wildwestv1alpha1.Sheriff, *wildwestv1alpha1.SheriffList](
 			fake.Fake,
-			wildwestv1alpha1.SchemeGroupVersion.WithResource("sherifves"),
+			wildwestv1alpha1.SchemeGroupVersion.WithResource("sheriffs"),
 			wildwestv1alpha1.SchemeGroupVersion.WithKind("Sheriff"),
 			func() *wildwestv1alpha1.Sheriff { return &wildwestv1alpha1.Sheriff{} },
 			func() *wildwestv1alpha1.SheriffList { return &wildwestv1alpha1.SheriffList{} },
@@ -72,7 +72,7 @@ func newFakeSheriffClient(fake *kcptesting.Fake, clusterPath logicalcluster.Path
 			fake,
 			clusterPath,
 			"",
-			wildwestv1alpha1.SchemeGroupVersion.WithResource("sherifves"),
+			wildwestv1alpha1.SchemeGroupVersion.WithResource("sheriffs"),
 			wildwestv1alpha1.SchemeGroupVersion.WithKind("Sheriff"),
 			func() *wildwestv1alpha1.Sheriff { return &wildwestv1alpha1.Sheriff{} },
 			func() *wildwestv1alpha1.SheriffList { return &wildwestv1alpha1.SheriffList{} },

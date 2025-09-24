@@ -28,14 +28,14 @@ import (
 	kcpv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
 )
 
-// SheriffClusterLister helps list Sherifves across all workspaces,
+// SheriffClusterLister helps list Sheriffs across all workspaces,
 // or scope down to a SheriffLister for one workspace.
 // All objects returned here must be treated as read-only.
 type SheriffClusterLister interface {
-	// List lists all Sherifves in the indexer.
+	// List lists all Sheriffs in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*kcpv1alpha1.Sheriff, err error)
-	// Cluster returns a lister that can list and get Sherifves in one workspace.
+	// Cluster returns a lister that can list and get Sheriffs in one workspace.
 	Cluster(clusterName logicalcluster.Name) SheriffLister
 	SheriffClusterListerExpansion
 }
@@ -58,14 +58,14 @@ func NewSheriffClusterLister(indexer cache.Indexer) SheriffClusterLister {
 	}
 }
 
-// Cluster scopes the lister to one workspace, allowing users to list and get Sherifves.
+// Cluster scopes the lister to one workspace, allowing users to list and get Sheriffs.
 func (l *sheriffClusterLister) Cluster(clusterName logicalcluster.Name) SheriffLister {
 	return &sheriffLister{
 		l.ResourceClusterIndexer.WithCluster(clusterName),
 	}
 }
 
-// sheriffLister can list all Sherifves inside a workspace
+// sheriffLister can list all Sheriffs inside a workspace
 // or scope down to a SheriffNamespaceLister for one namespace.
 type sheriffLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.Sheriff]
@@ -73,10 +73,10 @@ type sheriffLister struct {
 
 var _ SheriffLister = new(sheriffLister)
 
-// SheriffLister can list all Sherifves, or get one in particular.
+// SheriffLister can list all Sheriffs, or get one in particular.
 // All objects returned here must be treated as read-only.
 type SheriffLister interface {
-	// List lists all Sherifves in the indexer.
+	// List lists all Sheriffs in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*kcpv1alpha1.Sheriff, err error)
 	// Get retrieves the Sheriff from the indexer for a given workspace and name.
@@ -96,7 +96,7 @@ func NewSheriffLister(indexer cache.Indexer) SheriffLister {
 	}
 }
 
-// sheriffScopedLister can list all Sherifves inside a workspace
+// sheriffScopedLister can list all Sheriffs inside a workspace
 // or scope down to a SheriffNamespaceLister.
 type sheriffScopedLister struct {
 	kcplisters.ResourceIndexer[*kcpv1alpha1.Sheriff]

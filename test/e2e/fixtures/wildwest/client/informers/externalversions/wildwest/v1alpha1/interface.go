@@ -25,8 +25,8 @@ import (
 type ClusterInterface interface {
 	// Cowboys returns a CowboyClusterInformer.
 	Cowboys() CowboyClusterInformer
-	// Sherifves returns a SheriffClusterInformer.
-	Sherifves() SheriffClusterInformer
+	// Sheriffs returns a SheriffClusterInformer.
+	Sheriffs() SheriffClusterInformer
 }
 
 type version struct {
@@ -44,16 +44,16 @@ func (v *version) Cowboys() CowboyClusterInformer {
 	return &cowboyClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// Sherifves returns a SheriffClusterInformer.
-func (v *version) Sherifves() SheriffClusterInformer {
+// Sheriffs returns a SheriffClusterInformer.
+func (v *version) Sheriffs() SheriffClusterInformer {
 	return &sheriffClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
 	// Cowboys returns a CowboyInformer.
 	Cowboys() CowboyInformer
-	// Sherifves returns a SheriffInformer.
-	Sherifves() SheriffInformer
+	// Sheriffs returns a SheriffInformer.
+	Sheriffs() SheriffInformer
 }
 
 type scopedVersion struct {
@@ -72,7 +72,7 @@ func (v *scopedVersion) Cowboys() CowboyInformer {
 	return &cowboyScopedInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// Sherifves returns a SheriffInformer.
-func (v *scopedVersion) Sherifves() SheriffInformer {
+// Sheriffs returns a SheriffInformer.
+func (v *scopedVersion) Sheriffs() SheriffInformer {
 	return &sheriffScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
