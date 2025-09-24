@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,6 +40,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 	builtinschemas "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
@@ -135,23 +137,28 @@ func NewController(
 		},
 	}
 
-	objOrTombstone := func(obj any) any {
-		if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-			obj = tombstone.Obj
-		}
-		return obj
-	}
-
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueLogicalCluster(nil, objOrTombstone(obj).(*corev1alpha1.LogicalCluster), opCreate)
+			c.enqueueLogicalCluster(nil, tombstone.Obj[*corev1alpha1.LogicalCluster](obj), opCreate)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.enqueueLogicalCluster(objOrTombstone(oldObj).(*corev1alpha1.LogicalCluster),
-				objOrTombstone(newObj).(*corev1alpha1.LogicalCluster), opUpdate)
+			c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](oldObj),
+				tombstone.Obj[*corev1alpha1.LogicalCluster](newObj), opUpdate)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueLogicalCluster(objOrTombstone(obj).(*corev1alpha1.LogicalCluster), nil, opDelete)
+			c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](obj), nil, opDelete)
+		},
+	})
+
+	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueueAPIBindingUpdate(tombstone.Obj[*apisv1alpha2.APIBinding](newObj))
+		},
+	})
+
+	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueueCRDUpdate(tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](newObj))
 		},
 	})
 
@@ -202,6 +209,115 @@ func diffResourceBindingsAnn(oldAnn, newAnn apibinding.ResourceBindingsAnnotatio
 	}
 
 	return
+}
+
+func (c *Controller) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinition) {
+	if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
+		// The CRD is not ready yet. Nothing to do, we'll get notified on the next update event.
+		return
+	}
+
+	gr := schema.GroupResource{
+		Group:    crd.Spec.Group,
+		Resource: crd.Status.AcceptedNames.Plural,
+	}
+
+	lc, err := c.getLogicalCluster(logicalcluster.From(crd), corev1alpha1.LogicalClusterName)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	boundResourcesAnn, err := apibinding.GetResourceBindings(lc)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	if _, hasCRD := boundResourcesAnn[gr.String()]; !hasCRD {
+		// The CRD is not listed in the resources lock yet.
+		return
+	}
+
+	// Update the GR by removing and adding it back again.
+	resourceLock := apibinding.ResourceBindingsAnnotation{
+		gr.String(): apibinding.ExpirableLock{
+			Lock: apibinding.Lock{
+				CRD: true,
+			},
+		},
+	}
+	it := queueItem{
+		ClusterName:         logicalcluster.From(crd),
+		ClusterResourceName: corev1alpha1.LogicalClusterName,
+		Op:                  opUpdate,
+
+		ToRemove: resourceLock,
+		ToAdd:    resourceLock,
+	}
+
+	keyBytes, err := json.Marshal(&it)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	key := string(keyBytes)
+
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).WithName(crd.Name).
+		V(4).Info("queueing ResourceBindingsAnnotation patch because of CRD")
+	c.queue.Add(key)
+}
+
+func (c *Controller) enqueueAPIBindingUpdate(apiBinding *apisv1alpha2.APIBinding) {
+	lc, err := c.getLogicalCluster(logicalcluster.From(apiBinding), corev1alpha1.LogicalClusterName)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	boundResourcesAnn, err := apibinding.GetResourceBindings(lc)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	it := queueItem{
+		ClusterName:         logicalcluster.From(apiBinding),
+		ClusterResourceName: corev1alpha1.LogicalClusterName,
+		Op:                  opUpdate,
+		ToAdd:               make(apibinding.ResourceBindingsAnnotation),
+		ToRemove:            make(apibinding.ResourceBindingsAnnotation),
+	}
+
+	for _, boundRes := range apiBinding.Status.BoundResources {
+		gr := schema.GroupResource{
+			Group:    boundRes.Group,
+			Resource: boundRes.Resource,
+		}
+		key := gr.String()
+		if _, hasBinding := boundResourcesAnn[key]; !hasBinding {
+			continue
+		}
+
+		// Update the GR by removing and adding it back again.
+		resourceLock := apibinding.ExpirableLock{
+			Lock: apibinding.Lock{
+				Name: apiBinding.Name,
+			},
+		}
+		it.ToRemove[key] = resourceLock
+		it.ToAdd[key] = resourceLock
+	}
+
+	keyBytes, err := json.Marshal(&it)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	key := string(keyBytes)
+
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).WithName(apiBinding.Name).
+		V(4).Info("queueing ResourceBindingsAnnotation patch because of APIBinding")
+	c.queue.Add(key)
 }
 
 func (c *Controller) enqueueLogicalCluster(oldObj *corev1alpha1.LogicalCluster, newObj *corev1alpha1.LogicalCluster, op ctrlOp) {
@@ -307,16 +423,20 @@ func (c *Controller) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefini
 	if crd == nil {
 		return nil
 	}
-	gvkrs := make([]typeMeta, len(crd.Status.StoredVersions))
-	for i, crdVersion := range crd.Status.StoredVersions {
-		gvkrs[i] = newTypeMeta(
+	gvkrs := make([]typeMeta, 0, len(crd.Spec.Versions))
+	for _, version := range crd.Spec.Versions {
+		if !version.Served {
+			continue
+		}
+
+		gvkrs = append(gvkrs, newTypeMeta(
 			crd.Spec.Group,
-			crdVersion,
+			version.Name,
 			crd.Status.AcceptedNames.Kind,
 			crd.Status.AcceptedNames.Singular,
 			crd.Status.AcceptedNames.Plural,
 			resourceScopeToRESTScope(crd.Spec.Scope),
-		)
+		))
 	}
 	return gvkrs
 }
@@ -341,6 +461,10 @@ func (c *Controller) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha2.APIBindin
 		}
 
 		for _, schVersion := range sch.Spec.Versions {
+			if !schVersion.Served {
+				continue
+			}
+
 			gvkrs = append(gvkrs, newTypeMeta(
 				sch.Spec.Group,
 				schVersion.Name,

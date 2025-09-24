@@ -85,9 +85,7 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	require.Equal(t, "ConfigMap", gvk.Kind)
 
-	t.Logf("Testing if we can resolve the KubeCluster kind")
-
-	t.Logf("Install a mount object CRD into workspace %q", workspace.Name)
+	t.Logf("Install kubecluster CRD into workspace %q", workspace.Name)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClientSet.Cluster(logicalClusterName.Path()).Discovery()))
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(logicalClusterName.Path()), mapper, nil, "crd_kubecluster.yaml", assets.EmbeddedResources)
 	require.NoError(t, err)
@@ -96,11 +94,13 @@ func TestDynamicRestMapper(t *testing.T) {
 	crdName := "kubeclusters.contrib.kcp.io"
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		crd, err := extensionsClusterClient.Cluster(logicalClusterName.Path()).CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
-		require.NoError(t, err)
+		if err != nil {
+			return false, err.Error()
+		}
 		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), yamlMarshal(t, crd)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
 
-	t.Logf("Testing if we can resolve the KubeCluster kind")
+	t.Logf("Testing if we can resolve the KubeCluster v1alpha1 kind")
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		gvk, err = drm.KindFor(schema.GroupVersionResource{
@@ -113,6 +113,41 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "KubeCluster", gvk.Kind)
+
+	t.Logf("Updating the KubeCluster kind with v1alpha2, not serving v1alpha1 anymore")
+	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(logicalClusterName.Path()), mapper, nil, "crd_kubecluster_updates.yaml", assets.EmbeddedResources)
+	require.NoError(t, err)
+
+	t.Logf("Waiting for CRD to be established")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		crd, err := extensionsClusterClient.Cluster(logicalClusterName.Path()).CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return crdhelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established), yamlMarshal(t, crd)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
+
+	t.Logf("Testing if we can resolve the KubeCluster v1alpha2 kind")
+
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		gvk, err = drm.KindFor(schema.GroupVersionResource{
+			Group:    "contrib.kcp.io",
+			Version:  "v1alpha2",
+			Resource: "kubeclusters",
+		})
+		return err == nil, fmt.Sprintf("%v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
+
+	require.NoError(t, err)
+	require.Equal(t, "KubeCluster", gvk.Kind)
+
+	t.Logf("Testing that the KubeCluster v1alpha1 kind is no longer discoverable")
+	_, err = drm.KindsFor(schema.GroupVersionResource{
+		Group:    "contrib.kcp.io",
+		Version:  "v1alpha1",
+		Resource: "kubeclusters",
+	})
+	require.Error(t, err, "KubeCluster v1alpha1 should not be discoverable anymore")
 }
 
 func yamlMarshal(t *testing.T, obj interface{}) string {
