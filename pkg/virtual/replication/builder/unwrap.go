@@ -311,18 +311,19 @@ func newUnwrappingWatch(
 			if namespaced && namespace != "" {
 				valid = valid && cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectOriginalNamespace] == namespace
 			}
+
 			return valid
 		},
 		Handler: clientgocache.ResourceEventHandlerDetailedFuncs{
 			AddFunc: func(obj interface{}, isInInitialList bool) {
 				cachedObj := tombstone.Obj[*cachev1alpha1.CachedObject](obj)
 				if isInInitialList {
-					if innerListOpts.SendInitialEvents == nil || !*innerListOpts.SendInitialEvents {
-						// The user explicitly requests to not send the initial list.
+					if cachedObj.GetResourceVersion() <= innerListOpts.ResourceVersion {
+						// This resource is older than the want we want to start from on isInInitial list replay.
 						return
 					}
-					if cachedObj.GetResourceVersion() < innerListOpts.ResourceVersion {
-						// This resource is older than the want we want to start from on isInInitial list replay.
+					if innerListOpts.SendInitialEvents != nil && !*innerListOpts.SendInitialEvents {
+						// The user explicitly requests not to send the initial list.
 						return
 					}
 				}
@@ -339,6 +340,7 @@ func newUnwrappingWatch(
 					// No match because of selectors.
 					return
 				}
+
 				for _, cluster := range syntheticClusters() {
 					obj := innerObj.DeepCopy()
 					setCluster(obj, cluster)
