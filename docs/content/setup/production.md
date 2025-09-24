@@ -31,6 +31,13 @@ When running etcd inside Kubernetes, an operator can greatly help in running etc
 operations tasks and the entire etcd lifecycle. Etcd clusters managed by Etcd Druid can be seamlessly
 used with kcp.
 
+### High Availability
+
+Care should be taken to distribute the etcd pods across availability zones and/or different nodes.
+This ensures that node failure will not immediately bring down an entire etcd cluster. Please refer
+to the [Etcd Druid documentation](https://gardener.github.io/etcd-druid/proposals/01-multi-node-etcd-clusters.html?h=affinity#high-availability)
+for more details and configuration examples.
+
 ### TLS
 
 It is highly recommended to enable TLS in etcd to encrypt traffic in-transtit between kcp and etcd.
@@ -108,6 +115,13 @@ take shard metrics into account.
 It's therefore recommended to start with a sharded setup instead of working with a single root shard
 only. This not only improves realiability and performance, but can also help ensure newly developed
 kcp client software does not by accident make false assumptions about sharding.
+
+### High Availability
+
+To improve resilience against node failures, it is strongly recommended to not just spread the
+workload across multiple shards, but also to ensure that shard pods are distributed across nodes or
+availability zones. The same advice for etcd applies to kcp as well: Use anti-affinities to ensure
+pods are scheduled properly.
 
 ### Backups
 
