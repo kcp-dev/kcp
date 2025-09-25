@@ -59,7 +59,7 @@ jobs:
         uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # tag=v6.3.0
         with:
           distribution: goreleaser
-          version: latest
+          version: "~> v2"
           args: release --timeout 60m
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,7 +70,7 @@ jobs:
         uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # tag=v6.3.0
         with:
           distribution: goreleaser
-          version: latest
+          version: "~> v2"
           args: release --timeout 60m --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
