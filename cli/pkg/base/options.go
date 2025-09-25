@@ -75,12 +75,7 @@ func (o *Options) Complete() error {
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		loadingRules.ExplicitPath = o.Kubeconfig
 
-		startingConfig, err := loadingRules.GetStartingConfig()
-		if err != nil {
-			return err
-		}
-
-		o.ClientConfig = clientcmd.NewDefaultClientConfig(*startingConfig, o.KubectlOverrides)
+		o.ClientConfig = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, o.KubectlOverrides)
 	}
 
 	return nil
