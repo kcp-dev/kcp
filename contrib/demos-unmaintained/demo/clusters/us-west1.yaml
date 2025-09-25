@@ -1,6 +1,0 @@
-apiVersion: workload.kcp.io/v1alpha1
-kind: SyncTarget
-metadata:
-  name: us-west1
-spec:
-  kubeconfig: |
