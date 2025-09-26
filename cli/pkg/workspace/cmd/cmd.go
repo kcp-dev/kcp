@@ -230,5 +230,11 @@ func NewCreate(prefix string, deprecation string, streams genericclioptions.IOSt
 	}
 	createWorkspaceOpts.BindFlags(cmd)
 
+	if v := version.Get().String(); len(v) == 0 {
+		cmd.Version = "<unknown>"
+	} else {
+		cmd.Version = v
+	}
+
 	return cmd, nil
 }
