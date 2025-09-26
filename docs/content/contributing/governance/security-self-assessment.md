@@ -1,3 +1,7 @@
+---
+title: Security Self-Assessment
+---
+
 # Security Self-Assessment kcp
 
 This document is intended to aid the project's maintainers, contributors, and users understand the project's security status and help identify points of improvement.
