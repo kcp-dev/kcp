@@ -6,18 +6,15 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Inspecting Prometheus metrics of e2e runs.
-">
       
       
-      
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/continuous-integration/inspecting-e2e-metrics/">
-      
-      
-        <link rel="prev" href="../">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/governance/general-technical-review/">
       
       
-        <link rel="next" href="../../guides/publishing-a-new-kcp-release/">
+        <link rel="prev" href="../../coding/">
+      
+      
+        <link rel="next" href="../security-self-assessment/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +22,7 @@
     
     
       
-        <title>Inspecting Prometheus Metrics for e2e Runs - docs.kcp.io</title>
+        <title>General Technical Review - docs.kcp.io</title>
       
     
     
@@ -79,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#inspecting-prometheus-metrics-for-e2e-runs" class="md-skip">
+        <a href="#general-technical-review-kcp-incubating" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Inspecting Prometheus Metrics for e2e Runs
+              General Technical Review
             
           </span>
         </div>
@@ -2017,8 +2014,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -2032,13 +2031,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" checked>
         
           
           <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
@@ -2052,7 +2049,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_4">
             <span class="md-nav__icon md-icon"></span>
             Governance
@@ -2063,10 +2060,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../governance/general-technical-review/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    General Technical Review
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -2075,6 +2092,128 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#day-0-planning-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      Day 0 – Planning Phase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Day 0 – Planning Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scope
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Design
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#day-1-installation-and-deployment-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      Day 1 – Installation and Deployment Phase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Day 1 – Installation and Deployment Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-installation-and-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Installation and Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#project-enablement-and-rollback" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Enablement and Rollback
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-upgrade-and-rollback-planning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rollout, Upgrade and Rollback Planning
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2087,7 +2226,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../governance/security-self-assessment/" class="md-nav__link">
+      <a href="../security-self-assessment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2113,8 +2252,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2132,16 +2269,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2158,7 +2297,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_5">
             <span class="md-nav__icon md-icon"></span>
             Continuous integration
@@ -2171,30 +2310,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Inspecting Prometheus Metrics for e2e Runs
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2203,77 +2322,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#metrics-gathering-during-e2e-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Metrics Gathering During e2e Runs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inspecting-metrics-of-e2e-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Inspecting Metrics of e2e Runs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Inspecting Metrics of e2e Runs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#github" class="md-nav__link">
-    <span class="md-ellipsis">
-      GitHub
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#prow" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prow
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#collecting-metrics-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      Collecting Metrics Locally
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3505,37 +3553,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#metrics-gathering-during-e2e-runs" class="md-nav__link">
+  <a href="#day-0-planning-phase" class="md-nav__link">
     <span class="md-ellipsis">
-      Metrics Gathering During e2e Runs
+      Day 0 – Planning Phase
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inspecting-metrics-of-e2e-runs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Inspecting Metrics of e2e Runs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Inspecting Metrics of e2e Runs">
+    <nav class="md-nav" aria-label="Day 0 – Planning Phase">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#github" class="md-nav__link">
+  <a href="#scope" class="md-nav__link">
     <span class="md-ellipsis">
-      GitHub
+      Scope
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#prow" class="md-nav__link">
+  <a href="#usability" class="md-nav__link">
     <span class="md-ellipsis">
-      Prow
+      Usability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Design
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security
     </span>
   </a>
   
@@ -3547,11 +3613,44 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#collecting-metrics-locally" class="md-nav__link">
+  <a href="#day-1-installation-and-deployment-phase" class="md-nav__link">
     <span class="md-ellipsis">
-      Collecting Metrics Locally
+      Day 1 – Installation and Deployment Phase
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Day 1 – Installation and Deployment Phase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-installation-and-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Installation and Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#project-enablement-and-rollback" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Enablement and Rollback
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rollout-upgrade-and-rollback-planning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rollout, Upgrade and Rollback Planning
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3573,43 +3672,537 @@
   
 
 
-<h1 id="inspecting-prometheus-metrics-for-e2e-runs">Inspecting Prometheus Metrics for e2e Runs</h1>
-<h2 id="metrics-gathering-during-e2e-runs">Metrics Gathering During e2e Runs</h2>
-<p>kcp internally exposes the same metrics as kube api-server.
-These are being gathered during e2e runs if the <code>PROMETHEUS_URL</code> variable is set.
-Here, any e2e spawned kcp server will publish a scraping configuration to prometheus
-for the given Prometheus URL environment variable.</p>
-<p>For e2e tests, the above environment variable is respected by the following test servers:</p>
+<h1 id="general-technical-review-kcp-incubating">General Technical Review - kcp / Incubating</h1>
 <ul>
-<li>when a shared kcp server is spawned using <code>SharedKcpServer</code> or <code>PrivateKcpServer</code> in the <code>kcp.test.e2e.framework</code> package.</li>
-<li><code>cmd/sharded-test-server</code></li>
-<li><code>cmd/test-server/kcp</code></li>
+<li><strong>Project:</strong> kcp</li>
+<li><strong>Project Version:</strong> v0.28.1</li>
+<li><strong>Website:</strong> <a href="https://kcp.io">kcp.io</a></li>
+<li><strong>Date Updated:</strong> 2025-09-26</li>
+<li><strong>Template Version:</strong> v1.0</li>
+<li><strong>Description:</strong> kcp is an open source horizontally scalable control plane for Kubernetes-like APIs. It extends the Kubernetes Resource Model with additional multi-tenancy and API management capabilities.</li>
 </ul>
-<h2 id="inspecting-metrics-of-e2e-runs">Inspecting Metrics of e2e Runs</h2>
-<h3 id="github">GitHub</h3>
-<p>To inspect metrics from GitHub e2e test runs, download the metrics from the GitHub summary page:</p>
-<p><img alt="GitHub summary page" src="../github_summary.png" /></p>
-<p>And execute Prometheus locally to inspect metrics:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>metrics<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>unzip<span class="w"> </span>-p<span class="w"> </span>e2e-sharded-metrics.zip<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>xvzf<span class="w"> </span>-<span class="w"> </span>-C<span class="w"> </span>metrics
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>$<span class="w"> </span>prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>metrics<span class="w"> </span>--config.file<span class="w"> </span>/dev/null
-</code></pre></div></p>
-<h3 id="prow">Prow</h3>
-<p>To inspect e2e metrics from prow runs, just copy-paste the prow link from the pull request:</p>
-<p><img alt="PR prow link" src="../prow_link.png" /></p>
-<p>And paste it into <a href="https://promecieus.dptools.openshift.org/">PromeCIeus</a>:</p>
-<p><img alt="promecieus" src="../promecieus.png" /></p>
-<p>Once the Prometheus pod is ready, the provisioned link can be called to inspect gathered metrics.
-Alternatively, download the prometheus tarball from the gcsweb frontend locally
-and start a Prometheus instance as described above.</p>
-<h2 id="collecting-metrics-locally">Collecting Metrics Locally</h2>
-<p>To collect metrics locally, a convenience script is available to download and execute a Prometheus instance.
-Calling <code>... ./hack/run-in-prometheus make ...</code> will download, start, collect metrics, and stop Prometheus during the test run.</p>
-<p>Example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span><span class="nv">WHAT</span><span class="o">=</span>./test/e2e/virtual/apiexport<span class="w"> </span><span class="nv">TEST_ARGS</span><span class="o">=</span><span class="s2">&quot;-v -run TestAPIExportAuthorizers&quot;</span><span class="w"> </span>./hack/run-with-prometheus.sh<span class="w"> </span>make<span class="w"> </span>test-e2e
+<h2 id="day-0-planning-phase">Day 0 – Planning Phase</h2>
+<h3 id="scope">Scope</h3>
+<ul>
+<li>
+<p><strong>Describe the roadmap process, how scope is determined for mid to long term features, as well as how the roadmap maps back to current contributions and maintainer ladder?</strong></p>
+<p>Our public roadmap is tracked in <a href="https://github.com/kcp-dev/kcp/milestones">GitHub milestones</a>. Scope is usually determined in the bi-weekly community calls, i.e. ideas with a larger impact on kcp as a project are brought there to be discussed and scheduled into the overall development roadmap for the next few releases.</p>
+<p>Roadmap disputes are at worst solved by a maintainer vote on the public mailing list. If maintainers couldn't agree, they would seek an outside arbiter.</p>
+<p>An enhancement proposal process has been decided upon but not yet implemented.</p>
+</li>
+<li>
+<p><strong>Describe the target persona or user(s) for the project?</strong></p>
+<ul>
+<li><strong>Platform Owners</strong>: Central stakeholders tasked with providing a central platform through which IT services can be offered in a centralized and standardized way.</li>
+<li><strong>Service Providers</strong>: Internal or external entities that provide a specialized IT service. Their focus is providing a high quality service (e.g. a DBaaS), but they need to provide a way to "order" instances of their DBaaS through an API.</li>
+<li><strong>Service Consumers</strong>: A diverse set of stakeholders that want to use IT services provided by a <em>Service Provider</em>. This might include software engineers, data analysts or management roles.</li>
+</ul>
+</li>
+<li>
+<p><strong>Explain the primary use case for the project. What additional use cases are supported by the project?</strong></p>
+<p>The primary use case for kcp is providing a global control plane for declarative, Kubernetes-like APIs. It embraces the strength of the Kubernetes API server while adding opinionated multi-tenancy features not present in the upstream project. Given the nature of kcp, the project functions as a generic declarative control plane. As such, it can be used in a variety of use cases, orchestrating any kind of IT systems. kcp itself doesn't directly publish code for integration with such arbitrary systems, but provides tooling (e.g. a provider for <a href="https://github.com/kubernetes-sigs/multicluster-runtime">mulitcluster-runtime</a>) to write such integrations.</p>
+<p>The project directly supports the use case of publishing Kubernetes CRDs from multiple Kubernetes clusters into a central kcp instance as a global control plane through the <a href="https://github.com/kcp-dev/api-syncagent">api-syncagent</a> project. <em>Service Consumers</em> can then create objects in kcp that get synchronized back to the target Kubernetes cluster.</p>
+</li>
+<li>
+<p><strong>Explain which use cases have been identified as unsupported by the project.</strong></p>
+<p>In the past, kcp included a "transparent multi-cluster" (TMC) component in the project core. Since then, it has been identified as out-of-scope for the "core" kcp project, but it is feasible to be implemented as an application on top of kcp.</p>
+<p>In general, adding application-specific logic into kcp itself is considered out of scope for the project. Specifically, container orchestration is out-of-scope for kcp.</p>
+</li>
+<li>
+<p><strong>Describe the intended types of organizations who would benefit from adopting this project. (i.e. financial services, any software manufacturer, organizations providing platform engineering services)?</strong></p>
+<ul>
+<li>(Cloud) Service Providers, i.e. organizations which offer IT services on their infrastructure. These organizations would benefit from adopting kcp by either:<ul>
+<li>making it their internal control plane that orchestrates a global deployment of IT services across several regions / datacenters.</li>
+<li>or by using it as a central contorol plane for "ordering" IT services, i.e. replacing custom REST APIs with the standardized KRM interface that kcp provides.</li>
+</ul>
+</li>
+<li>(Large) corporations looking for an internal (developer) platform, trying to bundle their various internal IT services in one central API platform, while keeping strong multi-tenancy separation between API owners.</li>
+<li>Software Vendors looking for a control plane for their complex software stack that requires orchestration across multiple Kubernetes clusters and/or regions.</li>
+</ul>
+</li>
+<li>
+<p><strong>Please describe any completed end user research and link to any reports.</strong></p>
+<p>None completed we are aware of.</p>
+</li>
+</ul>
+<h3 id="usability">Usability</h3>
+<ul>
+<li>
+<p><strong>How should the target personas interact with your project?</strong></p>
+<p>All personas primarily interact with kcp via <code>kubectl</code>, the Kubernetes command line client. kcp provides several <a href="https://docs.kcp.io/kcp/latest/setup/kubectl-plugin/">kubectl plugins</a> for navigating multi-tenancy concepts not known to <code>kubectl</code>.</p>
+<p>Navigation between workspaces happens with the <code>kubectl-ws</code> plugin, which allows changing workspaces similar to changing directories:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span><span class="nb">test</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s1">&#39;root:test&#39;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span>.
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>.
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s1">&#39;root:test&#39;</span>.
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>..
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s1">&#39;root&#39;</span>.
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>:root:test
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s1">&#39;root:test&#39;</span><span class="w"> </span><span class="o">(</span><span class="nb">type</span><span class="w"> </span>root:organization<span class="o">)</span>.
 </code></pre></div>
-A local Prometheus can then be started to inspect gathered metrics:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>./hack/tools/prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>.prometheus_data<span class="w"> </span>--config.file<span class="w"> </span>/dev/null
-</code></pre></div></p>
+<p>kcp "speaks" Kubernetes' API model, the KRM, and thus its API is compatible with existing Kubernetes API tooling like <a href="https://github.com/kubernetes/client-go">client-go</a>. Personas that automate against the kcp API (e.g. writing a kcp-aware controller) can use upstream libraries like <code>k8s.io/client-go</code> or <a href="https://github.com/kubernetes-sigs/multicluster-runtime">multicluster-runtime</a> in combination with kcp specific extensions to those (<a href="https://github.com/kcp-dev/client-go">kcp-dev/client-go</a> and <a href="https://github.com/kcp-dev/multicluster-provider">kcp-dev/multicluster-provider</a>, respectively) for programmatic access.</p>
+<p>A graphical user interface (i.e. a web portal) is feasible but not in scope for kcp.</p>
+</li>
+<li>
+<p><strong>Describe the user experience (UX) and user interface (UI) of the project.</strong></p>
+<ul>
+<li><strong>User Experience</strong>: The user experience of kcp is defined by its Kubernetes-like API. Therefore interactions with kcp are primarily driven by creating and updating declarative object states stored in API endpoints which are then reconciled by controllers/operators. All personas primarily interact with the API.</li>
+<li><strong>User Interface</strong>: kcp doesn't provide its own user interface and instead relies on users using <code>kubectl</code> or other user interfaces to interact with kcp through the Kubernetes Resource Model.</li>
+</ul>
+</li>
+<li>
+<p><strong>Describe how this project integrates with other projects in a production environment.</strong></p>
+<p>kcp integrates with a variety of other projects when used in a production environment. Production setups are recommended to be installed on Kubernetes. Same as Kubernetes, it provides several interfaces that allow plugging in different projects. For example:</p>
+<ul>
+<li><a href="https://docs.kcp.io/kcp/latest/concepts/apis/admission-webhooks/">Admission Webhooks</a> to integrate with any project that supports Kubernetes admission webhooks like <a href="https://open-policy-agent.github.io/gatekeeper/website/">OPA Gatekeeper</a>.</li>
+<li><a href="https://docs.kcp.io/kcp/latest/concepts/authorization/authorizers/#webhook-authorizer">Webhook Authorization</a> allows integration of third-party authorization tools like <a href="https://openfga.dev/">OpenFGA</a>.</li>
+<li><a href="https://docs.kcp.io/kcp/latest/concepts/authentication/oidc/">OIDC Authentication</a> allows using identity providers like <a href="https://dexidp.io">Dex</a> or <a href="https://keycloak.org">Keycloak</a> to authenticate users.</li>
+<li>kcp's <a href="https://docs.kcp.io/api-syncagent">api-syncagent</a> allows for integration with any controller/operator based service running in external Kubernetes clusters like <a href="https://crossplane.io/">Crossplane</a>.</li>
+</ul>
+</li>
+</ul>
+<h3 id="design">Design</h3>
+<ul>
+<li>
+<p><strong>Explain the design principles and best practices the project is following.</strong></p>
+<p>Design principles are documented <a href="https://docs.kcp.io/kcp/latest/GOALS/#principles">here</a>. Below is a list of them:</p>
+<ul>
+<li>Convention over configuration / optimize for the user's benefit.</li>
+<li>Support both a push model and a pull model that fit the control plane mindset.</li>
+<li>Balance between speed of local development AND running as a high scale service.</li>
+<li>Be simple, composable, and orthogonal.</li>
+<li>Be open to change.</li>
+<li>Consolidate efforts in the ecosystem into a more focused effort.</li>
+</ul>
+</li>
+<li>
+<p><strong>Outline or link to the project’s architecture requirements? Describe how they differ for Proof of Concept, Development, Test and Production environments, as applicable.</strong></p>
+<p>kcp can be installed on top of a Kubernetes cluster and primarily requires a mean to expose its API endpoint (e.g. load balancer support in the Kubernetes cluster). The requirements for that don't significantly change between environments. Specifically for development, the <code>kcp</code> binary has a "all-in-one" mode that makes local development against kcp possible.</p>
+<p>For test and production environments it is strongly encouraged to run a sharded setup to validate that integrations correctly work with multiple shards.</p>
+</li>
+<li>
+<p><strong>Define any specific service dependencies the project relies on in the cluster.</strong></p>
+<p>kcp requires an <a href="https://etcd.io">etcd</a>-compatible datastore to store its data in. This can be a single etcd instance, an etcd cluster or any other project that provides an etcd-compatible API.</p>
+<p>Installation by Helm chart has a dependency on <a href="https://cert-manager.io">cert-manager</a> to manage mTLS certificates between kcp's components, but kcp itself does not rely on cert-manager, just on certificates being passed to it.</p>
+</li>
+<li>
+<p><strong>Describe how the project implements Identity and Access Management.</strong></p>
+<p>kcp builds on top of Kubernetes' kube-apiserver code and as such, implements similar authentication and authorization methods. Specifically, kcp supports Kubernetes' Role-Based Access Control (RBAC) to assign permissions to user identities. kcp adds a few verbs and subresources to "stock" Kubernetes RBAC, which are documented <a href="https://docs.kcp.io/kcp/latest/concepts/authorization/authorizers/">here</a>.</p>
+</li>
+<li>
+<p><strong>Describe how the project has addressed sovereignty.</strong></p>
+<p>kcp can be entirely self-hosted on a Kubernetes cluster. All data is stored in an etcd instance, which can be fully managed by the installation owner. Except for container images, no access to internet resources is required, and thus a kcp setup can be run fully air-gapped to address any data sovereignty concerns.</p>
+</li>
+<li>
+<p><strong>Describe any compliance requirements addressed by the project.</strong></p>
+<p>As kcp can be run fully self-hosted, it might address any compliance requirements that require full ownership of all data. It might fulfil other compliance requirements as well, but no research has been done in this area so far.</p>
+</li>
+<li>
+<p><strong>Describe the project’s High Availability requirements.</strong></p>
+<p>kcp requires a HA etcd cluster (so 3 or 5 etcd nodes creating a cluster) to run in HA itself. kcp scales horizontally, so multiple kcp processes pointing to the same etcd cluster can be started to accept more traffic. Between those kcp processes, a leader election (via Kubernetes-style <code>Lease</code> objects) takes place to ensure that in case of a crash, another kcp process takes over active reconciliation of the kcp instance. To scale horizontally for handling more workspaces (i.e. more "tenants" on kcp), sharding can be utilized. Shards are kcp processes pointing to different etcd instances, thus handling a different subset of workspaces stored on the particular datastore of the shard. The front-proxy component routes requests to the right shard depending on target workspace.</p>
+</li>
+<li>
+<p><strong>Describe the project’s resource requirements, including CPU, Network and Memory.</strong></p>
+<p>A default installation from the Helm chart requires at least:</p>
+<ul>
+<li>1.5 cpu + 6GB RAM for three-node etcd cluster</li>
+<li>0.1 cpu + 512MB RAM for kcp server</li>
+<li>0.1 cpu + 128MB RAM for kcp-front-proxy</li>
+</ul>
+<p>Actual memory requirements for the kcp server depend on the amount of workspaces and objects stored in it. For capacity planning, at least 4MB should be planned per workspace (this does not include objects in said workspace).</p>
+</li>
+<li>
+<p><strong>Describe the project’s storage requirements, including its use of ephemeral and/or persistent storage.</strong></p>
+<p>kcp itself does not require any storage. It uses etcd to store all its data, thus storage requirements primarily depend on etcd's requirements.</p>
+</li>
+<li>
+<p><strong>Please outline the project’s API Design:</strong></p>
+<ul>
+<li>
+<p><strong>Describe the project’s API topology and conventions</strong></p>
+<p>kcp implements the <a href="https://github.com/kubernetes/design-proposals-archive/blob/main/architecture/resource-management.md">Kubernetes Resource Model</a>. As such, its API is compatible with Kubernetes, and the same topology and conventions apply.</p>
+</li>
+<li>
+<p><strong>Describe the project defaults</strong></p>
+<p>kcp attempts to provide a good experience both for developers and users. As such, the project's "default" configuration is targeted at running kcp standalone on a local machine. It is as easy as running <code>kcp start</code>, which will start kcp with all components embedded into a single binary, including an etcd server for storing data. The <code>kcp</code> binary has the concepts of "batteries" with some of them enabled by default to ease the initial use of kcp (following a "batteries included" approach).</p>
+<p>With that being said, the kcp project considers the Helm chart to be the default for deployment on a Kubernetes cluster. By default this deploys an etcd cluster alongside it.</p>
+</li>
+<li>
+<p><strong>Outline any additional configurations from default to make reasonable use of the project</strong></p>
+<p>kcp provides a multitude of command line options to configure its behaviour. A complete list can be accessed by running <code>kcp start options</code>, with most of the options derived from kube-apiserver.</p>
+<p>A few configuration options that would be useful are:</p>
+<ul>
+<li><code>--authorization-webhook-config-file</code> allows referencing a <a href="https://docs.kcp.io/kcp/latest/concepts/authorization/authorizers/#webhook-authorizer">webhook configuration file</a> for authorization via a webhook.</li>
+<li>Several <code>--oidc-*</code> flags exist to enable and configure OIDC authentication. Alternatively, <code>--authentication-config</code> can be used to reference a <a href="https://docs.kcp.io/kcp/main/concepts/authentication/oidc/#configure-kcp-oidc-authentication-using-structured-authentication-configuration">structured authentication configuration file</a>.</li>
+<li><code>--audit-webhook-config-file</code> allows referencing a configuration file for an audit webhook endpoint. An audit policy can be configured via <code>--audit-policy-file</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Describe any new or changed API types and calls - including to cloud providers - that will result from this project being enabled and used</strong></p>
+<p>kcp itself provides an API and doesn't register any CRDs with the underlying cluster (unless kcp-operator is used to deploy it).</p>
+<p>The main API resources a typical user would interact with are <code>Workspaces</code>, <code>APIExports</code> and <code>APIBindings</code>. While <code>Workspaces</code> allow to create multi-tenant units in kcp (see below), <code>APIExports</code> and <code>APIBindings</code> iterate on the idea of Custom Resource Definitions and provide a provider/consumer split for them: A persona that wants to offer a KRM-style API creates an <code>APIExport</code> and grants permissions to other entities, and those entities can create <code>APIBindings</code> to "bind" the provided APIs into their own workspace.</p>
+</li>
+<li>
+<p><strong>Describe compatibility of any new or changed APIs with API servers, including the Kubernetes API server</strong></p>
+<p>Since kcp implements the Kubernetes Resource Model and is in fact based on the kube-apiserver code, it is compatible with with most tools and clients meant for Kubernetes.</p>
+<p>The main addition of kcp to a Kubernetes-style API is the concept of logical clusters, kcp's multi-tenancy unit. A kcp instance doesn't provide Kubernetes API resources under one unified endpoint, instead it provides access to multiple endpoints that each act as fully independent Kubernetes API endpoints. This means that e.g. <code>/clusters/a</code> and <code>/clusters/b</code> are both Kubernetes-compatible API endpoints, but they return different API resources and objects.</p>
+<p>As such, each logical cluster can be accessed with a Kubernetes client (e.g. <code>kubectl</code>) and switching between them is possible via a <code>kubectl</code> plugin provided by the kcp project. It can also be done manually by updating server URLs (see the <code>/clusters/</code> schema above). Logical clusters have dedicated resources, objects and RBAC.</p>
+</li>
+<li>
+<p><strong>Describe versioning of any new or changed APIs, including how breaking changes are handled</strong></p>
+<p>kcp versions its API resources according to the Kubernetes Resource Model (so e.g. <code>v1alpha1</code> -&gt; <code>v1beta1</code> -&gt; <code>v1</code>). Breaking changes are only allowed between new API versions and are handled by conversion logic that retains all information only available in one API version to ensure API fidelity.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Describe the project’s release processes, including major, minor and patch releases.</strong></p>
+<p>kcp has its <a href="https://docs.kcp.io/kcp/main/contributing/guides/publishing-a-new-kcp-release/">release process publicly documented</a>.
+Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a git tag has been pushed. As such, automation handles the majority of the release process.</p>
+<p>Minor and patch releases are relatively uniform in their release process, the major difference is which branch the new release is cut from. New major releases have not been cut so far and would require bumping Go modules to include the version name, which would require changes across the codebase.</p>
+</li>
+</ul>
+<h3 id="installation">Installation</h3>
+<ul>
+<li>
+<p><strong>Describe how the project is installed and initialized, e.g. a minimal install with a few lines of code or does it require more complex integration and configuration?</strong></p>
+<ul>
+<li>
+<p>A Helm chart is available for installation on Kubernetes. A full installation walkthrough is available <a href="https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp">here</a>, but generally speaking, installation is as easy as <code>helm install</code>.</p>
+<p>The main consideration is how to make the kcp API endpoint accessible. Several expose strategies are documented, the primary task outside of configuring the Helm chart is setting up the proper DNS records for the chosen external DNS name.</p>
+</li>
+<li>
+<p>An <a href="https://docs.kcp.io/kcp-operator">operator</a> is also available to run multi-shard kcp setups.</p>
+</li>
+<li>
+<p>kubectl plugins are available via krew:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>index<span class="w"> </span>add<span class="w"> </span>kcp-dev<span class="w"> </span>https://github.com/kcp-dev/krew-index.git
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>install<span class="w"> </span>kcp-dev/kcp
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>install<span class="w"> </span>kcp-dev/ws
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>$<span class="w"> </span>kubectl<span class="w"> </span>krew<span class="w"> </span>install<span class="w"> </span>kcp-dev/create-workspace
+</code></pre></div>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>How does an adopter test and validate the installation?</strong></p>
+<p>They follow the <a href="https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp">Helm chart setup walkthrough</a>. This README file will provide instructions on how to generate credentials to access kcp and connect to it via <code>kubectl</code> to validate it is responding to requests.</p>
+</li>
+</ul>
+<h3 id="security">Security</h3>
+<ul>
+<li>
+<p><strong>Please provide a link to the project’s cloud native <a href="https://tag-security.cncf.io/community/assessments/">security self assessment</a>.</strong></p>
+<p>The <a href="https://docs.kcp.io/kcp/main/contributing/governance/security-self-assessment/">self-assessment is available on docs.kcp.io</a>.</p>
+</li>
+<li>
+<p><strong>Please review the <a href="https://github.com/cncf/tag-security/blob/main/community/resources/security-whitepaper/secure-defaults-cloud-native-8.md">Cloud Native Security Tenets</a> from TAG Security.</strong></p>
+<ul>
+<li>
+<p><strong>How are you satisfying the tenets of cloud native security projects?</strong></p>
+</li>
+<li>
+<p>Secure by Design: The core architectural concept of the Workspace provides strong tenant isolation by design. Each workspace is a logically separate cluster with its own scoped RBAC, preventing tenants from accessing each other's resources. For test and production environments it is strongly encouraged to run a sharded setup to validate that integrations correctly work with multiple shards.</p>
+</li>
+<li>
+<p>Automate and Enforce Policy: Policy is enforced through standard Kubernetes RBAC, which is a declarative, API-driven model well-suited for automation. All access control is defined as code in Role and RoleBinding objects.</p>
+</li>
+<li>
+<p>Defense in Depth: kcp enables a defense-in-depth strategy. An operator can secure the underlying infrastructure running kcp, use kcp's workspace-scoped RBAC for control plane isolation, and then implement additional security in the controllers and applications built on top of kcp.</p>
+</li>
+<li>
+<p>Assume a Compromised Environment (Zero Trust): The strong isolation of workspaces helps contain the blast radius of a compromise. A breach within one tenant's workspace does not automatically grant access to others. The APIExport/APIBinding model acts as an explicit, policy-controlled gateway for cross-workspace communication.</p>
+</li>
+<li>
+<p>Clarity of Security Responsibility: The project's focus as a pure control plane framework creates a clear line of responsibility. The kcp project is responsible for the security of the control plane software itself. The operator is responsible for securing the underlying infrastructure where kcp runs and for correctly configuring its IAM policies (authentication and RBAC).</p>
+</li>
+<li>
+<p><strong>Describe how each of the cloud native principles apply to your project.</strong></p>
+<ul>
+<li>
+<p>kcp is <strong>secure</strong> by default by encrypting (with TLS), authenticating (with mTLS or OIDC) and authorizing (with Kubernetes RBAC) requests made to it.</p>
+</li>
+<li>
+<p>kcp is <strong>resilient</strong> by supporting a High Availability setup, in which individual kcp processes can crash or restart without the kcp instance having reduced availability.</p>
+</li>
+<li>
+<p>kcp <strong>manageable</strong> by being KRM driven and exposing its main configuration primitives via its Kubernetes-like API, i.e. <code>Workspaces</code> allow creating new units of its multitenancy boundary.</p>
+</li>
+<li>
+<p>kcp is <strong>sustainable</strong> by avoiding a vendor lock-in and instead building on top of the Kubernetes Resource Model, which subsequently allows the project to build on top of Kubernetes technology both on the server and the client side (i.e. to interact with kcp, you can use known client tools or client libraries with some extensions that the kcp project develops).</p>
+</li>
+<li>
+<p>kcp is <strong>observable</strong> because it produces logs and Prometheus metrics, which can be scraped and stored for reporting and alerting purposes.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>How do you recommend users alter security defaults in order to "loosen" the security of the project? Please link to any documentation the project has written concerning these use cases.</strong></p>
+<p>kcp in general does not recommend to "loosen" security settings. With that being said, it supports a variety of flags that kube-apiserver supports as well, so it is possible to change/disable authorization methods like RBAC, disable certain authorizers or admission controllers, etc. Those options are "documented" in the <code>kcp start options</code> command.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Security Hygiene</strong></p>
+<ul>
+<li>
+<p><strong>Please describe the frameworks, practices and procedures the project uses to maintain the basic health and security of the project.</strong></p>
+<ul>
+<li>
+<p>Vulnerability Management: kcp has a defined security policy and a private process for reporting vulnerabilities, either through GitHub's security advisory feature or a dedicated private email address (kcp-dev-private@googlegroups.com). This allows for coordinated disclosure.   </p>
+</li>
+<li>
+<p>Security Response Committee: A formal committee of project maintainers is responsible for triaging and responding to security reports in a timely manner.   </p>
+</li>
+<li>
+<p>Public Advisories: Once a vulnerability is addressed, kcp publishes public security advisories on GitHub to inform users. Past advisories for both "Critical" and "Moderate" severity issues are available, demonstrating the process is active.   </p>
+</li>
+<li>
+<p>Dependency Scanning: as shown in release notes, dependencies are regularly updated to address known CVEs, showing that dependency scanning is part of the release process. kcp uses GitHub's Dependabot feature to be informed about known dependency vulnerabilities.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Describe how the project has evaluated which features will be a security risk to users if they are not maintained by the project?</strong></p>
+<p>The most critical security feature was workspace isolation. A bug in the isolation logic would be a severe security risk. This was the area of highest scrutiny in design and code review. The security self-assessment gives more insights into which elements of kcp are considered security surfaces from which security risks can stem.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Cloud Native Threat Modeling</strong></p>
+<ul>
+<li>
+<p><strong>Explain the least minimal privileges required by the project and reasons for additional privileges.</strong></p>
+<p>The project needs full access to an etcd instance to store data. Additional privileges are not required by the project itself but its installation methods (e.g. for the Helm chart, you need to be allowed to create various objects in Kubernetes).</p>
+</li>
+<li>
+<p><strong>Describe how the project is handling certificate rotation and mitigates any issues with certificates.</strong></p>
+<p>kcp is based on Kubernetes code and follows the same principles. Certificates can be rotated by restarting kcp with a new set of certificates (in a HA setup, this can be done without downtime). Issues with (client) certificates are generally mitigated by removing permissions assigned to the client certificate in RBAC.</p>
+</li>
+<li>
+<p><strong>Describe how the project is following and implementing <a href="https://project.linuxfoundation.org/hubfs/CNCF_SSCP_v1.pdf">secure software supply chain best practices</a></strong></p>
+<p>kcp secures the source code by ensuring minimal permissions of contributors on the GitHub repositories. Instead, PR merge automation in form of Prow is enabled. Through Prow configuration, it is not possible for the PR author to approve their own PR, enforcing a four-eyes principle. Branch protection is automated via configuration in the <a href="https://github.com/kcp-dev/infra">kcp-dev/infra</a> repository. kcp uses GitHub features to track dependencies and vulnerabilities in them and ensure no secrets are pushed.</p>
+<p>The kcp build infrastructure is deployed with OpenTofu, with deployment to it automated via the same kcp-dev/infra repository and minimal direct access (i.e. only a small subset of maintainers have access to troubleshoot issues in automation). Since Prow is based on containers, it is easy to reproduce build environments by using the same container image referenced in a Prow job definition. Job / pipeline definition is stored in code and is subject to the same review process as application code changes.</p>
+<p>The kcp project uses GitHub to define teams and associate those teams with specific permissions. As such, only maintainers have elevated permissions on the GitHub organization, and most members have read-only access to the repositories and settings of <a href="https://github.com/kcp-dev">github.com/kcp-dev</a>.</p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="day-1-installation-and-deployment-phase">Day 1 – Installation and Deployment Phase</h2>
+<h3 id="project-installation-and-configuration">Project Installation and Configuration</h3>
+<ul>
+<li>
+<p><strong>Describe what project installation and configuration look like.</strong></p>
+<p>Installation depends on the exact method chosen: Currently, kcp supports a <a href="https://github.com/kcp-dev/helm-charts">Helm chart</a> and an <a href="https://github.com/kcp-dev/kcp-operator">operator</a>.</p>
+<ul>
+<li>
+<p>The Helm chart is configured via a Helm values file. This file configures a variety of behavior for the deployed kcp installation, most importantly the external hostname under which the kcp instance will be accessible.</p>
+<p>A minimal Helm values file would look like this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">externalHostname</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;example.kcp.io&quot;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">kcpFrontProxy</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">service</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+</code></pre></div>
+<p>Which would then be installed with the following command:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$<span class="w"> </span>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>kcp<span class="w"> </span>https://kcp-dev.github.io/helm-charts
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>$<span class="w"> </span>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>--namespace<span class="w"> </span>kcp<span class="w"> </span>--create-namespace<span class="w"> </span>kcp<span class="w"> </span>kcp/kcp<span class="w"> </span>-f<span class="w"> </span>values.yaml
+</code></pre></div>
+<p>kcp would then start and look similar to this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>pods
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>NAME<span class="w">                                      </span>READY<span class="w">   </span>STATUS<span class="w">    </span>RESTARTS<span class="w">      </span>AGE
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kcp-7544fcb98d-7kz8x<span class="w">                      </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>kcp-7544fcb98d-tmv5n<span class="w">                      </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kcp-etcd-0<span class="w">                                </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>kcp-etcd-1<span class="w">                                </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>kcp-etcd-2<span class="w">                                </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>kcp-front-proxy-7f6b7dfdbf-7fr4d<span class="w">          </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>kcp-front-proxy-7f6b7dfdbf-7thwx<span class="w">          </span><span class="m">1</span>/1<span class="w">     </span>Running<span class="w">   </span><span class="m">0</span><span class="w">             </span>1d
+</code></pre></div>
+<p>To generate credentials to access it, <a href="https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp#initial-access">a client certificate needs to be generated</a>.</p>
+<p>Eventually, accessing kcp is possible via <code>kubectl</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/kcp.kubeconfig<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>workspaces
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>No<span class="w"> </span>resources<span class="w"> </span>found
+</code></pre></div>
+</li>
+<li>
+<p>kcp-operator comes with several CRDs that can be installed into a Kubernetes cluster to host one or more kcp instances. It allows to create a <code>RootShard</code>, one or more <code>FrontProxy</code> installations and additional <code>Shards</code>. CRDs are documented <a href="https://docs.kcp.io/kcp-operator/v0.2/reference/">here</a>. The operator enables deployment of more complex kcp setups through this flexibility.</p>
+<p>Installation of the kcp-operator is done via Helm:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>kcp<span class="w"> </span>https://kcp-dev.github.io/helm-chart
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>$<span class="w"> </span>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>--namespace<span class="w"> </span>kcp-operator<span class="w"> </span>--create-namespace<span class="w"> </span>kcp-operator<span class="w"> </span>kcp/kcp-operator
+</code></pre></div>
+<p>See the <a href="https://docs.kcp.io/kcp-operator/v0.2/setup/quickstart/">quickstart guide</a> for a full walkthrough.</p>
+<p>Here is what a <code>RootShard</code> would look like getting started:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">operator.kcp.io/v1alpha1</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RootShard</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">external</span><span class="p">:</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="c1"># replace the hostname with the external DNS name for your kcp instance</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.operator.kcp.io</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6443</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nt">certificates</span><span class="p">:</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="c1"># this references the issuer created above</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nt">issuerRef</span><span class="p">:</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">      </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Issuer</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selfsigned</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">  </span><span class="nt">cache</span><span class="p">:</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="nt">embedded</span><span class="p">:</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">      </span><span class="c1"># kcp comes with a cache server accessible to all shards,</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">      </span><span class="c1"># in this case it is fine to enable the embedded instance</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">  </span><span class="nt">etcd</span><span class="p">:</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">    </span><span class="nt">endpoints</span><span class="p">:</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">      </span><span class="c1"># this is the service URL to etcd. Replace if Helm chart was</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">      </span><span class="c1"># installed under a different name or the namespace is not &quot;default&quot;</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://etcd.default.svc.cluster.local:2379</span>
+</code></pre></div>
+<p>In addition, at least one <code>FrontProxy</code> is required:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">operator.kcp.io/v1alpha1</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FrontProxy</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontproxy</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">rootShard</span><span class="p">:</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">ref</span><span class="p">:</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="c1"># the name of the RootShard object created before</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="nt">serviceTemplate</span><span class="p">:</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">      </span><span class="c1"># expose this front-proxy via a load balancer</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+</code></pre></div>
+<p>To gain access credentials, a <code>Kubeconfig</code> object is required:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">operator.kcp.io/v1alpha1</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Kubeconfig</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubeconfig-kcp-admin</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="c1"># the user name embedded in the kubeconfig</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kcp-admin</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nt">groups</span><span class="p">:</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="c1"># system:kcp:admin is a special privileged group in kcp.</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="c1"># the kubeconfig generated from this should be kept secure at all times</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">system:kcp:admin</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="c1"># the kubeconfig will be valid for 365d but will be automatically refreshed</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="nt">validity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8766h</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span><span class="nt">secretRef</span><span class="p">:</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">    </span><span class="c1"># the name of the secret that the assembled kubeconfig should be written to</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admin-kubeconfig</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">  </span><span class="nt">target</span><span class="p">:</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">    </span><span class="c1"># a reference to the frontproxy deployed previously so the kubeconfig is accepted by it</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">    </span><span class="nt">frontProxyRef</span><span class="p">:</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontproxy</span>
+</code></pre></div>
+<p>The following command writes the generated kubeconfig to disk:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>admin-kubeconfig<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">&quot;{.data.kubeconfig}&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>admin.kubeconfig
+</code></pre></div>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="project-enablement-and-rollback">Project Enablement and Rollback</h3>
+<ul>
+<li>
+<p><strong>How can this project be enabled or disabled in a live cluster? Please describe any downtime required of the control plane or nodes.</strong></p>
+<p>kcp is run like any service within a cluster, hence there isn't a way to enable or disable it beyond installing or removing its resources. In specific, it is its own control plane and therefore doesn't directly integrate with the Kubernetes API in any critical capacity.</p>
+</li>
+<li>
+<p><strong>Describe how enabling the project changes any default behavior of the cluster or running workloads.</strong></p>
+<p>As a standalone control plane, kcp does not change behavior of the underlying cluster or workloads running alongside it.</p>
+</li>
+<li>
+<p><strong>Describe how the project tests enablement and disablement.</strong></p>
+<p>Since no enablement/disablement exists for kcp, this is also not tested.</p>
+</li>
+<li>
+<p><strong>How does the project clean up any resources created, including CRDs?</strong></p>
+<p>The two installation methods (Helm chart or operator) both include cleanup logic (Helm cleans up resources created by it, the operator uses owner references) when uninstalling a kcp instance.</p>
+</li>
+</ul>
+<h3 id="rollout-upgrade-and-rollback-planning">Rollout, Upgrade and Rollback Planning</h3>
+<ul>
+<li>
+<p><strong>How does the project intend to provide and maintain compatibility with infrastructure and orchestration management tools like Kubernetes and with what frequency?</strong></p>
+<p>kcp intends to maintain compatibility with all upstream supported Kubernetes minor versions at the time of a kcp release. kcp minor releases happen every 3-4 months, which is the frequency at which compatibility with Kubernetes is evaluated.</p>
+</li>
+<li>
+<p><strong>Describe how the project handles rollback procedures.</strong></p>
+<p>Upgrading the kcp server would follow a standard rolling update pattern if deployed in a HA configuration. A rollback would involve redeploying the previous version of the server binary. Because state is in etcd, a stateless rollback of the server is possible as long as there are no breaking API changes in the stored etcd data between versions. Major version upgrades might require a data migration strategy.</p>
+</li>
+<li>
+<p><strong>How can a rollout or rollback fail? Describe any impact to already running workloads.</strong></p>
+<p>A rollout/rollback could fail if the new/old version of kcp cannot read the data format in etcd written by the other version (e.g. if a new API version has been used already). This would cause the control plane to become unavailable. However, this would not impact already running workloads on any physical clusters orchestrated by additional components such as api-syncagent, as they run independently. The impact would be an inability to schedule new service instances, update existing ones, or otherwise interact with the Kubernetes-like API of kcp until the control plane is restored.</p>
+</li>
+<li>
+<p><strong>Describe any specific metrics that should inform a rollback.</strong></p>
+<p>Request level metrics derived from the kube-apiserver codebase that kcp is based on, in particular a high amount of 5xx HTTP errors reported.</p>
+</li>
+<li>
+<p><strong>Explain how upgrades and rollbacks were tested and how the upgrade-&gt;downgrade-&gt;upgrade path was tested.</strong></p>
+<p>Upgrades and rollbacks are tested manually before a minor release is released. The test is conducted by changing the deployed kcp version back and forth and interacting with kcp.</p>
+</li>
+<li>
+<p><strong>Explain how the project informs users of deprecations and removals of features and APIs.</strong></p>
+<p>APIs are marked as deprecated in API field descriptions and release notes. As this follows the same patterns that Kubernetes (and CRDs) use, tooling (like linters) will inform integrators that import the kcp API SDK about API field deprecations.</p>
+<p>API removal happens after a grace period following deprecation and is communicated in the release notes.</p>
+</li>
+<li>
+<p><strong>Explain how the project permits utilization of alpha and beta capabilities as part of a rollout.</strong></p>
+<p>kcp provides access to Kubernetes feature gates and adds its own feature gates to make sure such capabilities are only used with intention. Feature gates are configured via the flag <code>--feature-gates</code> on the kcp binary.</p>
+</li>
+</ul>
+<!--
+
+TODO: Uncomment and fill this part of the document when applying for Graduated.
+
+## Day 2 \- Day-to-Day Operations Phase
+
+### Scalability/Reliability
+
+  * Describe how the project increases the size or count of existing API objects.
+  * Describe how the project defines Service Level Objectives (SLOs) and Service Level Indicators (SLIs).  
+  * Describe any operations that will increase in time covered by existing SLIs/SLOs.  
+  * Describe the increase in resource usage in any components as a result of enabling this project, to include CPU, Memory, Storage, Throughput.  
+  * Describe which conditions enabling / using this project would result in resource exhaustion of some node resources (PIDs, sockets, inodes, etc.)  
+  * Describe the load testing that has been performed on the project and the results.  
+  * Describe the recommended limits of users, requests, system resources, etc. and how they were obtained.  
+  * Describe which resilience pattern the project uses and how, including the circuit breaker pattern.
+
+### Observability Requirements
+
+  * Describe the signals the project is using or producing, including logs, metrics, profiles and traces. Please include supported formats, recommended configurations and data storage.  
+  * Describe how the project captures audit logging.  
+  * Describe any dashboards the project uses or implements as well as any dashboard requirements.  
+  * Describe how the project surfaces project resource requirements for adopters to monitor cloud and infrastructure costs, e.g. FinOps  
+  * Which parameters is the project covering to ensure the health of the application/service and its workloads?  
+  * How can an operator determine if the project is in use by workloads?  
+  * How can someone using this project know that it is working for their instance?  
+  * Describe the SLOs (Service Level Objectives) for this project.
+  * What are the SLIs (Service Level Indicators) an operator can use to determine the health of the service?
+
+### Dependencies
+
+  * Describe the specific running services the project depends on in the cluster.  
+  * Describe the project’s dependency lifecycle policy.  
+  * How does the project incorporate and consider source composition analysis as part of its development and security hygiene? Describe how this source composition analysis (SCA) is tracked.
+  * Describe how the project implements changes based on source composition analysis (SCA) and the timescale.
+
+### Troubleshooting
+
+  * How does this project recover if a key component or feature becomes unavailable? e.g Kubernetes API server, etcd, database, leader node, etc.  
+  * Describe the known failure modes.
+
+### Security
+
+  * Security Hygiene  
+    * How is the project executing access control?  
+  * Cloud Native Threat Modeling  
+    * How does the project ensure its security reporting and response team is representative of its community diversity (organizational and individual)?  
+    * How does the project invite and rotate security reporting team members?
+
+-->
 
 
 
