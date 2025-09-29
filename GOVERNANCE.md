@@ -64,6 +64,27 @@ the project succeed.
 The collective team of all Maintainers is known as the Maintainer Council, which
 is the governing body for the project.
 
+### Security Response Team
+
+The Maintainers will appoint a Security Response Team to handle security reports.
+This committee may simply consist of the Maintainer Council themselves. If this
+responsibility is delegated, the Maintainers will appoint a team of at least two
+contributors to handle it. The Maintainers will review who is assigned to this
+at least once a year.
+
+The Security Response Team is responsible for handling all reports of security
+holes and breaches according to the [security policy](./SECURITY.md).
+
+The members of the Security Response Team are documented in [MAINTAINERS.md](./MAINTAINERS.md).
+
+### GitHub Admin Team
+
+The maintainers will appoint a GitHub Admin Team to handle ownership of the GitHub organization(s) owned by the kcp project. Members of the GitHub Admin Team need to be extremely trustworthy individuals with a long-standing trusted relationship to the project.
+
+The team's responsibility is being administrators for the GitHub organization(s). This would include managing organization-wide permissions, creating new repositories, configuring the organization, etc. The GitHub Admin Team is an executive organ of the full Maintainer Council with the goal to reduce broad permissions, but members of the team are bound by Maintainer Council decisions. Members of the GitHub Admin Team must not be from a single employer/organization.
+
+The members of the GitHub Admin Team are documented in [MAINTAINERS.md](./MAINTAINERS.md).
+
 ## Becoming a Maintainer
 
 <!-- If you have full Contributor Ladder documentation that covers becoming
@@ -133,18 +154,6 @@ Code of Conduct violations happen through the [CNCF Code of Conduct committee](.
 and kcp maintainers pledge to work with the committee to resolve any incidents
 occurring in the kcp community.
 
-## Security Response Team
-
-The Maintainers will appoint a Security Response Team to handle security reports.
-This committee may simply consist of the Maintainer Council themselves. If this
-responsibility is delegated, the Maintainers will appoint a team of at least two
-contributors to handle it. The Maintainers will review who is assigned to this
-at least once a year.
-
-The Security Response Team is responsible for handling all reports of security
-holes and breaches according to the [security policy](./SECURITY.md).
-
-The members of the Security Response Team are documented in [MAINTAINERS.md](./MAINTAINERS.md).
 
 ## Voting
 
