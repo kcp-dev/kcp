@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -319,6 +320,15 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 		return err
 	}
 
+	// add finalizers
+	finalizers, err := LogicalClustersFinalizers(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	if err != nil {
+		return err
+	}
+	logicalCluster.Spec.Finalizers = finalizers
+	// append our finalizers to already existing ObjectMeta finalizers
+	logicalCluster.ObjectMeta.Finalizers = finalization.MergeFinalizersUnique(finalizers, logicalCluster.ObjectMeta.Finalizers)
+
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
@@ -369,6 +379,33 @@ func LogicalClustersInitializers(
 	}
 
 	return initializers, nil
+}
+
+// LogicalClustersFinalizers returns the finalizers for a LogicalCluster of a given
+// fully-qualified WorkspaceType reference.
+func LogicalClustersFinalizers(
+	resolver workspacetypeexists.TransitiveTypeResolver,
+	getWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error),
+	typePath logicalcluster.Path, typeName string,
+) ([]corev1alpha1.LogicalClusterFinalizer, error) {
+	wt, err := getWorkspaceType(typePath, typeName)
+	if err != nil {
+		return nil, err
+	}
+	wtAliases, err := resolver.Resolve(wt)
+	if err != nil {
+		return nil, err
+	}
+
+	finalizers := make([]corev1alpha1.LogicalClusterFinalizer, 0, len(wtAliases))
+
+	for _, alias := range wtAliases {
+		if alias.Spec.Finalizer {
+			finalizers = append(finalizers, finalization.FinalizerForType(alias))
+		}
+	}
+
+	return finalizers, nil
 }
 
 func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {

@@ -26,6 +26,7 @@ import (
 // with apply.
 type WorkspaceTypeSpecApplyConfiguration struct {
 	Initializer                  *bool                                                    `json:"initializer,omitempty"`
+	Finalizer                    *bool                                                    `json:"finalizer,omitempty"`
 	Extend                       *WorkspaceTypeExtensionApplyConfiguration                `json:"extend,omitempty"`
 	AdditionalWorkspaceLabels    map[string]string                                        `json:"additionalWorkspaceLabels,omitempty"`
 	DefaultChildWorkspaceType    *WorkspaceTypeReferenceApplyConfiguration                `json:"defaultChildWorkspaceType,omitempty"`
@@ -47,6 +48,14 @@ func WorkspaceTypeSpec() *WorkspaceTypeSpecApplyConfiguration {
 // If called multiple times, the Initializer field is set to the value of the last call.
 func (b *WorkspaceTypeSpecApplyConfiguration) WithInitializer(value bool) *WorkspaceTypeSpecApplyConfiguration {
 	b.Initializer = &value
+	return b
+}
+
+// WithFinalizer sets the Finalizer field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Finalizer field is set to the value of the last call.
+func (b *WorkspaceTypeSpecApplyConfiguration) WithFinalizer(value bool) *WorkspaceTypeSpecApplyConfiguration {
+	b.Finalizer = &value
 	return b
 }
 
