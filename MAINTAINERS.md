@@ -28,4 +28,7 @@ The following maintainers are members of the security response team and enact th
 
 The following maintainers are members of the GitHub Admin Team and manage the GitHub organizations:
 
-- TBD
+- Dr. Stefan Schimanski
+- Mangirdas Judeikis
+- Sebastian Scheele
+- Christoph Mewes
