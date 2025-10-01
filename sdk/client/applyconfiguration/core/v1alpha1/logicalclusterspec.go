@@ -28,6 +28,7 @@ type LogicalClusterSpecApplyConfiguration struct {
 	DirectlyDeletable *bool                                    `json:"directlyDeletable,omitempty"`
 	Owner             *LogicalClusterOwnerApplyConfiguration   `json:"owner,omitempty"`
 	Initializers      []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+	Finalizers        []corev1alpha1.LogicalClusterFinalizer   `json:"finalizers,omitempty"`
 }
 
 // LogicalClusterSpecApplyConfiguration constructs a declarative configuration of the LogicalClusterSpec type for use with
@@ -58,6 +59,16 @@ func (b *LogicalClusterSpecApplyConfiguration) WithOwner(value *LogicalClusterOw
 func (b *LogicalClusterSpecApplyConfiguration) WithInitializers(values ...corev1alpha1.LogicalClusterInitializer) *LogicalClusterSpecApplyConfiguration {
 	for i := range values {
 		b.Initializers = append(b.Initializers, values[i])
+	}
+	return b
+}
+
+// WithFinalizers adds the given value to the Finalizers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Finalizers field.
+func (b *LogicalClusterSpecApplyConfiguration) WithFinalizers(values ...corev1alpha1.LogicalClusterFinalizer) *LogicalClusterSpecApplyConfiguration {
+	for i := range values {
+		b.Finalizers = append(b.Finalizers, values[i])
 	}
 	return b
 }

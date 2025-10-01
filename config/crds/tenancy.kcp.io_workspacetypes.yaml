@@ -157,6 +157,18 @@ spec:
                       type: object
                     type: array
                 type: object
+              finalizer:
+                description: |-
+                  Finalizer determines if this WorkspaceType has an associated finalizing
+                  controller. These controllers are used to add functionality to a Workspace;
+                  all controllers must finish their work before the Workspace is being deleted.
+
+                  One finalizing controller is supported per WorkspaceType; the identifier
+                  for this finalizer will be a colon-delimited string using the workspace in which
+                  the WorkspaceType is defined, and the type's name. For example, if a
+                  WorkspaceType `example` is created in the `root:org` workspace, the implicit
+                  finalizer name is `root:org:example`.
+                type: boolean
               initializer:
                 description: |-
                   initializer determines if this WorkspaceType has an associated initializing
