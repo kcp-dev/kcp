@@ -33,6 +33,9 @@ var (
 # shows the workspace you are currently using
 %[1]s workspace .
 
+# interactive workspace tree browser
+%[1]s workspace -i
+
 # enter a given workspace (this will change the current-context of your current KUBECONFIG)
 %[1]s workspace use my-workspace
 
@@ -74,20 +77,37 @@ var (
 // New returns a cobra.Command for workspace actions.
 func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	cmdOpts := plugin.NewUseWorkspaceOptions(streams)
+	treeOpts := plugin.NewTreeOptions(streams)
 
 	cliName := "kubectl"
 	if pflag.CommandLine.Name() == "kubectl-kcp" {
 		cliName = "kubectl kcp"
 	}
 
+	var interactive bool
+
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
-		Use:              "workspace [create|create-context|use|current|<workspace>|..|.|-|~|<root:absolute:workspace>]",
+		Use:              "workspace [create|create-context|use|current|<workspace>|..|.|-|~|<root:absolute:workspace>] [-i|--interactive]",
 		Short:            "Manages KCP workspaces",
 		Example:          fmt.Sprintf(workspaceExample, cliName),
 		SilenceUsage:     true,
 		TraverseChildren: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if interactive {
+				if len(args) != 0 {
+					return fmt.Errorf("interactive mode does not accept arguments")
+				}
+				treeOpts.Interactive = true
+				if err := treeOpts.Validate(); err != nil {
+					return err
+				}
+				if err := treeOpts.Complete(); err != nil {
+					return err
+				}
+				return treeOpts.Run(cmd.Context())
+			}
+
 			if len(args) > 1 {
 				return cmd.Help()
 			}
@@ -100,6 +120,10 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 			return cmdOpts.Run(cmd.Context())
 		},
 	}
+
+	// Add interactive flag
+	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive workspace tree browser")
+
 	cmdOpts.BindFlags(cmd)
 
 	if v := version.Get().String(); len(v) == 0 {
