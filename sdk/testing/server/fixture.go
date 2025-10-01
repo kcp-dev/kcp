@@ -37,6 +37,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"sigs.k8s.io/yaml"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -527,6 +528,15 @@ func artifact(t TestingT, server RunningServer, producer func() (runtime.Object,
 	// the test requesting retention regardless of server's scope.
 	t.Cleanup(func() {
 		data, err := producer()
+		// Do not fail the test if the source object does not exist anymore.
+		// Required for tests which create objects and delete them later.
+		// By making this exception we will create artifacts if the test fails
+		// prematurely before the deletion for debugging, but doesn't fail if
+		// the test succeeds in deleting them.
+		if errors.IsNotFound(err) {
+			t.Log("Skipping artifact creation, as object does not exist")
+			return
+		}
 		require.NoError(t, err, "error fetching artifact")
 
 		accessor, ok := data.(metav1.Object)

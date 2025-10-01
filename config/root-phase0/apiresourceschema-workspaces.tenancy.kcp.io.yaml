@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250421-25d98218b.workspaces.tenancy.kcp.io
+  name: v250820-d9a41c325.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -276,6 +276,17 @@ spec:
                 - status
                 - type
                 type: object
+              type: array
+            finalizers:
+              description: |-
+                finalizers must be cleared by a controller before the workspace is being
+                deleted.
+              items:
+                description: |-
+                  LogicalClusterFinalizer is a unique string corresponding to a logical cluster
+                  finalizer controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
               type: array
             initializers:
               description: |-

@@ -72,6 +72,7 @@ const (
 	// This should be used when we really can't serve the logical cluster content and not some
 	// temporary flakes, like readiness probe failing.
 	LogicalClusterPhaseUnavailable LogicalClusterPhaseType = "Unavailable"
+	LogicalClusterPhaseDeleting    LogicalClusterPhaseType = "Deleting"
 )
 
 // LogicalClusterInitializer is a unique string corresponding to a logical cluster
@@ -79,6 +80,12 @@ const (
 //
 // +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type LogicalClusterInitializer string
+
+// LogicalClusterFinalizer is a unique string corresponding to a logical cluster
+// finalizer controller.
+//
+// +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
+type LogicalClusterFinalizer string
 
 // LogicalClusterSpec is the specification of the LogicalCluster resource.
 type LogicalClusterSpec struct {
@@ -104,6 +111,12 @@ type LogicalClusterSpec struct {
 	//
 	// +optional
 	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`
+
+	// Finalizers are set on creation by the system and copied to status when
+	// finalization starts.
+	//
+	// +optional
+	Finalizers []LogicalClusterFinalizer `json:"finalizers,omitempty"`
 }
 
 // LogicalClusterOwner is a reference to a resource controlling the life-cycle of a LogicalCluster.
@@ -172,6 +185,13 @@ type LogicalClusterStatus struct {
 	//
 	// +optional
 	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`
+
+	// Finalizers are set on creation by the system and must be cleared
+	// by a controller before the logical cluster can be deleted. The LogicalCluster object
+	// will stay in the phase "Deleting" until all finalizers are cleared.
+	//
+	// +optional
+	Finalizers []LogicalClusterFinalizer `json:"finalizers,omitempty"`
 }
 
 func (in *LogicalCluster) SetConditions(c conditionsv1alpha1.Conditions) {

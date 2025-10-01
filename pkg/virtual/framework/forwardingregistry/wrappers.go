@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -86,4 +87,74 @@ func WithLabelSelector(labelSelectorFrom func(ctx context.Context) labels.Requir
 			return delegateWatcher.Watch(ctx, options)
 		}
 	})
+}
+
+// WithDeletionTimestamp creates a StorageWrapper which only returns objects which are marked
+// for deletion and have a deletion timestamp.
+func WithDeletionTimestamp() StorageWrapper {
+	return StorageWrapperFunc(func(groupResource schema.GroupResource, storage *StoreFuncs) {
+		delegateGetter := storage.GetterFunc
+		storage.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+			obj, err := delegateGetter.Get(ctx, name, options)
+			if err != nil {
+				return nil, err
+			}
+
+			if !hasDeletionTimestamp(ctx, obj) {
+				return nil, errors.NewNotFound(groupResource, name)
+			}
+
+			return obj, err
+		}
+
+		delegateLister := storage.ListerFunc
+		storage.ListerFunc = func(ctx context.Context, options *internalversion.ListOptions) (runtime.Object, error) {
+			result, err := delegateLister.List(ctx, options)
+			if err != nil {
+				return nil, err
+			}
+
+			ul, _ := result.(*unstructured.UnstructuredList)
+
+			filtered := []unstructured.Unstructured{}
+			for i, item := range ul.Items {
+				if hasDeletionTimestamp(ctx, &item) {
+					filtered = append(filtered, ul.Items[i])
+				}
+			}
+
+			ul.Items = filtered
+
+			return ul, nil
+		}
+
+		delegateWatcher := storage.WatcherFunc
+		storage.WatcherFunc = func(ctx context.Context, options *internalversion.ListOptions) (watch.Interface, error) {
+			wi, err := delegateWatcher.Watch(ctx, options)
+			if err != nil {
+				return nil, err
+			}
+
+			filtered := watch.Filter(wi, func(in watch.Event) (out watch.Event, keep bool) {
+				return in, hasDeletionTimestamp(ctx, in.Object)
+			})
+
+			return filtered, nil
+		}
+	})
+}
+
+// hasDeletionTimestamp returns whether a runtime.object has a deletion timestamp
+// wrapping the meta.Objects deletiontimestamp functionality.
+func hasDeletionTimestamp(ctx context.Context, obj runtime.Object) bool {
+	metaObj, ok := obj.(metav1.Object)
+	if !ok {
+		// should never happen
+		return false
+	}
+
+	if !metaObj.GetDeletionTimestamp().IsZero() {
+		return true
+	}
+	return false
 }
