@@ -292,3 +292,10 @@ func TestReconcileIdentity(t *testing.T) {
 		})
 	}
 }
+
+func resetLastTransitionTime(conditions conditionsv1alpha1.Conditions) {
+	// We don't care about LastTransitionTime.
+	for i := range conditions {
+		conditions[i].LastTransitionTime = metav1.Time{}
+	}
+}

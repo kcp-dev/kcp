@@ -104,8 +104,11 @@ func IndexByGVRAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) 
 	}
 	namespace := labels[LabelKeyObjectOriginalNamespace]
 
-	key := GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), namespace)
-	return []string{key}, nil
+	return []string{
+		GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), namespace),
+		// The namespace-squashing key is for the cases where the client wants to list/watch across all namespaces.
+		GVRAndLogicalClusterAndNamespace(gvr, logicalcluster.From(a), ""),
+	}, nil
 }
 
 // GVRAndLogicalClusterAndNamespace creates an index key from the given parameters.
