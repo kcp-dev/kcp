@@ -34,8 +34,8 @@ const (
 	ByGVRAndLogicalClusterAndNamespace = "kcp-byGVRAndLogicalClusterAndNamespace"
 )
 
-// IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name.
-func IndexByShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
+// IndexByGVRAndShardAndLogicalClusterAndNamespace is an index function that indexes by an object's shard and logical cluster, namespace and name.
+func IndexByGVRAndShardAndLogicalClusterAndNamespace(obj interface{}) ([]string, error) {
 	a, err := meta.Accessor(obj)
 	if err != nil {
 		return nil, err
