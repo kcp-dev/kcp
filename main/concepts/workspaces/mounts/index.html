@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="The cache server is a regular, Kubernetes-style CRUD API server with support of LIST/WATCH semantics.
+        <meta name="description" content="What are workspace mounts and how do they work?
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/sharding/cache-server/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/workspaces/mounts/">
       
       
-        <link rel="prev" href="../partitions/">
+        <link rel="prev" href="../workspace-initialization/">
       
       
-        <link rel="next" href="../../miscellaneous/">
+        <link rel="next" href="../../apis/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Cache Server - docs.kcp.io</title>
+        <title>Workspace Mounts - docs.kcp.io</title>
       
     
     
@@ -79,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cache-server" class="md-skip">
+        <a href="#workspace-mounts" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Cache Server
+              Workspace Mounts
             
           </span>
         </div>
@@ -756,6 +756,8 @@
                 
   
   
+    
+  
   
   
     
@@ -779,18 +781,16 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../workspaces/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -807,7 +807,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Workspaces
@@ -823,7 +823,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/workspace-types/" class="md-nav__link">
+      <a href="../workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -844,7 +844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -865,7 +865,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -883,10 +883,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../workspaces/mounts/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Workspace Mounts
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -895,6 +915,209 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Architecture Overview
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#workspace-tree-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Workspace Tree Structure
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How it Works
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mount-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mount Objects
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mount Objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requirements-for-mount-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Requirements for Mount Objects
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controller-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Controller Requirements
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-mounted-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a Mounted Workspace
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating a Mounted Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mount-field-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mount Field Requirements
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simple-end-to-end-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Simple End-to-End Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simple End-to-End Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-create-a-mount-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Create a Mount Object
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-create-a-workspace-with-mount-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Create a Workspace with Mount Reference
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-access-the-mounted-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Access the Mounted Workspace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-mounted-workspaces-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      How Mounted Workspaces Work
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controllers-and-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Controllers and Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations-and-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Limitations and Considerations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      References
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1265,8 +1488,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1288,16 +1509,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_8" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1314,7 +1537,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             Sharding
@@ -1330,7 +1553,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../shards/" class="md-nav__link">
+      <a href="../../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1351,7 +1574,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../partitions/" class="md-nav__link">
+      <a href="../../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1369,30 +1592,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Cache Server
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1401,131 +1604,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#purpose" class="md-nav__link">
-    <span class="md-ellipsis">
-      Purpose
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#high-level-overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      High-level Overview
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-the-server" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running the Server
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#client-side-functionality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Client-side Functionality
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#authorizationauthentication" class="md-nav__link">
-    <span class="md-ellipsis">
-      Authorization/Authentication
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#built-in-resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      Built-in Resources
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-new-resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      Adding New Resources
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deletion-of-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deletion of Data
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design Details
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design Details">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#on-the-http-level" class="md-nav__link">
-    <span class="md-ellipsis">
-      On the HTTP Level
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#on-the-storage-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      On the Storage Layer
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3582,100 +3660,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#purpose" class="md-nav__link">
+  <a href="#architecture-overview" class="md-nav__link">
     <span class="md-ellipsis">
-      Purpose
+      Architecture Overview
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#high-level-overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      High-level Overview
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-the-server" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running the Server
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#client-side-functionality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Client-side Functionality
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#authorizationauthentication" class="md-nav__link">
-    <span class="md-ellipsis">
-      Authorization/Authentication
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#built-in-resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      Built-in Resources
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-new-resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      Adding New Resources
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deletion-of-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deletion of Data
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design Details
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design Details">
+    <nav class="md-nav" aria-label="Architecture Overview">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#on-the-http-level" class="md-nav__link">
+  <a href="#workspace-tree-structure" class="md-nav__link">
     <span class="md-ellipsis">
-      On the HTTP Level
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#on-the-storage-layer" class="md-nav__link">
-    <span class="md-ellipsis">
-      On the Storage Layer
+      Workspace Tree Structure
     </span>
   </a>
   
@@ -3683,6 +3680,165 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How it Works
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mount-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mount Objects
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mount Objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requirements-for-mount-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Requirements for Mount Objects
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controller-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Controller Requirements
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-mounted-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a Mounted Workspace
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating a Mounted Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mount-field-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mount Field Requirements
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simple-end-to-end-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Simple End-to-End Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simple End-to-End Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-create-a-mount-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Create a Mount Object
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-create-a-workspace-with-mount-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Create a Workspace with Mount Reference
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-access-the-mounted-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Access the Mounted Workspace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-mounted-workspaces-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      How Mounted Workspaces Work
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controllers-and-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Controllers and Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations-and-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Limitations and Considerations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      References
+    </span>
+  </a>
   
 </li>
       
@@ -3704,96 +3860,211 @@
   
 
 
-<h1 id="cache-server">Cache Server</h1>
-<h3 id="purpose">Purpose</h3>
-<p>The primary purpose of the cache server is to support cross-shard communication.
-Shards need to communicate with each other in order to enable, among other things, migration and replication features.
-Direct shard-to-shard communication is not feasible in a larger setup as it scales with n*(n-1).
-The web of connections would be hard to reason about, maintain and troubleshoot.
-Thus, the cache server serves as a central place for shards to store and read common data.
-Note, that the final topology can have more than one cache server, i.e. one in some geographic region.</p>
-<h3 id="high-level-overview">High-level Overview</h3>
-<p>The cache server is a regular, Kubernetes-style CRUD API server with support of LIST/WATCH semantics.
-Conceptually it supports two modes of operations.
-The first mode is in which a shard gets its private space for storing its own data.
-The second mode is in which a shard can read other shards' data.</p>
-<p>The first mode of operation is implemented as a write controller that runs on a shard.
-It holds some state/data from that shard in memory and pushes it to the cache server.
-The controller uses standard informers for getting required resources both from a local kcp instance and remote cache server.
-Before pushing data it has to compare remote data to its local copy and make sure both copies are consistent.</p>
-<p>The second mode of operation is implemented as a read controller(s) that runs on some shard.
-It holds other shards' data in an in-memory cache using an informer,
-effectively pulling data from the central cache.
-Thanks to having a separate informer for interacting with the cache server
-a shard can implement a different resiliency strategy.
-For example, it can tolerate the unavailability of the secondary during startup and become ready.</p>
-<h3 id="running-the-server">Running the Server</h3>
-<p>The cache server can be run as a standalone binary or as part of a kcp server.</p>
-<p>The standalone binary is in <a href="https://github.com/kcp-dev/kcp/tree/main/cmd/cache-server">https://github.com/kcp-dev/kcp/tree/main/cmd/cache-server</a> and can be run by issuing <code>go run ./cmd/cache-server/main.go</code> command.</p>
-<p>To run it as part of a kcp server, pass <code>--cache-url</code> flag to the kcp binary.</p>
-<h3 id="client-side-functionality">Client-side Functionality</h3>
-<p>In order to interact with the cache server from a shard, the <a href="https://github.com/kcp-dev/kcp/tree/main/pkg/cache/client">https://github.com/kcp-dev/kcp/tree/main/pkg/cache/client</a>
-repository provides the following client-side functionality:</p>
-<p><a href="https://github.com/kcp-dev/kcp/blob/b739fa5b5c83fb2c43b631c6234264d5dd1fc6e4/pkg/cache/client/round_tripper.go#L54">ShardRoundTripper</a>,
-a shard aware wrapper around <code>http.RoundTripper</code>. It changes the URL path to target a shard from the context.</p>
-<p><a href="https://github.com/kcp-dev/kcp/blob/b739fa5b5c83fb2c43b631c6234264d5dd1fc6e4/pkg/cache/client/round_tripper.go#L128">DefaultShardRoundTripper</a>
-is a <code>http.RoundTripper</code> that sets a default shard name if not specified in the context.</p>
-<p>For example, in order to make a client shard aware, inject the <code>http.RoundTrippers</code> to a <code>rest.Config</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nx">cacheclient</span><span class="w"> </span><span class="s">&quot;github.com/kcp-dev/kcp/pkg/cache/client&quot;</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="s">&quot;github.com/kcp-dev/kcp/pkg/cache/client/shard&quot;</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1">// adds shards awareness to a client with a default `shard.Wildcard` name.</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nx">NewForConfig</span><span class="p">(</span><span class="nx">cacheclient</span><span class="p">.</span><span class="nx">WithShardRoundTripper</span><span class="p">(</span><span class="nx">cacheclient</span><span class="p">.</span><span class="nx">WithDefaultShardRoundTripper</span><span class="p">(</span><span class="nx">serverConfig</span><span class="p">.</span><span class="nx">LoopbackClientConfig</span><span class="p">,</span><span class="w"> </span><span class="nx">shard</span><span class="p">.</span><span class="nx">Wildcard</span><span class="p">)))</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1">// and then change the context when you need to access a specific shard and pass is when making a HTTP request</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nx">ctx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cacheclient</span><span class="p">.</span><span class="nx">WithShardInContext</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">shard</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">))</span>
+<h1 id="workspace-mounts">Workspace Mounts</h1>
+<p>Workspace mounts allow you to mount external Kubernetes-like API endpoints onto a workspace, similar to how you mount remote filesystems in Linux using NFS. Just like a Linux directory can be a local folder or a mounted remote filesystem, a workspace can be either a local LogicalCluster or a mounted external endpoint.</p>
+<p>When a workspace uses a mount, it does not have a LogicalCluster backing it. Instead, requests to the workspace are proxied to the external API endpoint specified by the mount object. This allows you to have a unified view of multiple clusters and workspaces under the same workspace tree/hierarchy.</p>
+<p><strong>Analogy</strong>: Think of workspaces as directories in a Linux filesystem:
+- <strong>Regular workspace</strong> = Local directory with files stored on the local filesystem
+- <strong>Mounted workspace</strong> = Directory that's an NFS mount pointing to a remote filesystem
+- <strong>kcp</strong> = The filesystem manager that routes requests to the right location</p>
+<h2 id="architecture-overview">Architecture Overview</h2>
+<pre class="mermaid"><code>sequenceDiagram
+      participant C as 🖥️ Client
+      participant P as 🔄 Front Proxy
+      participant LC as 🧠 Logical Cluster&lt;br/&gt;(root:org1:project-a)
+      participant EK as ☸️ External Kube API&lt;br/&gt;(mounted cluster)
+
+      Note over C,EK: Request Routing Based on Mount Status
+
+      rect rgb(240, 248, 255)
+          Note over C,EK: Scenario 1: Non-mounted workspace (project-a)
+          C-&gt;&gt;+P: GET /clusters/root:org1:project-a/api/v1/pods
+          P-&gt;&gt;+LC: Route to logical cluster
+          Note right of P: No mount detected,&lt;br/&gt;use internal logical cluster
+          LC--&gt;&gt;-P: Return apis from logical cluster
+          P--&gt;&gt;-C: Forward response
+      end
+
+      rect rgb(255, 248, 240)
+          Note over C,EK: Scenario 2: Mounted workspace (project-b)
+          C-&gt;&gt;+P: GET /clusters/root:org1:project-b/api/v1/pods
+          Note right of C: Request to mounted workspace
+          P-&gt;&gt;P: Check mount.ref to external-k8s
+          P-&gt;&gt;+EK: Proxy to https://ext-k8s.com
+          Note right of P: Mount detected (status: Ready),&lt;br/&gt;proxy to external cluster
+          EK--&gt;&gt;-P: Return pods from external cluster
+          P--&gt;&gt;-C: Forward response
+      end
+
+      Note over C,EK: Routing determined by workspace mount configuration</code></pre>
+<h3 id="workspace-tree-structure">Workspace Tree Structure</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>root/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── org1/
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── project-a/                    # Traditional LogicalCluster workspace
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    │   ├── LogicalCluster object     # ✓ Has backing logical cluster
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    │   ├── /api/v1/configmaps       # ✓ Served by kcp directly  
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    │   └── /api/v1/secrets          # ✓ Standard Kubernetes APIs
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    └── project-b/                    # Mounted workspace
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── spec.mount.ref            # ✗ No LogicalCluster object
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        │   └── &quot;external-k8s&quot;        # → References mount object
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        ├── /api/v1/pods             # → Proxied to https://ext-k8s.com/api/v1/pods . kcp does not have pods, but this is a mount.
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        └── /apis/apps/v1/deployments # → Proxied to https://ext-k8s.com/api/v1/deployments
 </code></pre></div>
-<h3 id="authorizationauthentication">Authorization/Authentication</h3>
-<p>Not implemented at the moment</p>
-<h3 id="built-in-resources">Built-in Resources</h3>
-<p>Out of the box, the server supports the following resources:</p>
+<h2 id="how-it-works">How it Works</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ol>
+<li><strong>Feature Gate</strong>: The <code>WorkspaceMounts=true</code> feature gate must be enabled on the kcp instance.</li>
+<li><strong>External Controller/Proxy</strong>: You need to implement a controller that:</li>
+<li>Creates and manages mount objects (with the required annotation and status fields)</li>
+<li>Runs a proxy/server that implements the Kubernetes API and serves requests at the URL specified in <code>status.URL</code></li>
+<li>The controller can be any custom implementation as long as it follows the mount object contract. See [1] as an example.</li>
+</ol>
+<p><strong>Important</strong>: kcp provides the mounting machinery, but you must "Bring Your Own API" (BYO-API). This means you're responsible for implementing both the mount object management and the actual API server that will handle the proxied requests.</p>
+<h3 id="mount-objects">Mount Objects</h3>
+<p>Workspace mounts follow a <strong>"Bring Your Own API"</strong> pattern. This means you can use any Kubernetes Custom Resource as a mount object, as long as it meets three simple requirements. The mounting machinery in kcp is generic and doesn't care about the specifics of your API or implementation.</p>
+<div class="highlight"><span class="filename">Example Mount Object</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mounts.contrib.kcp.io/v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeCluster</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">proxy-cluster</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">experimental.tenancy.kcp.io/is-mount</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Delegated</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">secretString</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kTPlAYLMjKJDRly5</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://proxy-cluster.proxy-cluster.svc.cluster.local</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">phase</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ready</span>
+</code></pre></div>
+<h4 id="requirements-for-mount-objects">Requirements for Mount Objects</h4>
+<ol>
+<li><strong>Annotation</strong>: Must have the <code>experimental.tenancy.kcp.io/is-mount: "true"</code> annotation</li>
+<li><strong>Status URL</strong>: Must have a <code>status.URL</code> field containing the target endpoint URL</li>
+<li><strong>Status Phase</strong>: Must have a <code>status.phase</code> field with one of the following values:</li>
+<li><code>Initializing</code>: The mount proxy is being initialized</li>
+<li><code>Connecting</code>: The mount proxy is waiting for connection</li>
+<li><code>Ready</code>: The mount proxy is ready and connected</li>
+<li><code>Unknown</code>: The mount proxy status is unknown</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Mount objects can be created and managed by users or by the system. For example, if a user has credentials for a delegated cluster, they can create a mount object and reference it in their workspace.</p>
+</div>
+<h4 id="controller-requirements">Controller Requirements</h4>
+<p>While the mount object can be any Custom Resource, you still need a controller to:
+- Create and manage the lifecycle of these mount objects
+- Set the required annotation and status fields
+- Implement and run the actual API server/proxy that serves requests at the <code>status.URL</code>
+- Handle authentication, authorization, and any request filtering if needed</p>
+<p>The kcp mounting machinery handles the workspace-to-mount routing, but the actual API implementation is entirely up to you. </p>
+<h3 id="creating-a-mounted-workspace">Creating a Mounted Workspace</h3>
+<p>To create a workspace that uses a mount, specify the mount reference in the workspace spec:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Workspace</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mounted-workspace</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">mount</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">ref</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mounts.contrib.kcp.io/v1alpha1</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeCluster</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">proxy-cluster</span>
+</code></pre></div>
+<h4 id="mount-field-requirements">Mount Field Requirements</h4>
 <ul>
-<li><code>apiresourceschemas</code></li>
-<li><code>apiexports</code></li>
-<li><code>shards</code></li>
+<li><code>ref.apiVersion</code>: The API version of the mount object</li>
+<li><code>ref.kind</code>: The kind of the mount object  </li>
+<li><code>ref.name</code>: The name of the mount object</li>
+<li><code>ref.namespace</code>: (Optional) The namespace of the mount object if it's namespaced</li>
 </ul>
-<p>All those resources are represented as CustomResourceDefinitions and
-stored in <code>system:cache:server</code> shard under <code>system:system-crds</code> cluster.</p>
-<h3 id="adding-new-resources">Adding New Resources</h3>
-<p>Not implemented at the moment.
-Our near-term plan is to maintain a list of hard-coded resources that we want to keep in the cache server.
-In the future, we will use the ReplicationClam which will describe schemas that need to be exposed by the cache server.</p>
-<h3 id="deletion-of-data">Deletion of Data</h3>
-<p>Not implemented at the moment.
-Only deleting resources explicitly is possible.
-In the future, some form of automatic removal will be implemented.</p>
-<h3 id="design-details">Design Details</h3>
-<p>The cache server is implemented as the <code>apiextensions-apiserver</code>.
-It is based on the same fork used by the kcp server, extended with shard support.</p>
-<p>Since the server serves as a secondary replica it doesn't support versioning, validation, pruning, or admission.
-All resources persisted by the server are deprived of schema.
-That means the schema is implicit, maintained, and enforced by the shards pushing/pulling data into/from the server.</p>
-<h4 id="on-the-http-level">On the HTTP Level</h4>
-<p>The server exposes the following path:</p>
-<p><code>/services/cache/shards/{shard-name}/clusters/{cluster-name}/apis/group/version/namespaces/{namespace-name}/resource/{resource-name}</code></p>
-<p>Parameters:</p>
-<p><code>{shard-name}</code>: a required string holding a shard name, a wildcard is also supported indicating a cross-shard request</p>
-<p><code>{cluster-name}</code>: a required string holding a cluster name, a wildcard is also supported indicating a cross-cluster request.</p>
-<p><code>{namespace-name}</code>: an optional string holding a namespace the given request is for, not all resources are stored under a namespace.</p>
-<p><code>{resource-name}</code>: an optional string holding the name of a resource</p>
-<p>For example:</p>
-<p><code>/services/cache/shards/*/clusters/*/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for all shards and clusters</p>
-<p><code>/services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for amber shard for all clusters</p>
-<p><code>/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for sapphire shard stored in system:sapphire cluster</p>
-<h4 id="on-the-storage-layer">On the Storage Layer</h4>
-<p>All resources stored by the cache server are prefixed with <code>/cache</code>.
-Thanks to that the server can share the same database with the kcp server.</p>
-<p>Ultimately a shard aware resources end up being stored under the following key:</p>
-<p><code>/cache/group/resource/{shard-name}/{cluster-name}/{namespace-name}/{resource-name}</code></p>
-<p>For more information about inner working of the storage layer,
-please visit: TODO: add a link that explains the mapping of a URL to a storage prefix.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The mount reference is immutable after workspace creation.</p>
+</div>
+<h2 id="simple-end-to-end-example">Simple End-to-End Example</h2>
+<p>Here's a basic example to illustrate how workspace mounts work in practice:</p>
+<h3 id="step-1-create-a-mount-object">Step 1: Create a Mount Object</h3>
+<p>Your controller creates a mount object (this could be any Custom Resource):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.io/v1alpha1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteCluster</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-remote-k8s</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">experimental.tenancy.kcp.io/is-mount</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="w">  </span><span class="c1"># Required</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://my-k8s-cluster.com&quot;</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">URL</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://my-proxy-service.com&quot;</span><span class="w">  </span><span class="c1"># Required: where requests will be proxied</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">phase</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Ready&quot;</span><span class="w">                       </span><span class="c1"># Required: mount status</span>
+</code></pre></div>
+<h3 id="step-2-create-a-workspace-with-mount-reference">Step 2: Create a Workspace with Mount Reference</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Workspace</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remote-workspace</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">mount</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">ref</span><span class="p">:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.io/v1alpha1</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteCluster</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-remote-k8s</span>
+</code></pre></div>
+<h3 id="step-3-access-the-mounted-workspace">Step 3: Access the Mounted Workspace</h3>
+<p>When you make requests to the workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span>https://kcp.example.com/clusters/root:remote-workspace<span class="w"> </span>get<span class="w"> </span>pods
+</code></pre></div>
+<p><strong>What happens</strong>:
+1. kcp receives the request for <code>/clusters/root:remote-workspace/api/v1/pods</code>
+2. kcp sees <code>remote-workspace</code> has a mount reference
+3. kcp looks up the <code>my-remote-k8s</code> mount object
+4. kcp proxies the request to <code>https://my-proxy-service.com/api/v1/pods</code>
+5. Your controller's proxy service handles the request and returns the response</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>You need to implement <code>https://my-proxy-service.com</code> to actually serve Kubernetes API requests. kcp only handles the routing.</p>
+</div>
+<h3 id="how-mounted-workspaces-work">How Mounted Workspaces Work</h3>
+<p>Once a workspace with a mount is created, the following process occurs:</p>
+<ol>
+<li>
+<p><strong>No LogicalCluster Creation</strong>: The workspace will not have a LogicalCluster backing it. Instead, it relies entirely on the external proxy.</p>
+</li>
+<li>
+<p><strong>Mount Resolution</strong>: The kcp front proxy resolves the mount object referenced in the workspace spec.</p>
+</li>
+<li>
+<p><strong>URL Resolution</strong>: When requests are made to the workspace, the proxy:</p>
+</li>
+<li>Looks up the mount object</li>
+<li>Extracts the <code>status.URL</code> from the mount object</li>
+<li>Forwards requests only if the mount object is in <code>Ready</code> phase</li>
+<li>
+<p>Returns an error if the mount object is not found or not ready</p>
+</li>
+<li>
+<p><strong>Request Routing</strong>: The proxy rewrites the incoming request URL to target the mount's URL while preserving the Kubernetes API context (e.g., <code>/api/v1/pods</code> becomes <code>{mount.status.URL}/api/v1/pods</code>).</p>
+</li>
+</ol>
+<h3 id="controllers-and-management">Controllers and Management</h3>
+<p>The workspace mounts controller (<code>kcp-workspace-mounts</code>) manages the integration between workspaces and their mount objects:</p>
+<ul>
+<li><strong>Watches</strong>: Both workspace objects and dynamically discovered mount resources</li>
+<li><strong>Reconciliation</strong>: Updates workspace annotations and status based on mount object state</li>
+<li><strong>Indexing</strong>: Maintains indexes to efficiently find workspaces that reference specific mount objects</li>
+<li><strong>Status Updates</strong>: Updates workspace conditions based on mount availability and readiness</li>
+</ul>
+<h3 id="limitations-and-considerations">Limitations and Considerations</h3>
+<ul>
+<li>Mount references are immutable after workspace creation</li>
+<li>Only mount objects in <code>Ready</code> phase will serve traffic</li>
+<li>The external proxy must be properly configured and accessible</li>
+<li>Authentication and authorization are handled by the external proxy, not by kcp</li>
+<li>Workspace mounts do not filter kubernetes view. If filtering is required, it must be implemented in the external proxy.</li>
+</ul>
+<h2 id="references">References</h2>
+<ol>
+<li>https://github.com/kcp-dev/contrib/tree/main/20241013-kubecon-saltlakecity/mounts-vw - Example mount controller and proxy implementation</li>
+</ol>
 
 
 
