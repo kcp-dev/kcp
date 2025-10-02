@@ -172,20 +172,48 @@ type ResourceSchema struct {
 }
 
 // ResourceSchemaStorage defines how the resource is stored.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.crd) != has(self.virtual)",message="Exactly one of crd or virtual must be set"
 type ResourceSchemaStorage struct {
 	// CRD storage defines that this APIResourceSchema is exposed as
 	// CustomResourceDefinitions inside the workspaces that bind to the APIExport.
 	// Like in vanilla Kubernetes, users can then create, update and delete
 	// custom resources.
+	//
+	// +optional
 	CRD *ResourceSchemaStorageCRD `json:"crd,omitempty"`
+
+	// Virtual storage defines that this APIResourceSchema is exposed as
+	// a projection of the referenced resource inside the workspaces that
+	// bind to the APIExport.
+	//
+	// +optional
+	Virtual *ResourceSchemaStorageVirtual `json:"virtual,omitempty"`
 }
 
 type ResourceSchemaStorageCRD struct{}
 
+// ResourceSchemaStorageVirtual refers to an endpoint slice object
+// from which the virtual resource is served.
 type ResourceSchemaStorageVirtual struct {
 	// Reference points to another object that has a URL to a virtual workspace
 	// in a "url" field in its status. The object can be of any kind.
-	Reference corev1.TypedLocalObjectReference `json:"reference"`
+	// 	Reference corev1.TypedLocalObjectReference `json:"reference"`
+
+	// Group is the API group of the endpoint slice resource.
+	Group string `json:"group"`
+	// Version is the API version of the endpoint slice resource.
+	Version string `json:"version"`
+	// Resource is the plural name of the endpoint slice resource.
+	Resource string `json:"resource"`
+
+	// Name is the name of the endpoint slice object.
+	Name string `json:"name"`
+	// IdentityHash is the identity of the virtual resource.
+	IdentityHash string `json:"identityHash"`
+
+	// Resource selector TBD.
+	// We are not sure if it belongs here.
 }
 
 // Identity defines the identity of an APIExport, i.e. determines the etcd prefix
