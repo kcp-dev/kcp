@@ -1733,41 +1733,23 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 	if err != nil {
 		return err
 	}
-	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(workspaceConfig)
-	if err != nil {
-		return err
-	}
 
 	cachedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources()
 	cachedResourceEndpointSliceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices()
-	logicalClusterInformer := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters()
-	apiBindingInformer := s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings()
-	apiExportInformer := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports()
-	globalAPIExportInformer := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
-	apiResourceSchemaInformer := s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas()
-	globalAPIResourceSchemaInformer := s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas()
 	c, err := cachedresources.NewController(
 		s.Options.Extra.ShardName,
 		kcpClusterClient,
 		s.KcpCacheClusterClient,
-		crdClusterClient,
 		dynamicClient,
 		s.CacheDynamicClient,
 		s.KubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
-		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		s.DynRESTMapper,
 		s.DiscoveringDynamicSharedInformerFactory,
 		s.CacheKcpSharedInformerFactory,
 		cachedResourceInformer,
 		cachedResourceEndpointSliceInformer,
-		logicalClusterInformer,
-		apiBindingInformer,
-		apiExportInformer,
-		globalAPIExportInformer,
-		apiResourceSchemaInformer,
-		globalAPIResourceSchemaInformer,
 	)
 	if err != nil {
 		return err
@@ -1776,14 +1758,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		Name: cachedresources.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return cachedResourceInformer.Informer().HasSynced() &&
-					cachedResourceEndpointSliceInformer.Informer().HasSynced() &&
-					logicalClusterInformer.Informer().HasSynced() &&
-					apiBindingInformer.Informer().HasSynced() &&
-					apiExportInformer.Informer().HasSynced() &&
-					globalAPIExportInformer.Informer().HasSynced() &&
-					apiResourceSchemaInformer.Informer().HasSynced() &&
-					globalAPIResourceSchemaInformer.Informer().HasSynced(), nil
+				return cachedResourceInformer.Informer().HasSynced() && cachedResourceEndpointSliceInformer.Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
