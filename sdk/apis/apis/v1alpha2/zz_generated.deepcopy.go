@@ -516,6 +516,11 @@ func (in *ResourceSchemaStorage) DeepCopyInto(out *ResourceSchemaStorage) {
 		*out = new(ResourceSchemaStorageCRD)
 		**out = **in
 	}
+	if in.Virtual != nil {
+		in, out := &in.Virtual, &out.Virtual
+		*out = new(ResourceSchemaStorageVirtual)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

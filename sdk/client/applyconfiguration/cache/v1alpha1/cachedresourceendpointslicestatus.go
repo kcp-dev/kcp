@@ -18,16 +18,30 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+)
+
 // CachedResourceEndpointSliceStatusApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSliceStatus type for use
 // with apply.
 type CachedResourceEndpointSliceStatusApplyConfiguration struct {
+	Conditions              *conditionsv1alpha1.Conditions             `json:"conditions,omitempty"`
 	CachedResourceEndpoints []CachedResourceEndpointApplyConfiguration `json:"endpoints,omitempty"`
+	ShardSelector           *string                                    `json:"shardSelector,omitempty"`
 }
 
 // CachedResourceEndpointSliceStatusApplyConfiguration constructs a declarative configuration of the CachedResourceEndpointSliceStatus type for use with
 // apply.
 func CachedResourceEndpointSliceStatus() *CachedResourceEndpointSliceStatusApplyConfiguration {
 	return &CachedResourceEndpointSliceStatusApplyConfiguration{}
+}
+
+// WithConditions sets the Conditions field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Conditions field is set to the value of the last call.
+func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *CachedResourceEndpointSliceStatusApplyConfiguration {
+	b.Conditions = &value
+	return b
 }
 
 // WithCachedResourceEndpoints adds the given value to the CachedResourceEndpoints field in the declarative configuration
@@ -40,5 +54,13 @@ func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithCachedResource
 		}
 		b.CachedResourceEndpoints = append(b.CachedResourceEndpoints, *values[i])
 	}
+	return b
+}
+
+// WithShardSelector sets the ShardSelector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ShardSelector field is set to the value of the last call.
+func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithShardSelector(value string) *CachedResourceEndpointSliceStatusApplyConfiguration {
+	b.ShardSelector = &value
 	return b
 }

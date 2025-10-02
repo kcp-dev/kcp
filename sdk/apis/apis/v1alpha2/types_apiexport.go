@@ -198,17 +198,8 @@ type ResourceSchemaStorageCRD struct{}
 type ResourceSchemaStorageVirtual struct {
 	// Reference points to another object that has a URL to a virtual workspace
 	// in a "url" field in its status. The object can be of any kind.
-	// 	Reference corev1.TypedLocalObjectReference `json:"reference"`
+	Reference corev1.TypedLocalObjectReference `json:"reference"`
 
-	// Group is the API group of the endpoint slice resource.
-	Group string `json:"group"`
-	// Version is the API version of the endpoint slice resource.
-	Version string `json:"version"`
-	// Resource is the plural name of the endpoint slice resource.
-	Resource string `json:"resource"`
-
-	// Name is the name of the endpoint slice object.
-	Name string `json:"name"`
 	// IdentityHash is the identity of the virtual resource.
 	IdentityHash string `json:"identityHash"`
 
