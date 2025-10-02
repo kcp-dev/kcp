@@ -62,14 +62,17 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
+	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/kcp/pkg/server/virtualresources"
+	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 
@@ -81,11 +84,13 @@ type Config struct {
 
 	EmbeddedEtcd *embeddedetcd.Config
 
-	GenericConfig   *genericapiserver.Config // the config embedded into MiniAggregator, the head of the delegation chain
-	MiniAggregator  *miniaggregator.MiniAggregatorConfig
-	Apis            *controlplaneapiserver.Config
-	ApiExtensions   *apiextensionsapiserver.Config
-	OptionalVirtual *VirtualConfig
+	GenericConfig                  *genericapiserver.Config // the config embedded into MiniAggregator, the head of the delegation chain
+	MiniAggregator                 *miniaggregator.MiniAggregatorConfig
+	Apis                           *controlplaneapiserver.Config
+	ApiExtensions                  *apiextensionsapiserver.Config
+	VirtualResources               *virtualresources.Config
+	AggregatingCRDVersionDiscovery *aggregatingcrdversiondiscovery.Config
+	OptionalVirtual                *VirtualConfig
 
 	ExtraConfig
 }
@@ -141,12 +146,14 @@ type ExtraConfig struct {
 type completedConfig struct {
 	Options kcpserveroptions.CompletedOptions
 
-	GenericConfig   genericapiserver.CompletedConfig
-	EmbeddedEtcd    embeddedetcd.CompletedConfig
-	MiniAggregator  miniaggregator.CompletedMiniAggregatorConfig
-	Apis            controlplaneapiserver.CompletedConfig
-	ApiExtensions   apiextensionsapiserver.CompletedConfig
-	OptionalVirtual CompletedVirtualConfig
+	GenericConfig                  genericapiserver.CompletedConfig
+	EmbeddedEtcd                   embeddedetcd.CompletedConfig
+	MiniAggregator                 miniaggregator.CompletedMiniAggregatorConfig
+	Apis                           controlplaneapiserver.CompletedConfig
+	ApiExtensions                  apiextensionsapiserver.CompletedConfig
+	VirtualResources               virtualresources.CompletedConfig
+	AggregatingCRDVersionDiscovery aggregatingcrdversiondiscovery.CompletedConfig
+	OptionalVirtual                CompletedVirtualConfig
 
 	ExtraConfig
 }
@@ -163,11 +170,13 @@ func (c *Config) Complete() (CompletedConfig, error) {
 	return CompletedConfig{&completedConfig{
 		Options: c.Options,
 
-		GenericConfig:  c.GenericConfig.Complete(informerfactoryhack.Wrap(c.KubeSharedInformerFactory)),
-		EmbeddedEtcd:   c.EmbeddedEtcd.Complete(),
-		MiniAggregator: miniAggregator,
-		Apis:           c.Apis.Complete(),
-		ApiExtensions:  c.ApiExtensions.Complete(),
+		GenericConfig:                  c.GenericConfig.Complete(informerfactoryhack.Wrap(c.KubeSharedInformerFactory)),
+		EmbeddedEtcd:                   c.EmbeddedEtcd.Complete(),
+		MiniAggregator:                 miniAggregator,
+		Apis:                           c.Apis.Complete(),
+		ApiExtensions:                  c.ApiExtensions.Complete(),
+		AggregatingCRDVersionDiscovery: c.AggregatingCRDVersionDiscovery.Complete(),
+		VirtualResources:               c.VirtualResources.Complete(),
 		OptionalVirtual: c.OptionalVirtual.Complete(
 			miniAggregator.GenericConfig.Authentication,
 			miniAggregator.GenericConfig.AuditPolicyRuleEvaluator,
@@ -383,6 +392,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	}
 
 	var virtualWorkspaceServerProxyTransport http.RoundTripper
+	var virtualWorkspaceTranposportTLSClientConfig *tls.Config
 	if opts.Extra.ShardClientCertFile != "" && opts.Extra.ShardClientKeyFile != "" && opts.Extra.ShardVirtualWorkspaceCAFile != "" {
 		caCert, err := os.ReadFile(opts.Extra.ShardVirtualWorkspaceCAFile)
 		if err != nil {
@@ -398,10 +408,11 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		}
 
 		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.TLSClientConfig = &tls.Config{
+		virtualWorkspaceTranposportTLSClientConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      caCertPool,
 		}
+		transport.TLSClientConfig = virtualWorkspaceTranposportTLSClientConfig
 		virtualWorkspaceServerProxyTransport = transport
 	}
 
@@ -613,23 +624,88 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
 	_ = c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})
-	_ = c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{byIdentityGroupResource: indexAPIBindingByIdentityGroupResource})
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{
+		indexers.APIBindingByIdentityAndGroupResource: indexers.IndexAPIBindingByIdentityGroupResource,
+		indexers.APIBindingByBoundResources:           indexers.IndexAPIBindingByBoundResources,
+	})
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer().AddIndexers(cache.Indexers{
+		indexers.APIExportByVirtualResourceIdentities: indexers.IndexAPIExportByVirtualResourceIdentities,
+	})
+	_ = c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer().AddIndexers(cache.Indexers{
+		indexers.APIExportByVirtualResourceIdentities: indexers.IndexAPIExportByVirtualResourceIdentities,
+	})
 
-	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = &apiBindingAwareCRDClusterLister{
+	apiBindingAwareCRDClusterLister := &apiBindingAwareCRDClusterLister{
 		kcpClusterClient:  c.KcpClusterClient,
 		crdLister:         c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer:        c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
 		workspaceLister:   c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Lister(),
 		apiBindingLister:  c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Lister(),
 		apiBindingIndexer: c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer(),
-		apiExportIndexer:  c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
-		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			return c.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Lister().Cluster(clusterName).Get(name)
+		getAPIExportByPath: func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](
+				apisv1alpha2.Resource("apiexports"),
+				c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
+				c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
+				clusterPath,
+				name,
+			)
 		},
 	}
+	c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister = apiBindingAwareCRDClusterLister
 	c.ApiExtensions.ExtraConfig.Client = c.ApiExtensionsClusterClient
 	c.ApiExtensions.ExtraConfig.Informers = c.ApiExtensionsSharedInformerFactory
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		// We need an aggregating version discovery for CRDs that is RESTstorage-aware.
+		// The apiextensions apiserver sources its data from the apiBindingAwareCRDClusterLister.
+		// With the onset of virtual resources, not all bound CRDs use CRD storage, and as a consequence,
+		// the verbs such a resource supports may also be different -- compared to what apiextensions
+		// thinks a CRD should support. This special version discovery server is aware of the storage
+		// defined in the APIExport of the bound CRD, and will advertise correct set of verbs in
+		// APIResourceList for CRD- or virtual-backed resources.
+		aggregatingVersionDiscoveryConfig := *c.GenericConfig
+		c.AggregatingCRDVersionDiscovery, err = aggregatingcrdversiondiscovery.NewConfig(
+			&aggregatingVersionDiscoveryConfig,
+			c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+			apiBindingAwareCRDClusterLister,
+			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+			c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+			c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+			c.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create config for aggregating version discovery server: %v", err)
+		}
+
+		// The virtual resources apiserver serves resources from a virtual workspace.
+		virtualResourcesConfig := *c.GenericConfig
+		virtualResourcesConfig.SkipOpenAPIInstallation = true
+		// vwClientConfig is used by the proxy handler to proxy the client requests to the virtual workspace.
+		vwClientConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		if !opts.Virtual.Enabled {
+			vwClientConfig.TLSClientConfig = rest.TLSClientConfig{
+				CAFile:   opts.Extra.ShardVirtualWorkspaceCAFile,
+				CertFile: opts.Extra.ShardClientCertFile,
+				KeyFile:  opts.Extra.ShardClientKeyFile,
+			}
+		}
+
+		c.VirtualResources, err = virtualresources.NewConfig(
+			&virtualResourcesConfig,
+			vwClientConfig,
+			c.CacheDynamicClient,
+			c.ShardVirtualWorkspaceURL,
+			c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+			c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+			c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create config for virtual resources server: %v", err)
+		}
+	}
 
 	c.openAPIv3Controller = openapiv3.NewController(c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions())
 	c.openAPIv3ServiceCache = openapiv3.NewServiceCache(c.GenericConfig.OpenAPIV3Config, c.ApiExtensions.ExtraConfig.ClusterAwareCRDLister, c.openAPIv3Controller, openapiv3.DefaultServiceCacheSize)

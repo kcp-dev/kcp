@@ -53,12 +53,15 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
+	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
+	"github.com/kcp-dev/kcp/pkg/server/virtualresources"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -71,10 +74,12 @@ const resyncPeriod = 10 * time.Hour
 type Server struct {
 	CompletedConfig
 
-	ApiExtensions  *extensionsapiserver.CustomResourceDefinitions
-	Apis           *controlplaneapiserver.Server
-	MiniAggregator *miniaggregator.MiniAggregatorServer
-	virtual        *virtualrootapiserver.Server
+	ApiExtensions                  *extensionsapiserver.CustomResourceDefinitions
+	Apis                           *controlplaneapiserver.Server
+	VirtualResources               *virtualresources.Server
+	AggregatingCRDVersionDiscovery *aggregatingcrdversiondiscovery.Server
+	MiniAggregator                 *miniaggregator.MiniAggregatorServer
+	virtual                        *virtualrootapiserver.Server
 	// DynRESTMapper is a workspace-aware REST mapper, backed by a reconciler,
 	// which dynamically loads all bound resources through every type associated
 	// with an APIBinding in the workspace into the mapper. Another controller can
@@ -111,7 +116,21 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return nil, fmt.Errorf("create api extensions: %v", err)
 	}
 
-	s.Apis, err = c.Apis.New("generic-control-plane", s.ApiExtensions.GenericAPIServer)
+	gcpDelegate := s.ApiExtensions.GenericAPIServer
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		s.VirtualResources, err = virtualresources.NewServer(c.VirtualResources, s.ApiExtensions.GenericAPIServer, s.DynRESTMapper)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create virtual resources server: %v", err)
+		}
+		s.AggregatingCRDVersionDiscovery, err = aggregatingcrdversiondiscovery.NewServer(c.AggregatingCRDVersionDiscovery, s.VirtualResources.GenericAPIServer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create aggregating version discovery server: %v", err)
+		}
+		gcpDelegate = s.AggregatingCRDVersionDiscovery.GenericAPIServer
+	}
+
+	s.Apis, err = c.Apis.New("generic-control-plane", gcpDelegate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create generic controlplane apiserver: %w", err)
 	}
@@ -378,6 +397,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		if err := s.installCachedResourceEndpointSliceController(ctx, controllerConfig); err != nil {
 			return err
 		}
+		if err := s.installCachedResourceEndpointSliceURLsController(ctx, s.ExternalLogicalClusterAdminConfig); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -451,8 +473,11 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
+		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
+		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
