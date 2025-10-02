@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -54,4 +55,15 @@ func FakePClusterCreate(t *testing.T, client apiextensionsv1client.CustomResourc
 
 	err := configcrds.CreateFromFS(ctx, client, rawCustomResourceDefinitions, grs...)
 	require.NoError(t, err)
+}
+
+// CRD returns an *apiextensionsv1.CustomResourceDefinition for the GroupResource specified by gr from
+// rawCustomResourceDefinitions. The embedded file's name must have the format <group>_<resource>.yaml.
+func CRD(t *testing.T, gr metav1.GroupResource) *apiextensionsv1.CustomResourceDefinition {
+	t.Helper()
+
+	crd, err := configcrds.CRD(rawCustomResourceDefinitions, gr)
+	require.NoError(t, err, "error decoding CRD")
+
+	return crd
 }
