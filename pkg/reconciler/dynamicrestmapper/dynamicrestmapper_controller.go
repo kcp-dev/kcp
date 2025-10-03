@@ -36,6 +36,7 @@ import (
 	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	bootstrapcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -60,6 +61,7 @@ var builtinGVKRs []typeMeta
 
 func init() {
 	builtinGVKRs = make([]typeMeta, len(builtinschemas.BuiltInAPIs))
+
 	for i := range builtinschemas.BuiltInAPIs {
 		builtinGVKRs[i] = newTypeMeta(
 			builtinschemas.BuiltInAPIs[i].GroupVersion.Group,
@@ -69,6 +71,26 @@ func init() {
 			builtinschemas.BuiltInAPIs[i].Names.Plural,
 			resourceScopeToRESTScope(builtinschemas.BuiltInAPIs[i].ResourceScope),
 		)
+	}
+
+	kcpCRDs, err := bootstrapcrds.AllCRDs()
+	if err != nil {
+		panic(err)
+	}
+	for _, crd := range kcpCRDs {
+		for _, version := range crd.Spec.Versions {
+			if !version.Served {
+				continue
+			}
+			builtinGVKRs = append(builtinGVKRs, newTypeMeta(
+				crd.Spec.Group,
+				version.Name,
+				crd.Spec.Names.Kind,
+				crd.Spec.Names.Singular,
+				crd.Spec.Names.Plural,
+				resourceScopeToRESTScope(crd.Spec.Scope),
+			))
+		}
 	}
 }
 
