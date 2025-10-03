@@ -28,7 +28,8 @@ import (
 
 // WithInClusterServiceAccountRequestRewrite adds the /clusters/<clusterName> prefix to the request path if the request comes
 // from an InCluster service account requests (InCluster clients don't support prefixes).
-func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handler {
+// WithInClusterServiceAccountRequestRewrite now requires a key for JWT signature verification.
+func WithInClusterServiceAccountRequestRewrite(handler http.Handler, key interface{}) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// some header we set for sharding, those are not the requests from InCluster clients
 		shardedHeader := req.Header.Get("X-Kubernetes-Sharded-Request")
@@ -62,7 +63,8 @@ func WithInClusterServiceAccountRequestRewrite(handler http.Handler) http.Handle
 			handler.ServeHTTP(w, req)
 			return
 		}
-		if err = decoded.UnsafeClaimsWithoutVerification(&claims); err != nil {
+		// GOOD: JWT is only accepted if signature verification succeeds
+		if err = decoded.Claims(key, &claims); err != nil {
 			handler.ServeHTTP(w, req)
 			return
 		}
