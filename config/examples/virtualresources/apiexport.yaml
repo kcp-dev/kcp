@@ -1,0 +1,21 @@
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: virtualmachines
+spec:
+  resources:
+  - name: instances
+    group: machines.svm.io
+    schema: today.instances.machines.svm.io
+    storage:
+      virtual:
+        reference:
+          apiGroup: cache.kcp.io
+          kind: CachedResourceEndpointSlice
+          name: instances
+        identityHash: 2857921554ab76ec50f25bf083b7aeb4f7808cd169fd2945b007429f426614ec
+  - name: virtualmachines
+    group: machines.svm.io
+    schema: today.virtualmachines.machines.svm.io
+    storage:
+      crd: {}
