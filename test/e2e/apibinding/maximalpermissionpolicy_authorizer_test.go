@@ -57,8 +57,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.BaseConfig(t))
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
@@ -152,8 +151,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	rbacServiceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
