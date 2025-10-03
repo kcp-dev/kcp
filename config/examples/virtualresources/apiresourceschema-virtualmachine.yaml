@@ -1,0 +1,78 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: today.virtualmachines.machines.svm.io
+spec:
+  group: machines.svm.io
+  names:
+    kind: VirtualMachine
+    listKind: VirtualMachineList
+    plural: virtualmachines
+    singular: virtualmachine
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      description: VirtualMachine represents a virtual machine instance
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: VirtualMachineSpec holds the desired state of the VirtualMachine.
+          properties:
+            instanceRef:
+              description: Reference to an Instance resource
+              properties:
+                name:
+                  description: Name of the Instance resource
+                  type: string
+                namespace:
+                  description: Namespace of the Instance resource
+                  type: string
+              required:
+              - name
+              type: object
+          required:
+          - instanceRef
+          type: object
+        status:
+          description: VirtualMachineStatus communicates the observed state of the VirtualMachine.
+          properties:
+            phase:
+              description: Current phase of the virtual machine
+              type: string
+            conditions:
+              description: Current conditions of the virtual machine
+              items:
+                properties:
+                  type:
+                    type: string
+                  status:
+                    type: string
+                  lastTransitionTime:
+                    type: string
+                  reason:
+                    type: string
+                  message:
+                    type: string
+                required:
+                - type
+                - status
+                type: object
+              type: array
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

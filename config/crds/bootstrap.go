@@ -20,6 +20,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -122,6 +123,35 @@ func CRD(fs embed.FS, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceD
 	}
 
 	return crd, nil
+}
+
+func AllCRDs() ([]*apiextensionsv1.CustomResourceDefinition, error) {
+	entries, err := raw.ReadDir(".")
+	if err != nil {
+		return nil, err
+	}
+	crds := make([]*apiextensionsv1.CustomResourceDefinition, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+		nameParts := strings.SplitN(strings.TrimSuffix(entry.Name(), ".yaml"), "_", 2)
+		if len(nameParts) != 2 {
+			continue
+		}
+
+		crd, err := CRD(raw, metav1.GroupResource{
+			Group:    nameParts[0],
+			Resource: nameParts[1],
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		crds = append(crds, crd)
+	}
+
+	return crds, nil
 }
 
 func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRD *apiextensionsv1.CustomResourceDefinition) error {
