@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/xlab/treeprint"
 
@@ -32,14 +34,22 @@ import (
 
 	"github.com/kcp-dev/kcp/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/kcp/cli/pkg/helpers"
+	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
+
+// workspaceInfo contains workspace path and type information
+type workspaceInfo struct {
+	Path logicalcluster.Path
+	Type *tenancyv1alpha1.WorkspaceTypeReference
+}
 
 // TreeOptions contains options for displaying the workspace tree.
 type TreeOptions struct {
 	*base.Options
 
-	Full bool
+	Full        bool
+	Interactive bool
 
 	kcpClusterClient kcpclientset.ClusterInterface
 }
@@ -55,6 +65,7 @@ func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
 func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspace names")
+	cmd.Flags().BoolVarP(&o.Interactive, "interactive", "i", o.Interactive, "Interactive workspace tree browser")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -83,6 +94,10 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("current config context URL %q does not point to workspace", config.Host)
 	}
 
+	if o.Interactive {
+		return o.runInteractive(ctx, current)
+	}
+
 	tree := treeprint.New()
 	// NOTE(hasheddan): the cluster URL can be used for only the tree root as
 	// the friendly name is used in kubeconfig.
@@ -97,6 +112,220 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 
 	fmt.Println(tree.String())
 	return nil
+}
+
+// runInteractive starts the interactive workspace tree browser.
+func (o *TreeOptions) runInteractive(ctx context.Context, currentWorkspace logicalcluster.Path) error {
+	app := tview.NewApplication()
+
+	tree := tview.NewTreeView()
+	tree.SetBorder(true).SetTitle("KCP Workspaces")
+
+	rootWorkspace := currentWorkspace
+	for {
+		parent, hasParent := rootWorkspace.Parent()
+		if !hasParent {
+			break
+		}
+		rootWorkspace = parent
+	}
+
+	rootName := rootWorkspace.String()
+	if !o.Full {
+		rootName = rootName[strings.LastIndex(rootName, ":")+1:]
+	}
+
+	root := tview.NewTreeNode(rootName).
+		SetColor(tcell.ColorWhite).
+		SetSelectable(true)
+	tree.SetRoot(root).SetCurrentNode(root)
+
+	var currentNode *tview.TreeNode
+	if err := o.populateInteractiveNode(ctx, root, rootWorkspace, rootName, currentWorkspace, &currentNode); err != nil {
+		return err
+	}
+
+	if currentNode != nil {
+		tree.SetCurrentNode(currentNode)
+		o.expandToNode(currentNode)
+	} else if currentWorkspace == rootWorkspace {
+		root.SetColor(tcell.ColorYellow)
+		currentNode = root
+	}
+
+	infoPanel := tview.NewTextView()
+	infoPanel.SetDynamicColors(true).
+		SetBorder(true).
+		SetTitle("Workspace Info")
+
+	helpPanel := tview.NewTextView()
+	helpPanel.SetDynamicColors(true).
+		SetBorder(true).
+		SetTitle("Help")
+	helpPanel.SetText(`[yellow]Navigation:[white]
+• ↑/↓ - Move up/down
+• →/Space - Expand node
+• ←/Backspace - Collapse node
+• Enter - Switch to workspace
+• q/Ctrl+C - Quit
+
+[yellow]Commands:[white]
+• Enter: Switch to selected workspace
+• q: Quit application`)
+
+	tree.SetChangedFunc(func(node *tview.TreeNode) {
+		if node.GetReference() != nil {
+			ws := node.GetReference().(*workspaceInfo)
+			infoPanel.SetText(renderWorkspaceInfo("Workspace", "\nPress Enter to switch", ws))
+		}
+	})
+
+	flex := tview.NewFlex().
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(tree, 0, 3, true).
+			AddItem(helpPanel, 8, 1, false), 0, 2, true).
+		AddItem(infoPanel, 0, 1, false)
+
+	app.SetRoot(flex, true).SetFocus(tree)
+
+	var selectedWorkspace *logicalcluster.Path
+
+	// Handle key events
+	tree.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		current := tree.GetCurrentNode()
+
+		switch event.Rune() {
+		case 'q':
+			app.Stop()
+			return nil
+		case ' ':
+			if current != nil {
+				current.SetExpanded(!current.IsExpanded())
+				return nil
+			}
+		}
+
+		switch event.Key() {
+		case tcell.KeyEnter:
+			if current != nil && current.GetReference() != nil {
+				workspaceInfo := current.GetReference().(*workspaceInfo)
+				selectedWorkspace = &workspaceInfo.Path
+				app.Stop()
+				return nil
+			}
+		case tcell.KeyRight:
+			if current != nil && !current.IsExpanded() {
+				current.SetExpanded(true)
+				return nil
+			}
+		case tcell.KeyLeft:
+			if current != nil && current.IsExpanded() {
+				current.SetExpanded(false)
+				return nil
+			}
+		case tcell.KeyBackspace, tcell.KeyBackspace2:
+			if current != nil && current.IsExpanded() {
+				current.SetExpanded(false)
+				return nil
+			}
+		}
+		return event
+	})
+
+	if err := app.Run(); err != nil {
+		return err
+	}
+
+	if selectedWorkspace != nil {
+		return o.switchToWorkspace(ctx, *selectedWorkspace)
+	}
+
+	return nil
+}
+
+func (o *TreeOptions) populateInteractiveNode(ctx context.Context, node *tview.TreeNode, workspace logicalcluster.Path, workspaceName string, currentWorkspace logicalcluster.Path, currentNode **tview.TreeNode) error {
+	var workspaceType *tenancyv1alpha1.WorkspaceTypeReference
+	if parent, hasParent := workspace.Parent(); hasParent {
+		workspaceBaseName := workspace.Base()
+		ws, err := o.kcpClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Get(ctx, workspaceBaseName, metav1.GetOptions{})
+		if err == nil && ws.Spec.Type != nil {
+			workspaceType = ws.Spec.Type
+		}
+	}
+
+	wsInfo := &workspaceInfo{
+		Path: workspace,
+		Type: workspaceType,
+	}
+	node.SetReference(wsInfo)
+
+	if workspace == currentWorkspace {
+		node.SetColor(tcell.ColorYellow)
+		*currentNode = node
+	}
+
+	results, err := o.kcpClusterClient.Cluster(workspace).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, ws := range results.Items {
+		_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
+		if err != nil {
+			return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
+		}
+
+		childName := ws.Name
+		if o.Full {
+			childName = workspaceName + ":" + childName
+		}
+
+		childWorkspaceInfo := &workspaceInfo{
+			Path: childPath,
+			Type: ws.Spec.Type,
+		}
+
+		childNode := tview.NewTreeNode(childName).
+			SetSelectable(true).
+			SetReference(childWorkspaceInfo)
+
+		node.AddChild(childNode)
+
+		if err := o.populateInteractiveNode(ctx, childNode, childPath, childName, currentWorkspace, currentNode); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *TreeOptions) expandToNode(node *tview.TreeNode) {
+	node.SetExpanded(true)
+}
+
+// switchToWorkspace switches to the specified workspace using existing logic
+func (o *TreeOptions) switchToWorkspace(ctx context.Context, workspacePath logicalcluster.Path) error {
+	useOpts := NewUseWorkspaceOptions(o.IOStreams)
+	useOpts.ClientConfig = o.ClientConfig
+
+	workspaceStr := workspacePath.String()
+	if workspaceStr != "" && !strings.HasPrefix(workspaceStr, ":") {
+		workspaceStr = ":" + workspaceStr
+	}
+	useOpts.Name = workspaceStr
+
+	if err := useOpts.Complete([]string{workspaceStr}); err != nil {
+		return fmt.Errorf("failed to complete workspace switch: %w", err)
+	}
+
+	if err := useOpts.Validate(); err != nil {
+		return fmt.Errorf("failed to validate workspace switch: %w", err)
+	}
+
+	return useOpts.Run(ctx)
 }
 
 func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, parent logicalcluster.Path, parentName string) error {
@@ -125,4 +354,20 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 		}
 	}
 	return nil
+}
+
+func renderWorkspaceInfo(prefix string, suffix string, ws *workspaceInfo) string {
+	infoText := fmt.Sprintf("%s: %s", prefix, ws.Path.String())
+	if ws.Type != nil {
+		typeRef := string(ws.Type.Name)
+		if ws.Type.Path != "" {
+			typeRef = ws.Type.Path + ":" + typeRef
+		}
+		infoText += fmt.Sprintf("\nType: %s", typeRef)
+	}
+
+	if suffix != "" {
+		infoText += "\n" + suffix
+	}
+	return infoText
 }
