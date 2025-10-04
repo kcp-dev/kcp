@@ -268,6 +268,12 @@ type WorkspaceStatus struct {
 	//
 	// +optional
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+
+	// finalizers must be cleared by a controller before the workspace is being
+	// deleted.
+	//
+	// +optional
+	Finalizers []corev1alpha1.LogicalClusterFinalizer `json:"finalizers,omitempty"`
 }
 
 func (in *Workspace) SetConditions(c conditionsv1alpha1.Conditions) {

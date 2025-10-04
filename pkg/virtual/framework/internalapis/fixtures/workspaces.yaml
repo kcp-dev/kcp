@@ -194,6 +194,12 @@ spec:
                 - lastTransitionTime
                 type: object
               type: array
+            finalizers:
+              description: finalizers must be cleared by a controller before the workspace
+                is being deleted.
+              items:
+                type: string
+              type: array
             initializers:
               description: initializers must be cleared by a controller before the
                 workspace is ready and can be used.

@@ -27,6 +27,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +47,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
@@ -261,7 +263,10 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.NoError(t, err)
 		vwURLs := []string{}
 		for _, vwURL := range workspacetypes[initializer].Status.VirtualWorkspaces {
-			vwURLs = append(vwURLs, vwURL.URL)
+			// only add urls belonging to initializing workspaces
+			if strings.Contains(vwURL.URL, initializingworkspaces.VirtualWorkspaceName) {
+				vwURLs = append(vwURLs, vwURL.URL)
+			}
 		}
 
 		targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
@@ -356,10 +361,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	t.Log("Ensure that LIST calls through the virtual workspace eventually show the correct values")
 	for _, wsName := range wsNames {
-		require.Eventually(t, func() bool {
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			_, err := sourceKcpClusterClient.CoreV1alpha1().Cluster(wsPath.Join(wsName)).LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
-			require.True(t, err == nil || errors.IsForbidden(err), "got %#v error getting logicalcluster %q, expected unauthorized or success", err, wsPath.Join(wsName))
-			return err == nil
+			require.NoError(c, err, "got %#v error getting logicalcluster %q, expected success", err, wsPath.Join(wsName))
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 

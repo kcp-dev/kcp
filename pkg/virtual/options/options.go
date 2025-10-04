@@ -26,6 +26,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
+	finalizingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
@@ -37,12 +38,14 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 type Options struct {
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
+	FinalizingWorkspaces   *finalizingworkspacesoptions.FinalizingWorkspaces
 }
 
 func NewOptions() *Options {
 	return &Options{
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
+		FinalizingWorkspaces:   finalizingworkspacesoptions.New(),
 	}
 }
 
@@ -51,12 +54,14 @@ func (o *Options) Validate() []error {
 
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.FinalizingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.FinalizingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
 func (o *Options) NewVirtualWorkspaces(
@@ -86,10 +91,16 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces, replications)
+	finalizingworkspaces, err := o.FinalizingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}
+
+	all, err := Merge(apiexports, initializingworkspaces, replications, finalizingworkspaces)
+	if err != nil {
+		return nil, err
+	}
+
 	return all, nil
 }
 
