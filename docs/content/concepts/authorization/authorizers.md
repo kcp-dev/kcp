@@ -144,7 +144,7 @@ A service-account defined in a different workspace is NOT given access to it.
 
 Users can either be global kcp users or users that originate from a specific workspace, e.g. through an OIDC provider configured for that workspace.
 
-Users that do not originate from the workspace the request is being made to and are not global kcp users are only visible as `system:anonymous`
+Users that do not originate from the workspace the request is being made to and are not global kcp users are only visible as user `system:anonymous`
 with groups `system:authenticated` and `system:cluster:<logical-cluster>`, where `<logical-cluster>` is the name of the logical cluster backing
 the workspace they originated from.
 
