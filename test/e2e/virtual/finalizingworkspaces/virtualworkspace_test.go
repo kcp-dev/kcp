@@ -330,7 +330,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			_, err := user1VwKcpClusterClients[name].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
 			require.NoError(c, err)
-		}, wait.ForeverTestTimeout, 100*time.Millisecond)
+		}, 3*time.Minute, 100*time.Millisecond)
 	}
 
 	alphaFinalizer := string(finalization.FinalizerForType(workspaceTypes["alpha"]))
