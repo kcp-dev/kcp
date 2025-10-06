@@ -17,6 +17,8 @@ limitations under the License.
 package dynamicrestmapper
 
 import (
+	"slices"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -41,6 +43,24 @@ func (m *DefaultRESTMapper) add(typeMeta typeMeta) {
 
 	m.kindToPluralResource[kind] = plural
 	m.kindToScope[kind] = meta.RESTScopeRoot
+
+	foundDefaultVersion := false
+	for i := range m.defaultGroupVersions {
+		if m.defaultGroupVersions[i].Group == typeMeta.Group {
+			if typeMeta.Version > m.defaultGroupVersions[i].Version {
+				m.defaultGroupVersions[i].Version = typeMeta.Version
+			}
+			foundDefaultVersion = true
+			break
+		}
+	}
+
+	if !foundDefaultVersion {
+		m.defaultGroupVersions = append(m.defaultGroupVersions, schema.GroupVersion{
+			Group:   typeMeta.Group,
+			Version: typeMeta.Version,
+		})
+	}
 }
 
 func (m *DefaultRESTMapper) remove(typeMeta typeMeta) {
@@ -56,6 +76,34 @@ func (m *DefaultRESTMapper) remove(typeMeta typeMeta) {
 
 	delete(m.kindToPluralResource, kind)
 	delete(m.kindToScope, kind)
+
+	versionIdx := slices.IndexFunc(m.defaultGroupVersions, func(gv schema.GroupVersion) bool {
+		return gv.Group == typeMeta.Group
+	})
+	if versionIdx < 0 {
+		return
+	}
+
+	// Fixup the default version too.
+	// We don't know what the current latest version is, so we need to find it.
+
+	latestGroupVersion := ""
+	for gvr := range m.pluralToSingular {
+		if gvr.Group != typeMeta.Group {
+			continue
+		}
+		if gvr.Version > latestGroupVersion {
+			latestGroupVersion = gvr.Version
+		}
+	}
+
+	if latestGroupVersion != "" {
+		m.defaultGroupVersions[versionIdx].Version = latestGroupVersion
+	} else {
+		// There are no more resources in this group.
+		// Delete the default version too.
+		m.defaultGroupVersions = slices.Delete(m.defaultGroupVersions, versionIdx, versionIdx+1)
+	}
 }
 
 func (m *DefaultRESTMapper) getGVKR(gvr schema.GroupVersionResource) typeMeta {
