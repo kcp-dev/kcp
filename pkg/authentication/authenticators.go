@@ -21,10 +21,44 @@ import (
 	"net/http"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/group"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/kcp-dev/kcp/pkg/index"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
+
+func NewStandaloneWorkspaceAuthenticator(clusterIndex *index.State, authIndex AuthenticatorIndex) authenticator.Request {
+	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+		clusterName, err := request.ClusterNameFrom(req.Context())
+		if err != nil {
+			return nil, false, fmt.Errorf("request has no cluster context: %w", err)
+		}
+
+		result, found := clusterIndex.Lookup(clusterName.Path())
+		if !found {
+			return nil, false, nil
+		}
+
+		// workspacemounts have no type
+		if result.Type.Empty() {
+			return nil, false, nil
+		}
+
+		reqAuthenticator, ok := authIndex.Lookup(result.Type)
+		if !ok {
+			return nil, false, nil
+		}
+
+		reqAuthenticator = group.NewAuthenticatedGroupAdder(reqAuthenticator)
+
+		// make the authenticator always add the target cluster to the user scopes
+		reqAuthenticator = withClusterScope(reqAuthenticator)
+
+		return reqAuthenticator.AuthenticateRequest(req)
+	})
+}
 
 func NewWorkspaceAuthenticator() authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
