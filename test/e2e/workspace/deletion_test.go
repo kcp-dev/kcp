@@ -60,12 +60,11 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	clientset, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client set")
 
-	lc, err := clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, v1.GetOptions{})
-	require.NoError(t, err, "error getting logicalcluster")
-
 	// add a finalizer to the cluster, mimicking an external finalizer
 	customFinalizer := "example.com/test"
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		lc, err := clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, v1.GetOptions{})
+		require.NoError(t, err, "error getting logicalcluster")
 		lcsUpd := lc.DeepCopy()
 		lcsUpd.Finalizers = append(lcsUpd.Finalizers, customFinalizer)
 		_, err = clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Update(ctx, lcsUpd, v1.UpdateOptions{})
