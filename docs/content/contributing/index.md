@@ -100,3 +100,11 @@ are two roles: reviewer and approver.  Merging a PR requires sign off from both 
 
 In general, maintainers strive to pick up PRs for review when they can. If you feel like your PR has been missed,
 do not hesitate to ping maintainers directly or ask on the project communication channels about your PR.
+
+### The Monorepo Structure
+
+The core `kcp-dev/kcp` repository is a monorepo containing the kcp core and some close to the core libraries.
+See the [monorepo document](./monorepo/) for more details.
+
+When contributing to projects like `kcp-dev/apimachinery`, `kcp-dev/client-go`, and `kcp-dev/code-generator`,
+you must create a PR in the `kcp-dev/kcp` repository. Direct PRs to these repositories will be closed.

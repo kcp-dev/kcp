@@ -76,6 +76,26 @@ git checkout -b "release-$VERSION" "$REF"
 git push "$REMOTE" "release-$VERSION"
 ```
 
+### Update the `publishing-bot` Rules
+
+The [`publishing-bot` rules](https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml) must be updated
+to add a new branch for all staging repositories.
+
+While this can be done manually, the easiest and recommended way is to use the `update-rules` tool.
+This tool can be installed by cloning kcp's fork of [publishing-bot](https://github.com/kcp-dev/publishing-bot)
+and running `make build` in the repository, which will install the tool in `_output/update-rules`.
+Alternatively, the tool can be ran inside a Docker container using the `ghcr.io/kcp-dev/publishing-bot:latest` image.
+
+The tool takes the path to the rules file, the branch name, and the Go version used on that branch:
+
+```shell
+_output/update-rules -branch release-0.x -go 1.x.y -rules ../kcp/staging/publishing/rules.yaml -o /tmp/rules.yaml
+```
+
+This will generate a temporary rules file in `/tmp/rules.yaml`. You'll need to replace `staging/publishing/rules.yaml`
+in the kcp repo with that temporary file and push it to the repo before proceeding. The new rules file will be used
+on the next publishing-bot run automatically.
+
 ## Generate Release Notes
 
 To generate release notes from the information in PR descriptions you should use Kubernetes' [release-notes](https://github.com/kubernetes/release/tree/master/cmd/release-notes) tool.
