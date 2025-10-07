@@ -104,6 +104,16 @@ func TestSubjectAccessReview(t *testing.T) {
 			wantAllowed: false,
 		},
 		{
+			name:   "out-of-scoped users with warrant",
+			user:   "user",
+			groups: []string{},
+			extra: map[string]authorizationv1.ExtraValue{
+				serviceaccount.ClusterNameKey:          {"other"},
+				rbacregistryvalidation.WarrantExtraKey: {`{"user":"user2","groups":["system:kcp:admin"]}`},
+			},
+			wantAllowed: true,
+		},
+		{
 			name:        "service account",
 			user:        "system:serviceaccount:default:default",
 			groups:      []string{"system:kcp:admin"},
@@ -128,12 +138,15 @@ func TestSubjectAccessReview(t *testing.T) {
 			wantAllowed: false,
 		},
 		{
-			name: "service account with other cluster and warrant",
-			user: "system:serviceaccount:default:default", groups: []string{"system:kcp:admin"}, extra: map[string]authorizationv1.ExtraValue{
+			name:   "service account with other cluster and warrant",
+			user:   "system:serviceaccount:default:default",
+			groups: []string{},
+			extra: map[string]authorizationv1.ExtraValue{
 				serviceaccount.ClusterNameKey:          {"other"},
 				rbacregistryvalidation.WarrantExtraKey: {`{"user":"user","groups":["system:kcp:admin"]}`},
 			},
-			wantAllowed: true},
+			wantAllowed: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
