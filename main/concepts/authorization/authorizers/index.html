@@ -1328,6 +1328,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Workspace Content Authorizer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cross-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-Workspace
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#service-accounts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service Accounts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#foreign-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      Foreign Users
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -3667,6 +3706,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Workspace Content Authorizer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cross-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-Workspace
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#service-accounts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service Accounts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#foreign-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      Foreign Users
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -3913,6 +3991,9 @@ to give a user access through a ClusterRoleBinding inside of the workspace.</p>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster-admin</span>
 </code></pre></div>
+<h5 id="cross-workspace">Cross-Workspace</h5>
+<p>Users from other workspaces can be authorized to peform actions using RBAC, e.g. to <code>bind</code> and APIExport.</p>
+<h6 id="service-accounts">Service Accounts</h6>
 <p>A service-account defined in a workspace implicitly is granted access to it.</p>
 <p>A service-account defined in a different workspace is NOT given access to it.</p>
 <div class="admonition note">
@@ -3922,6 +4003,11 @@ can be accessed only by users that are granted <code>admin</code> verb on the <c
 parent workspace.</p>
 <p>Service accounts declared within a workspace don't have access to initializing workspaces.</p>
 </div>
+<h6 id="foreign-users">Foreign Users</h6>
+<p>Users can either be global kcp users or users that originate from a specific workspace, e.g. through an OIDC provider configured for that workspace.</p>
+<p>Users that do not originate from the workspace the request is being made to and are not global kcp users are only visible as user <code>system:anonymous</code>
+with groups <code>system:authenticated</code> and <code>system:cluster:&lt;logical-cluster&gt;</code>, where <code>&lt;logical-cluster&gt;</code> is the name of the logical cluster backing
+the workspace they originated from.</p>
 <h4 id="system-crd-authorizer">System CRD Authorizer</h4>
 <p>This small authorizer simply prevents updates to the <code>status</code> subresource on APIExports or APIBindings. Note that this authorizer does not validate changes to the CustomResourceDefinitions themselves, but to objects from those CRDs instead.</p>
 <h4 id="maximal-permission-policy-authorizer">Maximal Permission Policy Authorizer</h4>
@@ -4030,13 +4116,22 @@ a lot of influence over the authorization in kcp.</p>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="s2">&quot;group2&quot;</span>
 <a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="p">],</span>
 <a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">    </span><span class="nt">&quot;extra&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">      </span><span class="nt">&quot;authorization.kubernetes.io/cluster-name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;root&quot;</span><span class="p">]</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">      </span><span class="nt">&quot;authorization.kcp.io/cluster-name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;root&quot;</span><span class="p">]</span>
 <a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">    </span><span class="p">}</span>
 <a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.
-</code></pre></div>
+<p>The extra field will contain the logical cluster <em>name</em> (e.g. o43u2gh528rtfg721rg92), not the human-readable path. Webhooks need to resolve the name to a path themselves if necessary.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In the past the cluster name was provided in the <code>authorization.kubernetes.io/cluster-name</code> extra field instead of <code>authorization.kcp.io/cluster-name</code>.
+This field is deprecated as of kcp v0.28.3 and will be removed in a future release.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Request payloads can also contain the <code>authentication.kcp.io/cluster-name</code> and <code>authentication.kcp.io/scopes</code> extra fields if the user originates from the workspace the request is made against.
+If the users authenticated against another workspace than the target of the request these fields will not be present - instead the user will be seen as <code>system:anonymous</code> with groups <code>system:authenticated</code> and <code>system:cluster:&lt;logical-cluster&gt;</code>, where <code>&lt;logical-cluster&gt;</code> is the name of the logical cluster backing the workspace they authenticated against.</p>
+</div>
 <h3 id="authorizer-order">Authorizer Order</h3>
 <p>By default, the authorizers are evaluated in the following order:</p>
 <ol>
@@ -4062,8 +4157,8 @@ scope is then checked by the authorizers. For example:</p>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-1</span>
 </code></pre></div>
 This user will only be allowed to access resources in <code>logical-cluster-1</code>,
-falling back to be considered as user <code>system:anonymous</code> with group
-<code>system:authenticated</code> in all other logical clusters.</p>
+falling back to be considered as user <code>system:anonymous</code> with groups
+<code>system:authenticated</code> and <code>system:cluster:logical-cluster-1</code> in all other logical clusters.</p>
 <p>Each extra field can contain multiple scopes, separated by a comma:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">groups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;group1&quot;</span><span class="p p-Indicator">]</span>
@@ -4072,8 +4167,10 @@ falling back to be considered as user <code>system:anonymous</code> with group
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-1,cluster:logical-cluster-2</span>
 </code></pre></div>
 This user is allowed to operate in both <code>logical-cluster-1</code> and
-<code>logical-cluster-2</code>, falling back to be considered as user <code>system:anonymous</code>
-with group <code>system:authenticated</code> in all other logical clusters.</p>
+<code>logical-cluster-2</code>, falling back to be considered as user
+<code>system:anonymous</code> with groups <code>system:authenticated</code>,
+<code>system:cluster:logical-cluster-1</code> and
+<code>system:cluster:logical-cluster-2</code> in all other logical clusters.</p>
 <p>If multiple <code>authentication.kcp.io/scopes</code> values are set, the intersection is
 taken:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
@@ -4083,9 +4180,10 @@ taken:
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-1,cluster:logical-cluster-2</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster:logical-cluster-2,cluster:logical-cluster-3</span>
 </code></pre></div>
-This user is only allowed to operate in <code>logical-cluster-2</code>, falling back to be
-considered as user <code>system:anonymous</code> with group <code>system:authenticated</code> in all
-other logical clusters.</p>
+This user is only allowed to operate in <code>logical-cluster-2</code>, falling
+back to be considered as user <code>system:anonymous</code> with groups
+<code>system:authenticated</code> and <code>cluster:logical-cluster-2</code> in all other
+logical clusters.</p>
 <p>The intersection can be empty, in which case it falls back in every logical
 cluster.</p>
 <p>When impersonating a user in a logical cluster, the resulting user identity is
