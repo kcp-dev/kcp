@@ -127,6 +127,8 @@ roleRef:
 
 ##### Cross-Workspace
 
+Users from other workspaces can be authorized to peform actions using RBAC, e.g. to `bind` and APIExport.
+
 ###### Service Accounts
 
 A service-account defined in a workspace implicitly is granted access to it.
