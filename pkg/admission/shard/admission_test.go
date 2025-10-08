@@ -128,9 +128,9 @@ func TestAdmit(t *testing.T) {
 		expected *corev1alpha1.Shard
 	}{
 		{
-			name:     "nothing set",
-			shard:    newShard().Shard,
-			expected: newShard().Shard,
+			name:     "only base URL set (default)",
+			shard:    newShard().baseURL("https://test").Shard,
+			expected: newShard().baseURL("https://test").externalURL("https://test").virtualWorkspaceURL("https://test").Shard,
 		},
 		{
 			name:     "all set",
