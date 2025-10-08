@@ -10,7 +10,7 @@ rules:
     library: true
   - destination: client-go
     branches:
-      - name: new-kcp-1.33.3
+      - name: kcp-1.33.3
         source:
           branch: main
           dirs:
