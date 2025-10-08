@@ -4,7 +4,7 @@ contrib/demo/clusters/kind/*.kubeconfig
 contrib/tilt/kcp-helm-charts/
 *.log
 coverage.*
-tools
+./tools
 build
 vendor
 goio.yaml
