@@ -28,7 +28,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	gopkgyaml "gopkg.in/yaml.v3"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -66,6 +65,13 @@ func scrapeMetricsForServer(t TestingT, srv RunningServer) {
 		t.Logf("PROMETHEUS_URL environment variable unset, skipping Prometheus scrape config generation")
 		return
 	}
+
+	caFile := filepath.Join(srv.CADirectory(), "apiserver.crt")
+	if _, err := os.Stat(caFile); os.IsNotExist(err) {
+		t.Logf("CA file %s does not exist, skipping Prometheus scrape config for server %s", caFile, srv.Name())
+		return
+	}
+
 	jobName := fmt.Sprintf("kcp-%s-%s", srv.Name(), t.Name())
 	labels := map[string]string{
 		"server": srv.Name(),
@@ -75,8 +81,14 @@ func scrapeMetricsForServer(t TestingT, srv RunningServer) {
 	ctx, cancel := context.WithTimeout(context.Background(), wait.ForeverTestTimeout)
 	defer cancel()
 	repoDir, err := kcptestinghelpers.RepositoryDir()
-	require.NoError(t, err)
-	require.NoError(t, ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, repoDir, jobName, filepath.Join(srv.CADirectory(), "apiserver.crt"), labels))
+	if err != nil {
+		t.Logf("error getting repository directory for server %s: %v", srv.Name(), err)
+		return
+	}
+
+	if err := ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, repoDir, jobName, caFile, labels); err != nil {
+		t.Logf("error configuring Prometheus scraping for server %s: %v", srv.Name(), err)
+	}
 }
 
 func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, jobName, caFile string, labels map[string]string) error {
