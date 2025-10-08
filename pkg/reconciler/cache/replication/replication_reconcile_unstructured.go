@@ -61,6 +61,14 @@ func ensureMeta(cacheObject *unstructured.Unstructured, localObject *unstructure
 			}
 		}()
 	}
+	if cacheObjUID, found := cacheObjMeta["uid"]; found {
+		unstructured.RemoveNestedField(cacheObjMeta, "uid")
+		defer func() {
+			if err == nil {
+				err = unstructured.SetNestedField(cacheObject.Object, cacheObjUID, "metadata", "uid")
+			}
+		}()
+	}
 	if cacheObjAnnotationsRaw, found := cacheObjMeta["annotations"]; found {
 		cacheObjAnnotations, ok := cacheObjAnnotationsRaw.(map[string]interface{})
 		if !ok {

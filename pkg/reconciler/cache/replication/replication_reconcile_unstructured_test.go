@@ -378,6 +378,25 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:                    "UID is preserved from cache object",
+			cacheObjectMeta:         metav1.ObjectMeta{UID: "cache-uid-123", ResourceVersion: "1", Annotations: map[string]string{"a": "b"}},
+			localObjectMeta:         metav1.ObjectMeta{UID: "local-uid-456", ResourceVersion: "2", Annotations: map[string]string{"a": "b", "foo": "bar"}},
+			expectObjectMetaChanged: true,
+			validateCacheObjectMeta: func(t *testing.T, cacheObjectMeta, localObjectMeta metav1.ObjectMeta) {
+				t.Helper()
+
+				expectedCacheObjectMeta := metav1.ObjectMeta{UID: "cache-uid-123", ResourceVersion: "1", Annotations: map[string]string{"a": "b", "foo": "bar"}}
+				if !reflect.DeepEqual(cacheObjectMeta, expectedCacheObjectMeta) {
+					t.Errorf("received metadata differs from the expected one :\n%s", cmp.Diff(cacheObjectMeta, expectedCacheObjectMeta))
+				}
+
+				expectedLocalObjectMeta := metav1.ObjectMeta{UID: "local-uid-456", ResourceVersion: "2", Annotations: map[string]string{"a": "b", "foo": "bar"}}
+				if !reflect.DeepEqual(localObjectMeta, expectedLocalObjectMeta) {
+					t.Errorf("local object's metadata mustn't be changed, diff :\n%s", cmp.Diff(localObjectMeta, expectedLocalObjectMeta))
+				}
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
