@@ -3,11 +3,11 @@ name: goreleaser
 on:
   pull_request:
     paths:
-    - .github/workflows/goreleaser.yml
-    - .goreleaser.yaml
+      - .github/workflows/goreleaser.yml
+      - .goreleaser.yaml
   push:
     tags:
-    - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -16,68 +16,68 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-    - name: Free disk space
-      uses: thiagokokada/free-disk-space@9a03d73a373bab1e204b8815f5c7752392482762
-      with:
-        # All of these do save some disk space, but are also somewhat slow to delete.
-        # So we keep them to just speed up the workflow overall.
-        android: false
-        aws-cli: false
-        debug: false
-        docker-images: false
-        google-cloud-sdk: false
-        heroku: false
-        llvm: false
-        opt: false
-        powershell: false
-        python: false
-        ruby: false
-        rust: false
-        tool-cache: false
-        usrlocal: false
-        usrmisc: false
-        varcache: false
+      - name: Free disk space
+        uses: thiagokokada/free-disk-space@9a03d73a373bab1e204b8815f5c7752392482762
+        with:
+          # All of these do save some disk space, but are also somewhat slow to delete.
+          # So we keep them to just speed up the workflow overall.
+          android: false
+          aws-cli: false
+          debug: false
+          docker-images: false
+          google-cloud-sdk: false
+          heroku: false
+          llvm: false
+          opt: false
+          powershell: false
+          python: false
+          ruby: false
+          rust: false
+          tool-cache: false
+          usrlocal: false
+          usrmisc: false
+          varcache: false
 
-    - name: Checkout
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # tag=v5.0.0
-      with:
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # tag=v5.0.0
+        with:
+          fetch-depth: 0
 
-    - name: Setup Go
-      uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # tag=v6.0.0
-      with:
-        go-version: v1.24.5
+      - name: Setup Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # tag=v6.0.0
+        with:
+          go-version: v1.24.8
 
-    - name: Delete non-semver tags
-      run: 'git tag -d $(git tag -l | grep -v "^v")'
+      - name: Delete non-semver tags
+        run: 'git tag -d $(git tag -l | grep -v "^v")'
 
-    - name: Set LDFLAGS
-      run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
+      - name: Set LDFLAGS
+        run: echo LDFLAGS="$(make ldflags)" >> $GITHUB_ENV
 
-    - name: Run GoReleaser on tag
-      if: github.event_name != 'pull_request'
-      uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # tag=v6.4.0
-      with:
-        distribution: goreleaser
-        version: '~> v2'
-        args: release --timeout 60m
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
+      - name: Run GoReleaser on tag
+        if: github.event_name != 'pull_request'
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # tag=v6.4.0
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --timeout 60m
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
 
-    - name: Run GoReleaser on pull request
-      if: github.event_name == 'pull_request'
-      uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # tag=v6.4.0
-      with:
-        distribution: goreleaser
-        version: '~> v2'
-        args: release --timeout 60m --snapshot
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
+      - name: Run GoReleaser on pull request
+        if: github.event_name == 'pull_request'
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # tag=v6.4.0
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --timeout 60m --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KREW_GITHUB_TOKEN: ${{ secrets.KREW_GITHUB_TOKEN }}
 
-    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # tag=v4.6.2
-      if: ${{ always() }}
-      with:
-        name: binaries
-        path: dist/*.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # tag=v4.6.2
+        if: ${{ always() }}
+        with:
+          name: binaries
+          path: dist/*.tar.gz

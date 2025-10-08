@@ -34,13 +34,13 @@ jobs:
 
       - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # tag=v6.0.0
         with:
-          go-version: v1.24.5
+          go-version: v1.24.8
           cache: true
 
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c #tag=v6.0.0
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          python-version: "3.10"
+          cache: "pip"
 
       # mike does not support giving CLI flags for mkdocs, but we also do not
       # want to permanently enable strict mode, so here we enable it just for this
