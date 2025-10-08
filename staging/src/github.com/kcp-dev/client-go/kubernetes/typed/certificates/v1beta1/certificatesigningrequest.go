@@ -21,13 +21,13 @@ package v1beta1
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apicertificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // CertificateSigningRequestsClusterGetter has a method to return a CertificateSigningRequestClusterInterface.

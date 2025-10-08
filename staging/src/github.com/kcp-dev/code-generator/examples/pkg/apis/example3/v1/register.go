@@ -17,11 +17,11 @@ limitations under the License.
 package v1
 
 import (
+	example "acme.corp/pkg/apis/example3"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	example "acme.corp/pkg/apis/example3"
 )
 
 // SchemeGroupVersion is group version used to register these objects.

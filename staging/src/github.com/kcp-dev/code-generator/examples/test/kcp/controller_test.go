@@ -21,17 +21,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
+	examplev1 "acme.corp/pkg/apis/example/v1"
+	"acme.corp/pkg/kcp/clients/clientset/versioned/fake"
+	informers "acme.corp/pkg/kcp/clients/informers/externalversions"
 
-	clienttesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	examplev1 "acme.corp/pkg/apis/example/v1"
-	"acme.corp/pkg/kcp/clients/clientset/versioned/fake"
-	informers "acme.corp/pkg/kcp/clients/informers/externalversions"
+	clienttesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // TestFakeClient demonstrates how to use a fake client with SharedInformerFactory in tests.

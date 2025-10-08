@@ -22,10 +22,6 @@ import (
 	context "context"
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	apistoragev1alpha1 "k8s.io/api/storage/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -34,9 +30,12 @@ import (
 	listersstoragev1alpha1 "k8s.io/client-go/listers/storage/v1alpha1"
 	cache "k8s.io/client-go/tools/cache"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
 	kcpkubernetes "github.com/kcp-dev/client-go/kubernetes"
 	kcpv1alpha1 "github.com/kcp-dev/client-go/listers/storage/v1alpha1"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 // VolumeAttributesClassClusterInformer provides access to a shared informer and lister for

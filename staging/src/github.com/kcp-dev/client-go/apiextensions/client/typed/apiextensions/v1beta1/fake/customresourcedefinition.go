@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/applyconfiguration/apiextensions/v1beta1"
 	typedapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
@@ -28,6 +26,7 @@ import (
 	typedkcpapiextensionsv1beta1 "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1beta1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // customResourceDefinitionClusterClient implements CustomResourceDefinitionClusterInterface

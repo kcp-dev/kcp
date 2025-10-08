@@ -22,15 +22,15 @@ import (
 	context "context"
 	time "time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	watch "k8s.io/apimachinery/pkg/watch"
-	cache "k8s.io/client-go/tools/cache"
-
 	apissecondexamplev1 "acme.corp/pkg/apis/secondexample/v1"
 	versioned "acme.corp/pkg/generated/clientset/versioned"
 	internalinterfaces "acme.corp/pkg/generated/informers/externalversions/internalinterfaces"
 	secondexamplev1 "acme.corp/pkg/generated/listers/secondexample/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	watch "k8s.io/apimachinery/pkg/watch"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterTestTypeInformer provides access to a shared informer and lister for

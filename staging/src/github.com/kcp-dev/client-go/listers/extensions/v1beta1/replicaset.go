@@ -19,14 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersextensionsv1beta1 "k8s.io/client-go/listers/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ReplicaSetClusterLister helps list ReplicaSets across all workspaces,

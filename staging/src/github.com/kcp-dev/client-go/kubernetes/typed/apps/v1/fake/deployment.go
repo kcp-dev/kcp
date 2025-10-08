@@ -23,8 +23,6 @@ import (
 	json "encoding/json"
 	fmt "fmt"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +34,7 @@ import (
 	typedkcpappsv1 "github.com/kcp-dev/client-go/kubernetes/typed/apps/v1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // deploymentClusterClient implements DeploymentClusterInterface

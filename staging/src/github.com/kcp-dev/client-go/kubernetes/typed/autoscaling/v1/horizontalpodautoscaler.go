@@ -21,13 +21,13 @@ package v1
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	typedautoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // HorizontalPodAutoscalersClusterGetter has a method to return a HorizontalPodAutoscalerClusterInterface.

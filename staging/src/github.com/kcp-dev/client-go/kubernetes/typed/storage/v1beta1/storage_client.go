@@ -21,14 +21,13 @@ package v1beta1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apistoragev1beta1 "k8s.io/api/storage/v1beta1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type StorageV1beta1ClusterInterface interface {

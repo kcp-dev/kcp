@@ -123,9 +123,9 @@ linters:
           - staticcheck
         text: QF1008 # "could remove embedded field" often impedes readability and clarity
     paths:
-      - third_party$
-      - builtin$
-      - examples$
+      - third_party
+      # TODO(embik): this is a blanket ignore specifically because of github.com/dev-kcp/client-go.
+      - listers
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

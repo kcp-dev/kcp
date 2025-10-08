@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // DeletionHandlingMetaClusterNamespaceKeyFunc checks for

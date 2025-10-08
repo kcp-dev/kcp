@@ -21,15 +21,15 @@ import (
 	"testing"
 	"time"
 
+	examplev1 "acme.corp/pkg/apis/example/v1"
+	"acme.corp/pkg/generated/clientset/versioned/fake"
+	informers "acme.corp/pkg/generated/informers/externalversions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
-	examplev1 "acme.corp/pkg/apis/example/v1"
-	"acme.corp/pkg/generated/clientset/versioned/fake"
-	informers "acme.corp/pkg/generated/informers/externalversions"
 )
 
 // TestFakeClient demonstrates how to use a fake client with SharedInformerFactory in tests.

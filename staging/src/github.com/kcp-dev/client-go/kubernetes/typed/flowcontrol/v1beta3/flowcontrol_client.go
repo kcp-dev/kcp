@@ -21,14 +21,13 @@ package v1beta3
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiflowcontrolv1beta3 "k8s.io/api/flowcontrol/v1beta3"
 	flowcontrolv1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type FlowcontrolV1beta3ClusterInterface interface {

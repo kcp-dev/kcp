@@ -21,14 +21,13 @@ package v1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type AdmissionregistrationV1ClusterInterface interface {

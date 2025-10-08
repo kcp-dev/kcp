@@ -21,14 +21,13 @@ package v1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiautoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type AutoscalingV1ClusterInterface interface {

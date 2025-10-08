@@ -21,13 +21,13 @@ package v1alpha1
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiapiserverinternalv1alpha1 "k8s.io/api/apiserverinternal/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	apiserverinternalv1alpha1 "k8s.io/client-go/kubernetes/typed/apiserverinternal/v1alpha1"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // StorageVersionsClusterGetter has a method to return a StorageVersionClusterInterface.

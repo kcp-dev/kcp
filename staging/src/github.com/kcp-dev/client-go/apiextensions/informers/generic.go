@@ -22,14 +22,14 @@ import (
 	context "context"
 	fmt "fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	externalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 type GenericClusterInformer interface {

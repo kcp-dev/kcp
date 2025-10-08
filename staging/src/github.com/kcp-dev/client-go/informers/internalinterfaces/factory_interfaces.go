@@ -21,11 +21,10 @@ package internalinterfaces
 import (
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetes "github.com/kcp-dev/client-go/kubernetes"
 )
 

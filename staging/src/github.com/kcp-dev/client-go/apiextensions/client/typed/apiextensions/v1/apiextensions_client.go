@@ -21,14 +21,13 @@ package v1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/apiextensions/client/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ApiextensionsV1ClusterInterface interface {

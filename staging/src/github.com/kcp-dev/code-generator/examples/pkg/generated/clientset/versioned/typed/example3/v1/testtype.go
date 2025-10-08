@@ -21,15 +21,15 @@ package v1
 import (
 	context "context"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	gentype "k8s.io/client-go/gentype"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	example3v1 "acme.corp/pkg/apis/example3/v1"
 	applyconfigurationsexample3v1 "acme.corp/pkg/generated/applyconfigurations/example3/v1"
 	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // TestTypesGetter has a method to return a TestTypeInterface.

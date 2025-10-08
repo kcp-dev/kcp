@@ -19,14 +19,13 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	typedexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1"
 	typedkcpexamplev1 "acme.corp/pkg/kcp/clients/clientset/versioned/typed/example/v1"
+
+	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // withoutVerbTypeClusterClient implements WithoutVerbTypeClusterInterface

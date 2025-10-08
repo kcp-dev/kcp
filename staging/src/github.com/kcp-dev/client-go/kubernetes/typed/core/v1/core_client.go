@@ -21,14 +21,13 @@ package v1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apicorev1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type CoreV1ClusterInterface interface {

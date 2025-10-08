@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	gentype "k8s.io/client-go/gentype"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
+	gentype "k8s.io/client-go/gentype"
 )
 
 // WithoutVerbTypesGetter has a method to return a WithoutVerbTypeInterface.

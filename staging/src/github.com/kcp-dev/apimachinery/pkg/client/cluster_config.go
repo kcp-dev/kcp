@@ -17,9 +17,9 @@ limitations under the License.
 package client
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // SetCluster modifies the config host path to include the

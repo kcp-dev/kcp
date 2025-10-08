@@ -19,13 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-
 	applyconfigurations "acme.corp/pkg/generated/applyconfigurations"
 	clientset "acme.corp/pkg/generated/clientset/versioned"
 	examplev1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1"
@@ -54,6 +47,13 @@ import (
 	kcpfakeexistinginterfacesv1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/existinginterfaces/v1/fake"
 	kcpsecondexamplev1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/secondexample/v1"
 	kcpfakesecondexamplev1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/secondexample/v1/fake"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
+
+	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

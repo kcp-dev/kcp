@@ -19,14 +19,13 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	authorizationv1beta1 "k8s.io/api/authorization/v1beta1"
 	typedauthorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 
 	typedkcpauthorizationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/authorization/v1beta1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // selfSubjectRulesReviewClusterClient implements SelfSubjectRulesReviewClusterInterface

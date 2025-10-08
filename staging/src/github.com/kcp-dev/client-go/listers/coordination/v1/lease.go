@@ -19,14 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listerscoordinationv1 "k8s.io/client-go/listers/coordination/v1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // LeaseClusterLister helps list Leases across all workspaces,

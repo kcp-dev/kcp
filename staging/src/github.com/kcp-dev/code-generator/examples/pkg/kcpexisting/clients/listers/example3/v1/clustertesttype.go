@@ -19,14 +19,14 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
+	example3v1 "acme.corp/pkg/apis/example3/v1"
+	listersexample3v1 "acme.corp/pkg/generated/listers/example3/v1"
 
-	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	example3v1 "acme.corp/pkg/apis/example3/v1"
-	listersexample3v1 "acme.corp/pkg/generated/listers/example3/v1"
+	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterTestTypeClusterLister helps list ClusterTestTypes across all workspaces,

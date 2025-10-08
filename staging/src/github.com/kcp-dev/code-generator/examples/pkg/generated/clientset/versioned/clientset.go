@@ -22,10 +22,6 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	discovery "k8s.io/client-go/discovery"
-	rest "k8s.io/client-go/rest"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
-
 	examplev1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1"
 	examplev1alpha1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1alpha1"
 	examplev1beta1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1beta1"
@@ -34,6 +30,10 @@ import (
 	exampledashedv1 "acme.corp/pkg/generated/clientset/versioned/typed/exampledashed/v1"
 	existinginterfacesv1 "acme.corp/pkg/generated/clientset/versioned/typed/existinginterfaces/v1"
 	secondexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/secondexample/v1"
+
+	discovery "k8s.io/client-go/discovery"
+	rest "k8s.io/client-go/rest"
+	flowcontrol "k8s.io/client-go/util/flowcontrol"
 )
 
 type Interface interface {

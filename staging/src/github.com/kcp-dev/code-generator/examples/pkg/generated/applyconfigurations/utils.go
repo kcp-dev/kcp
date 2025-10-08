@@ -19,10 +19,6 @@ limitations under the License.
 package applyconfigurations
 
 import (
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	testing "k8s.io/client-go/testing"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	v1alpha1 "acme.corp/pkg/apis/example/v1alpha1"
 	v1beta1 "acme.corp/pkg/apis/example/v1beta1"
@@ -40,6 +36,10 @@ import (
 	applyconfigurationsexistinginterfacesv1 "acme.corp/pkg/generated/applyconfigurations/existinginterfaces/v1"
 	internal "acme.corp/pkg/generated/applyconfigurations/internal"
 	applyconfigurationssecondexamplev1 "acme.corp/pkg/generated/applyconfigurations/secondexample/v1"
+
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	testing "k8s.io/client-go/testing"
 )
 
 // ForKind returns an apply configuration type for the given GroupVersionKind, or nil if no

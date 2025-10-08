@@ -19,13 +19,14 @@ package cache
 import (
 	"testing"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func newUnstructured(cluster, namespace, name string, labels labels.Set) *unstructured.Unstructured {

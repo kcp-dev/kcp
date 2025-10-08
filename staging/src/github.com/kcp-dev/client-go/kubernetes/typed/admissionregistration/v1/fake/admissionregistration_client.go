@@ -19,13 +19,12 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	rest "k8s.io/client-go/rest"
 
 	kcpadmissionregistrationv1 "github.com/kcp-dev/client-go/kubernetes/typed/admissionregistration/v1"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ kcpadmissionregistrationv1.AdmissionregistrationV1ClusterInterface = (*AdmissionregistrationV1ClusterClient)(nil)

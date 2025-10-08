@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	nodev1beta1 "k8s.io/api/node/v1beta1"
 	v1beta1 "k8s.io/client-go/applyconfigurations/node/v1beta1"
 	typednodev1beta1 "k8s.io/client-go/kubernetes/typed/node/v1beta1"
@@ -28,6 +26,7 @@ import (
 	typedkcpnodev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/node/v1beta1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // runtimeClassClusterClient implements RuntimeClassClusterInterface

@@ -19,10 +19,10 @@ limitations under the License.
 package fake
 
 import (
+	v2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
+
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-
-	v2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
 )
 
 type FakeExampleV2 struct {

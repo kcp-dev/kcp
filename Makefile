@@ -143,7 +143,8 @@ $(KCP_APIGEN_GEN):
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 	echo "Linting root module..."; \
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
-	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+	# TODO(embik): stop skipping lint for staging repositories
+	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,' | grep -v staging); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Linting $$MOD module..."; \
 			(cd $$MOD && $(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m); \
@@ -251,9 +252,10 @@ $(TOOLS_DIR)/verify_boilerplate.py:
 	curl --fail --retry 3 -L -o $(TOOLS_DIR)/verify_boilerplate.py https://raw.githubusercontent.com/kubernetes/repo-infra/201dcad9616c117927232ee0bc499ff38a27023e/hack/verify_boilerplate.py
 	chmod +x $(TOOLS_DIR)/verify_boilerplate.py
 
+
 .PHONY: verify-boilerplate
 verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py ## Verify boilerplate
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer
+	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer --skip staging/src
 
 ifdef ARTIFACT_DIR
 GOTESTSUM_ARGS += --junitfile=$(ARTIFACT_DIR)/junit.xml

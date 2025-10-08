@@ -22,10 +22,6 @@ import (
 	context "context"
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	apisapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1"
 	listersapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1"
@@ -34,9 +30,12 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
 	kcpclient "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/apiextensions/informers/internalinterfaces"
 	kcpv1beta1 "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1beta1"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 // CustomResourceDefinitionClusterInformer provides access to a shared informer and lister for

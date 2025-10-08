@@ -19,12 +19,12 @@ package metadata
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/metadata"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ClusterInterface interface {

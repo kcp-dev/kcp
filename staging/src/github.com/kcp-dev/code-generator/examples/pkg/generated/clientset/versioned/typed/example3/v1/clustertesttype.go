@@ -21,14 +21,14 @@ package v1
 import (
 	context "context"
 
+	example3v1 "acme.corp/pkg/apis/example3/v1"
+	applyconfigurationsexample3v1 "acme.corp/pkg/generated/applyconfigurations/example3/v1"
+	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-
-	example3v1 "acme.corp/pkg/apis/example3/v1"
-	applyconfigurationsexample3v1 "acme.corp/pkg/generated/applyconfigurations/example3/v1"
-	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
 )
 
 // ClusterTestTypesGetter has a method to return a ClusterTestTypeInterface.

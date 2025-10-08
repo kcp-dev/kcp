@@ -17,13 +17,13 @@ limitations under the License.
 package metadatalister
 
 import (
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/metadata/metadatalister"
 	"k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // NewRuntimeObjectShim returns a new shim for ClusterLister.

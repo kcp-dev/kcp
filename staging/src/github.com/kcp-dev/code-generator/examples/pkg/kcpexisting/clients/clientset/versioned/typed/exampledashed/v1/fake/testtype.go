@@ -21,17 +21,17 @@ package fake
 import (
 	context "context"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	exampledashedv1 "acme.corp/pkg/apis/exampledashed/v1"
 	v1 "acme.corp/pkg/generated/applyconfigurations/exampledashed/v1"
 	typedexampledashedv1 "acme.corp/pkg/generated/clientset/versioned/typed/exampledashed/v1"
 	typedkcpexampledashedv1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/exampledashed/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // testTypeClusterClient implements TestTypeClusterInterface

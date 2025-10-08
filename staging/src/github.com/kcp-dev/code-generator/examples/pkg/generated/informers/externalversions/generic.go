@@ -21,9 +21,6 @@ package externalversions
 import (
 	fmt "fmt"
 
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	cache "k8s.io/client-go/tools/cache"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	v1alpha1 "acme.corp/pkg/apis/example/v1alpha1"
 	v1beta1 "acme.corp/pkg/apis/example/v1beta1"
@@ -32,6 +29,9 @@ import (
 	v1 "acme.corp/pkg/apis/exampledashed/v1"
 	existinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
 	secondexamplev1 "acme.corp/pkg/apis/secondexample/v1"
+
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other

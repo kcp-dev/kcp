@@ -19,14 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersnetworkingv1beta1 "k8s.io/client-go/listers/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // IngressClassClusterLister helps list IngressClasses across all workspaces,

@@ -22,20 +22,20 @@ import (
 	context "context"
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
+	apisexistinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
+	clientsetversioned "acme.corp/pkg/generated/clientset/versioned"
+	versioned "acme.corp/pkg/kcp/clients/clientset/versioned"
+	internalinterfaces "acme.corp/pkg/kcp/clients/informers/externalversions/internalinterfaces"
+	existinginterfacesv1 "acme.corp/pkg/kcp/clients/listers/existinginterfaces/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 
-	apisexistinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
-	clientsetversioned "acme.corp/pkg/generated/clientset/versioned"
-	versioned "acme.corp/pkg/kcp/clients/clientset/versioned"
-	internalinterfaces "acme.corp/pkg/kcp/clients/informers/externalversions/internalinterfaces"
-	existinginterfacesv1 "acme.corp/pkg/kcp/clients/listers/existinginterfaces/v1"
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterTestTypeClusterInformer provides access to a shared informer and lister for

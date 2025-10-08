@@ -19,14 +19,13 @@ limitations under the License.
 package v2beta1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersautoscalingv2beta1 "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // HorizontalPodAutoscalerClusterLister helps list HorizontalPodAutoscalers across all workspaces,

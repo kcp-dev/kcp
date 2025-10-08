@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
+	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
+
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
 
 // SubjectAccessReviewsClusterGetter has a method to return a SubjectAccessReviewClusterInterface.

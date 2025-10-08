@@ -19,13 +19,12 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	rest "k8s.io/client-go/rest"
 
 	kcpbatchv1 "github.com/kcp-dev/client-go/kubernetes/typed/batch/v1"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ kcpbatchv1.BatchV1ClusterInterface = (*BatchV1ClusterClient)(nil)

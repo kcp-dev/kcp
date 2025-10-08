@@ -21,10 +21,6 @@ import (
 	"sync"
 	"time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	thirdpartyinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,9 +30,12 @@ import (
 	upstreaminformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	thirdpartyinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamiclisters "github.com/kcp-dev/client-go/dynamic/dynamiclister"
 	kcpinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // NewDynamicSharedInformerFactory constructs a new instance of dynamicSharedInformerFactory for all namespaces.

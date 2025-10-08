@@ -19,11 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	gentype "k8s.io/client-go/gentype"
-
 	v1 "acme.corp/pkg/apis/example3/v1"
 	example3v1 "acme.corp/pkg/generated/applyconfigurations/example3/v1"
 	typedexample3v1 "acme.corp/pkg/generated/clientset/versioned/typed/example3/v1"
+
+	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeClusterTestTypes implements ClusterTestTypeInterface

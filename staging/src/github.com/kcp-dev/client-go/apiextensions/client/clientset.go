@@ -22,16 +22,15 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	apiextensionsv1 "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
 	apiextensionsv1beta1 "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1beta1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ClusterInterface interface {

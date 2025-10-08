@@ -214,3 +214,9 @@ replace (
 	k8s.io/sample-cli-plugin => github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-cli-plugin v0.0.0-20251003054701-d4b0368d53f0
 	k8s.io/sample-controller => github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-controller v0.0.0-20251003054701-d4b0368d53f0
 )
+
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ./staging/src/github.com/kcp-dev/apimachinery
+	github.com/kcp-dev/client-go => ./staging/src/github.com/kcp-dev/client-go
+	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
+)

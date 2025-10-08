@@ -21,14 +21,14 @@ package v2
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	rest "k8s.io/client-go/rest"
-
 	apisexamplev2 "acme.corp/pkg/apis/example/v2"
 	examplev2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
 	scheme "acme.corp/pkg/kcp/clients/clientset/versioned/scheme"
+
+	rest "k8s.io/client-go/rest"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ExampleV2ClusterInterface interface {

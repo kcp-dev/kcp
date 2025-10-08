@@ -21,13 +21,13 @@ package v1alpha1
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apinodev1alpha1 "k8s.io/api/node/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // RuntimeClassesClusterGetter has a method to return a RuntimeClassClusterInterface.

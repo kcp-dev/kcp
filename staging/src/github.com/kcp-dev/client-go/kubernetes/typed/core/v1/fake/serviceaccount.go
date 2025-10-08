@@ -21,8 +21,6 @@ package fake
 import (
 	context "context"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +30,7 @@ import (
 	typedkcpcorev1 "github.com/kcp-dev/client-go/kubernetes/typed/core/v1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // serviceAccountClusterClient implements ServiceAccountClusterInterface

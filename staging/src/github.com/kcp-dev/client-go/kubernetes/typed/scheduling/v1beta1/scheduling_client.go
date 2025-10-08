@@ -21,14 +21,13 @@ package v1beta1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apischedulingv1beta1 "k8s.io/api/scheduling/v1beta1"
 	schedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type SchedulingV1beta1ClusterInterface interface {

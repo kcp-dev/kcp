@@ -19,12 +19,6 @@ limitations under the License.
 package scheme
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	examplev1alpha1 "acme.corp/pkg/apis/example/v1alpha1"
 	examplev1beta1 "acme.corp/pkg/apis/example/v1beta1"
@@ -33,6 +27,12 @@ import (
 	exampledashedv1 "acme.corp/pkg/apis/exampledashed/v1"
 	existinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
 	secondexamplev1 "acme.corp/pkg/apis/secondexample/v1"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 var Scheme = runtime.NewScheme()

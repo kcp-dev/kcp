@@ -21,14 +21,13 @@ package v1beta1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apibatchv1beta1 "k8s.io/api/batch/v1beta1"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type BatchV1beta1ClusterInterface interface {

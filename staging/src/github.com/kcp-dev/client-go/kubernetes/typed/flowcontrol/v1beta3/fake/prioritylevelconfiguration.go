@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	flowcontrolv1beta3 "k8s.io/api/flowcontrol/v1beta3"
 	v1beta3 "k8s.io/client-go/applyconfigurations/flowcontrol/v1beta3"
 	typedflowcontrolv1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
@@ -28,6 +26,7 @@ import (
 	typedkcpflowcontrolv1beta3 "github.com/kcp-dev/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // priorityLevelConfigurationClusterClient implements PriorityLevelConfigurationClusterInterface

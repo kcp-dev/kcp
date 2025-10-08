@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/client-go/applyconfigurations/autoscaling/v1"
 	typedautoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
@@ -28,6 +26,7 @@ import (
 	typedkcpautoscalingv1 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // horizontalPodAutoscalerClusterClient implements HorizontalPodAutoscalerClusterInterface

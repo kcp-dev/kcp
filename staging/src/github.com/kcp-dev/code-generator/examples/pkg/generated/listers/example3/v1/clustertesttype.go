@@ -19,11 +19,11 @@ limitations under the License.
 package v1
 
 import (
+	example3v1 "acme.corp/pkg/apis/example3/v1"
+
 	labels "k8s.io/apimachinery/pkg/labels"
 	listers "k8s.io/client-go/listers"
 	cache "k8s.io/client-go/tools/cache"
-
-	example3v1 "acme.corp/pkg/apis/example3/v1"
 )
 
 // ClusterTestTypeLister helps list ClusterTestTypes.

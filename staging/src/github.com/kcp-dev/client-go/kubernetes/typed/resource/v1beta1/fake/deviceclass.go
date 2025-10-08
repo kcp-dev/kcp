@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	v1beta1 "k8s.io/client-go/applyconfigurations/resource/v1beta1"
 	typedresourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
@@ -28,6 +26,7 @@ import (
 	typedkcpresourcev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // deviceClassClusterClient implements DeviceClassClusterInterface

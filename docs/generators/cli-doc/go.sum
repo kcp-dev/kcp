@@ -1,4 +1,4 @@
-eel.dev/expr v0.19.1 h1:NciYrtDRIR0lNCnH1LFJegdjspNx9fI59O7TWcua/W4=
+cel.dev/expr v0.19.1 h1:NciYrtDRIR0lNCnH1LFJegdjspNx9fI59O7TWcua/W4=
 cel.dev/expr v0.19.1/go.mod h1:MrpN08Q+lEBs+bGYdLxxHkZoUSsCp0nSKTs0nTymJgw=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25UVaW/CKtUDjefjrs0SPonmDGUVOYP0=
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
@@ -61,10 +61,6 @@ github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8Hm
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250512171935-ebb573a40077 h1:lDi9nZ75ypmRJwDFXUN70Cdu8+HxAjPU1kcnn+l4MvI=
-github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250512171935-ebb573a40077/go.mod h1:jnMZxVnCuKlkIXc4J1Qtmy1Lyo171CDF/RQhNAo0tvA=
-github.com/kcp-dev/client-go v0.0.0-20250707095244-decc4df45adb h1:PTfc4FGjz1Dx+6epz92G4RJj3BYrqg0+XYTiGJQR1cc=
-github.com/kcp-dev/client-go v0.0.0-20250707095244-decc4df45adb/go.mod h1:iv3cC1ShwBGzFfNjB+6KWvZviWPe6+MbRlQ7SZoZPFc=
 github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51 h1:l38RDS+VUMx9etvyaCgJIZa4nM7FaNevNubWN0kDZY4=
 github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51/go.mod h1:rF1jfvUfPjFXs+HV/LN1BtPzAz1bfjJOwVa+hAVfroQ=
 github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b h1:2LGrXvY9sc4l5yjKIbMZ86GEou7NyrHhA4qBPaeFfxs=

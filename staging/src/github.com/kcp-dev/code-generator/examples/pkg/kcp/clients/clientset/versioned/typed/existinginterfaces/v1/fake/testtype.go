@@ -19,15 +19,14 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-
 	existinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
 	v1 "acme.corp/pkg/generated/applyconfigurations/existinginterfaces/v1"
 	typedexistinginterfacesv1 "acme.corp/pkg/generated/clientset/versioned/typed/existinginterfaces/v1"
 	typedkcpexistinginterfacesv1 "acme.corp/pkg/kcp/clients/clientset/versioned/typed/existinginterfaces/v1"
+
+	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // testTypeClusterClient implements TestTypeClusterInterface

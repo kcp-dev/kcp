@@ -21,13 +21,13 @@ package v1alpha1
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apirbacv1alpha1 "k8s.io/api/rbac/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterRolesClusterGetter has a method to return a ClusterRoleClusterInterface.

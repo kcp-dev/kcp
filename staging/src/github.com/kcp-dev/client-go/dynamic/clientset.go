@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,7 +29,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	thirdpartydynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ ClusterInterface = (*ClusterClientset)(nil)

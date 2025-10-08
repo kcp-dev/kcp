@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	resourcev1beta2 "k8s.io/api/resource/v1beta2"
 	v1beta2 "k8s.io/client-go/applyconfigurations/resource/v1beta2"
 	typedresourcev1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
@@ -28,6 +26,7 @@ import (
 	typedkcpresourcev1beta2 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta2"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // resourceClaimClusterClient implements ResourceClaimClusterInterface

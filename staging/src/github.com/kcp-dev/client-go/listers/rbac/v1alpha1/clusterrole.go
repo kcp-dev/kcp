@@ -19,14 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	rbacv1alpha1 "k8s.io/api/rbac/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersrbacv1alpha1 "k8s.io/client-go/listers/rbac/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterRoleClusterLister helps list ClusterRoles across all workspaces,

@@ -19,14 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	flowcontrolv1beta1 "k8s.io/api/flowcontrol/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersflowcontrolv1beta1 "k8s.io/client-go/listers/flowcontrol/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // PriorityLevelConfigurationClusterLister helps list PriorityLevelConfigurations across all workspaces,

@@ -24,8 +24,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
+	"sigs.k8s.io/yaml"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -40,8 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/watch"
 	restclient "k8s.io/client-go/rest"
-	"sigs.k8s.io/structured-merge-diff/v4/typed"
-	"sigs.k8s.io/yaml"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ClusterNamespacedName struct {
