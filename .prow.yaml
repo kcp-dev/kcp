@@ -177,6 +177,8 @@ presubmits:
               value: '2'
             - name: E2E_PARALLELISM
               value: '3'
+            - name: TEST_ARGS
+              value: '-timeout 20m'
           resources:
             requests:
               memory: 6Gi
