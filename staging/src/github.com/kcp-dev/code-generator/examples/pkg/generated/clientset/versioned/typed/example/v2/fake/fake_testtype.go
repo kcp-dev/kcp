@@ -19,11 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	gentype "k8s.io/client-go/gentype"
-
 	v2 "acme.corp/pkg/apis/example/v2"
 	examplev2 "acme.corp/pkg/generated/applyconfigurations/example/v2"
 	typedexamplev2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
+
+	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeTestTypes implements TestTypeInterface

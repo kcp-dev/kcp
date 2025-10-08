@@ -19,14 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersnodev1 "k8s.io/client-go/listers/node/v1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // RuntimeClassClusterLister helps list RuntimeClasses across all workspaces,

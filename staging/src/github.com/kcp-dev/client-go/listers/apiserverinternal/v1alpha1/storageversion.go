@@ -19,14 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiserverinternalv1alpha1 "k8s.io/api/apiserverinternal/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersapiserverinternalv1alpha1 "k8s.io/client-go/listers/apiserverinternal/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // StorageVersionClusterLister helps list StorageVersions across all workspaces,

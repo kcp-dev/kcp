@@ -19,14 +19,14 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
+	examplev1 "acme.corp/pkg/apis/example/v1"
+	listersexamplev1 "acme.corp/pkg/generated/listers/example/v1"
 
-	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	examplev1 "acme.corp/pkg/apis/example/v1"
-	listersexamplev1 "acme.corp/pkg/generated/listers/example/v1"
+	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // WithoutVerbTypeClusterLister helps list WithoutVerbTypes across all workspaces,

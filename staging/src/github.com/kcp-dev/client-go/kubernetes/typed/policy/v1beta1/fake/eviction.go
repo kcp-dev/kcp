@@ -19,14 +19,13 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	typedpolicyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 
 	typedkcppolicyv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/policy/v1beta1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // evictionClusterClient implements EvictionClusterInterface

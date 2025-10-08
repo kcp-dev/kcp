@@ -19,13 +19,12 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	flowcontrolv1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	rest "k8s.io/client-go/rest"
 
 	kcpflowcontrolv1beta3 "github.com/kcp-dev/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ kcpflowcontrolv1beta3.FlowcontrolV1beta3ClusterInterface = (*FlowcontrolV1beta3ClusterClient)(nil)

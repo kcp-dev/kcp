@@ -22,9 +22,6 @@ import (
 	context "context"
 	fmt "fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	v1 "k8s.io/api/admissionregistration/v1"
 	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	v1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -78,6 +75,9 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoinformers "k8s.io/client-go/informers"
 	cache "k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 type GenericClusterInformer interface {

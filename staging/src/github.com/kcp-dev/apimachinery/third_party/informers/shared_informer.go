@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -39,6 +37,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // Optional configuration options for [SharedInformer.AddEventHandlerWithOptions].

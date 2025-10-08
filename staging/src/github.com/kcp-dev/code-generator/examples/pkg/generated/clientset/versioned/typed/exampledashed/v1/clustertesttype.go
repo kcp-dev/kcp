@@ -21,14 +21,14 @@ package v1
 import (
 	context "context"
 
+	exampledashedv1 "acme.corp/pkg/apis/exampledashed/v1"
+	applyconfigurationsexampledashedv1 "acme.corp/pkg/generated/applyconfigurations/exampledashed/v1"
+	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-
-	exampledashedv1 "acme.corp/pkg/apis/exampledashed/v1"
-	applyconfigurationsexampledashedv1 "acme.corp/pkg/generated/applyconfigurations/exampledashed/v1"
-	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
 )
 
 // ClusterTestTypesGetter has a method to return a ClusterTestTypeInterface.

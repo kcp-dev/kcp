@@ -19,14 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	networkingv1alpha1 "k8s.io/api/networking/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersnetworkingv1alpha1 "k8s.io/client-go/listers/networking/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // IPAddressClusterLister helps list IPAddresses across all workspaces,

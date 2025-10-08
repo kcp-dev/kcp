@@ -23,8 +23,6 @@ import (
 	json "encoding/json"
 	fmt "fmt"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,6 +32,7 @@ import (
 	typedkcpappsv1beta2 "github.com/kcp-dev/client-go/kubernetes/typed/apps/v1beta2"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // statefulSetClusterClient implements StatefulSetClusterInterface

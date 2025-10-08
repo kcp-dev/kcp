@@ -19,14 +19,13 @@ limitations under the License.
 package v1beta2
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	"k8s.io/apimachinery/pkg/labels"
 	listersappsv1beta2 "k8s.io/client-go/listers/apps/v1beta2"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ControllerRevisionClusterLister helps list ControllerRevisions across all workspaces,

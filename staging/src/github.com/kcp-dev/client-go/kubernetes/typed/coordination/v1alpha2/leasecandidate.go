@@ -21,13 +21,13 @@ package v1alpha2
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	coordinationv1alpha2 "k8s.io/api/coordination/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	typedcoordinationv1alpha2 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha2"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // LeaseCandidatesClusterGetter has a method to return a LeaseCandidateClusterInterface.

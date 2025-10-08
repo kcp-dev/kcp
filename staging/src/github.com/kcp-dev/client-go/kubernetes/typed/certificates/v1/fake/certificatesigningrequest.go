@@ -21,8 +21,6 @@ package fake
 import (
 	context "context"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	certificatesv1 "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/applyconfigurations/certificates/v1"
@@ -31,6 +29,7 @@ import (
 	typedkcpcertificatesv1 "github.com/kcp-dev/client-go/kubernetes/typed/certificates/v1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // certificateSigningRequestClusterClient implements CertificateSigningRequestClusterInterface

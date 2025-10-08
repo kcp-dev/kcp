@@ -19,13 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/discovery"
-	fakediscovery "k8s.io/client-go/discovery/fake"
-	"k8s.io/client-go/testing"
-
 	applyconfigurations "acme.corp/pkg/generated/applyconfigurations"
 	clientset "acme.corp/pkg/generated/clientset/versioned"
 	examplev1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1"
@@ -44,6 +37,13 @@ import (
 	fakeexistinginterfacesv1 "acme.corp/pkg/generated/clientset/versioned/typed/existinginterfaces/v1/fake"
 	secondexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/secondexample/v1"
 	fakesecondexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/secondexample/v1/fake"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/discovery"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/testing"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

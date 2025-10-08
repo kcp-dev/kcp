@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	resourcev1alpha3 "k8s.io/api/resource/v1alpha3"
 	v1alpha3 "k8s.io/client-go/applyconfigurations/resource/v1alpha3"
 	typedresourcev1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
@@ -28,6 +26,7 @@ import (
 	typedkcpresourcev1alpha3 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1alpha3"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // resourceSliceClusterClient implements ResourceSliceClusterInterface

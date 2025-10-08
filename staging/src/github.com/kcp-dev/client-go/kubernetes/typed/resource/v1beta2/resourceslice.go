@@ -21,13 +21,13 @@ package v1beta2
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apiresourcev1beta2 "k8s.io/api/resource/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 	resourcev1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ResourceSlicesClusterGetter has a method to return a ResourceSliceClusterInterface.

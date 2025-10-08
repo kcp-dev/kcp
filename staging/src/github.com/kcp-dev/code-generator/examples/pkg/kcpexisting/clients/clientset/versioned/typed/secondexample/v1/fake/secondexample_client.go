@@ -19,13 +19,13 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
-	rest "k8s.io/client-go/rest"
-
 	secondexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/secondexample/v1"
 	kcpsecondexamplev1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/secondexample/v1"
+
+	rest "k8s.io/client-go/rest"
+
+	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ kcpsecondexamplev1.SecondexampleV1ClusterInterface = (*SecondexampleV1ClusterClient)(nil)

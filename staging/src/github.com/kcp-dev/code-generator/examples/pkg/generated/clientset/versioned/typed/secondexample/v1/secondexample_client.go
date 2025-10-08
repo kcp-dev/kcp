@@ -21,10 +21,10 @@ package v1
 import (
 	http "net/http"
 
-	rest "k8s.io/client-go/rest"
-
 	secondexamplev1 "acme.corp/pkg/apis/secondexample/v1"
 	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
+	rest "k8s.io/client-go/rest"
 )
 
 type SecondexampleV1Interface interface {

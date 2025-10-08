@@ -21,14 +21,14 @@ package fake
 import (
 	context "context"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gentype "k8s.io/client-go/gentype"
-	testing "k8s.io/client-go/testing"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	v1 "acme.corp/pkg/apis/example3/v1"
 	example3v1 "acme.corp/pkg/generated/applyconfigurations/example3/v1"
 	typedexample3v1 "acme.corp/pkg/generated/clientset/versioned/typed/example3/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gentype "k8s.io/client-go/gentype"
+	testing "k8s.io/client-go/testing"
 )
 
 // fakeTestTypes implements TestTypeInterface

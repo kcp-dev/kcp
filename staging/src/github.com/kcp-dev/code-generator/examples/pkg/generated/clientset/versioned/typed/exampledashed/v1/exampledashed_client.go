@@ -21,10 +21,10 @@ package v1
 import (
 	http "net/http"
 
-	rest "k8s.io/client-go/rest"
-
 	exampledashedv1 "acme.corp/pkg/apis/exampledashed/v1"
 	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
+	rest "k8s.io/client-go/rest"
 )
 
 type ExampleDashedV1Interface interface {

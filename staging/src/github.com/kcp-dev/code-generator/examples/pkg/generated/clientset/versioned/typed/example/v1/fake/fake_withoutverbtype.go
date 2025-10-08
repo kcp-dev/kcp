@@ -19,10 +19,10 @@ limitations under the License.
 package fake
 
 import (
-	gentype "k8s.io/client-go/gentype"
-
 	v1 "acme.corp/pkg/apis/example/v1"
 	examplev1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1"
+
+	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeWithoutVerbTypes implements WithoutVerbTypeInterface

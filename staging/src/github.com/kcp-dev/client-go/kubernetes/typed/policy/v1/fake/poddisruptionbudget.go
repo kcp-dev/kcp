@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	policyv1 "k8s.io/api/policy/v1"
 	v1 "k8s.io/client-go/applyconfigurations/policy/v1"
 	typedpolicyv1 "k8s.io/client-go/kubernetes/typed/policy/v1"
@@ -28,6 +26,7 @@ import (
 	typedkcppolicyv1 "github.com/kcp-dev/client-go/kubernetes/typed/policy/v1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // podDisruptionBudgetClusterClient implements PodDisruptionBudgetClusterInterface

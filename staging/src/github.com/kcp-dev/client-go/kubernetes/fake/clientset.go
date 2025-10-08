@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	applyconfigurations "k8s.io/client-go/applyconfigurations"
 	"k8s.io/client-go/discovery"
@@ -195,6 +193,7 @@ import (
 	kcpfakestoragemigrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1/fake"
 	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

@@ -17,11 +17,11 @@ limitations under the License.
 package testing
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	restclient "k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type GenericReactor[R any] interface {

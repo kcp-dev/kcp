@@ -19,14 +19,13 @@ limitations under the License.
 package v1beta3
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	flowcontrolv1beta3 "k8s.io/api/flowcontrol/v1beta3"
 	"k8s.io/apimachinery/pkg/labels"
 	listersflowcontrolv1beta3 "k8s.io/client-go/listers/flowcontrol/v1beta3"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // FlowSchemaClusterLister helps list FlowSchemas across all workspaces,

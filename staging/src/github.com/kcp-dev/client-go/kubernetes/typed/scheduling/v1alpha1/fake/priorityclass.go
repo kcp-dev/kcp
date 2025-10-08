@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	schedulingv1alpha1 "k8s.io/api/scheduling/v1alpha1"
 	v1alpha1 "k8s.io/client-go/applyconfigurations/scheduling/v1alpha1"
 	typedschedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
@@ -28,6 +26,7 @@ import (
 	typedkcpschedulingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // priorityClassClusterClient implements PriorityClassClusterInterface

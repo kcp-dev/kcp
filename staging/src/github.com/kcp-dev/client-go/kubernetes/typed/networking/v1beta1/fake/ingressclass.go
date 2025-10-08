@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	v1beta1 "k8s.io/client-go/applyconfigurations/networking/v1beta1"
 	typednetworkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
@@ -28,6 +26,7 @@ import (
 	typedkcpnetworkingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1beta1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ingressClassClusterClient implements IngressClassClusterInterface

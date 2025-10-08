@@ -21,10 +21,10 @@ package v1
 import (
 	http "net/http"
 
-	rest "k8s.io/client-go/rest"
-
 	existinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
 	scheme "acme.corp/pkg/generated/clientset/versioned/scheme"
+
+	rest "k8s.io/client-go/rest"
 )
 
 type ExistinginterfacesV1Interface interface {

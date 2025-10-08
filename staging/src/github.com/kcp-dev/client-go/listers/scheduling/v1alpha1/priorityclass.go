@@ -19,14 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	schedulingv1alpha1 "k8s.io/api/scheduling/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersschedulingv1alpha1 "k8s.io/client-go/listers/scheduling/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // PriorityClassClusterLister helps list PriorityClasses across all workspaces,

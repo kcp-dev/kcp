@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
+
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
 )
 
 // SelfSubjectReviewsClusterGetter has a method to return a SelfSubjectReviewClusterInterface.

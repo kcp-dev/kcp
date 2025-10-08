@@ -22,13 +22,6 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	discovery "k8s.io/client-go/discovery"
-	rest "k8s.io/client-go/rest"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
-
 	client "acme.corp/pkg/generated/clientset/versioned"
 	examplev1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/example/v1"
 	examplev1alpha1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/example/v1alpha1"
@@ -38,6 +31,13 @@ import (
 	exampledashedv1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/exampledashed/v1"
 	existinginterfacesv1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/existinginterfaces/v1"
 	secondexamplev1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/secondexample/v1"
+
+	discovery "k8s.io/client-go/discovery"
+	rest "k8s.io/client-go/rest"
+	flowcontrol "k8s.io/client-go/util/flowcontrol"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ClusterInterface interface {

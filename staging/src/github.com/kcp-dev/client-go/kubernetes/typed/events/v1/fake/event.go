@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	eventsv1 "k8s.io/api/events/v1"
 	v1 "k8s.io/client-go/applyconfigurations/events/v1"
 	typedeventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
@@ -28,6 +26,7 @@ import (
 	typedkcpeventsv1 "github.com/kcp-dev/client-go/kubernetes/typed/events/v1"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // eventClusterClient implements EventClusterInterface

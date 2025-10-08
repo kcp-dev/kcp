@@ -22,14 +22,12 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	discovery "k8s.io/client-go/discovery"
 	client "k8s.io/client-go/kubernetes"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	admissionregistrationv1 "github.com/kcp-dev/client-go/kubernetes/typed/admissionregistration/v1"
 	admissionregistrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/admissionregistration/v1beta1"
@@ -85,6 +83,7 @@ import (
 	storagev1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1beta1"
 	storagemigrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ClusterInterface interface {

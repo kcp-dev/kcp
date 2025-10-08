@@ -21,14 +21,13 @@ package v1alpha2
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	apicoordinationv1alpha2 "k8s.io/api/coordination/v1alpha2"
 	coordinationv1alpha2 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha2"
 	rest "k8s.io/client-go/rest"
 
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	kcpscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type CoordinationV1alpha2ClusterInterface interface {

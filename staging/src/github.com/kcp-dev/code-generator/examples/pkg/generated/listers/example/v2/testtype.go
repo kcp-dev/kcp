@@ -19,11 +19,11 @@ limitations under the License.
 package v2
 
 import (
+	examplev2 "acme.corp/pkg/apis/example/v2"
+
 	labels "k8s.io/apimachinery/pkg/labels"
 	listers "k8s.io/client-go/listers"
 	cache "k8s.io/client-go/tools/cache"
-
-	examplev2 "acme.corp/pkg/apis/example/v2"
 )
 
 // TestTypeLister helps list TestTypes.

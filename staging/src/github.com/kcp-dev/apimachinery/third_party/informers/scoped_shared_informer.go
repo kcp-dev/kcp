@@ -21,12 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // scopedSharedIndexInformer ensures that event handlers added to the underlying

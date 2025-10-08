@@ -23,18 +23,17 @@ import (
 	sync "sync"
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	externalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpclient "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensions "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions"
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/apiextensions/informers/internalinterfaces"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

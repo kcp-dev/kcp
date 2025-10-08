@@ -22,10 +22,6 @@ import (
 	context "context"
 	time "time"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
 	apiflowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -34,9 +30,12 @@ import (
 	listersflowcontrolv1beta2 "k8s.io/client-go/listers/flowcontrol/v1beta2"
 	cache "k8s.io/client-go/tools/cache"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
 	kcpkubernetes "github.com/kcp-dev/client-go/kubernetes"
 	kcpv1beta2 "github.com/kcp-dev/client-go/listers/flowcontrol/v1beta2"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 // PriorityLevelConfigurationClusterInformer provides access to a shared informer and lister for

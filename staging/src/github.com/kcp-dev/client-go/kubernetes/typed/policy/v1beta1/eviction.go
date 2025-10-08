@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
+
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 )
 
 // EvictionsClusterGetter has a method to return a EvictionClusterInterface.

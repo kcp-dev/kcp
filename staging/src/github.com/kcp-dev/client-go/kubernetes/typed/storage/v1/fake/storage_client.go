@@ -19,13 +19,12 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	rest "k8s.io/client-go/rest"
 
 	kcpstoragev1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ kcpstoragev1.StorageV1ClusterInterface = (*StorageV1ClusterClient)(nil)

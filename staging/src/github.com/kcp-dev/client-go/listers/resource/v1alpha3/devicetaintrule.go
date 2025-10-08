@@ -19,14 +19,13 @@ limitations under the License.
 package v1alpha3
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	resourcev1alpha3 "k8s.io/api/resource/v1alpha3"
 	"k8s.io/apimachinery/pkg/labels"
 	listersresourcev1alpha3 "k8s.io/client-go/listers/resource/v1alpha3"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // DeviceTaintRuleClusterLister helps list DeviceTaintRules across all workspaces,

@@ -21,14 +21,14 @@ package v2
 import (
 	context "context"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
+	apisexamplev2 "acme.corp/pkg/apis/example/v2"
+	examplev2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
 
-	apisexamplev2 "acme.corp/pkg/apis/example/v2"
-	examplev2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterTestTypesClusterGetter has a method to return a ClusterTestTypeClusterInterface.

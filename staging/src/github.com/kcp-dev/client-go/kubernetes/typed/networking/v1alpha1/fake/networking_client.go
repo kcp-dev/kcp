@@ -19,13 +19,12 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	networkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	rest "k8s.io/client-go/rest"
 
 	kcpnetworkingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1alpha1"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var _ kcpnetworkingv1alpha1.NetworkingV1alpha1ClusterInterface = (*NetworkingV1alpha1ClusterClient)(nil)

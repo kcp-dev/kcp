@@ -22,12 +22,6 @@ import (
 	context "context"
 	fmt "fmt"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
-
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	cache "k8s.io/client-go/tools/cache"
-
 	examplev1 "acme.corp/pkg/apis/example/v1"
 	v1alpha1 "acme.corp/pkg/apis/example/v1alpha1"
 	v1beta1 "acme.corp/pkg/apis/example/v1beta1"
@@ -37,6 +31,12 @@ import (
 	existinginterfacesv1 "acme.corp/pkg/apis/existinginterfaces/v1"
 	secondexamplev1 "acme.corp/pkg/apis/secondexample/v1"
 	informersexternalversions "acme.corp/pkg/generated/informers/externalversions"
+
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	cache "k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
 )
 
 type GenericClusterInformer interface {

@@ -19,8 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	coordinationv1alpha2 "k8s.io/api/coordination/v1alpha2"
 	v1alpha2 "k8s.io/client-go/applyconfigurations/coordination/v1alpha2"
 	typedcoordinationv1alpha2 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha2"
@@ -28,6 +26,7 @@ import (
 	typedkcpcoordinationv1alpha2 "github.com/kcp-dev/client-go/kubernetes/typed/coordination/v1alpha2"
 	kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // leaseCandidateClusterClient implements LeaseCandidateClusterInterface

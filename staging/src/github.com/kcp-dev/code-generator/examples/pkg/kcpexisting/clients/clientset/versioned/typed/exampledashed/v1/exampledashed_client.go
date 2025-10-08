@@ -21,14 +21,14 @@ package v1
 import (
 	http "net/http"
 
-	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
-	"github.com/kcp-dev/logicalcluster/v3"
-
-	rest "k8s.io/client-go/rest"
-
 	apisexampledashedv1 "acme.corp/pkg/apis/exampledashed/v1"
 	exampledashedv1 "acme.corp/pkg/generated/clientset/versioned/typed/exampledashed/v1"
 	scheme "acme.corp/pkg/kcpexisting/clients/clientset/versioned/scheme"
+
+	rest "k8s.io/client-go/rest"
+
+	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ExampleDashedV1ClusterInterface interface {

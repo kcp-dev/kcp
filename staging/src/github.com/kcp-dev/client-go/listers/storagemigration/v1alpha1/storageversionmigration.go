@@ -19,14 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	storagemigrationv1alpha1 "k8s.io/api/storagemigration/v1alpha1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersstoragemigrationv1alpha1 "k8s.io/client-go/listers/storagemigration/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
 	kcplisters "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/listers"
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // StorageVersionMigrationClusterLister helps list StorageVersionMigrations across all workspaces,
