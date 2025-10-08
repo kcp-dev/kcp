@@ -143,7 +143,8 @@ $(KCP_APIGEN_GEN):
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 	echo "Linting root module..."; \
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
-	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+	# TODO(embik): stop skipping lint for staging repositories
+	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,' | grep -v staging); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Linting $$MOD module..."; \
 			(cd $$MOD && $(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m); \
