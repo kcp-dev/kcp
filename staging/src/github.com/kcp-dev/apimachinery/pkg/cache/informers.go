@@ -19,9 +19,9 @@ package cache
 import (
 	"context"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ScopeableSharedIndexInformer is an informer that knows how to scope itself down to one cluster,

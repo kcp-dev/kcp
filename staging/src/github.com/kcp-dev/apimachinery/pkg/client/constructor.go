@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/client-go/rest"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // Constructor is a wrapper around a constructor method for the client of type R.
