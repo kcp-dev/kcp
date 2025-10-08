@@ -1,0 +1,26 @@
+presubmits:
+  - name: pull-client-go-verify
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kcp-dev/client-go.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.24.5-1
+          command:
+            - make
+            - verify
+
+  - name: pull-client-go-lint
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kcp-dev/client-go.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.24.5-1
+          command:
+            - make
+            - lint
