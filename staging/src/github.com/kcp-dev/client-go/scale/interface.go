@@ -17,9 +17,9 @@ limitations under the License.
 package scale
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/client-go/scale"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type ClusterInterface interface {

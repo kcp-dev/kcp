@@ -17,9 +17,9 @@ limitations under the License.
 package discovery
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/client-go/discovery"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 type DiscoveryClusterInterface interface {

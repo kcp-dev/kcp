@@ -17,11 +17,11 @@ limitations under the License.
 package metadatalister
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/metadata/metadatalister"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterLister can list resources across all workspaces, or scope down to a Lister for one workspace.

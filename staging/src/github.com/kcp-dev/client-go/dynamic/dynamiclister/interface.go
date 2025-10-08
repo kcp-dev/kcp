@@ -17,11 +17,11 @@ limitations under the License.
 package dynamiclister
 
 import (
-	"github.com/kcp-dev/logicalcluster/v3"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic/dynamiclister"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // ClusterLister can list resources across all workspaces, or scope down to a Lister for one workspace.
