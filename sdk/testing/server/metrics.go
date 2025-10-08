@@ -89,6 +89,15 @@ func scrapeMetricsForServer(t TestingT, srv RunningServer) {
 	if err := ScrapeMetrics(ctx, srv.RootShardSystemMasterBaseConfig(t), promUrl, repoDir, jobName, caFile, labels); err != nil {
 		t.Logf("error configuring Prometheus scraping for server %s: %v", srv.Name(), err)
 	}
+
+	// Clean up Prometheus configuration when test finishes
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := CleanupScrapeMetrics(cleanupCtx, promUrl, repoDir, jobName); err != nil {
+			t.Logf("error cleaning up Prometheus scrape config for server %s: %v", srv.Name(), err)
+		}
+	})
 }
 
 func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, jobName, caFile string, labels map[string]string) error {
@@ -162,6 +171,93 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 		return err
 	}
 
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, promUrl+"/-/reload", http.NoBody)
+	if err != nil {
+		return err
+	}
+	c := &http.Client{}
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+func CleanupScrapeMetrics(ctx context.Context, promUrl, promCfgDir, jobNamePrefix string) error {
+	type staticConfigs struct {
+		Targets []string          `yaml:"targets,omitempty"`
+		Labels  map[string]string `yaml:"labels,omitempty"`
+	}
+	type tlsConfig struct {
+		InsecureSkipVerify bool   `yaml:"insecure_skip_verify,omitempty"`
+		CaFile             string `yaml:"ca_file,omitempty"`
+	}
+	type scrapeConfig struct {
+		JobName        string          `yaml:"job_name,omitempty"`
+		ScrapeInterval string          `yaml:"scrape_interval,omitempty"`
+		BearerToken    string          `yaml:"bearer_token,omitempty"`
+		TlsConfig      tlsConfig       `yaml:"tls_config,omitempty"`
+		Scheme         string          `yaml:"scheme,omitempty"`
+		StaticConfigs  []staticConfigs `yaml:"static_configs,omitempty"`
+	}
+	type config struct {
+		ScrapeConfigs []scrapeConfig `yaml:"scrape_configs,omitempty"`
+	}
+
+	err := func() error {
+		scrapeConfigFile := filepath.Join(promCfgDir, ".prometheus-config.yaml")
+		f, err := os.OpenFile(scrapeConfigFile, os.O_RDWR, 0o644)
+		if os.IsNotExist(err) {
+			return nil // Nothing to clean up
+		}
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// lock config file exclusively
+		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+		if err != nil {
+			return err
+		}
+		defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+
+		promCfg := config{}
+		err = gopkgyaml.NewDecoder(f).Decode(&promCfg)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+
+		// Remove scrape configs that match the job name prefix
+		var filteredConfigs []scrapeConfig
+		for _, cfg := range promCfg.ScrapeConfigs {
+			// Check if CA file still exists - if not, remove the config
+			if cfg.TlsConfig.CaFile != "" {
+				if _, err := os.Stat(cfg.TlsConfig.CaFile); os.IsNotExist(err) {
+					continue // Skip this config - CA file is gone
+				}
+			}
+			filteredConfigs = append(filteredConfigs, cfg)
+		}
+
+		promCfg.ScrapeConfigs = filteredConfigs
+
+		err = f.Truncate(0)
+		if err != nil {
+			return err
+		}
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			return err
+		}
+		return gopkgyaml.NewEncoder(f).Encode(&promCfg)
+	}()
+	if err != nil {
+		return err
+	}
+
+	// Reload Prometheus configuration
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, promUrl+"/-/reload", http.NoBody)
 	if err != nil {
 		return err
