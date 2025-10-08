@@ -1,0 +1,137 @@
+run:
+  timeout: 10m
+  allow-parallel-runners: true
+
+linters:
+  disable-all: true
+  enable:
+  - asasalint
+  - asciicheck
+  - bidichk
+  - bodyclose
+  - containedctx
+  - dupword
+  - durationcheck
+  - errcheck
+  - errchkjson
+  - exportloopref
+  - gocritic
+  - godot
+  - gofmt
+  - goprintffuncname
+  - gosec
+  - gosimple
+  - govet
+  - importas
+  - ineffassign
+  - misspell
+  - nilerr
+  - noctx
+  - nolintlint
+  - nosprintfhostport
+  - prealloc
+  - revive
+  - staticcheck
+  - unconvert
+  - unused
+  - usestdlibvars
+  - whitespace
+  # TODO: Figure out if we want to enable or remove the following linters:
+  # - predeclared
+  # - goconst
+  # - depguard
+
+linters-settings:
+  misspell:
+    ignore-words:
+    - creater
+  goconst:
+    ignore-tests: true
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: false
+    require-specific: true
+  revive:
+    revive:
+    rules:
+      - name: context-keys-type
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: errorf
+      - name: superfluous-else
+      - name: unreachable-code
+      - name: bool-literal-in-expr
+      - name: constant-logical-expr
+      # TODO: Figure out if we want to enable
+      # the following rules, or remove them completely, they're a bit noisy.
+      # - name: context-as-argument
+      # - name: var-naming
+      # - name: exported
+      # - name: unexported-return
+      # - name: blank-imports
+      # - name: indent-error-flow # I think @ncdc prefers explicit else statements, remove?
+      # - name: redefines-builtin-id
+      # - name: dot-imports
+  gosec:
+    excludes:
+    - G307 # Deferring unsafe method "Close" on type "\*os.File"
+    - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+    # TODO: The following should be looked at and removed in future iterations.
+    - G401 # Use of weak cryptographic primitive (replace sha1 usage)
+    - G505 # crypto/sha1: weak cryptographic primitive
+    - G402 # TLS MinVersion too low (set MinVersion in TLSClientConfig)
+    - G404 # Use of weak random number generator (use crypto/rand)
+    - G101 # Potential hardcoded credentials (returns false positives)
+    - G306 # Expect WriteFile permissions to be 0600 or less
+  gocritic:
+    enabled-tags:
+    - diagnostic
+    - experimental
+    - performance
+    disabled-checks:
+    - appendAssign
+    - dupImport # https://github.com/go-critic/go-critic/issues/845
+    - evalOrder
+    - ifElseChain
+    - octalLiteral
+    - regexpSimplify
+    - sloppyReassign
+    - truncateCmp
+    - typeDefFirst
+    - unnamedResult
+    - unnecessaryDefer
+    - whyNoLint
+    - wrapperFunc
+    - unnecessaryBlock
+    - rangeValCopy
+    - hugeParam
+    - commentedOutCode
+    # TODO: potentially enable the following?
+    - emptyStringTest
+    - singleCaseSwitch
+    - nestingReduce
+    - filepathJoin
+    - tooManyResultsChecker
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+  exclude-rules:
+  - linters:
+    - unparam
+    text: always receives
+  - linters:
+    - gosec
+    path: _test\.go
+    text: "G112: Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server"
+  - linters:
+    - gosec
+    path: test/e2e/*

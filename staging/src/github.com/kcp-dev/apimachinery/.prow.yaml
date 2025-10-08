@@ -1,0 +1,39 @@
+presubmits:
+  - name: pull-apimachinery-verify
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kcp-dev/apimachinery.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.24.5-1
+          command:
+            - make
+            - verify-boilerplate
+
+  - name: pull-apimachinery-lint
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kcp-dev/apimachinery.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.24.5-1
+          command:
+            - make
+            - lint
+
+  - name: pull-apimachinery-test
+    always_run: true
+    decorate: true
+    clone_uri: "ssh://git@github.com/kcp-dev/apimachinery.git"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.24.5-1
+          command:
+            - make
+            - test
