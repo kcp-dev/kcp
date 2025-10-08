@@ -1,7 +1,7 @@
 rules:
   - destination: apimachinery
     branches:
-      - name: kcp-1.33.3
+      - name: main
         source:
           branch: main
           dirs:
@@ -10,7 +10,7 @@ rules:
     library: true
   - destination: client-go
     branches:
-      - name: kcp-1.33.3
+      - name: main
         source:
           branch: main
           dirs:
@@ -19,7 +19,7 @@ rules:
     library: true
   - destination: code-generator
     branches:
-      - name: kcp-1.33.3
+      - name: main
         source:
           branch: main
           dirs:
