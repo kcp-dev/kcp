@@ -78,4 +78,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/kcp-dev/kcp/sdk => ../sdk
+replace (
+	github.com/kcp-dev/client-go => ../staging/src/github.com/kcp-dev/client-go
+	github.com/kcp-dev/kcp/sdk => ../sdk
+)

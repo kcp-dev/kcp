@@ -51,3 +51,8 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../../apimachinery
+	github.com/kcp-dev/client-go => ../../client-go
+)
