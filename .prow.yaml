@@ -64,9 +64,6 @@ presubmits:
         - image: quay.io/containers/buildah:v1.38.0
           command:
             - hack/build-image.sh
-          env:
-            - name: DRY_RUN
-              value: "1"
           # docker-in-docker needs privileged mode
           securityContext:
             privileged: true
