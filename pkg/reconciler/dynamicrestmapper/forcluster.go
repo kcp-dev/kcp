@@ -17,6 +17,8 @@ limitations under the License.
 package dynamicrestmapper
 
 import (
+	"errors"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -30,7 +32,7 @@ type ForCluster struct {
 }
 
 func (v *ForCluster) clusterMappingOrEmpty(clusterName logicalcluster.Name) *DefaultRESTMapper {
-	if m := v.parent.byCluster[clusterName]; m != nil {
+	if m := v.parent.dynamic[clusterName]; m != nil {
 		return m
 	}
 	return NewDefaultRESTMapper(nil)
@@ -47,6 +49,13 @@ func newForCluster(clusterName logicalcluster.Name, parent *DynamicRESTMapper) *
 func (v *ForCluster) KindFor(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if gvk, err := v.parent.builtin.KindFor(resource); err == nil {
+		return gvk, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) {
+		return schema.GroupVersionKind{}, err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).KindFor(resource)
 }
 
@@ -54,6 +63,13 @@ func (v *ForCluster) KindFor(resource schema.GroupVersionResource) (schema.Group
 func (v *ForCluster) KindsFor(input schema.GroupVersionResource) ([]schema.GroupVersionKind, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if gvks, err := v.parent.builtin.KindsFor(input); err == nil {
+		return gvks, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) {
+		return nil, err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).KindsFor(input)
 }
 
@@ -61,6 +77,13 @@ func (v *ForCluster) KindsFor(input schema.GroupVersionResource) ([]schema.Group
 func (v *ForCluster) ResourceFor(resource schema.GroupVersionResource) (schema.GroupVersionResource, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if gvr, err := v.parent.builtin.ResourceFor(resource); err == nil {
+		return gvr, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) {
+		return schema.GroupVersionResource{}, err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).ResourceFor(resource)
 }
 
@@ -68,6 +91,13 @@ func (v *ForCluster) ResourceFor(resource schema.GroupVersionResource) (schema.G
 func (v *ForCluster) ResourcesFor(input schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if gvrs, err := v.parent.builtin.ResourcesFor(input); err == nil {
+		return gvrs, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) {
+		return nil, err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).ResourcesFor(input)
 }
 
@@ -75,6 +105,13 @@ func (v *ForCluster) ResourcesFor(input schema.GroupVersionResource) ([]schema.G
 func (v *ForCluster) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if mapping, err := v.parent.builtin.RESTMapping(gk, versions...); err == nil {
+		return mapping, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) && !errors.Is(err, &meta.NoKindMatchError{}) {
+		return nil, err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).RESTMapping(gk, versions...)
 }
 
@@ -84,12 +121,26 @@ func (v *ForCluster) RESTMapping(gk schema.GroupKind, versions ...string) (*meta
 func (v *ForCluster) RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if mappings, err := v.parent.builtin.RESTMappings(gk, versions...); err == nil {
+		return mappings, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) && !errors.Is(err, &meta.NoKindMatchError{}) {
+		return nil, err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).RESTMappings(gk, versions...)
 }
 
 func (v *ForCluster) ResourceSingularizer(resourceType string) (string, error) {
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
+
+	if singular, err := v.parent.builtin.ResourceSingularizer(resourceType); err == nil {
+		return singular, nil
+	} else if !errors.Is(err, &meta.NoResourceMatchError{}) {
+		return "", err
+	}
+
 	return v.clusterMappingOrEmpty(v.clusterName).ResourceSingularizer(resourceType)
 }
 
@@ -97,16 +148,16 @@ func (v *ForCluster) apply(toRemove []typeMeta, toAdd []typeMeta) {
 	v.parent.lock.Lock()
 	defer v.parent.lock.Unlock()
 
-	m := v.parent.byCluster[v.clusterName]
+	m := v.parent.dynamic[v.clusterName]
 	if m == nil {
 		m = NewDefaultRESTMapper(nil)
-		v.parent.byCluster[v.clusterName] = m
+		v.parent.dynamic[v.clusterName] = m
 	}
 
 	m.apply(toRemove, toAdd)
 
 	if m.empty() {
-		delete(v.parent.byCluster, v.clusterName)
+		delete(v.parent.dynamic, v.clusterName)
 	}
 }
 

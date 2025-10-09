@@ -1663,8 +1663,29 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 	})
 }
 
-func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Config) error {
-	c, err := dynamicrestmapper.NewController(ctx, s.DynRESTMapper,
+func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
+	builtinTypesController, err := dynamicrestmapper.NewBuiltinTypesController(ctx, s.DynRESTMapper,
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+	)
+	if err != nil {
+		return err
+	}
+	err = s.registerController(&controllerWrapper{
+		Name: dynamicrestmapper.BuiltinTypesControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			builtinTypesController.Start(ctx, 2)
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	dynamicTypesController, err := dynamicrestmapper.NewDynamicTypesController(ctx, s.DynRESTMapper,
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
@@ -1678,7 +1699,7 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Conf
 	}
 
 	return s.registerController(&controllerWrapper{
-		Name: dynamicrestmapper.ControllerName,
+		Name: dynamicrestmapper.DynamicTypesControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
@@ -1691,7 +1712,7 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context, config *rest.Conf
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			dynamicTypesController.Start(ctx, 2)
 		},
 	})
 }

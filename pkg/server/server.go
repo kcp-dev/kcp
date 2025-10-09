@@ -101,6 +101,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		syncedCh:             make(chan struct{}),
 		rootPhase1FinishedCh: make(chan struct{}),
 		controllers:          make(map[string]*controllerWrapper),
+		DynRESTMapper:        dynamicrestmapper.NewDynamicRESTMapper(),
 	}
 
 	notFoundHandler := notfoundhandler.New(c.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
@@ -186,9 +187,6 @@ func NewServer(c CompletedConfig) (*Server, error) {
 			return nil, err
 		}
 	}
-
-	// Controllers are free to pull in DynRESTMapper and query for types.
-	s.DynRESTMapper = dynamicrestmapper.NewDynamicRESTMapper(nil)
 
 	return s, nil
 }
@@ -365,7 +363,7 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("dynamicrestmapper") {
-		if err := s.installDynamicRESTMapper(ctx, controllerConfig); err != nil {
+		if err := s.installDynamicRESTMapper(ctx); err != nil {
 			return err
 		}
 	}

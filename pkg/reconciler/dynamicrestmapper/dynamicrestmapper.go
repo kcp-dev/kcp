@@ -19,38 +19,39 @@ package dynamicrestmapper
 import (
 	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 // DynamicRESTMapper is a thread-safe RESTMapper with per-cluster GVK/GVR mappings.
 // The mapping data is fed from its associated Controller (in this package), triggered
-// on CRDs and APIBindings (and their respective APIResourceSchemas). Additionally,
-// mappings for built-in types (pkg/virtual/apiexport/schemas/builtin/builtin.go) are
-// added for each LogicalCluster by default.
+// on CRDs and APIBindings (and their respective APIResourceSchemas).
 type DynamicRESTMapper struct {
-	lock      sync.RWMutex
-	byCluster map[logicalcluster.Name]*DefaultRESTMapper
+	lock sync.RWMutex
+	// Built-in types consist of core k8s types and system CRDs.
+	// They are present in all clusters.
+	builtin *DefaultRESTMapper
+	// Dynamic types consist of bound types and CRDs local to the cluster.
+	dynamic map[logicalcluster.Name]*DefaultRESTMapper
 }
 
-func NewDynamicRESTMapper(defaultGroupVersions []schema.GroupVersion) *DynamicRESTMapper {
+func NewDynamicRESTMapper() *DynamicRESTMapper {
 	return &DynamicRESTMapper{
-		byCluster: make(map[logicalcluster.Name]*DefaultRESTMapper),
+		builtin: NewDefaultRESTMapper(nil),
+		dynamic: make(map[logicalcluster.Name]*DefaultRESTMapper),
 	}
 }
 
 func (d *DynamicRESTMapper) deleteMappingsForCluster(clusterName logicalcluster.Name) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	delete(d.byCluster, clusterName)
+	delete(d.dynamic, clusterName)
 }
 
 // ForCluster returns a RESTMapper for the specified cluster name.
 // The method never returns nil. If the cluster doesn't exist at the time
 // of calling ForCluster, or if it is deleted while holding the returned
-// RESTMapper instance, all RESTMapper's methods will empty matches and
-// NoResourceMatchError error.
+// RESTMapper instance, all RESTMapper's methods will return empty matches
+// and a NoResourceMatchError error.
 func (d *DynamicRESTMapper) ForCluster(clusterName logicalcluster.Name) *ForCluster {
 	return newForCluster(clusterName, d)
 }

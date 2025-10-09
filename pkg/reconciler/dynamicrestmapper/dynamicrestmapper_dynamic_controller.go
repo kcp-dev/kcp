@@ -41,7 +41,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/tombstone"
-	builtinschemas "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
@@ -51,26 +50,8 @@ import (
 )
 
 const (
-	ControllerName = "kcp-dynamicrestmapper"
+	DynamicTypesControllerName = "kcp-dynamicrestmapper-dynamic"
 )
-
-// When we detect a new LogicalCluster, we add builtinGVKRs mappings to it.
-// Since they are always the same, we stash them away to be reused.
-var builtinGVKRs []typeMeta
-
-func init() {
-	builtinGVKRs = make([]typeMeta, len(builtinschemas.BuiltInAPIs))
-	for i := range builtinschemas.BuiltInAPIs {
-		builtinGVKRs[i] = newTypeMeta(
-			builtinschemas.BuiltInAPIs[i].GroupVersion.Group,
-			builtinschemas.BuiltInAPIs[i].GroupVersion.Version,
-			builtinschemas.BuiltInAPIs[i].Names.Kind,
-			builtinschemas.BuiltInAPIs[i].Names.Singular,
-			builtinschemas.BuiltInAPIs[i].Names.Plural,
-			resourceScopeToRESTScope(builtinschemas.BuiltInAPIs[i].ResourceScope),
-		)
-	}
-}
 
 // Describes which handler triggered enqueueLogicalCluster.
 type ctrlOp string
@@ -92,7 +73,7 @@ type queueItem struct {
 	ToAdd    apibinding.ResourceBindingsAnnotation
 }
 
-func NewController(
+func NewDynamicTypesController(
 	ctx context.Context,
 	state *DynamicRESTMapper,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
@@ -102,12 +83,12 @@ func NewController(
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-) (*Controller, error) {
-	c := &Controller{
+) (*DynamicTypesController, error) {
+	c := &DynamicTypesController{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{
-				Name: ControllerName,
+				Name: DynamicTypesControllerName,
 			},
 		),
 		state: state,
@@ -156,16 +137,22 @@ func NewController(
 		},
 	})
 
-	_, _ = crdInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.enqueueCRDUpdate(tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](newObj))
+	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			// CRDs from system:system-crds are handled by BuiltinTypesController.
+			return logicalcluster.From(tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](obj)) != systemCRDClusterName
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				c.enqueueCRDUpdate(tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](newObj))
+			},
 		},
 	})
 
 	return c, nil
 }
 
-type Controller struct {
+type DynamicTypesController struct {
 	state *DynamicRESTMapper
 
 	queue workqueue.TypedRateLimitingInterface[string]
@@ -211,7 +198,7 @@ func diffResourceBindingsAnn(oldAnn, newAnn apibinding.ResourceBindingsAnnotatio
 	return
 }
 
-func (c *Controller) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinition) {
+func (c *DynamicTypesController) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinition) {
 	if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
 		// The CRD is not ready yet. Nothing to do, we'll get notified on the next update event.
 		return
@@ -263,12 +250,12 @@ func (c *Controller) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinit
 	}
 	key := string(keyBytes)
 
-	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).WithName(crd.Name).
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), DynamicTypesControllerName), key).WithName(crd.Name).
 		V(4).Info("queueing ResourceBindingsAnnotation patch because of CRD")
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueAPIBindingUpdate(apiBinding *apisv1alpha2.APIBinding) {
+func (c *DynamicTypesController) enqueueAPIBindingUpdate(apiBinding *apisv1alpha2.APIBinding) {
 	lc, err := c.getLogicalCluster(logicalcluster.From(apiBinding), corev1alpha1.LogicalClusterName)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -315,12 +302,12 @@ func (c *Controller) enqueueAPIBindingUpdate(apiBinding *apisv1alpha2.APIBinding
 	}
 	key := string(keyBytes)
 
-	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).WithName(apiBinding.Name).
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), DynamicTypesControllerName), key).WithName(apiBinding.Name).
 		V(4).Info("queueing ResourceBindingsAnnotation patch because of APIBinding")
 	c.queue.Add(key)
 }
 
-func (c *Controller) enqueueLogicalCluster(oldObj *corev1alpha1.LogicalCluster, newObj *corev1alpha1.LogicalCluster, op ctrlOp) {
+func (c *DynamicTypesController) enqueueLogicalCluster(oldObj *corev1alpha1.LogicalCluster, newObj *corev1alpha1.LogicalCluster, op ctrlOp) {
 	oldBoundResourcesAnnStr := getResourceBindingsAnnJSON(oldObj)
 	newBoundResourcesAnnStr := getResourceBindingsAnnJSON(newObj)
 
@@ -362,16 +349,16 @@ func (c *Controller) enqueueLogicalCluster(oldObj *corev1alpha1.LogicalCluster, 
 	}
 	key := string(keyBytes)
 
-	logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key).
+	logging.WithQueueKey(logging.WithReconciler(klog.Background(), DynamicTypesControllerName), key).
 		V(4).Info("queueing ResourceBindingsAnnotation patch because of LogicalCluster")
 	c.queue.Add(key)
 }
 
-func (c *Controller) Start(ctx context.Context, numThreads int) {
+func (c *DynamicTypesController) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
+	logger := logging.WithReconciler(klog.FromContext(ctx), DynamicTypesControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
@@ -383,12 +370,12 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	<-ctx.Done()
 }
 
-func (c *Controller) startWorker(ctx context.Context) {
+func (c *DynamicTypesController) startWorker(ctx context.Context) {
 	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *Controller) processNextWorkItem(ctx context.Context) bool {
+func (c *DynamicTypesController) processNextWorkItem(ctx context.Context) bool {
 	// Wait until there is a new item in the working queue
 	key, quit := c.queue.Get()
 	if quit {
@@ -411,7 +398,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	}
 
 	if err := c.process(ctx, key, it); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", DynamicTypesControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -419,7 +406,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefinition) []typeMeta {
+func (c *DynamicTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefinition) []typeMeta {
 	if crd == nil {
 		return nil
 	}
@@ -441,7 +428,7 @@ func (c *Controller) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefini
 	return gvkrs
 }
 
-func (c *Controller) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha2.APIBinding) ([]typeMeta, error) {
+func (c *DynamicTypesController) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha2.APIBinding) ([]typeMeta, error) {
 	apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
 	if apiExportPath.Empty() {
 		apiExportPath = logicalcluster.From(apiBinding).Path()
@@ -479,7 +466,7 @@ func (c *Controller) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha2.APIBindin
 	return gvkrs, nil
 }
 
-func (c *Controller) gatherGVKRsForBoundResource(clusterName logicalcluster.Name, resourceGroup string, boundResourceLock apibinding.Lock) ([]typeMeta, error) {
+func (c *DynamicTypesController) gatherGVKRsForBoundResource(clusterName logicalcluster.Name, resourceGroup string, boundResourceLock apibinding.Lock) ([]typeMeta, error) {
 	if boundResourceLock.CRD {
 		crd, err := c.getCRD(clusterName, resourceGroup)
 		if err != nil {
@@ -497,7 +484,7 @@ func (c *Controller) gatherGVKRsForBoundResource(clusterName logicalcluster.Name
 	return c.gatherGVKRsForAPIBinding(apiBinding)
 }
 
-func (c *Controller) gatherGVKRsForMappedBoundResource(clusterName logicalcluster.Name, resourceGroup string, boundResourceLock apibinding.Lock) ([]typeMeta, error) {
+func (c *DynamicTypesController) gatherGVKRsForMappedBoundResource(clusterName logicalcluster.Name, resourceGroup string, boundResourceLock apibinding.Lock) ([]typeMeta, error) {
 	gvkrs, err := c.state.ForCluster(clusterName).getGVKRs(schema.ParseGroupResource(resourceGroup))
 	if err != nil {
 		if meta.IsNoMatchError(err) {
@@ -508,7 +495,7 @@ func (c *Controller) gatherGVKRsForMappedBoundResource(clusterName logicalcluste
 	return gvkrs, nil
 }
 
-func (c *Controller) process(ctx context.Context, key string, item queueItem) error {
+func (c *DynamicTypesController) process(ctx context.Context, key string, item queueItem) error {
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 
 	if item.Op == opDelete {
@@ -550,11 +537,6 @@ func (c *Controller) process(ctx context.Context, key string, item queueItem) er
 	typeMetaToAdd, err := gatherGVKRs(item.ToAdd, c.gatherGVKRsForBoundResource)
 	if err != nil {
 		return err
-	}
-
-	if item.Op == opCreate {
-		// This is a new LogicalCluster, we need to add all built-in types too.
-		typeMetaToAdd = append(typeMetaToAdd, builtinGVKRs...)
 	}
 
 	// Finally, store the new mappings in the RESTMapper for this LogicalCluster.
