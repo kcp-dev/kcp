@@ -65,6 +65,15 @@ func (o *shard) Admit(_ context.Context, a admission.Attributes, _ admission.Obj
 		return fmt.Errorf("failed to convert unstructured to Shard: %w", err)
 	}
 
+	// If you reading this - this is probably not what you looking for.
+	// Defaulting happens in pkg/server/config.go#L561, and these becomes no-op.
+	// The only case where these will be used, if somebody is creating Shard
+	// objects directly or using kcp as a library and skipping defaulting in config.go.
+	// So if you not sure what is happening - its probably better to be explicit and set these flags.
+	// But if you are doing that - you probably know what you are doing :)
+	if wShard.Spec.BaseURL == "" {
+		return fmt.Errorf("spec.baseURL is required")
+	}
 	if wShard.Spec.ExternalURL == "" {
 		wShard.Spec.ExternalURL = wShard.Spec.BaseURL
 	}

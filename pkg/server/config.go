@@ -562,13 +562,13 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if opts.Extra.ShardExternalURL != "" {
 			return opts.Extra.ShardExternalURL
 		}
-		return "https://" + c.GenericConfig.ExternalAddress
+		return c.ShardBaseURL()
 	}
 	c.ShardVirtualWorkspaceURL = func() string {
 		if opts.Extra.ShardVirtualWorkspaceURL != "" {
 			return opts.Extra.ShardVirtualWorkspaceURL
 		}
-		return "https://" + c.GenericConfig.ExternalAddress
+		return c.ShardBaseURL()
 	}
 
 	serviceResolver := webhook.NewDefaultServiceResolver()
