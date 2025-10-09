@@ -26,7 +26,9 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	"github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -73,11 +75,23 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			continue
 		}
 
+		base := u.Path
+		// add initializing workspace URLs
 		u.Path = path.Join(
-			u.Path,
+			base,
 			virtualworkspacesoptions.DefaultRootPathPrefix,
 			initializingworkspaces.VirtualWorkspaceName,
 			string(initialization.InitializerForType(wt)),
+		)
+
+		desiredURLs.Insert(u.String())
+
+		// add finalizing workspace URLs
+		u.Path = path.Join(
+			base,
+			virtualworkspacesoptions.DefaultRootPathPrefix,
+			finalizingworkspaces.VirtualWorkspaceName,
+			string(finalization.FinalizerForType(wt)),
 		)
 
 		desiredURLs.Insert(u.String())
@@ -85,7 +99,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 
 	wt.Status.VirtualWorkspaces = nil
 
-	for _, u := range sets.List[string](desiredURLs) {
+	for _, u := range sets.List(desiredURLs) {
 		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
 			URL: u,
 		})

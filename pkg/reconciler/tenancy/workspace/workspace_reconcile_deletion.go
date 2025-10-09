@@ -52,7 +52,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	finSet := sets.New(workspace.Finalizers...)
 
 	// we want our finalizer to be removed last, so check if other finalizers exist
-	if finSet.Has(corev1alpha1.LogicalClusterFinalizer) && finSet.Len() > 1 {
+	if finSet.Has(corev1alpha1.LogicalClusterFinalizerName) && finSet.Len() > 1 {
 		return reconcileStatusContinue, nil
 	}
 
@@ -64,7 +64,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		// if the logicalcluster was never created, we can directly remove the
 		// workspace finalizer
 		if !ok {
-			workspace.Finalizers = sets.List(finSet.Delete(corev1alpha1.LogicalClusterFinalizer))
+			workspace.Finalizers = sets.List(finSet.Delete(corev1alpha1.LogicalClusterFinalizerName))
 			return reconcileStatusContinue, nil
 		}
 
@@ -100,9 +100,9 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		// fall-through
 	}
 	if apierrors.IsNotFound(getErr) {
-		if finSet.Has(corev1alpha1.LogicalClusterFinalizer) {
-			logger.Info(fmt.Sprintf("Removing finalizer %s", corev1alpha1.LogicalClusterFinalizer))
-			workspace.Finalizers = sets.List(finSet.Delete(corev1alpha1.LogicalClusterFinalizer))
+		if finSet.Has(corev1alpha1.LogicalClusterFinalizerName) {
+			logger.Info(fmt.Sprintf("Removing finalizer %s", corev1alpha1.LogicalClusterFinalizerName))
+			workspace.Finalizers = sets.List(finSet.Delete(corev1alpha1.LogicalClusterFinalizerName))
 			return reconcileStatusStopAndRequeue, nil // spec change
 		}
 		return reconcileStatusContinue, nil

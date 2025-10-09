@@ -69,6 +69,17 @@ spec:
                   DirectlyDeletable indicates that this logical cluster can be directly deleted by the user
                   from within by deleting the LogicalCluster object.
                 type: boolean
+              finalizers:
+                description: |-
+                  Finalizers are set on creation by the system and copied to status when
+                  finalization starts.
+                items:
+                  description: |-
+                    LogicalClusterFinalizer is a unique string corresponding to a logical cluster
+                    finalizer controller.
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                  type: string
+                type: array
               initializers:
                 description: |-
                   initializers are set on creation by the system and copied to status when
@@ -175,6 +186,18 @@ spec:
                   - status
                   - type
                   type: object
+                type: array
+              finalizers:
+                description: |-
+                  Finalizers are set on creation by the system and must be cleared
+                  by a controller before the logical cluster can be deleted. The LogicalCluster object
+                  will stay in the phase "Deleting" until all finalizers are cleared.
+                items:
+                  description: |-
+                    LogicalClusterFinalizer is a unique string corresponding to a logical cluster
+                    finalizer controller.
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                  type: string
                 type: array
               initializers:
                 description: |-
