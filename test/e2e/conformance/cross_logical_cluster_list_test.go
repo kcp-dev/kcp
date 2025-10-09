@@ -59,8 +59,7 @@ func TestCrossLogicalClusterList(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)

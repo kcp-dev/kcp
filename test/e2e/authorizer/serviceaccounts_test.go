@@ -17,7 +17,6 @@ limitations under the License.
 package authorizer
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -48,8 +47,7 @@ func TestServiceAccounts(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))

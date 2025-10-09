@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -57,8 +56,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 
 	t.Logf("providerPath: %v", providerPath)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
