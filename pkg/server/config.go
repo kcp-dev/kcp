@@ -405,6 +405,16 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		virtualWorkspaceServerProxyTransport = transport
 	}
 
+	// Prepare a local cluster index that can be used both by the LocalProxy, as well as the authenticator
+	// (the authenticator cannot always use the data the localproxy puts into the context because the
+	// authentication rest storage provider calls the authenticator outside of the handler chain).
+	clusterIndex := newLocalClusterIndex(
+		opts.Extra.ShardName,
+		opts.Extra.ShardBaseURL,
+		c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+	)
+
 	// Prepare an authentication index to be used later by a middleware. We start it early
 	// because it can potentially fail and the BuildHandlerChainFunc() has no way to return
 	// an error.
@@ -420,6 +430,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 		authIndex = authIndexState
 	}
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -477,7 +488,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
 			genericConfig.Authentication.Authenticator = authenticatorunion.New(
 				genericConfig.Authentication.Authenticator,
-				authentication.NewWorkspaceAuthenticator(),
+				authentication.NewStandaloneWorkspaceAuthenticator(clusterIndex, authIndex),
 			)
 		}
 
@@ -515,13 +526,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = mux
 
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made
-		apiHandler, err = WithLocalProxy(apiHandler,
-			opts.Extra.ShardName,
-			opts.Extra.ShardBaseURL,
-			opts.Extra.AdditionalMappingsFile,
-			c.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-			c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		)
+		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
 		}

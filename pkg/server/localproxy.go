@@ -48,15 +48,11 @@ import (
 	tenancyv1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/tenancy/v1alpha1"
 )
 
-// WithLocalProxy returns a handler with a local-only mini-front-proxy. It is
-// able to translate logical clusters with the data on the local shard. This is
-// mainly interesting for standalone mode, without a real front-proxy in-front.
-func WithLocalProxy(
-	handler http.Handler,
-	shardName, shardBaseURL, additionalMappingsFile string,
+func newLocalClusterIndex(
+	shardName, shardBaseURL string,
 	workspaceInformer tenancyv1alpha1informers.WorkspaceClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-) (http.Handler, error) {
+) *index.State {
 	indexState := index.New([]index.PathRewriter{
 		indexrewriters.UserRewriter,
 	})
@@ -98,6 +94,17 @@ func WithLocalProxy(
 		},
 	})
 
+	return indexState
+}
+
+// WithLocalProxy returns a handler with a local-only mini-front-proxy. It is
+// able to translate logical clusters with the data on the local shard. This is
+// mainly interesting for standalone mode, without a real front-proxy in-front.
+func WithLocalProxy(
+	handler http.Handler,
+	shardName, additionalMappingsFile string,
+	clusterIndex *index.State,
+) (http.Handler, error) {
 	defaultHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		logger := klog.FromContext(ctx)
@@ -143,7 +150,7 @@ func WithLocalProxy(
 		}
 
 		// lookup in our local, potentially partial index
-		r, found := indexState.Lookup(path)
+		r, found := clusterIndex.Lookup(path)
 		if found && r.ErrorCode != 0 {
 			// return code if set.
 			// TODO(mjudeikis): Would be nice to have a way to return a custom error message.
@@ -211,7 +218,7 @@ func WithLocalProxy(
 	}
 
 	// If additional mappings file is provided, read it and add the mappings to the handler
-	handlers, err := NewLocalProxyHandler(defaultHandlerFunc, indexState, additionalMappingsFile)
+	handlers, err := NewLocalProxyHandler(defaultHandlerFunc, clusterIndex, additionalMappingsFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local proxy handler: %w", err)
 	}
