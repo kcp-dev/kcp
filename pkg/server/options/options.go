@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/klog/v2"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
@@ -74,6 +76,9 @@ type ExtraOptions struct {
 	// --miniproxy-mapping-file flag of the front-proxy. Do NOT expose this flag to users via main server options.
 	// It is overridden by the kcp start command.
 	AdditionalMappingsFile string
+
+	// If CABundleFile is set, it contains the path to a file containing a PEM-encoded CA bundle to validate client certificates presented to kcp when using client-go internally.
+	CABundleFile string
 }
 
 type completedOptions struct {
@@ -114,8 +119,9 @@ func NewOptions(rootDir string) *Options {
 			DiscoveryPollInterval:              60 * time.Second,
 			ExperimentalBindFreePort:           false,
 			ConversionCELTransformationTimeout: time.Second,
+			CABundleFile:                       "",
 
-			BatteriesIncluded: sets.List[string](batteries.Defaults),
+			BatteriesIncluded: sets.List(batteries.Defaults),
 		},
 	}
 
@@ -168,6 +174,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:logical-cluster-admin credentials for connecting to other shards. Defaults to the loopback client")
 	fs.StringVar(&o.Extra.ExternalLogicalClusterAdminKubeconfig, "external-logical-cluster-admin-kubeconfig", o.Extra.ExternalLogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:external-logical-cluster-admin credentials for connecting to the external address (e.g. the front-proxy). Defaults to the loopback client")
 	fs.StringVar(&o.Extra.RootIdentitiesFile, "root-identities-file", "", "Path to a YAML file used to bootstrap APIExport identities inside the root workspace. The YAML file must be structured as {\"identities\": [ {\"export\": \"<APIExport name>\", \"identity\": \"<APIExport identity>\"}, ... ]}. If a secret with matching APIExport name already exists inside kcp-system namespace, it will be left unchanged. Defaults to empty, i.e. no identities are bootstrapped.")
+	fs.StringVar(&o.Extra.CABundleFile, "ca-bundle-file", o.Extra.CABundleFile, "Path to a file containing a PEM-encoded CA bundle. If set, this CA bundle will be used to validate client certificates presented to the kcp when using client-go internally.")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
@@ -228,13 +235,27 @@ func (o *CompletedOptions) Validate() []error {
 		}
 	}
 
-	batterySet := sets.New[string](o.Extra.BatteriesIncluded...)
+	batterySet := sets.New(o.Extra.BatteriesIncluded...)
 	if batterySet.Has(batteries.User) && !batterySet.Has(batteries.Admin) {
 		errs = append(errs, fmt.Errorf("battery %s enabled which requires %s as well", batteries.User, batteries.Admin))
 	}
 
 	if o.Extra.LogicalClusterAdminKubeconfig != "" && o.Extra.ShardExternalURL == "" {
 		errs = append(errs, fmt.Errorf("--shard-external-url is required if --logical-cluster-admin-kubeconfig is set"))
+	}
+
+	if o.Extra.CABundleFile != "" {
+		data, err := os.ReadFile(o.Extra.CABundleFile)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("ca-bundle-file %q could not be read: %w", o.Extra.CABundleFile, err))
+		} else {
+			if len(data) == 0 {
+				errs = append(errs, fmt.Errorf("ca-bundle-file %q is empty", o.Extra.CABundleFile))
+			} else {
+				// TODO: validate if this is valid PEM data?
+				klog.Infof("ca-bundle-file %q read successfully, %d bytes", o.Extra.CABundleFile, len(data))
+			}
+		}
 	}
 
 	return errs
@@ -374,7 +395,7 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 		}
 	}
 	if differential {
-		bats := sets.New[string](sets.List[string](batteries.Defaults)...)
+		bats := sets.New(sets.List(batteries.Defaults)...)
 		for _, b := range o.Extra.BatteriesIncluded {
 			if strings.HasPrefix(b, "+") {
 				bats.Insert(b[1:])
@@ -382,7 +403,7 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 				bats.Delete(b[1:])
 			}
 		}
-		o.Extra.BatteriesIncluded = sets.List[string](bats)
+		o.Extra.BatteriesIncluded = sets.List(bats)
 	}
 
 	completedEmbeddedEtcd := o.EmbeddedEtcd.Complete(o.GenericControlPlane.Etcd)
@@ -397,6 +418,16 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 	cacheCompletedOptions, err := o.Cache.Complete()
 	if err != nil {
 		return nil, err
+	}
+
+	if o.Extra.CABundleFile != "" {
+		if !filepath.IsAbs(o.Extra.CABundleFile) {
+			pwd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			o.Extra.CABundleFile = filepath.Join(pwd, o.Extra.CABundleFile)
+		}
 	}
 
 	return &CompletedOptions{

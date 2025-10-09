@@ -136,6 +136,9 @@ type ExtraConfig struct {
 	CacheDiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory                kcpinformers.SharedInformerFactory
 	CacheKubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+
+	// If CABundleFile is set, read its contents into CABundleData
+	CABundleData []byte
 }
 
 type completedConfig struct {
@@ -184,6 +187,14 @@ const KcpBootstrapperUserName = "system:kcp:bootstrapper"
 func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c := &Config{
 		Options: opts,
+	}
+
+	if opts.Extra.CABundleFile != "" {
+		data, err := os.ReadFile(opts.Extra.CABundleFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read ca-bundle-file %q: %w", opts.Extra.CABundleFile, err)
+		}
+		c.CABundleData = data
 	}
 
 	if opts.Extra.ProfilerAddress != "" {
@@ -323,6 +334,15 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, fmt.Errorf("failed to load the external logical cluster admin kubeconfig from %q: %w", c.Options.Extra.ExternalLogicalClusterAdminKubeconfig, err)
 		}
+		if c.CABundleData != nil {
+			// Inject CA bundle into rest.Config
+			if c.ExternalLogicalClusterAdminConfig.TLSClientConfig.CAData == nil {
+				c.ExternalLogicalClusterAdminConfig.TLSClientConfig.CAData = c.CABundleData
+			} else {
+				// Append to existing CA data
+				c.ExternalLogicalClusterAdminConfig.TLSClientConfig.CAData = append(c.ExternalLogicalClusterAdminConfig.TLSClientConfig.CAData, c.CABundleData...)
+			}
+		}
 	}
 
 	// Setup apiextensions * informers
@@ -345,12 +365,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		return nil, err
 	}
 	var userToken string
-	if sets.New[string](opts.Extra.BatteriesIncluded...).Has(batteries.Admin) {
+	if sets.New(opts.Extra.BatteriesIncluded...).Has(batteries.Admin) {
 		c.kcpAdminToken, c.shardAdminToken, userToken, c.shardAdminTokenHash, err = opts.AdminAuthentication.ApplyTo(c.GenericConfig)
 		if err != nil {
 			return nil, err
 		}
-		if sets.New[string](opts.Extra.BatteriesIncluded...).Has(batteries.User) {
+		if sets.New(opts.Extra.BatteriesIncluded...).Has(batteries.User) {
 			c.userToken = userToken
 		}
 	}
