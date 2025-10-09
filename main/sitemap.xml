@@ -175,6 +175,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/getting-started/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/contributing/monorepo/</loc>
+        <lastmod>2025-10-09</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/monorepo/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/continuous-integration/</loc>
         <lastmod>2025-10-09</lastmod>
         <changefreq>daily</changefreq>

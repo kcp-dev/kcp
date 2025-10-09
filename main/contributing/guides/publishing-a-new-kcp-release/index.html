@@ -1950,6 +1950,8 @@
       
         
       
+        
+      
     
     
       
@@ -2042,6 +2044,27 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../monorepo/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monorepo Structure
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -2061,10 +2084,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
         
           
-          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -2075,8 +2098,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
             <span class="md-nav__icon md-icon"></span>
             Governance
           </label>
@@ -2159,7 +2182,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_6" >
         
           
           
@@ -2175,14 +2198,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
             <span class="md-nav__icon md-icon"></span>
             Continuous integration
           </label>
@@ -2246,10 +2269,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" checked>
         
           
-          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -2260,8 +2283,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             Guides
           </label>
@@ -2375,6 +2398,15 @@
   <a href="#create-a-release-branch" class="md-nav__link">
     <span class="md-ellipsis">
       Create a Release Branch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-the-publishing-bot-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Update the publishing-bot Rules
     </span>
   </a>
   
@@ -3639,6 +3671,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#update-the-publishing-bot-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Update the publishing-bot Rules
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3757,24 +3798,37 @@ tasks.</p>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
 </code></pre></div>
+<h3 id="update-the-publishing-bot-rules">Update the <code>publishing-bot</code> Rules</h3>
+<p>The <a href="https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml"><code>publishing-bot</code> rules</a> must be updated
+to add a new branch for all staging repositories.</p>
+<p>While this can be done manually, the easiest and recommended way is to use the <code>update-rules</code> tool.
+This tool can be installed by cloning kcp's fork of <a href="https://github.com/kcp-dev/publishing-bot">publishing-bot</a>
+and running <code>make build</code> in the repository, which will install the tool in <code>_output/update-rules</code>.
+Alternatively, the tool can be ran inside a Docker container using the <code>ghcr.io/kcp-dev/publishing-bot:latest</code> image.</p>
+<p>The tool takes the path to the rules file, the branch name, and the Go version used on that branch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>_output/update-rules<span class="w"> </span>-branch<span class="w"> </span>release-0.x<span class="w"> </span>-go<span class="w"> </span><span class="m">1</span>.x.y<span class="w"> </span>-rules<span class="w"> </span>../kcp/staging/publishing/rules.yaml<span class="w"> </span>-o<span class="w"> </span>/tmp/rules.yaml
+</code></pre></div>
+<p>This will generate a temporary rules file in <code>/tmp/rules.yaml</code>. You'll need to replace <code>staging/publishing/rules.yaml</code>
+in the kcp repo with that temporary file and push it to the repo before proceeding. The new rules file will be used
+on the next publishing-bot run automatically.</p>
 <h2 id="generate-release-notes">Generate Release Notes</h2>
 <p>To generate release notes from the information in PR descriptions you should use Kubernetes' <a href="https://github.com/kubernetes/release/tree/master/cmd/release-notes">release-notes</a> tool.
 This tool will use the <code>release-notes</code> blocks in PR descriptions and the <code>kind/</code> labels on those PRs to find user-facing changes and categorize them.
 You can run the command below to install the latest version of it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
 </code></pre></div>
 <p>To use <code>release-notes</code> you will need to generate a GitHub API token (Settings -&gt; Developers settings -&gt; Personal access tokens -&gt; Fine-grained tokens). A token with <em>Public Repositories (read-only)</em> repository access and no further permissions is sufficient. Store the token somewhere safe and export it as <code>GITHUB_TOKEN</code> environment variable.</p>
 <p>Then, run run the <code>release-notes</code> tool (set <code>PREV_VERSION</code> to the version released before the one you have just released).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
 </code></pre></div>
 <p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
 <h2 id="revieweditpublish-the-release-in-github">Review/Edit/Publish the Release in GitHub</h2>
