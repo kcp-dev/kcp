@@ -62,6 +62,13 @@ func (a *wrappedResourceAuthorizer) Authorize(ctx context.Context, attr authoriz
 		return authorizer.DecisionDeny, "write access to CachedResource is not allowed from virtual workspace", nil
 	}
 
+	if targetCluster.Wildcard || attr.GetResource() == "" {
+		// If the target is the wildcard cluster or it's a non-resource URL request,
+		// we can skip checking the APIBinding in the target cluster.
+		return authorizer.DecisionAllow, fmt.Sprintf("CachedResource: %s|%s, workspace: %q allowed for wildcard or non-resource requests",
+			parsedKey.CachedResourceCluster.String(), parsedKey.CachedResourceName, targetCluster.Name), nil
+	}
+
 	authz, err := a.newDelegatedAuthorizer(targetCluster.Name)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err

@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250604-36e6abf17.cachedresourceendpointslices.cache.kcp.io
+  name: v251008-c4825908e.cachedresourceendpointslices.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -62,6 +62,11 @@ spec:
               x-kubernetes-validations:
               - message: CachedResource reference must not be changed
                 rule: self == oldSelf
+            partition:
+              description: |-
+                partition points to a partition that is used for filtering the endpoints
+                of the CachedResource part of the slice.
+              type: string
           required:
           - cachedResource
           type: object
@@ -70,6 +75,51 @@ spec:
             status communicates the observed state:
             the filtered list of endpoints for the Replication service.
           properties:
+            conditions:
+              description: conditions is a list of conditions that apply to the CachedResourceEndpointSlice.
+              items:
+                description: Condition defines an observation of a object operational
+                  state.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      Last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed. If that is not known, then using the time when
+                      the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      A human readable message indicating details about the transition.
+                      This field may be empty.
+                    type: string
+                  reason:
+                    description: |-
+                      The reason for the condition's last transition in CamelCase.
+                      The specific API may choose whether or not this field is considered a guaranteed API.
+                      This field may not be empty.
+                    type: string
+                  severity:
+                    description: |-
+                      Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                      understand the current situation and act accordingly.
+                      The Severity field MUST be set only when Status=False.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: |-
+                      Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                      can be useful (see .node.status.conditions), the ability to deconflict is important.
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
             endpoints:
               description: endpoints contains all the URLs of the Replication service.
               items:
@@ -87,6 +137,12 @@ spec:
               x-kubernetes-list-map-keys:
               - url
               x-kubernetes-list-type: map
+            shardSelector:
+              description: |-
+                shardSelector is the selector used to filter the shards. It is used to filter the shards
+                when determining partition scope when deriving the endpoints. This is set by owning shard,
+                and is used by follower shards to determine if its inscope or not.
+              type: string
           type: object
       type: object
     served: true
