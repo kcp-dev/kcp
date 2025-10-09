@@ -2,6 +2,7 @@ nav:
     - index.md
     - getting-started.md
     - coding.md
+    - monorepo.md
     - governance
     - continuous-integration
     - guides
