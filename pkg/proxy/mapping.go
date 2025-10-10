@@ -29,17 +29,17 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server/proxy"
+	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
-func loadMappings(filename string) ([]proxy.PathMapping, error) {
+func loadMappings(filename string) ([]types.PathMapping, error) {
 	mappingData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var mapping []proxy.PathMapping
+	var mapping []types.PathMapping
 	if err := yaml.Unmarshal(mappingData, &mapping); err != nil {
 		return nil, err
 	}
@@ -47,14 +47,13 @@ func loadMappings(filename string) ([]proxy.PathMapping, error) {
 	return mapping, nil
 }
 
-func isShardMapping(m proxy.PathMapping) bool {
+func isShardMapping(m types.PathMapping) bool {
 	return m.Path == "/clusters/"
 }
 
-func NewHandler(ctx context.Context, mappings []proxy.PathMapping, index index.Index) (http.Handler, error) {
+func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler, error) {
 	handlers := proxy.HttpHandler{
-		Index: index,
-		Mappings: proxy.HttpHandlerMappings{
+		Mappings: types.HttpHandlerMappings{
 			{
 				Weight:  0,
 				Path:    "/metrics",
@@ -108,7 +107,7 @@ func NewHandler(ctx context.Context, mappings []proxy.PathMapping, index index.I
 		if m.Path == "/" {
 			handlers.DefaultHandler = handler
 		} else {
-			handlers.Mappings = append(handlers.Mappings, proxy.HttpHandlerMapping{
+			handlers.Mappings = append(handlers.Mappings, types.HttpHandlerMapping{
 				Weight:  len(m.Path),
 				Path:    m.Path,
 				Handler: handler,

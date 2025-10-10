@@ -93,7 +93,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// interface.
 	s.IndexController = index.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc)
 
-	handler, err := NewHandler(ctx, mappings, s.IndexController)
+	handler, err := NewHandler(ctx, mappings)
 	if err != nil {
 		return s, err
 	}
@@ -131,7 +131,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 
 	if hasShardMapping {
 		// This middleware must happen before the authentication.
-		handler = lookup.WithClusterResolver(handler, s.IndexController)
+		handler = lookup.WithClusterResolver(handler, mappings, s.IndexController)
 	}
 
 	requestInfoFactory := requestinfo.NewFactory()
