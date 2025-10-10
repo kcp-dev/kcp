@@ -58,7 +58,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err)
 
-	// start a two mock OIDC servers that will listen on random ports
+	// start two mock OIDC servers that will listen on random ports
 	// (only for discovery and keyset handling, no actual login workflows)
 	mockA, ca := authfixtures.StartMockOIDC(t, server)
 	mockB, _ := authfixtures.StartMockOIDC(t, server)

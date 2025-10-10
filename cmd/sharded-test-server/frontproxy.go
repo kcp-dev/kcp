@@ -39,6 +39,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
+	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
@@ -66,15 +67,7 @@ func startFrontProxy(
 
 	logger := klog.FromContext(ctx)
 
-	type mappingEntry struct {
-		Path            string `json:"path"`
-		Backend         string `json:"backend"`
-		BackendServerCA string `json:"backend_server_ca"`
-		ProxyClientCert string `json:"proxy_client_cert"`
-		ProxyClientKey  string `json:"proxy_client_key"`
-	}
-
-	mappings := []mappingEntry{
+	mappings := []types.PathMapping{
 		{
 			Path: "/services/",
 			// TODO: support multiple virtual workspace backend servers
@@ -84,8 +77,16 @@ func startFrontProxy(
 			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
 		},
 		{
+			Path:            "/e2e/clusters/{cluster}/",
+			Backend:         "https://localhost:2443",
+			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
+			// in the existing testcases, these two do not matter, but have to be non-empty
+			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
+			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
+		},
+		{
 			Path: "/clusters/",
-			// TODO: support multiple shard backend servers
+			// this path is not actually used, since shard URLs are determined based on the Shard
 			Backend:         "https://localhost:6444",
 			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
 			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
