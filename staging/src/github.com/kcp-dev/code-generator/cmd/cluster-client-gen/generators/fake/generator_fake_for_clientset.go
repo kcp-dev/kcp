@@ -68,21 +68,18 @@ func (g *genClientset) Imports(_ *generator.Context) (imports []string) {
 			fakeGroupClientPackage := path.Join(groupClientPackage, "fake")
 
 			groupAlias := strings.ToLower(g.groupGoNames[clientgentypes.GroupVersion{Group: group.Group, Version: version.Version}])
-			imports = append(imports, fmt.Sprintf("%s%s \"%s\"", groupAlias, strings.ToLower(version.NonEmpty()), singleClusterGroupClientPackage))
-			imports = append(imports, fmt.Sprintf("kcp%s%s \"%s\"", groupAlias, strings.ToLower(version.NonEmpty()), groupClientPackage))
-			imports = append(imports, fmt.Sprintf("kcpfake%s%s \"%s\"", groupAlias, strings.ToLower(version.NonEmpty()), fakeGroupClientPackage))
+			imports = append(imports, fmt.Sprintf("%s%s %q", groupAlias, strings.ToLower(version.NonEmpty()), singleClusterGroupClientPackage),
+				fmt.Sprintf("kcp%s%s %q", groupAlias, strings.ToLower(version.NonEmpty()), groupClientPackage),
+				fmt.Sprintf("kcpfake%s%s %q", groupAlias, strings.ToLower(version.NonEmpty()), fakeGroupClientPackage))
 		}
 	}
 
-	// the package that has the clientset Interface
+	// the package that has the clientset Interface and imports for the code in commonTemplate
 	imports = append(imports,
-		fmt.Sprintf("clientset \"%s\"", g.singleClusterClientPackage),
-		fmt.Sprintf("kcpclientset \"%s\"", g.realClientsetPackage),
-		fmt.Sprintf("kcpclientscheme \"%s\"", path.Join(g.realClientsetPackage, "scheme")),
-	)
+		fmt.Sprintf("clientset %q", g.singleClusterClientPackage),
+		fmt.Sprintf("kcpclientset %q", g.realClientsetPackage),
+		fmt.Sprintf("kcpclientscheme %q", path.Join(g.realClientsetPackage, "scheme")),
 
-	// imports for the code in commonTemplate
-	imports = append(imports,
 		"github.com/kcp-dev/logicalcluster/v3",
 		"kcptesting \"github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing\"",
 		"kcpfakediscovery \"github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake\"",

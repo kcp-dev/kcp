@@ -68,7 +68,7 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 		klog.Fatalf("Failed loading boilerplate: %v", err)
 	}
 
-	var targetList []generator.Target
+	targetList := make([]generator.Target, 0)
 	for _, inputPkg := range context.Inputs {
 		p := context.Universe.Package(inputPkg)
 

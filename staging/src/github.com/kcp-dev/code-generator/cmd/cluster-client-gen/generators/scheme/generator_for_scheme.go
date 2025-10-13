@@ -72,11 +72,11 @@ func (g *GenScheme) Imports(_ *generator.Context) (imports []string) {
 				}
 				packagePath = path.Join(packagePath, "install")
 
-				imports = append(imports, fmt.Sprintf("%s \"%s\"", groupAlias, packagePath))
+				imports = append(imports, fmt.Sprintf("%s %q", groupAlias, packagePath))
 				break
 			}
 
-			imports = append(imports, fmt.Sprintf("%s%s \"%s\"", groupAlias, strings.ToLower(version.Version.NonEmpty()), packagePath))
+			imports = append(imports, fmt.Sprintf("%s%s %q", groupAlias, strings.ToLower(version.Version.NonEmpty()), packagePath))
 		}
 	}
 	return

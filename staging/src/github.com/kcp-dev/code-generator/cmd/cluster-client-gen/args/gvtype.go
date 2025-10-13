@@ -30,7 +30,7 @@ type gvTypeValue struct {
 	changed   bool
 }
 
-func NewGVTypesValue(gvToTypes *map[types.GroupVersion][]string, def []string) *gvTypeValue {
+func NewGVTypesValue(gvToTypes *map[types.GroupVersion][]string, def []string) *gvTypeValue { //nolint:gocritic
 	gvt := new(gvTypeValue)
 	gvt.gvToTypes = gvToTypes
 	if def != nil {

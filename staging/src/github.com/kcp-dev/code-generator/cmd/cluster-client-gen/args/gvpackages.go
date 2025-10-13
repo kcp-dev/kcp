@@ -144,7 +144,7 @@ func (p *groupVersionsBuilder) update() error {
 		}
 	}
 
-	var groupNames []string
+	groupNames := make([]string, 0, len(seenGroups))
 	for groupName := range seenGroups {
 		groupNames = append(groupNames, groupName.String())
 	}

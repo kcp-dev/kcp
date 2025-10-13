@@ -59,14 +59,14 @@ func (g *genClientset) Filter(_ *generator.Context, _ *types.Type) bool {
 func (g *genClientset) Imports(c *generator.Context) (imports []string) {
 	imports = append(imports, g.imports.ImportLines()...)
 	imports = append(imports,
-		fmt.Sprintf("client \"%s\"", g.singleClusterClientPkg),
+		fmt.Sprintf("client %q", g.singleClusterClientPkg),
 		"github.com/kcp-dev/logicalcluster/v3",
 	)
 	for _, group := range g.groups {
 		for _, version := range group.Versions {
 			typedClientPath := path.Join(g.clientsetPackage, "typed", strings.ToLower(group.PackageName), strings.ToLower(version.NonEmpty()))
 			groupAlias := strings.ToLower(g.groupGoNames[clientgentypes.GroupVersion{Group: group.Group, Version: version.Version}])
-			imports = append(imports, fmt.Sprintf("%s%s \"%s\"", groupAlias, strings.ToLower(version.NonEmpty()), typedClientPath))
+			imports = append(imports, fmt.Sprintf("%s%s %q", groupAlias, strings.ToLower(version.NonEmpty()), typedClientPath))
 		}
 	}
 	return

@@ -405,8 +405,7 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 	var targetList []generator.Target
 
 	targetList = append(targetList,
-		targetForClientset(args, clientsetDir, clientsetPkg, groupGoNames, boilerplate))
-	targetList = append(targetList,
+		targetForClientset(args, clientsetDir, clientsetPkg, groupGoNames, boilerplate),
 		targetForScheme(args, clientsetDir, clientsetPkg, groupGoNames, boilerplate))
 	if args.FakeClient {
 		targetList = append(targetList,

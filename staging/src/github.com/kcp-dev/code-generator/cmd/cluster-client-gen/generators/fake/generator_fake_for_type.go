@@ -70,9 +70,9 @@ func (g *genFakeForType) Imports(_ *generator.Context) (imports []string) {
 		`"github.com/kcp-dev/logicalcluster/v3"`,
 		`kcpgentype "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/gentype"`,
 		`kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"`,
-		fmt.Sprintf(`%s "%s"`, gvAlias, g.typeToMatch.Name.Package),
-		fmt.Sprintf(`typedkcp%s "%s"`, gvAlias, g.realClientPackage),
-		fmt.Sprintf(`typed%s "%s"`, gvAlias, g.singleClusterClientPackage),
+		fmt.Sprintf(`%s %q`, gvAlias, g.typeToMatch.Name.Package),
+		fmt.Sprintf(`typedkcp%s %q`, gvAlias, g.realClientPackage),
+		fmt.Sprintf(`typed%s %q`, gvAlias, g.singleClusterClientPackage),
 	)
 
 	return imports

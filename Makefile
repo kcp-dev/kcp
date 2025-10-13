@@ -144,7 +144,7 @@ lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 	echo "Linting root module..."; \
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
 	# TODO(embik): stop skipping lint for staging repositories
-	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,' | grep -v staging); do \
+	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Linting $$MOD module..."; \
 			(cd $$MOD && $(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m); \

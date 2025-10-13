@@ -99,7 +99,7 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 	externalVersionOutputDir := args.OutputDir
 	externalVersionOutputPkg := args.OutputPackage
 
-	var targetList []generator.Target
+	targetList := make([]generator.Target, 0)
 	typesForGroupVersion := make(map[clientgentypes.GroupVersion][]*types.Type)
 
 	externalGroupVersions := make(map[string]clientgentypes.GroupVersions)
@@ -201,32 +201,32 @@ func factoryTarget(
 		PkgDir:        outputDirBase,
 		HeaderComment: boilerplate,
 		GeneratorsFunc: func(_ *generator.Context) (generators []generator.Generator) {
-			generators = append(generators, &factoryGenerator{
-				GoGenerator: generator.GoGenerator{
-					OutputFilename: "factory.go",
+			generators = append(generators,
+				&factoryGenerator{
+					GoGenerator: generator.GoGenerator{
+						OutputFilename: "factory.go",
+					},
+					outputPackage:                          outputPkgBase,
+					imports:                                imports.NewImportTrackerForPackage(outputPkgBase),
+					groupVersions:                          groupVersions,
+					clientSetPackage:                       args.VersionedClientSetPackage,
+					internalInterfacesPackage:              path.Join(outputPkgBase, subdirForInternalInterfaces),
+					gvGoNames:                              groupGoNames,
+					singleClusterVersionedClientSetPackage: args.SingleClusterVersionedClientSetPackage,
+					singleClusterInformersPackage:          args.SingleClusterInformersPackage,
 				},
-				outputPackage:                          outputPkgBase,
-				imports:                                imports.NewImportTrackerForPackage(outputPkgBase),
-				groupVersions:                          groupVersions,
-				clientSetPackage:                       args.VersionedClientSetPackage,
-				internalInterfacesPackage:              path.Join(outputPkgBase, subdirForInternalInterfaces),
-				gvGoNames:                              groupGoNames,
-				singleClusterVersionedClientSetPackage: args.SingleClusterVersionedClientSetPackage,
-				singleClusterInformersPackage:          args.SingleClusterInformersPackage,
-			})
-
-			generators = append(generators, &genericGenerator{
-				GoGenerator: generator.GoGenerator{
-					OutputFilename: "generic.go",
-				},
-				outputPackage:             outputPkgBase,
-				imports:                   imports.NewImportTrackerForPackage(outputPkgBase),
-				groupVersions:             groupVersions,
-				pluralExceptions:          pluralExceptions,
-				typesForGroupVersion:      typesForGroupVersion,
-				groupGoNames:              groupGoNames,
-				singleClusterInformersPkg: args.SingleClusterInformersPackage,
-			})
+				&genericGenerator{
+					GoGenerator: generator.GoGenerator{
+						OutputFilename: "generic.go",
+					},
+					outputPackage:             outputPkgBase,
+					imports:                   imports.NewImportTrackerForPackage(outputPkgBase),
+					groupVersions:             groupVersions,
+					pluralExceptions:          pluralExceptions,
+					typesForGroupVersion:      typesForGroupVersion,
+					groupGoNames:              groupGoNames,
+					singleClusterInformersPkg: args.SingleClusterInformersPackage,
+				})
 
 			return generators
 		},

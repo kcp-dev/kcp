@@ -52,7 +52,7 @@ func (a sortableSliceOfVersions) Len() int      { return len(a) }
 func (a sortableSliceOfVersions) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a sortableSliceOfVersions) Less(i, j int) bool {
 	vi, vj := strings.TrimLeft(a[i], "v"), strings.TrimLeft(a[j], "v")
-	major := regexp.MustCompile("^[0-9]+")
+	major := regexp.MustCompile(`^\d+`)
 	viMajor, vjMajor := major.FindString(vi), major.FindString(vj)
 	viRemaining, vjRemaining := strings.TrimLeft(vi, viMajor), strings.TrimLeft(vj, vjMajor)
 	switch {
@@ -77,7 +77,7 @@ func (a sortableSliceOfVersions) Less(i, j int) bool {
 // without specifying the version (e.g., c.CoreV1(), instead of c.CoreV1()), the
 // default version will be returned.
 func defaultVersion(versions []PackageVersion) Version {
-	var versionStrings []string
+	versionStrings := make([]string, 0, len(versions))
 	for _, version := range versions {
 		versionStrings = append(versionStrings, version.Version.String())
 	}
@@ -87,7 +87,7 @@ func defaultVersion(versions []PackageVersion) Version {
 
 // ToGroupVersionInfo is a helper function used by generators for groups.
 func ToGroupVersionInfo(groups []GroupVersions, groupGoNames map[GroupVersion]string) []GroupVersionInfo {
-	var groupVersionPackages []GroupVersionInfo
+	groupVersionPackages := make([]GroupVersionInfo, 0, len(groups))
 	for _, group := range groups {
 		for _, version := range group.Versions {
 			groupGoName := groupGoNames[GroupVersion{Group: group.Group, Version: version.Version}]
@@ -104,7 +104,7 @@ func ToGroupVersionInfo(groups []GroupVersions, groupGoNames map[GroupVersion]st
 }
 
 func ToGroupInstallPackages(groups []GroupVersions, groupGoNames map[GroupVersion]string) []GroupInstallPackage {
-	var groupInstallPackages []GroupInstallPackage
+	groupInstallPackages := make([]GroupInstallPackage, 0, len(groups))
 	for _, group := range groups {
 		defaultVersion := defaultVersion(group.Versions)
 		groupGoName := groupGoNames[GroupVersion{Group: group.Group, Version: defaultVersion}]
