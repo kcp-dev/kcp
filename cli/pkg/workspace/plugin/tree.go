@@ -37,7 +37,7 @@ import (
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 )
 
-// workspaceInfo contains workspace path and type information
+// workspaceInfo contains workspace path and type information.
 type workspaceInfo struct {
 	Path logicalcluster.Path
 	Type *tenancyv1alpha1.WorkspaceTypeReference
@@ -233,7 +233,7 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 	return nil
 }
 
-// switchToWorkspace switches to a selected workspace
+// switchToWorkspace switches to a selected workspace.
 func (o *TreeOptions) switchToWorkspace(ctx context.Context, workspacePath logicalcluster.Path) error {
 	useOpts := NewUseWorkspaceOptions(o.IOStreams)
 	useOpts.ClientConfig = o.ClientConfig
@@ -283,7 +283,7 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 	return nil
 }
 
-// expandParents expands all parent nodes from the given node up to the root
+// expandParents expands all parent nodes from the given node up to the root.
 func (o *TreeOptions) expandParents(node *treeNode) {
 	current := node
 	for current != nil {
