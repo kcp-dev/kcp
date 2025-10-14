@@ -310,7 +310,7 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 
 	// NOTE: do not use exec.CommandContext here. That method issues a SIGKILL when the context is done, and we
 	// want to issue SIGTERM instead, to give the server a chance to shut down cleanly.
-	cmd := exec.Command(commandLine[0], commandLine[1:]...) //nolint:gosec // G204: This is a test utility with controlled inputs
+	cmd := exec.CommandContext(context.Background(), commandLine[0], commandLine[1:]...) //nolint:gosec // G204: This is a test utility with controlled inputs
 	if workdir != "" {
 		cmd.Dir = workdir
 	}
