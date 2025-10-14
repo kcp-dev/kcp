@@ -59,7 +59,8 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		conn, err := net.DialTimeout("tcp", address, time.Second)
+		dialer := &net.Dialer{Timeout: time.Second}
+		conn, err := dialer.DialContext(context.Background(), "tcp", address)
 		if err != nil {
 			return false, fmt.Sprintf("Webhook is not serving on %s: %v", address, err)
 		}
