@@ -9,6 +9,7 @@ require (
 )
 
 replace (
+	github.com/charmbracelet/x/ansi => github.com/olamilekan000/x/ansi v0.0.2
 	github.com/kcp-dev/kcp => ../../../
 	github.com/kcp-dev/kcp/cli => ../../../cli
 	github.com/kcp-dev/kcp/sdk => ../../../sdk
