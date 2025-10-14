@@ -172,6 +172,13 @@ func NewController(
 	},
 	))
 
+	_, _ = apiExportEndpointSliceInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAllApiExportEndpointSlices(obj.(*apisv1alpha1.APIExportEndpointSlice))
+		},
+	},
+	))
+
 	return c, nil
 }
 
@@ -259,6 +266,23 @@ func (c *controller) enqueueSecret(secret *corev1.Secret) {
 		logging.WithQueueKey(logger, key).V(3).Info("queueing APIExport via identity Secret")
 		c.queue.Add(key)
 	}
+}
+
+func (c *controller) enqueueAllApiExportEndpointSlices(apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) {
+	clusterName := logicalcluster.From(apiExportEndpointSlice)
+
+	apiExportName := apiExportEndpointSlice.Spec.APIExport.Name
+
+	apiExport, err := c.getAPIExport(clusterName, apiExportName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return
+		}
+		utilruntime.HandleError(err)
+		return
+	}
+
+	c.enqueueAPIExport(apiExport)
 }
 
 // Start starts the controller, which stops when ctx.Done() is closed.
