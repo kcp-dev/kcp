@@ -29,7 +29,7 @@ type WorkspaceStatusApplyConfiguration struct {
 	Phase        *corev1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
 	Conditions   *conditionsv1alpha1.Conditions           `json:"conditions,omitempty"`
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
-	Finalizers   []corev1alpha1.LogicalClusterFinalizer   `json:"finalizers,omitempty"`
+	Terminators  []corev1alpha1.LogicalClusterTerminator  `json:"terminators,omitempty"`
 }
 
 // WorkspaceStatusApplyConfiguration constructs a declarative configuration of the WorkspaceStatus type for use with
@@ -64,12 +64,12 @@ func (b *WorkspaceStatusApplyConfiguration) WithInitializers(values ...corev1alp
 	return b
 }
 
-// WithFinalizers adds the given value to the Finalizers field in the declarative configuration
+// WithTerminators adds the given value to the Terminators field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *WorkspaceStatusApplyConfiguration) WithFinalizers(values ...corev1alpha1.LogicalClusterFinalizer) *WorkspaceStatusApplyConfiguration {
+// If called multiple times, values provided by each call will be appended to the Terminators field.
+func (b *WorkspaceStatusApplyConfiguration) WithTerminators(values ...corev1alpha1.LogicalClusterTerminator) *WorkspaceStatusApplyConfiguration {
 	for i := range values {
-		b.Finalizers = append(b.Finalizers, values[i])
+		b.Terminators = append(b.Terminators, values[i])
 	}
 	return b
 }

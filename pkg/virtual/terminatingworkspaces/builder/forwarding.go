@@ -52,9 +52,9 @@ import (
 func filteredLogicalClusterReadOnlyRestStorage(
 	ctx context.Context,
 	clusterClient kcpdynamic.ClusterInterface,
-	finalizer corev1alpha1.LogicalClusterFinalizer,
+	terminator corev1alpha1.LogicalClusterTerminator,
 ) (apiserver.RestProviderFunc, error) {
-	labelRequirement, err := finalizerLabelSetRequirement(finalizer)
+	labelRequirement, err := terminatorLabelSetRequirement(terminator)
 	if err != nil {
 		return nil, err
 	}
@@ -72,13 +72,13 @@ func filteredLogicalClusterReadOnlyRestStorage(
 
 // filteredLogicalClusterReadWriteRestStorage creates a RestProvider which will
 // return LogicalClusters marked for deletion. Updates can only be made against
-// the supplied finalizer.
+// the supplied terminator.
 func filteredLogicalClusterReadWriteRestStorage(
 	ctx context.Context,
 	clusterclient kcpdynamic.ClusterInterface,
-	finalizer corev1alpha1.LogicalClusterFinalizer,
+	terminator corev1alpha1.LogicalClusterTerminator,
 ) (apiserver.RestProviderFunc, error) {
-	labelRequirement, err := finalizerLabelSetRequirement(finalizer)
+	labelRequirement, err := terminatorLabelSetRequirement(terminator)
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +124,11 @@ func filteredLogicalClusterReadWriteRestStorage(
 			&registry.StorageWrappers{
 				registry.WithDeletionTimestamp(),
 				registry.WithStaticLabelSelector(labelRequirement),
-				withUpdateValidation(finalizer),
+				withUpdateValidation(terminator),
 			},
 		)
 
-		// we need to expose patch and update endpoints. The Update validation will ensure that only finalizers
+		// we need to expose patch and update endpoints. The Update validation will ensure that only terminator
 		// can be updated
 		return &struct {
 			registry.FactoryFunc
@@ -156,21 +156,21 @@ func filteredLogicalClusterReadWriteRestStorage(
 	}, nil
 }
 
-// withUpdateValidation wraps validateFinalizerUpdate.
-func withUpdateValidation(finalizer corev1alpha1.LogicalClusterFinalizer) registry.StorageWrapper {
+// withUpdateValidation wraps validateTerminatorUpdate.
+func withUpdateValidation(terminator corev1alpha1.LogicalClusterTerminator) registry.StorageWrapper {
 	return registry.StorageWrapperFunc(func(groupResource schema.GroupResource, storage *registry.StoreFuncs) {
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *v1.UpdateOptions) (runtime.Object, bool, error) {
-			validationFunc := validateFinalizerUpdate(finalizer)
+			validationFunc := validateTerminatorUpdate(terminator)
 			return delegateUpdater.Update(ctx, name, objInfo, createValidation, validationFunc, forceAllowCreate, options)
 		}
 	})
 }
 
-// validateFinalizerUpdate validates that an update to a LogicalCluster:
-// * removes the passed finalizer and only that finalizer.
-// * does not update any fields outside of finalizers.
-func validateFinalizerUpdate(finalizer corev1alpha1.LogicalClusterFinalizer) rest.ValidateObjectUpdateFunc {
+// validateTerminatorUpdate validates that an update to a LogicalCluster:
+// * removes the passed terminator and only that terminator.
+// * does not update any fields outside of terminators.
+func validateTerminatorUpdate(terminator corev1alpha1.LogicalClusterTerminator) rest.ValidateObjectUpdateFunc {
 	return func(ctx context.Context, obj, old runtime.Object) error {
 		logger := klog.FromContext(ctx)
 		previous, err := logicalClusterFromObject(old)
@@ -196,14 +196,14 @@ func validateFinalizerUpdate(finalizer corev1alpha1.LogicalClusterFinalizer) res
 			field.ErrorList{field.Invalid(
 				field.NewPath("metadata", "finalizers"),
 				current,
-				fmt.Sprintf("only removing the %q finalizer from metadata.finalizers is supported", finalizer),
+				fmt.Sprintf("only removing the %q terminator from metadata.finalizers is supported", terminator),
 			)},
 		)
 
 		if len(previous.ObjectMeta.Finalizers)-len(current.ObjectMeta.Finalizers) != 1 {
 			return invalidUpdateErr
 		}
-		if slices.Contains(current.ObjectMeta.Finalizers, string(finalizer)) {
+		if slices.Contains(current.ObjectMeta.Finalizers, string(terminator)) {
 			return invalidUpdateErr
 		}
 
@@ -220,14 +220,14 @@ func validateFinalizerUpdate(finalizer corev1alpha1.LogicalClusterFinalizer) res
 		current.ObjectMeta.ManagedFields = nil
 
 		if diff := cmp.Diff(previous, current); diff != "" {
-			logger.Error(nil, "only finalizers are allowed to be changed, but got", diff)
+			logger.Error(nil, "only terminators are allowed to be changed, but got", diff)
 			return errors.NewInvalid(
 				corev1alpha1.Kind("LogicalCluster"),
 				previous.ObjectMeta.Name,
 				field.ErrorList{field.Invalid(
-					field.NewPath("metadata", "finalizers"),
+					field.NewPath("metadata", "terminators"),
 					current,
-					fmt.Sprintf("only finalizers are allowed to be changed, but got\n%s", diff),
+					fmt.Sprintf("only terminators are allowed to be changed, but got\n%s", diff),
 				)},
 			)
 		}
@@ -248,12 +248,12 @@ func logicalClusterFromObject(obj runtime.Object) (*corev1alpha1.LogicalCluster,
 	return lc, nil
 }
 
-// finalizerLabelSetRequirement creates a label requirement which requires the
-// finalizer hashlabel to be set.
-func finalizerLabelSetRequirement(finalizer corev1alpha1.LogicalClusterFinalizer) (labels.Requirements, error) {
+// terminatorLabelSetRequirement creates a label requirement which requires the
+// terminator hashlabel to be set.
+func terminatorLabelSetRequirement(terminator corev1alpha1.LogicalClusterTerminator) (labels.Requirements, error) {
 	labelSelector := map[string]string{}
 
-	key, value := termination.FinalizerToLabel(finalizer)
+	key, value := termination.TerminatorToLabel(terminator)
 	labelSelector[key] = value
 
 	requirements, selectable := labels.SelectorFromSet(labelSelector).Requirements()

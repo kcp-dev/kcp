@@ -118,9 +118,9 @@ func (in *LogicalClusterSpec) DeepCopyInto(out *LogicalClusterSpec) {
 		*out = make([]LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
-	if in.Finalizers != nil {
-		in, out := &in.Finalizers, &out.Finalizers
-		*out = make([]LogicalClusterFinalizer, len(*in))
+	if in.Terminators != nil {
+		in, out := &in.Terminators, &out.Terminators
+		*out = make([]LogicalClusterTerminator, len(*in))
 		copy(*out, *in)
 	}
 	return
@@ -151,9 +151,9 @@ func (in *LogicalClusterStatus) DeepCopyInto(out *LogicalClusterStatus) {
 		*out = make([]LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
-	if in.Finalizers != nil {
-		in, out := &in.Finalizers, &out.Finalizers
-		*out = make([]LogicalClusterFinalizer, len(*in))
+	if in.Terminators != nil {
+		in, out := &in.Terminators, &out.Terminators
+		*out = make([]LogicalClusterTerminator, len(*in))
 		copy(*out, *in)
 	}
 	return

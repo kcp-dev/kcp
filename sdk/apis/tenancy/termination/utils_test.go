@@ -24,42 +24,42 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
-func TestMergeFinalizersUnique(t *testing.T) {
+func TestMergeTerminatorsUnique(t *testing.T) {
 	tests := []struct {
-		name string
-		fin  []corev1alpha1.LogicalClusterFinalizer
-		finS []string
-		exp  []string
+		name  string
+		term  []corev1alpha1.LogicalClusterTerminator
+		termS []string
+		exp   []string
 	}{
 		{
-			name: "finalizer nil",
-			fin:  nil,
-			finS: []string{"1", "2"},
-			exp:  []string{"1", "2"},
+			name:  "terminator nil",
+			term:  nil,
+			termS: []string{"1", "2"},
+			exp:   []string{"1", "2"},
 		},
 		{
-			name: "strings nil",
-			fin:  []corev1alpha1.LogicalClusterFinalizer{"1", "2"},
-			finS: nil,
-			exp:  []string{"1", "2"},
+			name:  "strings nil",
+			term:  []corev1alpha1.LogicalClusterTerminator{"1", "2"},
+			termS: nil,
+			exp:   []string{"1", "2"},
 		},
 		{
-			name: "both non nil",
-			fin:  []corev1alpha1.LogicalClusterFinalizer{"1", "3"},
-			finS: []string{"2", "4"},
-			exp:  []string{"1", "2", "3", "4"},
+			name:  "both non nil",
+			term:  []corev1alpha1.LogicalClusterTerminator{"1", "3"},
+			termS: []string{"2", "4"},
+			exp:   []string{"1", "2", "3", "4"},
 		},
 		{
-			name: "overlapping values",
-			fin:  []corev1alpha1.LogicalClusterFinalizer{"1", "2"},
-			finS: []string{"1", "2"},
-			exp:  []string{"1", "2"},
+			name:  "overlapping values",
+			term:  []corev1alpha1.LogicalClusterTerminator{"1", "2"},
+			termS: []string{"1", "2"},
+			exp:   []string{"1", "2"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			res := MergeFinalizersUnique(tc.fin, tc.finS)
+			res := MergeTerminatorsUnique(tc.term, tc.termS)
 			if diff := cmp.Diff(res, tc.exp); diff != "" {
 				t.Errorf("exp no diff, got %s", diff)
 			}

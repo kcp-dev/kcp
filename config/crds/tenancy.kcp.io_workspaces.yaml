@@ -279,17 +279,6 @@ spec:
                   - type
                   type: object
                 type: array
-              finalizers:
-                description: |-
-                  finalizers must be cleared by a controller before the workspace is being
-                  deleted.
-                items:
-                  description: |-
-                    LogicalClusterFinalizer is a unique string corresponding to a logical cluster
-                    finalizer controller.
-                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
-                  type: string
-                type: array
               initializers:
                 description: |-
                   initializers must be cleared by a controller before the workspace is ready
@@ -310,6 +299,17 @@ spec:
                 - Ready
                 - Unavailable
                 type: string
+              terminators:
+                description: |-
+                  terminators must be cleared by a controller before the workspace is being
+                  deleted.
+                items:
+                  description: |-
+                    LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                    terminator controller.
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                  type: string
+                type: array
             type: object
         required:
         - spec

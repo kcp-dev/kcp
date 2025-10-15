@@ -320,14 +320,14 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 		return err
 	}
 
-	// add finalizers
-	finalizers, err := LogicalClustersFinalizers(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	// add terminators
+	terminators, err := LogicalClusterTerminators(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
 	if err != nil {
 		return err
 	}
-	logicalCluster.Spec.Finalizers = finalizers
-	// append our finalizers to already existing ObjectMeta finalizers
-	logicalCluster.ObjectMeta.Finalizers = termination.MergeFinalizersUnique(finalizers, logicalCluster.ObjectMeta.Finalizers)
+	logicalCluster.Spec.Terminators = terminators
+	// append our terminators to already existing ObjectMeta finalizers
+	logicalCluster.ObjectMeta.Finalizers = termination.MergeTerminatorsUnique(terminators, logicalCluster.ObjectMeta.Finalizers)
 
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
@@ -381,13 +381,13 @@ func LogicalClustersInitializers(
 	return initializers, nil
 }
 
-// LogicalClustersFinalizers returns the finalizers for a LogicalCluster of a given
+// LogicalClusterTerminators returns the terminators for a LogicalCluster of a given
 // fully-qualified WorkspaceType reference.
-func LogicalClustersFinalizers(
+func LogicalClusterTerminators(
 	resolver workspacetypeexists.TransitiveTypeResolver,
 	getWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error),
 	typePath logicalcluster.Path, typeName string,
-) ([]corev1alpha1.LogicalClusterFinalizer, error) {
+) ([]corev1alpha1.LogicalClusterTerminator, error) {
 	wt, err := getWorkspaceType(typePath, typeName)
 	if err != nil {
 		return nil, err
@@ -397,15 +397,15 @@ func LogicalClustersFinalizers(
 		return nil, err
 	}
 
-	finalizers := make([]corev1alpha1.LogicalClusterFinalizer, 0, len(wtAliases))
+	terminators := make([]corev1alpha1.LogicalClusterTerminator, 0, len(wtAliases))
 
 	for _, alias := range wtAliases {
-		if alias.Spec.Finalizer {
-			finalizers = append(finalizers, termination.FinalizerForType(alias))
+		if alias.Spec.Terminator {
+			terminators = append(terminators, termination.TerminatorForType(alias))
 		}
 	}
 
-	return finalizers, nil
+	return terminators, nil
 }
 
 func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {

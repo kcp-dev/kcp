@@ -29,7 +29,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
-	finalizingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces/options"
+	terminatingworkspaceoptions "github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces/options"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -38,14 +38,14 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 type Options struct {
 	APIExport              *apiexportoptions.APIExport
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
-	FinalizingWorkspaces   *finalizingworkspacesoptions.FinalizingWorkspaces
+	TerminatingWorkspaces  *terminatingworkspaceoptions.TerminatingWorkspaces
 }
 
 func NewOptions() *Options {
 	return &Options{
 		APIExport:              apiexportoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
-		FinalizingWorkspaces:   finalizingworkspacesoptions.New(),
+		TerminatingWorkspaces:  terminatingworkspaceoptions.New(),
 	}
 }
 
@@ -54,14 +54,14 @@ func (o *Options) Validate() []error {
 
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
-	errs = append(errs, o.FinalizingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.TerminatingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
-	o.FinalizingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.TerminatingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
 func (o *Options) NewVirtualWorkspaces(
@@ -91,12 +91,12 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	finalizingworkspaces, err := o.FinalizingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	terminatingworkspaces, err := o.TerminatingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces, replications, finalizingworkspaces)
+	all, err := Merge(apiexports, initializingworkspaces, replications, terminatingworkspaces)
 	if err != nil {
 		return nil, err
 	}

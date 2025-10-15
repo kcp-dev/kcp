@@ -181,7 +181,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
 
 	// Incoming requests to this virtual workspace will look like:
-	//  /services/finalizingworkspace/<finalizer>/clusters/<something>/apis/core.kcp.io/v1alpha1/logicalclusters
+	//  /services/terminatingworkspace/<terminator>/clusters/<something>/apis/core.kcp.io/v1alpha1/logicalclusters
 	//                                  └───────────┐
 	// Where the withoutRootPathPrefix starts here: ┘
 	parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
@@ -189,14 +189,14 @@ func digestUrl(urlPath, rootPathPrefix string) (
 		return genericapirequest.Cluster{}, "", "", false
 	}
 
-	finalizerName := parts[0]
-	if finalizerName == "" {
+	terminatorName := parts[0]
+	if terminatorName == "" {
 		return genericapirequest.Cluster{}, "", "", false
 	}
 
 	realPath := "/" + parts[1]
 
-	//  /services/initializingworkspaces/<finalizer>/clusters/<something>/apis/core.kcp.io/v1alpha1/logicalclusters
+	//  /services/terminatingworkspace/<terminator>/clusters/<something>/apis/core.kcp.io/v1alpha1/logicalclusters
 	//                  ┌─────────────────────────────┘
 	// We are now here: ┘
 	// Now, we parse out the logical cluster.
@@ -223,7 +223,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 		}
 	}
 
-	return cluster, dynamiccontext.APIDomainKey(finalizerName), strings.TrimSuffix(urlPath, realPath), true
+	return cluster, dynamiccontext.APIDomainKey(terminatorName), strings.TrimSuffix(urlPath, realPath), true
 }
 
 type singleResourceAPIDefinitionSetProvider struct {
@@ -231,11 +231,11 @@ type singleResourceAPIDefinitionSetProvider struct {
 	dynamicClusterClient kcpdynamic.ClusterInterface
 	resource             *apisv1alpha1.APIResourceSchema
 	exposeSubresources   bool
-	storageProvider      func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, finalizer corev1alpha1.LogicalClusterFinalizer) (apiserver.RestProviderFunc, error)
+	storageProvider      func(ctx context.Context, clusterClient kcpdynamic.ClusterInterface, terminator corev1alpha1.LogicalClusterTerminator) (apiserver.RestProviderFunc, error)
 }
 
 func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context.Context, key dynamiccontext.APIDomainKey) (apis apidefinition.APIDefinitionSet, apisExist bool, err error) {
-	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, corev1alpha1.LogicalClusterFinalizer(key))
+	restProvider, err := a.storageProvider(ctx, a.dynamicClusterClient, corev1alpha1.LogicalClusterTerminator(key))
 	if err != nil {
 		return nil, false, err
 	}
@@ -264,10 +264,10 @@ func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context
 var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProvider{}
 
 func authorizerWithCache(ctx context.Context, cache delegated.Cache, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-	clusterName, name, err := termination.TypeFrom(corev1alpha1.LogicalClusterFinalizer(dynamiccontext.APIDomainKeyFrom(ctx)))
+	clusterName, name, err := termination.TypeFrom(corev1alpha1.LogicalClusterTerminator(dynamiccontext.APIDomainKeyFrom(ctx)))
 	if err != nil {
 		klog.FromContext(ctx).V(2).Info(err.Error())
-		return authorizer.DecisionNoOpinion, "unable to determine finalizer", fmt.Errorf("access not permitted")
+		return authorizer.DecisionNoOpinion, "unable to determine terminator", fmt.Errorf("access not permitted")
 	}
 
 	authz, err := cache.Get(clusterName)
@@ -279,7 +279,7 @@ func authorizerWithCache(ctx context.Context, cache delegated.Cache, attr author
 		APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
 		User:            attr.GetUser(),
-		Verb:            "finalize",
+		Verb:            "terminate",
 		Name:            name,
 		Resource:        "workspacetypes",
 		ResourceRequest: true,

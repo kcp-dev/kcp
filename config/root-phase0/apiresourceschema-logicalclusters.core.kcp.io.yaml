@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250820-d9a41c325.logicalclusters.core.kcp.io
+  name: v251015-1d163d0e5.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -67,17 +67,6 @@ spec:
                 DirectlyDeletable indicates that this logical cluster can be directly deleted by the user
                 from within by deleting the LogicalCluster object.
               type: boolean
-            finalizers:
-              description: |-
-                Finalizers are set on creation by the system and copied to status when
-                finalization starts.
-              items:
-                description: |-
-                  LogicalClusterFinalizer is a unique string corresponding to a logical cluster
-                  finalizer controller.
-                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
-                type: string
-              type: array
             initializers:
               description: |-
                 initializers are set on creation by the system and copied to status when
@@ -128,6 +117,17 @@ spec:
               - resource
               - uid
               type: object
+            terminators:
+              description: |-
+                Terminators are set on creation by the system and copied to status when
+                termination starts.
+              items:
+                description: |-
+                  LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                  terminator controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
           type: object
         status:
           default: {}
@@ -185,18 +185,6 @@ spec:
                 - type
                 type: object
               type: array
-            finalizers:
-              description: |-
-                Finalizers are set on creation by the system and must be cleared
-                by a controller before the logical cluster can be deleted. The LogicalCluster object
-                will stay in the phase "Deleting" until all finalizers are cleared.
-              items:
-                description: |-
-                  LogicalClusterFinalizer is a unique string corresponding to a logical cluster
-                  finalizer controller.
-                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
-                type: string
-              type: array
             initializers:
               description: |-
                 initializers are set on creation by the system and must be cleared
@@ -218,6 +206,18 @@ spec:
               - Ready
               - Unavailable
               type: string
+            terminator:
+              description: |-
+                Terminators are set on creation by the system and must be cleared
+                by a controller before the logical cluster can be deleted. The LogicalCluster object
+                will stay in the phase "Deleting" until all terminator are cleared.
+              items:
+                description: |-
+                  LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                  terminator controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
           type: object
       type: object
     served: true

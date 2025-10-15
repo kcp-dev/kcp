@@ -91,7 +91,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			base,
 			virtualworkspacesoptions.DefaultRootPathPrefix,
 			terminatingworkspaces.VirtualWorkspaceName,
-			string(termination.FinalizerForType(wt)),
+			string(termination.TerminatorForType(wt)),
 		)
 
 		desiredURLs.Insert(u.String())

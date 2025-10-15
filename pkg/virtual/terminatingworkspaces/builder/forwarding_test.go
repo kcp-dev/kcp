@@ -29,18 +29,18 @@ import (
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
-func TestValidateOnlyFinalizerChanged(t *testing.T) {
+func TestValidateOnlyTerminatorChanged(t *testing.T) {
 	tests := []struct {
-		name      string
-		expErr    bool
-		finalizer string
-		old       runtime.Object
-		new       runtime.Object
+		name       string
+		expErr     bool
+		terminator string
+		old        runtime.Object
+		new        runtime.Object
 	}{
 		{
-			name:      "remove owned finalizer",
-			expErr:    false,
-			finalizer: "f1",
+			name:       "remove owned finalizer",
+			expErr:     false,
+			terminator: "f1",
 			old: &corev1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Finalizers: []string{
@@ -58,9 +58,9 @@ func TestValidateOnlyFinalizerChanged(t *testing.T) {
 			},
 		},
 		{
-			name:      "remove non-owned finalizer",
-			expErr:    true,
-			finalizer: "f1",
+			name:       "remove non-owned finalizer",
+			expErr:     true,
+			terminator: "f1",
 			old: &corev1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Finalizers: []string{
@@ -78,9 +78,9 @@ func TestValidateOnlyFinalizerChanged(t *testing.T) {
 			},
 		},
 		{
-			name:      "change non-finalizer field",
-			expErr:    true,
-			finalizer: "f1",
+			name:       "change non-finalizer field",
+			expErr:     true,
+			terminator: "f1",
 			old: &corev1alpha1.LogicalCluster{
 				ObjectMeta: v1.ObjectMeta{
 					Finalizers: []string{
@@ -102,7 +102,7 @@ func TestValidateOnlyFinalizerChanged(t *testing.T) {
 		},
 		{
 			name:   "no object changes",
-			expErr: true, // we expect an error here, as we always expect the number of finalizers to decrease
+			expErr: true, // we expect an error here, as we always expect the number of terminators to decrease
 			old:    &corev1alpha1.LogicalCluster{},
 			new:    &corev1alpha1.LogicalCluster{},
 		},
@@ -113,7 +113,7 @@ func TestValidateOnlyFinalizerChanged(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// mimic the real unstructured.Unstructured objects which are coming into the validateFinalizerUpdate funcs
+			// mimic the real unstructured.Unstructured objects which are coming into the validateTerminatorsUpdate funcs
 			oldMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tc.old)
 			if err != nil {
 				t.Error(err)
@@ -125,7 +125,7 @@ func TestValidateOnlyFinalizerChanged(t *testing.T) {
 			unsOld := &unstructured.Unstructured{Object: oldMap}
 			unsNew := &unstructured.Unstructured{Object: newMap}
 
-			err = validateFinalizerUpdate(corev1alpha1.LogicalClusterFinalizer(tc.finalizer))(ctx, unsNew, unsOld)
+			err = validateTerminatorUpdate(corev1alpha1.LogicalClusterTerminator(tc.terminator))(ctx, unsNew, unsOld)
 			if !tc.expErr && err != nil {
 				t.Errorf("expected no error, but got %q", err)
 			} else if tc.expErr && err == nil {

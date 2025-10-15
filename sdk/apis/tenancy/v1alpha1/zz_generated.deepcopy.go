@@ -479,9 +479,9 @@ func (in *WorkspaceStatus) DeepCopyInto(out *WorkspaceStatus) {
 		*out = make([]corev1alpha1.LogicalClusterInitializer, len(*in))
 		copy(*out, *in)
 	}
-	if in.Finalizers != nil {
-		in, out := &in.Finalizers, &out.Finalizers
-		*out = make([]corev1alpha1.LogicalClusterFinalizer, len(*in))
+	if in.Terminators != nil {
+		in, out := &in.Terminators, &out.Terminators
+		*out = make([]corev1alpha1.LogicalClusterTerminator, len(*in))
 		copy(*out, *in)
 	}
 	return

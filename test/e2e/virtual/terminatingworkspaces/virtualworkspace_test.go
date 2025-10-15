@@ -58,7 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestFinalizingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
+func TestTerminatingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -97,7 +97,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	}}, apiResourceLists))
 }
 
-func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
+func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -121,7 +121,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		"internal.kcp.io/e2e-test": t.Name(),
 	}
 
-	t.Log("Create a workspacetype with a finalizer")
+	t.Log("Create a workspacetype with a terminator")
 	// WorkspaceTypes and the initializer names will have to be globally unique, so we add some suffix here
 	// to ensure that parallel test runs do not impact our ability to verify this behavior. WorkspaceType names
 	// are pretty locked down, using this regex: '^[A-Z0-9][a-zA-Z0-9]+$' - so we just add some simple lowercase suffix.
@@ -146,7 +146,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				Name: name + "-" + suffix(),
 			},
 			Spec: tenancyv1alpha1.WorkspaceTypeSpec{
-				Finalizer: true,
+				Terminator: true,
 			},
 		}
 		workspaceTypes[name] = wst
@@ -247,7 +247,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		ws := workspaces[name]
 		targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
 		require.NoError(t, err)
-		require.True(t, foundTargetVwURL, "didn't find a VirtualWorkspace URL for %v finalizer and %v workspace", name, ws)
+		require.True(t, foundTargetVwURL, "didn't find a VirtualWorkspace URL for %v terminator and %v workspace", name, ws)
 
 		virtualWorkspaceConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-virtual")
 		virtualWorkspaceConfig.Host = targetVwURL
@@ -288,11 +288,11 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			role, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: string(termination.FinalizerForType(wt)) + "-finalizer",
+					Name: string(termination.TerminatorForType(wt)) + "-terminator",
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
-						Verbs:         []string{"finalize"},
+						Verbs:         []string{"terminate"},
 						Resources:     []string{"workspacetypes"},
 						ResourceNames: []string{wt.Name},
 						APIGroups:     []string{"tenancy.kcp.io"},
@@ -333,27 +333,27 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
-	alphaFinalizer := string(termination.FinalizerForType(workspaceTypes["alpha"]))
-	betaFinalizer := string(termination.FinalizerForType(workspaceTypes["beta"]))
-	gammaFinalizer := string(termination.FinalizerForType(workspaceTypes["gamma"]))
+	alphaTerminator := string(termination.TerminatorForType(workspaceTypes["alpha"]))
+	betaTerminator := string(termination.TerminatorForType(workspaceTypes["beta"]))
+	gammaTerminator := string(termination.TerminatorForType(workspaceTypes["gamma"]))
 	// expect alpha and beta to see two logicalclusters each: the one of their own
 	// respective workspacetype and the one from workspacetype gamma since it
 	// inherits both alpha and beta
 	expLogicalClusters := map[string][][]string{
 		"alpha": {
-			{alphaFinalizer},
-			{alphaFinalizer, betaFinalizer, gammaFinalizer},
+			{alphaTerminator},
+			{alphaTerminator, betaTerminator, gammaTerminator},
 		},
 		"beta": {
-			{betaFinalizer},
-			{alphaFinalizer, betaFinalizer, gammaFinalizer},
+			{betaTerminator},
+			{alphaTerminator, betaTerminator, gammaTerminator},
 		},
 		"gamma": {
-			{alphaFinalizer, betaFinalizer, gammaFinalizer},
+			{alphaTerminator, betaTerminator, gammaTerminator},
 		},
 	}
 
-	t.Log("Ensure that Logicalclusters have the expected finalizers set")
+	t.Log("Ensure that Logicalclusters have the expected terminators set")
 	for name := range workspaces {
 		var clusters *corev1alpha1.LogicalClusterList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -365,13 +365,13 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.Equal(t, len(clusters.Items), len(expLogicalClusters[name]))
 
 		for _, cluster := range clusters.Items {
-			// check that spec finalizers are set correctly
-			specF := termination.FinalizersToStrings(cluster.Spec.Finalizers)
-			require.Contains(t, expLogicalClusters[name], specF) // contains compares the finalizers with all objects in the exp [][]string and does the heavy lifting for us
+			// check that spec terminators are set correctly
+			specF := termination.TerminatorsToStrings(cluster.Spec.Terminators)
+			require.Contains(t, expLogicalClusters[name], specF) // contains compares the terminators with all objects in the exp [][]string and does the heavy lifting for us
 		}
 	}
 
-	t.Log("Start WATCH streams to confirm new logicalclusters get added when workspaces move into finalization")
+	t.Log("Start WATCH streams to confirm new logicalclusters get added when workspaces move into termination")
 	for name, wst := range workspaceTypes {
 		user1Client := user1VwKcpClusterClients[name]
 
@@ -424,10 +424,10 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			require.NoError(c, err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-		finalizer := termination.FinalizerForType(workspaceTypes[name])
+		terminator := termination.TerminatorForType(workspaceTypes[name])
 
 		for _, origLc := range origLcs.Items {
-			t.Log("\tModifying a non-finalizer field should be invalid")
+			t.Log("\tModifying a non-terminator field should be invalid")
 			mod := origLc.DeepCopy()
 			origLc.Annotations["wrong"] = "wrong"
 			patch, err := generatePatchBytes(mod, &origLc)
@@ -447,7 +447,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				// field.Error.Origin to do so, as we convert our field.ErrorList into an
 				// errors.StatusError, thus loosing this information. As a result, our only
 				// option is to reconstruct the expected error message.
-				expErrMsg := fmt.Sprintf("only removing the %q finalizer from metadata.finalizers is supported", finalizer)
+				expErrMsg := fmt.Sprintf("only removing the %q terminator from metadata.finalizers is supported", terminator)
 				// for now using contains seems to strike the best balance between
 				// identifying the error, while not making the test too brittle as
 				// kubernetes statusError creation uses a lot of squashing an string
@@ -455,23 +455,23 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				require.Contains(t, err.Error(), expErrMsg)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-			t.Log("\tModifying a finalizer, which is not ours should be denied")
+			t.Log("\tModifying a terminator, which is not ours should be denied")
 			mod = origLc.DeepCopy()
-			mod.Finalizers = []string{"wrong.wrong"}
+			mod.ObjectMeta.Finalizers = []string{"wrong.wrong"}
 			patch, err = generatePatchBytes(&origLc, mod)
 			require.NoError(t, err)
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				_, err = user1Client.Cluster(lcPath).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{})
 				require.True(c, errors.IsInvalid(err))
-				expErrMsg := fmt.Sprintf("only removing the %q finalizer from metadata.finalizers is supported", finalizer)
+				expErrMsg := fmt.Sprintf("only removing the %q terminator from metadata.finalizers is supported", terminator)
 				require.Contains(t, err.Error(), expErrMsg)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		}
 	}
 
-	t.Log("Removing our finalizer should work")
+	t.Log("Removing our terminator should work")
 	for name := range workspaces {
-		finalizer := termination.FinalizerForType(workspaceTypes[name])
+		terminator := termination.TerminatorForType(workspaceTypes[name])
 		user1Client := user1VwKcpClusterClients[name]
 		var origLcs *corev1alpha1.LogicalClusterList
 
@@ -483,7 +483,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		for _, origLc := range origLcs.Items {
 			lcPath := logicalcluster.NewPath(origLc.Annotations["kcp.io/cluster"])
 			mod := origLc.DeepCopy()
-			mod.Finalizers = removeByValue(mod.Finalizers, termination.FinalizerSpecToMetadata(finalizer))
+			mod.ObjectMeta.Finalizers = removeByValue(mod.ObjectMeta.Finalizers, termination.TerminatorSpecToMetadata(terminator))
 			patch, err := generatePatchBytes(&origLc, mod)
 			require.NoError(t, err)
 			require.EventuallyWithT(t, func(c *assert.CollectT) {

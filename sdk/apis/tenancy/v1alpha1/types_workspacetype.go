@@ -74,18 +74,18 @@ type WorkspaceTypeSpec struct {
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
 
-	// Finalizer determines if this WorkspaceType has an associated finalizing
+	// Terminator determines if this WorkspaceType has an associated terminating
 	// controller. These controllers are used to add functionality to a Workspace;
 	// all controllers must finish their work before the Workspace is being deleted.
 	//
-	// One finalizing controller is supported per WorkspaceType; the identifier
-	// for this finalizer will be a colon-delimited string using the workspace in which
+	// One terminating controller is supported per WorkspaceType; the identifier
+	// for this terminator will be a colon-delimited string using the workspace in which
 	// the WorkspaceType is defined, and the type's name. For example, if a
 	// WorkspaceType `example` is created in the `root:org` workspace, the implicit
-	// finalizer name is `root:org:example`.
+	// terminator name is `root:org:example`.
 	//
 	// +optional
-	Finalizer bool `json:"finalizer,omitempty"`
+	Terminator bool `json:"terminator,omitempty"`
 
 	// extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
 	// and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
@@ -276,10 +276,10 @@ const (
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.
 	WorkspaceInitializerLabelPrefix = "initializer.internal.kcp.io/"
-	// WorkspaceFinalizerLabelPrefix is the prefix for labels which match Workspace.Status.Finalizers,
-	// and the set of labels with this prefix is enforced to match the set of finalizer by a mutating admission
+	// WorkspaceTerminatorLabelPrefix is the prefix for labels which match Workspace.Status.Terminators,
+	// and the set of labels with this prefix is enforced to match the set of terminator by a mutating admission
 	// webhook.
-	WorkspaceFinalizerLabelPrefix = "finalizer.internal.kcp.io/"
+	WorkspaceTerminatorLabelPrefix = "terminator.internal.kcp.io/"
 )
 
 const (

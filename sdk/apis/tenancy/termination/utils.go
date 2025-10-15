@@ -30,52 +30,52 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
-// FinalizerForType determines the identifier for the implicit finalizer associated with the WorkspaceType.
-func FinalizerForType(wt *tenancyv1alpha1.WorkspaceType) corev1alpha1.LogicalClusterFinalizer {
-	return corev1alpha1.LogicalClusterFinalizer(logicalcluster.From(wt).Path().Join(wt.Name).String())
+// TerminatorForType determines the identifier for the implicit terminator associated with the WorkspaceType.
+func TerminatorForType(wt *tenancyv1alpha1.WorkspaceType) corev1alpha1.LogicalClusterTerminator {
+	return corev1alpha1.LogicalClusterTerminator(logicalcluster.From(wt).Path().Join(wt.Name).String())
 }
 
-// TypeFrom determines the WorkspaceType workspace and name from an finalizer name.
-func TypeFrom(finalizer corev1alpha1.LogicalClusterFinalizer) (logicalcluster.Name, string, error) {
-	separatorIndex := strings.LastIndex(string(finalizer), ":")
+// TypeFrom determines the WorkspaceType workspace and name from an terminator name.
+func TypeFrom(terminator corev1alpha1.LogicalClusterTerminator) (logicalcluster.Name, string, error) {
+	separatorIndex := strings.LastIndex(string(terminator), ":")
 	switch separatorIndex {
 	case -1:
-		return "", "", fmt.Errorf("expected workspace finalizer in form workspace:name, not %q", finalizer)
+		return "", "", fmt.Errorf("expected workspace terminator in form workspace:name, not %q", terminator)
 	default:
-		return logicalcluster.Name(finalizer[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.WorkspaceTypeName(finalizer[separatorIndex+1:])), nil
+		return logicalcluster.Name(terminator[:separatorIndex]), tenancyv1alpha1.ObjectName(tenancyv1alpha1.WorkspaceTypeName(terminator[separatorIndex+1:])), nil
 	}
 }
 
-// FinalizerToLabel transforms a finalizer into a key-value pair to add to a label set. We use a hash
+// TerminatorToLabel transforms a terminator into a key-value pair to add to a label set. We use a hash
 // to create a unique identifier from this information, prefixing the hash in order to create a value which
 // is unlikely to collide, and adding the full hash as a value in order to make it difficult to forge the pair.
-func FinalizerToLabel(finalizer corev1alpha1.LogicalClusterFinalizer) (string, string) {
-	hash := fmt.Sprintf("%x", sha256.Sum224([]byte(finalizer)))
-	labelKeyHashLength := validation.LabelValueMaxLength - len(tenancyv1alpha1.WorkspaceFinalizerLabelPrefix)
-	return tenancyv1alpha1.WorkspaceFinalizerLabelPrefix + hash[0:labelKeyHashLength], hash
+func TerminatorToLabel(terminator corev1alpha1.LogicalClusterTerminator) (string, string) {
+	hash := fmt.Sprintf("%x", sha256.Sum224([]byte(terminator)))
+	labelKeyHashLength := validation.LabelValueMaxLength - len(tenancyv1alpha1.WorkspaceTerminatorLabelPrefix)
+	return tenancyv1alpha1.WorkspaceTerminatorLabelPrefix + hash[0:labelKeyHashLength], hash
 }
 
-// MergefinalizersUnique merges a list of finalizers with a list of strings. The
+// MergeTerminatorsUnique merges a list of terminators with a list of strings. The
 // result is ordered and all items are unique. It's main use is to create unique
-// lists to be used in metadata.finalizers with existing finalizers.
-func MergeFinalizersUnique(fin []corev1alpha1.LogicalClusterFinalizer, finString []string) []string {
-	set := sets.New(finString...)
+// lists to be used in metadata.finalizers with existing terminators.
+func MergeTerminatorsUnique(fin []corev1alpha1.LogicalClusterTerminator, termString []string) []string {
+	set := sets.New(termString...)
 	for _, f := range fin {
-		sets.Insert(set, FinalizerSpecToMetadata(f))
+		sets.Insert(set, TerminatorSpecToMetadata(f))
 	}
 	return sets.List(set)
 }
 
-// FinalizerSpecToMetadata converts a finalizer to a metadata.finalizer
+// TerminatorSpecToMetadata converts a terminator to a metadata.terminator
 // compatible string. Namely it escapes the ":" character.
-func FinalizerSpecToMetadata(f corev1alpha1.LogicalClusterFinalizer) string {
+func TerminatorSpecToMetadata(f corev1alpha1.LogicalClusterTerminator) string {
 	return strings.ReplaceAll(string(f), ":", ".")
 }
 
-// FinalizersToStrings converts a list of finalizers into a list of strings.
-func FinalizersToStrings(finalizers []corev1alpha1.LogicalClusterFinalizer) []string {
-	s := make([]string, 0, len(finalizers))
-	for _, f := range finalizers {
+// TerminatorsToStrings converts a list of terminators into a list of strings.
+func TerminatorsToStrings(terminator []corev1alpha1.LogicalClusterTerminator) []string {
+	s := make([]string, 0, len(terminator))
+	for _, f := range terminator {
 		s = append(s, string(f))
 	}
 	return s

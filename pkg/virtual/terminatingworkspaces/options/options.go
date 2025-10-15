@@ -32,19 +32,19 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
-type FinalizingWorkspaces struct{}
+type TerminatingWorkspaces struct{}
 
-func New() *FinalizingWorkspaces {
-	return &FinalizingWorkspaces{}
+func New() *TerminatingWorkspaces {
+	return &TerminatingWorkspaces{}
 }
 
-func (o *FinalizingWorkspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
+func (o *TerminatingWorkspaces) AddFlags(flags *pflag.FlagSet, prefix string) {
 	if o == nil {
 		return
 	}
 }
 
-func (o *FinalizingWorkspaces) Validate(flagPrefix string) []error {
+func (o *TerminatingWorkspaces) Validate(flagPrefix string) []error {
 	if o == nil {
 		return nil
 	}
@@ -53,12 +53,12 @@ func (o *FinalizingWorkspaces) Validate(flagPrefix string) []error {
 	return errs
 }
 
-func (o *FinalizingWorkspaces) NewVirtualWorkspaces(
+func (o *TerminatingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
-	config = rest.AddUserAgent(rest.CopyConfig(config), "finalizingworkspaces-virtual-workspace")
+	config = rest.AddUserAgent(rest.CopyConfig(config), "terminatingworkspaces-virtual-workspace")
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err

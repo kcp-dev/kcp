@@ -64,11 +64,11 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 		}
 	}
 
-	// add finalizers from the status as hashed labels
-	finalizerKeys := sets.New[string]()
-	for _, finalizer := range logicalCluster.Status.Finalizers {
-		key, value := termination.FinalizerToLabel(finalizer)
-		finalizerKeys.Insert(key)
+	// add terminators from the status as hashed labels
+	terminatorKeys := sets.New[string]()
+	for _, terminator := range logicalCluster.Status.Terminators {
+		key, value := termination.TerminatorToLabel(terminator)
+		terminatorKeys.Insert(key)
 		if got, expected := logicalCluster.Labels[key], value; got != expected {
 			if logicalCluster.Labels == nil {
 				logicalCluster.Labels = map[string]string{}
@@ -78,7 +78,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 		}
 	}
 
-	// remove any initializers/finalizers from labels, which have been
+	// remove any initializers/terminators from labels, which have been
 	// removed in the status
 	for key := range logicalCluster.Labels {
 		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceInitializerLabelPrefix) {
@@ -88,8 +88,8 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 			}
 		}
 
-		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceFinalizerLabelPrefix) {
-			if !finalizerKeys.Has(key) {
+		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceTerminatorLabelPrefix) {
+			if !terminatorKeys.Has(key) {
 				delete(logicalCluster.Labels, key)
 				changed = true
 			}
