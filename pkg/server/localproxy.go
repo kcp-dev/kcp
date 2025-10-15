@@ -42,6 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/pkg/server/proxy"
+	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/core/v1alpha1"
@@ -211,7 +212,7 @@ func WithLocalProxy(
 	}
 
 	// If additional mappings file is provided, read it and add the mappings to the handler
-	handlers, err := NewLocalProxyHandler(defaultHandlerFunc, indexState, additionalMappingsFile)
+	handlers, err := NewLocalProxyHandler(defaultHandlerFunc, additionalMappingsFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local proxy handler: %w", err)
 	}
@@ -223,8 +224,8 @@ func WithLocalProxy(
 // This function is very similar to proxy/mapping.go.NewHandler.
 // If we want to re-use that code, we basically would be merging proxy with server packages.
 // Which is not desirable at the point of writing (2024-10-26), but might be in the future.
-func NewLocalProxyHandler(defaultHandler http.Handler, index index.Index, additionalMappingsFile string) (http.Handler, error) {
-	mapping := []proxy.PathMapping{}
+func NewLocalProxyHandler(defaultHandler http.Handler, additionalMappingsFile string) (http.Handler, error) {
+	mapping := []types.PathMapping{}
 	if additionalMappingsFile != "" {
 		mappingData, err := os.ReadFile(additionalMappingsFile)
 		if err != nil {
@@ -237,8 +238,7 @@ func NewLocalProxyHandler(defaultHandler http.Handler, index index.Index, additi
 	}
 
 	handlers := proxy.HttpHandler{
-		Index: index,
-		Mappings: proxy.HttpHandlerMappings{
+		Mappings: types.HttpHandlerMappings{
 			{
 				Weight:  0,
 				Path:    "/metrics",
@@ -280,7 +280,7 @@ func NewLocalProxyHandler(defaultHandler http.Handler, index index.Index, additi
 
 		handler = withProxyAuthHeaders(handler, userHeader, groupHeader, extraHeaderPrefix)
 
-		handlers.Mappings = append(handlers.Mappings, proxy.HttpHandlerMapping{
+		handlers.Mappings = append(handlers.Mappings, types.HttpHandlerMapping{
 			Weight:  len(m.Path),
 			Path:    m.Path,
 			Handler: handler,
