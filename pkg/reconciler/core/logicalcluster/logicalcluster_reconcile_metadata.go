@@ -26,8 +26,8 @@ import (
 	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
@@ -67,7 +67,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 	// add finalizers from the status as hashed labels
 	finalizerKeys := sets.New[string]()
 	for _, finalizer := range logicalCluster.Status.Finalizers {
-		key, value := finalization.FinalizerToLabel(finalizer)
+		key, value := termination.FinalizerToLabel(finalizer)
 		finalizerKeys.Insert(key)
 		if got, expected := logicalCluster.Labels[key], value; got != expected {
 			if logicalCluster.Labels == nil {

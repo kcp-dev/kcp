@@ -44,7 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 )
 
 // filteredLogicalClusterReadWriteRestStorage creates a RestProvider which will
@@ -253,7 +253,7 @@ func logicalClusterFromObject(obj runtime.Object) (*corev1alpha1.LogicalCluster,
 func finalizerLabelSetRequirement(finalizer corev1alpha1.LogicalClusterFinalizer) (labels.Requirements, error) {
 	labelSelector := map[string]string{}
 
-	key, value := finalization.FinalizerToLabel(finalizer)
+	key, value := termination.FinalizerToLabel(finalizer)
 	labelSelector[key] = value
 
 	requirements, selectable := labels.SelectorFromSet(labelSelector).Requirements()

@@ -26,10 +26,10 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
-	finalizingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
+	finalizingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces/options"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 

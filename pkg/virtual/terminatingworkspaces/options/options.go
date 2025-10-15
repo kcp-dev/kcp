@@ -26,9 +26,9 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces"
-	"github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces/builder"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
+	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces/builder"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
@@ -68,5 +68,5 @@ func (o *FinalizingWorkspaces) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, finalizingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient)
+	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, terminatingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient)
 }

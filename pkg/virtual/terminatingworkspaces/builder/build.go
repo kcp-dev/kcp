@@ -40,22 +40,22 @@ import (
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
-	"github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
+	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
 const (
-	wildcardLogicalClustersName = finalizingworkspaces.VirtualWorkspaceName + "-wildcard-logicalclusters"
-	logicalClustersName         = finalizingworkspaces.VirtualWorkspaceName + "-logicalclusters"
+	wildcardLogicalClustersName = terminatingworkspaces.VirtualWorkspaceName + "-wildcard-logicalclusters"
+	logicalClustersName         = terminatingworkspaces.VirtualWorkspaceName + "-logicalclusters"
 )
 
 func BuildVirtualWorkspace(
@@ -264,7 +264,7 @@ func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context
 var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProvider{}
 
 func authorizerWithCache(ctx context.Context, cache delegated.Cache, attr authorizer.Attributes) (authorizer.Decision, string, error) {
-	clusterName, name, err := finalization.TypeFrom(corev1alpha1.LogicalClusterFinalizer(dynamiccontext.APIDomainKeyFrom(ctx)))
+	clusterName, name, err := termination.TypeFrom(corev1alpha1.LogicalClusterFinalizer(dynamiccontext.APIDomainKeyFrom(ctx)))
 	if err != nil {
 		klog.FromContext(ctx).V(2).Info(err.Error())
 		return authorizer.DecisionNoOpinion, "unable to determine finalizer", fmt.Errorf("access not permitted")

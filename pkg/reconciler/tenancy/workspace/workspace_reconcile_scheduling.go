@@ -44,8 +44,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -327,7 +327,7 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 	logicalCluster.Spec.Finalizers = finalizers
 	// append our finalizers to already existing ObjectMeta finalizers
-	logicalCluster.ObjectMeta.Finalizers = finalization.MergeFinalizersUnique(finalizers, logicalCluster.ObjectMeta.Finalizers)
+	logicalCluster.ObjectMeta.Finalizers = termination.MergeFinalizersUnique(finalizers, logicalCluster.ObjectMeta.Finalizers)
 
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
@@ -401,7 +401,7 @@ func LogicalClustersFinalizers(
 
 	for _, alias := range wtAliases {
 		if alias.Spec.Finalizer {
-			finalizers = append(finalizers, finalization.FinalizerForType(alias))
+			finalizers = append(finalizers, termination.FinalizerForType(alias))
 		}
 	}
 

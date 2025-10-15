@@ -26,10 +26,10 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
+	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -90,8 +90,8 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 		u.Path = path.Join(
 			base,
 			virtualworkspacesoptions.DefaultRootPathPrefix,
-			finalizingworkspaces.VirtualWorkspaceName,
-			string(finalization.FinalizerForType(wt)),
+			terminatingworkspaces.VirtualWorkspaceName,
+			string(termination.FinalizerForType(wt)),
 		)
 
 		desiredURLs.Insert(u.String())

@@ -28,6 +28,6 @@ limitations under the License.
 // WATCH semantics are similar to (and implemented by) timestamp and finalizers selectors - a LogicalCluster that stops
 // matching the requirements to be served (not being marked for deletion, not requesting finalization by
 // the controller) will be removed from the stream with a synthetic Deleted event.
-package finalizingworkspaces
+package terminatingworkspaces
 
 const VirtualWorkspaceName string = "finalizingworkspaces"

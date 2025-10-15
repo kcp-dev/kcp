@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package finalizingworkspaces
+package terminatingworkspaces
 
 import (
 	"context"
@@ -46,10 +46,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
-	"github.com/kcp-dev/kcp/pkg/virtual/finalizingworkspaces"
+	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/finalization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
@@ -64,7 +64,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 
 	source := kcptesting.SharedKcpServer(t)
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
-	rootShardCfg.Host += path.Join(options.DefaultRootPathPrefix, finalizingworkspaces.VirtualWorkspaceName, "something")
+	rootShardCfg.Host += path.Join(options.DefaultRootPathPrefix, terminatingworkspaces.VirtualWorkspaceName, "something")
 
 	virtualWorkspaceDiscoveryClient, err := kcpdiscovery.NewForConfig(rootShardCfg)
 	require.NoError(t, err)
@@ -240,7 +240,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	for name, wst := range workspaceTypes {
 		vwURLs := []string{}
 		for _, vwURL := range wst.Status.VirtualWorkspaces {
-			if strings.Contains(vwURL.URL, finalizingworkspaces.VirtualWorkspaceName) {
+			if strings.Contains(vwURL.URL, terminatingworkspaces.VirtualWorkspaceName) {
 				vwURLs = append(vwURLs, vwURL.URL)
 			}
 		}
@@ -288,7 +288,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			role, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: string(finalization.FinalizerForType(wt)) + "-finalizer",
+					Name: string(termination.FinalizerForType(wt)) + "-finalizer",
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -333,9 +333,9 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
-	alphaFinalizer := string(finalization.FinalizerForType(workspaceTypes["alpha"]))
-	betaFinalizer := string(finalization.FinalizerForType(workspaceTypes["beta"]))
-	gammaFinalizer := string(finalization.FinalizerForType(workspaceTypes["gamma"]))
+	alphaFinalizer := string(termination.FinalizerForType(workspaceTypes["alpha"]))
+	betaFinalizer := string(termination.FinalizerForType(workspaceTypes["beta"]))
+	gammaFinalizer := string(termination.FinalizerForType(workspaceTypes["gamma"]))
 	// expect alpha and beta to see two logicalclusters each: the one of their own
 	// respective workspacetype and the one from workspacetype gamma since it
 	// inherits both alpha and beta
@@ -366,7 +366,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 		for _, cluster := range clusters.Items {
 			// check that spec finalizers are set correctly
-			specF := finalization.FinalizersToStrings(cluster.Spec.Finalizers)
+			specF := termination.FinalizersToStrings(cluster.Spec.Finalizers)
 			require.Contains(t, expLogicalClusters[name], specF) // contains compares the finalizers with all objects in the exp [][]string and does the heavy lifting for us
 		}
 	}
@@ -424,7 +424,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			require.NoError(c, err)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-		finalizer := finalization.FinalizerForType(workspaceTypes[name])
+		finalizer := termination.FinalizerForType(workspaceTypes[name])
 
 		for _, origLc := range origLcs.Items {
 			t.Log("\tModifying a non-finalizer field should be invalid")
@@ -471,7 +471,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	t.Log("Removing our finalizer should work")
 	for name := range workspaces {
-		finalizer := finalization.FinalizerForType(workspaceTypes[name])
+		finalizer := termination.FinalizerForType(workspaceTypes[name])
 		user1Client := user1VwKcpClusterClients[name]
 		var origLcs *corev1alpha1.LogicalClusterList
 
@@ -483,7 +483,7 @@ func TestFinalizingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		for _, origLc := range origLcs.Items {
 			lcPath := logicalcluster.NewPath(origLc.Annotations["kcp.io/cluster"])
 			mod := origLc.DeepCopy()
-			mod.Finalizers = removeByValue(mod.Finalizers, finalization.FinalizerSpecToMetadata(finalizer))
+			mod.Finalizers = removeByValue(mod.Finalizers, termination.FinalizerSpecToMetadata(finalizer))
 			patch, err := generatePatchBytes(&origLc, mod)
 			require.NoError(t, err)
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
