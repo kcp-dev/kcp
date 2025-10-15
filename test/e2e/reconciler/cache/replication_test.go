@@ -45,6 +45,7 @@ import (
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
@@ -688,13 +689,24 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 			}
 			return false, err.Error()
 		}
-		t.Logf("Compare if both the original and replicated resources (%s %s/%s) are the same except %s annotation and ResourceVersion", b.gvr, cluster, b.resourceName, genericapirequest.ShardAnnotationKey)
+		t.Logf(
+			"Compare if both the original and replicated resources (%s %s/%s) are the same except %s annotation, %s annotation, %s annotation, and ResourceVersion",
+			b.gvr, cluster, b.resourceName, genericapirequest.ShardAnnotationKey,
+			replication.AnnotationKeyOriginalResourceVersion,
+			replication.AnnotationKeyOriginalResourceUID,
+		)
 		cachedResourceMeta, err := meta.Accessor(cachedResource)
 		if err != nil {
 			return false, err.Error()
 		}
 		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.ShardAnnotationKey]; !found {
 			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), genericapirequest.ShardAnnotationKey)
+		}
+		if _, found := cachedResourceMeta.GetAnnotations()[replication.AnnotationKeyOriginalResourceVersion]; !found {
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), replication.AnnotationKeyOriginalResourceVersion)
+		}
+		if _, found := cachedResourceMeta.GetAnnotations()[replication.AnnotationKeyOriginalResourceUID]; !found {
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), replication.AnnotationKeyOriginalResourceUID)
 		}
 		unstructured.RemoveNestedField(originalResource.Object, "metadata", "resourceVersion")
 		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "resourceVersion")
@@ -708,6 +720,8 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 		}
 
 		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", genericapirequest.ShardAnnotationKey)
+		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", replication.AnnotationKeyOriginalResourceVersion)
+		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", replication.AnnotationKeyOriginalResourceUID)
 		if cachedStatus, ok := cachedResource.Object["status"]; ok && cachedStatus == nil || (cachedStatus != nil && len(cachedStatus.(map[string]interface{})) == 0) {
 			// TODO: worth investigating:
 			// for some reason cached resources have an empty status set whereas the original resources don't

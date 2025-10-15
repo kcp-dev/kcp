@@ -82,7 +82,22 @@ func ensureMeta(cacheObject *unstructured.Unstructured, localObject *unstructure
 				}
 			}()
 		}
-		// TODO: in the future the original RV will be stored in an annotation
+		if originalRV, hasOriginalRV := cacheObjAnnotations[AnnotationKeyOriginalResourceVersion]; hasOriginalRV {
+			unstructured.RemoveNestedField(cacheObjAnnotations, AnnotationKeyOriginalResourceVersion)
+			defer func() {
+				if err == nil {
+					err = unstructured.SetNestedField(cacheObject.Object, originalRV, "metadata", "annotations", AnnotationKeyOriginalResourceVersion)
+				}
+			}()
+		}
+		if originalUID, hasOriginalUID := cacheObjAnnotations[AnnotationKeyOriginalResourceUID]; hasOriginalUID {
+			unstructured.RemoveNestedField(cacheObjAnnotations, AnnotationKeyOriginalResourceUID)
+			defer func() {
+				if err == nil {
+					err = unstructured.SetNestedField(cacheObject.Object, originalUID, "metadata", "annotations", AnnotationKeyOriginalResourceUID)
+				}
+			}()
+		}
 	}
 
 	// before we can compare with the local object we need to

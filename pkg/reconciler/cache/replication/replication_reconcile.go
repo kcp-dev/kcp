@@ -33,6 +33,11 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
+const (
+	AnnotationKeyOriginalResourceVersion = "cache.kcp.io/original-resource-version"
+	AnnotationKeyOriginalResourceUID     = "cache.kcp.io/original-resource-UID"
+)
+
 func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 	// split apart the gvr from the key
 	keyParts := strings.Split(gvrKey, "::")
@@ -165,14 +170,18 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 
 	// local exists, global doesn't. Create in cache.
 	if !globalExists {
-		// TODO: in the future the original RV will have to be stored in an annotation (?)
-		// so that the clients that need to modify the original/local object can do it
+		originalRV := localCopy.GetResourceVersion()
+		originalUID := localCopy.GetUID()
+
 		localCopy.SetResourceVersion("")
 		annotations := localCopy.GetAnnotations()
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
 		annotations[genericrequest.ShardAnnotationKey] = r.shardName
+		annotations[AnnotationKeyOriginalResourceVersion] = originalRV
+		annotations[AnnotationKeyOriginalResourceUID] = string(originalUID)
+
 		localCopy.SetAnnotations(annotations)
 
 		logger.V(2).Info("Creating object in global cache")
