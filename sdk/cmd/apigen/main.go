@@ -59,6 +59,7 @@ type options struct {
 	inputDir            string
 	outputDir           string
 	ignoreExportSchemas []string
+	preserveResources   bool
 
 	ignoreExportSchemasParsed []metav1.GroupResource
 }
@@ -68,6 +69,7 @@ func bindOptions(fs *pflag.FlagSet) *options {
 	fs.StringVar(&o.inputDir, "input-dir", "", "Directory containing CustomResourceDefinition YAML files.")
 	fs.StringVar(&o.outputDir, "output-dir", "", "Directory where APIResourceSchemas and APIExports will be written.")
 	fs.StringSliceVar(&o.ignoreExportSchemas, "ignore-export-schemas", []string{}, "Comma-separated list of 'Resource.Group' to be ignored for APIExports generation.")
+	fs.BoolVar(&o.preserveResources, "preserve-resources", false, "Preserve existing resources in APIExport manifests instead of overriding them.")
 	return &o
 }
 
@@ -169,7 +171,7 @@ func main() {
 	}
 
 	apiResourceSchemas := resolveLatestAPIResourceSchemas(logger, previousApiResourceSchemas, currentApiResourceSchemas)
-	apiExports, err := generateExports(opts.outputDir, opts.ignoreExportSchemasParsed, apiResourceSchemas)
+	apiExports, err := generateExports(opts.outputDir, opts.ignoreExportSchemasParsed, opts.preserveResources, apiResourceSchemas)
 	if err != nil {
 		logger.Error(err, "Could not generate APIExports.")
 		os.Exit(1)
@@ -346,7 +348,7 @@ func compareSchemas() cmp.Option {
 	}))
 }
 
-func generateExports(outputDir string, ignoreExportSchemas []metav1.GroupResource, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
+func generateExports(outputDir string, ignoreExportSchemas []metav1.GroupResource, preserveResources bool, allSchemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error) {
 	type grs struct {
 		group    string
 		resource string
@@ -405,16 +407,48 @@ func generateExports(outputDir string, ignoreExportSchemas []metav1.GroupResourc
 			}
 		}
 
-		export.Spec.Resources = []apisv1alpha2.ResourceSchema{}
-		for _, schema := range grss {
-			export.Spec.Resources = append(export.Spec.Resources, apisv1alpha2.ResourceSchema{
-				Group:  schema.group,
-				Name:   schema.resource,
-				Schema: schema.schema,
-				Storage: apisv1alpha2.ResourceSchemaStorage{
-					CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
-				},
-			})
+		if !preserveResources {
+			export.Spec.Resources = []apisv1alpha2.ResourceSchema{}
+		}
+
+		if preserveResources {
+			existingResourceMap := make(map[string]bool)
+			for _, resource := range export.Spec.Resources {
+				key := fmt.Sprintf("%s/%s", resource.Group, resource.Name)
+				existingResourceMap[key] = true
+			}
+
+			for _, schema := range grss {
+				key := fmt.Sprintf("%s/%s", schema.group, schema.resource)
+				if !existingResourceMap[key] {
+					export.Spec.Resources = append(export.Spec.Resources, apisv1alpha2.ResourceSchema{
+						Group:  schema.group,
+						Name:   schema.resource,
+						Schema: schema.schema,
+						Storage: apisv1alpha2.ResourceSchemaStorage{
+							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+						},
+					})
+				} else {
+					for i, resource := range export.Spec.Resources {
+						if resource.Group == schema.group && resource.Name == schema.resource {
+							export.Spec.Resources[i].Schema = schema.schema
+							break
+						}
+					}
+				}
+			}
+		} else {
+			for _, schema := range grss {
+				export.Spec.Resources = append(export.Spec.Resources, apisv1alpha2.ResourceSchema{
+					Group:  schema.group,
+					Name:   schema.resource,
+					Schema: schema.schema,
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				})
+			}
 		}
 
 		exports = append(exports, &export)
