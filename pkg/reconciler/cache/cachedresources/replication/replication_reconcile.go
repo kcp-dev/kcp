@@ -45,12 +45,14 @@ import (
 )
 
 const (
-	LabelKeyObjectSchema            = "cache.kcp.io/object-schema"
-	LabelKeyObjectGroup             = "cache.kcp.io/object-group"
-	LabelKeyObjectVersion           = "cache.kcp.io/object-version"
-	LabelKeyObjectResource          = "cache.kcp.io/object-resource"
-	LabelKeyObjectOriginalName      = "cache.kcp.io/object-original-name"
-	LabelKeyObjectOriginalNamespace = "cache.kcp.io/object-original-namespace"
+	LabelKeyObjectSchema                 = "cache.kcp.io/object-schema"
+	LabelKeyObjectGroup                  = "cache.kcp.io/object-group"
+	LabelKeyObjectVersion                = "cache.kcp.io/object-version"
+	LabelKeyObjectResource               = "cache.kcp.io/object-resource"
+	LabelKeyObjectOriginalName           = "cache.kcp.io/object-original-name"
+	LabelKeyObjectOriginalNamespace      = "cache.kcp.io/object-original-namespace"
+	AnnotationKeyOriginalResourceVersion = "cache.kcp.io/original-resource-version"
+	AnnotationKeyOriginalResourceUID     = "cache.kcp.io/original-resource-UID"
 )
 
 func GenCachedObjectName(gvr schema.GroupVersionResource, namespace, name string) string {
@@ -306,14 +308,18 @@ func (r *replicationReconciler) reconcile(ctx context.Context, key string) error
 
 	// local exists, global doesn't. Create in cache.
 	if !globalExists {
-		// TODO: in the future the original RV will have to be stored in an annotation (?)
-		// so that the clients that need to modify the original/local object can do it
+		originalRV := localCopy.GetResourceVersion()
+		originalUID := localCopy.GetUID()
+
 		localCopy.SetResourceVersion("")
 		annotations := localCopy.GetAnnotations()
 		if annotations == nil {
 			annotations = map[string]string{}
 		}
 		annotations[genericrequest.ShardAnnotationKey] = r.shardName
+		annotations[AnnotationKeyOriginalResourceVersion] = originalRV
+		annotations[AnnotationKeyOriginalResourceUID] = string(originalUID)
+
 		localCopy.SetAnnotations(annotations)
 
 		logger.V(2).Info("Creating object in global cache")

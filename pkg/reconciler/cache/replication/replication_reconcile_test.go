@@ -78,9 +78,17 @@ func TestReconcile(t *testing.T) {
 				}
 				return nil, errors.NewNotFound(gr, name)
 			},
-			getGlobalCopy:  getCopyNotFoundFunc,
-			key:            "root|zoo/dumbo",
-			expectedCreate: WithShardName(WithoutResourceVersion(elephant.DeepCopy()), "root"),
+			getGlobalCopy: getCopyNotFoundFunc,
+			key:           "root|zoo/dumbo",
+			expectedCreate: WithShardName(
+				WithoutResourceVersion(
+					WithOriginalResourceVersion(
+						elephant.DeepCopy(),
+						elephant.GetResourceVersion(),
+						string(elephant.GetUID()),
+					),
+				),
+				"root"),
 		},
 		{
 			name: "case 2: cached object is removed when local object was removed",
@@ -241,4 +249,18 @@ func WithChange(u *unstructured.Unstructured, path []string, value interface{}) 
 
 func getCopyNotFoundFunc(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 	return nil, errors.NewNotFound(schema.GroupResource{Group: "example.com", Resource: "elephants"}, name)
+}
+
+func WithOriginalResourceVersion(u *unstructured.Unstructured, originalRV, originalUID string) *unstructured.Unstructured {
+	ann := u.GetAnnotations()
+	if ann == nil {
+		ann = map[string]string{}
+	}
+
+	ann[AnnotationKeyOriginalResourceVersion] = originalRV
+	ann[AnnotationKeyOriginalResourceUID] = originalUID
+
+	u.SetAnnotations(ann)
+
+	return u
 }
