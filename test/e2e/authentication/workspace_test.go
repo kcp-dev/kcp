@@ -567,3 +567,76 @@ func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkspaceOIDCTokenReview(t *testing.T) {
+	framework.Suite(t, "control-plane")
+
+	ctx := context.Background()
+
+	// start kcp and setup clients
+	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) > 1 {
+		t.Skip("This feature currently does not support multi shards because AuthConfigs are not replicated yet.")
+	}
+
+	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("workspace-auth-token-review"))
+
+	kcpConfig := server.BaseConfig(t)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
+	require.NoError(t, err)
+
+	mock, ca := authfixtures.StartMockOIDC(t, server)
+	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca, nil)
+	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig)
+
+	// create a new workspace with our new type
+	t.Log("Creating Workspaces...")
+	teamPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
+
+	var (
+		userName       = "peter"
+		userEmail      = "peter@example.com"
+		userGroups     = []string{"developers", "admins"}
+		expectedGroups = []string{"system:authenticated"}
+	)
+
+	for _, group := range userGroups {
+		expectedGroups = append(expectedGroups, "oidc:"+group)
+	}
+
+	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+		Kind: "User",
+		Name: "oidc:" + userEmail,
+	}})
+
+	token := authfixtures.CreateOIDCToken(t, mock, userName, userEmail, userGroups)
+
+	t.Logf("Creating TokenReview in %s", teamPath)
+
+	const kcpDefaultAudience = "https://kcp.default.svc"
+
+	review := &authenticationv1.TokenReview{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-review",
+		},
+		Spec: authenticationv1.TokenReviewSpec{
+			Token:     token,
+			Audiences: []string{kcpDefaultAudience},
+		},
+	}
+
+	var response *authenticationv1.TokenReview
+	require.Eventually(t, func() bool {
+		var err error
+
+		response, err = kubeClusterClient.Cluster(teamPath).AuthenticationV1().TokenReviews().Create(ctx, review, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		return response.Status.Authenticated
+	}, wait.ForeverTestTimeout, 500*time.Millisecond)
+
+	require.Contains(t, response.Status.Audiences, kcpDefaultAudience)
+}
