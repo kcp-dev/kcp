@@ -5,6 +5,7 @@ contrib/tilt/kcp-helm-charts/
 *.log
 coverage.*
 ./tools
+/hack/tools
 build
 vendor
 goio.yaml
