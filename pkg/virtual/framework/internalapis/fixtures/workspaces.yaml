@@ -204,8 +204,8 @@ spec:
               description: Phase of the workspace (Scheduling, Initializing, Ready).
               type: string
             terminators:
-              description: finalizers must be cleared by a controller before the workspace
-                is being deleted.
+              description: terminators must be cleared by a controller before the
+                workspace is being deleted.
               items:
                 type: string
               type: array

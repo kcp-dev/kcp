@@ -30,7 +30,7 @@ type LogicalClusterStatusApplyConfiguration struct {
 	Phase        *corev1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
 	Conditions   *conditionsv1alpha1.Conditions           `json:"conditions,omitempty"`
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
-	Terminators  []corev1alpha1.LogicalClusterTerminator  `json:"terminator,omitempty"`
+	Terminators  []corev1alpha1.LogicalClusterTerminator  `json:"terminators,omitempty"`
 }
 
 // LogicalClusterStatusApplyConfiguration constructs a declarative configuration of the LogicalClusterStatus type for use with

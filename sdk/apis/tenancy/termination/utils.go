@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -53,23 +52,6 @@ func TerminatorToLabel(terminator corev1alpha1.LogicalClusterTerminator) (string
 	hash := fmt.Sprintf("%x", sha256.Sum224([]byte(terminator)))
 	labelKeyHashLength := validation.LabelValueMaxLength - len(tenancyv1alpha1.WorkspaceTerminatorLabelPrefix)
 	return tenancyv1alpha1.WorkspaceTerminatorLabelPrefix + hash[0:labelKeyHashLength], hash
-}
-
-// MergeTerminatorsUnique merges a list of terminators with a list of strings. The
-// result is ordered and all items are unique. It's main use is to create unique
-// lists to be used in metadata.finalizers with existing terminators.
-func MergeTerminatorsUnique(fin []corev1alpha1.LogicalClusterTerminator, termString []string) []string {
-	set := sets.New(termString...)
-	for _, f := range fin {
-		sets.Insert(set, TerminatorSpecToMetadata(f))
-	}
-	return sets.List(set)
-}
-
-// TerminatorSpecToMetadata converts a terminator to a metadata.terminator
-// compatible string. Namely it escapes the ":" character.
-func TerminatorSpecToMetadata(f corev1alpha1.LogicalClusterTerminator) string {
-	return strings.ReplaceAll(string(f), ":", ".")
 }
 
 // TerminatorsToStrings converts a list of terminators into a list of strings.

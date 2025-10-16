@@ -3910,7 +3910,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 							},
 						},
 					},
-					"terminator": {
+					"terminators": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Terminators are set on creation by the system and must be cleared by a controller before the logical cluster can be deleted. The LogicalCluster object will stay in the phase \"Deleting\" until all terminator are cleared.",
 							Type:        []string{"array"},

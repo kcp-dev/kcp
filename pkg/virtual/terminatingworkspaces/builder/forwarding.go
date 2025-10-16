@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/google/go-cmp/cmp"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
@@ -70,10 +68,10 @@ func filteredLogicalClusterReadOnlyRestStorage(
 	)
 }
 
-// filteredLogicalClusterReadWriteRestStorage creates a RestProvider which will
+// filteredLogicalClusterStatusWriteOnly creates a RestProvider which will
 // return LogicalClusters marked for deletion. Updates can only be made against
 // the supplied terminator.
-func filteredLogicalClusterReadWriteRestStorage(
+func filteredLogicalClusterStatusWriteOnly(
 	ctx context.Context,
 	clusterclient kcpdynamic.ClusterInterface,
 	terminator corev1alpha1.LogicalClusterTerminator,
@@ -94,7 +92,12 @@ func filteredLogicalClusterReadWriteRestStorage(
 		subresourcesSchemaValidator map[string]validation.SchemaValidator,
 		structuralSchema *structuralschema.Structural,
 	) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
-		statusSchemaValidate := subresourcesSchemaValidator["status"]
+		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
+
+		var statusSpec *apiextensions.CustomResourceSubresourceStatus
+		if statusEnabled {
+			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
+		}
 
 		strategy := customresource.NewStrategy(
 			typer,
@@ -104,12 +107,12 @@ func filteredLogicalClusterReadWriteRestStorage(
 			schemaValidator,
 			statusSchemaValidate,
 			structuralSchema,
-			&apiextensions.CustomResourceSubresourceStatus{},
+			statusSpec,
 			nil, // no scale subresource needed
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, _ := registry.NewStorage(
+		storage, statusStorage := registry.NewStorage(
 			ctx,
 			resource,
 			"", // no hash, as this is not backed by an APIExport
@@ -128,15 +131,40 @@ func filteredLogicalClusterReadWriteRestStorage(
 			},
 		)
 
-		// we need to expose patch and update endpoints. The Update validation will ensure that only terminator
-		// can be updated
-		return &struct {
+		// we want to expose some but not all the allowed endpoints, so filter by exposing just the funcs we need
+		subresourceStorages = make(map[string]rest.Storage)
+		if statusEnabled {
+			subresourceStorages["status"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   statusStorage.FactoryFunc,
+				DestroyerFunc: statusStorage.DestroyerFunc,
+
+				GetterFunc:  statusStorage.GetterFunc,
+				UpdaterFunc: statusStorage.UpdaterFunc,
+
+				TableConvertorFunc:      statusStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
+			}
+		}
+
+		// only expose GET on the regular storage
+		storages := &struct {
 			registry.FactoryFunc
 			registry.ListFactoryFunc
 			registry.DestroyerFunc
 
 			registry.GetterFunc
-			registry.UpdaterFunc
 
 			registry.TableConvertorFunc
 			registry.CategoriesProviderFunc
@@ -146,106 +174,62 @@ func filteredLogicalClusterReadWriteRestStorage(
 			ListFactoryFunc: storage.ListFactoryFunc,
 			DestroyerFunc:   storage.DestroyerFunc,
 
-			GetterFunc:  storage.GetterFunc,
-			UpdaterFunc: storage.UpdaterFunc,
+			GetterFunc: storage.GetterFunc,
 
 			TableConvertorFunc:      storage.TableConvertorFunc,
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
 			ResetFieldsStrategyFunc: storage.ResetFieldsStrategyFunc,
-		}, nil
+		}
+		return storages, subresourceStorages
 	}, nil
 }
 
-// withUpdateValidation wraps validateTerminatorUpdate.
+// withUpdateValidation wraps validateTerminatorStatusUpdate.
 func withUpdateValidation(terminator corev1alpha1.LogicalClusterTerminator) registry.StorageWrapper {
 	return registry.StorageWrapperFunc(func(groupResource schema.GroupResource, storage *registry.StoreFuncs) {
 		delegateUpdater := storage.UpdaterFunc
 		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *v1.UpdateOptions) (runtime.Object, bool, error) {
-			validationFunc := validateTerminatorUpdate(terminator)
+			// we only need to validate the status sub-resource, as any other types of updates are not possible on a storage layer
+			validationFunc := validateTerminatorStatusUpdate(terminator, name)
 			return delegateUpdater.Update(ctx, name, objInfo, createValidation, validationFunc, forceAllowCreate, options)
 		}
 	})
 }
 
-// validateTerminatorUpdate validates that an update to a LogicalCluster:
-// * removes the passed terminator and only that terminator.
-// * does not update any fields outside of terminators.
-func validateTerminatorUpdate(terminator corev1alpha1.LogicalClusterTerminator) rest.ValidateObjectUpdateFunc {
+// validateTerminatorStatusUpdate validates that an update to a LogicalCluster only removes the passed terminator and only that terminator.
+func validateTerminatorStatusUpdate(terminator corev1alpha1.LogicalClusterTerminator, name string) rest.ValidateObjectUpdateFunc {
 	return func(ctx context.Context, obj, old runtime.Object) error {
 		logger := klog.FromContext(ctx)
-		previous, err := logicalClusterFromObject(old)
+		previous, _, err := unstructured.NestedStringSlice(old.(*unstructured.Unstructured).UnstructuredContent(), "status", "terminators")
 		if err != nil {
-			gvk := old.GetObjectKind().GroupVersionKind()
-			logger.Error(nil, "cannot convert, only LogicalClusters are supported", gvk)
-			return errors.NewInternalError(fmt.Errorf("cannot process %q, only LogicalClusters are supported", gvk))
+			logger.Error(err, "error accessing terminators from old object")
+			return errors.NewInternalError(fmt.Errorf("error accessing terminators from old object: %w", err))
 		}
-		current, err := logicalClusterFromObject(obj)
+		current, _, err := unstructured.NestedStringSlice(obj.(*unstructured.Unstructured).UnstructuredContent(), "status", "terminators")
 		if err != nil {
-			gvk := obj.GetObjectKind().GroupVersionKind()
-			logger.Error(nil, "cannot convert, only LogicalClusters are supported", gvk)
-			return errors.NewInternalError(fmt.Errorf("cannot process %q, only LogicalClusters are supported", gvk))
+			logger.Error(err, "error accessing terminators from new object")
+			return errors.NewInternalError(fmt.Errorf("error accessing terminators from old object: %w", err))
 		}
 
-		// Firstly check if only the owned finalizer is being changed since it is
-		// the more inexpensive check. Checking this first also avoids making a
-		// potentially unnecessary copy of old and new object, to nil their allowed
-		// fields
 		invalidUpdateErr := errors.NewInvalid(
 			corev1alpha1.Kind("LogicalCluster"),
-			previous.ObjectMeta.Name,
+			name,
 			field.ErrorList{field.Invalid(
-				field.NewPath("metadata", "finalizers"),
+				field.NewPath("status", "terminators"),
 				current,
-				fmt.Sprintf("only removing the %q terminator from metadata.finalizers is supported", terminator),
+				fmt.Sprintf("only removing the %q terminator is supported", terminator),
 			)},
 		)
 
-		if len(previous.ObjectMeta.Finalizers)-len(current.ObjectMeta.Finalizers) != 1 {
+		if len(previous)-len(current) != 1 {
 			return invalidUpdateErr
 		}
-		if slices.Contains(current.ObjectMeta.Finalizers, string(terminator)) {
+		if slices.Contains(current, string(terminator)) {
 			return invalidUpdateErr
-		}
-
-		// Secondly check if other fields than the finalizer have changed, which is
-		// not allowed
-
-		// set the allowed finalizer field to the same, so we can compare if other
-		// fields have changed
-		previous.ObjectMeta.Finalizers = nil
-		current.ObjectMeta.Finalizers = nil
-
-		// in addition set fields to nil which are generated
-		previous.ObjectMeta.ManagedFields = nil
-		current.ObjectMeta.ManagedFields = nil
-
-		if diff := cmp.Diff(previous, current); diff != "" {
-			logger.Error(nil, "only terminators are allowed to be changed, but got", diff)
-			return errors.NewInvalid(
-				corev1alpha1.Kind("LogicalCluster"),
-				previous.ObjectMeta.Name,
-				field.ErrorList{field.Invalid(
-					field.NewPath("metadata", "terminators"),
-					current,
-					fmt.Sprintf("only terminators are allowed to be changed, but got\n%s", diff),
-				)},
-			)
 		}
 
 		return nil
 	}
-}
-
-func logicalClusterFromObject(obj runtime.Object) (*corev1alpha1.LogicalCluster, error) {
-	lc := &corev1alpha1.LogicalCluster{}
-	uns, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		return nil, fmt.Errorf("could not cast to unstructured")
-	}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(uns.Object, lc); err != nil {
-		return nil, err
-	}
-	return lc, nil
 }
 
 // terminatorLabelSetRequirement creates a label requirement which requires the

@@ -321,13 +321,10 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 
 	// add terminators
-	terminators, err := LogicalClusterTerminators(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	logicalCluster.Spec.Terminators, err = LogicalClusterTerminators(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
 	if err != nil {
 		return err
 	}
-	logicalCluster.Spec.Terminators = terminators
-	// append our terminators to already existing ObjectMeta finalizers
-	logicalCluster.ObjectMeta.Finalizers = termination.MergeTerminatorsUnique(terminators, logicalCluster.ObjectMeta.Finalizers)
 
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {

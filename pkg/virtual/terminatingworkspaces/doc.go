@@ -14,20 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package terminatingworkspaces and its sub-packages provide the Finalizing Workspace Virtual Workspace.
+// Package terminatingworkspaces and its sub-packages provide the Terminating Workspace Virtual Workspace.
 //
-// It allows for one basic functions:
-// - cross-cluster LIST + WATCH of LogicalCluster which:
+// It allows for cross-cluster LIST + WATCH of LogicalClusters which:
 //   - are marked for deletion via a DeletionTimestamp
-//   - request finalization by a specific controller
+//   - request termination by a specific controller
 //
 // That is, a request for
 // GET /services/terminatingworkspaces/<terminator>/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters
-// will return a list of LogicalCluster objects which are Finalizing and for which metadata.finalizers contains the
+// will return a list of LogicalCluster objects which are Terminating and for which status.terminators contains the
 // <terminator-name>.
 // WATCH semantics are similar to (and implemented by) timestamp and terminators selectors - a LogicalCluster that stops
-// matching the requirements to be served (not being marked for deletion, not requesting finalization by
+// matching the requirements to be served (not being marked for deletion, not requesting termination by
 // the controller) will be removed from the stream with a synthetic Deleted event.
+/*
+         __
+ _(\    |@@|
+(__/\__ \--/ __
+   \___|----|  |   __
+       \ }{ /\ )_ / _\
+       /\__/\ \__O (__
+      (--/\--)    \__/
+      _)(  )(_
+     `---''---`
+*/
 package terminatingworkspaces
 
 const VirtualWorkspaceName string = "terminatingworkspaces"

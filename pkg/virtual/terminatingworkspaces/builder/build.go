@@ -148,7 +148,7 @@ func BuildVirtualWorkspace(
 				dynamicClusterClient: dynamicClusterClient,
 				exposeSubresources:   true,
 				resource:             &logicalClusterResource,
-				storageProvider:      filteredLogicalClusterReadWriteRestStorage,
+				storageProvider:      filteredLogicalClusterStatusWriteOnly,
 			}, nil
 		},
 	}

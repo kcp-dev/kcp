@@ -22,7 +22,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -38,64 +37,41 @@ func TestValidateOnlyTerminatorChanged(t *testing.T) {
 		new        runtime.Object
 	}{
 		{
-			name:       "remove owned finalizer",
+			name:       "remove owned terminator",
 			expErr:     false,
-			terminator: "f1",
+			terminator: "t1",
 			old: &corev1alpha1.LogicalCluster{
-				ObjectMeta: v1.ObjectMeta{
-					Finalizers: []string{
-						"f1",
-						"f2",
+				Status: corev1alpha1.LogicalClusterStatus{
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"t1",
+						"t2",
 					},
 				},
 			},
 			new: &corev1alpha1.LogicalCluster{
-				ObjectMeta: v1.ObjectMeta{
-					Finalizers: []string{
-						"f2",
+				Status: corev1alpha1.LogicalClusterStatus{
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"t2",
 					},
 				},
 			},
 		},
 		{
-			name:       "remove non-owned finalizer",
+			name:       "remove non-owned terminator",
 			expErr:     true,
-			terminator: "f1",
+			terminator: "t1",
 			old: &corev1alpha1.LogicalCluster{
-				ObjectMeta: v1.ObjectMeta{
-					Finalizers: []string{
-						"f1",
-						"f2",
+				Status: corev1alpha1.LogicalClusterStatus{
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"t1",
+						"t2",
 					},
 				},
 			},
 			new: &corev1alpha1.LogicalCluster{
-				ObjectMeta: v1.ObjectMeta{
-					Finalizers: []string{
-						"f1",
-					},
-				},
-			},
-		},
-		{
-			name:       "change non-finalizer field",
-			expErr:     true,
-			terminator: "f1",
-			old: &corev1alpha1.LogicalCluster{
-				ObjectMeta: v1.ObjectMeta{
-					Finalizers: []string{
-						"f1",
-						"f2",
-					},
-				},
-			},
-			new: &corev1alpha1.LogicalCluster{
-				ObjectMeta: v1.ObjectMeta{
-					Finalizers: []string{
-						"f2",
-					},
-					Labels: map[string]string{
-						"test": "test",
+				Status: corev1alpha1.LogicalClusterStatus{
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"t1",
 					},
 				},
 			},
@@ -122,10 +98,8 @@ func TestValidateOnlyTerminatorChanged(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			unsOld := &unstructured.Unstructured{Object: oldMap}
-			unsNew := &unstructured.Unstructured{Object: newMap}
 
-			err = validateTerminatorUpdate(corev1alpha1.LogicalClusterTerminator(tc.terminator))(ctx, unsNew, unsOld)
+			err = validateTerminatorStatusUpdate(corev1alpha1.LogicalClusterTerminator(tc.terminator), "test-cluster")(ctx, &unstructured.Unstructured{Object: newMap}, &unstructured.Unstructured{Object: oldMap})
 			if !tc.expErr && err != nil {
 				t.Errorf("expected no error, but got %q", err)
 			} else if tc.expErr && err == nil {

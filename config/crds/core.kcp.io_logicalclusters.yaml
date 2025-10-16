@@ -208,7 +208,7 @@ spec:
                 - Ready
                 - Unavailable
                 type: string
-              terminator:
+              terminators:
                 description: |-
                   Terminators are set on creation by the system and must be cleared
                   by a controller before the logical cluster can be deleted. The LogicalCluster object

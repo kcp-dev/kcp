@@ -191,7 +191,7 @@ type LogicalClusterStatus struct {
 	// will stay in the phase "Deleting" until all terminator are cleared.
 	//
 	// +optional
-	Terminators []LogicalClusterTerminator `json:"terminator,omitempty"`
+	Terminators []LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 
 func (in *LogicalCluster) SetConditions(c conditionsv1alpha1.Conditions) {

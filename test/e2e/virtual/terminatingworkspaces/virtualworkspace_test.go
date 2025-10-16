@@ -362,7 +362,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 		// check that the number of logical clusters matches
-		require.Equal(t, len(clusters.Items), len(expLogicalClusters[name]))
+		require.Equal(t, len(expLogicalClusters[name]), len(clusters.Items))
 
 		for _, cluster := range clusters.Items {
 			// check that spec terminators are set correctly
@@ -427,19 +427,29 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		terminator := termination.TerminatorForType(workspaceTypes[name])
 
 		for _, origLc := range origLcs.Items {
+			lcPath := logicalcluster.NewPath(origLc.Annotations["kcp.io/cluster"])
 			t.Log("\tModifying a non-terminator field should be invalid")
 			mod := origLc.DeepCopy()
-			origLc.Annotations["wrong"] = "wrong"
+			mod.Annotations["wrong"] = "wrong"
 			patch, err := generatePatchBytes(mod, &origLc)
 			require.NoError(t, err)
-			lcPath := logicalcluster.NewPath(origLc.Annotations["kcp.io/cluster"])
 			if lcPath.Empty() {
 				t.Errorf("could not find logicalcluster path for %v", origLc)
 			}
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				_, err = user1Client.Cluster(lcPath).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{})
-				require.True(c, errors.IsInvalid(err))
+				// we expect MethodNotSupported here as the storage layer denies any non-status field updates
+				require.True(c, errors.IsMethodNotSupported(err))
+			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
+			t.Log("\tModifying a terminator, which is not ours should be denied")
+			mod = origLc.DeepCopy()
+			mod.Status.Terminators = []corev1alpha1.LogicalClusterTerminator{"wrong:wrong"}
+			patch, err = generatePatchBytes(&origLc, mod)
+			require.NoError(t, err)
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				_, err = user1Client.Cluster(lcPath).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+				require.True(c, errors.IsInvalid(err))
 				// Since Invalid is a generic error, which is not exclusive to an
 				// initializer failing our custom updateValidation, we need to check for it
 				// as well.
@@ -447,23 +457,11 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				// field.Error.Origin to do so, as we convert our field.ErrorList into an
 				// errors.StatusError, thus loosing this information. As a result, our only
 				// option is to reconstruct the expected error message.
-				expErrMsg := fmt.Sprintf("only removing the %q terminator from metadata.finalizers is supported", terminator)
+				expErrMsg := fmt.Sprintf("only removing the %q terminator is supported", terminator)
 				// for now using contains seems to strike the best balance between
 				// identifying the error, while not making the test too brittle as
 				// kubernetes statusError creation uses a lot of squashing an string
 				// manipulation to create the final exact message.
-				require.Contains(t, err.Error(), expErrMsg)
-			}, wait.ForeverTestTimeout, 100*time.Millisecond)
-
-			t.Log("\tModifying a terminator, which is not ours should be denied")
-			mod = origLc.DeepCopy()
-			mod.ObjectMeta.Finalizers = []string{"wrong.wrong"}
-			patch, err = generatePatchBytes(&origLc, mod)
-			require.NoError(t, err)
-			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				_, err = user1Client.Cluster(lcPath).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{})
-				require.True(c, errors.IsInvalid(err))
-				expErrMsg := fmt.Sprintf("only removing the %q terminator from metadata.finalizers is supported", terminator)
 				require.Contains(t, err.Error(), expErrMsg)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		}
@@ -483,11 +481,11 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		for _, origLc := range origLcs.Items {
 			lcPath := logicalcluster.NewPath(origLc.Annotations["kcp.io/cluster"])
 			mod := origLc.DeepCopy()
-			mod.ObjectMeta.Finalizers = removeByValue(mod.ObjectMeta.Finalizers, termination.TerminatorSpecToMetadata(terminator))
+			mod.Status.Terminators = removeByValue(mod.Status.Terminators, terminator)
 			patch, err := generatePatchBytes(&origLc, mod)
 			require.NoError(t, err)
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				_, err = user1Client.Cluster(lcPath).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{})
+				_, err = user1Client.Cluster(lcPath).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{}, "status")
 				require.NoError(c, err)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		}

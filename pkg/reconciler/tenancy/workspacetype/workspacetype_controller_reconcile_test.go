@@ -138,12 +138,12 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/finalizingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://something.com/services/finalizingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://item.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://whatever.com/services/finalizingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://something.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://whatever.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
@@ -197,12 +197,12 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/finalizingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://something.com/services/finalizingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://item.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://whatever.com/services/finalizingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://something.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
 						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{URL: "https://whatever.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
