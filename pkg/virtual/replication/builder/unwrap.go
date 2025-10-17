@@ -31,12 +31,17 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/storage"
 	storageerrors "k8s.io/apiserver/pkg/storage/errors"
 	clientgocache "k8s.io/client-go/tools/cache"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cachedresourcesreplication "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
 	"github.com/kcp-dev/kcp/pkg/tombstone"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
@@ -47,16 +52,48 @@ import (
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
+func unwrapCachedObjectWithCluster(obj *cachev1alpha1.CachedObject, cluster logicalcluster.Name) (*unstructured.Unstructured, error) {
+	inner, err := unwrapCachedObject(obj)
+	if err != nil {
+		return nil, err
+	}
+	setCluster(inner, cluster)
+
+	return inner, nil
+}
+
 func unwrapCachedObject(obj *cachev1alpha1.CachedObject) (*unstructured.Unstructured, error) {
 	inner := &unstructured.Unstructured{}
 	if err := inner.UnmarshalJSON(obj.Spec.Raw.Raw); err != nil {
 		return nil, fmt.Errorf("failed to decode inner object: %w", err)
 	}
-	inner.SetResourceVersion(obj.GetResourceVersion())
+
+	// Set the original UID and RV.
+	ann := inner.GetAnnotations()
+	inner.SetUID(types.UID(ann[cachedresourcesreplication.AnnotationKeyOriginalResourceUID]))
+	inner.SetResourceVersion(ann[cachedresourcesreplication.AnnotationKeyOriginalResourceVersion])
+
+	// Remove internal annotations from the object before exposing it to the client.
+	if ann := inner.GetAnnotations(); ann != nil {
+		delete(ann, shard.AnnotationKey)
+		delete(ann, cachedresourcesreplication.AnnotationKeyOriginalResourceUID)
+		delete(ann, cachedresourcesreplication.AnnotationKeyOriginalResourceVersion)
+		inner.SetAnnotations(ann)
+	}
+
 	return inner, nil
 }
 
-func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, cacheKcpInformers kcpinformers.SharedInformerFactory) forwardingregistry.StorageWrapper {
+func setCluster(obj *unstructured.Unstructured, cluster logicalcluster.Name) {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[logicalcluster.AnnotationKey] = cluster.String()
+	obj.SetAnnotations(annotations)
+}
+
+func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, localKcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory, cr *cachev1alpha1.CachedResource) forwardingregistry.StorageWrapper {
 	wrappedGVR := schema.GroupVersionResource{
 		Group:    apiResourceSchema.Spec.Group,
 		Version:  version,
@@ -71,14 +108,28 @@ func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version s
 			if err != nil {
 				return nil, fmt.Errorf("invalid API domain key: %v", err)
 			}
+			targetCluster := genericapirequest.ClusterFrom(ctx)
+			if targetCluster.Wildcard {
+				// ???
+				panic("wildcard in get request")
+			}
+
+			bindings, err := listAPIBindingsByCachedResource(cr.Status.IdentityHash, wrappedGVR.GroupResource(), globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), localKcpInformers.Apis().V1alpha2().APIBindings())
+			if err != nil {
+				return nil, fmt.Errorf("internal error: %v", err)
+			}
+			clustersForBindings := listClustersInBindings(bindings)
+			if !clustersForBindings.Has(targetCluster.Name) {
+				return nil, apierrors.NewNotFound(wrappedGVR.GroupResource(), name)
+			}
 
 			cachedObjName := cachedresourcesreplication.GenCachedObjectName(wrappedGVR, genericapirequest.NamespaceValue(ctx), name)
-			cachedObj, err := cacheKcpInformers.Cache().V1alpha1().CachedObjects().Cluster(parsedKey.CachedResourceCluster).Lister().Get(cachedObjName)
+			cachedObj, err := globalKcpInformers.Cache().V1alpha1().CachedObjects().Cluster(parsedKey.CachedResourceCluster).Lister().Get(cachedObjName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get CachedObject %s for resource %s %s: %v", cachedObjName, wrappedGVR, name, err)
 			}
 
-			return unwrapCachedObject(cachedObj)
+			return unwrapCachedObjectWithCluster(cachedObj, targetCluster.Name)
 		}
 		storage.WatcherFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
 			parsedKey, err := apidomainkey.Parse(dynamiccontext.APIDomainKeyFrom(ctx))
@@ -101,7 +152,13 @@ func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version s
 			}
 
 			return newUnwrappingWatch(ctx, innerGVR, options, namespaced, genericapirequest.NamespaceValue(ctx),
-				cacheKcpInformers.Cache().V1alpha1().CachedObjects().Cluster(parsedKey.CachedResourceCluster).Informer())
+				globalKcpInformers.Cache().V1alpha1().CachedObjects().Cluster(parsedKey.CachedResourceCluster).Informer(), syntheticClustersProvider(
+					*genericapirequest.ClusterFrom(ctx),
+					cr.Status.IdentityHash,
+					wrappedGVR.GroupResource(),
+					localKcpInformers,
+					globalKcpInformers,
+				))
 		}
 		storage.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 			parsedKey, err := apidomainkey.Parse(dynamiccontext.APIDomainKeyFrom(ctx))
@@ -133,7 +190,7 @@ func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version s
 				innerListGVK.Kind = apiResourceSchema.Spec.Names.Kind + "List"
 			}
 
-			cachedObjs, err := cacheKcpInformers.Cache().V1alpha1().CachedObjects().Informer().GetIndexer().ByIndex(
+			cachedObjs, err := globalKcpInformers.Cache().V1alpha1().CachedObjects().Informer().GetIndexer().ByIndex(
 				cachedresourcesreplication.ByGVRAndLogicalClusterAndNamespace,
 				cachedresourcesreplication.GVRAndLogicalClusterAndNamespace(
 					innerGVR,
@@ -145,7 +202,13 @@ func withUnwrapping(apiResourceSchema *apisv1alpha1.APIResourceSchema, version s
 				return nil, err
 			}
 
-			return newUnwrappingList(innerListGVK, innerGVR.GroupResource(), cachedObjs, options, namespaced)
+			return newUnwrappingList(innerListGVK, innerGVR.GroupResource(), cachedObjs, options, namespaced, genericapirequest.NamespaceValue(ctx), syntheticClustersProvider(
+				*genericapirequest.ClusterFrom(ctx),
+				cr.Status.IdentityHash,
+				wrappedGVR.GroupResource(),
+				localKcpInformers,
+				globalKcpInformers,
+			))
 		}
 	})
 }
@@ -184,7 +247,7 @@ func checkCrossNamespaceAndWildcard(ctx context.Context, gvr schema.GroupVersion
 }
 
 type unwrappingWatch struct {
-	lock       sync.Mutex
+	stopLock   sync.Mutex // Don't use this anywhere but in Stop()!
 	doneChan   chan struct{}
 	resultChan chan watch.Event
 
@@ -199,6 +262,7 @@ func newUnwrappingWatch(
 	namespaced bool,
 	namespace string,
 	scopedCachedObjectsInformer clientgocache.SharedIndexInformer,
+	syntheticClusters func() []logicalcluster.Name,
 ) (*unwrappingWatch, error) {
 	w := &unwrappingWatch{
 		doneChan:   make(chan struct{}),
@@ -228,7 +292,7 @@ func newUnwrappingWatch(
 		field = innerListOpts.FieldSelector
 	}
 	attrFunc := storage.DefaultClusterScopedAttr
-	if namespaced {
+	if namespaced && namespace != "" {
 		attrFunc = storage.DefaultNamespaceScopedAttr
 	}
 	unwrapWithMatchingSelectors := func(cachedObj *cachev1alpha1.CachedObject) (*unstructured.Unstructured, error) {
@@ -255,77 +319,100 @@ func newUnwrappingWatch(
 			if cachedObj.GetLabels() == nil {
 				return false
 			}
-			return cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectGroup] == innerObjGVR.Group &&
+			valid := cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectGroup] == innerObjGVR.Group &&
 				cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectVersion] == innerObjGVR.Version &&
-				cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectResource] == innerObjGVR.Resource &&
-				cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectOriginalNamespace] == namespace
+				cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectResource] == innerObjGVR.Resource
+			if namespaced && namespace != "" {
+				valid = valid && cachedObj.Labels[cachedresourcesreplication.LabelKeyObjectOriginalNamespace] == namespace
+			}
+
+			return valid
 		},
 		Handler: clientgocache.ResourceEventHandlerDetailedFuncs{
 			AddFunc: func(obj interface{}, isInInitialList bool) {
 				cachedObj := tombstone.Obj[*cachev1alpha1.CachedObject](obj)
 				if isInInitialList {
-					if innerListOpts.SendInitialEvents == nil || !*innerListOpts.SendInitialEvents {
-						// The user explicitly requests to not send the initial list.
+					if cachedObj.GetResourceVersion() <= innerListOpts.ResourceVersion {
+						// This resource is older than the want we want to start from on isInInitial list replay.
 						return
 					}
-					if cachedObj.GetResourceVersion() < innerListOpts.ResourceVersion {
-						// This resource is older than the want we want to start from on isInInitial list replay.
+					if innerListOpts.SendInitialEvents != nil && !*innerListOpts.SendInitialEvents {
+						// The user explicitly requests not to send the initial list.
 						return
 					}
 				}
 
 				innerObj, err := unwrapWithMatchingSelectors(cachedObj)
 				if err != nil {
-					w.resultChan <- watch.Event{
+					w.safeWrite(watch.Event{
 						Type:   watch.Error,
 						Object: &apierrors.NewInternalError(err).ErrStatus,
-					}
+					})
 					return
 				}
 				if innerObj == nil {
 					// No match because of selectors.
 					return
 				}
-				w.resultChan <- watch.Event{
-					Type:   watch.Added,
-					Object: innerObj,
+
+				for _, cluster := range syntheticClusters() {
+					obj := innerObj.DeepCopy()
+					setCluster(obj, cluster)
+					if !w.safeWrite(watch.Event{
+						Type:   watch.Added,
+						Object: obj,
+					}) {
+						return
+					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				cachedObj := tombstone.Obj[*cachev1alpha1.CachedObject](newObj)
 				innerObj, err := unwrapWithMatchingSelectors(cachedObj)
 				if err != nil {
-					w.resultChan <- watch.Event{
+					w.safeWrite(watch.Event{
 						Type:   watch.Error,
 						Object: &apierrors.NewInternalError(err).ErrStatus,
-					}
+					})
 					return
 				}
 				if innerObj == nil {
 					return
 				}
-				w.resultChan <- watch.Event{
-					Type:   watch.Modified,
-					Object: innerObj,
+				for _, cluster := range syntheticClusters() {
+					obj := innerObj.DeepCopy()
+					setCluster(obj, cluster)
+					if !w.safeWrite(watch.Event{
+						Type:   watch.Modified,
+						Object: obj,
+					}) {
+						return
+					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				cachedObj := tombstone.Obj[*cachev1alpha1.CachedObject](obj)
 				innerObj, err := unwrapWithMatchingSelectors(cachedObj)
 				if err != nil {
-					w.resultChan <- watch.Event{
+					w.safeWrite(watch.Event{
 						Type:   watch.Error,
 						Object: &apierrors.NewInternalError(err).ErrStatus,
-					}
+					})
 					return
 				}
 				if innerObj == nil {
 					// No match because of selectors.
 					return
 				}
-				w.resultChan <- watch.Event{
-					Type:   watch.Deleted,
-					Object: innerObj,
+				for _, cluster := range syntheticClusters() {
+					obj := innerObj.DeepCopy()
+					setCluster(obj, cluster)
+					if !w.safeWrite(watch.Event{
+						Type:   watch.Deleted,
+						Object: obj,
+					}) {
+						return
+					}
 				}
 			},
 		},
@@ -338,9 +425,23 @@ func newUnwrappingWatch(
 	return w, nil
 }
 
+// safeWrite sends data to resultChan only if Stop() hasn't been called already.
+// It may happen that Stop() is called while watch events are still being sent
+// to clusters (when using a wildcard). The CachedObject handler is removed, the
+// resultChan closed, but writing to the channel may still continue, causing a panic.
+func (w *unwrappingWatch) safeWrite(e watch.Event) bool {
+	select {
+	case <-w.doneChan:
+		return false
+	default:
+		w.resultChan <- e
+		return true
+	}
+}
+
 func (w *unwrappingWatch) Stop() {
-	w.lock.Lock()
-	defer w.lock.Unlock()
+	w.stopLock.Lock()
+	defer w.stopLock.Unlock()
 
 	select {
 	case <-w.doneChan:
@@ -355,7 +456,7 @@ func (w *unwrappingWatch) ResultChan() <-chan watch.Event {
 	return w.resultChan
 }
 
-func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.GroupResource, cachedObjs []interface{}, innerListOpts *metainternalversion.ListOptions, namespaced bool) (*unstructured.UnstructuredList, error) {
+func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.GroupResource, cachedObjs []interface{}, innerListOpts *metainternalversion.ListOptions, namespaced bool, namespace string, syntheticClusters func() []logicalcluster.Name) (*unstructured.UnstructuredList, error) {
 	innerList := &unstructured.UnstructuredList{}
 	innerList.SetGroupVersionKind(innerListGVK)
 
@@ -368,8 +469,14 @@ func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.G
 		field = innerListOpts.FieldSelector
 	}
 	attrFunc := storage.DefaultClusterScopedAttr
-	if namespaced {
+	if namespaced && namespace != "" {
 		attrFunc = storage.DefaultNamespaceScopedAttr
+	}
+
+	clusters := syntheticClusters()
+
+	if len(clusters) == 0 {
+		return innerList, nil
 	}
 
 	latestResourceVersion := "0"
@@ -393,7 +500,11 @@ func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.G
 		}
 
 		innerObj.SetResourceVersion(item.GetResourceVersion())
-		innerList.Items = append(innerList.Items, *innerObj)
+		for _, cluster := range clusters {
+			obj := innerObj.DeepCopy()
+			setCluster(obj, cluster)
+			innerList.Items = append(innerList.Items, *obj)
+		}
 
 		if innerObj.GetResourceVersion() > latestResourceVersion {
 			latestResourceVersion = innerObj.GetResourceVersion()
@@ -403,4 +514,27 @@ func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.G
 	innerList.SetResourceVersion(latestResourceVersion)
 
 	return innerList, nil
+}
+
+func syntheticClustersProvider(targetCluster genericapirequest.Cluster, identityHash string, wrappedGR schema.GroupResource, localKcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) func() []logicalcluster.Name {
+	return func() []logicalcluster.Name {
+		if targetCluster.Wildcard {
+			bindings, err := listAPIBindingsByCachedResource(identityHash, wrappedGR, globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), localKcpInformers.Apis().V1alpha2().APIBindings())
+			if err != nil {
+				return nil
+			}
+			clustersForBindings := listClustersInBindings(bindings)
+			return sets.List(clustersForBindings)
+		} else {
+			bindings, err := listAPIBindingsByCachedResource(identityHash, wrappedGR, globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(), localKcpInformers.Apis().V1alpha2().APIBindings())
+			if err != nil {
+				return nil
+			}
+			clustersForBindings := listClustersInBindings(bindings)
+			if clustersForBindings.Has(targetCluster.Name) {
+				return []logicalcluster.Name{targetCluster.Name}
+			}
+			return nil
+		}
+	}
 }

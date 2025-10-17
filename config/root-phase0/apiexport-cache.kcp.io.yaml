@@ -7,12 +7,12 @@ spec:
   resources:
   - group: cache.kcp.io
     name: cachedresourceendpointslices
-    schema: v250604-36e6abf17.cachedresourceendpointslices.cache.kcp.io
+    schema: v251008-c4825908e.cachedresourceendpointslices.cache.kcp.io
     storage:
       crd: {}
   - group: cache.kcp.io
     name: cachedresources
-    schema: v250830-080348246.cachedresources.cache.kcp.io
+    schema: v250920-de0c8484d.cachedresources.cache.kcp.io
     storage:
       crd: {}
 status: {}

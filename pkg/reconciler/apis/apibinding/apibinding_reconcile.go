@@ -502,14 +502,18 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 		// Merge any current storage versions with new ones
 		storageVersions := sets.New[string]()
-		if existingCRD != nil {
-			storageVersions.Insert(existingCRD.Status.StoredVersions...)
-		}
+		if resourceSchema.Storage.CRD != nil {
+			// Only resources with CRD storage need to track storage versions.
 
-		for _, b := range apiBinding.Status.BoundResources {
-			if b.Group == sch.Spec.Group && b.Resource == sch.Spec.Names.Plural {
-				storageVersions.Insert(b.StorageVersions...)
-				break
+			if existingCRD != nil {
+				storageVersions.Insert(existingCRD.Status.StoredVersions...)
+			}
+
+			for _, b := range apiBinding.Status.BoundResources {
+				if b.Group == sch.Spec.Group && b.Resource == sch.Spec.Names.Plural {
+					storageVersions.Insert(b.StorageVersions...)
+					break
+				}
 			}
 		}
 
