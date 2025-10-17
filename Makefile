@@ -219,11 +219,11 @@ client-go-verify-codegen: ## Verify client-go generated code
 
 .PHONY: code-generator-codegen
 code-generator-codegen: ## Generate code-generator code
-	$(MAKE) -C staging/src/k8s.io/code-generator codegen
+	$(MAKE) -C staging/src/github.com/kcp-dev/code-generator codegen
 
 .PHONY: code-generator-verify-codegen
 code-generator-verify-codegen: ## Verify code-generator generated code
-	$(MAKE) -C staging/src/k8s.io/code-generator verify-codegen
+	$(MAKE) -C staging/src/github.com/kcp-dev/code-generator verify-codegen
 
 codegen: $(KCP_APIGEN_GEN) client-go-codegen code-generator-codegen crds ## Generate all
 	go mod download

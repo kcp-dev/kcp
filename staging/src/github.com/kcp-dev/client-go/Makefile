@@ -1,4 +1,4 @@
- # Copyright 2022 The KCP Authors.
+# Copyright 2022 The KCP Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 # We need bash for some conditional logic below.
 SHELL := /usr/bin/env bash -e
 
-GO_INSTALL = ./hack/go-install.sh
-
 KCP_ROOT_DIR ?= $(abspath ../../../../..)
+
+GO_INSTALL = $(KCP_ROOT_DIR)/hack/go-install.sh
 
 TOOLS_DIR=hack/tools
 TOOLS_GOBIN_DIR := $(KCP_ROOT_DIR)/$(TOOLS_DIR)

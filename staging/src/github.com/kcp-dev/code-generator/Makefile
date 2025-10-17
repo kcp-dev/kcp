@@ -14,9 +14,9 @@
 
 SHELL := /usr/bin/env bash
 
-GO_INSTALL = ./hack/go-install.sh
-
 KCP_ROOT_DIR ?= $(abspath ../../../../..)
+
+GO_INSTALL = $(KCP_ROOT_DIR)/hack/go-install.sh
 
 BUILD_DEST ?= _build
 BUILDFLAGS ?=
