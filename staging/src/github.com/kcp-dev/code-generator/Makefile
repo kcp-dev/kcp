@@ -15,30 +15,32 @@
 SHELL := /usr/bin/env bash
 
 GO_INSTALL = ./hack/go-install.sh
+
+KCP_ROOT_DIR ?= $(abspath ../../../../..)
+
 BUILD_DEST ?= _build
 BUILDFLAGS ?=
 CMD ?= $(notdir $(wildcard ./cmd/*))
 
 TOOLS_DIR=hack/tools
-GOBIN_DIR := $(abspath $(TOOLS_DIR))
+GOBIN_DIR := $(KCP_ROOT_DIR)/$(TOOLS_DIR)
 TMPDIR := $(shell mktemp -d)
 
-GOLANGCI_LINT_VER := v1.62.2
+GOLANGCI_LINT_VER := v2.1.6
 GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 
-OPENSHIFT_GOIMPORTS_VER := c70783e636f2213cac683f6865d88c5edace3157
-OPENSHIFT_GOIMPORTS_BIN := openshift-goimports
-OPENSHIFT_GOIMPORTS := $(TOOLS_DIR)/$(OPENSHIFT_GOIMPORTS_BIN)-$(OPENSHIFT_GOIMPORTS_VER)
-export OPENSHIFT_GOIMPORTS # so hack scripts can use it
+$(GOLANGCI_LINT):
+	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
-$(OPENSHIFT_GOIMPORTS):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/openshift-eng/openshift-goimports $(OPENSHIFT_GOIMPORTS_BIN) $(OPENSHIFT_GOIMPORTS_VER)
-
-imports: $(OPENSHIFT_GOIMPORTS)
-	$(OPENSHIFT_GOIMPORTS) -m github.com/kcp-dev/code-generator
-	$(OPENSHIFT_GOIMPORTS) --path ./examples -m acme.corp
 .PHONY: imports
+imports: WHAT ?=
+imports: $(GOLANGCI_LINT)
+	if [ -n "$(WHAT)" ]; then \
+	  $(GOLANGCI_LINT) fmt --enable gci -c $(KCP_ROOT_DIR)/.golangci.yaml $(WHAT); \
+	else \
+	  $(GOLANGCI_LINT) fmt --enable gci -c $(KCP_ROOT_DIR)/.golangci.yaml ; \
+	fi;
 
 .PHONY: clean
 clean:
@@ -63,19 +65,6 @@ codegen: build
 	./hack/update-codegen.sh
 	$(MAKE) imports
 
-$(GOLANGCI_LINT):
-	GOBIN=$(GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
-
-.PHONY: lint
-lint: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run --timeout=10m ./...
-	cd examples && $(GOLANGCI_LINT) run --timeout=10m ./...
-
-.PHONY: test
-test:
-	go test ./...
-	cd examples; go test ./...
-
 # Note, running this locally if you have any modified files, even those that are not generated,
 # will result in an error. This target is mostly for CI jobs.
 .PHONY: verify-codegen
@@ -92,13 +81,3 @@ verify-codegen:
 		echo "You need to run 'make codegen' to update generated files and commit them"; \
 		exit 1; \
 	fi
-
-$(TOOLS_DIR)/verify_boilerplate.py:
-	mkdir -p $(TOOLS_DIR)
-	curl --fail --retry 3 -L -o $(TOOLS_DIR)/verify_boilerplate.py https://raw.githubusercontent.com/kubernetes/repo-infra/master/hack/verify_boilerplate.py
-	chmod +x $(TOOLS_DIR)/verify_boilerplate.py
-
-.PHONY: verify-boilerplate
-verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip examples
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/examples examples

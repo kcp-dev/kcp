@@ -143,7 +143,6 @@ $(KCP_APIGEN_GEN):
 lint: $(GOLANGCI_LINT) $(LOGCHECK) ## Verify lint
 	echo "Linting root module..."; \
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_FLAGS) -c $(ROOT_DIR)/.golangci.yaml --timeout 20m
-	# TODO(embik): stop skipping lint for staging repositories
 	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Linting $$MOD module..."; \
@@ -210,7 +209,23 @@ crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
 .PHONY: crds
 
-codegen: $(KCP_APIGEN_GEN) crds ## Generate all
+.PHONY: client-go-codegen
+client-go-codegen: ## Generate client-go code
+	$(MAKE) -C staging/src/github.com/kcp-dev/client-go codegen
+
+.PHONY: client-go-verify-codegen
+client-go-verify-codegen: ## Verify client-go generated code
+	$(MAKE) -C staging/src/github.com/kcp-dev/client-go verify-codegen
+
+.PHONY: code-generator-codegen
+code-generator-codegen: ## Generate code-generator code
+	$(MAKE) -C staging/src/k8s.io/code-generator codegen
+
+.PHONY: code-generator-verify-codegen
+code-generator-verify-codegen: ## Verify code-generator generated code
+	$(MAKE) -C staging/src/k8s.io/code-generator verify-codegen
+
+codegen: $(KCP_APIGEN_GEN) client-go-codegen code-generator-codegen crds ## Generate all
 	go mod download
 	./hack/update-codegen-clients.sh
 	./hack/gen-patch-defaultrestmapper.sh
@@ -220,7 +235,7 @@ codegen: $(KCP_APIGEN_GEN) crds ## Generate all
 # Note, running this locally if you have any modified files, even those that are not generated,
 # will result in an error. This target is mostly for CI jobs.
 .PHONY: verify-codegen
-verify-codegen: ## Verify codegen
+verify-codegen: client-go-verify-codegen code-generator-verify-codegen ## Verify codegen
 	if [[ -n "${GITHUB_WORKSPACE}" ]]; then \
 		mkdir -p $$(go env GOPATH)/src/github.com/kcp-dev; \
 		ln -s ${GITHUB_WORKSPACE} $$(go env GOPATH)/src/github.com/kcp-dev/kcp; \
@@ -247,15 +262,14 @@ imports: $(GOLANGCI_LINT) verify-go-versions
 	  done; \
 	fi
 
-$(TOOLS_DIR)/verify_boilerplate.py:
-	mkdir -p $(TOOLS_DIR)
-	curl --fail --retry 3 -L -o $(TOOLS_DIR)/verify_boilerplate.py https://raw.githubusercontent.com/kubernetes/repo-infra/201dcad9616c117927232ee0bc499ff38a27023e/hack/verify_boilerplate.py
-	chmod +x $(TOOLS_DIR)/verify_boilerplate.py
-
+BOILERPLATE_MODIFIED_FILES ?= $(abspath ./hack/boilerplate/boilerplate_modified/files.txt)
+BOILERPLATE_KUBERNETES_FILES := $(abspath ./hack/boilerplate/boilerplate_kubernetes/files.txt)
 
 .PHONY: verify-boilerplate
-verify-boilerplate: $(TOOLS_DIR)/verify_boilerplate.py ## Verify boilerplate
-	$(TOOLS_DIR)/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer --skip staging/src
+verify-boilerplate: ## Verify boilerplate
+	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer --skip-files-list $(BOILERPLATE_MODIFIED_FILES) --skip-files-list $(BOILERPLATE_KUBERNETES_FILES)
+	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/boilerplate_modified --filenames-list $(BOILERPLATE_MODIFIED_FILES)
+	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/boilerplate_kubernetes --filenames-list $(BOILERPLATE_KUBERNETES_FILES)
 
 ifdef ARTIFACT_DIR
 GOTESTSUM_ARGS += --junitfile=$(ARTIFACT_DIR)/junit.xml
@@ -371,8 +385,12 @@ test: WHAT ?= ./...
 # We will need to move into the sub package, of sdk to run those tests.
 test: ## Run tests
 	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration')
-	cd sdk && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
-	cd cli && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)
+	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
+		if [ "$$MOD" != "." ]; then \
+			echo "Testing $$MOD module..."; \
+			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)); \
+		fi; \
+	done
 
 .PHONY: test-integration
 ifdef USE_GOTESTSUM

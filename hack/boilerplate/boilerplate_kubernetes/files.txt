@@ -1,0 +1,13 @@
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1/daemonset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1/replicaset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1/statefulset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1beta1/statefulset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1beta2/daemonset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1beta2/replicaset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/apps/v1beta2/statefulset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/batch/v1/job_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/core/v1/replicationcontroller_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/extensions/v1beta1/daemonset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/extensions/v1beta1/replicaset_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/policy/v1/poddisruptionbudget_expansion.go
+staging/src/github.com/kcp-dev/client-go/listers/policy/v1beta1/poddisruptionbudget_expansion.go
