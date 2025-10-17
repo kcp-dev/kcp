@@ -1,6 +1,6 @@
 /*
-Copyright 2025 The KCP Authors.
 Copyright 2025 The Kubernetes Authors.
+Modifications Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ type gvTypeValue struct {
 	changed   bool
 }
 
-func NewGVTypesValue(gvToTypes *map[types.GroupVersion][]string, def []string) *gvTypeValue {
+func NewGVTypesValue(gvToTypes *map[types.GroupVersion][]string, def []string) *gvTypeValue { //nolint:gocritic
 	gvt := new(gvTypeValue)
 	gvt.gvToTypes = gvToTypes
 	if def != nil {

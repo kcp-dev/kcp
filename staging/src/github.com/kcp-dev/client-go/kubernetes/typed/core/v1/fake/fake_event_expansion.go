@@ -127,6 +127,6 @@ func (c *eventScopedClient) GetFieldSelector(involvedObjectName, involvedObjectN
 	action.Verb = "get-field-selector"
 	action.Resource = c.Resource()
 
-	c.Fake.Invokes(action, nil)
+	c.Fake.Invokes(action, nil) //nolint:errcheck
 	return fields.Everything()
 }

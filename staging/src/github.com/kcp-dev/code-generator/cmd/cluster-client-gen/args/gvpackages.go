@@ -1,6 +1,6 @@
 /*
-Copyright 2025 The KCP Authors.
 Copyright 2025 The Kubernetes Authors.
+Modifications Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -144,7 +144,7 @@ func (p *groupVersionsBuilder) update() error {
 		}
 	}
 
-	var groupNames []string
+	groupNames := make([]string, 0, len(seenGroups))
 	for groupName := range seenGroups {
 		groupNames = append(groupNames, groupName.String())
 	}

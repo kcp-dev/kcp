@@ -1,6 +1,6 @@
 /*
-Copyright 2025 The KCP Authors.
 Copyright 2025 The Kubernetes Authors.
+Modifications Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ func (g *genFakeForGroup) Imports(_ *generator.Context) (imports []string) {
 	if len(g.types) != 0 {
 		imports = append(imports,
 			"github.com/kcp-dev/logicalcluster/v3",
-			fmt.Sprintf("%s \"%s\"", groupVersionFromPackage(g.singleClusterClientPackage), g.singleClusterClientPackage),
-			fmt.Sprintf("kcp%s \"%s\"", groupVersionFromPackage(g.realClientPackage), g.realClientPackage),
+			fmt.Sprintf("%s %q", groupVersionFromPackage(g.singleClusterClientPackage), g.singleClusterClientPackage),
+			fmt.Sprintf("kcp%s %q", groupVersionFromPackage(g.realClientPackage), g.realClientPackage),
 		)
 	}
 	return imports

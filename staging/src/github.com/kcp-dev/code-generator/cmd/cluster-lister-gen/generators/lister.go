@@ -1,6 +1,6 @@
 /*
-Copyright 2025 The KCP Authors.
 Copyright 2025 The Kubernetes Authors.
+Modifications Copyright 2025 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 		klog.Fatalf("Failed loading boilerplate: %v", err)
 	}
 
-	var targetList []generator.Target
+	targetList := make([]generator.Target, 0)
 	for _, inputPkg := range context.Inputs {
 		p := context.Universe.Package(inputPkg)
 
