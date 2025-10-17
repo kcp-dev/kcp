@@ -61,8 +61,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
@@ -487,7 +486,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 
 	rules := make([]rbacv1.PolicyRule, total)
 
-	for i := range total {
+	for i := 0; i < total; i++ {
 		group := resources[i*3]
 		resource := resources[i*3+1]
 		resourceName := resources[i*3+2]
@@ -529,8 +528,7 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 }
 
 func admit(t *testing.T, kubeClusterClient kubernetesclientset.Interface, ruleName, subjectName, subjectKind string, verbs []string, resources ...string) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	cr, crb := createClusterRoleAndBindings(ruleName, subjectName, subjectKind, verbs, resources...)
 	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})

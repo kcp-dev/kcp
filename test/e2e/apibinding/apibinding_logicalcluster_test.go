@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -60,8 +59,7 @@ func TestAPIBindingLogicalCluster(t *testing.T) {
 	t.Logf("providerPath: %v", providerPath)
 	t.Logf("consumerPath: %v", consumerPath)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
@@ -193,8 +191,7 @@ func TestAPIBindingCRDs(t *testing.T) {
 	t.Logf("providerPath: %v", providerPath)
 	t.Logf("consumerPath: %v", consumerPath)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 
