@@ -1,35 +1,13 @@
 <!--
-Thanks for creating a pull request!
 
-If this is your first time, please make sure to review CONTRIBUTING.MD.
+⚠️ This is an automatically published staged repository for kcp. ⚠️
 
-Please copy the appropriate `:text:` or icon to the beginning of your PR title:
+Contributions, including issues and pull requests, should be made to the main kcp repository:
+https://github.com/kcp-dev/kcp
 
-:sparkles: ✨ feature
-:bug: 🐛 bug fix
-:book: 📖 docs
-:memo: 📝 proposal
-:warning: ⚠️ breaking change
-:seedling: 🌱 other/misc
-:question: ❓ requires manual review/categorization
+This repository is read-only for importing, and not used for direct contributions.  
+
+See the monorepo structure document for more details:
+https://docs.kcp.io/kcp/main/contributing/monorepo/
 
 -->
-## Summary
-
-## Related issue(s)
-
-Fixes #
-
-## Release Notes
-
-<!--
-Please add a release note using the following format:
-
-```release-note
-<description of change>
-```
--->
-
-```release-note
-NONE
-```
