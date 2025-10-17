@@ -220,3 +220,7 @@ replace (
 	github.com/kcp-dev/client-go => ./staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
 )
+
+// This fork is required to use IgnoreCreatedBy. The PR to add this
+// feature is here: https://github.com/uber-go/goleak/pull/136
+replace go.uber.org/goleak => github.com/ntnn/goleak v1.2.2-0.20251003233619-cbb740da4265

@@ -88,6 +88,17 @@ func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset
 	time.Sleep(2 * time.Second)
 }
 
+var (
+	// These are goroutines that can pop up randomly during KCP
+	// operations and aren't indicative of a leak when deleting
+	// a workspace.
+	randomGoroutineSources = []goleak.Option{
+		goleak.IgnoreCreatedBy("net/http.(*Server).Serve"),
+		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*Transport).newClientConn"),
+		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*serverConn).serve"),
+	}
+)
+
 func TestWorkspaceDeletionLeak(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel) // TODO update in go1.24
@@ -105,7 +116,7 @@ func TestWorkspaceDeletionLeak(t *testing.T) {
 
 	t.Logf("Check for leftover goroutines")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		if err := goleak.Find(curGoroutines); err != nil {
+		if err := goleak.Find(append(randomGoroutineSources, curGoroutines)...); err != nil {
 			return false, err.Error()
 		}
 		return true, ""
