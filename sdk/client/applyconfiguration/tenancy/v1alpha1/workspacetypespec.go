@@ -26,6 +26,7 @@ import (
 // with apply.
 type WorkspaceTypeSpecApplyConfiguration struct {
 	Initializer                  *bool                                                    `json:"initializer,omitempty"`
+	Terminator                   *bool                                                    `json:"terminator,omitempty"`
 	Extend                       *WorkspaceTypeExtensionApplyConfiguration                `json:"extend,omitempty"`
 	AdditionalWorkspaceLabels    map[string]string                                        `json:"additionalWorkspaceLabels,omitempty"`
 	DefaultChildWorkspaceType    *WorkspaceTypeReferenceApplyConfiguration                `json:"defaultChildWorkspaceType,omitempty"`
@@ -47,6 +48,14 @@ func WorkspaceTypeSpec() *WorkspaceTypeSpecApplyConfiguration {
 // If called multiple times, the Initializer field is set to the value of the last call.
 func (b *WorkspaceTypeSpecApplyConfiguration) WithInitializer(value bool) *WorkspaceTypeSpecApplyConfiguration {
 	b.Initializer = &value
+	return b
+}
+
+// WithTerminator sets the Terminator field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Terminator field is set to the value of the last call.
+func (b *WorkspaceTypeSpecApplyConfiguration) WithTerminator(value bool) *WorkspaceTypeSpecApplyConfiguration {
+	b.Terminator = &value
 	return b
 }
 

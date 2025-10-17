@@ -27,6 +27,7 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
@@ -39,7 +40,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 
 	expected := string(logicalCluster.Status.Phase)
 	if !logicalCluster.DeletionTimestamp.IsZero() {
-		expected = "Deleting"
+		expected = string(corev1alpha1.LogicalClusterPhaseDeleting)
 	}
 	if got := logicalCluster.Labels[tenancyv1alpha1.WorkspacePhaseLabel]; got != expected {
 		if logicalCluster.Labels == nil {
@@ -49,6 +50,7 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 		changed = true
 	}
 
+	// add initializers from the status as hashed labels
 	initializerKeys := sets.New[string]()
 	for _, initializer := range logicalCluster.Status.Initializers {
 		key, value := initialization.InitializerToLabel(initializer)
@@ -62,9 +64,32 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 		}
 	}
 
+	// add terminators from the status as hashed labels
+	terminatorKeys := sets.New[string]()
+	for _, terminator := range logicalCluster.Status.Terminators {
+		key, value := termination.TerminatorToLabel(terminator)
+		terminatorKeys.Insert(key)
+		if got, expected := logicalCluster.Labels[key], value; got != expected {
+			if logicalCluster.Labels == nil {
+				logicalCluster.Labels = map[string]string{}
+			}
+			logicalCluster.Labels[key] = value
+			changed = true
+		}
+	}
+
+	// remove any initializers/terminators from labels, which have been
+	// removed in the status
 	for key := range logicalCluster.Labels {
 		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceInitializerLabelPrefix) {
 			if !initializerKeys.Has(key) {
+				delete(logicalCluster.Labels, key)
+				changed = true
+			}
+		}
+
+		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceTerminatorLabelPrefix) {
+			if !terminatorKeys.Has(key) {
 				delete(logicalCluster.Labels, key)
 				changed = true
 			}

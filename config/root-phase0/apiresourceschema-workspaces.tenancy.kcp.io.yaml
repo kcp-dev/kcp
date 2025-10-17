@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250421-25d98218b.workspaces.tenancy.kcp.io
+  name: v251015-1d163d0e5.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -297,6 +297,17 @@ spec:
               - Ready
               - Unavailable
               type: string
+            terminators:
+              description: |-
+                terminators must be cleared by a controller before the workspace is being
+                deleted.
+              items:
+                description: |-
+                  LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                  terminator controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
           type: object
       required:
       - spec

@@ -74,6 +74,19 @@ type WorkspaceTypeSpec struct {
 	// +optional
 	Initializer bool `json:"initializer,omitempty"`
 
+	// Terminator determines if this WorkspaceType has an associated terminating
+	// controller. These controllers are used to add functionality to a Workspace;
+	// all controllers must finish their work before the Workspace is being deleted.
+	//
+	// One terminating controller is supported per WorkspaceType; the identifier
+	// for this terminator will be a colon-delimited string using the workspace in which
+	// the WorkspaceType is defined, and the type's name. For example, if a
+	// WorkspaceType `example` is created in the `root:org` workspace, the implicit
+	// terminator name is `root:org:example`.
+	//
+	// +optional
+	Terminator bool `json:"terminator,omitempty"`
+
 	// extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
 	// and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
 	// another WorkspaceType, this WorkspaceType will be considered as that
@@ -263,6 +276,10 @@ const (
 	// and the set of labels with this prefix is enforced to match the set of initializers by a mutating admission
 	// webhook.
 	WorkspaceInitializerLabelPrefix = "initializer.internal.kcp.io/"
+	// WorkspaceTerminatorLabelPrefix is the prefix for labels which match Workspace.Status.Terminators,
+	// and the set of labels with this prefix is enforced to match the set of terminator by a mutating admission
+	// webhook.
+	WorkspaceTerminatorLabelPrefix = "terminator.internal.kcp.io/"
 )
 
 const (

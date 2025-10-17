@@ -36,8 +36,11 @@ type reconciler interface {
 }
 
 func (c *Controller) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (bool, error) {
+	// reconcilers which modify Status should be last
+	// reconcilers which modify ObjectMeta, need to return reconcileStatusStopAndRequeue on change
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
+		&terminatorReconciler{},
 		&phaseReconciler{},
 		&urlReconciler{shardExternalURL: c.shardExternalURL},
 	}

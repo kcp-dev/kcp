@@ -47,11 +47,17 @@ func TestReconcileMetadata(t *testing.T) {
 					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto", "venus", "apollo",
 					},
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"pluto", "venus", "apollo",
+					},
 				},
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
 					"tenancy.kcp.io/phase": "Ready",
+					"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"terminator.internal.kcp.io/aceeb26461953562d30366db65b200f64241": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+					"terminator.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf188": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 					"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -72,7 +78,7 @@ func TestReconcileMetadata(t *testing.T) {
 			expected: metav1.ObjectMeta{
 				DeletionTimestamp: &metav1.Time{Time: date},
 				Labels: map[string]string{
-					"tenancy.kcp.io/phase": "Deleting",
+					"tenancy.kcp.io/phase": string(corev1alpha1.LogicalClusterPhaseDeleting),
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -85,6 +91,8 @@ func TestReconcileMetadata(t *testing.T) {
 						"tenancy.kcp.io/phase": "Ready",
 						"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 						"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+						"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+						"terminator.internal.kcp.io/aceeb26461953562d30366db65b200f64241": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
@@ -92,11 +100,17 @@ func TestReconcileMetadata(t *testing.T) {
 					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto", "venus", "apollo",
 					},
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"pluto", "venus", "apollo",
+					},
 				},
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
 					"tenancy.kcp.io/phase": "Ready",
+					"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"terminator.internal.kcp.io/aceeb26461953562d30366db65b200f64241": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+					"terminator.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf188": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 					"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -112,11 +126,16 @@ func TestReconcileMetadata(t *testing.T) {
 						"tenancy.kcp.io/phase": "Ready",
 						"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 						"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+						"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+						"terminator.internal.kcp.io/aceeb26461953562d30366db65b200f64241": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 					Initializers: []corev1alpha1.LogicalClusterInitializer{
+						"pluto",
+					},
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
 						"pluto",
 					},
 				},
@@ -125,6 +144,7 @@ func TestReconcileMetadata(t *testing.T) {
 				Labels: map[string]string{
 					"tenancy.kcp.io/phase": "Ready",
 					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 				},
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
@@ -135,6 +155,9 @@ func TestReconcileMetadata(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"tenancy.kcp.io/phase": "Ready",
+						"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+						"terminator.internal.kcp.io/aceeb26461953562d30366db65b200f64241": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+						"terminator.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf188": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 						"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 						"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 						"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -145,11 +168,17 @@ func TestReconcileMetadata(t *testing.T) {
 					Initializers: []corev1alpha1.LogicalClusterInitializer{
 						"pluto", "venus", "apollo",
 					},
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"pluto", "venus", "apollo",
+					},
 				},
 			},
 			expected: metav1.ObjectMeta{
 				Labels: map[string]string{
 					"tenancy.kcp.io/phase": "Ready",
+					"terminator.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cba": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
+					"terminator.internal.kcp.io/aceeb26461953562d30366db65b200f64241": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
+					"terminator.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf188": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
 					"initializer.internal.kcp.io/2eadcbf778956517ec99fd1c1c32a9b13cb": "2eadcbf778956517ec99fd1c1c32a9b13cbae759770fc37c341c7fe8",
 					"initializer.internal.kcp.io/aceeb26461953562d30366db65b200f6424": "aceeb26461953562d30366db65b200f64241f9e5fe888892d52eea5c",
 					"initializer.internal.kcp.io/ccf53a4988ae8515ee77131ef507cabaf18": "ccf53a4988ae8515ee77131ef507cabaf18822766c2a4cff33b24eb8",
@@ -158,7 +187,7 @@ func TestReconcileMetadata(t *testing.T) {
 			wantStatus: reconcileStatusContinue,
 		},
 		{
-			name: "removes everything but owner username when ready",
+			name: "removes everything from owner annotation but owner username when ready",
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{

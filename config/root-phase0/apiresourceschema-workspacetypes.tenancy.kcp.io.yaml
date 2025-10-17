@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v250806-4c99c4583.workspacetypes.tenancy.kcp.io
+  name: v251015-1d163d0e5.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -247,6 +247,18 @@ spec:
                   minItems: 1
                   type: array
               type: object
+            terminator:
+              description: |-
+                Terminator determines if this WorkspaceType has an associated terminating
+                controller. These controllers are used to add functionality to a Workspace;
+                all controllers must finish their work before the Workspace is being deleted.
+
+                One terminating controller is supported per WorkspaceType; the identifier
+                for this terminator will be a colon-delimited string using the workspace in which
+                the WorkspaceType is defined, and the type's name. For example, if a
+                WorkspaceType `example` is created in the `root:org` workspace, the implicit
+                terminator name is `root:org:example`.
+              type: boolean
           type: object
         status:
           description: WorkspaceTypeStatus defines the observed state of WorkspaceType.
