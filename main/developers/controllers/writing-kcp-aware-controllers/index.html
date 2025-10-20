@@ -3565,7 +3565,7 @@
   
 
 
-<h1 id="writing-kcp-aware-controllers">Writing kcp-aware Controllers</h1>
+<h1 id="writing-kcp-aware-controllers">Writing kcp-aware Controllers<a class="headerlink" href="#writing-kcp-aware-controllers" title="Permanent link">&para;</a></h1>
 <p>While kcp follows the Kubernetes Resource Model (KRM) closely, its multi-tenancy capabilities via workspaces / logical clusters
 make normal Kubernetes controllers somewhat limited in usefulness, since they generally expect a single Kubernetes API endpoint
 (which would correspond to a single logical cluster). While kcp exposes something called <a href="../../../concepts/workspaces/virtual-workspaces/">virtual workspaces</a>,
@@ -3576,7 +3576,7 @@ cannot be used against them.</p>
 <p>kcp has previously maintained a <a href="https://github.com/kubernetes-sigs/controller-runtime">controller-runtime</a> fork under <a href="https://github.com/kcp-dev/controller-runtime">kcp-dev/controller-runtime</a>.
 While it likely still works, we recommend migration to multicluster-runtime (see below).</p>
 </div>
-<h2 id="multicluster-runtime">multicluster-runtime</h2>
+<h2 id="multicluster-runtime">multicluster-runtime<a class="headerlink" href="#multicluster-runtime" title="Permanent link">&para;</a></h2>
 <p><a href="https://github.com/kubernetes-sigs/multicluster-runtime">multicluster-runtime</a> is an effort initiated by kcp developers in the upstream
 community to provide a framework for building multi-cluster controllers. multicluster-runtime is <strong>not</strong> a fork of controller-runtime,
 instead it is a sort of "addon" built on top of controller-runtime's excellent Go generic support. While the project is relatively young
@@ -3585,7 +3585,7 @@ and deemed experimental, we are confident in its ability to provide a great cont
 it is supposed to reconcile over. A small ecosystem of providers exists already. The relevant provider for writing kcp-aware
 controllers is described below.</p>
 <p>For more information, also feel free to check out the <a href="https://www.youtube.com/watch?v=Tz8IcMSY7jw">talk introducing multicluster-runtime at KubeCon + CloudNativeCon EU in London, 2025</a>.</p>
-<h3 id="providers-for-kcp">Providers for kcp</h3>
+<h3 id="providers-for-kcp">Providers for kcp<a class="headerlink" href="#providers-for-kcp" title="Permanent link">&para;</a></h3>
 <p>kcp hosts a repository for kcp-specific provider implementations at <a href="https://github.com/kcp-dev/multicluster-provider">kcp-dev/multicluster-provider</a>.</p>
 <p>Which provider to choose depends on the controller that is to be written, but there is a good chance you want to write a controller for resources
 distributed via an <a href="../../../concepts/apis/exporting-apis/">APIExport</a>. In that case, you should choose the <code>apiexport</code> provider from the repository.</p>

@@ -4594,9 +4594,9 @@
   
 
 
-<h1 id="security-self-assessment-kcp">Security Self-Assessment kcp</h1>
+<h1 id="security-self-assessment-kcp">Security Self-Assessment kcp<a class="headerlink" href="#security-self-assessment-kcp" title="Permanent link">&para;</a></h1>
 <p>This document is intended to aid the project's maintainers, contributors, and users understand the project's security status and help identify points of improvement.</p>
-<h2 id="table-of-contents">Table of Contents</h2>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="#metadata">Metadata</a></li>
 <li><a href="#security-links">Security links</a></li>
@@ -4613,7 +4613,7 @@
 <li><a href="#security-issue-resolution">Security issue resolution</a></li>
 <li><a href="#appendix">Appendix</a></li>
 </ul>
-<h2 id="metadata">Metadata</h2>
+<h2 id="metadata">Metadata<a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -4648,7 +4648,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="security-links">Security links</h3>
+<h3 id="security-links">Security links<a class="headerlink" href="#security-links" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -4667,13 +4667,13 @@
 </tr>
 </tbody>
 </table>
-<h2 id="overview">Overview</h2>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>kcp is an open-source, Kubernetes-like control plane designed for multi-cluster and multi-tenant environments. It provides a control plane that is not tied to a specific set of hardware, allowing users and services to manage APIs across a group of "logical clusters". kcp is specifically NOT a control plane for managing container workloads but higher level abstractions, which in turn might be run on separate Kubernetes clusters.</p>
-<h3 id="background">Background</h3>
+<h3 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h3>
 <p>The kcp project began as an experiment to add the concept of "logical clusters" to the Kubernetes API server, effectively decoupling the powerful control plane from its traditional role in container orchestration. The project is built upon upstream Kubernetes code but is not a fork, with a strong commitment to maintaining 100% compatibility with the Kubernetes API machinery and ecosystem tooling. This allows kcp to provide a generic, horizontally scalable control plane for use cases beyond containers.</p>
-<h3 id="actors">Actors</h3>
+<h3 id="actors">Actors<a class="headerlink" href="#actors" title="Permanent link">&para;</a></h3>
 <p>The kcp architecture is composed of several key primitives that work together to provide a scalable, multi-tenant control plane.</p>
-<h4 id="kcp-server-components">kcp Server Components</h4>
+<h4 id="kcp-server-components">kcp Server Components<a class="headerlink" href="#kcp-server-components" title="Permanent link">&para;</a></h4>
 <ul>
 <li>
 <p><strong>Workspaces</strong>: The primary user-facing unit of tenancy and isolation. From a user's perspective, a Workspace is a fully-isolated, Kubernetes-like cluster with its own unique API endpoint, CustomResourceDefinitions (CRDs), and RBAC policies.</p>
@@ -4688,9 +4688,9 @@
 <p><strong>Shards</strong>: A running instance of the kcp server process. Each shard hosts a set of logical clusters, and a full kcp installation can be composed of many shards to achieve horizontal scalability.</p>
 </li>
 </ul>
-<h4 id="kcp-kubectl-plugin-cli">kcp kubectl Plugin (CLI)</h4>
+<h4 id="kcp-kubectl-plugin-cli">kcp kubectl Plugin (CLI)<a class="headerlink" href="#kcp-kubectl-plugin-cli" title="Permanent link">&para;</a></h4>
 <p>kcp provides a set of plugins for <code>kubectl</code>, the Kubernetes command line client. These plugins interact with kcp through its Kubernetes-like APIs and offer command line tooling for interacting with the unique features of kcp (see above for some of them). All of the interactions are executed via Kubernetes client libraries and use the client credentials passed to <code>kubectl</code> (e.g. via the <code>KUBECONFIG</code> environment variable).</p>
-<h5 id="kcp-components">kcp Components</h5>
+<h5 id="kcp-components">kcp Components<a class="headerlink" href="#kcp-components" title="Permanent link">&para;</a></h5>
 <ul>
 <li>
 <p><strong>kcp</strong>: The <code>kcp</code> binary provides the means to run a kcp shard (see above). It can either be launched completely standalone and then embeds a "mini" front-proxy, virtual-workspaces and a cache-server to run a fully functional kcp instance, or be run just to serve API endpoints and run controller loops.</p>
@@ -4702,7 +4702,7 @@
 <p><strong>kcp-front-proxy</strong>: An intelligent API gateway that sits in front of all shards. It is aware of all logical clusters and the shards they reside on, and it routes incoming user requests to the correct shard.</p>
 </li>
 </ul>
-<h4 id="api-management">API Management</h4>
+<h4 id="api-management">API Management<a class="headerlink" href="#api-management" title="Permanent link">&para;</a></h4>
 <p>kcp provides resources dedicated to managing available APIs in a Workspace.</p>
 <ul>
 <li>
@@ -4713,7 +4713,7 @@
 </li>
 </ul>
 <p>The ability to bind APIs across workspaces (a security boundary) is guarded by RBAC checks.</p>
-<h3 id="actions">Actions</h3>
+<h3 id="actions">Actions<a class="headerlink" href="#actions" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Workspace Management</strong>: Users can create, list, and navigate between workspaces, each providing an isolated API endpoint.</p>
@@ -4728,110 +4728,110 @@
 <p><strong>Administrative Wildcard Requests</strong>: A privileged "wildcard" endpoint allows global administrators to list resources across all logical clusters on a specific shard, bypassing standard workspace isolation for operational purposes.</p>
 </li>
 </ul>
-<h3 id="goals">Goals</h3>
+<h3 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Provide a scalable, multi-tenant control plane that can serve hundreds or thousands of isolated tenants.</li>
 <li>Enable service providers to offer Kubernetes-like APIs that can be consumed by consumers across multiple isolated tenants.</li>
 <li>Maintain a high degree of compatibility with the standard Kubernetes API and toolchain (e.g., kubectl, client-go, multicluster-runtime).</li>
 </ul>
-<h4 id="security-goals">Security Goals</h4>
+<h4 id="security-goals">Security Goals<a class="headerlink" href="#security-goals" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>Strict Workspace Isolation:</strong> Ensure that tenants in one Workspace cannot see, access, or affect resources in another Workspace unless explicitly authorized. This is the core security boundary of the system.</li>
 <li><strong>Scoped Permissions:</strong> The permissions granted to a Syncer on both the kcp server and the physical cluster must be limited to the minimum required for its function (Principle of Least Privilege). - TODO remove Syncer</li>
 <li><strong>Standard Kubernetes Auth:</strong> Leverage and extend Kubernetes authentication and authorization (RBAC) mechanisms for access control to the kcp server and within Workspaces.</li>
 </ul>
-<h3 id="non-goals">Non-goals</h3>
+<h3 id="non-goals">Non-goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
 <ul>
 <li>kcp does not manage the data plane or physical infrastructure of downstream clusters (e.g., nodes, CNI, storage). It is purely a control plane.</li>
 <li>kcp is not a cluster provisioning tool; it doesn't define what kind of APIs are offered (which could include a cluster provisioning API, but that is not part of the core kcp efforts).</li>
 <li>kcp's logical clusters cannot be used as dedicated control planes for Kubernetes clusters.</li>
 </ul>
-<h2 id="self-assessment-use">Self-assessment Use</h2>
+<h2 id="self-assessment-use">Self-assessment Use<a class="headerlink" href="#self-assessment-use" title="Permanent link">&para;</a></h2>
 <p>This self-assessment is not intended to provide a security audit of kcp or function as an independent assessment or attestation of kcp's security health.</p>
 <p>This document provides kcp users with an initial understanding of kcp's security, where to find existing security documentation, kcp's plans for security, and a general overview of kcp's security practices, both for the development of kcp and its operational security.</p>
-<h2 id="security-functions-and-features">Security Functions and Features</h2>
+<h2 id="security-functions-and-features">Security Functions and Features<a class="headerlink" href="#security-functions-and-features" title="Permanent link">&para;</a></h2>
 <p>In general, kcp is a project; therefore, we do not list all the features here, only the "non-functional" security features.</p>
-<h3 id="critical">Critical</h3>
-<h4 id="workspace-isolation">Workspace Isolation</h4>
+<h3 id="critical">Critical<a class="headerlink" href="#critical" title="Permanent link">&para;</a></h3>
+<h4 id="workspace-isolation">Workspace Isolation<a class="headerlink" href="#workspace-isolation" title="Permanent link">&para;</a></h4>
 <p>The central security feature of kcp is the logical isolation provided by Workspaces. All API requests are scoped to a Workspace, and the system's authentication and authorization layers ensures that a user's credentials are only valid for the Workspaces they have been granted access to. This prevents cross-tenant data leakage and interference.</p>
-<h4 id="authentication-and-authorization">Authentication and Authorization</h4>
+<h4 id="authentication-and-authorization">Authentication and Authorization<a class="headerlink" href="#authentication-and-authorization" title="Permanent link">&para;</a></h4>
 <p>kcp uses the standard Kubernetes API server authentication and authorization mechanisms. It extends Kubernetes RBAC to operate within the context of Workspaces, allowing for fine-grained control over who can do what within each isolated environment.</p>
-<h4 id="virtual-workspace-isolation">Virtual Workspace Isolation</h4>
+<h4 id="virtual-workspace-isolation">Virtual Workspace Isolation<a class="headerlink" href="#virtual-workspace-isolation" title="Permanent link">&para;</a></h4>
 <p>Given the broad permissions that virtual workspace components need to create various computed views across all available resources on a kcp shard, they often have to run with administrative permissions. It is therefore critical that virtual workspace implementations properly isolate requests from each other and use proper impersonation and/or enhanced authN/authZ checks for validating requests.</p>
-<h3 id="security-relevant">Security Relevant</h3>
-<h4 id="api-scoping-apiexportapibinding">API Scoping (APIExport/APIBinding)</h4>
+<h3 id="security-relevant">Security Relevant<a class="headerlink" href="#security-relevant" title="Permanent link">&para;</a></h3>
+<h4 id="api-scoping-apiexportapibinding">API Scoping (APIExport/APIBinding)<a class="headerlink" href="#api-scoping-apiexportapibinding" title="Permanent link">&para;</a></h4>
 <p>kcp allows administrators to control which APIs are available within a Workspace. An APIExport object makes an API available for consumption, and an APIBinding object makes it accessible within a specific Workspace. This mechanism can be used to limit the attack surface available to tenants.</p>
-<h4 id="apiexport-identity">APIExport Identity</h4>
+<h4 id="apiexport-identity">APIExport Identity<a class="headerlink" href="#apiexport-identity" title="Permanent link">&para;</a></h4>
 <p>To prevent data leakage when multiple tenants consume APIs with the same name (e.g., widgets.example.com) from different providers, each APIExport is associated with a unique cryptographic identity. A hash of this identity is used as part of the etcd storage path for all resources created via that export, ensuring complete data segregation.</p>
-<h4 id="permission-claims">Permission Claims</h4>
+<h4 id="permission-claims">Permission Claims<a class="headerlink" href="#permission-claims" title="Permanent link">&para;</a></h4>
 <p>The APIExport/APIBinding model includes an explicit consent mechanism called PermissionClaims. An API provider must declare any access it needs to resources (like ConfigMaps or Secrets) in a consumer's workspace. The consumer must then explicitly review and accept these claims in their APIBinding for the access to be granted.</p>
-<h4 id="maximal-permission-policy">Maximal Permission Policy</h4>
+<h4 id="maximal-permission-policy">Maximal Permission Policy<a class="headerlink" href="#maximal-permission-policy" title="Permanent link">&para;</a></h4>
 <p>An APIExport can define a maximalPermissionPolicy using standard RBAC rules. This policy acts as an upper bound on the permissions that any user from a consuming workspace can have on the exported API's resources, allowing the provider to enforce security constraints.</p>
-<h2 id="project-compliance">Project Compliance</h2>
+<h2 id="project-compliance">Project Compliance<a class="headerlink" href="#project-compliance" title="Permanent link">&para;</a></h2>
 <p>The project has no written record of complying with a well known security standard like FIPS.</p>
-<h2 id="secure-development-practices">Secure Development Practices</h2>
-<h3 id="development-pipeline">Development Pipeline</h3>
+<h2 id="secure-development-practices">Secure Development Practices<a class="headerlink" href="#secure-development-practices" title="Permanent link">&para;</a></h2>
+<h3 id="development-pipeline">Development Pipeline<a class="headerlink" href="#development-pipeline" title="Permanent link">&para;</a></h3>
 <p>kcp's development pipeline uses <a href="https://docs.prow.k8s.io/docs/overview/">prow</a> and thus ensures the software is tested for being robust, reliable, and secure. It involves several stages of reviews by project maintainers and automated testing flows.</p>
-<h4 id="contributor-requirements">Contributor Requirements</h4>
+<h4 id="contributor-requirements">Contributor Requirements<a class="headerlink" href="#contributor-requirements" title="Permanent link">&para;</a></h4>
 <p>Contributors to kcp are required to <a href="https://docs.kcp.io/kcp/latest/contributing/getting-started/#developer-certificate-of-origin-dco">sign their commits</a>, adhering to the Developer Certificate of Origin (DCO). Contributors use the Signed-off-by line in commit messages to signal their adherence to these requirements.</p>
 <p>Contributors can start by forking the repository on GitHub, reading the installation document for build and test instructions, and playing with the project.</p>
-<h4 id="container-images">Container Images</h4>
+<h4 id="container-images">Container Images<a class="headerlink" href="#container-images" title="Permanent link">&para;</a></h4>
 <p>The container images used in kcp are built by <a href="https://github.com/kcp-dev/infra/blob/main/prow/jobs/kcp-dev/kcp/kcp-postsubmits.yaml">automatic pipelines</a> and not individual contributors.</p>
-<h4 id="reviewers">Reviewers</h4>
+<h4 id="reviewers">Reviewers<a class="headerlink" href="#reviewers" title="Permanent link">&para;</a></h4>
 <p>A project maintainer or code reviewer (called approver) reviews a commit before it is merged. This practice helps catch potential security issues early in the development process.</p>
 <p>Maintainers or reviewers cannot merge their own code without a second review.</p>
-<h4 id="automated-checks">Automated Checks</h4>
+<h4 id="automated-checks">Automated Checks<a class="headerlink" href="#automated-checks" title="Permanent link">&para;</a></h4>
 <p>kcp includes automated checks as part of its continuous integration (CI) process. The project has checks for dangerous workflow patterns and scans for known vulnerabilities in its dependencies.</p>
-<h4 id="integration-tests">Integration Tests</h4>
+<h4 id="integration-tests">Integration Tests<a class="headerlink" href="#integration-tests" title="Permanent link">&para;</a></h4>
 <p>kcp's upstream continuous integration (CI) tests will automatically run integration tests against proposed changes. Users are not required to run these tests locally, but they may.</p>
-<h3 id="communication-channels">Communication Channels</h3>
+<h3 id="communication-channels">Communication Channels<a class="headerlink" href="#communication-channels" title="Permanent link">&para;</a></h3>
 <p>kcp Communication Channels</p>
-<h4 id="internal-communication">Internal Communication</h4>
+<h4 id="internal-communication">Internal Communication<a class="headerlink" href="#internal-communication" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Slack: The kcp-dev Slack channel in the <a href="https://communityinviter.com/apps/kubernetes/community">Kubernetes slack</a>
  or <a href="https://github.com/kcp-dev/kcp/issues">issues</a></li>
 <li>Security topics: <a href="https://groups.google.com/g/kcp-dev-private">kcp-dev-private</a> Google Group</li>
 </ul>
-<h4 id="inbound-communication">Inbound Communication</h4>
+<h4 id="inbound-communication">Inbound Communication<a class="headerlink" href="#inbound-communication" title="Permanent link">&para;</a></h4>
 <p>Users or prospective users communicate with the kcp team through Slack or GitHub issues and pull requests. GitHub is a platform that hosts the kcp project's codebase and provides features for tracking changes, managing versions, and collaborating on code. Users can submit pull requests to report issues, propose changes, or contribute to the project.</p>
 <ul>
 <li>GitHub: <a href="https://github.com/kcp-dev/kcp/issues">issues</a></li>
 <li>Slack: <a href="https://app.slack.com/client/T09NY5SBT/C021U8WSAFK">#kcp-users</a></li>
 </ul>
-<h4 id="outbound-communication">Outbound Communication</h4>
+<h4 id="outbound-communication">Outbound Communication<a class="headerlink" href="#outbound-communication" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Mailing list: <a href="https://groups.google.com/g/kcp-users">kcp-users</a></li>
 <li>Website and blog: <a href="https://kcp.io/">kcp.io</a></li>
 </ul>
-<h5 id="community-meetings">Community Meetings</h5>
+<h5 id="community-meetings">Community Meetings<a class="headerlink" href="#community-meetings" title="Permanent link">&para;</a></h5>
 <p>kcp <a href="https://docs.google.com/document/d/1PrEhbmq1WfxFv1fTikDBZzXEIJkUWVHdqDFxaY1Ply4/">community meetings</a> are held on Google Meet every other week on Thursday at 17:00 CET. Meeting events can also be found on <a href="https://community.cncf.io/kcp/">community.cncf.io</a>.</p>
 <p>Community members are encouraged to join and add to the discussion via the community meeting notes document (linked above).</p>
-<h2 id="security-issue-resolution">Security Issue Resolution</h2>
+<h2 id="security-issue-resolution">Security Issue Resolution<a class="headerlink" href="#security-issue-resolution" title="Permanent link">&para;</a></h2>
 <p>For a complete list of closed security issues, please refer to <a href="https://github.com/kcp-dev/kcp/security/advisories">this link</a>.</p>
-<h3 id="responsible-disclosures-process">Responsible Disclosures Process</h3>
+<h3 id="responsible-disclosures-process">Responsible Disclosures Process<a class="headerlink" href="#responsible-disclosures-process" title="Permanent link">&para;</a></h3>
 <p>In case of suspected security issues, incidents, or vulnerabilities, both external and internal to the project, kcp has a responsible disclosure process in place. The process is designed to handle security vulnerabilities quickly and sometimes privately. The primary goal of this process is to reduce the time users are vulnerable to publicly known exploits.</p>
-<h4 id="vulnerability-response-process">Vulnerability Response Process</h4>
+<h4 id="vulnerability-response-process">Vulnerability Response Process<a class="headerlink" href="#vulnerability-response-process" title="Permanent link">&para;</a></h4>
 <p>Maintainers provide a <a href="https://github.com/kcp-dev/kcp/blob/main/MAINTAINERS.md#security-response-team">Security Response Team</a> that organizes the entire response, including internal communication and external disclosure.</p>
-<h4 id="reporting-security-vulnerabilities">Reporting Security Vulnerabilities</h4>
+<h4 id="reporting-security-vulnerabilities">Reporting Security Vulnerabilities<a class="headerlink" href="#reporting-security-vulnerabilities" title="Permanent link">&para;</a></h4>
 <p>Security vulnerability reports are handled via GitHub's security issue reporting feature, available <a href="https://github.com/kcp-dev/kcp/security">here</a>. The Security Response Team triage and respond to security issues reported privately through the tool.</p>
 <p>Please see the complete <a href="https://github.com/kcp-dev/kcp/blob/main/SECURITY.md">security release process</a> for further details.</p>
-<h4 id="private-disclosure-processes">Private Disclosure Processes</h4>
+<h4 id="private-disclosure-processes">Private Disclosure Processes<a class="headerlink" href="#private-disclosure-processes" title="Permanent link">&para;</a></h4>
 <p>If a security vulnerability or any security-related issues are found, they should not be filed as a public or a GitHub issue. Instead, the report should be reported via the security issue reporting feature.</p>
-<h4 id="public-disclosure-processes">Public Disclosure Processes</h4>
+<h4 id="public-disclosure-processes">Public Disclosure Processes<a class="headerlink" href="#public-disclosure-processes" title="Permanent link">&para;</a></h4>
 <p>If a publicly disclosed security vulnerability is known, it should be reported immediately via the security issue reporting feature to inform the Security Response Team. This will initiate the patch, release, and communication process.</p>
-<h3 id="patch-release-and-public-communication">Patch, Release, and Public Communication</h3>
+<h3 id="patch-release-and-public-communication">Patch, Release, and Public Communication<a class="headerlink" href="#patch-release-and-public-communication" title="Permanent link">&para;</a></h3>
 <p>For each vulnerability, a member of the Security Response Team will send disclosure messages to the rest of the community. The leading team member is chosen based on availability at the time of a security report.</p>
-<h3 id="patchingupdate-availability">Patching/Update Availability</h3>
+<h3 id="patchingupdate-availability">Patching/Update Availability<a class="headerlink" href="#patchingupdate-availability" title="Permanent link">&para;</a></h3>
 <p>Once the vulnerability has been confirmed and the relevant parties have been notified, the next step is to make a patch or update available. This involves releasing a new version of the software that addresses the vulnerability. The patch or update is then made available to all users, who can update their systems to the latest version to protect against the vulnerability. Communication is sent out via email, Slack and the GitHub security issue disclosure feature.</p>
-<h2 id="incident-response">Incident Response</h2>
+<h2 id="incident-response">Incident Response<a class="headerlink" href="#incident-response" title="Permanent link">&para;</a></h2>
 <p>There is a template for incident response for reference <a href="https://github.com/cncf/tag-security/blob/main/community/resources/project-resources/templates/incident-response.md">here</a></p>
-<h2 id="appendix">Appendix</h2>
-<h3 id="known-issues-over-time">Known Issues over Time</h3>
+<h2 id="appendix">Appendix<a class="headerlink" href="#appendix" title="Permanent link">&para;</a></h2>
+<h3 id="known-issues-over-time">Known Issues over Time<a class="headerlink" href="#known-issues-over-time" title="Permanent link">&para;</a></h3>
 <ul>
 <li><a href="https://github.com/kcp-dev/kcp/security/advisories/GHSA-c7xh-gjv4-4jgv">GHSA-c7xh-gjv4-4jgv</a>:  Impersonation allows access to global administrative groups </li>
 <li><a href="https://github.com/kcp-dev/kcp/security/advisories/GHSA-w2rr-38wv-8rrp">GHSA-w2rr-38wv-8rrp</a>:  Unauthorized creation and deletion of objects in arbitrary workspaces through APIExport Virtual Workspace</li>
 </ul>
-<h3 id="openssf-best-practices">OpenSSF Best Practices</h3>
+<h3 id="openssf-best-practices">OpenSSF Best Practices<a class="headerlink" href="#openssf-best-practices" title="Permanent link">&para;</a></h3>
 <p>The kcp project is continuously improving its practices based on the OpenSSF recommendations, see <a href="https://securityscorecards.dev/viewer/?uri=github.com/kcp-dev/kcp">Scorecard Results</a> and <a href="https://www.bestpractices.dev/en/projects/8119">Best Practices Badge</a>.</p>
 
 

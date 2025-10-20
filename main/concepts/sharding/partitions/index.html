@@ -3553,13 +3553,13 @@
   
 
 
-<h1 id="partitions">Partitions</h1>
+<h1 id="partitions">Partitions<a class="headerlink" href="#partitions" title="Permanent link">&para;</a></h1>
 <p><code>Partitions</code> and <code>PartitionSets</code> build an API that allows service providers and cluster administrators to create shard Partitions. These partitions can then be leveraged:</p>
 <ul>
 <li>for the deployment of the controllers of the service providers and other components. These APIs provide the information on shard topology required for the scheduling.</li>
 <li>for grouping APIExport endpoints of multiple shards in common buckets, that is <code>Partitions</code>. These buckets can the be used to achieve geo proximity: controllers should communicate with API servers of shards in the same region. They can also be leveraged for scalability and load distribution, that is to adapt the number of deployment/ processes to the load pattern specific to the controllers of a service provider.</li>
 </ul>
-<h2 id="partitions_1">Partitions</h2>
+<h2 id="partitions_1">Partitions<a class="headerlink" href="#partitions_1" title="Permanent link">&para;</a></h2>
 <p>The partitioning of <code>Shards</code> is done through labels and <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors">label selectors</a>.</p>
 <p>Here is an example of a <code>Partition</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Partition</span>
@@ -3580,7 +3580,7 @@
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LI</span>
 </code></pre></div>
 <p><code>Partitions</code> can be referenced in <a href="../../quickstart-tenancy-and-apis/"><code>APIExportEndpointSlices</code></a>.</p>
-<h2 id="partitionsets">PartitionSets</h2>
+<h2 id="partitionsets">PartitionSets<a class="headerlink" href="#partitionsets" title="Permanent link">&para;</a></h2>
 <p><code>PartitionSets</code> is  an API for convenience. <code>PartitionSet</code> can be used to get <code>Partitions</code> automatically created based on dimensions that match the shard label keys. The <code>Partitions</code> are created in the same workspace as the <code>PartitionSet</code>. They can then be copied to the desired workspace for consumption, for instance, by an <code>APIExportEndpointSlice</code>.</p>
 <p>Here is an example of a <code>PartitionSet</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PartitionSet</span>

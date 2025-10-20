@@ -3571,9 +3571,9 @@
   
 
 
-<h1 id="rest-access-patterns">REST Access Patterns</h1>
+<h1 id="rest-access-patterns">REST Access Patterns<a class="headerlink" href="#rest-access-patterns" title="Permanent link">&para;</a></h1>
 <p>This describes the various REST access patterns the kcp apiserver supports.</p>
-<h2 id="typical-requests-for-resources-in-a-workspace">Typical requests for resources in a workspace</h2>
+<h2 id="typical-requests-for-resources-in-a-workspace">Typical requests for resources in a workspace<a class="headerlink" href="#typical-requests-for-resources-in-a-workspace" title="Permanent link">&para;</a></h2>
 <p>These requests are all prefixed with <code>/clusters/&lt;workspace path | logical cluster name&gt;</code>. Here are some example URLs:</p>
 <ul>
 <li><code>GET /clusters/root/apis/tenancy.kcp.io/v1alpha1/workspaces</code> - lists all kcp Workspaces in the 
@@ -3582,7 +3582,7 @@
 <li><code>GET /clusters/yqzkjxmzl9turgsf/api/v1/namespaces/test</code> - same as above, using the logical cluster name for 
   <code>root:compute</code></li>
 </ul>
-<h2 id="typical-requests-for-resources-through-the-apiexport-virtual-workspace">Typical requests for resources through the APIExport virtual workspace</h2>
+<h2 id="typical-requests-for-resources-through-the-apiexport-virtual-workspace">Typical requests for resources through the APIExport virtual workspace<a class="headerlink" href="#typical-requests-for-resources-through-the-apiexport-virtual-workspace" title="Permanent link">&para;</a></h2>
 <p>An APIExport provides a view into workspaces that contain APIBindings that are bound to the APIExport. This allows 
 the service provider - the owner of the APIExport - to access data in its consumers' workspaces. Here is an example 
 APIExport virtual workspace URL:</p>
@@ -3619,7 +3619,7 @@ APIExport virtual workspace URL:</p>
 </tr>
 </tbody>
 </table>
-<h2 id="setting-up-shared-informers-for-a-virtual-workspace">Setting up shared informers for a virtual workspace</h2>
+<h2 id="setting-up-shared-informers-for-a-virtual-workspace">Setting up shared informers for a virtual workspace<a class="headerlink" href="#setting-up-shared-informers-for-a-virtual-workspace" title="Permanent link">&para;</a></h2>
 <p>A virtual workspace typically allows the service provider to set up shared informers that can list and watch 
 resources across all the consumer workspaces bound to or supported by the virtual workspace. For example, the 
 APIExport virtual workspace lets you inform across all workspaces that have an APIBinding to your APIExport. The 

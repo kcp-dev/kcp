@@ -3507,7 +3507,7 @@
   
 
 
-<h1 id="continuous-integration-ci">Continuous Integration (CI)</h1>
+<h1 id="continuous-integration-ci">Continuous Integration (CI)<a class="headerlink" href="#continuous-integration-ci" title="Permanent link">&para;</a></h1>
 <p>kcp uses a combination of <a href="https://help.github.com/en/actions/automating-your-workflow-with-github-actions">GitHub Actions</a> and
 and <a href="https://github.com/kubernetes/test-infra/tree/master/prow">prow</a> to automate the build process.</p>
 <p>Here are the most important links:</p>
@@ -3515,11 +3515,11 @@ and <a href="https://github.com/kubernetes/test-infra/tree/master/prow">prow</a>
 <li><a href="https://github.com/kcp-dev/kcp/blob/main/.github/workflows/">.github/workflows/</a> defines the Github Actions based jobs.</li>
 <li><a href="https://github.com/kcp-dev/kcp/blob/main/.prow.yaml">kcp-dev/kcp/.prow.yaml</a> defines the prow based jobs.</li>
 </ul>
-<h2 id="debugging-flakes">Debugging Flakes</h2>
+<h2 id="debugging-flakes">Debugging Flakes<a class="headerlink" href="#debugging-flakes" title="Permanent link">&para;</a></h2>
 <p>Tests that sometimes pass and sometimes fail are known as flakes. Sometimes, there is only an issue with the test, while
 other times, there is an actual bug in the main code. Regardless of the root cause, it's important to try to eliminate
 as many flakes as possible.</p>
-<h3 id="unit-test-flakes">Unit Test Flakes</h3>
+<h3 id="unit-test-flakes">Unit Test Flakes<a class="headerlink" href="#unit-test-flakes" title="Permanent link">&para;</a></h3>
 <p>If you're trying to debug a unit test flake, you can try to do something like this:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./pkg/reconciler/apis/apibinding<span class="w"> </span>-run<span class="w"> </span>TestReconcileBinding<span class="w"> </span>-count<span class="w"> </span><span class="m">100</span><span class="w"> </span>-failfast
 </code></pre></div>
@@ -3529,7 +3529,7 @@ it a few times to be certain. If it fails, that's a great sign - you've been abl
 need to dig into the test condition that is failing. Work backwards from the condition and try to determine if the
 condition is correct, and if it should be that way all the time. Look at the code under test and see if there are any
 reasons things might not be deterministic.</p>
-<h3 id="end-to-end-test-flakes">End to End Test Flakes</h3>
+<h3 id="end-to-end-test-flakes">End to End Test Flakes<a class="headerlink" href="#end-to-end-test-flakes" title="Permanent link">&para;</a></h3>
 <p>Debugging an end-to-end (e2e) test that is flaky can be a bit trickier than a unit test. Our e2e tests run in one of
 two modes:</p>
 <ol>

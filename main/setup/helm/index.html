@@ -3583,8 +3583,8 @@
   
 
 
-<h1 id="installation-with-helm">Installation with Helm</h1>
-<h2 id="kcp-chart"><code>kcp</code> Chart</h2>
+<h1 id="installation-with-helm">Installation with Helm<a class="headerlink" href="#installation-with-helm" title="Permanent link">&para;</a></h1>
+<h2 id="kcp-chart"><code>kcp</code> Chart<a class="headerlink" href="#kcp-chart" title="Permanent link">&para;</a></h2>
 <p>We provide a <a href="https://helm.sh/">Helm</a> chart to install kcp on top of an existing Kubernetes cluster.
 Its source is available in <a href="https://github.com/kcp-dev/helm-charts">kcp-dev/helm-charts</a>.</p>
 <p>The chart repository can be added via:</p>
@@ -3593,11 +3593,11 @@ Its source is available in <a href="https://github.com/kcp-dev/helm-charts">kcp-
 <p>The chart can then be installed as <code>kcp/kcp</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>helm<span class="w"> </span>install<span class="w"> </span>my-kcp<span class="w"> </span>kcp/kcp<span class="w"> </span>-f<span class="w"> </span>my-values.yaml
 </code></pre></div>
-<h3 id="values">Values</h3>
+<h3 id="values">Values<a class="headerlink" href="#values" title="Permanent link">&para;</a></h3>
 <p>At the very least, <code>.externalHostname</code> needs to be set and point to a DNS hostname that will point
 to the front-proxy's external hostname. The repository hosting the Helm chart has a <strong><a href="https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp#configuration">detailed guide to configure the chart correctly</a></strong>.</p>
 <p>A list of all values is <a href="https://github.com/kcp-dev/helm-charts/blob/main/charts/kcp/values.yaml">available in the git repository</a>.</p>
-<h2 id="multi-shard-charts">Multi-Shard Charts</h2>
+<h2 id="multi-shard-charts">Multi-Shard Charts<a class="headerlink" href="#multi-shard-charts" title="Permanent link">&para;</a></h2>
 <p>We are also working on a collection of charts that allow for a multi-<a href="../../concepts/sharding/">shard</a> deployment.
 Those are currently WIP and considered highly experimental, but instructions are also <a href="https://github.com/kcp-dev/helm-charts/tree/main/examples/sharded">available on GitHub</a>.</p>
 

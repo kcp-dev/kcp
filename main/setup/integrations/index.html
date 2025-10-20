@@ -3568,16 +3568,16 @@
   
 
 
-<h1 id="integrations">Integrations</h1>
+<h1 id="integrations">Integrations<a class="headerlink" href="#integrations" title="Permanent link">&para;</a></h1>
 <p>kcp integrates with several CNCF projects. This page documents known integrations. Please be aware that we try our best to keep it updated but rely on community contributions for that.</p>
 <p>kcp has some "obvious" integrations e.g. with <a href="https://kubernetes.io">Kubernetes</a> (since it can be deployed on a Kubernetes cluster) and <a href="https://helm.sh">Helm</a> (since a Helm chart is maintained as the
 primary installation method on Kubernetes).</p>
 <p>The fact that kcp is compatible with the Kubernetes Resource Model (KRM) also means that projects using the Kubernetes API might be compatible. The <a href="https://docs.kcp.io/api-syncagent">api-syncagent</a>
 component also allows integration of <em>any</em> Kubernetes controller/operator in principle. An example of this can be found in our <a href="https://docs.kcp.io/contrib/learning/20250401-kubecon-london/workshop/">KubeCon London workshop</a>.</p>
-<h2 id="multicluster-runtime">multicluster-runtime</h2>
+<h2 id="multicluster-runtime">multicluster-runtime<a class="headerlink" href="#multicluster-runtime" title="Permanent link">&para;</a></h2>
 <p>kcp integrates with <a href="https://github.com/kubernetes-sigs/multicluster-runtime">kubernetes-sigs/multicluster-runtime</a> by providing a so-called provider which gives a controller dynamic
 access to kcp workspaces. Multiple providers exists for different use cases, see <a href="https://github.com/kcp-dev/multicluster-provider">kcp-dev/multicluster-provider</a> for a full overview.</p>
-<h2 id="dex">Dex</h2>
+<h2 id="dex">Dex<a class="headerlink" href="#dex" title="Permanent link">&para;</a></h2>
 <p>kcp integrates with any OIDC provider, which includes <a href="https://dexidp.io">Dex</a>. To use <code>kubectl</code> with it, <a href="https://github.com/int128/kubelogin">kubelogin</a> is required.</p>
 <p>To integrate them make sure to set up a static client in Dex that is configured similar to:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">staticClients</span><span class="p">:</span>
@@ -3607,7 +3607,7 @@ access to kcp workspaces. Multiple providers exists for different use cases, see
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="nt">interactiveMode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IfAvailable</span>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">      </span><span class="nt">provideClusterInfo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </code></pre></div>
-<h2 id="openfga">OpenFGA</h2>
+<h2 id="openfga">OpenFGA<a class="headerlink" href="#openfga" title="Permanent link">&para;</a></h2>
 <p>kcp can integrate with <a href="https://openfga.dev/">OpenFGA</a> via a shim webhook component that accepts kcp's <a href="../../concepts/authorization/authorizers/#webhook-authorizer">authorization webhooks</a> and translates
 them to OpenFGA queries.</p>
 <div class="admonition info">

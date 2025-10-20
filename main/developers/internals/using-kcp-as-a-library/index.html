@@ -3479,7 +3479,7 @@
   
 
 
-<h1 id="using-kcp-as-a-library">Using kcp as a library</h1>
+<h1 id="using-kcp-as-a-library">Using kcp as a library<a class="headerlink" href="#using-kcp-as-a-library" title="Permanent link">&para;</a></h1>
 <p>Instead of running the kcp as a binary using <code>go run</code>, you can include the kcp api-server in your own projects. To create and start the api-server with the default options (including an embedded etcd server):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">options</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">serveroptions</span><span class="p">.</span><span class="nx">NewOptions</span><span class="p">().</span><span class="nx">Complete</span><span class="p">()</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>

@@ -3598,16 +3598,16 @@
   
 
 
-<h1 id="project-goals">Project Goals</h1>
+<h1 id="project-goals">Project Goals<a class="headerlink" href="#project-goals" title="Permanent link">&para;</a></h1>
 <p><code>kcp</code>'s goal is to be a cloud native control plane for APIs that resemble IaaS/PaaS/SaaS patterns. The central motivation of building <code>kcp</code> is to be able to provide arbitrary services through a unified platform and resource model. <code>kcp</code> is not providing significant as-a-Service implementations but understands itself as a foundational piece of technology that can be built upon, whether it be a SaaS platform, an IdP (internal developer platform) or a multi-cluster scheduling solution. We aim to build an ecosystem that centers around a Kubernetes-like control plane (<code>kcp</code>) but services many scenarios that benefit from having a declarative data store.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Previously, <code>kcp</code> had a bigger scope of providing a transparent multi-cluster (TMC) solution. These efforts have been put on hold for the time being. If you are interested in reviving them, please reach out to the maintainers.</p>
 </div>
-<h2 id="the-manifesto">The Manifesto</h2>
+<h2 id="the-manifesto">The Manifesto<a class="headerlink" href="#the-manifesto" title="Permanent link">&para;</a></h2>
 <p>Our mission is to improve building and running cloud-native services. We see a convergence in tooling and technology between clusters, clouds, and services as being both possible and desirable and <code>kcp</code> explores how the existing Kubernetes ecosystem might evolve to serve that need.</p>
 <p>Not every idea below may bear fruit, but it's never the wrong time to look for new ways to change.</p>
-<h3 id="key-concepts">Key Concepts</h3>
+<h3 id="key-concepts">Key Concepts<a class="headerlink" href="#key-concepts" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Use Kubernetes APIs to decouple desired intent and actual state for replicating applications to multiple clusters</li>
 </ul>
@@ -3633,9 +3633,9 @@
 <p>Finally, the bar is still high to writing controllers. Lowering the friction of automation and integration is in everyone's benefit - whether that's a bash script, a Terraform configuration, or custom SRE services.  If we can reduce the cost of both infrastructure as code and new infrastructure APIs we can potentially make operational investments more composable.</p>
 <p>See the <a href="../developers/investigations/minimal-api-server/">investigations doc for minimal API server</a> for more on 
   improving the composability of the Kube API server.</p>
-<h3 id="process">Process</h3>
+<h3 id="process">Process<a class="headerlink" href="#process" title="Permanent link">&para;</a></h3>
 <p>Right now we are interested in assessing how these goals fit within the larger ecosystem.</p>
-<h3 id="principles">Principles</h3>
+<h3 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h3>
 <p>Principles are the high level guiding rules we'd like to frame designs around. This is generally useful for resolving design debates by finding thematic connections that reinforce other choices. A few early principles have been discussed:</p>
 <ol>
 <li>

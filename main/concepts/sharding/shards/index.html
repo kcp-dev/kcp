@@ -3715,20 +3715,20 @@
   
 
 
-<h1 id="shards">Shards</h1>
+<h1 id="shards">Shards<a class="headerlink" href="#shards" title="Permanent link">&para;</a></h1>
 <p>Every kcp shard is hosting a set of logical clusters. A logical cluster is
 identified by a globally unique identifier called a <em>cluster name</em>. A shard
 serves the logical clusters under <code>/clusters/&lt;cluster-name&gt;</code>.</p>
 <p>A set of known shards comprises a kcp installation.</p>
-<h2 id="root-logical-cluster">Root Logical Cluster</h2>
+<h2 id="root-logical-cluster">Root Logical Cluster<a class="headerlink" href="#root-logical-cluster" title="Permanent link">&para;</a></h2>
 <p>Every kcp installation has one logical cluster called <code>root</code>. The <code>root</code> logical
 cluster holds administrational objects. Among them are shard objects.</p>
-<h2 id="shard-objects">Shard Objects</h2>
+<h2 id="shard-objects">Shard Objects<a class="headerlink" href="#shard-objects" title="Permanent link">&para;</a></h2>
 <p>The set of shards in a kcp installation is defined by <code>Shard</code> objects in
 <code>core.kcp.io/v1alpha1</code>.</p>
 <p>A shard object specifies the network addresses, one for external access (usually
 some worldwide load balancer) and one for direct access (shard to shard).</p>
-<h2 id="logical-clusters-and-workspace-paths">Logical Clusters and Workspace Paths</h2>
+<h2 id="logical-clusters-and-workspace-paths">Logical Clusters and Workspace Paths<a class="headerlink" href="#logical-clusters-and-workspace-paths" title="Permanent link">&para;</a></h2>
 <p>Logical clusters are defined through the existence of a <code>LogicalCluster</code> object
 "in themselves", similar to a <code>.</code> directory defining the existence of a directory
 in Unix.</p>
@@ -3738,7 +3738,7 @@ cluster is reachable through <code>/cluster/&lt;path&gt;</code> for every of the
 cluster specified in <code>Workspace.spec.cluster</code>. If that workspace object resided
 in a logical cluster reachable via a path <code>path</code>, the referenced logical cluster
 can be reached via a path <code>path:name</code>.</p>
-<h2 id="canonical-paths">Canonical Paths</h2>
+<h2 id="canonical-paths">Canonical Paths<a class="headerlink" href="#canonical-paths" title="Permanent link">&para;</a></h2>
 <p>The longest path a logical cluster is reachable under is called the <em>canonical
 path</em>. By default, all canonical paths start with <code>root</code>, i.e. they start in
 root logical cluster.</p>
@@ -3747,7 +3747,7 @@ root logical cluster.</p>
 logical clusters with <code>kcp.io/path</code> annotation <em>not</em> starting in <code>root</code>. E.g.
 a home workspace hierarchy could start at <code>home:&lt;user-name&gt;</code>. There is no need
 for the parent (<code>home</code> in this case) to exist.</p>
-<h2 id="front-proxy">Front Proxy</h2>
+<h2 id="front-proxy">Front Proxy<a class="headerlink" href="#front-proxy" title="Permanent link">&para;</a></h2>
 <p>A front-proxy is aware of all logical clusters, their shard they live on,
 their canonical paths and all <code>Workspaces</code>s. Non canonical paths can be
 reconstructed from the canonical path prefixes and the workspace names.</p>
@@ -3758,7 +3758,7 @@ proxy could alternative be backed by any kind of external database with the
 right scalability and availability properties.</p>
 <p>There can be one front-proxy in front of a kcp installation, or many, e.g. one
 or multiple per region or cloud provider.</p>
-<h2 id="consistency-domain">Consistency Domain</h2>
+<h2 id="consistency-domain">Consistency Domain<a class="headerlink" href="#consistency-domain" title="Permanent link">&para;</a></h2>
 <p>Every logical cluster provides a Kubernetes-compatible API root endpoint under
 <code>/cluster/&lt;path&gt;</code> including its own discovery endpoint and their own set of
 API groups and resources.</p>
@@ -3767,7 +3767,7 @@ a full Kubernetes cluster, e.g. the semantics of the resource versions of one
 resource matches that of Kubernetes.</p>
 <p>Across logical clusters the resource versions must be considered as unrelated,
 i.e. resource versions cannot be compared.</p>
-<h2 id="wildcard-requests">Wildcard Requests</h2>
+<h2 id="wildcard-requests">Wildcard Requests<a class="headerlink" href="#wildcard-requests" title="Permanent link">&para;</a></h2>
 <p>The only exception to the upper rule are objects under a "wildcard endpoint"
 <code>/clusters/*/apis/&lt;group&gt;/&lt;v&gt;/[namespaces/&lt;ns&gt;]/resource:&lt;identity-hash&gt;</code> per
 shard. It serves the objects of the given resource on that shard across
@@ -3778,7 +3778,7 @@ It is only accessible when talking directly to a shard, not through a
 front-proxy.</p>
 <p>Note: for unprivileged access, virtual view apiservers can offer a highly
 secured and filtered view, usually also per shard, e.g. for owners of APIs.</p>
-<h2 id="cross-logical-cluster-references">Cross Logical Cluster References</h2>
+<h2 id="cross-logical-cluster-references">Cross Logical Cluster References<a class="headerlink" href="#cross-logical-cluster-references" title="Permanent link">&para;</a></h2>
 <p>Some objects reference other logical clusters or objects in other logical
 clusters. These references can be by logical cluster name, by arbitrary logical
 cluster path or by canonical path.</p>
@@ -3809,7 +3809,7 @@ the shard of the <code>APIExport</code> is unavailable.</p>
 such logic is desired, for availability and scalability reasons some kind of
 replication is required. E.g. a child workspace must stay operation even if the
 parent is not accessible.</p>
-<h2 id="cache-server-replication">Cache Server Replication</h2>
+<h2 id="cache-server-replication">Cache Server Replication<a class="headerlink" href="#cache-server-replication" title="Permanent link">&para;</a></h2>
 <p>The cache server is a special API server that can hold replicas of objects that
 must be available globally in an eventual consistent way. E.g. the <code>APIExport</code>s
 and <code>APIResourceSchemas</code> are replicated that way and made available to the
@@ -3841,7 +3841,7 @@ servers per big tenant, and that would hold only public exports and
 tenant-internal exports. A more complex caching hierarchy would make sure the
 right objects are replicated, while the "really public" exports would only be a
 small number.</p>
-<h2 id="replication">Replication</h2>
+<h2 id="replication">Replication<a class="headerlink" href="#replication" title="Permanent link">&para;</a></h2>
 <p>Each shard pushes a restricted set of objects to the cache server. As the cache
 server replication is costly, this set is as minimal as possible. For example,
 certain RBAC objects are replicated in case they are needed to successfully
@@ -3850,7 +3850,7 @@ authorize bindings of an API, or to use a workspace type.</p>
 incomplete. For instance, the non-existence of an object in the cache server
 does not mean it does not exist in its respective shard. The replication
 could be just delayed or the object was not identified to be worth to replicate.</p>
-<h2 id="bootstrapping">Bootstrapping</h2>
+<h2 id="bootstrapping">Bootstrapping<a class="headerlink" href="#bootstrapping" title="Permanent link">&para;</a></h2>
 <p>A new shard starting up will run a number of standard controllers (e.g. for
 workspaces, API bindings and more). These will need a number of standard
 informers both watching objects locally on that shard through wildcard informers

@@ -3570,10 +3570,10 @@
   
 
 
-<h1 id="etcd-structure">etcd structure</h1>
+<h1 id="etcd-structure">etcd structure<a class="headerlink" href="#etcd-structure" title="Permanent link">&para;</a></h1>
 <p>kcp has made some changes to etcd storage paths to support logical clusters and APIExport identities. Please see 
 below for details.</p>
-<h2 id="built-in-apis">Built-in APIs</h2>
+<h2 id="built-in-apis">Built-in APIs<a class="headerlink" href="#built-in-apis" title="Permanent link">&para;</a></h2>
 <p>Built-in APIs, such as <code>namespaces</code>, <code>configmaps</code>, <code>clusterroles</code>, etc., use the following storage path structure:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/etcd prefix/API group name/API resource name/logical cluster name/[namespace, if applicable]/name
 </code></pre></div>
@@ -3614,7 +3614,7 @@ below for details.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="standard-custom-resource-instances">Standard custom resource instances</h2>
+<h2 id="standard-custom-resource-instances">Standard custom resource instances<a class="headerlink" href="#standard-custom-resource-instances" title="Permanent link">&para;</a></h2>
 <p>Custom resource instances for a CustomResourceDefinition in a workspace use the following storage path structure:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>/etcd prefix/API group name/API resource name/&quot;customresources&quot;/logical cluster name/[namespace, if applicable]/name
 </code></pre></div>
@@ -3655,7 +3655,7 @@ below for details.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="bound-custom-resource-instances">"Bound" custom resource instances</h2>
+<h2 id="bound-custom-resource-instances">"Bound" custom resource instances<a class="headerlink" href="#bound-custom-resource-instances" title="Permanent link">&para;</a></h2>
 <p>Custom resource instances for an API provided by an APIExport, bound by an APIBinding, use the following storage 
 path structure:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>/etcd prefix/API group name/API resource name/APIExport identity hash/logical cluster name/[namespace, if applicable]

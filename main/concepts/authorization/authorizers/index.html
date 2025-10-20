@@ -3889,7 +3889,7 @@
   
 
 
-<h1 id="authorizers">Authorizers</h1>
+<h1 id="authorizers">Authorizers<a class="headerlink" href="#authorizers" title="Permanent link">&para;</a></h1>
 <p>In kcp, a request has four different ways of being admitted:</p>
 <ul>
 <li>It can be made to one of the preconfigured paths that do not require authorization, like <code>/healthz</code>.</li>
@@ -3928,13 +3928,13 @@
     classDef state color:#F77
     classDef or fill:none,stroke:none</code></pre></p>
 <p><a href="https://kroki.io/mermaid/svg/eNqFkkFrwzAMhe_7Faa7dLBux0IOg7ZhvWxQusEOWRmKoyambuTZDln__RQnG02bUp-E3mfx9OzcginEe3wj-DgP1o_X-F2h83dRFHHDo5hMnsQeVPkF2iePVKKg7eeGZbLh2p8WQAADyUzXcHBipjXVYgW-4LryxWYIz0_wpaXKXORrSD4wLYh2lwjLA5sVlMWsPyywjb_AZSiVU1SO4674X7jj8j4XuvVJr42tSvMQ42g9ny1GoWe727Vkw2R3zoBEsaDSY-mPrLMeOCdtBsnbwXnci8U6PkKC1D6C4Wxf4edBrNDulWssiBVpJQ_HKzYY85NQXHy0TguDNc99IQm6P-2My5lbakqvgimDcyLvPAdzzmKZtVa1GQg5H2qmZih6qcG5GLei_amSNNno9nk67atkxVZpHZWcwz17oh2G-he4ue-L">View graph on Kroki</a></p>
-<h3 id="always-allow-paths-authorizer">Always Allow Paths Authorizer</h3>
+<h3 id="always-allow-paths-authorizer">Always Allow Paths Authorizer<a class="headerlink" href="#always-allow-paths-authorizer" title="Permanent link">&para;</a></h3>
 <p>Like in vanilla Kubernetes, this authorizer always grants access to the configured URL paths. This is
 used for the health and liveness checks of kcp.</p>
-<h3 id="always-allow-groups-authorizer">Always Allow Groups Authorizer</h3>
+<h3 id="always-allow-groups-authorizer">Always Allow Groups Authorizer<a class="headerlink" href="#always-allow-groups-authorizer" title="Permanent link">&para;</a></h3>
 <p>This authorizer always permits access if the user is in one of the configured groups. By default this
 only includes the <code>system:masters</code> group.</p>
-<h3 id="rbac-chain">RBAC Chain</h3>
+<h3 id="rbac-chain">RBAC Chain<a class="headerlink" href="#rbac-chain" title="Permanent link">&para;</a></h3>
 <p>The primary authorization flow is handled by a sequence of RBAC-based authorizers that a request must
 satisfy all in order to be granted access.</p>
 <p>The following authorizers work together to implement RBAC in kcp:</p>
@@ -3976,14 +3976,14 @@ satisfy all in order to be granted access.</p>
 </tr>
 </tbody>
 </table>
-<h4 id="required-groups-authorizer">Required Groups Authorizer</h4>
+<h4 id="required-groups-authorizer">Required Groups Authorizer<a class="headerlink" href="#required-groups-authorizer" title="Permanent link">&para;</a></h4>
 <p>A <code>authorization.kcp.io/required-groups</code> annotation can be added to a LogicalCluster
 to specify which groups a user must be a member of to access the workspace.
 The syntax uses semicolons (<code>;</code>) to separate OR conditions and commas (<code>,</code>) to separate AND conditions within each group set.</p>
 <p>For example, <code>&lt;group1&gt;,&lt;group2&gt;;&lt;group3&gt;</code> means that a user must be a member of both <code>&lt;group1&gt;</code> AND <code>&lt;group2&gt;</code>, OR be a member of <code>&lt;group3&gt;</code>.</p>
 <p>The annotation is copied onto sub-workspaces during workspace creation, but is then not updated
 automatically if it's changed.</p>
-<h4 id="workspace-content-authorizer">Workspace Content Authorizer</h4>
+<h4 id="workspace-content-authorizer">Workspace Content Authorizer<a class="headerlink" href="#workspace-content-authorizer" title="Permanent link">&para;</a></h4>
 <p>The workspace content authorizer checks whether the user is granted access to the workspace.
 Access is granted access through <code>verb=access</code> non-resource permission to <code>/</code> inside of the workspace.</p>
 <p>The ClusterRole <code>system:kcp:workspace:access</code> is pre-defined which makes it easy
@@ -4014,9 +4014,9 @@ to give a user access through a ClusterRoleBinding inside of the workspace.</p>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cluster-admin</span>
 </code></pre></div>
-<h5 id="cross-workspace">Cross-Workspace</h5>
+<h5 id="cross-workspace">Cross-Workspace<a class="headerlink" href="#cross-workspace" title="Permanent link">&para;</a></h5>
 <p>Users from other workspaces can be authorized to peform actions using RBAC, e.g. to <code>bind</code> and APIExport.</p>
-<h6 id="service-accounts">Service Accounts</h6>
+<h6 id="service-accounts">Service Accounts<a class="headerlink" href="#service-accounts" title="Permanent link">&para;</a></h6>
 <p>A service-account defined in a workspace implicitly is granted access to it.</p>
 <p>A service-account defined in a different workspace is NOT given access to it.</p>
 <div class="admonition note">
@@ -4026,18 +4026,18 @@ can be accessed only by users that are granted <code>admin</code> verb on the <c
 parent workspace.</p>
 <p>Service accounts declared within a workspace don't have access to initializing workspaces.</p>
 </div>
-<h6 id="foreign-users">Foreign Users</h6>
+<h6 id="foreign-users">Foreign Users<a class="headerlink" href="#foreign-users" title="Permanent link">&para;</a></h6>
 <p>Users can either be global kcp users or users that originate from a specific workspace, e.g. through an OIDC provider configured for that workspace.</p>
 <p>Users that do not originate from the workspace the request is being made to and are not global kcp users are only visible as user <code>system:anonymous</code>
 with groups <code>system:authenticated</code> and <code>system:cluster:&lt;logical-cluster&gt;</code>, where <code>&lt;logical-cluster&gt;</code> is the name of the logical cluster backing
 the workspace they originated from.</p>
-<h4 id="system-crd-authorizer">System CRD Authorizer</h4>
+<h4 id="system-crd-authorizer">System CRD Authorizer<a class="headerlink" href="#system-crd-authorizer" title="Permanent link">&para;</a></h4>
 <p>This small authorizer simply prevents updates to the <code>status</code> subresource on APIExports or APIBindings. Note that this authorizer does not validate changes to the CustomResourceDefinitions themselves, but to objects from those CRDs instead.</p>
-<h4 id="maximal-permission-policy-authorizer">Maximal Permission Policy Authorizer</h4>
+<h4 id="maximal-permission-policy-authorizer">Maximal Permission Policy Authorizer<a class="headerlink" href="#maximal-permission-policy-authorizer" title="Permanent link">&para;</a></h4>
 <p>If the requested resource type is part of an API binding, then this authorizer verifies that
 the request is not exceeding the maximum permission policy of the related API export.
 Currently, the "local policy" maximum permission policy type is supported.</p>
-<h5 id="local-policy">Local Policy</h5>
+<h5 id="local-policy">Local Policy<a class="headerlink" href="#local-policy" title="Permanent link">&para;</a></h5>
 <p>The local maximum permission policy delegates the decision to the RBAC of the related API export.
 To distinguish between local RBAC role bindings in that workspace and those for this these maximum permission policy,
 every name and group is prefixed with <code>apis.kcp.io:binding:</code>.</p>
@@ -4089,21 +4089,21 @@ Using prefixed attributes prevents RBAC collisions i.e. if <code>user-1</code> i
 i.e. a claimed resource is bound to the same maximal permission policy. Only the actual owner of that resources can go beyond that policy.</p>
 </div>
 <p>TBD: Example</p>
-<h4 id="local-policy-authorizer">Local Policy Authorizer</h4>
+<h4 id="local-policy-authorizer">Local Policy Authorizer<a class="headerlink" href="#local-policy-authorizer" title="Permanent link">&para;</a></h4>
 <p>This authorizer ensures that RBAC rules contained within a workspace are being applied
 and work just like in a regular Kubernetes cluster.</p>
 <p>It is possible to bind to Roles and ClusterRoles in the bootstrap policy from a local policy's
 <code>RoleBinding</code> or <code>ClusterRoleBinding</code>, for example the <code>system:kcp:workspace:access</code> ClusterRole exists in the
 <code>system:admin</code> logical cluster, but can still be bound from without any other logical cluster.</p>
-<h4 id="global-policy-authorizer">Global Policy Authorizer</h4>
+<h4 id="global-policy-authorizer">Global Policy Authorizer<a class="headerlink" href="#global-policy-authorizer" title="Permanent link">&para;</a></h4>
 <p>This authorizer works identically to the Local Policy Authorizer, just with the difference
 that it uses a global (i.e. across shards) getter for Roles and RoleBindings.</p>
-<h4 id="bootstrap-policy-authorizer">Bootstrap Policy Authorizer</h4>
+<h4 id="bootstrap-policy-authorizer">Bootstrap Policy Authorizer<a class="headerlink" href="#bootstrap-policy-authorizer" title="Permanent link">&para;</a></h4>
 <p>The bootstrap policy authorizer works just like the local authorizer but references RBAC rules
 defined in the <code>system:admin</code> system workspace. This workspace is where the classic Kubernetes
 RBAC like the <code>cluster-admin</code> ClusterRole is being defined and the policy defined in this workspace
 applies to every workspace in a kcp shard.</p>
-<h3 id="webhook-authorizer">Webhook Authorizer</h3>
+<h3 id="webhook-authorizer">Webhook Authorizer<a class="headerlink" href="#webhook-authorizer" title="Permanent link">&para;</a></h3>
 <p>This authorizer can be enabled by providing the <code>--authorization-webhook-config-file</code> flag to the kcp process
 and works identically to <a href="https://kubernetes.io/docs/reference/access-authn-authz/webhook/">how it works in vanilla Kubernetes</a>.</p>
 <p>The given configuration file must be of the kubeconfg format and point to an HTTPS server, potentially including certificate information as needed:</p>
@@ -4155,7 +4155,7 @@ This field is deprecated as of kcp v0.28.3 and will be removed in a future relea
 <p>Request payloads can also contain the <code>authentication.kcp.io/cluster-name</code> and <code>authentication.kcp.io/scopes</code> extra fields if the user originates from the workspace the request is made against.
 If the users authenticated against another workspace than the target of the request these fields will not be present - instead the user will be seen as <code>system:anonymous</code> with groups <code>system:authenticated</code> and <code>system:cluster:&lt;logical-cluster&gt;</code>, where <code>&lt;logical-cluster&gt;</code> is the name of the logical cluster backing the workspace they authenticated against.</p>
 </div>
-<h3 id="authorizer-order">Authorizer Order</h3>
+<h3 id="authorizer-order">Authorizer Order<a class="headerlink" href="#authorizer-order" title="Permanent link">&para;</a></h3>
 <p>By default, the authorizers are evaluated in the following order:</p>
 <ol>
 <li><strong>Always Allow Groups Authorizer</strong> (<code>AlwaysAllowGroups</code>)</li>
@@ -4168,7 +4168,7 @@ It can be done by setting <code>--authorization-order</code> flag in the kcp ser
 <p>Here is an example on how to enable the Webhook to be the first one in the authorizers chain:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>--authorization-order<span class="o">=</span>Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC
 </code></pre></div></p>
-<h3 id="scopes">Scopes</h3>
+<h3 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h3>
 <p>Scopes are a way to limit the access of a user to a specific logical cluster.
 Scopes are (optionally) attached to the user identity by setting the
 <code>authentication.kcp.io/scopes: cluster:&lt;logical-cluster&gt;,...</code> extra field. The
@@ -4212,7 +4212,7 @@ cluster.</p>
 <p>When impersonating a user in a logical cluster, the resulting user identity is
 scoped to the logical cluster the impersonation is happening in.</p>
 <p>A scope mismatch does not invalidate the warrants (see next section) of a user.</p>
-<h3 id="warrants">Warrants</h3>
+<h3 id="warrants">Warrants<a class="headerlink" href="#warrants" title="Permanent link">&para;</a></h3>
 <p>Warrants are a way to grant extra access to a user. It can be limited by the scope of a logical cluster.
 A warrant is attached by adding a <code>authorization.kcp.io/warrant</code> extra field to the user identity
 with a JSON-encoded user info, and the limiting logical cluster set as <code>authentication.kcp.io/scopes: cluster:&lt;logical-cluster&gt;</code>.

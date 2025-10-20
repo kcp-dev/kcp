@@ -3733,25 +3733,25 @@
   
 
 
-<h1 id="transparent-multi-cluster">Transparent Multi-Cluster</h1>
+<h1 id="transparent-multi-cluster">Transparent Multi-Cluster<a class="headerlink" href="#transparent-multi-cluster" title="Permanent link">&para;</a></h1>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project. </p>
 </div>
 <p>A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can "break-glass" and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it's a detail determined by some human or automated process.</p>
 <p>A key area of investigation for <code>kcp</code> is exploring transparency of workloads to clusters. Aspirationally we want Kube workloads to be resilient to the operational characteristics of the underlying infrastructure and clusters orthogonally to the workload, by isolating the user from knowing of the details of the infrastructure. If workload APIs are more consistently "node-less" and "cluster-agnostic" that opens up ways to drive workload consistency across a large swathe of the compute landscape.</p>
-<h2 id="goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail">Goal: The majority of applications and teams should have workflows where cluster is a detail</h2>
+<h2 id="goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail">Goal: The majority of applications and teams should have workflows where cluster is a detail<a class="headerlink" href="#goal-the-majority-of-applications-and-teams-should-have-workflows-where-cluster-is-a-detail" title="Permanent link">&para;</a></h2>
 <p>A number of projects have explored this since the beginning of Kubernetes - this prototype should explore in detail 
 how we can make a normal Kubernetes flow for most users be cluster-independent but still "break-glass" and describe placement in detail. Since this is a broad topic, and we want to benefit the majority of users, we need to also add constraints that maximize the chance of these approaches being adopted.</p>
-<h3 id="constraint-the-workflows-and-practices-teams-use-today-should-be-minimally-disrupted">Constraint: The workflows and practices teams use today should be minimally disrupted</h3>
+<h3 id="constraint-the-workflows-and-practices-teams-use-today-should-be-minimally-disrupted">Constraint: The workflows and practices teams use today should be minimally disrupted<a class="headerlink" href="#constraint-the-workflows-and-practices-teams-use-today-should-be-minimally-disrupted" title="Permanent link">&para;</a></h3>
 <p>Users typically only change their workflows when an improvement offers a significant multiplier. To be effective we must reduce friction (which reduces multipliers) and offer significant advantages to that workflow.</p>
 <p>Tools, practices, user experiences, and automation should "just work" when applied to cluster-agnostic or cluster-aware workloads. This includes gitops, rich web interfaces, <code>kubectl</code>, etc. That implies that a "cluster" and a "Kube API" is our key target, and that we must preserve a majority of semantic meaning of existing APIs.</p>
-<h3 id="constraint-95-of-workloads-should-just-work-when-kubectl-applyd-to-kcp">Constraint: 95% of workloads should "just work" when <code>kubectl apply</code>d to <code>kcp</code></h3>
+<h3 id="constraint-95-of-workloads-should-just-work-when-kubectl-applyd-to-kcp">Constraint: 95% of workloads should "just work" when <code>kubectl apply</code>d to <code>kcp</code><a class="headerlink" href="#constraint-95-of-workloads-should-just-work-when-kubectl-applyd-to-kcp" title="Permanent link">&para;</a></h3>
 <p>It continues to be possible to build different abstractions on top of Kube, but existing workloads are what really benefit users. They have chosen the Kube abstractions deliberately because they are general purpose - rather than describe a completely new system we believe it is more effective to uplevel these existing apps.  That means that existing primitives like Service, Deployment, PersistentVolumeClaim, StatefulSet must all require no changes to move from single-cluster to multi-cluster</p>
 <p>By choosing this constraint, we also accept that we will have to be opinionated on making the underlying clusters consistent, and we will have to limit / constrain certain behaviors. Ideally, we focus on preserving the user's view of the changes on a logical cluster, while making the workloads on a physical cluster look more consistent for infrastructure admins. This implies we need to explore both what these workloads might look like (a review of applications) and describe the points of control / abstraction between levels.</p>
-<h3 id="constraint-90-of-application-infrastructure-controllers-should-be-useful-against-kcp">Constraint: 90% of application infrastructure controllers should be useful against <code>kcp</code></h3>
+<h3 id="constraint-90-of-application-infrastructure-controllers-should-be-useful-against-kcp">Constraint: 90% of application infrastructure controllers should be useful against <code>kcp</code><a class="headerlink" href="#constraint-90-of-application-infrastructure-controllers-should-be-useful-against-kcp" title="Permanent link">&para;</a></h3>
 <p>A controller that performs app infra related functions should be useful without change against <code>kcp</code>. For instance, the etcd operator takes an <code>Etcd</code> cluster CRD and creates pods. It should be possible for that controller to target a <code>kcp</code> logical cluster with the CRD and create pods on the logical cluster that are transparently placed onto a cluster.</p>
-<h2 id="areas-of-investigation">Areas of investigation</h2>
+<h2 id="areas-of-investigation">Areas of investigation<a class="headerlink" href="#areas-of-investigation" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Define high level user use cases</li>
 <li>Study approaches from the ecosystem that do not require workloads to change significantly to spread</li>
@@ -3774,9 +3774,9 @@ how we can make a normal Kubernetes flow for most users be cluster-independent b
 <li>Invest in key technologies in the appropriate projects</li>
 <li>Formalize parts of the prototype into project(s) drawing on the elements above if successful!</li>
 </ol>
-<h2 id="use-cases">Use cases</h2>
+<h2 id="use-cases">Use cases<a class="headerlink" href="#use-cases" title="Permanent link">&para;</a></h2>
 <p>Representing feedback from a number of multi-cluster users with a diverse set of technologies in play:</p>
-<h3 id="as-a-user">As a user</h3>
+<h3 id="as-a-user">As a user<a class="headerlink" href="#as-a-user" title="Permanent link">&para;</a></h3>
 <ol>
 <li>I can <code>kubectl apply</code> a workload that is agnostic to node placement to <code>kcp</code> and see the workload assigned to real resources and start running and the status summarized back to me.</li>
 <li>I can move an application (defined in 1) between two physical clusters by changing a single high level attribute</li>
@@ -3784,14 +3784,14 @@ how we can make a normal Kubernetes flow for most users be cluster-independent b
 <li>As a user I can debug my application in a familiar manner regardless of cluster</li>
 <li>As a user with a stateful application by persistent volumes can move / replicate / be shared across clusters in a manner consistent with my storage type (read-write-one / read-write-many).</li>
 </ol>
-<h3 id="as-an-infrastructure-admin">As an infrastructure admin</h3>
+<h3 id="as-an-infrastructure-admin">As an infrastructure admin<a class="headerlink" href="#as-an-infrastructure-admin" title="Permanent link">&para;</a></h3>
 <ol>
 <li>I can decommission a physical cluster and see workloads moved without disruption</li>
 <li>I can set capacity bounds that control admission to a particular cluster and react to workload growth organically</li>
 </ol>
-<h2 id="progress">Progress</h2>
+<h2 id="progress">Progress<a class="headerlink" href="#progress" title="Permanent link">&para;</a></h2>
 <p>In the early prototype stage <code>kcp</code> uses the <code>syncer</code> and the <code>deployment-splitter</code> as stand-ins for more complex scheduling and transformation. This section should see more updates in the near term as we move beyond areas 1-2 (use cases and ecosystem research)</p>
-<h3 id="possible-design-simplifications">Possible design simplifications</h3>
+<h3 id="possible-design-simplifications">Possible design simplifications<a class="headerlink" href="#possible-design-simplifications" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Focus on every object having an annotation saying which clusters it is targeted at</li>
 <li>We can control the annotation via admission eventually, works for all objects</li>

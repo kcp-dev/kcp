@@ -3727,15 +3727,15 @@
   
 
 
-<h1 id="cache-server">Cache Server</h1>
-<h3 id="purpose">Purpose</h3>
+<h1 id="cache-server">Cache Server<a class="headerlink" href="#cache-server" title="Permanent link">&para;</a></h1>
+<h3 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h3>
 <p>The primary purpose of the cache server is to support cross-shard communication.
 Shards need to communicate with each other in order to enable, among other things, migration and replication features.
 Direct shard-to-shard communication is not feasible in a larger setup as it scales with n*(n-1).
 The web of connections would be hard to reason about, maintain and troubleshoot.
 Thus, the cache server serves as a central place for shards to store and read common data.
 Note, that the final topology can have more than one cache server, i.e. one in some geographic region.</p>
-<h3 id="high-level-overview">High-level Overview</h3>
+<h3 id="high-level-overview">High-level Overview<a class="headerlink" href="#high-level-overview" title="Permanent link">&para;</a></h3>
 <p>The cache server is a regular, Kubernetes-style CRUD API server with support of LIST/WATCH semantics.
 Conceptually it supports two modes of operations.
 The first mode is in which a shard gets its private space for storing its own data.
@@ -3750,11 +3750,11 @@ effectively pulling data from the central cache.
 Thanks to having a separate informer for interacting with the cache server
 a shard can implement a different resiliency strategy.
 For example, it can tolerate the unavailability of the secondary during startup and become ready.</p>
-<h3 id="running-the-server">Running the Server</h3>
+<h3 id="running-the-server">Running the Server<a class="headerlink" href="#running-the-server" title="Permanent link">&para;</a></h3>
 <p>The cache server can be run as a standalone binary or as part of a kcp server.</p>
 <p>The standalone binary is in <a href="https://github.com/kcp-dev/kcp/tree/main/cmd/cache-server">https://github.com/kcp-dev/kcp/tree/main/cmd/cache-server</a> and can be run by issuing <code>go run ./cmd/cache-server/main.go</code> command.</p>
 <p>To run it as part of a kcp server, pass <code>--cache-url</code> flag to the kcp binary.</p>
-<h3 id="client-side-functionality">Client-side Functionality</h3>
+<h3 id="client-side-functionality">Client-side Functionality<a class="headerlink" href="#client-side-functionality" title="Permanent link">&para;</a></h3>
 <p>In order to interact with the cache server from a shard, the <a href="https://github.com/kcp-dev/kcp/tree/main/pkg/cache/client">https://github.com/kcp-dev/kcp/tree/main/pkg/cache/client</a>
 repository provides the following client-side functionality:</p>
 <p><a href="https://github.com/kcp-dev/kcp/blob/b739fa5b5c83fb2c43b631c6234264d5dd1fc6e4/pkg/cache/client/round_tripper.go#L54">ShardRoundTripper</a>,
@@ -3773,9 +3773,9 @@ is a <code>http.RoundTripper</code> that sets a default shard name if not specif
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1">// and then change the context when you need to access a specific shard and pass is when making a HTTP request</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nx">ctx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cacheclient</span><span class="p">.</span><span class="nx">WithShardInContext</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">shard</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">))</span>
 </code></pre></div>
-<h3 id="authorizationauthentication">Authorization/Authentication</h3>
+<h3 id="authorizationauthentication">Authorization/Authentication<a class="headerlink" href="#authorizationauthentication" title="Permanent link">&para;</a></h3>
 <p>Not implemented at the moment</p>
-<h3 id="built-in-resources">Built-in Resources</h3>
+<h3 id="built-in-resources">Built-in Resources<a class="headerlink" href="#built-in-resources" title="Permanent link">&para;</a></h3>
 <p>Out of the box, the server supports the following resources:</p>
 <ul>
 <li><code>apiresourceschemas</code></li>
@@ -3784,21 +3784,21 @@ is a <code>http.RoundTripper</code> that sets a default shard name if not specif
 </ul>
 <p>All those resources are represented as CustomResourceDefinitions and
 stored in <code>system:cache:server</code> shard under <code>system:system-crds</code> cluster.</p>
-<h3 id="adding-new-resources">Adding New Resources</h3>
+<h3 id="adding-new-resources">Adding New Resources<a class="headerlink" href="#adding-new-resources" title="Permanent link">&para;</a></h3>
 <p>Not implemented at the moment.
 Our near-term plan is to maintain a list of hard-coded resources that we want to keep in the cache server.
 In the future, we will use the ReplicationClam which will describe schemas that need to be exposed by the cache server.</p>
-<h3 id="deletion-of-data">Deletion of Data</h3>
+<h3 id="deletion-of-data">Deletion of Data<a class="headerlink" href="#deletion-of-data" title="Permanent link">&para;</a></h3>
 <p>Not implemented at the moment.
 Only deleting resources explicitly is possible.
 In the future, some form of automatic removal will be implemented.</p>
-<h3 id="design-details">Design Details</h3>
+<h3 id="design-details">Design Details<a class="headerlink" href="#design-details" title="Permanent link">&para;</a></h3>
 <p>The cache server is implemented as the <code>apiextensions-apiserver</code>.
 It is based on the same fork used by the kcp server, extended with shard support.</p>
 <p>Since the server serves as a secondary replica it doesn't support versioning, validation, pruning, or admission.
 All resources persisted by the server are deprived of schema.
 That means the schema is implicit, maintained, and enforced by the shards pushing/pulling data into/from the server.</p>
-<h4 id="on-the-http-level">On the HTTP Level</h4>
+<h4 id="on-the-http-level">On the HTTP Level<a class="headerlink" href="#on-the-http-level" title="Permanent link">&para;</a></h4>
 <p>The server exposes the following path:</p>
 <p><code>/services/cache/shards/{shard-name}/clusters/{cluster-name}/apis/group/version/namespaces/{namespace-name}/resource/{resource-name}</code></p>
 <p>Parameters:</p>
@@ -3810,7 +3810,7 @@ That means the schema is implicit, maintained, and enforced by the shards pushin
 <p><code>/services/cache/shards/*/clusters/*/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for all shards and clusters</p>
 <p><code>/services/cache/shards/amber/clusters/*/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for amber shard for all clusters</p>
 <p><code>/services/cache/shards/sapphire/clusters/system:sapphire/apis/apis.kcp.io/v1alpha2/apiexports</code>: for listing apiexports for sapphire shard stored in system:sapphire cluster</p>
-<h4 id="on-the-storage-layer">On the Storage Layer</h4>
+<h4 id="on-the-storage-layer">On the Storage Layer<a class="headerlink" href="#on-the-storage-layer" title="Permanent link">&para;</a></h4>
 <p>All resources stored by the cache server are prefixed with <code>/cache</code>.
 Thanks to that the server can share the same database with the kcp server.</p>
 <p>Ultimately a shard aware resources end up being stored under the following key:</p>

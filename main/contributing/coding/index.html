@@ -3553,7 +3553,7 @@
   
 
 
-<h1 id="coding-guidelines-conventions">Coding Guidelines &amp; Conventions</h1>
+<h1 id="coding-guidelines-conventions">Coding Guidelines &amp; Conventions<a class="headerlink" href="#coding-guidelines-conventions" title="Permanent link">&para;</a></h1>
 <ul>
 <li>Always be clear about what clients or client configs target. Never use an unqualified <code>client</code>. Instead, always qualify. For example:<ul>
 <li><code>rootClient</code></li>
@@ -3608,10 +3608,10 @@
   The first fails fast on every client error. The second ignores client errors and keeps trying. Either
   has its place, depending on whether the client error is to be expected (e.g. because of asynchronicity making the resource available),
   or signals a real test problem.</p>
-<h3 id="using-kubebuilder-crd-validation-annotations">Using Kubebuilder CRD Validation Annotations</h3>
+<h3 id="using-kubebuilder-crd-validation-annotations">Using Kubebuilder CRD Validation Annotations<a class="headerlink" href="#using-kubebuilder-crd-validation-annotations" title="Permanent link">&para;</a></h3>
 <p>All of the built-in types for <code>kcp</code> are <code>CustomResourceDefinitions</code>, and we generate YAML spec for them from our Go types using <a href="https://github.com/kubernetes-sigs/kubebuilder">kubebuilder</a>.</p>
 <p>When adding a field that requires validation, custom annotations are used to translate this logic into the generated OpenAPI spec. <a href="https://book.kubebuilder.io/reference/markers/crd-validation.html">This doc</a> gives an overview of possible validations. These annotations map directly to concepts in the <a href="https://swagger.io/specification/#data-type-format">OpenAPI Spec</a> so, for instance, the <code>format</code> of strings is defined there, not in kubebuilder. Furthermore, Kubernetes has forked the OpenAPI project <a href="https://github.com/kubernetes/kube-openapi/tree/master/pkg/validation">here</a> and extends more formats in the extensions-apiserver <a href="https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1/types_jsonschema.go#L27">here</a>.</p>
-<h3 id="replicated-data-types">Replicated Data Types</h3>
+<h3 id="replicated-data-types">Replicated Data Types<a class="headerlink" href="#replicated-data-types" title="Permanent link">&para;</a></h3>
 <p>Some objects are replicated and cached amongst shards when <code>kcp</code> is run in a sharded configuration. When writing code to list or get these objects, be sure to reference both shard-local and cache informers. To make this more convenient, wrap the look up in a function pointer.</p>
 <p>For example:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewController</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span>

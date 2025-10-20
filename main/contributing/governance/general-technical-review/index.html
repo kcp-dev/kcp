@@ -3718,7 +3718,7 @@
   
 
 
-<h1 id="general-technical-review-kcp-incubating">General Technical Review - kcp / Incubating</h1>
+<h1 id="general-technical-review-kcp-incubating">General Technical Review - kcp / Incubating<a class="headerlink" href="#general-technical-review-kcp-incubating" title="Permanent link">&para;</a></h1>
 <ul>
 <li><strong>Project:</strong> kcp</li>
 <li><strong>Project Version:</strong> v0.28.1</li>
@@ -3727,8 +3727,8 @@
 <li><strong>Template Version:</strong> v1.0</li>
 <li><strong>Description:</strong> kcp is an open source horizontally scalable control plane for Kubernetes-like APIs. It extends the Kubernetes Resource Model with additional multi-tenancy and API management capabilities.</li>
 </ul>
-<h2 id="day-0-planning-phase">Day 0 – Planning Phase</h2>
-<h3 id="scope">Scope</h3>
+<h2 id="day-0-planning-phase">Day 0 – Planning Phase<a class="headerlink" href="#day-0-planning-phase" title="Permanent link">&para;</a></h2>
+<h3 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Describe the roadmap process, how scope is determined for mid to long term features, as well as how the roadmap maps back to current contributions and maintainer ladder?</strong></p>
@@ -3771,7 +3771,7 @@
 <p>None completed we are aware of.</p>
 </li>
 </ul>
-<h3 id="usability">Usability</h3>
+<h3 id="usability">Usability<a class="headerlink" href="#usability" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>How should the target personas interact with your project?</strong></p>
@@ -3807,7 +3807,7 @@
 </ul>
 </li>
 </ul>
-<h3 id="design">Design</h3>
+<h3 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Explain the design principles and best practices the project is following.</strong></p>
@@ -3907,7 +3907,7 @@ Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a 
 <p>Minor and patch releases are relatively uniform in their release process, the major difference is which branch the new release is cut from. New major releases have not been cut so far and would require bumping Go modules to include the version name, which would require changes across the codebase.</p>
 </li>
 </ul>
-<h3 id="installation">Installation</h3>
+<h3 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Describe how the project is installed and initialized, e.g. a minimal install with a few lines of code or does it require more complex integration and configuration?</strong></p>
@@ -3934,7 +3934,7 @@ Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a 
 <p>They follow the <a href="https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp">Helm chart setup walkthrough</a>. This README file will provide instructions on how to generate credentials to access kcp and connect to it via <code>kubectl</code> to validate it is responding to requests.</p>
 </li>
 </ul>
-<h3 id="security">Security</h3>
+<h3 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Please provide a link to the project’s cloud native <a href="https://tag-security.cncf.io/community/assessments/">security self assessment</a>.</strong></p>
@@ -4033,8 +4033,8 @@ Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a 
 </ul>
 </li>
 </ul>
-<h2 id="day-1-installation-and-deployment-phase">Day 1 – Installation and Deployment Phase</h2>
-<h3 id="project-installation-and-configuration">Project Installation and Configuration</h3>
+<h2 id="day-1-installation-and-deployment-phase">Day 1 – Installation and Deployment Phase<a class="headerlink" href="#day-1-installation-and-deployment-phase" title="Permanent link">&para;</a></h2>
+<h3 id="project-installation-and-configuration">Project Installation and Configuration<a class="headerlink" href="#project-installation-and-configuration" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Describe what project installation and configuration look like.</strong></p>
@@ -4148,7 +4148,7 @@ Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a 
 </ul>
 </li>
 </ul>
-<h3 id="project-enablement-and-rollback">Project Enablement and Rollback</h3>
+<h3 id="project-enablement-and-rollback">Project Enablement and Rollback<a class="headerlink" href="#project-enablement-and-rollback" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>How can this project be enabled or disabled in a live cluster? Please describe any downtime required of the control plane or nodes.</strong></p>
@@ -4167,7 +4167,7 @@ Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a 
 <p>The two installation methods (Helm chart or operator) both include cleanup logic (Helm cleans up resources created by it, the operator uses owner references) when uninstalling a kcp instance.</p>
 </li>
 </ul>
-<h3 id="rollout-upgrade-and-rollback-planning">Rollout, Upgrade and Rollback Planning</h3>
+<h3 id="rollout-upgrade-and-rollback-planning">Rollout, Upgrade and Rollback Planning<a class="headerlink" href="#rollout-upgrade-and-rollback-planning" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>How does the project intend to provide and maintain compatibility with infrastructure and orchestration management tools like Kubernetes and with what frequency?</strong></p>

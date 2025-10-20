@@ -3553,14 +3553,14 @@
   
 
 
-<h1 id="virtual-workspaces">Virtual Workspaces</h1>
+<h1 id="virtual-workspaces">Virtual Workspaces<a class="headerlink" href="#virtual-workspaces" title="Permanent link">&para;</a></h1>
 <p>Virtual workspaces are proxy-like apiservers under a custom URL that provide some computed view of real workspaces.</p>
-<h2 id="examples">Examples</h2>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Controllers should not be able to directly access customer workspaces. They should only be able to access the objects that are connected to their provided APIs. In <a href="https://www.youtube.com/watch?v=Ca3vh3lS6YI&amp;t=1280s">April 19's community call this virtual workspace was showcased</a>, developed during v0.4 phase.</li>
 <li>If we keep the initializer model with <code>WorkspaceType</code>, there must be a virtual workspace for the "workspace type owner" that gives access to initializing workspaces.</li>
 </ol>
-<h2 id="faq">FAQ</h2>
+<h2 id="faq">FAQ<a class="headerlink" href="#faq" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Can we use go clients to watch resources on a virtual workspace?</strong> Absolutely. From the point of view of the controllers it is just a normal (client) URL. So one can use client-go informers (or controller-runtime) to watch the objects in a virtual workspace.</li>
 </ul>

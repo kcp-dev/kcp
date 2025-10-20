@@ -3727,24 +3727,24 @@
   
 
 
-<h1 id="per-workspace-authentication">Per-Workspace Authentication</h1>
+<h1 id="per-workspace-authentication">Per-Workspace Authentication<a class="headerlink" href="#per-workspace-authentication" title="Permanent link">&para;</a></h1>
 <p>kcp supports a range of authentication options, but all of them are global and applicable to every workspace in a kcp system. However when integrating with external partners and services, it can be beneficial to be able to admit users into a workspace that do not necessarily have access to kcp as a whole.</p>
 <p>To enable this, kcp supports per-workspace authentication. In this model, a <code>WorkspaceType</code> configures a set of additional OIDC validators that are then used by kcp in addition to the global authentication mechanisms configured with CLI flags. Every workspace using these custom workspace types will then have these additional auth methods available.</p>
 <p>This document describes how to enable and use this feature. Please refer to <a href="../oidc/">OIDC Configuration</a> for more information about the global OIDC configuration.</p>
-<h2 id="feature-gate">Feature Gate</h2>
+<h2 id="feature-gate">Feature Gate<a class="headerlink" href="#feature-gate" title="Permanent link">&para;</a></h2>
 <p>The feature is guarded by a feature gate called <code>WorkspaceAuthentication</code>, which is disabled by default. It can be independently enabled on any front-proxy and/or any kcp shard servers, though it is recommended and intended to enable it on front-proxies only. The shard support is mainly for testing and developing.</p>
 <p>Add <code>--feature-gates=WorkspaceAuthentication=true</code> to the CLI flags on the front-proxy to enable the feature.</p>
-<h2 id="overview">Overview</h2>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>Extra authentication for a workspace is configured using <code>WorkspaceAuthenticationConfiguration</code> (colloquially called "auth configs") objects, which can be thought of as CRD variants of the Kubernetes authentication configuration (as described in <a href="../oidc/">OIDC Configuration</a>). Each auth config contains a set of JWT validators that are capable of validating an incoming JWT bearer token.</p>
 <p>Workspace types then reference a set of auth configs, and their configuration will apply to all their workspaces/logicalclusters. Compared to many other settings in a <code>WorkspaceType</code> that work only as a preset for <em>new</em> workspaces, the configured auth configs will continue to affect workspaces, so when a <code>WorkspaceType</code> is changed, this will impact existing workspaces, too.</p>
 <p>For every incoming HTTPS request, kcp will then resolve the logicalcluster, determine the used workspace type, assemble the list of auth configs and create an authenticator suitable for exactly the one logicalcluster targeted by the request. This workspace authenticator is an <em>alternative</em> to kcp's regular authentication (i.e. it forms a union with it).</p>
 <p>This authentication can happen in the front-proxy or on each shard individually. However only the front-proxy has a global view across all shards and will be able to reliably resolve everything necessary. The shard-local per-workspace authentication really only works on a single
 shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code>, auth configs and <code>LogicalClusters</code> are on the same local shard. Because of this, it's recommended to use the front-proxy to handle per-workspace authentication.</p>
-<h2 id="oidc">OIDC</h2>
+<h2 id="oidc">OIDC<a class="headerlink" href="#oidc" title="Permanent link">&para;</a></h2>
 <p>It is important to understand how the per-workspace authenticators interact with the global ones. Most importantly, how audiences are handled.</p>
 <p>kcp has a <code>--api-audiences</code> flag that configures the global JWT audience claim that every single JWT needs to contain in order for it to be admitted. These global audiences are also required when using per-workspace authentication.</p>
 <p>For example, suppose kcp is started with <code>--api-audiences=https://kcp.example.com</code> and there is a <code>WorkspaceAuthenticationConfiguration</code> that defines a JWT validator using the audience <code>https://corp.initech.com</code>. For a token to be admitted into a workspace that uses this auth config, the token will have to contain <em>both</em> audiences. This is to ensure the token is actually meant to be used in kcp, regardless of which audiences are then configured per workspace.</p>
-<h2 id="limitations">Limitations</h2>
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <p>This feature has some small limitations that users should keep in mind:</p>
 <ul>
 <li>As mentioned above, the JWT validation for a workspace is not 100% independent from the global kcp authentication: tokens will need to contain kcp's global API audience (configured with <code>--api-audiences</code>) and any audience configured in the auth configs. You cannot have a token not contain kcp's global audience.</li>
@@ -3756,13 +3756,13 @@ shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code
 <li>It is not possible to assign groups starting with <code>system:</code> to users authenticated via per-workspace authentication, e.g. via claim mappings.</li>
 <li>It is not possible to set keys containing <code>kcp.io</code> through the extra mappings in the authentication configuration.</li>
 </ul>
-<h2 id="example">Example</h2>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
 <p>In this example we want to create a workspace where users with tokens from our local OIDC provider are admitted to.</p>
-<h3 id="step-0-enabling-the-feature">Step 0: Enabling the Feature</h3>
+<h3 id="step-0-enabling-the-feature">Step 0: Enabling the Feature<a class="headerlink" href="#step-0-enabling-the-feature" title="Permanent link">&para;</a></h3>
 <p>Add <code>--feature-gates=WorkspaceAuthentication=true</code> to the CLI flags on the front-proxy to enable the feature. When developing or just testing, you can also add the feature gate to the kcp process like</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start<span class="w"> </span>--feature-gates<span class="o">=</span><span class="nv">WorkspaceAuthentication</span><span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
-<h3 id="step-1-auth-configs">Step 1: Auth Configs</h3>
+<h3 id="step-1-auth-configs">Step 1: Auth Configs<a class="headerlink" href="#step-1-auth-configs" title="Permanent link">&para;</a></h3>
 <p>First we need to create a <code>WorkspaceAuthenticationConfiguration</code> object in kcp:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceAuthenticationConfiguration</span>
@@ -3785,7 +3785,7 @@ shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">userValidationRules</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </code></pre></div>
 <p>Conveniently, this CRD has the exact same structure as Kubernetes' own <code>AuthenticationConfiguration</code>.</p>
-<h3 id="step-2-workspace-type">Step 2: Workspace Type</h3>
+<h3 id="step-2-workspace-type">Step 2: Workspace Type<a class="headerlink" href="#step-2-workspace-type" title="Permanent link">&para;</a></h3>
 <p>Next we need to have a workspace type that uses our new auth config. You can edit an existing workspace type or create a new one. In this example we will create a new one:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
@@ -3796,11 +3796,11 @@ shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-auth-config</span>
 </code></pre></div>
 <p>Remember that changing a workspace type would affect all existing workspaces, too, not just newly created ones.</p>
-<h3 id="step-3-workspaces">Step 3: Workspaces</h3>
+<h3 id="step-3-workspaces">Step 3: Workspaces<a class="headerlink" href="#step-3-workspaces" title="Permanent link">&para;</a></h3>
 <p>Now we're already create to create workspaces using the new type. This can be done on the command line:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w"> </span>--type<span class="w"> </span>with-auth
 </code></pre></div>
-<h3 id="step-4-authorization">Step 4: Authorization</h3>
+<h3 id="step-4-authorization">Step 4: Authorization<a class="headerlink" href="#step-4-authorization" title="Permanent link">&para;</a></h3>
 <p>It's now time to configure permissions for your new users. Depending on the configuration and claims in the auth config, a suitable <code>ClusterRoleBinding</code> could look like this:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRoleBinding</span>
@@ -3820,7 +3820,7 @@ shard and requires that all of <code>Workspace</code>, <code>WorkspaceType</code
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root:my-workspace
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>--filename<span class="w"> </span>clusterrolebinding.yaml
 </code></pre></div>
-<h3 id="step-5-testing">Step 5: Testing</h3>
+<h3 id="step-5-testing">Step 5: Testing<a class="headerlink" href="#step-5-testing" title="Permanent link">&para;</a></h3>
 <p>Your setup is now complete. You can take a token produced by your OIDC provider (remember that it needs to include both kcp's global audience and your own audience settings) and authenticate to your workspace.</p>
 
 

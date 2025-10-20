@@ -3646,11 +3646,11 @@
   
 
 
-<h1 id="workspace-initialization">Workspace Initialization</h1>
+<h1 id="workspace-initialization">Workspace Initialization<a class="headerlink" href="#workspace-initialization" title="Permanent link">&para;</a></h1>
 <p>Workspace initialization in kcp involves setting up initial configurations and resources for a workspace when it is created. This process is managed through <code>initializers</code>, which are enabled via <code>WorkspaceType</code> objects. This concept is the opposite of Kubernetes <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/">finalizers</a>. This document covers how to configure initializers, the necessary RBAC permissions, URL schemes, and the reasons for using initializers.</p>
-<h2 id="initializers">Initializers</h2>
+<h2 id="initializers">Initializers<a class="headerlink" href="#initializers" title="Permanent link">&para;</a></h2>
 <p>Initializers are used to customize workspaces and bootstrap required resources upon creation. Initializers are defined in WorkspaceType objects. This way, a user can define a controller that will process the Workspace and remove the initializer, moving it from the Initializing phase to the Ready phase.</p>
-<h3 id="defining-initializers-in-workspacetypes">Defining Initializers in WorkspaceTypes</h3>
+<h3 id="defining-initializers-in-workspacetypes">Defining Initializers in WorkspaceTypes<a class="headerlink" href="#defining-initializers-in-workspacetypes" title="Permanent link">&para;</a></h3>
 <p>A <code>WorkspaceType</code> can specify an initializer using the <code>initializer</code> field. Here is an example of a <code>WorkspaceType</code> with an initializer.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
@@ -3662,7 +3662,7 @@
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">universal</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
 </code></pre></div>
-<h3 id="enforcing-permissions-for-initializers">Enforcing Permissions for Initializers</h3>
+<h3 id="enforcing-permissions-for-initializers">Enforcing Permissions for Initializers<a class="headerlink" href="#enforcing-permissions-for-initializers" title="Permanent link">&para;</a></h3>
 <p>The non-root user must have the <code>verb=initialize</code> on the <code>WorkspaceType</code> that the initializer is for. This ensures that only authorized users can perform initialization actions using virtual workspace endpoint. Here is an example of the <code>ClusterRole</code>.</p>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
@@ -3688,10 +3688,10 @@ You can then bind this role to a user or a group.</p>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
 </code></pre></div>
-<h2 id="initializingworkspaces-virtual-workspace">initializingworkspaces Virtual Workspace</h2>
+<h2 id="initializingworkspaces-virtual-workspace">initializingworkspaces Virtual Workspace<a class="headerlink" href="#initializingworkspaces-virtual-workspace" title="Permanent link">&para;</a></h2>
 <p>As a service provider, you can use the <code>initializingworkspaces</code> virtual workspace to manage workspace resources in the initializing phase. This virtual workspace allows you to fetch <code>LogicalCluster</code> objects that are in the initializing phase and request initialization by a specific controller.</p>
 <p>This Virtual Workspace can fetch <code>LogicalCluster</code> either by specific its name or using wildcard.</p>
-<h3 id="endpoint-url-path">Endpoint URL path</h3>
+<h3 id="endpoint-url-path">Endpoint URL path<a class="headerlink" href="#endpoint-url-path" title="Permanent link">&para;</a></h3>
 <p><code>initializingworkspaces</code> Virtual Workspace provide a virtual api-server to access workspaces that are initializing with the specific initializer. These URLs are published in the status of WorkspaceType object.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="w">  </span><span class="nt">virtualWorkspaces</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://&lt;front-proxy-ip&gt;:6443/services/initializingworkspaces/&lt;initializer&gt;</span>
@@ -3702,7 +3702,7 @@ You can then bind this role to a user or a group.</p>
 <p>You can also use <code>LogicalCluster</code> name for the direct view, allowing to manage all resources within that logical cluster.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="l l-Scalar l-Scalar-Plain">/services/initializingworkspaces/&lt;initializer&gt;/clusters/&lt;logical-cluster-name&gt;/apis/core.kcp.io/v1alpha1/logicalclusters</span>
 </code></pre></div>
-<h3 id="example-workflow">Example workflow</h3>
+<h3 id="example-workflow">Example workflow<a class="headerlink" href="#example-workflow" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p>Add your custom WorkspaceType to the platform with an initializer.</p>

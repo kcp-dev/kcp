@@ -3697,10 +3697,10 @@
   
 
 
-<h1 id="quickstart-tenancy-and-apis">Quickstart: Tenancy and APIs</h1>
-<h2 id="prerequisites">Prerequisites</h2>
+<h1 id="quickstart-tenancy-and-apis">Quickstart: Tenancy and APIs<a class="headerlink" href="#quickstart-tenancy-and-apis" title="Permanent link">&para;</a></h1>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <p>A running kcp server. The <a href="../../setup/quickstart/">quickstart</a> is a good starting point.</p>
-<h2 id="set-your-kubeconfig">Set your KUBECONFIG</h2>
+<h2 id="set-your-kubeconfig">Set your KUBECONFIG<a class="headerlink" href="#set-your-kubeconfig" title="Permanent link">&para;</a></h2>
 <p>To access a workspace, you need credentials and an Kubernetes API server URL for the workspace, both of which are stored
 in a <code>kubeconfig</code> file.</p>
 <p>The default context in the kcp-provided <code>admin.kubeconfig</code> gives access to the <code>root</code> workspace as the <code>kcp-admin</code> user.</p>
@@ -3727,7 +3727,7 @@ in a <code>kubeconfig</code> file.</p>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="go">...</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="go">workspaces                        ws           tenancy.kcp.io/v1alpha1               false        Workspace</span>
 </code></pre></div>
-<h2 id="create-and-navigate-workspaces">Create and Navigate Workspaces</h2>
+<h2 id="create-and-navigate-workspaces">Create and Navigate Workspaces<a class="headerlink" href="#create-and-navigate-workspaces" title="Permanent link">&para;</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Refer to the <a href="../../setup/kubectl-plugin/">plugins page</a> to install the kubectl plugins for kcp.</p>
@@ -3787,7 +3787,7 @@ wrapper for managing a <code>kubeconfig</code> that can be used for working with
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="go">*         workspace.kcp.io/current    workspace.kcp.io/current    kcp-admin</span>
 <a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="go">          workspace.kcp.io/previous   workspace.kcp.io/previous   kcp-admin</span>
 </code></pre></div>
-<h2 id="understand-workspace-types">Understand Workspace Types</h2>
+<h2 id="understand-workspace-types">Understand Workspace Types<a class="headerlink" href="#understand-workspace-types" title="Permanent link">&para;</a></h2>
 <p>As we can see above, workspaces can contain sub-workspaces, and workspaces have different types. A workspace type
 defines which sub-workspace types can be created under such workspaces. So, for example:</p>
 <ul>
@@ -3834,7 +3834,7 @@ defines which sub-workspace types can be created under such workspaces. So, for 
 <a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a><span class="go">    Type:                  Ready</span>
 <a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a><span class="go">...</span>
 </code></pre></div>
-<h2 id="publish-some-apis-as-a-service-provider">Publish Some APIs as a Service Provider</h2>
+<h2 id="publish-some-apis-as-a-service-provider">Publish Some APIs as a Service Provider<a class="headerlink" href="#publish-some-apis-as-a-service-provider" title="Permanent link">&para;</a></h2>
 <p>kcp offers <code>APIExport</code> and <code>APIBinding</code> resources which allow a service provider operating in one workspace to offer its
 capabilities to service consumers in other workspaces.</p>
 <p>First we'll create an organization workspace in <code>root</code>, and then within that create a service provider workspace.</p>
@@ -3874,7 +3874,7 @@ containing an <code>APIExport</code>:</p>
 </code></pre></div>
 <p>You can think of an <code>APIResourceSchema</code> as being equivalent to a CRD, and an <code>APIExport</code> makes a set of schemas
 available to consumers.</p>
-<h2 id="use-those-apis-as-a-service-consumer">Use Those APIs as a Service Consumer</h2>
+<h2 id="use-those-apis-as-a-service-consumer">Use Those APIs as a Service Consumer<a class="headerlink" href="#use-those-apis-as-a-service-consumer" title="Permanent link">&para;</a></h2>
 <p>Now we can adopt the service consumer persona and create a workspace from which we will use this new <code>APIExport</code>.
 Let's start by creating a new workspace under <code>root</code> and switch to it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
@@ -3921,7 +3921,7 @@ let's create an instance!</p>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="go">cowboy.wildwest.dev/one created</span>
 </code></pre></div>
-<h2 id="managing-permissions">Managing Permissions</h2>
+<h2 id="managing-permissions">Managing Permissions<a class="headerlink" href="#managing-permissions" title="Permanent link">&para;</a></h2>
 <p>Besides publishing APIs and reconciliating the related resources service providers' controllers may need access to core resources or resources exported by other services in the user workspaces as part of their duties. This access needs for security reason to get authorized. <code>permissionClaims</code> address this need.</p>
 <p>A service provider wanting to access <code>ConfigMaps</code> needs to specify such a claim in the <code>APIExport</code>. They also need to specify what operations they need/request via <code>verbs</code>.</p>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="nt">spec</span><span class="p">:</span>
@@ -3944,7 +3944,7 @@ Users can then authorize access to this resource type in their workspace by acce
 </code></pre></div>
 <p>Operations allowed on the resources for which permission claim is accepted is defined as the intersection of the verbs in the <code>APIBinding</code> and the verbs in the <code>APIExport</code>. Verbs in this case are matching the verbs used by the <a href="https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs">Kubernetes API</a>. There is the possibility to further limit the access claim to single resources.</p>
 <p>PermissionClaims allows for additional selectors, for more details, check out the <a href="../apis/exporting-apis/#apibinding">APIBindings documentation</a>.</p>
-<h2 id="dig-deeper-into-apiexports">Dig Deeper into APIExports</h2>
+<h2 id="dig-deeper-into-apiexports">Dig Deeper into APIExports<a class="headerlink" href="#dig-deeper-into-apiexports" title="Permanent link">&para;</a></h2>
 <p>Switching back to the service provider persona:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>root:wildwest:cowboys-service
 </code></pre></div>
@@ -3963,7 +3963,7 @@ Users can then authorize access to this resource type in their workspace by acce
 </code></pre></div>
 <p>We can see that our <code>APIExport</code> has a key attribute in its status - its identity hash.
 This identity can be used in permissionClaims for referring to non-core resources.</p>
-<h2 id="apiexportendpointslice">APIExportEndpointSlice</h2>
+<h2 id="apiexportendpointslice">APIExportEndpointSlice<a class="headerlink" href="#apiexportendpointslice" title="Permanent link">&para;</a></h2>
 <p><code>APIExportEndpointSlices</code> allow service provider to retrieve the URL of service endpoints, acting as a sink for them. You can think of this endpoint as behaving just like a workspace or cluster, except it searches across all workspaces for instances of the resource types provided by the <code>APIExport</code>.
 An <code>APIExportEndpointSlice</code> is created by a service provider, references a single <code>APIExport</code> and optionally a <code>Partition</code>.
 <code>Partitions</code> are a mechanism for filtering service endpoints.</p>
@@ -3999,7 +3999,7 @@ An <code>APIExportEndpointSlice</code> is created by a service provider, referen
 </code></pre></div>
 <p>Yay! We have access to the object (thus, we can reconcile it) and we see the source <a href="../terminology/#logical-cluster">logical cluster</a>.</p>
 <p>This completes the basic tour of kcp's tenancy and API management capabilities. One of the next things you likely want to do is <a href="../../developers/controllers/writing-kcp-aware-controllers/">develop your own kcp-aware controller</a> to automatically reconcile the API we just created (or any other, for that matter).</p>
-<h2 id="apis-faq">APIs FAQ</h2>
+<h2 id="apis-faq">APIs FAQ<a class="headerlink" href="#apis-faq" title="Permanent link">&para;</a></h2>
 <p>Q: Why is there a new <code>APIResourceSchema</code> resource type that appears to be very similar to <code>CustomResourceDefinition</code>?</p>
 <p>A: An APIResourceSchema defines a single custom API type. It is almost identical to a CRD, but creating an APIResourceSchema instance does not add a usable API to the server. By intentionally decoupling the schema definition from serving, API owners can be more explicit about API evolution.</p>
 <hr />

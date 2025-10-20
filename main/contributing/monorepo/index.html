@@ -3625,7 +3625,7 @@
   
 
 
-<h1 id="monorepo-structure">Monorepo Structure</h1>
+<h1 id="monorepo-structure">Monorepo Structure<a class="headerlink" href="#monorepo-structure" title="Permanent link">&para;</a></h1>
 <p>The <a href="https://github.com/kcp-dev/kcp">kcp-dev/kcp</a> repository is a monorepo that contains the source code for:</p>
 <ul>
 <li>the kcp core</li>
@@ -3637,7 +3637,7 @@
 <li><a href="https://github.com/kcp-dev/client-go">kcp-dev/client-go</a></li>
 <li><a href="https://github.com/kcp-dev/code-generator">kcp-dev/code-generator</a></li>
 </ul>
-<h2 id="terminology">Terminology</h2>
+<h2 id="terminology">Terminology<a class="headerlink" href="#terminology" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The monorepo: the <a href="https://github.com/kcp-dev/kcp">kcp-dev/kcp</a> repository</li>
 <li>Staging repository: a repository that is part of the monorepo
@@ -3646,10 +3646,10 @@
 </ul>
 <p>Note: the term 'staging repository' does <strong>not</strong> imply a Git repository (with <code>.git</code> directory), but an
 authoritative place that stores code. Every staging repository is a standalone Go module.</p>
-<h2 id="similarities-with-kubernetes">Similarities with Kubernetes</h2>
+<h2 id="similarities-with-kubernetes">Similarities with Kubernetes<a class="headerlink" href="#similarities-with-kubernetes" title="Permanent link">&para;</a></h2>
 <p>This pattern is the same as the Kubernetes staging repositories pattern, with an exception of how tags are handled
 within published repositories (this is explained later in this document).  </p>
-<h2 id="high-level-overview">High Level Overview</h2>
+<h2 id="high-level-overview">High Level Overview<a class="headerlink" href="#high-level-overview" title="Permanent link">&para;</a></h2>
 <p>The source code for staging repositories is located on the special path in the monorepo which is
 <a href="https://github.com/kcp-dev/kcp/tree/main/staging/src/github.com/kcp-dev"><code>./staging/src/github.com/kcp-dev</code></a>.
 Every subdirectory on that path corresponds to a single staging repository.
@@ -3661,7 +3661,7 @@ several hours.</p>
 the monorepo for which mirroring is enabled will be created in each published repository. Tags on those branches
 will be automatically mirrored to the published repositories. At the moment, mirroring is enabled for
 the <code>main</code> branch and release branches starting from <code>release-0.29</code>.</p>
-<h2 id="handling-tags">Handling Tags</h2>
+<h2 id="handling-tags">Handling Tags<a class="headerlink" href="#handling-tags" title="Permanent link">&para;</a></h2>
 <p>Tags published to the published repositories inherit the major version of their original Go module.
 In other words, the tag's major version will <strong>not</strong> correspond to the kcp major version.</p>
 <p>For example, if we push v0.29.0 in the kcp repository, the tag in the published repository that has Go module major
@@ -3674,7 +3674,7 @@ version v2 will be v2.29.0.</p>
 </ul>
 <p>Note: the reason for the speical handling of tags is to ensure the backwards compatibility, as these libraries
 already had tags/releases that did not correspond to the kcp versioning.</p>
-<h2 id="implementation">Implementation</h2>
+<h2 id="implementation">Implementation<a class="headerlink" href="#implementation" title="Permanent link">&para;</a></h2>
 <p>The mirroring process is implemented via the publishing-bot tool. This tool has been originally created by
 the Kubernetes project. We're maintaing a fork of this tool that has been adjusted for our purposes at
 <a href="https://github.com/kcp-dev/publishing-bot">kcp-dev/publishing-bot</a>. Overall, the changes made to the original tool
@@ -3693,7 +3693,7 @@ issue being open indicates that the bot is not healthy and at least the last run
 <p>The kcp configuration for publishing-bot can be found at https://github.com/kcp-dev/publishing-bot/blob/master/configs/kcp-dev</p>
 <p>The mirroring rules are located in the kcp-dev/kcp repoitory and can be found at https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml</p>
 <p>At the moment, the bot is configured to run every 4 hours.</p>
-<h2 id="creating-a-new-staging-repository">Creating a New Staging Repository</h2>
+<h2 id="creating-a-new-staging-repository">Creating a New Staging Repository<a class="headerlink" href="#creating-a-new-staging-repository" title="Permanent link">&para;</a></h2>
 <p>Adding a completely new staging repository to the monorepo must follow this process:</p>
 <ul>
 <li>Send an email to the <a href="https://groups.google.com/g/kcp-dev">the developer mailing list</a> requesting a new staging

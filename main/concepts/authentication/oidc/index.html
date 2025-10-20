@@ -3553,10 +3553,10 @@
   
 
 
-<h1 id="oidc-setup">OIDC Setup</h1>
+<h1 id="oidc-setup">OIDC Setup<a class="headerlink" href="#oidc-setup" title="Permanent link">&para;</a></h1>
 <p>OpenID Connect (OIDC) is a simple identity layer on top of the OAuth 2.0 protocol, which allows clients to verify the identity of users based on the authentication performed by an external authorization server. In this guide, we will set up OIDC authentication in kcp using Dex as the identity provider.
 For more details on Kubernetes specific configuration, please refer to this <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#openid-connect-tokens">page</a>.</p>
-<h2 id="configure-kcp-oidc-authentication-using-oidc-flags">Configure kcp OIDC Authentication Using OIDC Flags</h2>
+<h2 id="configure-kcp-oidc-authentication-using-oidc-flags">Configure kcp OIDC Authentication Using OIDC Flags<a class="headerlink" href="#configure-kcp-oidc-authentication-using-oidc-flags" title="Permanent link">&para;</a></h2>
 <p>kcp server will configure the OIDC authentication using the same Kubernetes control plane settings, to start kcp with OIDC authentication enabled, you can simply pass OIDC flags during the start of the kcp server:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--oidc-issuer-url<span class="w"> </span><span class="s2">&quot;&lt;url of the issuer&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
@@ -3578,7 +3578,7 @@ For more details on Kubernetes specific configuration, please refer to this <a h
 <li><code>--oidc-username-prefix</code> – Prefix prepended to username claims to prevent clashes with existing names.</li>
 <li><code>--oidc-groups-prefix</code> – Prefix prepended to group claims to prevent clashes with existing names</li>
 </ul>
-<h2 id="configure-kcp-oidc-authentication-using-structured-authentication-configuration">Configure kcp OIDC Authentication Using Structured Authentication Configuration</h2>
+<h2 id="configure-kcp-oidc-authentication-using-structured-authentication-configuration">Configure kcp OIDC Authentication Using Structured Authentication Configuration<a class="headerlink" href="#configure-kcp-oidc-authentication-using-structured-authentication-configuration" title="Permanent link">&para;</a></h2>
 <p>Alternatively, you can use the beta feature of authentication configuration from a file and set up the kcp server with it.
 Please note that if you specify <code>--authentication-config</code> along with any of the <code>--oidc-*</code> command line arguments, this will be treated as a misconfiguration.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apiserver.config.k8s.io/v1beta1</span>

@@ -3546,11 +3546,11 @@
   
 
 
-<h1 id="apis-in-kcp">APIs in kcp</h1>
-<h2 id="overview">Overview</h2>
+<h1 id="apis-in-kcp">APIs in kcp<a class="headerlink" href="#apis-in-kcp" title="Permanent link">&para;</a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>kcp supports several built-in Kubernetes APIs, provides extensibility using CustomResourceDefinitions, and adds a new
 way to export custom APIs for sharing with other workspaces.</p>
-<h2 id="customresourcedefinitions">CustomResourceDefinitions</h2>
+<h2 id="customresourcedefinitions">CustomResourceDefinitions<a class="headerlink" href="#customresourcedefinitions" title="Permanent link">&para;</a></h2>
 <p>kcp, like Kubernetes, allows developers to add new APIs using
 <a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/">CustomResourceDefinitions</a>
 (CRDs). Unlike Kubernetes, kcp allows multiple copies of a CRD (e.g. <code>widgets.example.com</code>) to be installed in multiple
@@ -3566,11 +3566,11 @@ versions and schemas can be entirely different. kcp makes this possible because 
 to install it in each workspace separately. You also need a controller that can reconcile CRs in all the workspaces
 where your CRD is installed, which typically means 1 distinct controller per workspace. CRDs are not "cheap" in the API
 server (each one consumes memory), and kcp offers an improved workflow that significantly reduces overhead.</p>
-<h2 id="pages">Pages</h2>
-<h3 id="admission-webhooks"><a href="admission-webhooks/">Admission Webhooks</a></h3>
-<h3 id="built-in-apis"><a href="built-in/">Built-in APIs</a></h3>
-<h3 id="exporting-and-binding-apis"><a href="exporting-apis/">Exporting and Binding APIs</a></h3>
-<h3 id="rest-access-patterns"><a href="rest-access-patterns/">REST Access Patterns</a></h3>
+<h2 id="pages">Pages<a class="headerlink" href="#pages" title="Permanent link">&para;</a></h2>
+<h3 id="admission-webhooks"><a href="admission-webhooks/">Admission Webhooks</a><a class="headerlink" href="#admission-webhooks" title="Permanent link">&para;</a></h3>
+<h3 id="built-in-apis"><a href="built-in/">Built-in APIs</a><a class="headerlink" href="#built-in-apis" title="Permanent link">&para;</a></h3>
+<h3 id="exporting-and-binding-apis"><a href="exporting-apis/">Exporting and Binding APIs</a><a class="headerlink" href="#exporting-and-binding-apis" title="Permanent link">&para;</a></h3>
+<h3 id="rest-access-patterns"><a href="rest-access-patterns/">REST Access Patterns</a><a class="headerlink" href="#rest-access-patterns" title="Permanent link">&para;</a></h3>
 <p>Information on the different types of URLs that kcp serves.</p>
 
 

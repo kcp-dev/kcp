@@ -3739,20 +3739,20 @@
   
 
 
-<h1 id="publishing-a-new-kcp-release">Publishing a New kcp Release</h1>
+<h1 id="publishing-a-new-kcp-release">Publishing a New kcp Release<a class="headerlink" href="#publishing-a-new-kcp-release" title="Permanent link">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>You currently need write access to the <a href="https://github.com/kcp-dev/kcp">kcp-dev/kcp</a> repository to perform these
 tasks.</p>
 </div>
-<h2 id="create-git-tags">Create git Tags</h2>
-<h3 id="prerequisite-make-sure-you-have-a-gpg-signing-key">Prerequisite - Make Sure You Have a GPG Signing Key</h3>
+<h2 id="create-git-tags">Create git Tags<a class="headerlink" href="#create-git-tags" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisite-make-sure-you-have-a-gpg-signing-key">Prerequisite - Make Sure You Have a GPG Signing Key<a class="headerlink" href="#prerequisite-make-sure-you-have-a-gpg-signing-key" title="Permanent link">&para;</a></h3>
 <ol>
 <li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key">https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key</a></li>
 <li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account">https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account</a></li>
 <li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key">https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key</a></li>
 </ol>
-<h3 id="create-the-tags">Create the Tags</h3>
+<h3 id="create-the-tags">Create the Tags<a class="headerlink" href="#create-the-tags" title="Permanent link">&para;</a></h3>
 <p>kcp has 2 go modules, and a unique tag is needed for each module every time we create a new release.</p>
 <ol>
 <li><code>git fetch</code> from the main kcp repository (kcp-dev/kcp) to ensure you have the latest commits</li>
@@ -3781,16 +3781,16 @@ tasks.</p>
 </code></pre></div>
 </li>
 </ol>
-<h3 id="push-the-tags">Push the Tags</h3>
+<h3 id="push-the-tags">Push the Tags<a class="headerlink" href="#push-the-tags" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
 </code></pre></div>
-<h2 id="if-its-a-new-minor-version">If it's a New Minor Version</h2>
+<h2 id="if-its-a-new-minor-version">If it's a New Minor Version<a class="headerlink" href="#if-its-a-new-minor-version" title="Permanent link">&para;</a></h2>
 <p>If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
 0.8.x version), follow the following steps.</p>
 <p>Otherwise, you can skip to <a href="#generate-release-notes">Generate release notes</a></p>
-<h3 id="create-a-release-branch">Create a Release Branch</h3>
+<h3 id="create-a-release-branch">Create a Release Branch<a class="headerlink" href="#create-a-release-branch" title="Permanent link">&para;</a></h3>
 <p>Set <code>REMOTE</code>, <code>REF</code>, and <code>VERSION</code> as appropriate.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">REF</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">/main&quot;</span>
@@ -3798,7 +3798,7 @@ tasks.</p>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
 </code></pre></div>
-<h3 id="update-the-publishing-bot-rules">Update the <code>publishing-bot</code> Rules</h3>
+<h3 id="update-the-publishing-bot-rules">Update the <code>publishing-bot</code> Rules<a class="headerlink" href="#update-the-publishing-bot-rules" title="Permanent link">&para;</a></h3>
 <p>The <a href="https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml"><code>publishing-bot</code> rules</a> must be updated
 to add a new branch for all staging repositories.</p>
 <p>While this can be done manually, the easiest and recommended way is to use the <code>update-rules</code> tool.
@@ -3811,7 +3811,7 @@ Alternatively, the tool can be ran inside a Docker container using the <code>ghc
 <p>This will generate a temporary rules file in <code>/tmp/rules.yaml</code>. You'll need to replace <code>staging/publishing/rules.yaml</code>
 in the kcp repo with that temporary file and push it to the repo before proceeding. The new rules file will be used
 on the next publishing-bot run automatically.</p>
-<h2 id="generate-release-notes">Generate Release Notes</h2>
+<h2 id="generate-release-notes">Generate Release Notes<a class="headerlink" href="#generate-release-notes" title="Permanent link">&para;</a></h2>
 <p>To generate release notes from the information in PR descriptions you should use Kubernetes' <a href="https://github.com/kubernetes/release/tree/master/cmd/release-notes">release-notes</a> tool.
 This tool will use the <code>release-notes</code> blocks in PR descriptions and the <code>kind/</code> labels on those PRs to find user-facing changes and categorize them.
 You can run the command below to install the latest version of it:</p>
@@ -3831,7 +3831,7 @@ You can run the command below to install the latest version of it:</p>
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
 </code></pre></div>
 <p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
-<h2 id="revieweditpublish-the-release-in-github">Review/Edit/Publish the Release in GitHub</h2>
+<h2 id="revieweditpublish-the-release-in-github">Review/Edit/Publish the Release in GitHub<a class="headerlink" href="#revieweditpublish-the-release-in-github" title="Permanent link">&para;</a></h2>
 <p>The <a href="https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml">goreleaser</a> workflow automatically creates a draft GitHub release for each tag.</p>
 <ol>
 <li>Navigate to the draft release for the tag you just pushed. You'll be able to find it under the <a href="https://github.com/kcp-dev/kcp/releases">releases</a> page.</li>
@@ -3839,14 +3839,14 @@ You can run the command below to install the latest version of it:</p>
 <li>Copy release notes from the <code>CHANGELOG.md</code> file you generated in the previous step.</li>
 <li>Publish the release.</li>
 </ol>
-<h2 id="trigger-documentation-deployment">Trigger Documentation Deployment</h2>
+<h2 id="trigger-documentation-deployment">Trigger Documentation Deployment<a class="headerlink" href="#trigger-documentation-deployment" title="Permanent link">&para;</a></h2>
 <p>Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.</p>
 <ol>
 <li>Navigate to the <a href="https://github.com/kcp-dev/kcp/actions/workflows/docs-gen-and-push.yaml">Generate and push docs</a> GitHub Action.</li>
 <li>Hit the "Run forkflow" button, run workflow against <code>release-$VERSION</code>.</li>
 <li>Make sure the triggered workflow ran and deployed a new version of the documentation to <a href="https://docs.kcp.io">docs.kcp.io</a>.</li>
 </ol>
-<h2 id="notify">Notify</h2>
+<h2 id="notify">Notify<a class="headerlink" href="#notify" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Create an email addressed to kcp-dev@googlegroups.com and kcp-users@googlegroups.com</li>
 <li>Subject: <code>[release] &lt;version&gt;</code> e.g. <code>[release] v0.8.0</code></li>

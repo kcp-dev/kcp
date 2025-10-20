@@ -3619,8 +3619,8 @@
   
 
 
-<h1 id="inspecting-prometheus-metrics-for-e2e-runs">Inspecting Prometheus Metrics for e2e Runs</h1>
-<h2 id="metrics-gathering-during-e2e-runs">Metrics Gathering During e2e Runs</h2>
+<h1 id="inspecting-prometheus-metrics-for-e2e-runs">Inspecting Prometheus Metrics for e2e Runs<a class="headerlink" href="#inspecting-prometheus-metrics-for-e2e-runs" title="Permanent link">&para;</a></h1>
+<h2 id="metrics-gathering-during-e2e-runs">Metrics Gathering During e2e Runs<a class="headerlink" href="#metrics-gathering-during-e2e-runs" title="Permanent link">&para;</a></h2>
 <p>kcp internally exposes the same metrics as kube api-server.
 These are being gathered during e2e runs if the <code>PROMETHEUS_URL</code> variable is set.
 Here, any e2e spawned kcp server will publish a scraping configuration to prometheus
@@ -3631,15 +3631,15 @@ for the given Prometheus URL environment variable.</p>
 <li><code>cmd/sharded-test-server</code></li>
 <li><code>cmd/test-server/kcp</code></li>
 </ul>
-<h2 id="inspecting-metrics-of-e2e-runs">Inspecting Metrics of e2e Runs</h2>
-<h3 id="github">GitHub</h3>
+<h2 id="inspecting-metrics-of-e2e-runs">Inspecting Metrics of e2e Runs<a class="headerlink" href="#inspecting-metrics-of-e2e-runs" title="Permanent link">&para;</a></h2>
+<h3 id="github">GitHub<a class="headerlink" href="#github" title="Permanent link">&para;</a></h3>
 <p>To inspect metrics from GitHub e2e test runs, download the metrics from the GitHub summary page:</p>
 <p><img alt="GitHub summary page" src="../github_summary.png" /></p>
 <p>And execute Prometheus locally to inspect metrics:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>metrics<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>unzip<span class="w"> </span>-p<span class="w"> </span>e2e-sharded-metrics.zip<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>xvzf<span class="w"> </span>-<span class="w"> </span>-C<span class="w"> </span>metrics
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>$<span class="w"> </span>prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>metrics<span class="w"> </span>--config.file<span class="w"> </span>/dev/null
 </code></pre></div></p>
-<h3 id="prow">Prow</h3>
+<h3 id="prow">Prow<a class="headerlink" href="#prow" title="Permanent link">&para;</a></h3>
 <p>To inspect e2e metrics from prow runs, just copy-paste the prow link from the pull request:</p>
 <p><img alt="PR prow link" src="../prow_link.png" /></p>
 <p>And paste it into <a href="https://promecieus.dptools.openshift.org/">PromeCIeus</a>:</p>
@@ -3647,7 +3647,7 @@ for the given Prometheus URL environment variable.</p>
 <p>Once the Prometheus pod is ready, the provisioned link can be called to inspect gathered metrics.
 Alternatively, download the prometheus tarball from the gcsweb frontend locally
 and start a Prometheus instance as described above.</p>
-<h2 id="collecting-metrics-locally">Collecting Metrics Locally</h2>
+<h2 id="collecting-metrics-locally">Collecting Metrics Locally<a class="headerlink" href="#collecting-metrics-locally" title="Permanent link">&para;</a></h2>
 <p>To collect metrics locally, a convenience script is available to download and execute a Prometheus instance.
 Calling <code>... ./hack/run-in-prometheus make ...</code> will download, start, collect metrics, and stop Prometheus during the test run.</p>
 <p>Example:

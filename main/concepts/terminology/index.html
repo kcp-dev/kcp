@@ -3685,7 +3685,7 @@
   
 
 
-<h1 id="terminology">Terminology</h1>
+<h1 id="terminology">Terminology<a class="headerlink" href="#terminology" title="Permanent link">&para;</a></h1>
 <p>This document contains definitions used throughout the kcp project. We strongly recommend familiarizing yourself with
 this terminology before proceeding.</p>
 <div class="admonition note">
@@ -3693,7 +3693,7 @@ this terminology before proceeding.</p>
 <p>Some terms might get changed as the project develops. This document will be kept up to date with all the relevant
 changes, while additional details and the history of changes will be covered by the respective design documents.</p>
 </div>
-<h2 id="kcp-server"><code>kcp</code> server</h2>
+<h2 id="kcp-server"><code>kcp</code> server<a class="headerlink" href="#kcp-server" title="Permanent link">&para;</a></h2>
 <p>kcp server is a Kubernetes-like API server. It extends the Kubernetes API server to provide multi-tenancy and
 capabilities for building platforms on top of it. The kcp server can be subdivided into multiple "logical clusters"
 where different logical clusters can be used by different users in the organization.</p>
@@ -3721,7 +3721,7 @@ controller-runtime. Instead you have to use
 We're working with the upstream community on adding support for the multi-cluster setups to the Kubernetes
 controller-runtime.</p>
 </div>
-<h2 id="logical-cluster">Logical Cluster</h2>
+<h2 id="logical-cluster">Logical Cluster<a class="headerlink" href="#logical-cluster" title="Permanent link">&para;</a></h2>
 <p>A logical cluster is a way to subdivide a kcp server and its <code>etcd</code> datastore into multiple clusters without requiring
 multiple API server and etcd instances. A logical cluster is able to amortize the cost of a new cluster to be near-zero
 memory and storage (similar cost as a namespace), so that we can create a huge number of empty clusters cheaply.</p>
@@ -3754,7 +3754,7 @@ to build control planes.</p>
 unless stated otherwise, what applies to a workspace applies to a logical cluster as well, because Workspaces are
 abstractions built on top of logical clusters.</p>
 </div>
-<h2 id="workspace">Workspace</h2>
+<h2 id="workspace">Workspace<a class="headerlink" href="#workspace" title="Permanent link">&para;</a></h2>
 <p>A Workspace is an abstraction used to create and provision logical clusters. Aside from creating the LogicalCluster
 object, the responsibility of a Workspace is to initialize the given logical cluster by installing the required
 resources for the given workspace type, creating the initial objects, and more.</p>
@@ -3772,7 +3772,7 @@ relationship is allowed if and only if the parent allows the child and the child
 </ul>
 <p>The workspace path is used for building the workspace URL and for accessing the workspace via the <code>ws</code> kubectl plugin.</p>
 <p>More information, including examples, can be found in the the <a href="../workspaces/">Workspaces document</a>.</p>
-<h3 id="workspace-types">Workspace Types</h3>
+<h3 id="workspace-types">Workspace Types<a class="headerlink" href="#workspace-types" title="Permanent link">&para;</a></h3>
 <p>Workspaces have types, which are mostly oriented around a set of default or optional APIs exposed. For example:</p>
 <ul>
 <li>a workspace intended for deploying applications might expose the same API objects a user would encounter on a
@@ -3783,7 +3783,7 @@ relationship is allowed if and only if the parent allows the child and the child
 <p>By default, each workspace has the <a href="../apis/built-in/">built-in APIs installed and available to its users</a>.</p>
 <p>More information, including a list of Workspace Types and examples, can be found in the
 <a href="../workspaces/workspace-types/">Workspace Types document</a>.</p>
-<h2 id="virtual-workspaces">Virtual Workspaces</h2>
+<h2 id="virtual-workspaces">Virtual Workspaces<a class="headerlink" href="#virtual-workspaces" title="Permanent link">&para;</a></h2>
 <p>A Virtual Workspace API server is a Kubernetes-like API server under a custom URL that's serving Virtual Workspaces or
 more precisely Virtual Logical Clusters. The API surface looks very similar to the kcp server itself, sharing the same
 HTTP path structure, with each (virtual) logical cluster having its own HTTP endpoint under <code>/clusters/&lt;logical cluster&gt;</code>.
@@ -3824,7 +3824,7 @@ binary alongside the kcp server.</p>
 </div>
 <p>More information, including concrete examples and a list of frequently asked questions, can be found in the
 <a href="../workspaces/virtual-workspaces/">Virtual Workspaces document</a>.</p>
-<h2 id="exportingbinding-apis">Exporting/Binding APIs</h2>
+<h2 id="exportingbinding-apis">Exporting/Binding APIs<a class="headerlink" href="#exportingbinding-apis" title="Permanent link">&para;</a></h2>
 <p>One of the core values of the kcp project is to enable providing APIs that can be consumed inside multiple logical
 clusters. This is done via an exporting/binding mechanism, i.e. via API Exports and API Bindings.</p>
 <p>The general workflow is:</p>
@@ -3837,7 +3837,7 @@ clusters. This is done via an exporting/binding mechanism, i.e. via API Exports 
 <li>Users can now create API resources of those types in their workspace. You can build and run controllers that are
   going to reconcile those resources across different workspaces.</li>
 </ul>
-<h2 id="shard">Shard</h2>
+<h2 id="shard">Shard<a class="headerlink" href="#shard" title="Permanent link">&para;</a></h2>
 <p>A failure domain within the larger control plane service that cuts across the primary functionality. Most distributed
 systems must separate functionality across shards to mitigate failures, and typically users interact with shards
 through some transparent serving infrastructure. Since the primary problem of building distributed systems is reasoning
@@ -3845,7 +3845,7 @@ about failure domains and dependencies across them, it is critical to allow oper
 understand dependencies, and bring them together.</p>
 <p>A control plane should be shardable in a way that maximizes application SLO - gives users a tool that allows them to
 better define their applications not to fail.</p>
-<h3 id="sharding-in-kcp">Sharding in kcp</h3>
+<h3 id="sharding-in-kcp">Sharding in kcp<a class="headerlink" href="#sharding-in-kcp" title="Permanent link">&para;</a></h3>
 <p>In the sense of kcp, sharding involves:</p>
 <ul>
 <li>running multiple kcp server instances, each with its own etcd datastore,</li>

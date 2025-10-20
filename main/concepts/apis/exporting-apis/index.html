@@ -3808,7 +3808,7 @@
   
 
 
-<h1 id="exporting-and-binding-apis">Exporting and Binding APIs</h1>
+<h1 id="exporting-and-binding-apis">Exporting and Binding APIs<a class="headerlink" href="#exporting-and-binding-apis" title="Permanent link">&para;</a></h1>
 <p>If you're looking to provide APIs that can be consumed by multiple workspaces, this section is for you!</p>
 <p>kcp adds new APIs that enable this new model of publishing and consuming APIs. The following diagram shows a workspace
 that an API provider would use to export their <code>widgets</code> API. The provider uses kcp's new <code>APIResourceSchema</code> type to
@@ -3861,7 +3861,7 @@ we can be much more efficient and have 1 controller handle <code>widgets</code> 
 <li>Write controllers that are multi-workspace aware.</li>
 </ol>
 <p>Let's look at each of these in more detail.</p>
-<h2 id="define-apiresourceschemas">Define APIResourceSchemas</h2>
+<h2 id="define-apiresourceschemas">Define APIResourceSchemas<a class="headerlink" href="#define-apiresourceschemas" title="Permanent link">&para;</a></h2>
 <p>An <code>APIResourceSchema</code> defines a single custom API type. It is almost identical to a CRD, but creating
 an <code>APIResourceSchema</code> instance does not add a usable API to the server. By intentionally decoupling the schema
 definition from serving, API owners can be more explicit about API evolution. In the future, we could envision the
@@ -3909,7 +3909,7 @@ possibility of a new <code>APIDeployment</code> resource that coordinates rollin
 </ol>
 <p>An <code>APIResourceSchema</code>'s <code>spec</code> is immutable; if you need to make changes to your API schema, you create a new instance.</p>
 <p>Once you've created at least one <code>APIResourceSchema</code>, you can proceed with creating your <code>APIExport</code>.</p>
-<h2 id="define-your-apiexport">Define Your APIExport</h2>
+<h2 id="define-your-apiexport">Define Your APIExport<a class="headerlink" href="#define-your-apiexport" title="Permanent link">&para;</a></h2>
 <p>An <code>APIExport</code> is the way an API provider makes one or more APIs (coming from <code>APIResourceSchemas</code>) available to
 workspaces.</p>
 <p>Here is an example <code>APIExport</code> called <code>example.kcp.io</code> that exports 1 resource: <code>widgets</code>.</p>
@@ -3934,7 +3934,7 @@ workspaces.</p>
   for your service to function correctly</li>
 </ul>
 <p>We'll talk about each of these next.</p>
-<h3 id="apiexport-identity">APIExport Identity</h3>
+<h3 id="apiexport-identity">APIExport Identity<a class="headerlink" href="#apiexport-identity" title="Permanent link">&para;</a></h3>
 <p>Each API resource type is defined by an API group name and a resource name. Each API resource type can further be
 distinguished by an API version. For example, the <code>roles.rbac.authorization.k8s.io</code> resource that we frequently interact
 with is in the <code>rbac.authorization.k8s.io</code> API group and its resource name is <code>roles</code>.</p>
@@ -3952,7 +3952,7 @@ exported APIs need to know and reference it.</p>
 <p>Given 2 Workspaces, each with its own <code>APIExport</code> that exports <code>widgets.example.kcp.io</code>, kcp uses the identity hash (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate <code>APIResourceSchema</code> are
 served to clients. See <a href="#build-your-controller">Build Your Controller</a> for more information.</p>
-<h3 id="permission-claims">Permission Claims</h3>
+<h3 id="permission-claims">Permission Claims<a class="headerlink" href="#permission-claims" title="Permanent link">&para;</a></h3>
 <p>When a consumer creates an <code>APIBinding</code> that binds to an <code>APIExport</code>, the API provider who owns the <code>APIExport</code>
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API
 provider needs to access additional resource data in a consuming workspace. These resources might come from other
@@ -3998,7 +3998,7 @@ the PermissionClaim, so the service provider can only access instances which hav
 <p>The set of operations that the service provider can perform on the claimed resource is the intersection of the verbs
 defined in the <code>APIExport</code> and the verbs accepted in the appropriate <code>APIBinding</code>.</p>
 <p>For more details, see the section on <a href="#apibinding">APIBindings</a>.</p>
-<h3 id="maximal-permission-policy">Maximal Permission Policy</h3>
+<h3 id="maximal-permission-policy">Maximal Permission Policy<a class="headerlink" href="#maximal-permission-policy" title="Permanent link">&para;</a></h3>
 <p>If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
 permission policy" using standard RBAC resources. This is optional; if the policy is not set, no upper bound is applied,
 and a consuming user is authorized based on the RBAC configuration in the consuming workspace.</p>
@@ -4077,10 +4077,10 @@ perform in the <code>magic</code> workspace must be granted by <strong>both</str
    in the <code>magic</code> workspace itself, <strong>and</strong></li>
 <li>the maximal permission policy RBAC settings configured in the <code>root</code> workspace for the <code>tenancy</code> APIExport</li>
 </ol>
-<h2 id="build-your-controller">Build Your Controller</h2>
+<h2 id="build-your-controller">Build Your Controller<a class="headerlink" href="#build-your-controller" title="Permanent link">&para;</a></h2>
 <p>Controllers to reconcile resources backed by <code>APIExports</code> can be developed with kcp's <a href="https://github.com/kcp-dev/controller-runtime">controller-runtime fork</a>. The fork follows upstream and allows to write both kcp-aware and vanilla Kubernetes controllers at the same time. There is an <a href="https://github.com/kcp-dev/controller-runtime/tree/kcp-0.18/examples/kcp">example controller</a> that serves as reference for implementations.</p>
 <p>When reconciling exported APIs, controllers usually interact with the API resources of said <code>APIExport</code> through a <a href="../../workspaces/virtual-workspaces/">virtual workspace</a>. Because kcp can be sharded, it is possible that there are multiple virtual workspaces (across the different shards) that show a subset of API resources created across a sharded kcp instance.</p>
-<h3 id="endpoint-slices">Endpoint Slices</h3>
+<h3 id="endpoint-slices">Endpoint Slices<a class="headerlink" href="#endpoint-slices" title="Permanent link">&para;</a></h3>
 <div class="admonition information">
 <p class="admonition-title">Changed with kcp v0.28</p>
 <p>Previous versions of kcp did not automatically create an <code>APIExportEndpointSlice</code>. Check their respective versioned documentation for details.</p>
@@ -4117,7 +4117,7 @@ perform in the <code>magic</code> workspace must be granted by <strong>both</str
 <a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>...
 </code></pre></div>
 <p>Controller implementations need to watch the <code>APIExportEndpointSlice</code> and use all endpoints provided by the status. Each virtual workspace endpoint is its own Kubernetes-like API endpoint. This means that it's likely necessary to spin up managers that each "own" one of the endpoints and process them.</p>
-<h3 id="authorization">Authorization</h3>
+<h3 id="authorization">Authorization<a class="headerlink" href="#authorization" title="Permanent link">&para;</a></h3>
 <p>Controllers need to run with proper authorization. That means they need to be able to access the <code>APIExportEndpointSlice</code> above (read-only access is sufficient). The <code>ClusterRole</code> in the workspace hosting the <code>APIExportEndpointSlice</code> could look like this:</p>
 <div class="highlight"><span class="filename">ClusterRole for APIExportEndpointSlice access</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
@@ -4155,8 +4155,8 @@ TODO
 
 -->
 
-<h2 id="bind-to-exported-apis">Bind to Exported APIs</h2>
-<h3 id="apibinding">APIBinding</h3>
+<h2 id="bind-to-exported-apis">Bind to Exported APIs<a class="headerlink" href="#bind-to-exported-apis" title="Permanent link">&para;</a></h2>
+<h3 id="apibinding">APIBinding<a class="headerlink" href="#apibinding" title="Permanent link">&para;</a></h3>
 <p><code>APIBindings</code> are used to import API resources. They contain a reference to an <code>APIExport</code> using the name and kcp workspace path of an <code>APIExport</code> and will bind all APIs defined in the <code>APIExport</code> to your workspace. The reference path needs to be provided to you by the provider of the API or an external cataloging solution. Alternatively the provider of the api could give you read permissions on the <code>APIExport</code> in their workspace.</p>
 <p>Returning to our previous example, we can use the following <code>APIBinding</code> to import the widgets api.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
@@ -4169,7 +4169,7 @@ TODO
 <a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
 <a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;root:api-provider&quot;</span><span class="w"> </span><span class="c1"># path of your api-provider workspace</span>
 </code></pre></div>
-<h4 id="permission-claims_1">Permission Claims</h4>
+<h4 id="permission-claims_1">Permission Claims<a class="headerlink" href="#permission-claims_1" title="Permanent link">&para;</a></h4>
 <p>Furthermore, <code>APIBindings</code> provide the <code>APIExport</code> owner access to additional resources defined in an <code>APIExport</code>'s
 permission claims list. Permission claims must be accepted by the user explicitly, before this access is granted.
 The resources can be builtin Kubernetes resources or resources bound with other <code>APIBindings</code>.</p>
@@ -4204,10 +4204,10 @@ to all <code>APIBindings</code>. New permission claims on the other hand are NOT
 </code></pre></div>
 <p>It should be noted that <code>APIBindings</code> do not create <code>CRDs</code> or <code>APIResourceSchemas</code> in the workspace.
 Instead APIs are directly bound using Kubernetes' internal binding mechanism behind the scenes.</p>
-<h5 id="verbs">Verbs</h5>
+<h5 id="verbs">Verbs<a class="headerlink" href="#verbs" title="Permanent link">&para;</a></h5>
 <p>Operations allowed on the resources for which permission claims are accepted is defined as the intersection of
 the verbs in the APIBinding and the verbs in the appropriate APIExport.</p>
-<h5 id="selector">Selector</h5>
+<h5 id="selector">Selector<a class="headerlink" href="#selector" title="Permanent link">&para;</a></h5>
 <p><code>APIBindings</code> allow API consumers to scope an API provider's access to claimed resources via the <code>selector</code> field on
 a permission claim. This means that providers will only be able to see and access those objects matched by
 the <code>selector</code>.</p>

@@ -3655,7 +3655,7 @@
   
 
 
-<h1 id="workspace-types">Workspace Types</h1>
+<h1 id="workspace-types">Workspace Types<a class="headerlink" href="#workspace-types" title="Permanent link">&para;</a></h1>
 <p>Workspaces have a type. A type is defined by a <code>WorkspaceType</code>. A type
 defines initializers. They are set on new Workspace objects and block the
 workspace from leaving the initializing phase. Both system components and
@@ -3702,7 +3702,7 @@ lower-case name of the cluster workspace type (e.g. <code>universal</code>). All
 users inherit this permission automatically for type <code>Universal</code>.</p>
 </div>
 <p>The different workspace types are discussed below.</p>
-<h2 id="user-home-workspaces">User Home Workspaces</h2>
+<h2 id="user-home-workspaces">User Home Workspaces<a class="headerlink" href="#user-home-workspaces" title="Permanent link">&para;</a></h2>
 <p>User home workspaces are an optional feature of kcp. If enabled (through <code>--enable-home-workspaces</code>), there is a special
 virtual <code>Workspace</code> called <code>~</code> in the root workspace. It is used by <code>kubectl ws</code> to derive the full path to the user
 home workspace, similar to how Unix <code>cd ~</code> move the users to their home.</p>
@@ -3713,7 +3713,7 @@ derived from the user name (via some hash). Example for user <code>adam</code> w
 <p>User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
 the system to only incur the cost of these workspaces when they are needed. Only users of the configured
 home-creator-groups (default <code>system:authenticated</code>) will have a home workspace.</p>
-<h3 id="bucket-configuration-options">Bucket Configuration Options</h3>
+<h3 id="bucket-configuration-options">Bucket Configuration Options<a class="headerlink" href="#bucket-configuration-options" title="Permanent link">&para;</a></h3>
 <p>The <code>kcp</code> administrator can configure:</p>
 <ul>
 <li><code>&lt;prefix&gt;</code>, which defaults to <code>root:users</code></li>
@@ -3729,7 +3729,7 @@ any bucket.</p>
 <p>User-names have <code>(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)</code> permutations, and buckets are made up of lowercase-alpha
 chars.  Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
 having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.</p>
-<h3 id="valid-configurations">Valid Configurations</h3>
+<h3 id="valid-configurations">Valid Configurations<a class="headerlink" href="#valid-configurations" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -3760,7 +3760,7 @@ having not more than ~1000 sub-buckets per bucket and at least 5 users per bucke
 </tr>
 </tbody>
 </table>
-<h3 id="invalid-configurations">Invalid Configurations</h3>
+<h3 id="invalid-configurations">Invalid Configurations<a class="headerlink" href="#invalid-configurations" title="Permanent link">&para;</a></h3>
 <p>These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
 will be sufficient.</p>
 <table>
@@ -3811,7 +3811,7 @@ will be sufficient.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="organization-workspaces">Organization Workspaces</h2>
+<h2 id="organization-workspaces">Organization Workspaces<a class="headerlink" href="#organization-workspaces" title="Permanent link">&para;</a></h2>
 <p>Organization workspaces are workspaces of type <code>Organization</code>, defined in the
 root workspace. Organization workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>.</p>
 <div class="admonition note">
@@ -3822,7 +3822,7 @@ verified through admission.</p>
 <p>Organization workspaces have standard resources (on-top of <code>Universal</code> workspaces)
 which include the <code>Workspace</code> API defined through an CRD deployed during
 organization workspace initialization.</p>
-<h2 id="root-workspace">Root Workspace</h2>
+<h2 id="root-workspace">Root Workspace<a class="headerlink" href="#root-workspace" title="Permanent link">&para;</a></h2>
 <p>The default root workspace is a singleton in the system accessible under <code>/clusters/root</code>.
 It is not represented by a <code>Workspace</code> anywhere, but shares the same properties.</p>
 <p>Inside the root workspace at least the following resources are bootstrapped on
@@ -3837,7 +3837,7 @@ kcp startup:</p>
 <p>The root workspace is the only one that holds <code>Shard</code> objects. Shards
 are used to schedule a new Workspace to, i.e. to select in which etcd the
 workspace content is to be persisted.</p>
-<h2 id="system-workspaces">System Workspaces</h2>
+<h2 id="system-workspaces">System Workspaces<a class="headerlink" href="#system-workspaces" title="Permanent link">&para;</a></h2>
 <p>System workspaces are local to a shard and are named in the pattern <code>system:&lt;system-workspace-name&gt;</code>.</p>
 <p>System workspace are only accessible to a shard-local admin user, and there is
 neither a definition via a Workspace, nor is there any validation of requests
@@ -3845,7 +3845,7 @@ that the system workspace exists.</p>
 <p>As an example, the <code>system:admin</code> workspace exists for administrative objects
 that are scoped to the local shard (e.g. <code>lease</code> objects for kcp internal controllers if
 leader election is enabled). It is accessible via <code>/clusters/system:admin</code>.</p>
-<h1 id="workspace-type-extensions-and-constraints">Workspace Type Extensions and Constraints</h1>
+<h1 id="workspace-type-extensions-and-constraints">Workspace Type Extensions and Constraints<a class="headerlink" href="#workspace-type-extensions-and-constraints" title="Permanent link">&para;</a></h1>
 <p>kcp offers extensions and constraints that enable you inherit functionality from other
 workspace types and create custom workspace hierarchies for your organizational structure.</p>
 <p>A <code>WorkspaceType</code> can extend one or more other <code>WorkspaceTypes</code> using the <code>spec.extend.with</code>
@@ -3875,7 +3875,7 @@ In this example, the <code>sample</code> workspace type:
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">standard</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root:base</span>
 </code></pre></div>
-<h2 id="workspace-constraint-mechanisms">Workspace Constraint Mechanisms</h2>
+<h2 id="workspace-constraint-mechanisms">Workspace Constraint Mechanisms<a class="headerlink" href="#workspace-constraint-mechanisms" title="Permanent link">&para;</a></h2>
 <p>KCP provides two primary constraint mechanisms for workspace types:
 * <code>limitAllowedChildren</code>: Controls which workspace types can be created as children.
 * <code>limitAllowedParents</code>: Controls which workspace types can serve as parents.</p>

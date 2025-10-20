@@ -3781,7 +3781,7 @@
   
 
 
-<h1 id="architecture-a-brain-dump">Architecture – A Brain Dump</h1>
+<h1 id="architecture-a-brain-dump">Architecture – A Brain Dump<a class="headerlink" href="#architecture-a-brain-dump" title="Permanent link">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This document is a brain dump of thoughts behind KCP's architecture.
@@ -3789,13 +3789,13 @@ It's a work in progress and may contain incomplete or unpolished ideas. It was
 recorded through ChatGPT (not generated), and hence might have a conversational
 tone (GPT's summarizing responses have been removed) and might contain mistakes.</p>
 </div>
-<h2 id="kcp-overview">KCP Overview</h2>
+<h2 id="kcp-overview">KCP Overview<a class="headerlink" href="#kcp-overview" title="Permanent link">&para;</a></h2>
 <p>KCP is an extension or a fork of the KubeAPI server, it's adding a concept
 called a logical cluster, or merely it's called a workspace, a workspace concept
 to one instance of KCP. When I talk about one instance, it's actually one shard,
 and there can be multiple shards in a system. And the paper will be about the
 architecture to make that possible while giving the user</p>
-<h2 id="every-workspace-looks-like-a-kubernetes-cluster-from-the-outside">Every workspace looks like a Kubernetes cluster from the outside.</h2>
+<h2 id="every-workspace-looks-like-a-kubernetes-cluster-from-the-outside">Every workspace looks like a Kubernetes cluster from the outside.<a class="headerlink" href="#every-workspace-looks-like-a-kubernetes-cluster-from-the-outside" title="Permanent link">&para;</a></h2>
 <p>Every workspace looks like a Kubernetes cluster from the outside, at least when
 looking at the main APIs which are independent of container management. For
 example, every workspace has its own discovery information, its own OpenAPI
@@ -3903,13 +3903,13 @@ on the shard of their export with their identity hash. And the wildcard request
 will include the identity hash as part of the request resource name. That way,
 we can segregate wildcard requests of different exports of the same resource and
 group name. That way, we get a safe system.</p>
-<h2 id="api-exports-definition-and-storage">API Exports Definition and Storage</h2>
+<h2 id="api-exports-definition-and-storage">API Exports Definition and Storage<a class="headerlink" href="#api-exports-definition-and-storage" title="Permanent link">&para;</a></h2>
 <p>An API export in KCP is similar to a CRD and defines resources by specifying
 details like the resource name, kind name, and list type name. In scenarios
 where multiple workspaces could export the same kind in the same API group, KCP
 introduces a way to distinguish between different exports of the same kind and
 group.</p>
-<h3 id="identity-of-an-export">Identity of an Export</h3>
+<h3 id="identity-of-an-export">Identity of an Export<a class="headerlink" href="#identity-of-an-export" title="Permanent link">&para;</a></h3>
 <p>KCP adds a concept called the identity of an export. This identity is
 essentially a secret known only to the owner of the API export. This secret,
 when known, allows for the exporting of the same object. Workspaces that bind to
@@ -3937,7 +3937,7 @@ ensuring that only authorized entities can access the relevant data and
 preventing unauthorized access or data leaks. This approach to API export
 management in KCP is both intricate and vital for the system's overall security
 and functionality.</p>
-<h2 id="wildcard-requests">Wildcard Requests</h2>
+<h2 id="wildcard-requests">Wildcard Requests<a class="headerlink" href="#wildcard-requests" title="Permanent link">&para;</a></h2>
 <p>A note about wildcard requests. Wildcard requests are the low-level tool or
 enabler to make multi-workspace multi-logic cluster access possible. In
 practice, the use of the wildcard request type is a privileged operation which
@@ -3957,7 +3957,7 @@ the first use of them in the system, but there are many more. We have built that
 in KCP, but in theory, virtual workspace API servers can be built by third
 parties and add further functionality which goes beyond a simple API service of
 one block.</p>
-<h2 id="sharding">Sharding</h2>
+<h2 id="sharding">Sharding<a class="headerlink" href="#sharding" title="Permanent link">&para;</a></h2>
 <p>Now it is time to extend the mental model of KCP, which we described until now,
 to extend it to multiple shards. Imagine you have multiple instances of KCP
 running. Let's say we have two, A and B. Let's call the first one, let's call it
@@ -4059,7 +4059,7 @@ scalability would only be a limit for the APIs which are shared in that app
 store-like way. This doesn't seem to be a limit which limits the applicability
 of KCP, because there will never be so many exports that eight gigabyte is not
 enough.</p>
-<h2 id="multi-shard-architecture-and-controllers-in-a-multi-shard-setup">Multi-Shard Architecture and Controllers In a multi-shard setup</h2>
+<h2 id="multi-shard-architecture-and-controllers-in-a-multi-shard-setup">Multi-Shard Architecture and Controllers In a multi-shard setup<a class="headerlink" href="#multi-shard-architecture-and-controllers-in-a-multi-shard-setup" title="Permanent link">&para;</a></h2>
 <p>You need multiple instances of a controller or alternatively make a controller
 aware of multiple instances of KCP. A controller would in the second case have
 multiple wildcard watches as described before not against the shards themselves
@@ -4076,7 +4076,7 @@ one per shard which has at least one workspace which binds against that export.
 That way a controller which is KCP-enabled would have to watch the API export
 status and spawn another instance either of an informer or even the whole
 controller per URL which pops up in the status of the export.</p>
-<h2 id="multi-shard-setups-and-the-workspace-hierarchy">Multi-shard setups, and the workspace hierarchy</h2>
+<h2 id="multi-shard-setups-and-the-workspace-hierarchy">Multi-shard setups, and the workspace hierarchy<a class="headerlink" href="#multi-shard-setups-and-the-workspace-hierarchy" title="Permanent link">&para;</a></h2>
 <p>When creating a workspace object within another parent workspace, a
 WorkspaceScheduler will choose a shard and create a Logical Cluster object named
 Cluster on that shard under a random Logical Cluster identity hash. The choice
@@ -4102,7 +4102,7 @@ store an intermediate workspace in the workspace path. Only the last component
 actually matters. If you can resolve the workspace path to the Logical Cluster
 UID and the shard name, the request can be routed, although parts of the
 workspace path may be unlocked.</p>
-<h2 id="workspace-access-authorization">Workspace Access Authorization</h2>
+<h2 id="workspace-access-authorization">Workspace Access Authorization<a class="headerlink" href="#workspace-access-authorization" title="Permanent link">&para;</a></h2>
 <p>To access a workspace, the KCP instance which receives the request, potentially
 sent by the front proxy, will do an authentication of the user, whether this
 user is able to access the workspace as a whole, and in particular, the object
@@ -4123,7 +4123,7 @@ which is authorized. There is no airbag logic at the parent level. The reason is
 having logic at the parent level would mean would have to cache the airbag
 objects which are involved in the cache server. This is just heavy and can be
 avoided by this architecture.</p>
-<h2 id="security-and-scheduling-of-workspaces">Security and scheduling of workspaces</h2>
+<h2 id="security-and-scheduling-of-workspaces">Security and scheduling of workspaces<a class="headerlink" href="#security-and-scheduling-of-workspaces" title="Permanent link">&para;</a></h2>
 <p>When scheduling a workspace, a shard is chosen to host the logic cluster. We
 talked about variations of that logic before. The scheduler, which does that
 work, runs on the shard, which hosts the parent workspace. For it to be able to
@@ -4136,7 +4136,7 @@ create a logic cluster object, although the logic cluster it's created in is not
 existing yet. So this process of scheduling today needs privileged access, a
 privileged user which can create logic clusters, skipping the check whether the
 logic cluster actually exists.</p>
-<h2 id="bootstrapping-a-kcp-platform-and-in-particular-a-kcp-shard-in-the-light-of-multiple-shards">Bootstrapping a KCP platform and, in particular, a KCP shard in the light of multiple shards</h2>
+<h2 id="bootstrapping-a-kcp-platform-and-in-particular-a-kcp-shard-in-the-light-of-multiple-shards">Bootstrapping a KCP platform and, in particular, a KCP shard in the light of multiple shards<a class="headerlink" href="#bootstrapping-a-kcp-platform-and-in-particular-a-kcp-shard-in-the-light-of-multiple-shards" title="Permanent link">&para;</a></h2>
 <p>Bootstrapping a KCP system, and in particular, a KCP shard. Bootstrapping a
 single shard KCP means to create the root workspace, create the API shards for
 the main API groups, and that's basically it. A multi-shard setup requires to
@@ -4166,14 +4166,14 @@ cached in the contract map, or if the contract map is not there, or incomplete,
 there's access to the root shard. When those informers are up, the core
 controllers of the KCP shard are started and the KCP shard is ready to serve
 requests.</p>
-<h2 id="definitions-of-shards">Definitions of Shards</h2>
+<h2 id="definitions-of-shards">Definitions of Shards<a class="headerlink" href="#definitions-of-shards" title="Permanent link">&para;</a></h2>
 <p>Shards are defined by creating Shard objects in the root workspace. When a Shard
 starts up, it will attempt to create its object there and tries to keep status
 of that object up-to-date with the controller. In the future, this object might
 also give load information, which might control scheduling of new workspaces.
 Today, this is very simplistic and not really crucial for the architecture of
 KCP.</p>
-<h2 id="logical-cluster-path-annotation">Logical cluster path annotation</h2>
+<h2 id="logical-cluster-path-annotation">Logical cluster path annotation<a class="headerlink" href="#logical-cluster-path-annotation" title="Permanent link">&para;</a></h2>
 <p>A logical cluster has one unique longest path which points to it. In the
 simplest case where a logical cluster has no parent, that path is equal to the
 logical cluster ID. But if there is a parent, the parent longest and unique path
@@ -4190,7 +4190,7 @@ resolve an API binding. The API binding will maintain an index of the informer
 of API exports by that path annotation, so it can quickly find, bypass the
 corresponding export if it exists. There might be other APIs which use the same
 trick to allow bypass references across workspaces.</p>
-<h2 id="multiple-routes-in-the-workspace-hierarchy">Multiple Routes in the Workspace Hierarchy</h2>
+<h2 id="multiple-routes-in-the-workspace-hierarchy">Multiple Routes in the Workspace Hierarchy<a class="headerlink" href="#multiple-routes-in-the-workspace-hierarchy" title="Permanent link">&para;</a></h2>
 <p>We described before that the only workspace which has a logical cluster name
 that resembles the longest workspace path as the root workspace. We will keep
 this invariant, but we will extend the hierarchy by having more than one root,
@@ -4220,7 +4220,7 @@ logical cluster objects in non-existing logical clusters, so very similar
 to the scheduler we talked about before. The user home workspace here is just an
 example. You could have rootless logical clusters for tenants, <code>tenant:colon:tenant-name</code>, 
 for example, or anything else you want to have as a start of a new hierarchy.</p>
-<h1 id="system-masters-versus-cluster-admin-users">System Masters versus Cluster Admin Users</h1>
+<h1 id="system-masters-versus-cluster-admin-users">System Masters versus Cluster Admin Users<a class="headerlink" href="#system-masters-versus-cluster-admin-users" title="Permanent link">&para;</a></h1>
 <p>In a single-shard setup, when you launch KCP via KCP Start, for convenience, an
 admin user is created. An admin user has star access, wildcard access, to all
 resources and all verbs. In Kubernetes, there is a System Masters group in
@@ -4248,7 +4248,7 @@ process. The KCP Start command alone is without any special parameters. It's
 really meant for a single shard and for that reason, pretty simplistic setup.
 This is intentional. The admin user must be created out of scope in a step on
 its own.</p>
-<h2 id="mobility-of-workspaces">Mobility of Workspaces</h2>
+<h2 id="mobility-of-workspaces">Mobility of Workspaces<a class="headerlink" href="#mobility-of-workspaces" title="Permanent link">&para;</a></h2>
 <p>There are reasons why workspaces or more correctly their logical clusters should
 be moved to another shard, for example to escape from some noisy neighbour, or
 because a shard is supposed to be replaced and drained. This is future work. But

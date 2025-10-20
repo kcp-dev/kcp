@@ -3883,14 +3883,14 @@
   
 
 
-<h1 id="workspace-mounts">Workspace Mounts</h1>
+<h1 id="workspace-mounts">Workspace Mounts<a class="headerlink" href="#workspace-mounts" title="Permanent link">&para;</a></h1>
 <p>Workspace mounts allow you to mount external Kubernetes-like API endpoints onto a workspace, similar to how you mount remote filesystems in Linux using NFS. Just like a Linux directory can be a local folder or a mounted remote filesystem, a workspace can be either a local LogicalCluster or a mounted external endpoint.</p>
 <p>When a workspace uses a mount, it does not have a LogicalCluster backing it. Instead, requests to the workspace are proxied to the external API endpoint specified by the mount object. This allows you to have a unified view of multiple clusters and workspaces under the same workspace tree/hierarchy.</p>
 <p><strong>Analogy</strong>: Think of workspaces as directories in a Linux filesystem:
 - <strong>Regular workspace</strong> = Local directory with files stored on the local filesystem
 - <strong>Mounted workspace</strong> = Directory that's an NFS mount pointing to a remote filesystem
 - <strong>kcp</strong> = The filesystem manager that routes requests to the right location</p>
-<h2 id="architecture-overview">Architecture Overview</h2>
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
       participant C as 🖥️ Client
       participant P as 🔄 Front Proxy
@@ -3920,7 +3920,7 @@
       end
 
       Note over C,EK: Routing determined by workspace mount configuration</code></pre>
-<h3 id="workspace-tree-structure">Workspace Tree Structure</h3>
+<h3 id="workspace-tree-structure">Workspace Tree Structure<a class="headerlink" href="#workspace-tree-structure" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>root/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── org1/
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── project-a/                    # Traditional LogicalCluster workspace
@@ -3934,8 +3934,8 @@
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        ├── /api/v1/pods             # → Proxied to https://ext-k8s.com/api/v1/pods . kcp does not have pods, but this is a mount.
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        └── /apis/apps/v1/deployments # → Proxied to https://ext-k8s.com/api/v1/deployments
 </code></pre></div>
-<h2 id="how-it-works">How it Works</h2>
-<h3 id="prerequisites">Prerequisites</h3>
+<h2 id="how-it-works">How it Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>Feature Gate</strong>: The <code>WorkspaceMounts=true</code> feature gate must be enabled on the kcp instance.</li>
 <li><strong>External Controller/Proxy</strong>: You need to implement a controller that:</li>
@@ -3944,7 +3944,7 @@
 <li>The controller can be any custom implementation as long as it follows the mount object contract. See [1] as an example.</li>
 </ol>
 <p><strong>Important</strong>: kcp provides the mounting machinery, but you must "Bring Your Own API" (BYO-API). This means you're responsible for implementing both the mount object management and the actual API server that will handle the proxied requests.</p>
-<h3 id="mount-objects">Mount Objects</h3>
+<h3 id="mount-objects">Mount Objects<a class="headerlink" href="#mount-objects" title="Permanent link">&para;</a></h3>
 <p>Workspace mounts follow a <strong>"Bring Your Own API"</strong> pattern. This means you can use any Kubernetes Custom Resource as a mount object, as long as it meets three simple requirements. The mounting machinery in kcp is generic and doesn't care about the specifics of your API or implementation.</p>
 <div class="highlight"><span class="filename">Example Mount Object</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mounts.contrib.kcp.io/v1alpha1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeCluster</span>
@@ -3959,7 +3959,7 @@
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://proxy-cluster.proxy-cluster.svc.cluster.local</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">phase</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ready</span>
 </code></pre></div>
-<h4 id="requirements-for-mount-objects">Requirements for Mount Objects</h4>
+<h4 id="requirements-for-mount-objects">Requirements for Mount Objects<a class="headerlink" href="#requirements-for-mount-objects" title="Permanent link">&para;</a></h4>
 <ol>
 <li><strong>Annotation</strong>: Must have the <code>experimental.tenancy.kcp.io/is-mount: "true"</code> annotation</li>
 <li><strong>Status URL</strong>: Must have a <code>status.URL</code> field containing the target endpoint URL</li>
@@ -3973,14 +3973,14 @@
 <p class="admonition-title">Note</p>
 <p>Mount objects can be created and managed by users or by the system. For example, if a user has credentials for a delegated cluster, they can create a mount object and reference it in their workspace.</p>
 </div>
-<h4 id="controller-requirements">Controller Requirements</h4>
+<h4 id="controller-requirements">Controller Requirements<a class="headerlink" href="#controller-requirements" title="Permanent link">&para;</a></h4>
 <p>While the mount object can be any Custom Resource, you still need a controller to:
 - Create and manage the lifecycle of these mount objects
 - Set the required annotation and status fields
 - Implement and run the actual API server/proxy that serves requests at the <code>status.URL</code>
 - Handle authentication, authorization, and any request filtering if needed</p>
 <p>The kcp mounting machinery handles the workspace-to-mount routing, but the actual API implementation is entirely up to you. </p>
-<h3 id="creating-a-mounted-workspace">Creating a Mounted Workspace</h3>
+<h3 id="creating-a-mounted-workspace">Creating a Mounted Workspace<a class="headerlink" href="#creating-a-mounted-workspace" title="Permanent link">&para;</a></h3>
 <p>To create a workspace that uses a mount, specify the mount reference in the workspace spec:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Workspace</span>
@@ -3993,7 +3993,7 @@
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeCluster</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">proxy-cluster</span>
 </code></pre></div>
-<h4 id="mount-field-requirements">Mount Field Requirements</h4>
+<h4 id="mount-field-requirements">Mount Field Requirements<a class="headerlink" href="#mount-field-requirements" title="Permanent link">&para;</a></h4>
 <ul>
 <li><code>ref.apiVersion</code>: The API version of the mount object</li>
 <li><code>ref.kind</code>: The kind of the mount object  </li>
@@ -4004,9 +4004,9 @@
 <p class="admonition-title">Important</p>
 <p>The mount reference is immutable after workspace creation.</p>
 </div>
-<h2 id="simple-end-to-end-example">Simple End-to-End Example</h2>
+<h2 id="simple-end-to-end-example">Simple End-to-End Example<a class="headerlink" href="#simple-end-to-end-example" title="Permanent link">&para;</a></h2>
 <p>Here's a basic example to illustrate how workspace mounts work in practice:</p>
-<h3 id="step-1-create-a-mount-object">Step 1: Create a Mount Object</h3>
+<h3 id="step-1-create-a-mount-object">Step 1: Create a Mount Object<a class="headerlink" href="#step-1-create-a-mount-object" title="Permanent link">&para;</a></h3>
 <p>Your controller creates a mount object (this could be any Custom Resource):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.io/v1alpha1</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteCluster</span>
@@ -4020,7 +4020,7 @@
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">URL</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://my-proxy-service.com&quot;</span><span class="w">  </span><span class="c1"># Required: where requests will be proxied</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">phase</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Ready&quot;</span><span class="w">                       </span><span class="c1"># Required: mount status</span>
 </code></pre></div>
-<h3 id="step-2-create-a-workspace-with-mount-reference">Step 2: Create a Workspace with Mount Reference</h3>
+<h3 id="step-2-create-a-workspace-with-mount-reference">Step 2: Create a Workspace with Mount Reference<a class="headerlink" href="#step-2-create-a-workspace-with-mount-reference" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Workspace</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -4032,7 +4032,7 @@
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RemoteCluster</span>
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-remote-k8s</span>
 </code></pre></div>
-<h3 id="step-3-access-the-mounted-workspace">Step 3: Access the Mounted Workspace</h3>
+<h3 id="step-3-access-the-mounted-workspace">Step 3: Access the Mounted Workspace<a class="headerlink" href="#step-3-access-the-mounted-workspace" title="Permanent link">&para;</a></h3>
 <p>When you make requests to the workspace:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span>https://kcp.example.com/clusters/root:remote-workspace<span class="w"> </span>get<span class="w"> </span>pods
 </code></pre></div>
@@ -4046,7 +4046,7 @@
 <p class="admonition-title">Important</p>
 <p>You need to implement <code>https://my-proxy-service.com</code> to actually serve Kubernetes API requests. kcp only handles the routing.</p>
 </div>
-<h3 id="how-mounted-workspaces-work">How Mounted Workspaces Work</h3>
+<h3 id="how-mounted-workspaces-work">How Mounted Workspaces Work<a class="headerlink" href="#how-mounted-workspaces-work" title="Permanent link">&para;</a></h3>
 <p>Once a workspace with a mount is created, the following process occurs:</p>
 <ol>
 <li>
@@ -4068,7 +4068,7 @@
 <p><strong>Request Routing</strong>: The proxy rewrites the incoming request URL to target the mount's URL while preserving the Kubernetes API context (e.g., <code>/api/v1/pods</code> becomes <code>{mount.status.URL}/api/v1/pods</code>).</p>
 </li>
 </ol>
-<h3 id="controllers-and-management">Controllers and Management</h3>
+<h3 id="controllers-and-management">Controllers and Management<a class="headerlink" href="#controllers-and-management" title="Permanent link">&para;</a></h3>
 <p>The workspace mounts controller (<code>kcp-workspace-mounts</code>) manages the integration between workspaces and their mount objects:</p>
 <ul>
 <li><strong>Watches</strong>: Both workspace objects and dynamically discovered mount resources</li>
@@ -4076,7 +4076,7 @@
 <li><strong>Indexing</strong>: Maintains indexes to efficiently find workspaces that reference specific mount objects</li>
 <li><strong>Status Updates</strong>: Updates workspace conditions based on mount availability and readiness</li>
 </ul>
-<h3 id="limitations-and-considerations">Limitations and Considerations</h3>
+<h3 id="limitations-and-considerations">Limitations and Considerations<a class="headerlink" href="#limitations-and-considerations" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Mount references are immutable after workspace creation</li>
 <li>Only mount objects in <code>Ready</code> phase will serve traffic</li>
@@ -4084,7 +4084,7 @@
 <li>Authentication and authorization are handled by the external proxy, not by kcp</li>
 <li>Workspace mounts do not filter kubernetes view. If filtering is required, it must be implemented in the external proxy.</li>
 </ul>
-<h2 id="references">References</h2>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ol>
 <li>https://github.com/kcp-dev/contrib/tree/main/20241013-kubecon-saltlakecity/mounts-vw - Example mount controller and proxy implementation</li>
 </ol>
