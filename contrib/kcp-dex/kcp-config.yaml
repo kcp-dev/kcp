@@ -13,7 +13,7 @@ staticClients:
     public: true
     redirectURIs:
     - http://localhost:8000
-    name: 'KCP App'
+    name: 'kcp App'
     secret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
 
 # Let dex keep a list of passwords which can be used to login to dex.

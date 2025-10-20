@@ -16,7 +16,7 @@ limitations under the License.
 
 package crdpuller
 
-// We import the generic control plane scheme to provide access to the KCP control plane scheme,
+// We import the generic control plane scheme to provide access to the kcp control plane scheme,
 // that gathers a minimal set of Kubernetes APIs without any workload-related APIs.
 //
 // We don't want to import, from physical clusters; resources that are already part of the control
@@ -156,14 +156,14 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 			logger := logger.WithValues("resource", apiResource.Name)
 
 			if kcpscheme.Scheme.IsGroupRegistered(gv.Group) && !kcpscheme.Scheme.IsVersionRegistered(gv) {
-				logger.Info("ignoring an apiVersion since it is part of the core KCP resources, but not compatible with KCP version")
+				logger.Info("ignoring an apiVersion since it is part of the core kcp resources, but not compatible with kcp version")
 				continue
 			}
 
 			gvk := gv.WithKind(apiResource.Kind)
 			logger = logger.WithValues("kind", apiResource.Kind)
 			if (kcpscheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
-				logger.Info("ignoring a resource since it is part of the core KCP resources")
+				logger.Info("ignoring a resource since it is part of the core kcp resources")
 				continue
 			}
 
@@ -305,9 +305,9 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 			// in an `api-approved.kubernetes.io` annotation.
 			// Without this annotation, a CRD under the *.k8s.io or *.kubernetes.io domains is rejected by the API server
 			//
-			// Of course here we're simply adding already-known resources of existing physical clusters as CRDs in KCP.
+			// Of course here we're simply adding already-known resources of existing physical clusters as CRDs in kcp.
 			// But to please this Kubernetes approval requirement, let's add the required annotation in imported CRDs
-			// with one of the KCP PRs that hacked Kubernetes CRD support for KCP.
+			// with one of the kcp PRs that hacked Kubernetes CRD support for kcp.
 			if apihelpers.IsProtectedCommunityGroup(gv.Group) {
 				value := "https://github.com/kcp-dev/kubernetes/pull/4"
 				if crd != nil {

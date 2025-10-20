@@ -64,7 +64,7 @@ func init() {
 	_ = tenancyv1alpha1.AddToScheme(homeWorkspaceScheme)
 }
 
-// WithHomeWorkspaces implements an HTTP handler, in the KCP server, which:
+// WithHomeWorkspaces implements an HTTP handler, in the kcp server, which:
 //
 //   - supports a special 'kubectl get workspace ~' request which returns either
 //     the old bucket-style workspace if it exists (= a LogicalCluster can be found)

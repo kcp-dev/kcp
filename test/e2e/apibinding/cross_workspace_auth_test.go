@@ -228,7 +228,7 @@ func TestWorkspaceAuth(t *testing.T) {
 //
 // This test is functionally equivalent to TestWorkspaceAuth, but uses
 // a Service Account instead of a "real" user authenticated via OIDC.
-// Background is that in KCP Service Accounts are sometimes handled
+// Background is that in kcp Service Accounts are sometimes handled
 // differently to users and go through a different code path when
 // effective users are computed.
 func TestServiceAccount(t *testing.T) {
@@ -393,7 +393,7 @@ func TestServiceAccount(t *testing.T) {
 
 // TestScopedUser tests that a user restricted to the consumer workspace
 // by scopes can bind an APIExport from the provider workspace.
-//  1. The user is a global KCP user but is restricted by scopes to
+//  1. The user is a global kcp user but is restricted by scopes to
 //     the consumer workspace
 //  2. The user can manage APIBindings in the consumer workspace
 //  3. The provider workspace allows the binding of APIExports for users
@@ -582,7 +582,7 @@ func TestScopedUser(t *testing.T) {
 // TestUserWithWarrants tests that a user with a warrant for another
 // user in the workspace can bind an APIExport from the provider
 // workspace.
-//  1. The user is a global KCP user but can act as another user
+//  1. The user is a global kcp user but can act as another user
 //     in consumer workspace through a warrant.
 //  2. The user can manage APIBindings in the consumer workspace
 //  3. The provider workspace allows the binding of APIExports for users

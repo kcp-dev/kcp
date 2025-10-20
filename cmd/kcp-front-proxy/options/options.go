@@ -48,7 +48,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	logsapiv1.AddFlags(o.Logs, fss.FlagSet("logging"))
 
 	// add flags that are filtered out from upstream, but overridden here with our own version
-	fss.FlagSet("KCP").Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
+	fss.FlagSet("kcp").Var(kcpfeatures.NewFlagValue(), "feature-gates", ""+
 		"A set of key=value pairs that describe feature gates for alpha/experimental features. "+
 		"Options are:\n"+strings.Join(kcpfeatures.KnownFeatures(), "\n")) // hide kube-only gates
 }
