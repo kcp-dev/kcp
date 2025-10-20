@@ -4751,6 +4751,119 @@ custom resources.</p>
 </div>
 </div>
 
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual">.spec.resources[*].storage.virtual</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>Virtual storage defines that this APIResourceSchema is exposed as
+a projection of the referenced resource inside the workspaces that
+bind to the APIExport.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual.identityHash">.spec.resources[*].storage.virtual.identityHash</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>IdentityHash is the identity of the virtual resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual.reference">.spec.resources[*].storage.virtual.reference</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Reference points to another object that has a URL to a virtual workspace
+in a &ldquo;url&rdquo; field in its status. The object can be of any kind.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual.reference.apiGroup">.spec.resources[*].storage.virtual.reference.apiGroup</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+<div class="property-description">
+<p>APIGroup is the group for the resource being referenced.
+If APIGroup is not specified, the specified Kind must be in the core API group.
+For any other third-party types, APIGroup is required.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual.reference.kind">.spec.resources[*].storage.virtual.reference.kind</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Kind is the type of resource being referenced</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual.reference.name">.spec.resources[*].storage.virtual.reference.name</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Name is the name of resource being referenced</p>
+
+</div>
+
+</div>
+</div>
+
 <div class="property depth-0">
 <div class="property-header">
 <h3 class="property-path" id="v1alpha2-.status">.status</h3>
