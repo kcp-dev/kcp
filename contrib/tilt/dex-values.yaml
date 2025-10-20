@@ -32,7 +32,7 @@ config:
     redirectURIs:
     - https://idp.dev.local:6443/callback
     - http://localhost:8000
-    name: 'KCP App'
+    name: 'kcp App'
     secret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
 
 certmanager:

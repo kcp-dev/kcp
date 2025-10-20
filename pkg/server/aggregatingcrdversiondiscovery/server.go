@@ -177,7 +177,7 @@ func apiResourcesForGroupVersion(requestedGroup, requestedVersion string, crds [
 				continue
 			}
 
-			// HACK: support the case when we add core resources through CRDs (KCP scenario)
+			// HACK: support the case when we add core resources through CRDs (kcp scenario)
 			groupVersion := crd.Spec.Group + "/" + v.Name
 			if crd.Spec.Group == "" {
 				groupVersion = v.Name
