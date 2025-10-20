@@ -1,9 +1,13 @@
 # Rebasing Kubernetes
 
 This describes the process of rebasing kcp onto a new Kubernetes version. For the examples below, we'll be rebasing
-onto v1.33.3
+onto v1.33.3.
 
-# 1. Update kcp-dev/apimachinery
+!!! note
+    This guide has last been used before the [monorepo](../../monorepo.md) transition. Beware that since
+    then the procedure is significantly different.
+
+### 1. Update kcp-dev/apimachinery
 
 1. Create a new branch for the update, such as `1.31-prep`.
 2. Update go.mod:
@@ -22,7 +26,7 @@ onto v1.33.3
 6. Push to your fork.
 7. Open a PR; get it reviewed and merged.
 
-# 2. Update kcp-dev/code-generator
+## 2. Update kcp-dev/code-generator
 
 1. Create a new branch for the update, such as `1.26-prep`.
 2. Update `go.mod`:
@@ -47,7 +51,8 @@ onto v1.33.3
 8. Push to your fork.
 9. Open a PR; get it reviewed and merged.
 
-# 3. Update kcp-dev/client-go
+## 3. Update kcp-dev/client-go
+
 1. Create a new branch for the update, such as `1.26-prep`.
 2. Update go.mod:
    1. You may need to change the go version at the top of the file to match what's in go.mod in the root of the
@@ -70,9 +75,9 @@ onto v1.33.3
 7. Push to your fork.
 8. Open a PR; get it reviewed and merged.
 
-# 4. Update kcp-dev/kubernetes
+## 4. Update kcp-dev/kubernetes
 
-## Terminology
+### Terminology
 
 Commits merged into `kcp-dev/kubernetes` follow this commit message format:
 
@@ -94,7 +99,7 @@ Commits merged into `kcp-dev/kubernetes` follow this commit message format:
   - In general, these commits are used to maintain the codebase in ways that are
     branch-specific, like the update of generated files or dependencies.
 
-## Rebase Process
+### Rebase Process
 
 1. First and foremost, take notes of what worked/didn't work well. Update this guide based on your experiences!
 2. Remember, if you mess up, `git rebase --abort` and `git reflog` are your very good friends!
@@ -185,7 +190,7 @@ two kube versions.
 13. Commit the dependency updates:
     ```
     git add .
-    git commit -m 'CARRY: <drop>: Add KCP dependencies'
+    git commit -m 'CARRY: <drop>: Add kcp dependencies'
     ```
 
 14. Update the vendor directory:
@@ -227,7 +232,7 @@ two kube versions.
 18. Open a pull request for review **against the baseline branch, e.g. kcp-1.26-baseline**, but mark it `WIP` and maybe
     even open it in draft mode - you don't want to merge anything just yet.
 
-# 5. Update kcp-dev/kcp
+## 5. Update kcp-dev/kcp
 
 1. At this point, you're ready to try to integrate the updates into kcp proper. There is still likely a good
    amount of work to do, so don't get discouraged if you encounter dozens or hundreds of compilation issues at
@@ -244,13 +249,16 @@ two kube versions.
    3. Go ahead and make a commit here, as the next change we'll be making is to point kcp at your local checkout of
       Kubernetes.
 3. Point kcp at your local checkout of Kubernetes:
-   ```
-   # Change KUBE per your local setup
-   KUBE=../../../go/src/k8s.io/kubernetes
-   gsed -i "s,k8s.io/\(.*\) => .*/kubernetes/.*,k8s.io/\1 => $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes => .*,k8s.io/kubernetes => $KUBE," go.mod
-   ```
-   !!! warning
-      Don't commit your changes to go.mod/go.sum. They point to your local file system.
+
+    ```
+    # Change KUBE per your local setup
+    KUBE=../../../go/src/k8s.io/kubernetes
+    gsed -i "s,k8s.io/\(.*\) => .*/kubernetes/.*,k8s.io/\1 => $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes => .*,k8s.io/kubernetes => $KUBE," go.mod
+    ```
+
+    !!! warning
+        Don't commit your changes to go.mod/go.sum. They point to your local file system.
+
 4. Resolve any conflicts
 5. Run `make modules`
 6. Run `make codegen`
@@ -258,7 +266,7 @@ two kube versions.
 8. Get the `lint` and `test` make targets to pass
 9. Get the `e2e-*` make targets to pass.
 
-# 6. Test CI
+## 6. Test CI
 
 1. Undo your changes to go.mod and go.sum that point to your local checkout:
    ```
@@ -274,7 +282,7 @@ two kube versions.
    pointing to your fork of Kubernetes. This is expected, so don't worry. Your job at this point is to get all the
    other CI jobs to pass.
 
-# 7. Get it Merged!
+## 7. Get it Merged!
 
 1. Once CI is passing (except for the `deps` job, as expected), we're ready to merge!
 2. Coordinate with another project member - show them the test results, then get them to approve your rebase PR in
@@ -290,6 +298,6 @@ two kube versions.
    any more), or drop the `UNDO` commit and replace it with this one.
 6. Check on CI. Hopefully everything is green. If not, keep iterating on it.
 
-# 7. Update the Default Branch in kcp-dev/kubernetes
+## 8. Update the Default Branch in kcp-dev/kubernetes
 
 1. Change it to your new rebase branch, e.g. `kcp-1.31`
