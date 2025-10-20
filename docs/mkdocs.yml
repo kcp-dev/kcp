@@ -4,15 +4,15 @@ repo_name: kcp-dev/kcp
 site_url: https://docs.kcp.io/kcp/
 
 # Site content
-docs_dir: 'content'
+docs_dir: "content"
 # Where to generate
-site_dir: 'generated'
+site_dir: "generated"
 
 theme:
   name: material
   language: en
   # Common files such as images, stylesheets, theme overrides
-  custom_dir: 'overrides'
+  custom_dir: "overrides"
   features:
     # Enable navigation section index pages, so we don't see Concepts > Concepts
     - navigation.indexes
@@ -29,27 +29,27 @@ theme:
   logo: logo.svg
   favicon: favicons/favicon.ico
   palette:
-  # Palette toggle for automatic mode
-  - media: "(prefers-color-scheme)"
-    toggle:
-      icon: material/brightness-auto
-      name: Switch to light mode
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
 
-  # Palette toggle for light mode
-  - media: "(prefers-color-scheme: light)"
-    scheme: default
-    primary: white
-    toggle:
-      icon: material/brightness-7
-      name: Switch to dark mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
 
-  # Palette toggle for dark mode
-  - media: "(prefers-color-scheme: dark)"
-    scheme: slate
-    primary: black
-    toggle:
-      icon: material/brightness-4
-      name: Switch to system preference
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
 
 extra_css:
   - stylesheets/crd.css
@@ -75,8 +75,8 @@ plugins:
   - search
   # Use Jinja macros in .md files
   - macros:
-      include_dir: 'overrides'
-      module_name: 'main'
+      include_dir: "overrides"
+      module_name: "main"
   # Configure multiple language support
   - i18n:
       docs_structure: suffix
@@ -101,8 +101,10 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
-  # Inline code block highlighting
+          format:
+            !!python/name:pymdownx.superfences.fence_code_format # Inline code block highlighting
+
+
   - pymdownx.inlinehilite
   # Lets you embed content from another file
   - pymdownx.snippets
@@ -110,6 +112,9 @@ markdown_extensions:
   - pymdownx.superfences
   # Enable note/warning/etc. callouts
   - admonition
+  # Add permalinks to all headlines
+  - toc:
+      permalink: true
 
 # Live reload if any of these change when running 'mkdocs serve'
 watch:
