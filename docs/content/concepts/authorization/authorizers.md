@@ -127,7 +127,7 @@ roleRef:
 
 ##### Cross-Workspace
 
-Users from other workspaces can be authorized to peform actions using RBAC, e.g. to `bind` and APIExport.
+Users from other workspaces can be authorized to perform actions using RBAC, e.g. to `bind` and APIExport.
 
 ###### Service Accounts
 
