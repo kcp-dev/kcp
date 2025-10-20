@@ -1,7 +1,7 @@
 # TILT
 
-Tilt setup for KCP development.
-The benefit of using Tilt here is that it can be used to build and deploy the KCP
+Tilt setup for kcp development.
+The benefit of using Tilt here is that it can be used to build and deploy the kcp
 automatically when code changes are detected. It also provides tools like
 Prometheus, Grafana, Loki and port forwarding into local machines for debugging.
 It uses a helm chart as a base and injects locally built images into kind cluster
@@ -28,12 +28,12 @@ make tilt-kind-up
 
 # Output example:
 ....
-Install KCP
+Install kcp
 Tooling:
 Grafana: http://localhost:3333/
 Prometheus: http://localhost:9091
-KCP API Server: https://localhost:9443
-KCP FrontProxy Server: https://localhost:9444
+kcp API Server: https://localhost:9443
+kcp FrontProxy Server: https://localhost:9444
 Tilt started on http://localhost:10350/
 v0.33.6, built 2023-09-29
 

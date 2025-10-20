@@ -97,7 +97,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	flags.MarkHidden("shard-external-url") //nolint:errcheck
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
-		"The kubeconfig file of the KCP instance that hosts workspaces.")
+		"The kubeconfig file of the kcp instance that hosts workspaces.")
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
 	flags.StringVar(&o.Context, "context", o.Context, "Name of the context in the kubeconfig file to use")

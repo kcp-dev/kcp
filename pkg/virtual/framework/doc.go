@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package framework provides a the required interfaces, structs and generic implementation
-// that allow creating KCP virtual workspaces with a minimal amount of work.
+// that allow creating kcp virtual workspaces with a minimal amount of work.
 //
 // To create virtual workspaces you have to:
 //

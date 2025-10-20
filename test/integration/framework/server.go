@@ -275,7 +275,7 @@ func (s *InProcessServer) CADirectory() string {
 	return s.Config.DataDir
 }
 
-// StartTestServer starts a KCP server for testing purposes.
+// StartTestServer starts a kcp server for testing purposes.
 func StartTestServer(t kcptestingserver.TestingT, opts ...kcptestingserver.Option) (*InProcessServer, kcpclientset.ClusterInterface, kcpkubernetesclientset.ClusterInterface) {
 	t.Helper()
 

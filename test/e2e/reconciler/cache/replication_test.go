@@ -708,7 +708,7 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "resourceVersion")
 
 		// TODO(davidfestal): find out why the generation is not equal, specially for rbacv1.
-		// Is it a characteristic of all built-in KCP resources (which are not backed by CRDs) ?
+		// Is it a characteristic of all built-in kcp resources (which are not backed by CRDs) ?
 		// Issue opened: https://github.com/kcp-dev/kcp/issues/2935
 		if b.gvr.Group == rbacv1.SchemeGroupVersion.Group {
 			unstructured.RemoveNestedField(originalResource.Object, "metadata", "generation")

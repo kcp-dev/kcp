@@ -4,9 +4,9 @@ We're thrilled that you're interested in contributing to kcp! Please visit our
 [full contributing guide](https://docs.kcp.io/kcp/main/contributing) on our documentation site.
 
 Beside that, what coverns the project and all contributions to it must follow
-the [KCP Project Governance](./GOVERNANCE.md).
+the [kcp Project Governance](./GOVERNANCE.md).
 
-From the KCP Project Governance, the following manifesto should guide the technical
+From the kcp Project Governance, the following manifesto should guide the technical
 decisions through-out all contributions:
 
 > kcp maintainers strive to be good citizens in the Kubernetes project.

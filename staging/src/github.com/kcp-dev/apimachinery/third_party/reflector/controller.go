@@ -30,7 +30,7 @@ import (
 )
 
 // Config contains all the settings for one of these low-level controllers.
-// KCP modification: Added KeyFunction field for cluster-aware key generation.
+// kcp modification: Added KeyFunction field for cluster-aware key generation.
 type Config struct {
 	// The queue for your objects - has to be a DeltaFIFO due to
 	// assumptions in the implementation. Your Process() function
@@ -75,7 +75,7 @@ type Config struct {
 	// WatchListPageSize is the requested chunk size of initial and relist watch lists.
 	WatchListPageSize int64
 
-	// KCP modification: KeyFunction is the function used to generate keys for objects
+	// kcp modification: KeyFunction is the function used to generate keys for objects
 	// in the reflector's temporary store during WatchList operations.
 	// This is critical for multi-cluster setups where objects from different clusters
 	// may have the same namespace/name but different cluster names.
@@ -91,7 +91,7 @@ type controller struct {
 }
 
 // New makes a new Controller from the given Config.
-// KCP modification: This controller uses our forked Reflector with cluster-aware key function support.
+// kcp modification: This controller uses our forked Reflector with cluster-aware key function support.
 // Returns cache.Controller so it can be used as a drop-in replacement.
 func New(c *Config) cache.Controller {
 	ctlr := &controller{
@@ -114,7 +114,7 @@ func (c *controller) RunWithContext(ctx context.Context) {
 		c.config.Queue.Close()
 	}()
 
-	// KCP modification: Use our forked NewReflectorWithOptions with KeyFunction support
+	// kcp modification: Use our forked NewReflectorWithOptions with KeyFunction support
 	r := NewReflectorWithOptions(
 		c.config.ListerWatcher,
 		c.config.ObjectType,
@@ -124,7 +124,7 @@ func (c *controller) RunWithContext(ctx context.Context) {
 			MinWatchTimeout: c.config.MinWatchTimeout,
 			TypeDescription: c.config.ObjectDescription,
 			Clock:           c.clock,
-			KeyFunction:     c.config.KeyFunction, // KCP modification: pass the key function
+			KeyFunction:     c.config.KeyFunction, // kcp modification: pass the key function
 		},
 	)
 	r.ShouldResync = c.config.ShouldResync

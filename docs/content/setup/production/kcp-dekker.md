@@ -10,7 +10,7 @@ The kcp-dekker deployment pattern uses self-signed certificates and is ideal for
 ## Architecture Overview
 
 - **Certificate approach**: All certificates are self-signed using an internal CA
-- **Access pattern**: Only front-proxy is publicly accessible, shards are private  
+- **Access pattern**: Only front-proxy is publicly accessible, shards are private
 - **Network**: Simple single-cluster deployment with cluster-internal shard communication
 - **DNS requirements**: Single public DNS record for the front-proxy endpoint
 
@@ -38,7 +38,7 @@ kubectl create namespace kcp-dekker
 kubectl apply -f contrib/production/kcp-dekker/certificate-etcd.yaml
 ```
 
-### 2. Deploy etcd Clusters  
+### 2. Deploy etcd Clusters
 
 Deploy dedicated etcd clusters for root and alpha shards:
 
@@ -66,20 +66,20 @@ kubectl apply -f contrib/production/kcp-dekker/certificate-kcp.yaml
 kubectl get certificate -n kcp-dekker
 ```
 
-### 4. Deploy KCP Components
+### 4. Deploy kcp Components
 
 Deploy the kcp shards and front-proxy:
 
 ```bash
 # NOTE: These files needs to be customized with your domain names before applying
 kubectl apply -f contrib/production/kcp-dekker/kcp-root-shard.yaml
-kubectl apply -f contrib/production/kcp-dekker/kcp-alpha-shard.yaml  
+kubectl apply -f contrib/production/kcp-dekker/kcp-alpha-shard.yaml
 kubectl apply -f contrib/production/kcp-dekker/kcp-front-proxy.yaml
 ```
 
 **Verify kcp deployment**:
 ```bash
-kubectl get pods -n kcp-dekker 
+kubectl get pods -n kcp-dekker
 ```
 
 ### 5. Configure DNS for Front-Proxy

@@ -1,7 +1,7 @@
-# KCP Logo
+# kcp Logo
 
-The logo of KCP is a hypercube, viewed symmetrically in a way that it forms two 
-nested, equally oriented, centered regular hexagons with the connecting hypercube 
+The logo of kcp is a hypercube, viewed symmetrically in a way that it forms two
+nested, equally oriented, centered regular hexagons with the connecting hypercube
 lines clearly visible, either through color contrast or a line.
 
 There are these variants, to be used depending on context:
@@ -10,14 +10,14 @@ There are these variants, to be used depending on context:
 1. high contrast <img alt="Logo" width="210px" align="right" src="./blue-green-high-contrast.png"/><br clear="right"/>
 2. glow <img alt="Logo" width="205px" align="right" src="./blue-green-glow.png"/><br clear="right"/>
 
-Moreover, there is a red-blue variant: 
+Moreover, there is a red-blue variant:
 1. normal <img alt="Logo" width="198px" align="right" src="./red-blue.png"/><br clear="right"/>
 2. high contrast <img alt="Logo" width="210px" align="right" src="./red-blue-high-contrast.png"/><br clear="right"/>
 3. glow <img alt="Logo" width="205px" align="right" src="./red-blue-glow.png"/><br clear="right"/>
 
 Depending on context one or the other variant makes more sense visually.
 
-The KCP font is [Ubuntu](https://fonts.google.com/specimen/Ubuntu).
+The kcp font is [Ubuntu](https://fonts.google.com/specimen/Ubuntu).
 
 The application used for the original files is [Amadine](https://amadine.com/).
 

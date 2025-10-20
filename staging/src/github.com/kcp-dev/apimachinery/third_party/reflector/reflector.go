@@ -80,7 +80,7 @@ const defaultExpectedTypeName = "<unspecified>"
 var defaultMinWatchTimeout = 5 * time.Minute
 
 // Reflector watches a specified resource and causes all changes to be reflected in the given store.
-// KCP modification: Added keyFunction field for cluster-aware key generation.
+// kcp modification: Added keyFunction field for cluster-aware key generation.
 type Reflector struct {
 	// name identifies this reflector. By default, it will be a file:line if possible.
 	name string
@@ -120,7 +120,7 @@ type Reflector struct {
 	// lastSyncResourceVersionMutex guards read/write access to lastSyncResourceVersion
 	lastSyncResourceVersionMutex sync.RWMutex
 	// Called whenever the ListAndWatch drops the connection with an error.
-	// KCP modification: use our local type instead of cache.WatchErrorHandlerWithContext
+	// kcp modification: use our local type instead of cache.WatchErrorHandlerWithContext
 	watchErrorHandler WatchErrorHandlerWithContext
 	// WatchListPageSize is the requested chunk size of initial and resync watch lists.
 	// If unset, for consistent reads (RV="") or reads that opt-into arbitrarily old data
@@ -144,7 +144,7 @@ type Reflector struct {
 	// See https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/3157-watch-list#design-details
 	useWatchList bool
 
-	// KCP modification: keyFunction is used to generate keys for objects in the temporary store
+	// kcp modification: keyFunction is used to generate keys for objects in the temporary store
 	// during WatchList operations. This allows cluster-aware key generation for multi-cluster setups.
 	keyFunction cache.KeyFunc
 }
@@ -158,7 +158,7 @@ func (r *Reflector) TypeDescription() string {
 }
 
 // ReflectorOptions configures a Reflector.
-// KCP modification: Added KeyFunction field.
+// kcp modification: Added KeyFunction field.
 type ReflectorOptions struct {
 	// Name is the Reflector's name. If unset/unspecified, the name defaults to the closest source_file.go:line
 	// in the call stack that is outside this package.
@@ -182,7 +182,7 @@ type ReflectorOptions struct {
 	// Clock allows tests to control time. If unset defaults to clock.RealClock{}
 	Clock clock.Clock
 
-	// KCP modification: KeyFunction is used to generate keys for objects in the temporary store
+	// kcp modification: KeyFunction is used to generate keys for objects in the temporary store
 	// during WatchList operations. If unset, defaults to DeletionHandlingMetaClusterNamespaceKeyFunc
 	// for cluster-aware key generation.
 	KeyFunction cache.KeyFunc
@@ -220,7 +220,7 @@ func NewReflectorWithOptions(lw cache.ListerWatcher, expectedType interface{}, s
 		minWatchTimeout = options.MinWatchTimeout
 	}
 
-	// KCP modification: default to cluster-aware key function
+	// kcp modification: default to cluster-aware key function
 	keyFunction := options.KeyFunction
 	if keyFunction == nil {
 		keyFunction = kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc
@@ -238,9 +238,9 @@ func NewReflectorWithOptions(lw cache.ListerWatcher, expectedType interface{}, s
 		// 0.22 QPS. If we don't backoff for 2min, assume API server is healthy and we reset the backoff.
 		backoffManager:    wait.NewExponentialBackoffManager(800*time.Millisecond, 30*time.Second, 2*time.Minute, 2.0, 1.0, reflectorClock),
 		clock:             reflectorClock,
-		watchErrorHandler: DefaultWatchErrorHandler, // KCP modification: use our local handler
+		watchErrorHandler: DefaultWatchErrorHandler, // kcp modification: use our local handler
 		expectedType:      reflect.TypeOf(expectedType),
-		keyFunction:       keyFunction, // KCP modification
+		keyFunction:       keyFunction, // kcp modification
 	}
 
 	if r.name == "" {
@@ -702,7 +702,7 @@ func (r *Reflector) watchList(ctx context.Context) (watch.Interface, error) {
 
 		resourceVersion = ""
 		lastKnownRV := r.rewatchResourceVersion()
-		// KCP modification: use the configured keyFunction instead of DeletionHandlingMetaNamespaceKeyFunc
+		// kcp modification: use the configured keyFunction instead of DeletionHandlingMetaNamespaceKeyFunc
 		// This is critical for multi-cluster setups where objects from different clusters have the same
 		// namespace/name but different cluster names. Without cluster-aware keys, objects overwrite each other.
 		temporaryStore = cache.NewStore(r.keyFunction, storeOpts...)

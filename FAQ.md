@@ -8,12 +8,11 @@ kcp is a highly-multi-tenant Kubernetes control-plane, built for SaaS service-pr
 
 Check out our [concepts](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md) document and feel free to open an issue if something is not covered.
 
-
 ## If kcp is a Kubernetes API server without pod-like APIs, how do resources like Deployments get scheduled?
 
 kcp has a concept called [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#syncer) which is installed on each [SyncTarget](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#workload-cluster). The [syncer](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#syncer) negotiates, with kcp, a set of APIs to make accessible in the workspace. This may include things like [Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) or other resources you may explicitly configure the syncer to synchronize to kcp. Once these APIs are made available in your [Workspace](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#workspace) you may then create resources of that type. From there, the [Location and Placement](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#location) APIs help determine which [Location](https://github.com/kcp-dev/kcp/blob/main/docs/concepts.md#location) your deployable resource lands on.
 
-## Will KCP be able to pass the K8S conformance tests in [CNCF Conformance Suites](https://www.cncf.io/certification/software-conformance/)?
+## Will kcp be able to pass the K8S conformance tests in [CNCF Conformance Suites](https://www.cncf.io/certification/software-conformance/)?
 
 No, the Kubernetes conformance suites require that all Kubernetes APIs are supported and kcp does not support all APIs out of the box (for instance, Pods).
 
@@ -69,3 +68,6 @@ Shards in kcp represent a single apiserver and etcd/db instance.  This is how kc
 
 You're in the right place. Clone this repo and run `make install WHAT=./staging/src/github.com/kcp-dev/cli/cmd/kubectl-kcp`.
 
+## What does kcp stand for / how to spell it?
+
+`kcp` stands for "Kube for Control Plane" and should always be written in lowercase letters.

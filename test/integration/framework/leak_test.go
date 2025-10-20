@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	// knownGoroutineLeaks are leaks from just running and stopping KCP
+	// knownGoroutineLeaks are leaks from just running and stopping kcp
 	// collected and run through:
 	//	grep 'on top of the stack' output.log | cut -d, -f2- | cut -d' ' -f3 | sort | uniq
 	knownGoroutineLeaks = []goleak.Option{

@@ -101,7 +101,7 @@ func ValidateAPIResourceSchemaSpec(ctx context.Context, spec *apisv1alpha1.APIRe
 	allErrs := field.ErrorList{}
 
 	// HACK: Relax naming constraints when registering legacy schema resources through CRDs
-	// for the KCP scenario
+	// for the kcp scenario
 	if spec.Group == "" {
 		// pass. This is the core group
 	} else if spec.Group == "core" {

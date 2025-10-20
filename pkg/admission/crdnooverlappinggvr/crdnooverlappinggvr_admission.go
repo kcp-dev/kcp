@@ -89,7 +89,7 @@ func (p *crdNoOverlappingGVRAdmission) ValidateInitialization() error {
 		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	if p.updateLogicalCluster == nil {
-		return fmt.Errorf(PluginName + " plugin needs a KCP cluster client")
+		return fmt.Errorf(PluginName + " plugin needs a kcp cluster client")
 	}
 	return nil
 }

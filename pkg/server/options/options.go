@@ -149,14 +149,14 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	etcdServers.Usage += " By default an embedded etcd server is started."
 
 	o.EmbeddedEtcd.AddFlags(fss.FlagSet("Embedded etcd"))
-	o.Controllers.AddFlags(fss.FlagSet("KCP Controllers"))
-	o.Authorization.AddFlags(fss.FlagSet("KCP Authorization"))
-	o.AdminAuthentication.AddFlags(fss.FlagSet("KCP Authentication"))
-	o.Virtual.AddFlags(fss.FlagSet("KCP Virtual Workspaces"))
-	o.HomeWorkspaces.AddFlags(fss.FlagSet("KCP Home Workspaces"))
-	o.Cache.AddFlags(fss.FlagSet("KCP Cache Server"))
+	o.Controllers.AddFlags(fss.FlagSet("kcp Controllers"))
+	o.Authorization.AddFlags(fss.FlagSet("kcp Authorization"))
+	o.AdminAuthentication.AddFlags(fss.FlagSet("kcp Authentication"))
+	o.Virtual.AddFlags(fss.FlagSet("kcp Virtual Workspaces"))
+	o.HomeWorkspaces.AddFlags(fss.FlagSet("kcp Home Workspaces"))
+	o.Cache.AddFlags(fss.FlagSet("kcp Cache Server"))
 
-	fs := fss.FlagSet("KCP")
+	fs := fss.FlagSet("kcp")
 	fs.StringVar(&o.Extra.ProfilerAddress, "profiler-address", o.Extra.ProfilerAddress, "[Address]:port to bind the profiler to")
 	fs.StringVar(&o.Extra.ShardKubeconfigFile, "shard-kubeconfig-file", o.Extra.ShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to peer kcp shards.")
 	fs.StringVar(&o.Extra.RootShardKubeconfigFile, "root-shard-kubeconfig-file", o.Extra.RootShardKubeconfigFile, "Kubeconfig holding admin(!) credentials to the root kcp shard.")

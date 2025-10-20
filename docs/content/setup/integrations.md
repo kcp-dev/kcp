@@ -159,7 +159,7 @@ limactl start kcp --vm-type=qemu
 !!! info
 On macOS, Lima may default to vz (Apple Virtualization), while on Linux it defaults to qemu, and on Windows to wsl2. If you want consistency across environments, you can explicitly pass --vm-type=qemu when starting the VM.
 
-Export the KCP kubeconfig
+Export the kcp kubeconfig
 ```sh
 export KUBECONFIG="/Users/<user>/.lima/kcp/copied-from-guest/kubeconfig.yaml"
 ```

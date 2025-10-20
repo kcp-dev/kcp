@@ -38,7 +38,7 @@ func NewGeneric(rootDir string) *GenericOptions {
 }
 
 func (o *GenericOptions) AddFlags(fss *cliflag.NamedFlagSets) {
-	fs := fss.FlagSet("KCP")
+	fs := fss.FlagSet("kcp")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory. Set to \"\" to disable file (e.g. certificates) generation in a root directory.")
 	fs.StringVar(&o.MappingFile, "miniproxy-mapping-file", o.MappingFile, "DEVELOPMENT ONLY. Path to additional mapping file to be used by mini-front-proxy. This should not be used in production. For production usecase use front-proxy component instead.")
 }
@@ -75,7 +75,7 @@ func (o *GenericOptions) Validate() []error {
 	return nil
 }
 
-// mkdirRoot creates the root configuration directory for the KCP
+// mkdirRoot creates the root configuration directory for the kcp
 // server. This has to be done early before we start bringing up server
 // components to ensure that we set the initial permissions correctly,
 // since otherwise components will create it as a side-effect.

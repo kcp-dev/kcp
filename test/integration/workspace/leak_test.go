@@ -90,7 +90,7 @@ func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset
 }
 
 var (
-	// These are goroutines that can pop up randomly during KCP
+	// These are goroutines that can pop up randomly during kcp
 	// operations and aren't indicative of a leak when deleting
 	// a workspace.
 	randomGoroutineSources = []goleak.Option{

@@ -51,7 +51,7 @@ func main() {
 	serverOptions := options.NewOptions(*rootDir)
 	cmd := &cobra.Command{
 		Use:   "cache-server",
-		Short: "Runs the cache server for KCP",
+		Short: "Runs the cache server for kcp",
 		Long: help.Doc(`
             Starts a server that hosts data/resources that are required by shards.
             It serves as a cache helping to reduce the storage that would have to

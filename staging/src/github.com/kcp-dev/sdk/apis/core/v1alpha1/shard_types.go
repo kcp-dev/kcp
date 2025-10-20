@@ -64,7 +64,7 @@ var _ conditions.Setter = &Shard{}
 
 // ShardSpec holds the desired state of the Shard.
 type ShardSpec struct {
-	// baseURL is the address of the KCP shard for direct connections, e.g. by some
+	// baseURL is the address of the kcp shard for direct connections, e.g. by some
 	// front-proxy doing the fan-out to the shards.
 	//
 	// +required

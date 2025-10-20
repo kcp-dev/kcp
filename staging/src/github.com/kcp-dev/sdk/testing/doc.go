@@ -14,6 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package testing provides utilities for testing of and against KCP. This code
-// to be used outside of the KCP repository is experimental and subject to change.
+// Package testing provides utilities for testing of and against kcp. This code
+// to be used outside of the kcp repository is experimental and subject to change.
 package testing

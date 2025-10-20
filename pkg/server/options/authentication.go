@@ -163,7 +163,7 @@ func (s *AdminAuthentication) WriteKubeConfig(config genericapiserver.CompletedC
 			if shardAdminAuth := existingExternalKubeConfig.AuthInfos[shardAdminUserName]; shardAdminAuth != nil {
 				kubeConfigTokenHash := sha256.Sum256([]byte(shardAdminAuth.Token))
 				if !bytes.Equal(kubeConfigTokenHash[:], shardAdminTokenHash) {
-					return fmt.Errorf("admin token in file %q is not valid anymore. Remove file %q and restart KCP", s.KubeConfigPath, s.ShardAdminTokenHashFilePath)
+					return fmt.Errorf("admin token in file %q is not valid anymore. Remove file %q and restart kcp", s.KubeConfigPath, s.ShardAdminTokenHashFilePath)
 				}
 
 				shardAdminToken = shardAdminAuth.Token

@@ -63,7 +63,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 
 		if groupVersionAPISet.OpenAPIDefinitions != nil {
 			cfg.GenericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(groupVersionAPISet.OpenAPIDefinitions, openapi.NewDefinitionNamer(scheme))
-			cfg.GenericConfig.OpenAPIConfig.Info.Title = "KCP Virtual Workspace for " + vwName
+			cfg.GenericConfig.OpenAPIConfig.Info.Title = "kcp Virtual Workspace for " + vwName
 			cfg.GenericConfig.SkipOpenAPIInstallation = true
 		}
 
