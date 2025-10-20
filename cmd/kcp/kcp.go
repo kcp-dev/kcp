@@ -48,9 +48,9 @@ import (
 func main() {
 	cmd := &cobra.Command{
 		Use:   "kcp",
-		Short: "Kube for Control Plane (KCP)",
+		Short: "Kube for Control Plane (kcp)",
 		Long: help.Doc(`
-			KCP is the easiest way to manage Kubernetes applications against one or
+			kcp is the easiest way to manage Kubernetes applications against one or
 			more clusters, by giving you a personal control plane that schedules your
 			workloads onto one or many clusters, and making it simple to pick up and
 			move. It supports advanced use cases such as spreading your apps across

@@ -98,7 +98,7 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.ShardExternalURL, "shard-external-url", o.ShardExternalURL, "URL used by outside clients to talk to the kcp shard this virtual workspace is related to")
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
-		"The kubeconfig file of the KCP instance that hosts workspaces.")
+		"The kubeconfig file of the kcp instance that hosts workspaces.")
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
 
 	flags.StringVar(&o.Context, "context", o.Context, "Name of the context in the kubeconfig file to use")
