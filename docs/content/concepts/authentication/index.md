@@ -13,7 +13,7 @@ For detailed instructions on running kcp with a specific authentication strategy
 
 - [OIDC]
 
-## KCP Front Proxy Authentication
+## kcp Front Proxy Authentication
 
 kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name (as username) and Organizations (as groups) to the backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.
 
@@ -50,7 +50,7 @@ These can be passed by setting `--authentication-pass-on-groups` and `--authenti
 By default, kcp-front-proxy is configured to drop `system:masters` and `system:kcp:logical-cluster-admin`.
 This ensures that highly privileged users do not receive elevated access when passing through the proxy.
 
-## KCP Server Admin Authentication
+## kcp Server Admin Authentication
 
 Admin Authenticator sets up user roles and groups and generates authentication tokens and `admin.kubeconfig` file. The authentication process relies on Kubernetes authenticated group authenticator.
 To enable admin authentication in the kcp server, you need run it in the development mode with the `--batteries-included=admin` flag set.
@@ -58,22 +58,22 @@ This setting is currently enabled by default when running the `kcp` binary, but 
 
 ### Users and Groups
 
-| **User Name**   | **Role**                                                                                                                           | **Groups**                           |
-|-----------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
-| **shard-admin** | Member of the privileged system group. This user bypasses most kcp authorization checks.                                           | system:masters|
-| **kcp-admin**   | Member of the system:kcp:admin group. This user is subject to kcp authorization checks. | system:kcp:admin           |
-| **user**        | Regular non-admin user who is not a part of any predefined groups.                                                                 | None                                 |
+| **User Name**   | **Role**                                                                                 | **Groups**        |
+|-----------------|------------------------------------------------------------------------------------------|-------------------|
+| **shard-admin** | Member of the privileged system group. This user bypasses most kcp authorization checks. | system:masters    |
+| **kcp-admin**   | Member of the system:kcp:admin group. This user is subject to kcp authorization checks.  | system:kcp:admin  |
+| **user**        | Regular non-admin user who is not a part of any predefined groups.                       | None              |
 
 ### Generated Kubeconfig Contexts
 
 kcp server generates a kubeconfig file (admin.kubeconfig) containing credentials for the predefined users. This file allows users to authenticate into different logical clusters.
 
-| **Context Name** | **Cluster Endpoint** |
-|------------------|----------------------|
-| **root**         | /clusters/root       |
-| **base**         | /clusters/base       |
+| **Context Name** | **Cluster Endpoint**   |
+|------------------|------------------------|
+| **root**         | /clusters/root         |
+| **base**         | /clusters/base         |
 | **system:admin** | /clusters/system:admin |
-| **shard-base**   | /clusters/base       |
+| **shard-base**   | /clusters/base         |
 
 ## Pages
 
