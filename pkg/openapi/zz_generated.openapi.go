@@ -1406,7 +1406,7 @@ func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular kcp instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1731,7 +1731,7 @@ func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular kcp instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2376,7 +2376,7 @@ func schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref common.Referenc
 					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular kcp instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2676,7 +2676,7 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref common.ReferenceCallback)
 					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular kcp instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2930,7 +2930,7 @@ func schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref common.ReferenceCal
 					},
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular KCP instance.",
+							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular kcp instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3994,7 +3994,7 @@ func schema_sdk_apis_core_v1alpha1_ShardSpec(ref common.ReferenceCallback) commo
 				Properties: map[string]spec.Schema{
 					"baseURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "baseURL is the address of the KCP shard for direct connections, e.g. by some front-proxy doing the fan-out to the shards.",
+							Description: "baseURL is the address of the kcp shard for direct connections, e.g. by some front-proxy doing the fan-out to the shards.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
