@@ -36,6 +36,45 @@ kcp has a `--api-audiences` flag that configures the global JWT audience claim t
 
 For example, suppose kcp is started with `--api-audiences=https://kcp.example.com` and there is a `WorkspaceAuthenticationConfiguration` that defines a JWT validator using the audience `https://corp.initech.com`. For a token to be admitted into a workspace that uses this auth config, the token will have to contain *both* audiences. This is to ensure the token is actually meant to be used in kcp, regardless of which audiences are then configured per workspace.
 
+## Virtual Workspaces
+
+The OIDC support is limited to standard cluster access (i.e. requests to `/clusters/...` in kcp) because virtual workspaces (usually anything under `/services/`) will have custom, unknown URL formats and by default the kcp front-proxy is only configured via URL prefixes, so for example admins could configure `/services/myservice/` to be sent to one special Service/Pod, but the front-proxy would have no knowledge about anything beyond that, including any possible cluster context.
+
+To enable the front-proxy to perform per-workspace authentication, even for virtual workspaces, a more advanced URL pattern needs to be configured in the front-proxy's `mapping.yaml`: Each mapping still has one `path` field that is treated as a prefix, but this path can contain placeholders (like `/services/{servicename}/` would match `/services/foo` and `/services/bar`) as described in the [Go documentation](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux). These placeholders can be used to give the front-proxy a hint about the cluster context, which enables it to then lookup and handle authentication for that cluster.
+
+!!! note
+    Since in kcp you configure a _prefix_, but Go's URL matching matches the entire URL, technically a path like `/foo` in the mapping config would only ever match the literal `GET /foo` request. Because of this, kcp will actually take every path mapping and add it twice to the mux: once the original mapping (`/foo`) and once as `/foo/{trail...}` to enable matching requests like `GET /foo/bar`.
+
+There is currently only 1 placeholder that has meaning: `{cluster}`. If a URL matches a path mapping that contains a `{cluster}` placeholder, and that value is not empty, then the front-proxy will be enable per-workspace authentication (if the feature is enabled, of course) for this request.
+
+Here is an example for a path mapping that configures such a special virtual workspace:
+
+```yaml
+# fallback route to send all non-matched requests to this shard
+- path: /
+  backend: https://kcp:6443
+  backend_server_ca: /etc/kcp/tls/ca/tls.crt
+  proxy_client_cert: /etc/kcp-front-proxy/requestheader-client/tls.crt
+  proxy_client_key: /etc/kcp-front-proxy/requestheader-client/tls.key
+
+# configure an explicit rule for a custom virtual workspace
+- path: /services/organization/clusters/{cluster}
+  backend: https://my-virtual-workspaces:6444
+  backend_server_ca: /etc/kcp/tls/ca/tls.crt
+  proxy_client_cert: /etc/kcp-front-proxy/requestheader-client/tls.crt
+  proxy_client_key: /etc/kcp-front-proxy/requestheader-client/tls.key
+
+# If your custom virtual workspace also offers non-cluster-scoped endpoints,
+# make sure to include this as a fallback; the longer match will win.
+- path: /services/organization
+  backend: https://my-virtual-workspaces:6444
+  backend_server_ca: /etc/kcp/tls/ca/tls.crt
+  proxy_client_cert: /etc/kcp-front-proxy/requestheader-client/tls.crt
+  proxy_client_key: /etc/kcp-front-proxy/requestheader-client/tls.key
+```
+
+You can make use of placeholders other than `{cluster}`, but their values will now have any meaning and will not be made available to the front-proxy's backends. Do note that in future kcp versions, more placeholders with special meaning might be introduced.
+
 ## Limitations
 
 This feature has some small limitations that users should keep in mind:

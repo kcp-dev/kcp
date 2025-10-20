@@ -29,7 +29,7 @@ authoritative place that stores code. Every staging repository is a standalone G
 ## Similarities with Kubernetes
 
 This pattern is the same as the Kubernetes staging repositories pattern, with an exception of how tags are handled
-within published repositories (this is explained later in this document).  
+within published repositories (this is explained later in this document).
 
 ## High Level Overview
 
@@ -61,13 +61,13 @@ Concretely:
 - kcp-dev/apimachinery has the Go module major version at v2, so tags will be v2.x.y
 - kcp-dev/code-generator has the Go module major version at v3, so tags will be v3.x.y
 
-Note: the reason for the speical handling of tags is to ensure the backwards compatibility, as these libraries
+Note: the reason for the special handling of tags is to ensure the backwards compatibility, as these libraries
 already had tags/releases that did not correspond to the kcp versioning.
 
 ## Implementation
 
 The mirroring process is implemented via the publishing-bot tool. This tool has been originally created by
-the Kubernetes project. We're maintaing a fork of this tool that has been adjusted for our purposes at
+the Kubernetes project. We're maintaining a fork of this tool that has been adjusted for our purposes at
 [kcp-dev/publishing-bot](https://github.com/kcp-dev/publishing-bot). Overall, the changes made to the original tool
 include:
 
