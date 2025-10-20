@@ -25,6 +25,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac/bootstrappolicy"
 
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
+	"github.com/kcp-dev/kcp/sdk/apis/cache"
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 )
@@ -107,6 +108,13 @@ func clusterRoles() []rbacv1.ClusterRole {
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("update", "patch", "get").Groups(apis.GroupName).Resources("apiexportendpointslices/status").RuleOrDie(),
 				rbacv1helpers.NewRule("get", "list", "watch").Groups(apis.GroupName).Resources("apiexportendpointslices").RuleOrDie(),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("update", "patch", "get").Groups(cache.GroupName).Resources("cachedresourceendpointslices/status").RuleOrDie(),
+				rbacv1helpers.NewRule("get", "list", "watch").Groups(cache.GroupName).Resources("cachedresourceendpointslices").RuleOrDie(),
 			},
 		},
 	}

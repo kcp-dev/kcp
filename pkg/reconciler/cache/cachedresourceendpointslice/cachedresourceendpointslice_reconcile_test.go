@@ -18,8 +18,10 @@ package cachedresourceendpointslice
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,233 +30,152 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
+	topologyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/topology/v1alpha1"
 )
 
-func TestEndpointsReconciler(t *testing.T) {
+func TestReconcile(t *testing.T) {
 	tests := map[string]struct {
-		r           endpointsReconciler
-		in, out     cachev1alpha1.CachedResourceEndpointSlice
-		wantsErr    error
-		wantsStatus reconcileStatus
+		keyMissing                bool
+		cachedResourceMissing     bool
+		partitionMissing          bool
+		cachedResourceInternalErr bool
+		listShardsError           error
+		errorReason               string
+
+		wantError                  bool
+		wantVerifyFailure          bool
+		wantCachedResourceValid    bool
+		wantPartitionValid         bool
+		wantCachedResourceNotValid bool
+		wantPartitionNotValid      bool
 	}{
-		"ShouldAdd": {
-			r: endpointsReconciler{
-				getCachedResource: func(logicalcluster.Name, string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-cachedresource",
-							Annotations: map[string]string{
-								logicalcluster.AnnotationKey: "my-workspace",
-							},
-						},
-					}, nil
-				},
-				getMyShard: func() (*corev1alpha1.Shard, error) {
-					return &corev1alpha1.Shard{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-shard",
-						},
-						Spec: corev1alpha1.ShardSpec{
-							VirtualWorkspaceURL: "https://my-shard.kcp.dev",
-						},
-					}, nil
-				},
-			},
-			in: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-			},
-			out: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-				Status: cachev1alpha1.CachedResourceEndpointSliceStatus{
-					CachedResourceEndpoints: []cachev1alpha1.CachedResourceEndpoint{
-						{
-							URL: "https://my-shard.kcp.dev/services/replication/my-workspace/my-cachedresource"},
-					},
-				},
-			},
-			wantsStatus: reconcileStatusContinue,
+		"CachedResourceValid set to false when CachedResource is missing": {
+			cachedResourceMissing:      true,
+			errorReason:                cachev1alpha1.CachedResourceNotFoundReason,
+			wantCachedResourceNotValid: true,
 		},
-		"ShouldNotAddBecauseAlreadyPresent": {
-			r: endpointsReconciler{
-				getCachedResource: func(logicalcluster.Name, string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-cachedresource",
-							Annotations: map[string]string{
-								logicalcluster.AnnotationKey: "my-workspace",
-							},
-						},
-					}, nil
-				},
-				getMyShard: func() (*corev1alpha1.Shard, error) {
-					return &corev1alpha1.Shard{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-shard",
-						},
-						Spec: corev1alpha1.ShardSpec{
-							VirtualWorkspaceURL: "https://my-shard.kcp.dev",
-						},
-					}, nil
-				},
-			},
-			in: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-				Status: cachev1alpha1.CachedResourceEndpointSliceStatus{
-					CachedResourceEndpoints: []cachev1alpha1.CachedResourceEndpoint{
-						{
-							URL: "https://my-shard.kcp.dev/services/replication/my-workspace/my-cachedresource"},
-					},
-				},
-			},
-			out: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-				Status: cachev1alpha1.CachedResourceEndpointSliceStatus{
-					CachedResourceEndpoints: []cachev1alpha1.CachedResourceEndpoint{
-						{
-							URL: "https://my-shard.kcp.dev/services/replication/my-workspace/my-cachedresource"},
-					},
-				},
-			},
-			wantsStatus: reconcileStatusContinue,
+		"CachedResourceValid set to false if an internal error happens when fetching the CachedResource": {
+			cachedResourceInternalErr:  true,
+			wantError:                  true,
+			errorReason:                cachev1alpha1.InternalErrorReason,
+			wantCachedResourceNotValid: true,
 		},
-		"ShouldRemove": {
-			r: endpointsReconciler{
-				getCachedResource: func(logicalcluster.Name, string) (*cachev1alpha1.CachedResource, error) {
-					return nil, apierrors.NewNotFound(cachev1alpha1.Resource("cachedresources"), "my-cachedresource")
-				},
-				getMyShard: func() (*corev1alpha1.Shard, error) {
-					return &corev1alpha1.Shard{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-shard",
-						},
-						Spec: corev1alpha1.ShardSpec{
-							VirtualWorkspaceURL: "https://my-shard.kcp.dev",
-						},
-					}, nil
-				},
-			},
-			in: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-				Status: cachev1alpha1.CachedResourceEndpointSliceStatus{
-					CachedResourceEndpoints: []cachev1alpha1.CachedResourceEndpoint{
-						{
-							URL: "https://my-shard.kcp.dev/services/replication/my-workspace/my-cachedresource"},
-					},
-				},
-			},
-			out: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-				Status: cachev1alpha1.CachedResourceEndpointSliceStatus{
-					CachedResourceEndpoints: []cachev1alpha1.CachedResourceEndpoint{},
-				},
-			},
-			wantsStatus: reconcileStatusContinue,
-		},
-		"ShouldSkipBecauseNotFound": {
-			r: endpointsReconciler{
-				getCachedResource: func(logicalcluster.Name, string) (*cachev1alpha1.CachedResource, error) {
-					return nil, apierrors.NewNotFound(cachev1alpha1.Resource("cachedresources"), "my-cachedresource")
-				},
-				getMyShard: func() (*corev1alpha1.Shard, error) {
-					return &corev1alpha1.Shard{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-shard",
-						},
-						Spec: corev1alpha1.ShardSpec{
-							VirtualWorkspaceURL: "https://my-shard.kcp.dev",
-						},
-					}, nil
-				},
-			},
-			in: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-			},
-			out: cachev1alpha1.CachedResourceEndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "my-workspace",
-					},
-				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
-						Name: "my-cachedresource",
-					},
-				},
-			},
-			wantsStatus: reconcileStatusContinue,
+		"PartitionValid set to false when the Partition is missing": {
+			partitionMissing:      true,
+			errorReason:           cachev1alpha1.PartitionInvalidReferenceReason,
+			wantPartitionNotValid: true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			status, err := tc.r.reconcile(context.Background(), &tc.in)
-			require.Equal(t, tc.wantsStatus, status, "unexpected reconcile status")
-			require.Equal(t, tc.wantsErr, err, "unexpected error value")
-			require.Equal(t, tc.out, tc.in)
+			c := &controller{
+				getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
+					if tc.cachedResourceMissing {
+						return nil, apierrors.NewNotFound(cachev1alpha1.Resource("CachedResource"), name)
+					} else if tc.cachedResourceInternalErr {
+						return nil, fmt.Errorf("internal error")
+					} else {
+						return &cachev1alpha1.CachedResource{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: map[string]string{
+									logicalcluster.AnnotationKey: "root:org:ws",
+								},
+								Name: "my-cr",
+							},
+						}, nil
+					}
+				},
+				getPartition: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error) {
+					if tc.partitionMissing {
+						return nil, apierrors.NewNotFound(topologyv1alpha1.Resource("Partition"), name)
+					} else {
+						return &topologyv1alpha1.Partition{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: map[string]string{
+									logicalcluster.AnnotationKey: "root:org:ws",
+								},
+								Name: "my-partition",
+							},
+							Spec: topologyv1alpha1.PartitionSpec{
+								Selector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"region": "Europe",
+									},
+								},
+							},
+						}, nil
+					}
+				},
+			}
+
+			cachedResourceEndpointSlice := &cachev1alpha1.CachedResourceEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:org:ws",
+					},
+					Name: "my-slice",
+				},
+				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+					CachedResource: cachev1alpha1.CachedResourceReference{
+						Name: "my-cr",
+					},
+					Partition: "my-partition",
+				},
+			}
+			_, err := c.reconcile(context.Background(), cachedResourceEndpointSlice)
+			if tc.wantError {
+				require.Error(t, err, "expected an error")
+			} else {
+				require.NoError(t, err, "expected no error")
+			}
+
+			if tc.wantCachedResourceNotValid {
+				requireConditionMatches(t, cachedResourceEndpointSlice,
+					conditions.FalseCondition(
+						cachev1alpha1.CachedResourceValid,
+						tc.errorReason,
+						conditionsv1alpha1.ConditionSeverityError,
+						"",
+					),
+				)
+			}
+
+			if tc.wantPartitionNotValid {
+				requireConditionMatches(t, cachedResourceEndpointSlice,
+					conditions.FalseCondition(
+						cachev1alpha1.PartitionValid,
+						tc.errorReason,
+						conditionsv1alpha1.ConditionSeverityError,
+						"",
+					),
+				)
+			}
+
+			if tc.wantCachedResourceValid {
+				requireConditionMatches(t, cachedResourceEndpointSlice,
+					conditions.TrueCondition(cachev1alpha1.CachedResourceValid),
+				)
+			}
+
+			if tc.wantPartitionValid {
+				requireConditionMatches(t, cachedResourceEndpointSlice,
+					conditions.TrueCondition(cachev1alpha1.PartitionValid),
+				)
+			}
 		})
 	}
+}
+
+// requireConditionMatches looks for a condition matching c in g. LastTransitionTime and Message
+// are not compared.
+func requireConditionMatches(t *testing.T, g conditions.Getter, c *conditionsv1alpha1.Condition) {
+	t.Helper()
+	actual := conditions.Get(g, c.Type)
+	require.NotNil(t, actual, "missing condition %q", c.Type)
+	actual.LastTransitionTime = c.LastTransitionTime
+	actual.Message = c.Message
+	require.Empty(t, cmp.Diff(actual, c))
 }

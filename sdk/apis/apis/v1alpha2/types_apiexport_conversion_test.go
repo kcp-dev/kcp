@@ -21,7 +21,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
@@ -82,6 +84,31 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 					Schema: "v1.foo.bar",
 					Storage: ResourceSchemaStorage{
 						CRD: &ResourceSchemaStorageCRD{},
+					},
+				}},
+				PermissionClaims: []PermissionClaim{{
+					GroupResource: GroupResource{
+						Resource: "configmaps",
+					},
+					Verbs: []string{"get"},
+				}},
+			},
+		},
+		{
+			Spec: APIExportSpec{
+				Resources: []ResourceSchema{{
+					Group:  "bar",
+					Name:   "foo",
+					Schema: "v1.foo.bar",
+					Storage: ResourceSchemaStorage{
+						Virtual: &ResourceSchemaStorageVirtual{
+							Reference: corev1.TypedLocalObjectReference{
+								APIGroup: ptr.To("example.com"),
+								Kind:     "MyEndpointSlice",
+								Name:     "my-virtual-resource",
+							},
+							IdentityHash: "123abc",
+						},
 					},
 				}},
 				PermissionClaims: []PermissionClaim{{

@@ -1,0 +1,88 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: today.instances.machines.svm.io
+spec:
+  group: machines.svm.io
+  names:
+    kind: Instance
+    listKind: InstanceList
+    plural: instances
+    singular: instance
+    shortNames:
+    - inst
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      description: Instance represents a virtual machine instance
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: InstanceSpec holds the desired state of the Instance.
+          properties:
+            instanceType:
+              description: The type of the instance (e.g. small, medium, large)
+              type: string
+            name:
+              description: The name of the instance
+              type: string
+            tier:
+              description: The tier of the instance (e.g. basic, premium)
+              type: string
+              enum:
+              - basic
+              - premium
+              - enterprise
+          required:
+          - instanceType
+          - name
+          - tier
+          type: object
+        status:
+          description: InstanceStatus communicates the observed state of the Instance.
+          properties:
+            phase:
+              description: The current phase of the instance
+              type: string
+              enum:
+              - Pending
+              - Running
+              - Terminated
+            conditions:
+              description: Current conditions of the instance
+              items:
+                properties:
+                  type:
+                    type: string
+                  status:
+                    type: string
+                  lastTransitionTime:
+                    type: string
+                    format: date-time
+                  reason:
+                    type: string
+                  message:
+                    type: string
+                required:
+                - type
+                - status
+                type: object
+              type: array
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

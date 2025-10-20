@@ -22,28 +22,45 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	"github.com/kcp-dev/kcp/sdk/client"
 )
 
 const (
-	byCachedResourceAndLogicalCluster = "byCachedResourceAndLogicalCluster"
+	indexCachedResourceEndpointSlicesByPartition = "indexCachedResourceEndpointSlicesByPartition"
+
+	IndexCachedResourceEndpointSliceByCachedResource = "IndexCachedResourceEndpointSliceByCachedResource"
 )
 
-// indexCachedResourceEndpointSliceByCachedResourceAndLogicalCluster is an index function that maps a reference to CachedResource and its cluster to a key.
-func indexCachedResourceEndpointSliceByCachedResourceAndLogicalCluster(obj interface{}) ([]string, error) {
-	endpoints, ok := obj.(*cachev1alpha1.CachedResourceEndpointSlice)
+// indexCachedResourceEndpointSlicesByPartitionFunc is an index function that maps a Partition to the key for its
+// spec.partition.
+func indexCachedResourceEndpointSlicesByPartitionFunc(obj interface{}) ([]string, error) {
+	slice, ok := obj.(*cachev1alpha1.CachedResourceEndpointSlice)
 	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be CachedResourceEndpointSlice, but is %T", obj)
+		return []string{}, fmt.Errorf("obj is supposed to be an CachedResourceEndpointSlice, but is %T", obj)
 	}
 
-	key := cachedResourceEndpointSliceByCachedResourceAndLogicalCluster(&endpoints.Spec.CachedResource, logicalcluster.From(endpoints))
-	return []string{key}, nil
+	if slice.Spec.Partition != "" {
+		clusterName := logicalcluster.From(slice).Path()
+		if !ok {
+			// this will never happen due to validation
+			return []string{}, fmt.Errorf("cluster information missing")
+		}
+		key := client.ToClusterAwareKey(clusterName, slice.Spec.Partition)
+		return []string{key}, nil
+	}
+
+	return []string{}, nil
 }
 
-func cachedResourceEndpointSliceByCachedResourceAndLogicalCluster(cachedResourceRef *cachev1alpha1.CachedResourceReference, cluster logicalcluster.Name) string {
-	var key string
-	key += cachedResourceRef.Name
-	if !cluster.Empty() {
-		key += "|" + cluster.String()
+// IndexCachedResourceEndpointSliceByCachedResourceFunc is an index function that indexes
+// a CachedResourceEndpointSlice by the CachedResource it references.
+func IndexCachedResourceEndpointSliceByCachedResourceFunc(obj interface{}) ([]string, error) {
+	slice, ok := obj.(*cachev1alpha1.CachedResourceEndpointSlice)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an CachedResourceEndpointSlice", obj)
 	}
-	return key
+
+	pathLocal := logicalcluster.From(slice).Path()
+	// TODO(gman0): add an optional external path index key once we add "CachedResourceEndpointSlice.spec.cachedResource.path".
+	return []string{pathLocal.Join(slice.Spec.CachedResource.Name).String()}, nil
 }

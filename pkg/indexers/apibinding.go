@@ -26,6 +26,31 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
+const (
+	APIBindingByIdentityAndGroupResource = "apibinding-byIdentityGroupResource"
+)
+
+// IndexAPIBindingByIdentityGroupResource is an index function that indexes an APIBinding by its
+// bound resources' identity and group resource.
+func IndexAPIBindingByIdentityGroupResource(obj interface{}) ([]string, error) {
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
+	if !ok {
+		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
+	}
+
+	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
+
+	for _, r := range apiBinding.Status.BoundResources {
+		ret = append(ret, IdentityGroupResourceKeyFunc(r.Schema.IdentityHash, r.Group, r.Resource))
+	}
+
+	return ret, nil
+}
+
+func IdentityGroupResourceKeyFunc(identity, group, resource string) string {
+	return fmt.Sprintf("%s/%s/%s", identity, group, resource)
+}
+
 // ClusterAndGroupResourceValue returns the index value for use with
 // IndexAPIBindingByClusterAndAcceptedClaimedGroupResources from clusterName and groupResource.
 func ClusterAndGroupResourceValue(clusterName logicalcluster.Name, groupResource schema.GroupResource) string {

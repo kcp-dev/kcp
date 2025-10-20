@@ -20,13 +20,10 @@ import (
 	"fmt"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 const (
-	byGroupResourceName     = "byGroupResourceName" // <plural>.<group>, core group uses "core"
-	byIdentityGroupResource = "byIdentityGroupResource"
+	byGroupResourceName = "byGroupResourceName" // <plural>.<group>, core group uses "core"
 )
 
 func indexCRDByGroupResourceName(obj interface{}) ([]string, error) {
@@ -40,23 +37,4 @@ func indexCRDByGroupResourceName(obj interface{}) ([]string, error) {
 		group = "core"
 	}
 	return []string{fmt.Sprintf("%s.%s", crd.Spec.Names.Plural, group)}, nil
-}
-
-func indexAPIBindingByIdentityGroupResource(obj interface{}) ([]string, error) {
-	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
-	if !ok {
-		return []string{}, fmt.Errorf("obj is supposed to be an APIBinding, but is %T", obj)
-	}
-
-	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
-
-	for _, r := range apiBinding.Status.BoundResources {
-		ret = append(ret, identityGroupResourceKeyFunc(r.Schema.IdentityHash, r.Group, r.Resource))
-	}
-
-	return ret, nil
-}
-
-func identityGroupResourceKeyFunc(identity, group, resource string) string {
-	return fmt.Sprintf("%s/%s/%s", identity, group, resource)
 }
