@@ -22,9 +22,9 @@ The plugins will be [automatically discovered by your current `kubectl` binary](
 
 ```sh
 $ kubectl kcp
-KCP is the easiest way to manage Kubernetes applications against one or more clusters, by giving you a personal control plane that schedules your workloads onto one or many clusters, and making it simple to pick up and move. Advanced use cases including spreading your apps across clusters for resiliency, scheduling batch workloads onto clusters with free capacity, and enabling collaboration for individual teams without having access to the underlying clusters.
+kcp is the easiest way to manage Kubernetes applications against one or more clusters, by giving you a personal control plane that schedules your workloads onto one or many clusters, and making it simple to pick up and move. Advanced use cases including spreading your apps across clusters for resiliency, scheduling batch workloads onto clusters with free capacity, and enabling collaboration for individual teams without having access to the underlying clusters.
 
-This command provides KCP specific sub-command for kubectl.
+This command provides kcp-specific sub-command for kubectl.
 
 Usage:
   kcp [command]
@@ -35,7 +35,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   crd         CRD related operations
   help        Help about any command
-  workspace   Manages KCP workspaces
+  workspace   Manages kcp workspaces
 
 Flags:
       --add_dir_header                   If true, adds the file directory to the header of the log messages
