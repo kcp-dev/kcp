@@ -116,33 +116,28 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 		}
 	}
 
-	// check if a resource claim for this resource has been accepted and has correct verbs.
-	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
-		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
+	// Check if a resource claim for this resource has been accepted, has the correct verbs and is
+	// referenced in one of the objects defined by the provided references (if no references are
+	// given in a permissionClaim, all objects should be accessible).
+	for _, boundClaim := range apiBinding.Spec.PermissionClaims {
+		if boundClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
 			continue
 		}
 
-		if permissionClaim.Group == attr.GetAPIGroup() && permissionClaim.Resource == attr.GetResource() {
-			apiBindingVerbs := sets.New(permissionClaim.Verbs...)
-			apiExportVerbs := sets.New[string]()
+		// found a (not necessarily *the*) claim for this resource in the binding; however there
+		// should under normal circumstances only be one matching claim.
+		if boundClaim.Group == attr.GetAPIGroup() && boundClaim.Resource == attr.GetResource() {
+			// find all matching exported claims (usually this should also just be one)
+			for _, exportedClaim := range apiExport.Spec.PermissionClaims {
+				if exportedClaim.EqualGRI(boundClaim.PermissionClaim) {
+					if permissionClaimAllowsVerb(&boundClaim, &exportedClaim, attr) {
+						return a.delegate.Authorize(ctx, attr)
+					}
 
-			for _, exportPermpermissionClaim := range apiExport.Spec.PermissionClaims {
-				if exportPermpermissionClaim.EqualGRI(permissionClaim.PermissionClaim) {
-					apiExportVerbs.Insert(exportPermpermissionClaim.Verbs...)
-
-					break
+					// ...
 				}
 			}
-
-			allowedVerbs := apiBindingVerbs.Intersection(apiExportVerbs)
-
-			if !allowedVerbs.HasAny(attr.GetVerb(), wildcardVerb) {
-				// if the requested verb is not found, the claim cannot be used.
-				continue
-			}
-
-			return a.delegate.Authorize(ctx, attr)
 		}
 	}
 
@@ -159,4 +154,12 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 	// if we cannot find the API bound to the logical cluster, we deny.
 	// The APIExport owner has not been invited in.
 	return authorizer.DecisionDeny, "failed to find suitable reason to allow access in APIBinding", nil
+}
+
+func permissionClaimAllowsVerb(boundClaim *apisv1alpha2.AcceptablePermissionClaim, exportedClaim *apisv1alpha2.PermissionClaim, attr authorizer.Attributes) bool {
+	boundVerbs := sets.New(boundClaim.Verbs...)
+	exportedVerbs := sets.New(exportedClaim.Verbs...)
+	allowedVerbs := boundVerbs.Intersection(exportedVerbs)
+
+	return allowedVerbs.HasAny(attr.GetVerb(), wildcardVerb)
 }
