@@ -9,3 +9,7 @@ spec:
   labelSelector:
     matchLabels:
       app.kubernetes.io/part-of: instances
+  identity:
+    secretRef:
+      name: instances-cr-identity
+      namespace: default

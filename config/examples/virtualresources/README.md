@@ -1,7 +1,7 @@
 # VirtualResources Example
 
-This example shows usage of VirtualResources, together with CachedResources.
-The goal of VirtualResources is to distribute static, read-only resources to multiple clusters
+This example shows usage of virtual resources, together with CachedResources.
+The goal of CachedResources is to distribute static, read-only resources to multiple clusters
 in a scalable way.
 
 ## Setup
@@ -19,15 +19,16 @@ in a scalable way.
    kubectl ws create provider --enter
 
    kubectl create -f config/examples/virtualresources/crd-instances.yaml
-   # this this to work we always require apiresource schema to be present
+   # for this to work we always require apiresource schema to be present
    kubectl create -f config/examples/virtualresources/apiresourceschema-instances.yaml
    kubectl create -f config/examples/virtualresources/instances.yaml
 
-   # create caching for the resources
+   # create caching for the resources with a pre-made CachedResources identity
+   kubectl create -f config/examples/virtualresources/cached-resource-identity.yaml
    kubectl create -f config/examples/virtualresources/cached-resource-instances.yaml
    ```
 
-3. Create a an APIResourceSchema for actual virtual machines to be distributed,
+3. Create an APIResourceSchema for actual virtual machines to be distributed,
    which will be using instance types. 
 
    ```bash
