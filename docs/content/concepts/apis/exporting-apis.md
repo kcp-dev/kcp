@@ -534,3 +534,59 @@ widgets                example.kcp.io/v1alpha1   false        Widget
 ```
 
 Furthermore, you can use the `.status.boundResources` field to precisely identify which `APIResourceSchemas` have been imported.
+
+## Resource storage
+
+When defining a resource in an APIExport, its storage is set to `crd` by default. This means the export's consumers will be able to interact with that resource as-if it had regular CRD semantics: creating, getting, listing, updating, patching and deleting all happen local to the APIBinding's workspace. Consequently, objects of this resource "live" in this workspace, and are backed by their own distinct objects in the etcd store.
+
+```yaml
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: example.kcp.io
+spec:
+  resources:
+    - group: example.kcp.io
+      name: widgets
+      schema: v220801.widgets.example.kcp.io
+      # (1)
+      # storage:
+      #   crd: {}
+```
+
+1. The `storage` block with `crd` declaration below is implicit. No need to define it manually.
+
+
+### Virtual resources
+
+!!! warning
+    As of 0.29, this feature is of alpha-version quality. To use it, enable the `CachedAPIs` feature gate.
+
+An APIExport resource may be defined with `virtual` storage. This means the resource is provided by a [virtual workspace](../workspaces/virtual-workspaces.md), and is projected into APIBinding's workspace.
+
+```yaml
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: compute.cloud.example.com
+spec:
+  resources:
+  - group: cloud.example.com
+    name: cpuflavors
+    schema: v250801.cpuflavors.cloud.example.com
+    storage:
+      virtual:
+        reference: # (1)
+          apiGroup: cache.kcp.io
+          kind: CachedResourceEndpointSlice
+          name: cpuflavors-v1
+        identityHash: cd2eb0837... # (2)
+
+```
+
+1. The `reference` block defines a reference to an [endpoint slice](#endpoint-slices) object.
+2. The `identityHash` refers to the identity hash owned by the virtual resource. This is different from the APIExport identity hash.
+
+kcp currently supports one such virtual resource: see [CachedResource API](./cached-resources.md) for more information.
+
+Virtual resources are generic, and as long as the source virtual workspace implements the endpoint slice machinery, it can be used in APIExport's `virtual` storage definition.
