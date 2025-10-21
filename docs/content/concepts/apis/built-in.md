@@ -1,8 +1,14 @@
-# Built-in APIs
+# Kubernetes API Endpoints used by kcp
 
-kcp includes some, but not all, of the APIs you are likely familiar with from Kubernetes:
+kcp includes some, but not all, of the Kubernetes APIs.
 
-## (core) v1
+kcp does not make us of Kubernetes API endpoints that are concerned with orchestrating clusters and their workloads. Clusters dedicated to workload orchestration have these resources but kcp does not.
+
+## Kubernetes resources used by kcp
+
+kcp makes use of these API Endpoints and resources to provide kcp features and indoing so leverages the Kubernetes Event Loop to manage non-cluster resources that can them be handles using conventions and tooling from the Kubernetes eco-system.
+
+### (core) v1
 - Namespaces
 - ConfigMaps
 - Secrets
@@ -11,43 +17,40 @@ kcp includes some, but not all, of the APIs you are likely familiar with from Ku
 - ResourceQuotas
 - ServiceAccounts
 
-## admissionregistration.k8s.io/v1
+### admissionregistration.k8s.io/v1
 - MutatingWebhookConfigurations
 - ValidatingWebhookConfigurations
 - ValidatingAdmissionPolicies
 - ValidatingAdmissionPolicyBindings
 
-## apiextensions.k8s.io/v1
+### apiextensions.k8s.io/v1
 - CustomResourceDefinitions
 
-## authentication.k8s.io/v1
+### authentication.k8s.io/v1
 - TokenReviews
 
-## authorization.k8s.io/v1
+### authorization.k8s.io/v1
 - LocalSubjectAccessReviews
 - SelfSubjectAccessReviews
 - SelfSubjectRulesReviews
 - SubjectAccessReviews
 
-## certificates.k8s.io/v1
+### certificates.k8s.io/v1
 - CertificateSigningRequests
 
-## coordination.k8s.io/v1
+### coordination.k8s.io/v1
 - Leases
 
-## events.k8s.io/v1
+### events.k8s.io/v1
 - Events
 
-## flowcontrol.apiserver.k8s.io/v1beta1 (temporarily removed)
+### flowcontrol.apiserver.k8s.io/v1beta1 (temporarily removed)
 - FlowSchemas
 - PriorityLevelConfigurations
 
-## rbac.authorization.k8s.io/v1
+### rbac.authorization.k8s.io/v1
 - ClusterRoleBindings
 - ClusterRoles
 - RoleBindings
 - Roles
 
-Notably, workload-related APIs (Pods, ReplicaSets, Deployments, Jobs, CronJobs, StatefulSets), cluster-related APIs (
-Nodes), storage-related APIs (PersistentVolumes, PersistentVolumeClaims) are all missing - kcp does not include these,
-and it instead relies on workload clusters to provide this functionality.
