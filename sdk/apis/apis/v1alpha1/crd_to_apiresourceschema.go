@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
 	"fmt"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -67,6 +68,12 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 			}
 
 			if crd.Spec.Conversion.Webhook.ClientConfig != nil {
+				if crd.Spec.Conversion.Webhook.ClientConfig.Service != nil {
+					return nil, errors.New("webhooks that refer to services are not supported, please use URL instead")
+				}
+				if crd.Spec.Conversion.Webhook.ClientConfig.URL == nil {
+					return nil, errors.New("webhooks URL must be set")
+				}
 				crConversion.Webhook.ClientConfig = &WebhookClientConfig{
 					URL:      *crd.Spec.Conversion.Webhook.ClientConfig.URL,
 					CABundle: crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
