@@ -24,6 +24,8 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -84,12 +86,17 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		return fmt.Errorf("got type %T, expected metav1.Object", a.GetObject())
 	}
 
+	uObject, err := toUnstructured(u)
+	if err != nil {
+		return err
+	}
+
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), u.GetLabels())
+	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), uObject)
 	if err != nil {
 		return err
 	}
@@ -124,12 +131,17 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 		return fmt.Errorf("expected type %T, expected metav1.Object", a.GetObject())
 	}
 
+	uObject, err := toUnstructured(u)
+	if err != nil {
+		return err
+	}
+
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
 	if err != nil {
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), a.GetName(), u.GetLabels())
+	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), uObject)
 	if err != nil {
 		return err
 	}
@@ -180,4 +192,13 @@ func (m *mutatingPermissionClaims) ValidateInitialization() error {
 		return errors.New("missing permissionClaimLabeler")
 	}
 	return nil
+}
+
+func toUnstructured(obj metav1.Object) (*unstructured.Unstructured, error) {
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return &unstructured.Unstructured{Object: raw}, nil
 }

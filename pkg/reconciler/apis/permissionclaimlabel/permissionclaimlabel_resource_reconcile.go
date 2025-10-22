@@ -41,7 +41,7 @@ func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Un
 	logger := klog.FromContext(ctx)
 
 	clusterName := logicalcluster.From(obj)
-	expectedLabels, err := c.permissionClaimLabeler.LabelsFor(ctx, clusterName, gvr.GroupResource(), obj.GetName(), obj.GetLabels())
+	expectedLabels, err := c.permissionClaimLabeler.LabelsFor(ctx, clusterName, gvr.GroupResource(), obj)
 	if err != nil {
 		return fmt.Errorf("error calculating permission claim labels for GVR %q %s/%s: %w", gvr, obj.GetNamespace(), obj.GetName(), err)
 	}

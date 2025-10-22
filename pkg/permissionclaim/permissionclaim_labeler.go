@@ -20,9 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -90,7 +93,7 @@ func normalizeEventGroupResource(gr schema.GroupResource) schema.GroupResource {
 // LabelsFor returns all the applicable labels for the cluster-group-resource relating to permission claims. This is
 // the intersection of (1) all APIBindings in the cluster that have accepted claims for the group-resource with (2)
 // associated APIExports that are claiming group-resource.
-func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, resourceName string, resourceLabels map[string]string) (map[string]string, error) {
+func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, groupResource schema.GroupResource, claimedObject *unstructured.Unstructured) (map[string]string, error) {
 	labels := map[string]string{}
 	if _, nonPersisted := NonPersistedResourcesClaimable[groupResource]; nonPersisted {
 		return labels, nil
@@ -123,24 +126,16 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				continue
 			}
 
-			if !claim.Selector.MatchAll {
-				selector, err := metav1.LabelSelectorAsSelector(&claim.Selector.LabelSelector)
-				if err != nil {
-					logger.Error(err, "error calculating permission claim label key and value",
-						"claim", claim.String())
-					continue
-				}
+			claimLogger := logger.WithValues("claim", claim.String())
 
-				if !selector.Matches(klabels.Set(resourceLabels)) {
-					continue
-				}
+			if !l.claimMatchesObject(claimLogger, &claim, claimedObject) {
+				continue
 			}
 
 			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
-				logger.Error(err, "error calculating permission claim label key and value",
-					"claim", claim.String())
+				claimLogger.Error(err, "error calculating permission claim label key and value")
 				continue
 			}
 			labels[k] = v
@@ -151,9 +146,9 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	// pointing to an APIExport visible to the owner of the export, independently of the permission claim
 	// acceptance of the binding.
 	if groupResource.Group == apis.GroupName && groupResource.Resource == "apibindings" {
-		binding, err := l.getAPIBinding(cluster, resourceName)
+		binding, err := l.getAPIBinding(cluster, claimedObject.GetName())
 		if err != nil {
-			logger.Error(err, "error getting APIBinding", "bindingName", resourceName)
+			logger.Error(err, "error getting APIBinding", "bindingName", claimedObject.GetName())
 			return labels, nil // can only be a NotFound
 		}
 
@@ -171,6 +166,44 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	}
 
 	return labels, nil
+}
+
+func (l *Labeler) claimMatchesObject(logger logr.Logger, claim *apisv1alpha2.AcceptablePermissionClaim, obj *unstructured.Unstructured) bool {
+	if claim.Selector.MatchAll {
+		return true
+	}
+
+	if sel := claim.Selector.LabelSelector; len(sel.MatchLabels) > 0 || len(sel.MatchExpressions) > 0 {
+		selector, err := metav1.LabelSelectorAsSelector(&sel)
+		if err != nil {
+			logger.Error(err, "error calculating permission claim label key and value")
+			return false
+		}
+
+		return selector.Matches(klabels.Set(obj.GetLabels()))
+	}
+
+	for _, ref := range claim.Selector.References {
+		if l.referenceMatchesObject(logger, ref, obj) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (l *Labeler) referenceMatchesObject(logger logr.Logger, ref apisv1alpha2.PermissionClaimReference, obj *unstructured.Unstructured) bool {
+	// invalid objects should never have been admitted in the first place, this is just to catch possible panics
+	if ref.JSONPath == nil {
+		logger.Error(nil, "invalid claim: no JSONPath specified")
+		return false
+	}
+
+	// step 1: select all objects from the given ref's GR
+	// step 2: for each, evaluate the json paths
+	// step 3: if we find an object that selects our referent (obj), we can stop
+
+	return false
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
