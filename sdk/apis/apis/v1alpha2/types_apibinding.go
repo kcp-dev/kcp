@@ -120,8 +120,33 @@ const (
 type PermissionClaimSelector struct {
 	metav1.LabelSelector `json:",inline"`
 
+	// references is scoping the access to claimed objects down to those that
+	// are explicitly named in fields in the bound resources.
+	References []PermissionClaimReference `json:"references,omitempty"`
+
 	// matchAll grants access to all objects of the claimed resource.
 	MatchAll bool `json:"matchAll,omitempty"`
+}
+
+// PermissionClaimReference describes an object by specifying in what bound resource
+// it is named.
+type PermissionClaimReference struct {
+	// group is the API group of the bound resource in which the reference must occur.
+	Group string `json:"group"`
+	// resource is the bound resource in which the reference must occur.
+	Resource string `json:"resource"`
+
+	// jsonPath uses JSONPath expressions to select the referent.
+	JSONPath *PermissionClaimJSONPathReference `json:"jsonPath,omitempty"`
+}
+
+// PermissionClaimJSONPathReference uses JSONPath expressions to select a name and
+// optionally a namespace in an unstructured object.
+type PermissionClaimJSONPathReference struct {
+	// namespace is the JSONPath to select the referent object namespace.
+	NamespacePath string `json:"namespace,omitempty"`
+	// name is the JSONPath to select the referent object name.
+	NamePath string `json:"name"`
 }
 
 // BindingReference describes a reference to an APIExport. Exactly one of the

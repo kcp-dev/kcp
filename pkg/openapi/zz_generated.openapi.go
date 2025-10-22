@@ -84,6 +84,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy":                        schema_sdk_apis_apis_v1alpha2_LocalAPIExportPolicy(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy":                     schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaim":                             schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimJSONPathReference":            schema_sdk_apis_apis_v1alpha2_PermissionClaimJSONPathReference(ref),
+		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimReference":                    schema_sdk_apis_apis_v1alpha2_PermissionClaimReference(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimSelector":                     schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchema":                              schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref),
 		"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.ResourceSchemaStorage":                       schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref),
@@ -2688,6 +2690,73 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref common.ReferenceCallback)
 	}
 }
 
+func schema_sdk_apis_apis_v1alpha2_PermissionClaimJSONPathReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimJSONPathReference uses JSONPath expressions to select a name and optionally a namespace in an unstructured object.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "namespace is the JSONPath to select the referent object namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the JSONPath to select the referent object name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_PermissionClaimReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimReference describes an object by specifying in what bound resource it is named.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "group is the API group of the bound resource in which the reference must occur.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource is the bound resource in which the reference must occur.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"jsonPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "jsonPath uses JSONPath expressions to select the referent.",
+							Ref:         ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimJSONPathReference"),
+						},
+					},
+				},
+				Required: []string{"group", "resource"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimJSONPathReference"},
+	}
+}
+
 func schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2730,6 +2799,20 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref common.ReferenceC
 							},
 						},
 					},
+					"references": {
+						SchemaProps: spec.SchemaProps{
+							Description: "references is scoping the access to claimed objects down to those that are explicitly named in fields in the bound resources.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimReference"),
+									},
+								},
+							},
+						},
+					},
 					"matchAll": {
 						SchemaProps: spec.SchemaProps{
 							Description: "matchAll grants access to all objects of the claimed resource.",
@@ -2741,7 +2824,7 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
+			"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2.PermissionClaimReference", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement"},
 	}
 }
 

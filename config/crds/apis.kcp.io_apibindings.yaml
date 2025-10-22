@@ -552,6 +552,43 @@ spec:
                             map is equivalent to an element of matchExpressions, whose key field is "key", the
                             operator is "In", and the values array contains only "value". The requirements are ANDed.
                           type: object
+                        references:
+                          description: |-
+                            references is scoping the access to claimed objects down to those that
+                            are explicitly named in fields in the bound resources.
+                          items:
+                            description: |-
+                              PermissionClaimReference describes an object by specifying in what bound resource
+                              it is named.
+                            properties:
+                              group:
+                                description: group is the API group of the bound resource
+                                  in which the reference must occur.
+                                type: string
+                              jsonPath:
+                                description: jsonPath uses JSONPath expressions to
+                                  select the referent.
+                                properties:
+                                  name:
+                                    description: name is the JSONPath to select the
+                                      referent object name.
+                                    type: string
+                                  namespace:
+                                    description: namespace is the JSONPath to select
+                                      the referent object namespace.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              resource:
+                                description: resource is the bound resource in which
+                                  the reference must occur.
+                                type: string
+                            required:
+                            - group
+                            - resource
+                            type: object
+                          type: array
                       type: object
                       x-kubernetes-map-type: atomic
                       x-kubernetes-validations:
@@ -702,6 +739,43 @@ spec:
                             map is equivalent to an element of matchExpressions, whose key field is "key", the
                             operator is "In", and the values array contains only "value". The requirements are ANDed.
                           type: object
+                        references:
+                          description: |-
+                            references is scoping the access to claimed objects down to those that
+                            are explicitly named in fields in the bound resources.
+                          items:
+                            description: |-
+                              PermissionClaimReference describes an object by specifying in what bound resource
+                              it is named.
+                            properties:
+                              group:
+                                description: group is the API group of the bound resource
+                                  in which the reference must occur.
+                                type: string
+                              jsonPath:
+                                description: jsonPath uses JSONPath expressions to
+                                  select the referent.
+                                properties:
+                                  name:
+                                    description: name is the JSONPath to select the
+                                      referent object name.
+                                    type: string
+                                  namespace:
+                                    description: namespace is the JSONPath to select
+                                      the referent object namespace.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              resource:
+                                description: resource is the bound resource in which
+                                  the reference must occur.
+                                type: string
+                            required:
+                            - group
+                            - resource
+                            type: object
+                          type: array
                       type: object
                       x-kubernetes-map-type: atomic
                       x-kubernetes-validations:

@@ -57,7 +57,7 @@ var _ admission.ValidationInterface = &mutatingPermissionClaims{}
 var _ admission.InitializationValidator = &mutatingPermissionClaims{}
 
 // NewMutatingPermissionClaims creates a mutating admission plugin that is responsible for labeling objects
-// according to permission claims. or every creation and update request, we will determine the bindings
+// according to permission claims. For every creation and update request, we will determine the bindings
 // in the workspace and if the object is claimed by an accepted permission claim we will add the label,
 // and remove those that are not backed by a permission claim anymore.
 func NewMutatingPermissionClaims() admission.MutationInterface {

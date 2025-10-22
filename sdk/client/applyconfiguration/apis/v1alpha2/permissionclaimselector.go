@@ -26,7 +26,8 @@ import (
 // with apply.
 type PermissionClaimSelectorApplyConfiguration struct {
 	v1.LabelSelectorApplyConfiguration `json:",inline"`
-	MatchAll                           *bool `json:"matchAll,omitempty"`
+	References                         []PermissionClaimReferenceApplyConfiguration `json:"references,omitempty"`
+	MatchAll                           *bool                                        `json:"matchAll,omitempty"`
 }
 
 // PermissionClaimSelectorApplyConfiguration constructs a declarative configuration of the PermissionClaimSelector type for use with
@@ -58,6 +59,19 @@ func (b *PermissionClaimSelectorApplyConfiguration) WithMatchExpressions(values 
 			panic("nil value passed to WithMatchExpressions")
 		}
 		b.LabelSelectorApplyConfiguration.MatchExpressions = append(b.LabelSelectorApplyConfiguration.MatchExpressions, *values[i])
+	}
+	return b
+}
+
+// WithReferences adds the given value to the References field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the References field.
+func (b *PermissionClaimSelectorApplyConfiguration) WithReferences(values ...*PermissionClaimReferenceApplyConfiguration) *PermissionClaimSelectorApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithReferences")
+		}
+		b.References = append(b.References, *values[i])
 	}
 	return b
 }

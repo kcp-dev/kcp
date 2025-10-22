@@ -142,6 +142,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.MaximalPermissionPolicyApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaim"):
 		return &apisv1alpha2.PermissionClaimApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaimJSONPathReference"):
+		return &apisv1alpha2.PermissionClaimJSONPathReferenceApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaimReference"):
+		return &apisv1alpha2.PermissionClaimReferenceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaimSelector"):
 		return &apisv1alpha2.PermissionClaimSelectorApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchema"):
