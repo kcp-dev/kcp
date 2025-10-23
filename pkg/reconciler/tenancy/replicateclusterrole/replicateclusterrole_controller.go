@@ -57,7 +57,7 @@ func HasUseRule(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool {
 		}
 		resources := sets.New[string](rule.Resources...)
 		verbs := sets.New[string](rule.Verbs...)
-		if (resources.Has("workspacetypes") || resources.Has("*")) && (verbs.Has("use") || verbs.Has("initialize") || verbs.Has("*")) {
+		if (resources.Has("workspacetypes") || resources.Has("*")) && (verbs.Has("use") || verbs.Has("initialize") || verbs.Has("terminate") || verbs.Has("*")) {
 			return true
 		}
 	}
