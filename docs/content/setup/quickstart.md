@@ -27,7 +27,7 @@ Extract `kcp` and `kubectl-kcp-plugin` and place all the files in the `bin` dire
 You can start kcp using this command:
 
 ```shell
-kcp start
+kcp start --bind-address=127.0.0.1
 ```
 
 This launches kcp in the foreground. You can press `ctrl-c` to stop it.
