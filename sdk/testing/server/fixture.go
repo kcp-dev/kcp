@@ -303,7 +303,7 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 		return nil, fmt.Errorf("failed to build kcp args: %w", err)
 	}
 
-	workdir, commandLine := StartKcpCommand("KCP")
+	workdir, commandLine := StartKcpCommand("kcp")
 	commandLine = append(commandLine, args...)
 
 	t.Logf("running: %v", strings.Join(commandLine, " "))

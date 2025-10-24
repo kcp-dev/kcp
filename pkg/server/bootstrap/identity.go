@@ -242,7 +242,7 @@ func (rt roundTripperFunc) WrappedRoundTripper() http.RoundTripper {
 	return rt.delegate
 }
 
-// injectKcpIdentities injects the KCP identities into the request URLs.
+// injectKcpIdentities injects the kcp identities into the request URLs.
 func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundTripper {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc{

@@ -141,13 +141,13 @@ helm upgrade -i \
 # is to create some Issuers and/or ClusterIssuers.  That is indeed
 # among the things that the kcp helm chart will do.
 
-echo "Install KCP"
+echo "Install kcp"
 
 echo "Tooling:"
 echo "Grafana: http://localhost:3333/"
 echo "Prometheus: http://localhost:9091"
-echo "KCP API Server: https://localhost:9443"
-echo "KCP FrontProxy Server: https://localhost:9444"
+echo "kcp API Server: https://localhost:9443"
+echo "kcp FrontProxy Server: https://localhost:9444"
 
 # must be last as will be blocking
 tilt up -f contrib/tilt/Tiltfile

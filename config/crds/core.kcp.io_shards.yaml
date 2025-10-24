@@ -60,7 +60,7 @@ spec:
             properties:
               baseURL:
                 description: |-
-                  baseURL is the address of the KCP shard for direct connections, e.g. by some
+                  baseURL is the address of the kcp shard for direct connections, e.g. by some
                   front-proxy doing the fan-out to the shards.
                 format: uri
                 minLength: 1

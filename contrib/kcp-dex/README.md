@@ -1,4 +1,4 @@
-# KCP Dex
+# kcp Dex
 
 How to run local kcp with dex.
 
@@ -23,7 +23,7 @@ GOBIN=$(pwd)/bin go install github.com/mjudeikis/genkey
 * Run dex: `./bin/dex serve ../contrib/kcp-dex/kcp-config.yaml `
 
 
-### KCP
+### kcp
 
 Start kcp with oidc enabled, you can either use the OIDC flags or structured authentication configuration from a file. Example configuration is shown in `auth-config.yaml`.
 

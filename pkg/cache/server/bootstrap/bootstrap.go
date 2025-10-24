@@ -35,7 +35,7 @@ import (
 )
 
 // SystemCRDLogicalCluster holds a logical cluster name under which we store system-related CRDs.
-// We use the same name as the KCP for symmetry.
+// We use the same name as the kcp for symmetry.
 var SystemCRDLogicalCluster = logicalcluster.Name("system:system-crds")
 
 // SystemCacheServerShard holds a default shard name.

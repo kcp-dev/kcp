@@ -144,7 +144,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	certsigning.PluginName,                 // CertificateSigning
 	certsubjectrestriction.PluginName,      // CertificateSubjectRestriction
 
-	// KCP
+	// kcp
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,

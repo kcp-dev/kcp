@@ -5,7 +5,6 @@ description: >
 
 # Workspace Types
 
-
 Workspaces have a type. A type is defined by a `WorkspaceType`. A type
 defines initializers. They are set on new Workspace objects and block the
 workspace from leaving the initializing phase. Both system components and
@@ -15,7 +14,7 @@ e.g. to bootstrap resources inside the workspace, or to set up permission in its
 kcp comes with a built-in set of workspace types, and the admin may create objects that
 define additional types.
 
-- **Root Workspace** is a singleton.  It holds some data that applies
+- **Root Workspace** is a singleton. It holds some data that applies
   to all workspaces, such as the set of defined workspace types
   (objects of type `WorkspaceType`).
 - **HomeRoot Workspace** is normally a singleton, holding the branch
@@ -23,14 +22,14 @@ define additional types.
   Can only be a child of the root workspace, and can only have
   HomeBucket children.
 - **HomeBucket Workspace** are intermediate vertices in the hierarchy
-  between the HomeRoot and the user home workspaces.  Can be a child
-  of the root or another HomeBucket workspace.  Allowed children are
+  between the HomeRoot and the user home workspaces. Can be a child
+  of the root or another HomeBucket workspace. Allowed children are
   home and HomeBucket workspaces.
-- **Home Workspace** is a user's home workspace.  These hold user
+- **Home Workspace** is a user's home workspace. These hold user
   resources such as applications with services, secrets, configmaps,
-  deployments, etc.  Can only be a child of a HomeBucket workspace.
+  deployments, etc. Can only be a child of a HomeBucket workspace.
 - **Universal Workspace** is a basic type of workspace with no
-  particular nature.  Has no restrictions on parent or child workspace
+  particular nature. Has no restrictions on parent or child workspace
   types.
 
 The following workspace types are created by kcp if the `workspace-types` battery
@@ -84,7 +83,7 @@ any bucket.
     DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.
 
 User-names have `(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)` permutations, and buckets are made up of lowercase-alpha
-chars.  Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
+chars. Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
 having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.
 
 ### Valid Configurations
@@ -152,7 +151,8 @@ As an example, the `system:admin` workspace exists for administrative objects
 that are scoped to the local shard (e.g. `lease` objects for kcp internal controllers if
 leader election is enabled). It is accessible via `/clusters/system:admin`.
 
-# Workspace Type Extensions and Constraints
+## Workspace Type Extensions and Constraints
+
 kcp offers extensions and constraints that enable you inherit functionality from other
 workspace types and create custom workspace hierarchies for your organizational structure.
 
@@ -160,6 +160,7 @@ A `WorkspaceType` can extend one or more other `WorkspaceTypes` using the `spec.
 field.
 
 **Example**
+
 ```yaml
 apiVersion: tenancy.kcp.io/v1alpha1
 kind: WorkspaceType
@@ -171,7 +172,9 @@ spec:
     - name: universal
     - name: custom
 ```
+
 In this example, the `sample` workspace type:
+
 * inherits [initializers](./workspace-initialization.md) from the extended types
 * is considered as an extended type during type constraint evaluation
 
@@ -188,8 +191,11 @@ spec:
     - name: standard
       path: root:base
 ```
-## Workspace Constraint Mechanisms
-KCP provides two primary constraint mechanisms for workspace types:
+
+### Workspace Constraint Mechanisms
+
+kcp provides two primary constraint mechanisms for workspace types:
+
 * `limitAllowedChildren`: Controls which workspace types can be created as children.
 * `limitAllowedParents`: Controls which workspace types can serve as parents.
 
@@ -205,7 +211,9 @@ spec:
     - name: custom
       path: root
 ```
+
 You can also block all types from being used as children:
+
 ```yaml
 apiVersion: tenancy.kcp.io/v1alpha1
 kind: WorkspaceType
@@ -215,4 +223,5 @@ spec:
   limitAllowedChildren:
     none: true
 ```
+
 This ensures that no other workspace type can be created as a child of `leaf-workspace`.
