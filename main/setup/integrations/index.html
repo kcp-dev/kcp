@@ -686,6 +686,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#lima" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lima
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3550,6 +3559,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#lima" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lima
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3614,6 +3632,106 @@ them to OpenFGA queries.</p>
 <p class="admonition-title">Third Party Solutions</p>
 <p>A third-party example of such a webhook would be Platform Mesh's <a href="https://github.com/platform-mesh/rebac-authz-webhook">rebac-authz-webhook</a>.</p>
 </div>
+<h2 id="lima">Lima<a class="headerlink" href="#lima" title="Permanent link">&para;</a></h2>
+<p>You can run kcp inside a <a href="https://github.com/lima-vm/lima">Lima</a>-managed VM, which makes it portable across macOS, Linux, and Windows (via WSL2). This setup gives you a disposable kcp control plane that integrates smoothly with your host kubectl.</p>
+<div class="admonition info">
+<p class="admonition-title">Development Use Only</p>
+<p>This is essentially a development environment, where one can start a single instance of kcp for testing or limited-scope use cases. This is in no way intended for production usage.</p>
+</div>
+<p>Create a Lima template for kcp and save the following as <code>kcp.yaml</code>:
+ ```yaml
+minimumLimaVersion: 1.1.0</p>
+<p>base: template://_images/ubuntu-lts</p>
+<p>mounts: []</p>
+<p>containerd:
+  system: false
+  user: false</p>
+<p>provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    command -v kcp &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exit 0</p>
+<div class="highlight"><pre><span></span><code>export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y curl wget
+
+KCP_VERSION=$(curl -s https://api.github.com/repos/kcp-dev/kcp/releases/latest | grep tag_name | cut -d &#39;&quot;&#39; -f 4)
+KCP_VERSION_NO_V=${KCP_VERSION#v}
+
+wget https://github.com/kcp-dev/kcp/releases/download/${KCP_VERSION}/kcp_${KCP_VERSION_NO_V}_linux_arm64.tar.gz
+tar -xzf kcp_${KCP_VERSION_NO_V}_linux_arm64.tar.gz
+mv bin/kcp /usr/local/bin/
+chmod +x /usr/local/bin/kcp
+rm -f kcp_${KCP_VERSION_NO_V}_linux_arm64.tar.gz
+
+mkdir -p /var/.kcp/
+sudo chmod 755 /var/.kcp
+
+cat &gt; /etc/systemd/system/kcp.service &lt;&lt; EOF
+[Unit]
+Description=kcp server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/kcp start --root-directory=/var/.kcp/ --bind-address=127.0.0.1
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kcp
+systemctl start kcp
+</code></pre></div>
+<p>probes:
+- script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    if ! timeout 120s bash -c "until curl -f -s --cacert /var/.kcp/apiserver.crt https://127.0.0.1:6443/readyz &gt;/dev/null; do sleep 3; done"; then
+      echo &gt;&amp;2 "kcp is not ready yet"
+      exit 1
+    fi
+  hint: |
+    The kcp control plane is not ready yet.
+    Check the kcp logs with "limactl shell kcp sudo journalctl -f" or "tail -f /var/log/kcp.log"</p>
+<p>copyToHost:
+- guest: "/var/.kcp/admin.kubeconfig"
+  host: "{{.Dir}}/copied-from-guest/kubeconfig.yaml"
+  deleteOnStop: true</p>
+<p>message: |
+  To run <code>kubectl</code> on the host (assumes kubectl is installed), run:</p>
+<hr />
+<p>export KUBECONFIG="{{.Dir}}/copied-from-guest/kubeconfig.yaml"
+  kubectl get workspaces</p>
+<hr />
+<p>```
+Initialize the VM
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>limactl<span class="w"> </span>create<span class="w"> </span>--name<span class="o">=</span>kcp<span class="w"> </span>./kcp.yaml
+</code></pre></div></p>
+<p>Start the VM
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>limactl<span class="w"> </span>start<span class="w"> </span>kcp<span class="w"> </span>--vm-type<span class="o">=</span>qemu
+</code></pre></div></p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+</div>
+<p>On macOS, Lima may default to vz (Apple Virtualization), while on Linux it defaults to qemu, and on Windows to wsl2. If you want consistency across environments, you can explicitly pass --vm-type=qemu when starting the VM.</p>
+<p>Export the KCP kubeconfig
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="s2">&quot;/Users/&lt;user&gt;/.lima/kcp/copied-from-guest/kubeconfig.yaml&quot;</span>
+</code></pre></div></p>
+<p>Verify API resources
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>api-resources<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>kcp
+</code></pre></div>
+You should see kcp-specific resources such as:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>workspaces<span class="w">             </span>ws<span class="w">   </span>tenancy.kcp.io/v1alpha1<span class="w">   </span><span class="nb">false</span><span class="w">   </span>Workspace
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>logicalclusters<span class="w">             </span>core.kcp.io/v1alpha1<span class="w">     </span><span class="nb">false</span><span class="w">   </span>LogicalCluster
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>...
+</code></pre></div></p>
 
 
 
