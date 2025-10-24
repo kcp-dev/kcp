@@ -52,9 +52,9 @@ const (
 	// LogicalClusterName is the name of the LogicalCluster singleton.
 	LogicalClusterName = "cluster"
 
-	// LogicalClusterFinalizer attached to the owner of the LogicalCluster resource (usually a Workspace) so that we can control
+	// LogicalClusterFinalizerName attached to the owner of the LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources.
-	LogicalClusterFinalizer = "core.kcp.io/logicalcluster"
+	LogicalClusterFinalizerName = "core.kcp.io/logicalcluster"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
@@ -72,6 +72,7 @@ const (
 	// This should be used when we really can't serve the logical cluster content and not some
 	// temporary flakes, like readiness probe failing.
 	LogicalClusterPhaseUnavailable LogicalClusterPhaseType = "Unavailable"
+	LogicalClusterPhaseDeleting    LogicalClusterPhaseType = "Deleting"
 )
 
 // LogicalClusterInitializer is a unique string corresponding to a logical cluster
@@ -79,6 +80,12 @@ const (
 //
 // +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
 type LogicalClusterInitializer string
+
+// LogicalClusterTerminator is a unique string corresponding to a logical cluster
+// terminator controller.
+//
+// +kubebuilder:validation:Pattern:="^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$"
+type LogicalClusterTerminator string
 
 // LogicalClusterSpec is the specification of the LogicalCluster resource.
 type LogicalClusterSpec struct {
@@ -104,6 +111,12 @@ type LogicalClusterSpec struct {
 	//
 	// +optional
 	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`
+
+	// Terminators are set on creation by the system and copied to status when
+	// termination starts.
+	//
+	// +optional
+	Terminators []LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 
 // LogicalClusterOwner is a reference to a resource controlling the life-cycle of a LogicalCluster.
@@ -172,6 +185,13 @@ type LogicalClusterStatus struct {
 	//
 	// +optional
 	Initializers []LogicalClusterInitializer `json:"initializers,omitempty"`
+
+	// Terminators are set on creation by the system and must be cleared
+	// by a controller before the logical cluster can be deleted. The LogicalCluster object
+	// will stay in the phase "Deleting" until all terminator are cleared.
+	//
+	// +optional
+	Terminators []LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 
 func (in *LogicalCluster) SetConditions(c conditionsv1alpha1.Conditions) {

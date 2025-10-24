@@ -2,7 +2,7 @@ apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v241020-fce06d31d.logicalclusters.core.kcp.io
+  name: v251016-6e24e0d49.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -117,6 +117,17 @@ spec:
               - resource
               - uid
               type: object
+            terminators:
+              description: |-
+                Terminators are set on creation by the system and copied to status when
+                termination starts.
+              items:
+                description: |-
+                  LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                  terminator controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
           type: object
         status:
           default: {}
@@ -195,6 +206,18 @@ spec:
               - Ready
               - Unavailable
               type: string
+            terminators:
+              description: |-
+                Terminators are set on creation by the system and must be cleared
+                by a controller before the logical cluster can be deleted. The LogicalCluster object
+                will stay in the phase "Deleting" until all terminator are cleared.
+              items:
+                description: |-
+                  LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                  terminator controller.
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                type: string
+              type: array
           type: object
       type: object
     served: true

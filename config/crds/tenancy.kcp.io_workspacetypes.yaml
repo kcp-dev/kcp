@@ -249,6 +249,18 @@ spec:
                     minItems: 1
                     type: array
                 type: object
+              terminator:
+                description: |-
+                  Terminator determines if this WorkspaceType has an associated terminating
+                  controller. These controllers are used to add functionality to a Workspace;
+                  all controllers must finish their work before the Workspace is being deleted.
+
+                  One terminating controller is supported per WorkspaceType; the identifier
+                  for this terminator will be a colon-delimited string using the workspace in which
+                  the WorkspaceType is defined, and the type's name. For example, if a
+                  WorkspaceType `example` is created in the `root:org` workspace, the implicit
+                  terminator name is `root:org:example`.
+                type: boolean
             type: object
           status:
             description: WorkspaceTypeStatus defines the observed state of WorkspaceType.

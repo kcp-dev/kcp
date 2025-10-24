@@ -60,6 +60,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 				return reconcileStatusContinue, nil
 			}
 
+			// set terminators during initializiation, as we want to show them to the user already
+			workspace.Status.Terminators = logicalCluster.Status.Terminators
+
 			workspace.Status.Initializers = logicalCluster.Status.Initializers
 
 			if initializers := workspace.Status.Initializers; len(initializers) > 0 {

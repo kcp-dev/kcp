@@ -111,6 +111,8 @@ func (o *plugin) Admit(ctx context.Context, a admission.Attributes, _ admission.
 
 		logicalCluster.Status.Initializers = logicalCluster.Spec.Initializers
 
+		logicalCluster.Status.Terminators = logicalCluster.Spec.Terminators
+
 		return updateUnstructured(u, logicalCluster)
 	}
 

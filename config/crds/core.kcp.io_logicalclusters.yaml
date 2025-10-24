@@ -119,6 +119,17 @@ spec:
                 - resource
                 - uid
                 type: object
+              terminators:
+                description: |-
+                  Terminators are set on creation by the system and copied to status when
+                  termination starts.
+                items:
+                  description: |-
+                    LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                    terminator controller.
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                  type: string
+                type: array
             type: object
           status:
             default: {}
@@ -197,6 +208,18 @@ spec:
                 - Ready
                 - Unavailable
                 type: string
+              terminators:
+                description: |-
+                  Terminators are set on creation by the system and must be cleared
+                  by a controller before the logical cluster can be deleted. The LogicalCluster object
+                  will stay in the phase "Deleting" until all terminator are cleared.
+                items:
+                  description: |-
+                    LogicalClusterTerminator is a unique string corresponding to a logical cluster
+                    terminator controller.
+                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*(:[a-z0-9][a-z0-9]([-a-z0-9]*[a-z0-9])?))|(system:.+)$
+                  type: string
+                type: array
             type: object
         type: object
     served: true

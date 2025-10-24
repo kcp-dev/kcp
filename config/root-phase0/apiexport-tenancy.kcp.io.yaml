@@ -14,12 +14,12 @@ spec:
       crd: {}
   - group: tenancy.kcp.io
     name: workspaces
-    schema: v250421-25d98218b.workspaces.tenancy.kcp.io
+    schema: v251015-1d163d0e5.workspaces.tenancy.kcp.io
     storage:
       crd: {}
   - group: tenancy.kcp.io
     name: workspacetypes
-    schema: v250806-4c99c4583.workspacetypes.tenancy.kcp.io
+    schema: v251015-1d163d0e5.workspacetypes.tenancy.kcp.io
     storage:
       crd: {}
 status: {}

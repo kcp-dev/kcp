@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/tenancy/initialization"
+	"github.com/kcp-dev/kcp/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
@@ -141,7 +142,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
-		hasFinalizer := sets.New[string](workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizer)
+		hasFinalizer := sets.New[string](workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizerName)
 
 		parentThis, err := r.getLogicalCluster(logicalcluster.From(workspace))
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -180,7 +181,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			workspace.Annotations[workspaceClusterAnnotationKey] = cluster.String()
 		}
 		if !hasFinalizer {
-			workspace.Finalizers = append(workspace.Finalizers, corev1alpha1.LogicalClusterFinalizer)
+			workspace.Finalizers = append(workspace.Finalizers, corev1alpha1.LogicalClusterFinalizerName)
 		}
 		if !hasShard || !hasCluster || !hasFinalizer {
 			// this is the first part of our two-phase commit
@@ -319,6 +320,12 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 		return err
 	}
 
+	// add terminators
+	logicalCluster.Spec.Terminators, err = LogicalClusterTerminators(r.transitiveTypeResolver, r.getWorkspaceType, logicalcluster.NewPath(workspace.Spec.Type.Path), string(workspace.Spec.Type.Name))
+	if err != nil {
+		return err
+	}
+
 	logicalClusterAdminClient, err := r.kcpLogicalClusterAdminClientFor(shard)
 	if err != nil {
 		return err
@@ -369,6 +376,33 @@ func LogicalClustersInitializers(
 	}
 
 	return initializers, nil
+}
+
+// LogicalClusterTerminators returns the terminators for a LogicalCluster of a given
+// fully-qualified WorkspaceType reference.
+func LogicalClusterTerminators(
+	resolver workspacetypeexists.TransitiveTypeResolver,
+	getWorkspaceType func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error),
+	typePath logicalcluster.Path, typeName string,
+) ([]corev1alpha1.LogicalClusterTerminator, error) {
+	wt, err := getWorkspaceType(typePath, typeName)
+	if err != nil {
+		return nil, err
+	}
+	wtAliases, err := resolver.Resolve(wt)
+	if err != nil {
+		return nil, err
+	}
+
+	terminators := make([]corev1alpha1.LogicalClusterTerminator, 0, len(wtAliases))
+
+	for _, alias := range wtAliases {
+		if alias.Spec.Terminator {
+			terminators = append(terminators, termination.TerminatorForType(alias))
+		}
+	}
+
+	return terminators, nil
 }
 
 func (r *schedulingReconciler) updateLogicalClusterPhase(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, phase corev1alpha1.LogicalClusterPhaseType) error {

@@ -3786,6 +3786,21 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 							},
 						},
 					},
+					"terminators": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Terminators are set on creation by the system and copied to status when termination starts.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -3832,6 +3847,21 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 					"initializers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "initializers are set on creation by the system and must be cleared by a controller before the logical cluster can be used. The LogicalCluster object will stay in the phase \"Initializing\" state until all initializers are cleared.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"terminators": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Terminators are set on creation by the system and must be cleared by a controller before the logical cluster can be deleted. The LogicalCluster object will stay in the phase \"Deleting\" until all terminator are cleared.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4795,6 +4825,21 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallba
 							},
 						},
 					},
+					"terminators": {
+						SchemaProps: spec.SchemaProps{
+							Description: "terminators must be cleared by a controller before the workspace is being deleted.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -5002,6 +5047,13 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 					"initializer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "initializer determines if this WorkspaceType has an associated initializing controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace becomes ready for use.\n\nOne initializing controller is supported per WorkspaceType; the identifier for this initializer will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit initializer name is `root:org:example`.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"terminator": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Terminator determines if this WorkspaceType has an associated terminating controller. These controllers are used to add functionality to a Workspace; all controllers must finish their work before the Workspace is being deleted.\n\nOne terminating controller is supported per WorkspaceType; the identifier for this terminator will be a colon-delimited string using the workspace in which the WorkspaceType is defined, and the type's name. For example, if a WorkspaceType `example` is created in the `root:org` workspace, the implicit terminator name is `root:org:example`.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
