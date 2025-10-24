@@ -49,6 +49,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/built-in/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/concepts/apis/cached-resources/</loc>
+        <lastmod>2025-10-24</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/cached-resources/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/exporting-apis/</loc>
         <lastmod>2025-10-24</lastmod>
         <changefreq>daily</changefreq>

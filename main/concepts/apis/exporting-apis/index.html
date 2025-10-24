@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/apis/exporting-apis/">
       
       
-        <link rel="prev" href="../built-in/">
+        <link rel="prev" href="../cached-resources/">
       
       
         <link rel="next" href="../rest-access-patterns/">
@@ -951,6 +951,8 @@
       
         
       
+        
+      
     
     
       
@@ -1025,6 +1027,27 @@
   
   <span class="md-ellipsis">
     Built-in APIs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cached-resources/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CachedResource API
   </span>
   
 
@@ -1225,6 +1248,30 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource storage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#virtual-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Virtual resources
+    </span>
+  </a>
   
 </li>
         
@@ -3813,6 +3860,30 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#resource-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource storage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#virtual-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Virtual resources
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4283,6 +4354,53 @@ in which case the service provider needs to explicitly specify labels upon apply
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>widgets<span class="w">                </span>example.kcp.io/v1alpha1<span class="w">   </span><span class="nb">false</span><span class="w">        </span>Widget
 </code></pre></div>
 <p>Furthermore, you can use the <code>.status.boundResources</code> field to precisely identify which <code>APIResourceSchemas</code> have been imported.</p>
+<h2 id="resource-storage">Resource storage<a class="headerlink" href="#resource-storage" title="Permanent link">&para;</a></h2>
+<p>When defining a resource in an APIExport, its storage is set to <code>crd</code> by default. This means the export's consumers will be able to interact with that resource as-if it had regular CRD semantics: creating, getting, listing, updating, patching and deleting all happen local to the APIBinding's workspace. Consequently, objects of this resource "live" in this workspace, and are backed by their own distinct objects in the etcd store.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.kcp.io</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">widgets</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v220801.widgets.example.kcp.io</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">      </span><span class="c1"># (1)</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">      </span><span class="c1"># storage:</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">      </span><span class="c1">#   crd: {}</span>
+</code></pre></div>
+<ol>
+<li>The <code>storage</code> block with <code>crd</code> declaration below is implicit. No need to define it manually.</li>
+</ol>
+<h3 id="virtual-resources">Virtual resources<a class="headerlink" href="#virtual-resources" title="Permanent link">&para;</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>As of 0.29, this feature is of alpha-version quality. To use it, enable the <code>CachedAPIs</code> feature gate.</p>
+</div>
+<p>An APIExport resource may be defined with <code>virtual</code> storage. This means the resource is provided by a <a href="../../workspaces/virtual-workspaces/">virtual workspace</a>, and is projected into APIBinding's workspace.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">compute.cloud.example.com</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud.example.com</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">    </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v250801.cpuflavors.cloud.example.com</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="nt">storage</span><span class="p">:</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">      </span><span class="nt">virtual</span><span class="p">:</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">        </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="w">          </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="w">          </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">        </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cd2eb0837...</span><span class="w"> </span><span class="c1"># (2)</span>
+</code></pre></div>
+<ol>
+<li>The <code>reference</code> block defines a reference to an <a href="#endpoint-slices">endpoint slice</a> object.</li>
+<li>The <code>identityHash</code> refers to the identity hash owned by the virtual resource. This is different from the APIExport identity hash.</li>
+</ol>
+<p>kcp currently supports one such virtual resource: see <a href="../cached-resources/">CachedResource API</a> for more information.</p>
+<p>Virtual resources are generic, and as long as the source virtual workspace implements the endpoint slice machinery, it can be used in APIExport's <code>virtual</code> storage definition.</p>
 
 
 

@@ -6,18 +6,15 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Snapshot a CRD and convert it to an APIResourceSchema
-">
       
       
-      
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_crd_snapshot/">
-      
-      
-        <link rel="prev" href="../kcp_crd/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/apis/cached-resources/">
       
       
-        <link rel="next" href="../kcp_workspace/">
+        <link rel="prev" href="../built-in/">
+      
+      
+        <link rel="next" href="../exporting-apis/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +22,7 @@
     
     
       
-        <title>kcp crd snapshot - docs.kcp.io</title>
+        <title>CachedResource API - docs.kcp.io</title>
       
     
     
@@ -79,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#examples" class="md-skip">
+        <a href="#cachedresource-api" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              kcp crd snapshot
+              CachedResource API
             
           </span>
         </div>
@@ -271,11 +268,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../concepts/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -331,13 +330,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -639,6 +636,8 @@
       
   
   
+    
+  
   
   
     
@@ -667,21 +666,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -692,13 +692,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -714,7 +714,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/terminology/" class="md-nav__link">
+      <a href="../../terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -735,7 +735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -789,7 +789,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../../workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -822,7 +822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -843,7 +843,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -864,7 +864,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -885,7 +885,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../../workspaces/workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -906,7 +906,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/workspaces/mounts/" class="md-nav__link">
+      <a href="../../workspaces/mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -932,6 +932,8 @@
                 
   
   
+    
+  
   
   
     
@@ -957,18 +959,16 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/apis/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -985,7 +985,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_5">
             <span class="md-nav__icon md-icon"></span>
             APIs
@@ -1001,7 +1001,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/admission-webhooks/" class="md-nav__link">
+      <a href="../admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1022,7 +1022,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1040,10 +1040,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../concepts/apis/cached-resources/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    CachedResource API
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1052,6 +1072,77 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#resource-replication" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource replication
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource replication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cachedresource-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      CachedResource identity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cachedresourceendpointslice" class="md-nav__link">
+    <span class="md-ellipsis">
+      CachedResourceEndpointSlice
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#selectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Selectors
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-cachedresources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Exporting CachedResources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1064,7 +1155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1085,7 +1176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1141,7 +1232,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authentication/" class="md-nav__link ">
+            <a href="../../authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1174,7 +1265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="../../authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1195,7 +1286,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authentication/workspace/" class="md-nav__link">
+      <a href="../../authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1249,7 +1340,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1282,7 +1373,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1340,7 +1431,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1373,7 +1464,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1394,7 +1485,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1415,7 +1506,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1469,7 +1560,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1502,7 +1593,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2415,8 +2506,6 @@
       
   
   
-    
-  
   
   
     
@@ -2433,22 +2522,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2459,13 +2547,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             Reference
@@ -2478,10 +2566,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -2529,11 +2615,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
         
           
           <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
@@ -2547,7 +2635,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6_2">
             <span class="md-nav__icon md-icon"></span>
             CLI
@@ -2561,7 +2649,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2582,7 +2670,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2603,7 +2691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2624,7 +2712,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2645,7 +2733,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2666,7 +2754,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2687,7 +2775,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2708,7 +2796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2726,28 +2814,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    kcp crd snapshot
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2756,60 +2826,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      Options inherited from parent commands
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      See Also
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2822,7 +2838,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2843,7 +2859,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2864,7 +2880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2885,7 +2901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2906,7 +2922,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2927,7 +2943,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2948,7 +2964,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2969,7 +2985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2990,7 +3006,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3011,7 +3027,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3142,7 +3158,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3163,7 +3179,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3184,7 +3200,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3205,7 +3221,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3226,7 +3242,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3301,7 +3317,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3322,7 +3338,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3397,7 +3413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3418,7 +3434,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3493,7 +3509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3514,7 +3530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3568,6 +3584,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -3576,36 +3594,51 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
+  <a href="#resource-replication" class="md-nav__link">
     <span class="md-ellipsis">
-      Examples
+      Resource replication
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource replication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cachedresource-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      CachedResource identity
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#options" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#cachedresourceendpointslice" class="md-nav__link">
     <span class="md-ellipsis">
-      Options
+      CachedResourceEndpointSlice
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#selectors" class="md-nav__link">
     <span class="md-ellipsis">
-      Options inherited from parent commands
+      Selectors
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#exporting-cachedresources" class="md-nav__link">
     <span class="md-ellipsis">
-      See Also
+      Exporting CachedResources
     </span>
   </a>
   
@@ -3629,52 +3662,208 @@
   
 
 
-  <h1>kcp crd snapshot</h1>
-
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp crd snapshot -f FILE --prefix PREFIX [flags]
-</code></pre></div>
-<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># Convert a CRD in a yaml file to an APIResourceSchema. For a CRD named widgets.example.io, and a prefix value of
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a># &#39;today&#39;, the new APIResourceSchema&#39;s name will be today.widgets.example.io.
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>kubectl kcp crd snapshot -f crd.yaml --prefix 2022-05-07 &gt; api-resource-schema.yaml
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a># Convert a CRD from STDIN
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>kubectl get crd foo -o yaml | kubectl kcp crd snapshot -f - --prefix today &gt; output.yaml
-</code></pre></div>
-<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -f, --filename string   Path to a file containing the CRD to convert to an APIResourceSchema, or - for stdin
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  -h, --help              help for snapshot
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -o, --output string     Output format. Valid values are &#39;json&#39; and &#39;yaml&#39; (default &quot;yaml&quot;)
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --prefix string     Prefix to use for the APIResourceSchema&#39;s name, before &lt;resource&gt;.&lt;group&gt;
-</code></pre></div>
-<h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>      --add_dir_header                   If true, adds the file directory to the header of the log messages
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>      --alsologtostderr                  log to standard error as well as files (no effect when -logtostderr=true)
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>      --log_backtrace_at traceLocation   when logging hits line file:N, emit a stack trace (default :0)
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>      --log_dir string                   If non-empty, write log files in this directory (no effect when -logtostderr=true)
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>      --log_file string                  If non-empty, use this log file (no effect when -logtostderr=true)
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>      --log_file_max_size uint           Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>      --logtostderr                      log to standard error instead of files (default true)
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>      --one_output                       If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>      --skip_headers                     If true, avoid header prefixes in the log messages
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>      --skip_log_headers                 If true, avoid headers when opening log files (no effect when -logtostderr=true)
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>      --stderrthreshold severity         logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true) (default 2)
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>  -v, --v Level                          number for the log level verbosity
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>      --vmodule moduleSpec               comma-separated list of pattern=N settings for file-filtered logging
-</code></pre></div>
-<h3 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h3>
+<h1 id="cachedresource-api">CachedResource API<a class="headerlink" href="#cachedresource-api" title="Permanent link">&para;</a></h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>As of 0.29, this feature is of alpha-version quality. To use it, enable the <code>CachedAPIs</code> feature gate.</p>
+</div>
+<p>A CachedResource object replicates a user-defined resource from its workspace into kcp's <a href="../../sharding/cache-server/">cache server</a>. It may be used as an <a href="../exporting-apis/#virtual-resources">APIExport virtual resource</a> with the goal of distributing static, read-only resources to multiple clusters, in a scalable way.</p>
+<p><strong>Example user story:</strong></p>
 <ul>
-<li><a href="../kcp_crd/">kcp crd</a> – CRD related operations</li>
+<li>You, the <strong>service provider</strong>, run a cloud <em>Cloud Co.</em>, including a compute service.</li>
+<li>You offer a service of provisioning and running VM instances: users create an <code>Instance</code> object and voilà, they have a running VM!<ul>
+<li>But how do you design the API for configuring such a resource? How do you make your consumers know what configuration options are available, given the limited resources available in the cloud?</li>
+<li>You've decided to offer different packages for CPUs, memory, storage, GPUs; these are represented as CRDs, e.g. <code>cpuflavors.cloud.example.com</code>, <code>memflavors.cloud.example.com</code>, with <code>cpu-small</code>, <code>cpu-medium</code>, <code>cpu-large</code>, <code>mem-medium</code>, <code>mem-large</code>, <code>mem-xlarge</code> respectively.</li>
+<li>You've created a CachedResource for each flavor type.</li>
+<li>You offer the service through an APIExport containing the main <code>instances.cloud.example.com</code> resource, as well as all flavors. These are exported as <a href="../exporting-apis/#virtual-resources">virtual resources</a>.</li>
 </ul>
+</li>
+<li><strong>Consumers</strong> binding to your APIExport can list and get the available flavors from within their workspace (e.g. with <code>kubectl get cpuflavors</code>), and refer to them in their <code>Instance</code> spec. They cannot create, delete or otherwise modify the flavor objects in any way.</li>
+</ul>
+<p>See an example usage at <a href="https://github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources">github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources</a>.</p>
+<h2 id="resource-replication">Resource replication<a class="headerlink" href="#resource-replication" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud.example.com</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors</span>
+</code></pre></div>
+<p>The snippet above shows an example where all <code>cpuflavors.v1.cloud.example.com</code> objects in the workspace are replicated to the cache. There are some constraints on what resources may be replicated:</p>
+<ul>
+<li>There may be only one CachedResource for a particular group-version-resource triplet in the workspace.</li>
+<li>The resource must be cluster scoped.</li>
+<li>The resource must not be a <a href="../built-in/">built-in API</a> or kcp system API belonging to <code>apis.kcp.io</code> group.</li>
+<li>The resource may be originating from a CRD or an APIBinding.</li>
+</ul>
+<p>Once created, resource replication progress may be checked in CachedResource's status:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">conditions</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lastTransitionTime</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;2025-10-21T14:03:41Z&quot;</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;True&quot;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IdentityValid</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lastTransitionTime</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;2025-10-21T14:03:42Z&quot;</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;True&quot;</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ReplicationStarted</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lastTransitionTime</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;2025-10-21T14:03:41Z&quot;</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;True&quot;</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ResourceValid</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cd2eb0837...</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">  </span><span class="nt">phase</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ready</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">  </span><span class="nt">resourceCounts</span><span class="p">:</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">    </span><span class="nt">cache</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="nt">local</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w"> </span><span class="c1"># (2)</span>
+</code></pre></div>
+<ol>
+<li><code>cache</code> resource count refers to the count of objects currently in cache for this CachedResource.</li>
+<li><code>local</code> resource count refers to the count of objects the CachedResource currently sees in its workspace.</li>
+</ol>
+<p>The objects a CachedResource is watching are always replicated in the direction <strong>from</strong> CachedResource's workspace <strong>into</strong> cache. Note that this means the only way to modify the in-cache copies is to modify the original objects. In-cache objects can be then projected into a workspace as a read-only API. This is done by creating a respective APIExport with <a href="#exporting-cachedresources">CachedResource virtual resource</a>, and binding to it.</p>
+<pre class="mermaid"><code>flowchart TD
+    cacheServer["Cache server"]
+
+    subgraph provider["API Provider Workspace"]
+        cpuflavorsCRD["CPUFlavors CRD"]
+        cpuflavorCRs["CPUFlavor objects..."]
+
+        cpuflavorsCachedResource["CPUFlavors CachedResource"]
+
+        cpuflavorCRs -."From".-&gt; cpuflavorsCRD
+        cpuflavorsCachedResource -.Watches.-&gt; cpuflavorCRs
+    end
+
+    cpuflavorsCachedResource -."Replicates CPUFlavor objects into".-&gt; cacheServer</code></pre>
+<p>You can optionally configure the following additional aspects of a CachedResource:</p>
+<ul>
+<li>its identity</li>
+<li>its endpoint slice</li>
+<li>resource selector</li>
+</ul>
+<p>We'll talk about each of these next.</p>
+<h3 id="cachedresource-identity">CachedResource identity<a class="headerlink" href="#cachedresource-identity" title="Permanent link">&para;</a></h3>
+<p>Similar to the <a href="../exporting-apis/#apiexport-identity">APIExport identity</a> concept, there may be many CachedResources with the same group-version-resource triplet across kcp instances. To differentiate between them and identify owners, a CachedResource object uses a unique identity key stored in a secret.</p>
+<p>The identity <strong>key</strong> is considered a private key and should not be shared.</p>
+<p><strong>Hash</strong> calculated from that key, found at <code>.status.identityHash</code>, is considered a public key. APIExport's virtual resource definition expects this identity hash to be supplied when exporting a CachedResource.</p>
+<p>By default, creating a CachedResource object triggers creation of an identity secret with a randomly generated key in its <code>key</code> data item. You can provide your own key by referencing your secret in the object's spec:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-cached-cpuflavors-identity</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">stringData</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;Your</span><span class="nv"> </span><span class="s">identity</span><span class="nv"> </span><span class="s">key&gt;&quot;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nn">---</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nt">identity</span><span class="p">:</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="nt">secretRef</span><span class="p">:</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-cached-cpuflavors-identity</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</code></pre></div>
+<h3 id="cachedresourceendpointslice">CachedResourceEndpointSlice<a class="headerlink" href="#cachedresourceendpointslice" title="Permanent link">&para;</a></h3>
+<p>While CachedResources replicates their associated resources to the cache server, retrieval of these in-cache resources is done through the Replication <a href="../../workspaces/virtual-workspaces/">virtual workspace</a>. The Replication VW is an API server dedicated to CachedResources, and is able to access the resource's objects with read-only verbs get, list and watch.</p>
+<p>The Replication VW endpoints are listed in CachedResourceEndpointSlice. This endpoint slice is compatible with APIExport's <a href="../exporting-apis/#virtual-resources">virtual resources</a> and can be used as storage source.</p>
+<p>With that said, the Replication VW is consumer-aware, and needs a valid APIExport and APIBinding(s) to operate. Therefore it is much more convenient to access the in-cache resources through regular APIBindings in a workspace and/or the APIExport VW rather than accessing them through the Replication VW. Consider the Replication VW just as an implementation detail of the CachedResource API, and when consuming it, use APIExports.</p>
+<pre class="mermaid"><code>flowchart TD
+    cacheServer["Cache server"]
+    replicationVW["Replication VW"]
+
+    subgraph provider["API Provider Workspace"]
+        cpuflavorsCachedResource["CPUFlavors CachedResource"]
+        cpuflavorsCachedResourceEndpointSlice["CPUFlavors CachedResourceEndpointSlice"]
+
+        cpuflavorsCachedResourceEndpointSlice --&gt; cpuflavorsCachedResource
+    end
+
+    replicationVW -."Reads from".-&gt; cacheServer
+    cpuflavorsCachedResourceEndpointSlice -."Has an endpoint for".-&gt; replicationVW</code></pre>
+<p>For convenience, creating a CachedResource triggers creation of a CachedResourceEndpointSlice object under the same name. This behaviour can be disabled by adding <code>cachedresources.cache.kcp.io/skip-endpointslice</code> annotation to the CachedResource object. You can create your own like so:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">cachedResource</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span><span class="w"> </span><span class="c1"># (1)</span>
+</code></pre></div>
+<ol>
+<li>Name of the CachedResource this endpoint slice is referencing. Currently, both CachedResource and CachedResourceEndpointSlice must be co-located in the same workspace. See <a href="https://github.com/kcp-dev/kcp/issues/3658">https://github.com/kcp-dev/kcp/issues/3658</a></li>
+</ol>
+<h3 id="selectors">Selectors<a class="headerlink" href="#selectors" title="Permanent link">&para;</a></h3>
+<p>CachedResource spec has an optional <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors"><code>labelSelector</code></a> field which can be used to shape the set of objects it picks up.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud.example.com</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">labelSelector</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">cloud.example.com/visibility</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public</span>
+</code></pre></div>
+<h2 id="exporting-cachedresources">Exporting CachedResources<a class="headerlink" href="#exporting-cachedresources" title="Permanent link">&para;</a></h2>
+<p>You can project the replicated read-only objects of a CachedResource into a workspace using the standard APIExport-APIBinding relationship. Create an APIExport and define <a href="../exporting-apis/#virtual-resources">virtual resource</a> for the associated <a href="#cachedresourceendpointslice">CachedResourceEndpointSlice</a>. Consumers can then bind to it.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">compute.cloud.example.com</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud.example.com</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v250801.cpuflavors.cloud.example.com</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">storage</span><span class="p">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">virtual</span><span class="p">:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">        </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="c1"># (2)</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">          </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">          </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">        </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cd2eb0837...</span><span class="w"> </span><span class="c1"># (3)</span>
+</code></pre></div>
+<ol>
+<li>Resource schema must match the schema used by the resource in the associated CachedResource.</li>
+<li>Reference to the CachedResourceEndpointSlice endpoint slice <code>cpuflavors-v1</code>.</li>
+<li>Identity hash of the <code>cpuflavors-v1</code> CachedResource object.</li>
+</ol>
+<p>A <code>virtual</code> storage definition needs (1) a reference to an <a href="../exporting-apis/#endpoint-slices">endpoint slice</a> object, and (2) a virtual resource identity. In the case of CachedResources, the endpoint slice is provided by CachedResourceEndpointSlice. For convenience, a matching CachedResourceEndpointSlice object is automatically created when creating a CachedResource. The identity hash must match the one set in CachedResource's <code>.status.identityHash</code>.</p>
+<pre class="mermaid"><code>flowchart TD
+    subgraph provider["API Provider Workspace"]
+        export["CPUFlavors APIExport"]
+        schema["CPUFlavors APIResourceSchema"]
+        crd["CPUFlavors CRD"]
+        cpuflavorsCachedResourceEndpointSlice["CPUFlavors CachedResourceEndpointSlice"]
+
+        export --&gt; schema
+        export --&gt; cpuflavorsCachedResourceEndpointSlice
+        schema -."Is equivalent to".-&gt; crd
+    end
+
+    subgraph consumer1["Consumer Workspace"]
+        binding["CPUFlavors APIBinding"]
+        boundCPUFlavorVirtualResources["CPUFlavor objects..."]
+
+        binding -."Projects CPUFlavors API from Replication VW".-&gt; boundCPUFlavorVirtualResources
+    end
+
+    export --&gt; binding</code></pre>
+<p>Note the APIResourceSchema referenced by the APIExport example above: the Replication VW follows that reference, and that schema is then used to serve the resource in consumers' workspaces. The provider must therefore ensure that it is kept in-sync with the schema of the original resource.</p>
 
 
 
 
 
 
-
-  
-  
 
 
 
