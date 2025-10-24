@@ -13,7 +13,7 @@ spec:
           apiGroup: cache.kcp.io
           kind: CachedResourceEndpointSlice
           name: instances
-        identityHash: 2857921554ab76ec50f25bf083b7aeb4f7808cd169fd2945b007429f426614ec
+        identityHash: 676a1a997f7507fdfcfd1fcf35920efdff1297cd215cad4f486220c30a5c7090
   - name: virtualmachines
     group: machines.svm.io
     schema: today.virtualmachines.machines.svm.io

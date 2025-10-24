@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: instances-cr-identity
+  namespace: default
+stringData:
+  key: instances-cr-identity-123
