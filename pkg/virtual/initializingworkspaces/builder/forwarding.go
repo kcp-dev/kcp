@@ -210,7 +210,7 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 					return errors.NewInternalError(fmt.Errorf("error accessing initializers from old object: %w", err))
 				}
 				invalidUpdateErr := errors.NewInvalid(
-					tenancyv1alpha1.Kind("Workspace"),
+					tenancyv1alpha1.Kind("LogicalCluster"),
 					name,
 					field.ErrorList{field.Invalid(
 						field.NewPath("status", "initializers"),
