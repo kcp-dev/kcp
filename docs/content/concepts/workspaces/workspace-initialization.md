@@ -8,7 +8,7 @@ Initializers are used to customize workspaces and bootstrap required resources u
 
 ### Defining Initializers in WorkspaceTypes
 
-A `WorkspaceType` can specify an initializer using the `initializer` field. Here is an example of a `WorkspaceType` with an initializer.
+A `WorkspaceType` can specify having an initializer using the `initializer` field. Here is an example of a `WorkspaceType` with an initializer.
 
 ```yaml
 apiVersion: tenancy.kcp.io/v1alpha1
@@ -20,6 +20,25 @@ spec:
   defaultChildWorkspaceType:
     name: universal
     path: root
+```
+
+Each initializer has a unique name, which gets automatically generated using  `<workspace-path-of-WorkspaceType>:<WorkspaceType-name>`. So for example, if you were to apply the aforementioned WorkspaceType on the root workspace, your initializer would be called `root:example`.
+
+Since `WorkspaceType.spec.initializers` is a boolean field, each WorkspaceType comes with a single initializer by default. However each WorkspaceType inherits the initializers of its parent WorkspaceType. As a result, it is possible to have multiple initializers on a WorkspaceType using [WorkspaceType Extension](../../concepts/workspaces/workspace-types.md#workspace-type-extensions-and-constraints)
+
+In the following example, `child` inherits the initializers of `parent`. As a result, child workspaces will have the `root:child` and `root:parent` initializers set.
+
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: child
+spec:
+  initializer: true
+  extend:
+    with:
+    - name: parent
+      path: root
 ```
 
 ### Enforcing Permissions for Initializers
@@ -37,6 +56,7 @@ rules:
     resourceNames: ["example"]
     verbs: ["initialize"]
 ```
+
 You can then bind this role to a user or a group.
 
 ```yaml
@@ -54,46 +74,40 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
-## initializingworkspaces Virtual Workspace
+## Writing Custom Initialization Controllers
+
+### Responsibilities Of Custom Initialization Controllers
+
+Custom Initialization Controllers are responsible for handling initialization logic for custom WorkspaceTypes. They interact with kcp by:
+
+1. Watching for the creation of new LogicalClusters (the backing object behind Workspaces) with the corresponding initializer on them
+2. Running any custom initialization logic
+3. Removing the corresponding initializer from the `.status.initializers` list of the LogicalCluster after initialization logic has successfully finished
+
+In order to simplify these processes, kcp provides the `initializingworkspaces` virtual workspace.
+
+### The `initializingworkspaces` Virtual Workspace
 
 As a service provider, you can use the `initializingworkspaces` virtual workspace to manage workspace resources in the initializing phase. This virtual workspace allows you to fetch `LogicalCluster` objects that are in the initializing phase and request initialization by a specific controller.
 
-This Virtual Workspace can fetch `LogicalCluster` either by specific its name or using wildcard.
+You can retrieve the url of a Virtual Workspace directly from the `.status.virtualWorkspaces` field of the corresponding WorkspaceType. Returning to our previous example using a custom WorkspaceType called "example", you will receive the following output:
 
-### Endpoint URL path
+```sh
+$ kubectl get workspacetype example -o yaml
 
-`initializingworkspaces` Virtual Workspace provide a virtual api-server to access workspaces that are initializing with the specific initializer. These URLs are published in the status of WorkspaceType object.
-
-
-```yaml
+...
+status:
   virtualWorkspaces:
-  - url: https://<front-proxy-ip>:6443/services/initializingworkspaces/<initializer>
+  - url: https://<shard-url>/services/initializingworkspaces/root:example
 ```
 
-This is an example URL path for accessing logical cluster apis for a specific initializer in a `initializingworkspaces` virtual workspace.
+You can use this url to construct a kubeconfig for your controller. To do so, use the url directly as the `cluster.server` in your kubeconfig and provide the subject with sufficient permissions (see [Enforcing Permissions for Initializers](#enforcing-permissions-for-initializers))
 
-```yaml
-/services/initializingworkspaces/<initializer>/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters
-```
+### Code Sample
 
-You can also use `LogicalCluster` name for the direct view, allowing to manage all resources within that logical cluster.
+When writing a custom initializer, the following needs to be taken into account:
 
-```yaml
-/services/initializingworkspaces/<initializer>/clusters/<logical-cluster-name>/apis/core.kcp.io/v1alpha1/logicalclusters
-```
+* We strongly recommend to use the kcp [initializingworkspace multicluster-provider](https://github.com/kcp-dev/multicluster-provider) to build your custom initializer
+* You need to update LogicalClusters using patches; They cannot be updated using the update api
 
-### Example workflow
-
-* Add your custom WorkspaceType to the platform with an initializer.
-
-* Create a workspace with the necessary warrants and scopes. The workspace will stay in the initializing state as the initializer is present.
-
-* Use a controller to watch your initializing workspaces, you can interact with the workspace through the virtual workspace endpoint:
-
-```yaml
-/services/initializingworkspaces/foo/clusters/*/apis/core.kcp.io/v1alpha1/logicalclusters
-```
-
-* Once you get the object, you need to initialize the workspace with its related resources, using the same endpoint
-
-* Once the initialization is complete, use the same endpoint to remove the initializer from the workspace.
+Keeping this in mind, you can use the [multicluster-provider initializingworkspaces example](https://github.com/kcp-dev/multicluster-provider/tree/main/examples/initializingworkspaces) as a starting point for your initialization controller
