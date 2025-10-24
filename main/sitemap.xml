@@ -151,6 +151,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-initialization/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-termination/</loc>
+        <lastmod>2025-10-24</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-termination/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types/</loc>
         <lastmod>2025-10-24</lastmod>
         <changefreq>daily</changefreq>
