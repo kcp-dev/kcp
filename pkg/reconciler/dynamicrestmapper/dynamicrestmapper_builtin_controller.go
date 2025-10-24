@@ -201,6 +201,9 @@ func (c *BuiltinTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomRe
 }
 
 func (c *BuiltinTypesController) gatherGVKRsForMappedGroupResource(gr schema.GroupResource) ([]typeMeta, error) {
+	c.state.lock.RLock()
+	defer c.state.lock.RUnlock()
+
 	gvkrs, err := c.state.builtin.getGVKRs(gr)
 	if err != nil {
 		if meta.IsNoMatchError(err) {
