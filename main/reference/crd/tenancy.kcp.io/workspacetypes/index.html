@@ -4219,6 +4219,32 @@ another workspace type automatically is considered as that extended type as well
 </div>
 </div>
 
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminator">.spec.terminator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>Terminator determines if this WorkspaceType has an associated terminating
+controller. These controllers are used to add functionality to a Workspace;
+all controllers must finish their work before the Workspace is being deleted.</p>
+
+<p>One terminating controller is supported per WorkspaceType; the identifier
+for this terminator will be a colon-delimited string using the workspace in which
+the WorkspaceType is defined, and the type&rsquo;s name. For example, if a
+WorkspaceType <code>example</code> is created in the <code>root:org</code> workspace, the implicit
+terminator name is <code>root:org:example</code>.</p>
+
+</div>
+
+</div>
+</div>
+
 <div class="property depth-0">
 <div class="property-header">
 <h3 class="property-path" id="v1alpha1-.status">.status</h3>

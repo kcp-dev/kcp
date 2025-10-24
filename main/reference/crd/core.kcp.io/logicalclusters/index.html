@@ -3839,6 +3839,44 @@ too.</p>
 </div>
 </div>
 
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminators">.spec.terminators</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>Terminators are set on creation by the system and copied to status when
+termination starts.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminators[*]">.spec.terminators[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+<div class="property-description">
+<p>LogicalClusterTerminator is a unique string corresponding to a logical cluster
+terminator controller.</p>
+
+</div>
+
+</div>
+</div>
+
 <div class="property depth-0">
 <div class="property-header">
 <h3 class="property-path" id="v1alpha1-.status">.status</h3>
@@ -4081,6 +4119,45 @@ initialization controller.</p>
 
 <div class="property-description">
 <p>Phase of the logical cluster (Initializing, Ready).</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.terminators">.status.terminators</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>Terminators are set on creation by the system and must be cleared
+by a controller before the logical cluster can be deleted. The LogicalCluster object
+will stay in the phase &ldquo;Deleting&rdquo; until all terminator are cleared.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.terminators[*]">.status.terminators[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+<div class="property-description">
+<p>LogicalClusterTerminator is a unique string corresponding to a logical cluster
+terminator controller.</p>
 
 </div>
 
