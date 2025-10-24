@@ -85,32 +85,6 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 	r := &replicationReconciler{
 		shardName:          c.shardName,
 		localLabelSelector: c.localLabelSelector,
-		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
-			gvr := gvrFromKey
-			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
-			obj, exists, err := c.replicated.Local.GetIndexer().GetByKey(key)
-			if !exists {
-				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
-			} else if err != nil {
-				return nil, err // necessary to avoid non-zero nil interface
-			}
-
-			u, err := toUnstructured(obj)
-			if err != nil {
-				return nil, err
-			}
-
-			if c.replicated.Filter != nil && !c.replicated.Filter(u) {
-				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
-			}
-
-			if _, ok := obj.(*unstructured.Unstructured); ok {
-				u = u.DeepCopy()
-			}
-			u.SetKind(c.replicated.Kind)
-			u.SetAPIVersion(gvr.GroupVersion().String())
-			return u, nil
-		},
 		getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			gvr := gvrFromKey
 			if gvr.Group == "" {
@@ -236,6 +210,54 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			}
 			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Delete(ctx, cachedObjName, metav1.DeleteOptions{})
 		},
+	}
+	// r.getLocalCopy is defined separately because it calls r.getGlobalCopy internally.
+	r.getLocalCopy = func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+		gvr := gvrFromKey
+		key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
+		partialMetadataObj, exists, err := c.replicated.Local.GetIndexer().GetByKey(key)
+		if !exists {
+			return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
+		} else if err != nil {
+			return nil, err // necessary to avoid non-zero nil interface
+		}
+
+		// The local informer only yields a PartialMetadataObject, but we need a full object for replication.
+		// We'll need to do a live GET to retrieve it, but before doing so we check RV against the cached copy
+		// to be sure we actually need do the GET call.
+
+		var globalCopyRV string
+		globalCopy, err := r.getGlobalCopy(cluster, namespace, name)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, err
+			}
+		} else {
+			ann := globalCopy.GetAnnotations()
+			if ann != nil {
+				globalCopyRV = ann[AnnotationKeyOriginalResourceVersion]
+			}
+		}
+
+		uPartialMetadataObj, err := toUnstructured(partialMetadataObj)
+		if err != nil {
+			return nil, err
+		}
+
+		if c.replicated.Filter != nil && !c.replicated.Filter(uPartialMetadataObj) {
+			return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
+		}
+
+		if uPartialMetadataObj.GetResourceVersion() == globalCopyRV {
+			return globalCopy, nil
+		}
+
+		// The RV doesn't match either because it's different, or the globalCopy doesn't exist. Fallback to GET.
+		return c.dynamicClusterClient.
+			Cluster(cluster.Path()).
+			Resource(gvr).
+			Namespace(namespace).
+			Get(ctx, name, metav1.GetOptions{})
 	}
 	defer c.callback()
 	return r.reconcile(ctx, key)

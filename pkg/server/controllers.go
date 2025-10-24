@@ -1742,7 +1742,6 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		kcpClusterClient,
 		s.KcpCacheClusterClient,
 		dynamicClient,
-		s.CacheDynamicClient,
 		s.KubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
