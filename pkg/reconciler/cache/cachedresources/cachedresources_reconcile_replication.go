@@ -34,17 +34,17 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
+	cachev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache/v1alpha1"
 )
 
 // replication starts the replication machinery for a published resource.
 // Or deletes the replication controller if the published resource is being deleted.
 type replication struct {
 	shardName                      string
-	dynamicCacheClient             kcpdynamic.ClusterInterface
+	dynamicClusterClient           kcpdynamic.ClusterInterface
 	kcpCacheClient                 kcpclientset.ClusterInterface
 	dynRESTMapper                  *dynamicrestmapper.DynamicRESTMapper
-	cacheKcpInformers              kcpinformers.SharedInformerFactory
+	cachedObjectsInformer          cachev1alpha1informers.CachedObjectClusterInformer
 	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
 	callback                       func(obj interface{})
 	controllerRegistry             *controllerRegistry
@@ -53,7 +53,6 @@ type replication struct {
 func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 	logger.Info("reconciling published resource", "CachedResource", cachedResource.Name)
-
 	gvr := schema.GroupVersionResource{
 		Group:    cachedResource.Spec.Group,
 		Version:  cachedResource.Spec.Version,
@@ -76,8 +75,6 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		// Global informer is based on the CachedResource type and we construct index based on the schema labels.
 		controllerCtx, cancel := context.WithCancel(ctx)
 
-		global := r.cacheKcpInformers.Cache().V1alpha1().CachedObjects()
-
 		// Local informer is based on the specific types we want to replicate.
 		local, err := r.discoveringDynamicKcpInformers.ClusterWithContext(ctx, cluster).ForResource(gvr)
 		if err != nil {
@@ -92,19 +89,18 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			return reconcileStatusStopAndRequeue, err
 		}
 		replicated := &replicationcontroller.ReplicatedGVR{
-			Kind:   replicatedKind.Kind,
-			Local:  local.Informer(),
-			Global: global.Informer(),
+			Kind:  replicatedKind.Kind,
+			Local: local.Informer(),
 		}
-		replicationcontroller.InstallIndexers(replicated)
 		callback := func() {
 			r.callback(cachedResource)
 		}
 
 		c, err := replicationcontroller.NewController(
 			r.shardName,
-			r.dynamicCacheClient,
+			r.dynamicClusterClient,
 			r.kcpCacheClient,
+			r.cachedObjectsInformer,
 			gvr,
 			replicated,
 			callback,
@@ -116,9 +112,8 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		}
 
 		go replicated.Local.Run(ctx.Done())
-		go replicated.Global.Run(ctx.Done())
 
-		if !cache.WaitForCacheSync(ctx.Done(), replicated.Local.HasSynced, replicated.Global.HasSynced) {
+		if !cache.WaitForCacheSync(ctx.Done(), replicated.Local.HasSynced) {
 			cancel()
 			return reconcileStatusContinue, fmt.Errorf("failed to wait for informers to sync")
 		}

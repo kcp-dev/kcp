@@ -46,8 +46,7 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	cachev1alpha1client "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/typed/cache/v1alpha1"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
-	cacheinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache/v1alpha1"
+	cachev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache/v1alpha1"
 	cachev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/cache/v1alpha1"
 )
 
@@ -68,7 +67,6 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
 	dynamicClient kcpdynamic.ClusterInterface,
-	cacheDynamicClient kcpdynamic.ClusterInterface,
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
@@ -77,10 +75,10 @@ func NewController(
 	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper,
 
 	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
-	cacheKcpInformers kcpinformers.SharedInformerFactory,
 
-	cachedResourceInformer cacheinformers.CachedResourceClusterInformer,
-	cachedResourceEndpointSliceInformer cacheinformers.CachedResourceEndpointSliceClusterInformer,
+	cachedObjectsInformer cachev1alpha1informers.CachedObjectClusterInformer,
+	cachedResourceInformer cachev1alpha1informers.CachedResourceClusterInformer,
+	cachedResourceEndpointSliceInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
 		shardName: shardName,
@@ -93,13 +91,12 @@ func NewController(
 		kcpClient:      kcpClusterClient,
 		kcpCacheClient: kcpCacheClient,
 
-		dynamicClient:      dynamicClient,
-		cacheDynamicClient: cacheDynamicClient,
+		dynamicClient: dynamicClient,
 
 		dynRESTMapper: dynRESTMapper,
 
 		discoveringDynamicKcpInformers: discoveringDynamicKcpInformers,
-		cacheKcpInformers:              cacheKcpInformers,
+		cachedObjectsInformer:          cachedObjectsInformer,
 
 		CachedResourceLister:  cachedResourceInformer.Lister(),
 		CachedResourceIndexer: cachedResourceInformer.Informer().GetIndexer(),
@@ -165,18 +162,17 @@ type Controller struct {
 	kcpClient      kcpclientset.ClusterInterface
 	kcpCacheClient kcpclientset.ClusterInterface
 
-	dynamicClient      kcpdynamic.ClusterInterface
-	cacheDynamicClient kcpdynamic.ClusterInterface
+	dynamicClient kcpdynamic.ClusterInterface
 
 	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
 	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
-	cacheKcpInformers              kcpinformers.SharedInformerFactory
+	cachedObjectsInformer          cachev1alpha1informers.CachedObjectClusterInformer
 
 	CachedResourceIndexer cache.Indexer
 	CachedResourceLister  cachev1alpha1listers.CachedResourceClusterLister
 
-	CachedResourceEndpointSliceInformer cacheinformers.CachedResourceEndpointSliceClusterInformer
+	CachedResourceEndpointSliceInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer
 
 	commit func(ctx context.Context, new, old *CachedResourceResource) error
 
