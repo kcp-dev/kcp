@@ -221,7 +221,9 @@ func CleanupScrapeMetrics(ctx context.Context, promUrl, promCfgDir, jobNamePrefi
 		if err != nil {
 			return err
 		}
-		defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		defer func() {
+			_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		}()
 
 		promCfg := config{}
 		err = gopkgyaml.NewDecoder(f).Decode(&promCfg)
