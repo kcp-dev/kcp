@@ -66,7 +66,8 @@ There are several ways to communicate with us:
 
 ## Additional references
 
-- [ContainerDays 2025: Next Generation of Platform Engineering Using kcp and Crossplane](https://www.youtube.com/watch?v=JM1RnNYnuWg)
+- [CNCF CNL: kcp – Kubernetes-Like Control Planes for Declarative APIs - Marvin Beckers, Simon Bein](https://www.youtube.com/watch?v=OVjTKxPc92Y)
+- [ContainerDays 2025: Next Generation of Platform Engineering Using kcp and Crossplane - Lovro Sviben, Simon Bein](https://www.youtube.com/watch?v=JM1RnNYnuWg)
 - [Platform Engineering Day Europe 2024: Building a Platform Engineering API Layer with kcp – Marvin Beckers](https://www.youtube.com/watch?v=az5Rm8Snms4)
 - [KubeCon EU 2024: Why Kubernetes Is Inappropriate for Platforms, and How to Make It Better – Stefan Schimanski, Mangirdas Judeikis, Sebastian Scheele](https://www.youtube.com/watch?v=7op_r9R0fCo)
 - [KubeCon EU 2024: Kubernetes-style APIs for SaaS-like Control Planes with kcp – Marvin Beckers, Mangirdas Judeikis](https://www.youtube.com/watch?v=-P1kUo5zZR4)
