@@ -68,7 +68,6 @@ func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
 	dynamicClient kcpdynamic.ClusterInterface,
-	cacheDynamicClient kcpdynamic.ClusterInterface,
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
@@ -93,8 +92,7 @@ func NewController(
 		kcpClient:      kcpClusterClient,
 		kcpCacheClient: kcpCacheClient,
 
-		dynamicClient:      dynamicClient,
-		cacheDynamicClient: cacheDynamicClient,
+		dynamicClient: dynamicClient,
 
 		dynRESTMapper: dynRESTMapper,
 
@@ -165,8 +163,7 @@ type Controller struct {
 	kcpClient      kcpclientset.ClusterInterface
 	kcpCacheClient kcpclientset.ClusterInterface
 
-	dynamicClient      kcpdynamic.ClusterInterface
-	cacheDynamicClient kcpdynamic.ClusterInterface
+	dynamicClient kcpdynamic.ClusterInterface
 
 	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
