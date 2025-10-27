@@ -201,9 +201,6 @@ func (c *BuiltinTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomRe
 }
 
 func (c *BuiltinTypesController) gatherGVKRsForMappedGroupResource(gr schema.GroupResource) ([]typeMeta, error) {
-	c.state.lock.RLock()
-	defer c.state.lock.RUnlock()
-
 	gvkrs, err := c.state.builtin.getGVKRs(gr)
 	if err != nil {
 		if meta.IsNoMatchError(err) {
@@ -230,6 +227,9 @@ func (c *BuiltinTypesController) process(ctx context.Context, key string) error 
 		return err
 	}
 
+	c.state.lock.Lock()
+	defer c.state.lock.Unlock()
+
 	// Remove and add the mapping -- this way we can refresh any existing mappings.
 	typeMetaToRemove, err := c.gatherGVKRsForMappedGroupResource(gr)
 	if err != nil {
@@ -239,8 +239,6 @@ func (c *BuiltinTypesController) process(ctx context.Context, key string) error 
 
 	logger.V(4).Info("applying mappings")
 
-	c.state.lock.Lock()
-	defer c.state.lock.Unlock()
 	c.state.builtin.apply(typeMetaToRemove, typeMetaToAdd)
 	return nil
 }
