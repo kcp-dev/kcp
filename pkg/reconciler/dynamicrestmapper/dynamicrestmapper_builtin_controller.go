@@ -227,6 +227,9 @@ func (c *BuiltinTypesController) process(ctx context.Context, key string) error 
 		return err
 	}
 
+	c.state.lock.Lock()
+	defer c.state.lock.Unlock()
+
 	// Remove and add the mapping -- this way we can refresh any existing mappings.
 	typeMetaToRemove, err := c.gatherGVKRsForMappedGroupResource(gr)
 	if err != nil {
@@ -236,8 +239,6 @@ func (c *BuiltinTypesController) process(ctx context.Context, key string) error 
 
 	logger.V(4).Info("applying mappings")
 
-	c.state.lock.Lock()
-	defer c.state.lock.Unlock()
 	c.state.builtin.apply(typeMetaToRemove, typeMetaToAdd)
 	return nil
 }
