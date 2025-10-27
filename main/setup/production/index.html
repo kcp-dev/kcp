@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to authenticate requests to kcp.
+        <meta name="description" content="Tips and notes for running a production-grade kcp setup.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/authentication/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/production/">
       
       
-        <link rel="prev" href="../apis/rest-access-patterns/">
+        <link rel="prev" href="../integrations/">
       
       
-        <link rel="next" href="oidc/">
+        <link rel="next" href="../../concepts/">
       
       
       <link rel="icon" href="../../favicons/favicon.ico">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Authentication - docs.kcp.io</title>
+        <title>Production Setup - docs.kcp.io</title>
       
     
     
@@ -79,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#authentication" class="md-skip">
+        <a href="#production-setup" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Authentication
+              Production Setup
             
           </span>
         </div>
@@ -251,11 +251,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../setup/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
     
@@ -271,13 +273,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../concepts/" class="md-tabs__link">
           
   
     
@@ -484,184 +484,6 @@
       
   
   
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
-        
-          
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../setup/" class="md-nav__link ">
-              
-  
-  <span class="md-ellipsis">
-    Setup
-  </span>
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            Setup
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../setup/quickstart/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Quickstart
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../setup/helm/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Installation with Helm
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../setup/kubectl-plugin/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    kubectl Plugins
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../setup/integrations/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Integrations
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../setup/production/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Production Setup
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -671,12 +493,6 @@
       
         
           
-        
-      
-        
-      
-        
-      
         
       
         
@@ -702,12 +518,356 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
             <a href="../" class="md-nav__link ">
+              
+  
+  <span class="md-ellipsis">
+    Setup
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Setup
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quickstart
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../helm/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation with Helm
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kubectl-plugin/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    kubectl Plugins
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Production Setup
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Production Setup
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-etcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running etcd
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running etcd">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#kubernetes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Kubernetes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-availability" class="md-nav__link">
+    <span class="md-ellipsis">
+      High Availability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tls" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backups
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      Encryption
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scaling
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-kcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running kcp
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running kcp">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sharding
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-availability_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      High Availability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backups_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backups
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -718,13 +878,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -740,7 +900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../terminology/" class="md-nav__link">
+      <a href="../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -761,7 +921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -815,7 +975,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../workspaces/" class="md-nav__link ">
+            <a href="../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -848,7 +1008,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -869,7 +1029,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -890,7 +1050,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -911,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -932,7 +1092,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/mounts/" class="md-nav__link">
+      <a href="../../concepts/workspaces/mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -994,7 +1154,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../apis/" class="md-nav__link ">
+            <a href="../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1027,7 +1187,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1048,7 +1208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/built-in/" class="md-nav__link">
+      <a href="../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1069,7 +1229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/cached-resources/" class="md-nav__link">
+      <a href="../../concepts/apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1090,7 +1250,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/exporting-apis/" class="md-nav__link">
+      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1111,7 +1271,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1137,8 +1297,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1158,16 +1316,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1178,13 +1338,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Authentication
@@ -1200,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="oidc/" class="md-nav__link">
+      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1221,7 +1381,7 @@
   
   
     <li class="md-nav__item">
-      <a href="workspace/" class="md-nav__link">
+      <a href="../../concepts/authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1275,7 +1435,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../authorization/" class="md-nav__link ">
+            <a href="../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1308,7 +1468,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authorization/authorizers/" class="md-nav__link">
+      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1366,7 +1526,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../sharding/" class="md-nav__link ">
+            <a href="../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1399,7 +1559,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/shards/" class="md-nav__link">
+      <a href="../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1420,7 +1580,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/partitions/" class="md-nav__link">
+      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1441,7 +1601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/cache-server/" class="md-nav__link">
+      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1495,7 +1655,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../miscellaneous/" class="md-nav__link ">
+            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1528,7 +1688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3529,37 +3689,73 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      Examples
+      Overview
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#kcp-front-proxy-authentication" class="md-nav__link">
+  <a href="#running-etcd" class="md-nav__link">
     <span class="md-ellipsis">
-      KCP Front Proxy Authentication
+      Running etcd
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="KCP Front Proxy Authentication">
+    <nav class="md-nav" aria-label="Running etcd">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#authentication-flow-with-client-certificate" class="md-nav__link">
+  <a href="#kubernetes" class="md-nav__link">
     <span class="md-ellipsis">
-      Authentication Flow With Client Certificate
+      Kubernetes
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#groups-filter" class="md-nav__link">
+  <a href="#high-availability" class="md-nav__link">
     <span class="md-ellipsis">
-      Groups Filter
+      High Availability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tls" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backups
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      Encryption
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scaling
     </span>
   </a>
   
@@ -3571,61 +3767,37 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kcp-server-admin-authentication" class="md-nav__link">
+  <a href="#running-kcp" class="md-nav__link">
     <span class="md-ellipsis">
-      KCP Server Admin Authentication
+      Running kcp
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="KCP Server Admin Authentication">
+    <nav class="md-nav" aria-label="Running kcp">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#users-and-groups" class="md-nav__link">
+  <a href="#sharding" class="md-nav__link">
     <span class="md-ellipsis">
-      Users and Groups
+      Sharding
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#generated-kubeconfig-contexts" class="md-nav__link">
+  <a href="#high-availability_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Generated Kubeconfig Contexts
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pages" class="md-nav__link">
-    <span class="md-ellipsis">
-      Pages
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Pages">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#oidc-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      OIDC Setup
+      High Availability
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#per-workspace-authentication" class="md-nav__link">
+  <a href="#backups_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Per-Workspace Authentication
+      Backups
     </span>
   </a>
   
@@ -3654,104 +3826,96 @@
   
 
 
-<h1 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h1>
-<p>kcp implements the same authentication mechanisms as Kubernetes, allowing the use of Kubernetes authentication strategies. The kcp server can also be configured to generate a local admin.kubeconfig file and a token hash file, enabling access to kcp as a shard admin. This authentication mechanism is then added to any existing Kubernetes authentication <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies">strategies</a> from generic control plane settings.</p>
-<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<p>For detailed instructions on running kcp with a specific authentication strategy, please refer to the following subpages:</p>
+<h1 id="production-setup">Production Setup<a class="headerlink" href="#production-setup" title="Permanent link">&para;</a></h1>
+<p>This document collects notes and tips on how to run a production-grade kcp setup.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>Running kcp consists of mainly two challenges:</p>
 <ul>
-<li><a href="oidc/">OIDC</a></li>
+<li>Running reliable <strong>etcd</strong> clusters for each kcp shard.</li>
+<li>Running <strong>kcp</strong> and dealing with its <strong>sharding</strong> to distribute load and limit the impact of
+  downtimes to a subset of the entire kcp setup.</li>
 </ul>
-<h2 id="kcp-front-proxy-authentication">KCP Front Proxy Authentication<a class="headerlink" href="#kcp-front-proxy-authentication" title="Permanent link">&para;</a></h2>
-<p>kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name (as username) and Organizations (as groups) to the backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.</p>
-<p>Four authentication strategies are enabled in union.</p>
+<h2 id="running-etcd">Running etcd<a class="headerlink" href="#running-etcd" title="Permanent link">&para;</a></h2>
+<p>Just like Kubernetes, kcp uses <a href="https://etcd.io/">etcd</a> as its database: each (root)shard uses its own
+etcd cluster.</p>
+<p>The etcd documentation already contains a great number of <a href="https://etcd.io/docs/v3.7/op-guide/">operations guides</a>
+for common operations like performing backups, monitoring the health etc. Administrators should
+familiarize themselves with the practices laid out there.</p>
+<h3 id="kubernetes">Kubernetes<a class="headerlink" href="#kubernetes" title="Permanent link">&para;</a></h3>
+<p>When running etcd inside Kubernetes, an operator can greatly help in running etcd.
+<a href="https://gardener.github.io/etcd-druid/">Etcd Druid</a> is one of them and offers great support for
+operations tasks and the entire etcd lifecycle. Etcd clusters managed by Etcd Druid can be seamlessly
+used with kcp.</p>
+<h3 id="high-availability">High Availability<a class="headerlink" href="#high-availability" title="Permanent link">&para;</a></h3>
+<p>Care should be taken to distribute the etcd pods across availability zones and/or different nodes.
+This ensures that node failure will not immediately bring down an entire etcd cluster. Please refer
+to the <a href="https://gardener.github.io/etcd-druid/proposals/01-multi-node-etcd-clusters.html?h=affinity#high-availability">Etcd Druid documentation</a>
+for more details and configuration examples.</p>
+<h3 id="tls">TLS<a class="headerlink" href="#tls" title="Permanent link">&para;</a></h3>
+<p>It is highly recommended to enable TLS in etcd to encrypt traffic in-transtit between kcp and etcd.
+When using Kubernetes, <a href="https://cert-manager.io/">cert-manager</a> is a great choice for managing CAs
+and certificates in your cluster, and it can also provide certificates for use in etcd.</p>
+<p>On the kcp side, all that is required is to configure three CLI flags:</p>
 <ul>
-<li>Client certificate</li>
-<li>Token file</li>
-<li>Service account</li>
-<li>OIDC</li>
+<li><code>--etcd-certfile</code></li>
+<li><code>--etcd-keyfile</code></li>
+<li><code>--etcd-cafile</code></li>
 </ul>
-<p>You can configure them with the settings from Kubernetes control plane <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies">strategies</a>.</p>
-<h3 id="authentication-flow-with-client-certificate">Authentication Flow With Client Certificate<a class="headerlink" href="#authentication-flow-with-client-certificate" title="Permanent link">&para;</a></h3>
-<pre class="mermaid"><code>flowchart TD
-    n1["A client sends a request
-  with a client certificate."] --&gt; n2
-    n2["The proxy verifies the
-  certificate against a trusted CA."] --&gt; n3
-    n3["Filters specified
-  groups from requests."] --&gt; n4
-    n4["Extracts the user and
-  groups and passing them
-  as HTTP access headers."] --&gt; n5["Forwards the request
-  to the kcp API server."]</code></pre>
-<h3 id="groups-filter">Groups Filter<a class="headerlink" href="#groups-filter" title="Permanent link">&para;</a></h3>
-<p>kcp-front-proxy drops or passes specific system groups before forwarding requests.
-These can be passed by setting <code>--authentication-pass-on-groups</code> and <code>--authentication-drop-groups</code> flags. They accept a comma-separated list of group names. Groups specified via drop-groups take precedence over ones specified via pass-on.</p>
-<p>By default, kcp-front-proxy is configured to drop <code>system:masters</code> and <code>system:kcp:logical-cluster-admin</code>.
-This ensures that highly privileged users do not receive elevated access when passing through the proxy.</p>
-<h2 id="kcp-server-admin-authentication">KCP Server Admin Authentication<a class="headerlink" href="#kcp-server-admin-authentication" title="Permanent link">&para;</a></h2>
-<p>Admin Authenticator sets up user roles and groups and generates authentication tokens and <code>admin.kubeconfig</code> file. The authentication process relies on Kubernetes authenticated group authenticator.
-To enable admin authentication in the kcp server, you need run it in the development mode with the <code>--batteries-included=admin</code> flag set.
-This setting is currently enabled by default when running the <code>kcp</code> binary, but is disabled in the Helm chart.</p>
-<h3 id="users-and-groups">Users and Groups<a class="headerlink" href="#users-and-groups" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th><strong>User Name</strong></th>
-<th><strong>Role</strong></th>
-<th><strong>Groups</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>shard-admin</strong></td>
-<td>Member of the privileged system group. This user bypasses most kcp authorization checks.</td>
-<td>system:masters</td>
-</tr>
-<tr>
-<td><strong>kcp-admin</strong></td>
-<td>Member of the system:kcp:admin group. This user is subject to kcp authorization checks.</td>
-<td>system:kcp:admin</td>
-</tr>
-<tr>
-<td><strong>user</strong></td>
-<td>Regular non-admin user who is not a part of any predefined groups.</td>
-<td>None</td>
-</tr>
-</tbody>
-</table>
-<h3 id="generated-kubeconfig-contexts">Generated Kubeconfig Contexts<a class="headerlink" href="#generated-kubeconfig-contexts" title="Permanent link">&para;</a></h3>
-<p>kcp server generates a kubeconfig file (admin.kubeconfig) containing credentials for the predefined users. This file allows users to authenticate into different logical clusters.</p>
-<table>
-<thead>
-<tr>
-<th><strong>Context Name</strong></th>
-<th><strong>Cluster Endpoint</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>root</strong></td>
-<td>/clusters/root</td>
-</tr>
-<tr>
-<td><strong>base</strong></td>
-<td>/clusters/base</td>
-</tr>
-<tr>
-<td><strong>system:admin</strong></td>
-<td>/clusters/system:admin</td>
-</tr>
-<tr>
-<td><strong>shard-base</strong></td>
-<td>/clusters/base</td>
-</tr>
-</tbody>
-</table>
-<h2 id="pages">Pages<a class="headerlink" href="#pages" title="Permanent link">&para;</a></h2>
-<h3 id="oidc-setup"><a href="oidc/">OIDC Setup</a><a class="headerlink" href="#oidc-setup" title="Permanent link">&para;</a></h3>
-<p>How to setup OIDC authentication in kcp.</p>
-<h3 id="per-workspace-authentication"><a href="workspace/">Per-Workspace Authentication</a><a class="headerlink" href="#per-workspace-authentication" title="Permanent link">&para;</a></h3>
-<p>How to admit users into workspaces by using custom JWT validators.</p>
+<p>When using cert-manager, all three files are available in the Secret that is created for the
+Certificate object.</p>
+<p>When using Etcd Druid you have to manually create the necessary certificates or make use of one of
+the community Helm charts like <a href="https://artifacthub.io/packages/helm/hajowieland/etcd-druid-certs">hajowieland/etcd-druid-certs</a>.</p>
+<h3 id="backups">Backups<a class="headerlink" href="#backups" title="Permanent link">&para;</a></h3>
+<p>As with any database, etcd clusters should be backed up regularly. This is especially important with
+etcd because a permanent quorum loss can make the entire database unavailable, even though the data
+is technically in some form still there.</p>
+<p>Using an operator like the aforementioned Etcd Druid can greatly help in performing backups and
+restores.</p>
+<h3 id="encryption">Encryption<a class="headerlink" href="#encryption" title="Permanent link">&para;</a></h3>
+<p>kcp supports encryption-at-rest for its storage backend, allowing administrators to configure
+encryption keys or integration with external key-management systems to encrypt data written to disk.</p>
+<p>Please refer to the <a href="https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/">Kubernetes documentation</a>
+for more information on configuring and using encryption in kcp.</p>
+<p>Since each shard and its etcd is independent from other shards, the encryption configuration can be
+different per shard, if desired.</p>
+<h3 id="scaling">Scaling<a class="headerlink" href="#scaling" title="Permanent link">&para;</a></h3>
+<p>etcd can be scaled to some degree by adding more resources and/or more members to an etcd cluster,
+however <a href="https://etcd.io/docs/v3.7/dev-guide/limit/">hard limits</a> set an upper boundary. It is
+important to monitor etcd performance to assign resources accordingly.</p>
+<p>Note that using scaling solutions like the Vertical Pod Autoscaler (VPA), care must be taken so that
+not too many etcd members restart simultaneously or a permanent loss of quorum can occur, which would
+require restoring etcd from a backup.</p>
+<h2 id="running-kcp">Running kcp<a class="headerlink" href="#running-kcp" title="Permanent link">&para;</a></h2>
+<p>Kubernetes is the native habitat of kcp and its recommended runtime environment. The kcp project
+offers two ways of running kcp in Kubernetes:</p>
+<ul>
+<li>via <a href="https://github.com/kcp-dev/helm-charts/">Helm chart</a></li>
+<li>using the <a href="https://docs.kcp.io/kcp-operator/">kcp-operator</a></li>
+</ul>
+<p>While still in its early stages, the kcp-operator is aimed to be the recommended approach to running
+kcp: it offers more features than the Helm charts and can actively reconcile missing/changed
+resources on its own.</p>
+<h3 id="sharding">Sharding<a class="headerlink" href="#sharding" title="Permanent link">&para;</a></h3>
+<p>kcp supports the concept of sharding to spread the workload horizontally across kcp processes. Even
+if the database behind kcp would offer infinite performance at zero cost, kcp itself cannot scale
+vertically indefinitely: each logical cluster requires a minimum of runtime resources, even if the
+cluster is not actively used.</p>
+<p>New workspaces in kcp are spread evenly across all available shards, however as of kcp 0.28, this
+does not take into account the current number of logicalclusters on each shard. This means once
+every existing shard has reached its administrator-defined limit, simply adding a new shard will not
+make kcp schedule all new clusters onto it, but still distribute them evenly. There is currently
+no mechanism to mark shards as "full" or unavailable for schedulding and the kcp scheduled does not
+take shard metrics into account.</p>
+<p>It's therefore recommended to start with a sharded setup instead of working with a single root shard
+only. This not only improves realiability and performance, but can also help ensure newly developed
+kcp client software does not by accident make false assumptions about sharding.</p>
+<h3 id="high-availability_1">High Availability<a class="headerlink" href="#high-availability_1" title="Permanent link">&para;</a></h3>
+<p>To improve resilience against node failures, it is strongly recommended to not just spread the
+workload across multiple shards, but also to ensure that shard pods are distributed across nodes or
+availability zones. The same advice for etcd applies to kcp as well: Use anti-affinities to ensure
+pods are scheduled properly.</p>
+<h3 id="backups_1">Backups<a class="headerlink" href="#backups_1" title="Permanent link">&para;</a></h3>
+<p>All kcp data is stored in etcd, there is no need to perform a dedicated kcp backup.</p>
 
 
 

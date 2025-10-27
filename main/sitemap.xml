@@ -511,6 +511,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/kubectl-plugin/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/setup/production/</loc>
+        <lastmod>2025-10-27</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/production/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/setup/quickstart/</loc>
         <lastmod>2025-10-27</lastmod>
         <changefreq>daily</changefreq>
