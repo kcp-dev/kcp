@@ -18,10 +18,10 @@ package permissionclaim
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/go-logr/logr"
-
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,12 +29,14 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/jsonpath"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/sdk/apis/apis"
 	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2/permissionclaims"
@@ -55,6 +57,9 @@ var NonPersistedResourcesClaimable = map[schema.GroupResource]bool{
 
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
 type Labeler struct {
+	dynRESTMapper    *dynamicrestmapper.DynamicRESTMapper
+	dynClusterClient kcpdynamic.ClusterInterface
+
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha2.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 	getAPIExport                                 func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
@@ -64,8 +69,13 @@ type Labeler struct {
 func NewLabeler(
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper,
+	dynClusterClient kcpdynamic.ClusterInterface,
 ) *Labeler {
 	return &Labeler{
+		dynRESTMapper:    dynRESTMapper,
+		dynClusterClient: dynClusterClient,
+
 		listAPIBindingsAcceptingClaimedGroupResource: func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha2.APIBinding, error) {
 			indexKey := indexers.ClusterAndGroupResourceValue(clusterName, groupResource)
 			return indexers.ByIndex[*apisv1alpha2.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByClusterAndAcceptedClaimedGroupResources, indexKey)
@@ -128,7 +138,10 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 
 			claimLogger := logger.WithValues("claim", claim.String())
 
-			if !l.claimMatchesObject(claimLogger, &claim, claimedObject) {
+			if match, err := l.claimMatchesObject(ctx, cluster, &claim, claimedObject); err != nil {
+				claimLogger.Error(err, "error matching object")
+				continue
+			} else if !match {
 				continue
 			}
 
@@ -168,42 +181,97 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	return labels, nil
 }
 
-func (l *Labeler) claimMatchesObject(logger logr.Logger, claim *apisv1alpha2.AcceptablePermissionClaim, obj *unstructured.Unstructured) bool {
+func (l *Labeler) claimMatchesObject(ctx context.Context, cluster logicalcluster.Name, claim *apisv1alpha2.AcceptablePermissionClaim, obj *unstructured.Unstructured) (bool, error) {
 	if claim.Selector.MatchAll {
-		return true
+		return true, nil
 	}
 
 	if sel := claim.Selector.LabelSelector; len(sel.MatchLabels) > 0 || len(sel.MatchExpressions) > 0 {
 		selector, err := metav1.LabelSelectorAsSelector(&sel)
 		if err != nil {
-			logger.Error(err, "error calculating permission claim label key and value")
-			return false
+			return false, fmt.Errorf("error calculating permission claim label key and value: %w", err)
 		}
 
-		return selector.Matches(klabels.Set(obj.GetLabels()))
+		return selector.Matches(klabels.Set(obj.GetLabels())), nil
 	}
 
 	for _, ref := range claim.Selector.References {
-		if l.referenceMatchesObject(logger, ref, obj) {
-			return true
+		match, err := l.referenceMatchesObject(ctx, cluster, ref, obj)
+		if match || err != nil {
+			return match, err
 		}
 	}
 
-	return false
+	return false, nil
 }
 
-func (l *Labeler) referenceMatchesObject(logger logr.Logger, ref apisv1alpha2.PermissionClaimReference, obj *unstructured.Unstructured) bool {
+func (l *Labeler) referenceMatchesObject(ctx context.Context, cluster logicalcluster.Name, ref apisv1alpha2.PermissionClaimReference, obj *unstructured.Unstructured) (bool, error) {
 	// invalid objects should never have been admitted in the first place, this is just to catch possible panics
 	if ref.JSONPath == nil {
-		logger.Error(nil, "invalid claim: no JSONPath specified")
-		return false
+		return false, errors.New("invalid claim: no JSONPath specified")
 	}
 
-	// step 1: select all objects from the given ref's GR
-	// step 2: for each, evaluate the json paths
-	// step 3: if we find an object that selects our referent (obj), we can stop
+	nameExpr := jsonpath.New("name").AllowMissingKeys(true)
+	if err := nameExpr.Parse(ref.JSONPath.NamePath); err != nil {
+		return false, fmt.Errorf("invalid claim: invalid JSONPath name expression: %w", err)
+	}
 
-	return false
+	var namespaceExpr *jsonpath.JSONPath
+	if ref.JSONPath.NamespacePath != "" {
+		namespaceExpr = jsonpath.New("namespace").AllowMissingKeys(true)
+		if err := namespaceExpr.Parse(ref.JSONPath.NamespacePath); err != nil {
+			return false, fmt.Errorf("invalid claim: invalid JSONPath namespace expression: %w", err)
+		}
+	}
+
+	gvrs, err := l.dynRESTMapper.ForCluster(cluster).ResourcesFor(schema.GroupVersionResource{
+		Group:    ref.Group,
+		Resource: ref.Resource,
+		// Version is left blank to let the mapper decide
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve group resource %s/%s: %w", ref.Group, ref.Resource, err)
+	}
+
+	allObjects, err := l.dynClusterClient.Cluster(cluster.Path()).Resource(gvrs[0]).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list referring resource: %w", err)
+	}
+
+	for _, referringObject := range allObjects.Items {
+		results, err := nameExpr.FindResults(referringObject.Object)
+		if err != nil {
+			return false, fmt.Errorf("failed to apply JSONPath: %w", err)
+		}
+
+		if l := len(results); l == 0 {
+			continue
+		} else if l > 1 {
+			return false, fmt.Errorf("invalid JSONPath, expected one result, got %d", l)
+		}
+
+		result := results[0]
+		if l := len(result); l == 0 {
+			continue
+		} else if l > 1 {
+			return false, fmt.Errorf("invalid JSONPath, expected one sub result, got %d", l)
+		}
+
+		resultValue, ok := result[0].Interface().(string)
+		if !ok {
+			// anything but a string doesn't mean the JSONPath is broken, but that the
+			// object might be unexpected
+			continue
+		}
+
+		fmt.Printf("value: %q\n", resultValue)
+
+		// TODO: do the same for the namespace, implement the matching from the found
+		// values to what is in the APIBinding, handle cluster-scoped to namspace-scoped
+		// referencing.
+	}
+
+	return false, nil
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.

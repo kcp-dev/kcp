@@ -23,6 +23,7 @@ import (
 	"io"
 	"strings"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -50,6 +52,11 @@ type mutatingPermissionClaims struct {
 	*admission.Handler
 
 	apiBindingsHasSynced cache.InformerSynced
+
+	// these are kept temporarily until all of them are set, then the claimLabeler is created
+	local, global    kcpinformers.SharedInformerFactory
+	dynRESTMapper    *dynamicrestmapper.DynamicRESTMapper
+	dynClusterClient kcpdynamic.ClusterInterface
 
 	permissionClaimLabeler *permissionclaim.Labeler
 }
@@ -96,7 +103,12 @@ func (m *mutatingPermissionClaims) Admit(ctx context.Context, a admission.Attrib
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), uObject)
+	labeler := m.getLabeler()
+	if labeler == nil {
+		return errors.New("no DDSIF provided yet")
+	}
+
+	expectedLabels, err := labeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), uObject)
 	if err != nil {
 		return err
 	}
@@ -141,7 +153,12 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 		return err
 	}
 
-	expectedLabels, err := m.permissionClaimLabeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), uObject)
+	labeler := m.getLabeler()
+	if labeler == nil {
+		return errors.New("no DDSIF provided yet")
+	}
+
+	expectedLabels, err := labeler.LabelsFor(ctx, clusterName, a.GetResource().GroupResource(), uObject)
 	if err != nil {
 		return err
 	}
@@ -176,22 +193,59 @@ func (m *mutatingPermissionClaims) Validate(ctx context.Context, a admission.Att
 // SetKcpInformers implements the WantsExternalKcpInformerFactory interface.
 func (m *mutatingPermissionClaims) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	m.apiBindingsHasSynced = local.Apis().V1alpha2().APIBindings().Informer().HasSynced
+	m.local = local
+	m.global = global
+}
 
-	m.permissionClaimLabeler = permissionclaim.NewLabeler(
-		local.Apis().V1alpha2().APIBindings(),
-		local.Apis().V1alpha2().APIExports(),
-		global.Apis().V1alpha2().APIExports(),
-	)
+// SetDynamicClusterClient implements the WantsDynamicClusterClient interface.
+func (m *mutatingPermissionClaims) SetDynamicClusterClient(clusterInterface kcpdynamic.ClusterInterface) {
+	m.dynClusterClient = clusterInterface
+}
+
+// SetDynamicRESTMapper implements the WantsDynamicRESTMapper interface.
+func (m *mutatingPermissionClaims) SetDynamicRESTMapper(mapper *dynamicrestmapper.DynamicRESTMapper) {
+	m.dynRESTMapper = mapper
 }
 
 func (m *mutatingPermissionClaims) ValidateInitialization() error {
 	if m.apiBindingsHasSynced == nil {
 		return errors.New("missing apiBindingsHasSynced")
 	}
-	if m.permissionClaimLabeler == nil {
-		return errors.New("missing permissionClaimLabeler")
+	if m.local == nil {
+		return errors.New("missing local informer factory")
 	}
+	if m.global == nil {
+		return errors.New("missing global informer factory")
+	}
+	if m.dynClusterClient == nil {
+		return errors.New("missing dynamic cluster client")
+	}
+	if m.dynRESTMapper == nil {
+		return errors.New("missing dynamic REST mapper")
+	}
+
 	return nil
+}
+
+func (m *mutatingPermissionClaims) getLabeler() *permissionclaim.Labeler {
+	if m.permissionClaimLabeler != nil {
+		return m.permissionClaimLabeler
+	}
+
+	// wait until all initializers are done
+	if m.ValidateInitialization() != nil {
+		return nil
+	}
+
+	m.permissionClaimLabeler = permissionclaim.NewLabeler(
+		m.local.Apis().V1alpha2().APIBindings(),
+		m.local.Apis().V1alpha2().APIExports(),
+		m.global.Apis().V1alpha2().APIExports(),
+		m.dynRESTMapper,
+		m.dynClusterClient,
+	)
+
+	return m.permissionClaimLabeler
 }
 
 func toUnstructured(obj metav1.Object) (*unstructured.Unstructured, error) {

@@ -845,6 +845,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	permissionClaimLabelResourceController, err := permissionclaimlabel.NewResourceController(
 		kcpClusterClient,
 		dynamicClusterClient,
+		s.DynRESTMapper,
 		ddsif,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),

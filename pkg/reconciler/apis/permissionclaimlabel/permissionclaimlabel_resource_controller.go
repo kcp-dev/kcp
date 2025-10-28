@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/apis/v1alpha2"
 )
@@ -50,6 +51,7 @@ const (
 func NewResourceController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
+	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper,
 	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
@@ -64,7 +66,7 @@ func NewResourceController(
 		kcpClusterClient:       kcpClusterClient,
 		dynamicClusterClient:   dynamicClusterClient,
 		ddsif:                  dynamicDiscoverySharedInformerFactory,
-		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer, apiExportInformer, globalAPIExportInformer),
+		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer, apiExportInformer, globalAPIExportInformer, dynamicRESTMapper, dynamicClusterClient),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
