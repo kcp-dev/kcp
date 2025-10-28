@@ -11,6 +11,11 @@ rules:
   - destination: client-go
     branches:
       - name: main
+        dependencies:
+          - repository: apimachinery
+            branch: main
+          - repository: code-generator
+            branch: main
         source:
           branch: main
           dirs:
