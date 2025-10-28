@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -156,7 +157,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	gitHEAD, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
+	gitHEAD, err := exec.CommandContext(context.Background(), "git", "rev-parse", "--short", "HEAD").Output()
 	if err != nil {
 		logger.Error(err, "Could not get git revision")
 		os.Exit(1)
