@@ -114,12 +114,6 @@ func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResou
 }
 
 func (c *Controller) enqueueCacheObject(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		utilruntime.HandleError(err)
-		return
-	}
-
 	// This way we extract what is the original GVR of the object that we are replicating.
 	cr, ok := obj.(*cachev1alpha1.CachedObject)
 	if !ok {
@@ -133,6 +127,7 @@ func (c *Controller) enqueueCacheObject(obj interface{}) {
 		Version:  labels[LabelKeyObjectVersion],
 		Resource: labels[LabelKeyObjectResource],
 	}
+	key := kcpcache.ToClusterAwareKey(string(logicalcluster.From(cr)), labels[LabelKeyObjectOriginalNamespace], labels[LabelKeyObjectOriginalName])
 
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
 	c.queue.Add(gvrKey)
