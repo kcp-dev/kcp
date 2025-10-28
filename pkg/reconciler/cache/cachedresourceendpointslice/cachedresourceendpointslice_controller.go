@@ -253,30 +253,27 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	// other workers.
 	defer c.queue.Done(key)
 
-	if requeue, err := c.process(ctx, key); err != nil {
+	if err := c.process(ctx, key); err != nil {
 		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
-		return true
-	} else if requeue {
-		c.queue.Add(key)
 		return true
 	}
 	c.queue.Forget(key)
 	return true
 }
 
-func (c *controller) process(ctx context.Context, key string) (bool, error) {
+func (c *controller) process(ctx context.Context, key string) error {
 	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(err)
-		return false, nil
+		return nil
 	}
 	obj, err := c.getCachedResourceEndpointSlice(clusterName.Path(), name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return false, nil // object deleted before we handled it
+			return nil // object deleted before we handled it
 		}
-		return false, err
+		return err
 	}
 
 	old := obj
@@ -286,7 +283,7 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, obj)
+	err = c.reconcile(ctx, obj)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -302,7 +299,7 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 		errs = append(errs, err)
 	}
 
-	return requeue, utilerrors.NewAggregate(errs)
+	return utilerrors.NewAggregate(errs)
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.

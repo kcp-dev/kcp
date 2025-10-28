@@ -27,25 +27,10 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
-	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
 )
 
-func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) (bool, error) {
-	r := &endpointsReconciler{
-		getCachedResource: c.getCachedResource,
-		getPartition:      c.getPartition,
-	}
-
-	return r.reconcile(ctx, endpoints)
-}
-
-type endpointsReconciler struct {
-	getCachedResource func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
-	getPartition      func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
-}
-
-func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) (bool, error) {
-	_, err := r.getCachedResource(logicalcluster.From(endpoints).Path(), endpoints.Spec.CachedResource.Name)
+func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) error {
+	_, err := c.getCachedResource(logicalcluster.From(endpoints).Path(), endpoints.Spec.CachedResource.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Don't keep the endpoints if the CachedResource has been deleted.
@@ -60,7 +45,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 				endpoints.Spec.CachedResource.Name,
 			)
 			// No need to try again.
-			return false, nil
+			return nil
 		} else {
 			conditions.MarkFalse(
 				endpoints,
@@ -71,7 +56,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 				logicalcluster.From(endpoints),
 				endpoints.Spec.CachedResource.Name,
 			)
-			return true, err
+			return err
 		}
 	}
 	conditions.MarkTrue(endpoints, cachev1alpha1.CachedResourceValid)
@@ -79,7 +64,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 	// Check the partition selector.
 	var selector labels.Selector
 	if endpoints.Spec.Partition != "" {
-		partition, err := r.getPartition(logicalcluster.From(endpoints), endpoints.Spec.Partition)
+		partition, err := c.getPartition(logicalcluster.From(endpoints), endpoints.Spec.Partition)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				// Don't keep the endpoints if the Partition has been deleted and is still referenced.
@@ -93,7 +78,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 					err,
 				)
 				// No need to try again.
-				return false, nil
+				return nil
 			} else {
 				conditions.MarkFalse(
 					endpoints,
@@ -103,7 +88,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 					"%v",
 					err,
 				)
-				return true, err
+				return err
 			}
 		}
 		selector, err = metav1.LabelSelectorAsSelector(partition.Spec.Selector)
@@ -116,7 +101,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 				"%v",
 				err,
 			)
-			return true, err
+			return err
 		}
 	}
 	if selector == nil {
@@ -127,5 +112,5 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, endpoints *cachev1a
 
 	endpoints.Status.ShardSelector = selector.String()
 
-	return true, err
+	return nil
 }
