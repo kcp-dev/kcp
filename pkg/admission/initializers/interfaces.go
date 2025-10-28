@@ -21,6 +21,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -66,4 +67,9 @@ type WantsServerShutdownChannel interface {
 // client.
 type WantsDynamicClusterClient interface {
 	SetDynamicClusterClient(clusterInterface kcpdynamic.ClusterInterface)
+}
+
+// WantsDynamicRESTMapper is an interface that should be implemented by admission plugins that need a dynamic REST mapper.
+type WantsDynamicRESTMapper interface {
+	SetDynamicRESTMapper(mapper *dynamicrestmapper.DynamicRESTMapper)
 }

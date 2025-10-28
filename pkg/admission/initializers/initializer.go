@@ -25,6 +25,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
@@ -180,5 +181,21 @@ func NewDynamicClusterClientInitializer(dynamicClusterClient kcpdynamic.ClusterI
 func (i *dynamicClusterClientInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsDynamicClusterClient); ok {
 		wants.SetDynamicClusterClient(i.dynamicClusterClient)
+	}
+}
+
+type dynamicRESTMapperInitializer struct {
+	mapper *dynamicrestmapper.DynamicRESTMapper
+}
+
+func NewDynamicRESTMapperInitializer(mapper *dynamicrestmapper.DynamicRESTMapper) *dynamicRESTMapperInitializer {
+	return &dynamicRESTMapperInitializer{
+		mapper: mapper,
+	}
+}
+
+func (i *dynamicRESTMapperInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsDynamicRESTMapper); ok {
+		wants.SetDynamicRESTMapper(i.mapper)
 	}
 }
