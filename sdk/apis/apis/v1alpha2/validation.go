@@ -70,15 +70,28 @@ func ValidateAPIBindingPermissionClaims(permissionClaims []AcceptablePermissionC
 	for i := range permissionClaims {
 		claimPath := path.Index(i)
 
-		if permissionClaims[i].Selector.MatchAll {
+		switch {
+		case permissionClaims[i].Selector.MatchAll:
 			if len(permissionClaims[i].Selector.MatchLabels) > 0 {
 				allErrs = append(allErrs, field.Invalid(claimPath.Child("selector").Child("matchLabels"), permissionClaims[i].Selector, "matchLabels cannot be used with matchAll"))
 			}
 			if len(permissionClaims[i].Selector.MatchExpressions) > 0 {
 				allErrs = append(allErrs, field.Invalid(claimPath.Child("selector").Child("matchExpressions"), permissionClaims[i].Selector, "matchExpressions cannot be used with matchAll"))
 			}
-		} else if len(permissionClaims[i].Selector.MatchLabels) == 0 && len(permissionClaims[i].Selector.MatchExpressions) == 0 {
-			allErrs = append(allErrs, field.Required(claimPath.Child("selector"), "either one of matchAll, matchLabels, or matchExpressions must be set"))
+			if len(permissionClaims[i].Selector.References) > 0 {
+				allErrs = append(allErrs, field.Invalid(claimPath.Child("selector").Child("references"), permissionClaims[i].Selector, "references cannot be used with matchAll"))
+			}
+
+		case len(permissionClaims[i].Selector.MatchLabels) > 0 || len(permissionClaims[i].Selector.MatchExpressions) > 0:
+			if len(permissionClaims[i].Selector.References) > 0 {
+				allErrs = append(allErrs, field.Invalid(claimPath.Child("selector").Child("references"), permissionClaims[i].Selector, "matchLabels/matchExpressions cannot be used with matchAll"))
+			}
+
+		case len(permissionClaims[i].Selector.References) > 0:
+			// NOP
+
+		default:
+			allErrs = append(allErrs, field.Required(claimPath.Child("selector"), "either one of matchAll, matchLabels, matchExpressions or references must be set"))
 		}
 	}
 
