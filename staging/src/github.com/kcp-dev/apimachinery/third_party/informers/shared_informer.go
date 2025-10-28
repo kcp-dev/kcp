@@ -88,7 +88,7 @@ func NewSharedIndexInformerWithOptions(lw cache.ListerWatcher, exampleObject run
 	realClock := &clock.RealClock{}
 
 	return &sharedIndexInformer{
-		// KCP modification: We changed the keyfunction passed to NewIndexer
+		// kcp modification: We changed the keyfunction passed to NewIndexer
 		indexer:                         cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, options.Indexers),
 		processor:                       &sharedProcessor{clock: realClock},
 		listerWatcher:                   lw,
@@ -266,7 +266,7 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 				KnownObjects:          s.indexer,
 				EmitDeltaTypeReplaced: true,
 				Transformer:           s.transform,
-				// KCP modification: We changed the keyfunction passed to NewDeltaFIFOWithOptions
+				// kcp modification: We changed the keyfunction passed to NewDeltaFIFOWithOptions
 				KeyFunction: kcpcache.MetaClusterNamespaceKeyFunc,
 			})
 		}
@@ -284,7 +284,7 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 		}
 
 		s.controller = cache.New(cfg)
-		// KCP modification: we removed setting the s.controller.clock here as it's an unexported field we can't access
+		// kcp modification: we removed setting the s.controller.clock here as it's an unexported field we can't access
 		s.started = true
 	}()
 
@@ -836,7 +836,7 @@ func (p *processorListener) setResyncPeriod(resyncPeriod time.Duration) {
 // Multiplexes updates in the form of a list of Deltas into a Store, and informs
 // a given handler of events OnUpdate, OnAdd, OnDelete
 // taken from k8s.io/client-go/tools/cache/controller.go
-// KCP modification: we added this function from controller.go
+// kcp modification: we added this function from controller.go
 func processDeltas(
 	// Object which receives event notifications from the given deltas
 	handler cache.ResourceEventHandler,

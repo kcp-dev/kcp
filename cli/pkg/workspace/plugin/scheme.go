@@ -24,7 +24,7 @@ import (
 
 func init() {
 	// The metav1.TableXXX types (that are in the metav1 scheme) are not added by default
-	// to the generated KCP clientset scheme.
+	// to the generated kcp clientset scheme.
 	// So when we want to get the result of a request done with this clientset as a table,
 	// it doesn't know the Table types and returns an error.
 	//

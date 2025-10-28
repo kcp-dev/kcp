@@ -98,7 +98,7 @@ helm_remote(
 )
 
 
-# KCP development
+# kcp development
 namespace_create('kcp-certs')
 namespace_create('kcp-proxy')
 namespace_create('kcp-cache')

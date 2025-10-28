@@ -5,7 +5,7 @@ description: >
 
 # Authorization
 
-Within workspaces, KCP implements the same RBAC-based authorization mechanism as Kubernetes.
+Within workspaces, kcp implements the same RBAC-based authorization mechanism as Kubernetes.
 Other authorization schemes (i.e. ABAC) are not supported.
 Generally, the same (cluster) role and (cluster) role binding principles apply exactly as in Kubernetes.
 
