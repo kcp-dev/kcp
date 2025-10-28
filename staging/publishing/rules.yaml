@@ -8,6 +8,15 @@ rules:
             - staging/src/github.com/kcp-dev/apimachinery
     destination-tag-base: v2
     library: true
+  - destination: code-generator
+    branches:
+      - name: main
+        source:
+          branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/code-generator
+    destination-tag-base: v3
+    library: true
   - destination: client-go
     branches:
       - name: main
@@ -21,15 +30,6 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/client-go
     destination-tag-base: v0
-    library: true
-  - destination: code-generator
-    branches:
-      - name: main
-        source:
-          branch: main
-          dirs:
-            - staging/src/github.com/kcp-dev/code-generator
-    destination-tag-base: v3
     library: true
 recursive-delete-patterns:
   - '*/.gitattributes'
