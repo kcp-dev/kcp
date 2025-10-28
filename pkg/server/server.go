@@ -57,7 +57,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
-	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
@@ -80,11 +79,6 @@ type Server struct {
 	AggregatingCRDVersionDiscovery *aggregatingcrdversiondiscovery.Server
 	MiniAggregator                 *miniaggregator.MiniAggregatorServer
 	virtual                        *virtualrootapiserver.Server
-	// DynRESTMapper is a workspace-aware REST mapper, backed by a reconciler,
-	// which dynamically loads all bound resources through every type associated
-	// with an APIBinding in the workspace into the mapper. Another controller can
-	// use this to resolve the Kind/Resource of the objects.
-	DynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
@@ -106,7 +100,6 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		syncedCh:             make(chan struct{}),
 		rootPhase1FinishedCh: make(chan struct{}),
 		controllers:          make(map[string]*controllerWrapper),
-		DynRESTMapper:        dynamicrestmapper.NewDynamicRESTMapper(),
 	}
 
 	notFoundHandler := notfoundhandler.New(c.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)

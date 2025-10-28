@@ -65,6 +65,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
@@ -141,6 +142,12 @@ type ExtraConfig struct {
 	CacheDiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory                kcpinformers.SharedInformerFactory
 	CacheKubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+
+	// DynRESTMapper is a workspace-aware REST mapper, backed by a reconciler,
+	// which dynamically loads all bound resources through every type associated
+	// with an APIBinding in the workspace into the mapper. Another controller can
+	// use this to resolve the Kind/Resource of the objects.
+	DynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 }
 
 type completedConfig struct {
@@ -193,6 +200,9 @@ const KcpBootstrapperUserName = "system:kcp:bootstrapper"
 func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c := &Config{
 		Options: opts,
+		ExtraConfig: ExtraConfig{
+			DynRESTMapper: dynamicrestmapper.NewDynamicRESTMapper(),
+		},
 	}
 
 	if opts.Extra.ProfilerAddress != "" {
@@ -566,6 +576,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
+		kcpadmissioninitializers.NewDynamicRESTMapperInitializer(c.DynRESTMapper),
 	}
 
 	c.ShardBaseURL = func() string {
