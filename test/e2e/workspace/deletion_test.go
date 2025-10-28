@@ -17,7 +17,6 @@ limitations under the License.
 package workspace
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -43,8 +42,7 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
