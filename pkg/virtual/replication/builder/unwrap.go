@@ -499,7 +499,6 @@ func newUnwrappingList(innerListGVK schema.GroupVersionKind, innerObjGR schema.G
 			continue
 		}
 
-		innerObj.SetResourceVersion(item.GetResourceVersion())
 		for _, cluster := range clusters {
 			obj := innerObj.DeepCopy()
 			setCluster(obj, cluster)
