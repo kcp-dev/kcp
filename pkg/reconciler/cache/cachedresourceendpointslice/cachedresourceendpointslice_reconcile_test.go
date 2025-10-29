@@ -125,7 +125,7 @@ func TestReconcile(t *testing.T) {
 					Partition: "my-partition",
 				},
 			}
-			_, err := c.reconcile(context.Background(), cachedResourceEndpointSlice)
+			err := c.reconcile(context.Background(), cachedResourceEndpointSlice)
 			if tc.wantError {
 				require.Error(t, err, "expected an error")
 			} else {
