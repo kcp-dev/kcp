@@ -19,6 +19,7 @@ package quota
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -314,15 +315,15 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for ws %d quota to show usage in status", wsIndex)
 
 		t.Logf("Create 2 sheriffs to reach the quota limit")
-		apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-1", wsIndex))
-		apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-2", wsIndex))
+		createSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-1", wsIndex))
+		createSheriff(ctx, t, dynamicClusterClient, ws, group, fmt.Sprintf("ws%d-2", wsIndex))
 
 		t.Logf("Make sure quota is enforcing limits")
 		i := 0
 		sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			t.Logf("Trying to create a sheriff")
-			sheriff := NewSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
+			sheriff := newSheriff(group, fmt.Sprintf("ws%d-%d", wsIndex, i))
 			i++
 			_, err := dynamicClusterClient.Cluster(ws).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{})
 			return apierrors.IsForbidden(err), fmt.Sprintf("expected a forbidden error, got: %v", err)
@@ -461,15 +462,38 @@ func bootstrapCRD(
 	require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, clusterName)
 }
 
-// NewSheriff returns a new *unstructured.Unstructured for a Sheriff with the given group and name.
-func NewSheriff(group, name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": group + "/v1",
-			"kind":       "Sheriff",
-			"metadata": map[string]interface{}{
-				"name": name,
-			},
-		},
-	}
+// newSheriff returns a new *unstructured.Unstructured for a Sheriff with the given group and name.
+func newSheriff(group, name string) *unstructured.Unstructured {
+	sheriff := &unstructured.Unstructured{}
+	sheriff.SetAPIVersion(group + "/v1")
+	sheriff.SetKind("Sheriff")
+	sheriff.SetName(name)
+
+	return sheriff
+}
+
+func createSheriff(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	clusterName logicalcluster.Path,
+	group, name string,
+) {
+	t.Helper()
+
+	name = strings.ReplaceAll(name, ":", "-")
+
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+
+	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+
+	sheriff := newSheriff(group, name)
+
+	// CRDs are asynchronously served because they are informer based.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{}); err != nil {
+			return false, fmt.Sprintf("failed to create Sheriff %s|%s: %v", clusterName, name, err.Error())
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
 }

@@ -30,6 +30,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -37,6 +38,7 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
@@ -131,7 +133,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1aPath, kcpClusterClient, group, "export1")
 	apifixtures.BindToExport(ctx, t, wsExport1aPath, group, wsConsume1aPath, kcpClusterClient)
-	apifixtures.CreateSheriff(ctx, t, dynamicKcpClusterClient, wsConsume1aPath, group, wsConsume1aPath.String())
+	createSheriff(ctx, t, dynamicKcpClusterClient, wsConsume1aPath, group, wsConsume1aPath.String())
 
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 	t.Logf("Waiting until the watch cache is primed for %v for cluster %v", sheriffsGVR, wsConsume1aPath)
@@ -260,4 +262,33 @@ func assertWatchCacheIsPrimed(t *testing.T, fn func() error) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*200, "the watch cache hasn't been primed in the allotted time")
+}
+
+func createSheriff(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	clusterName logicalcluster.Path,
+	group, name string,
+) {
+	t.Helper()
+
+	name = strings.ReplaceAll(name, ":", "-")
+
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+
+	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+
+	sheriff := &unstructured.Unstructured{}
+	sheriff.SetAPIVersion(group + "/v1")
+	sheriff.SetKind("Sheriff")
+	sheriff.SetName(name)
+
+	// CRDs are asynchronously served because they are informer based.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{}); err != nil {
+			return false, fmt.Sprintf("failed to create Sheriff %s|%s: %v", clusterName, name, err.Error())
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
 }

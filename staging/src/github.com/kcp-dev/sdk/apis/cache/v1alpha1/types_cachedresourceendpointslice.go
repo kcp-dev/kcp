@@ -110,6 +110,7 @@ const (
 	PartitionValid conditionsv1alpha1.ConditionType = "PartitionValid"
 
 	// EndpointURLsReady is a condition for CachedResourceEndpointSlice that reflects the readiness of the URLs.
+	//
 	// Deprecated: This condition is deprecated and will be removed in a future release.
 	CachedResourceEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
 

@@ -58,6 +58,7 @@ const kcpBinariesDirEnvDir = "KCP_BINARIES_DIR"
 
 // RunInProcessFunc instantiates the kcp server in process for easier debugging.
 // It is here to decouple the rest of the code from kcp core dependencies.
+//
 // Deprecated: Use ContextRunInProcessFunc instead.
 var RunInProcessFunc func(t TestingT, dataDir string, args []string) (<-chan struct{}, error)
 
