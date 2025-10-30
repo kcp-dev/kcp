@@ -186,6 +186,7 @@ func CreateSheriffsSchemaAndExport(
 
 // CreateSheriff creates an instance of a Sheriff CustomResource in the logical cluster identified by clusterName, in
 // the specific API group, and with the specified name.
+//
 // Deprecated: use local fixtures instead.
 func CreateSheriff(
 	ctx context.Context,
