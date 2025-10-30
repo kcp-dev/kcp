@@ -71,6 +71,7 @@ type pathAnnotationPlugin struct {
 var pathAnnotationResources = sets.New[string](
 	apisv1alpha2.Resource("apiexports").String(),
 	cachev1alpha1.Resource("cachedresources").String(),
+	apisv1alpha2.Resource("apibindings").String(),
 	tenancyv1alpha1.Resource("workspacetypes").String(),
 )
 
@@ -107,6 +108,10 @@ func (p *pathAnnotationPlugin) Admit(ctx context.Context, a admission.Attributes
 
 	logicalCluster, err := p.getLogicalCluster(clusterName, corev1alpha1.LogicalClusterName)
 	if err != nil {
+		// We skip adding for system bindings if the logical cluster is not found during creation. This is racy during workspace bootstrap.
+		if apierrors.IsNotFound(err) && a.GetResource().GroupResource() == apisv1alpha2.Resource("apibindings") {
+			return nil
+		}
 		return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 	}
 	thisPath := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]
@@ -138,16 +143,22 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 	if a.GetResource().GroupResource() == corev1alpha1.Resource("logicalclusters") {
 		return nil
 	}
+	isAPIBinding := a.GetResource().GroupResource() == apisv1alpha2.Resource("apibindings")
 
 	u, ok := a.GetObject().(metav1.Object)
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
 	}
 
-	value, found := u.GetAnnotations()[core.LogicalClusterPathAnnotationKey]
+	annotations := u.GetAnnotations()
+	value, found := annotations[core.LogicalClusterPathAnnotationKey]
 	if pathAnnotationResources.Has(a.GetResource().GroupResource().String()) || found {
 		logicalCluster, err := p.getLogicalCluster(clusterName, corev1alpha1.LogicalClusterName)
 		if err != nil {
+			// We skip adding for system bindings if the logical cluster is not found during creation. This is racy during workspace bootstrap.
+			if apierrors.IsNotFound(err) && isAPIBinding {
+				return nil
+			}
 			return admission.NewForbidden(a, fmt.Errorf("cannot get this workspace: %w", err))
 		}
 		thisPath := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]
@@ -155,8 +166,10 @@ func (p *pathAnnotationPlugin) Validate(ctx context.Context, a admission.Attribu
 			thisPath = logicalcluster.From(logicalCluster).Path().String()
 		}
 
-		if value != thisPath {
-			return admission.NewForbidden(a, fmt.Errorf("annotation %q must match canonical path %q", core.LogicalClusterPathAnnotationKey, thisPath))
+		// Only validate if annotation is explicitly set (found=true) and paths don't match.
+		// This prevents admission of the objects without the annotation (with exception of APIBindings).
+		if value != thisPath && !isAPIBinding {
+			return admission.NewForbidden(a, fmt.Errorf("annotation for %s, %q must match canonical path %q, but got %q", a.GetName(), core.LogicalClusterPathAnnotationKey, thisPath, value))
 		}
 	}
 
