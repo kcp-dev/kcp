@@ -331,17 +331,6 @@ func newUnwrappingWatch(
 		Handler: clientgocache.ResourceEventHandlerDetailedFuncs{
 			AddFunc: func(obj interface{}, isInInitialList bool) {
 				cachedObj := tombstone.Obj[*cachev1alpha1.CachedObject](obj)
-				if isInInitialList {
-					if cachedObj.GetResourceVersion() <= innerListOpts.ResourceVersion {
-						// This resource is older than the want we want to start from on isInInitial list replay.
-						return
-					}
-					if innerListOpts.SendInitialEvents != nil && !*innerListOpts.SendInitialEvents {
-						// The user explicitly requests not to send the initial list.
-						return
-					}
-				}
-
 				innerObj, err := unwrapWithMatchingSelectors(cachedObj)
 				if err != nil {
 					w.safeWrite(watch.Event{
@@ -353,6 +342,17 @@ func newUnwrappingWatch(
 				if innerObj == nil {
 					// No match because of selectors.
 					return
+				}
+
+				if isInInitialList {
+					if innerObj.GetResourceVersion() <= innerListOpts.ResourceVersion {
+						// This resource is older than the one we want to start from on isInInitial list replay.
+						return
+					}
+					if innerListOpts.SendInitialEvents != nil && !*innerListOpts.SendInitialEvents {
+						// The user explicitly requests not to send the initial list.
+						return
+					}
 				}
 
 				for _, cluster := range syntheticClusters() {
