@@ -128,6 +128,9 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
   	done
 .PHONY: install
 
+golangci-lint: $(GOLANGCI_LINT)
+.PHONY: golangci-lint
+
 $(GOLANGCI_LINT):
 	@hack/uget.sh \
 		https://github.com/golangci/golangci-lint/releases/download/v{VERSION}/golangci-lint-{VERSION}-{GOOS}-{GOARCH}.tar.gz \
