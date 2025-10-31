@@ -23,9 +23,9 @@ ifeq ($(CI),true)
    $(shell git config --global --add safe.directory '*')
 endif
 
-GO_INSTALL = ./hack/go-install.sh
-
-TOOLS_DIR=hack/tools
+TOOLS_DIR = hack/tools
+export UGET_DIRECTORY = $(TOOLS_DIR)
+export UGET_CHECKSUMS = hack/tools.checksums
 ROOT_DIR=$(abspath .)
 TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
 GOBIN_DIR=$(abspath ./bin)
@@ -42,30 +42,30 @@ endif
 
 CONTROLLER_GEN_VER := v0.17.3
 CONTROLLER_GEN_BIN := controller-gen
-CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
+CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)
 export CONTROLLER_GEN # so hack scripts can use it
 
 YAML_PATCH_VER ?= v0.0.11
 YAML_PATCH_BIN := yaml-patch
-YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
+YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)
 export YAML_PATCH # so hack scripts can use it
 
-GOLANGCI_LINT_VER := v2.1.6
+GOLANGCI_LINT_VER := 2.1.6
 GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)
 GOLANGCI_LINT_FLAGS ?=
 
-HTTEST_VER := v0.3.2
+HTTEST_VER := 0.3.4
 HTTEST_BIN := httest
-HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)-$(HTTEST_VER)
+HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)
 
-GOTESTSUM_VER := v1.12.3
+GOTESTSUM_VER := 1.12.3
 GOTESTSUM_BIN := gotestsum
-GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
+GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)
 
-LOGCHECK_VER := v0.9.0
+LOGCHECK_VER := d35c84c015fe03a1421e5f2ce1e3c0c3bc38d077
 LOGCHECK_BIN := logcheck
-LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
+LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)
 export LOGCHECK # so hack scripts can use it
 
 KCP_APIGEN_BIN := apigen
@@ -129,13 +129,22 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
 .PHONY: install
 
 $(GOLANGCI_LINT):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/v2/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+	@hack/uget.sh \
+		https://github.com/golangci/golangci-lint/releases/download/v{VERSION}/golangci-lint-{VERSION}-{GOOS}-{GOARCH}.tar.gz \
+		${GOLANGCI_LINT_BIN} \
+		${GOLANGCI_LINT_VER}
 
 $(HTTEST):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) go.xrstf.de/httest $(HTTEST_BIN) $(HTTEST_VER)
+	@hack/uget.sh \
+		https://codeberg.org/xrstf/httest/releases/download/v{VERSION}/httest_{VERSION}_{GOOS}_{GOARCH}.tar.gz \
+		${HTTEST_BIN} \
+		${HTTEST_VER}
 
 $(LOGCHECK):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/logtools/logcheck $(LOGCHECK_BIN) $(LOGCHECK_VER)
+	@GO_MODULE=true hack/uget.sh \
+		sigs.k8s.io/logtools/logcheck \
+		${LOGCHECK_BIN} \
+		$(LOGCHECK_VER)
 
 $(KCP_APIGEN_GEN):
 	pushd . && cd staging/src/github.com/kcp-dev/sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
@@ -197,13 +206,17 @@ tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PAT
 .PHONY: tools
 
 $(CONTROLLER_GEN):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) sigs.k8s.io/controller-tools/cmd/controller-gen $(CONTROLLER_GEN_BIN) $(CONTROLLER_GEN_VER)
+	@GO_MODULE=true hack/uget.sh sigs.k8s.io/controller-tools/cmd/controller-gen ${CONTROLLER_GEN_BIN} $(CONTROLLER_GEN_VER)
 
 $(YAML_PATCH):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
+	@GO_MODULE=true hack/uget.sh github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
 $(GOTESTSUM):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) gotest.tools/gotestsum $(GOTESTSUM_BIN) $(GOTESTSUM_VER)
+	@hack/uget.sh \
+		https://github.com/gotestyourself/gotestsum/releases/download/v{VERSION}/gotestsum_{VERSION}_{GOOS}_{GOARCH}.tar.gz \
+		${GOTESTSUM_BIN} \
+		${GOTESTSUM_VER} \
+		${GOTESTSUM_BIN}
 
 crds: $(CONTROLLER_GEN) $(YAML_PATCH) ## Generate crds
 	./hack/update-codegen-crds.sh
@@ -267,7 +280,7 @@ BOILERPLATE_KUBERNETES_FILES := $(abspath ./hack/boilerplate/boilerplate_kuberne
 
 .PHONY: verify-boilerplate
 verify-boilerplate: ## Verify boilerplate
-	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip docs/venv --skip pkg/network/dialer --skip-files-list $(BOILERPLATE_MODIFIED_FILES) --skip-files-list $(BOILERPLATE_KUBERNETES_FILES)
+	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip hack/uget.sh --skip docs/venv --skip pkg/network/dialer --skip-files-list $(BOILERPLATE_MODIFIED_FILES) --skip-files-list $(BOILERPLATE_KUBERNETES_FILES)
 	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/boilerplate_modified --filenames-list $(BOILERPLATE_MODIFIED_FILES)
 	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/boilerplate_kubernetes --filenames-list $(BOILERPLATE_KUBERNETES_FILES)
 
