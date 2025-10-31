@@ -54,7 +54,7 @@ const (
 // NewController returns a new replication controller.
 func NewController(
 	shardName string,
-	dynamicCacheClient kcpdynamic.ClusterInterface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
 	cluster logicalcluster.Name,
 	gvr schema.GroupVersionResource,
@@ -70,12 +70,12 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-		dynamicCacheClient: dynamicCacheClient,
-		kcpCacheClient:     kcpCacheClient,
-		replicated:         replicated,
-		callback:           callback,
-		cleanupFuncs:       make([]func(), 0),
-		localLabelSelector: localLabelSelector,
+		dynamicClusterClient: dynamicClusterClient,
+		kcpCacheClient:       kcpCacheClient,
+		replicated:           replicated,
+		callback:             callback,
+		cleanupFuncs:         make([]func(), 0),
+		localLabelSelector:   localLabelSelector,
 	}
 
 	localHandler, err := c.replicated.Local.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -222,8 +222,8 @@ type Controller struct {
 	shardName string
 	queue     workqueue.TypedRateLimitingInterface[string]
 
-	dynamicCacheClient kcpdynamic.ClusterInterface
-	kcpCacheClient     kcpclientset.ClusterInterface
+	dynamicClusterClient kcpdynamic.ClusterInterface
+	kcpCacheClient       kcpclientset.ClusterInterface
 
 	replicated *ReplicatedGVR
 

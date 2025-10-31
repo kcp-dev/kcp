@@ -84,7 +84,7 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 	r := &replicationReconciler{
 		shardName:          c.shardName,
 		localLabelSelector: c.localLabelSelector,
-		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+		getLocalPartialObjectMetadata: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			gvr := gvrFromKey
 			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
 			obj, exists, err := c.replicated.Local.GetIndexer().GetByKey(key)
@@ -110,7 +110,7 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			u.SetAPIVersion(gvr.GroupVersion().String())
 			return u, nil
 		},
-		getGlobalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+		getCachedObject: func(ctx context.Context, cluster logicalcluster.Name, namespace, name string) (*cachev1alpha1.CachedObject, error) {
 			gvr := gvrFromKey
 			if gvr.Group == "" {
 				gvr.Group = "core"
@@ -128,28 +128,53 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 				return nil, fmt.Errorf("found multiple objects for %v|%v/%v", cluster, namespace, name)
 			}
 
-			obj := objs[0]
+			return objs[0].(*cachev1alpha1.CachedObject), nil
+		},
+		getGlobalCopyFromCachedObject: func(cachedObj *cachev1alpha1.CachedObject) (*unstructured.Unstructured, error) {
+			gvr := gvrFromKey
 
-			u, err := toUnstructured(obj)
+			u, err := toUnstructured(&cachedObj.Spec.Raw)
 			if err != nil {
 				return nil, err
 			}
-			if _, ok := obj.(*unstructured.Unstructured); ok {
-				u = u.DeepCopy()
-			}
-
+			u = u.DeepCopy()
 			u.SetKind(c.replicated.Kind)
 			u.SetAPIVersion(gvr.GroupVersion().String())
-
 			return u, nil
 		},
-		createObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
+		getLocalCopy: func(ctx context.Context, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
+			gvr := gvrFromKey
+
+			obj, err := c.dynamicClusterClient.Cluster(cluster.Path()).
+				Resource(gvrFromKey).
+				Namespace(namespace).
+				Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+
+			obj.SetKind(c.replicated.Kind)
+			obj.SetAPIVersion(gvr.GroupVersion().String())
+
+			// Append system annotations to the object.
+			annotations := obj.GetAnnotations()
+			if annotations == nil {
+				annotations = map[string]string{}
+			}
+			annotations[genericrequest.ShardAnnotationKey] = c.shardName
+			annotations[AnnotationKeyOriginalResourceUID] = string(obj.GetUID())
+			annotations[AnnotationKeyOriginalResourceVersion] = obj.GetResourceVersion()
+			obj.SetAnnotations(annotations)
+
+			return obj, nil
+		},
+		createObject: func(ctx context.Context, cluster logicalcluster.Name, local *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
 			gvr := gvrFromKey
 			if gvr.Group == "" {
 				gvr.Group = "core"
 			}
 
-			objBytes, err := json.Marshal(obj)
+			objBytes, err := json.Marshal(local)
 			if err != nil {
 				return nil, err
 			}
@@ -159,9 +184,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              GenCachedObjectName(gvr, obj.GetNamespace(), obj.GetName()),
-					Labels:            obj.GetLabels(),
-					Annotations:       obj.GetAnnotations(),
+					Name:              GenCachedObjectName(gvr, local.GetNamespace(), local.GetName()),
+					Labels:            local.GetLabels(),
+					Annotations:       local.GetAnnotations(),
 					CreationTimestamp: metav1.NewTime(time.Now()),
 				},
 				Spec: cachev1alpha1.CachedObjectSpec{
@@ -176,19 +201,19 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			cacheObj.Labels[LabelKeyObjectGroup] = gvr.Group
 			cacheObj.Labels[LabelKeyObjectVersion] = gvr.Version
 			cacheObj.Labels[LabelKeyObjectResource] = gvr.Resource
-			cacheObj.Labels[LabelKeyObjectOriginalName] = obj.GetName()
-			cacheObj.Labels[LabelKeyObjectOriginalNamespace] = obj.GetNamespace()
+			cacheObj.Labels[LabelKeyObjectOriginalName] = local.GetName()
+			cacheObj.Labels[LabelKeyObjectOriginalNamespace] = local.GetNamespace()
 
 			u, err := c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Create(ctx, cacheObj, metav1.CreateOptions{})
 			return u, err
 		},
-		updateObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
+		updateCachedObjectWithLocalUnstructured: func(ctx context.Context, cluster logicalcluster.Name, origCachedObj *cachev1alpha1.CachedObject, local *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error) {
 			gvr := gvrFromKey
 			if gvr.Group == "" {
 				gvr.Group = "core"
 			}
 
-			objBytes, err := json.Marshal(obj)
+			objBytes, err := json.Marshal(local)
 			if err != nil {
 				return nil, err
 			}
@@ -199,10 +224,10 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 					APIVersion: cachev1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:            GenCachedObjectName(gvr, obj.GetNamespace(), obj.GetName()),
-					Labels:          obj.GetLabels(),
-					Annotations:     obj.GetAnnotations(),
-					ResourceVersion: obj.GetResourceVersion(),
+					Name:            GenCachedObjectName(gvr, local.GetNamespace(), local.GetName()),
+					Labels:          origCachedObj.GetLabels(),
+					Annotations:     origCachedObj.GetAnnotations(),
+					ResourceVersion: origCachedObj.GetResourceVersion(),
 				},
 				Spec: cachev1alpha1.CachedObjectSpec{
 					Raw: runtime.RawExtension{Raw: objBytes},
@@ -216,8 +241,8 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 			cacheObj.Labels[LabelKeyObjectGroup] = gvr.Group
 			cacheObj.Labels[LabelKeyObjectVersion] = gvr.Version
 			cacheObj.Labels[LabelKeyObjectResource] = gvr.Resource
-			cacheObj.Labels[LabelKeyObjectOriginalName] = obj.GetName()
-			cacheObj.Labels[LabelKeyObjectOriginalNamespace] = obj.GetNamespace()
+			cacheObj.Labels[LabelKeyObjectOriginalName] = local.GetName()
+			cacheObj.Labels[LabelKeyObjectOriginalNamespace] = local.GetNamespace()
 
 			return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().Update(ctx, cacheObj, metav1.UpdateOptions{})
 		},
@@ -245,12 +270,14 @@ type replicationReconciler struct {
 	deleted            bool
 	localLabelSelector labels.Selector
 
-	getLocalCopy  func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
-	getGlobalCopy func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+	getLocalPartialObjectMetadata func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
+	getCachedObject               func(ctx context.Context, cluster logicalcluster.Name, namespace, name string) (*cachev1alpha1.CachedObject, error)
+	getGlobalCopyFromCachedObject func(cachedObj *cachev1alpha1.CachedObject) (*unstructured.Unstructured, error)
+	getLocalCopy                  func(ctx context.Context, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
 
-	createObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error)
-	updateObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error)
-	deleteObject func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error
+	createObject                            func(ctx context.Context, cluster logicalcluster.Name, local *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error)
+	updateCachedObjectWithLocalUnstructured func(ctx context.Context, cluster logicalcluster.Name, cachedObj *cachev1alpha1.CachedObject, local *unstructured.Unstructured) (*cachev1alpha1.CachedObject, error)
+	deleteObject                            func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error
 }
 
 // reconcile makes sure that the object under the given key from the local shard is replicated to the cache server.
@@ -270,7 +297,7 @@ func (r *replicationReconciler) reconcile(ctx context.Context, key string) error
 		return nil
 	}
 
-	localCopy, err := r.getLocalCopy(clusterName, ns, name)
+	localPartialObjMeta, err := r.getLocalPartialObjectMetadata(clusterName, ns, name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		utilruntime.HandleError(err)
 		return nil
@@ -278,21 +305,20 @@ func (r *replicationReconciler) reconcile(ctx context.Context, key string) error
 	localExists := !apierrors.IsNotFound(err)
 
 	// we only replicate objects that match the label selector.
-	if localExists && r.localLabelSelector != nil && !r.localLabelSelector.Matches(labels.Set(localCopy.GetLabels())) {
+	if localExists && r.localLabelSelector != nil && !r.localLabelSelector.Matches(labels.Set(localPartialObjMeta.GetLabels())) {
 		logger.V(2).WithValues("cluster", clusterName, "namespace", ns, "name", name).Info("Object does not match label selector, skipping")
 		return nil
 	}
 
-	globalCopy, err := r.getGlobalCopy(clusterName, ns, name)
+	cachedObj, err := r.getCachedObject(ctx, clusterName, ns, name)
 	if err != nil && !apierrors.IsNotFound(err) {
-		utilruntime.HandleError(err)
-		return nil
+		return err
 	}
-	globalExists := !apierrors.IsNotFound(err)
+	cachedObjExists := !apierrors.IsNotFound(err)
 
 	// local is gone or being deleted. Delete in cache.
-	if !localExists || !localCopy.GetDeletionTimestamp().IsZero() {
-		if !globalExists {
+	if !localExists || !localPartialObjMeta.GetDeletionTimestamp().IsZero() {
+		if !cachedObjExists {
 			return nil
 		}
 
@@ -305,24 +331,30 @@ func (r *replicationReconciler) reconcile(ctx context.Context, key string) error
 		return nil
 	}
 
-	// local exists, global doesn't. Create in cache.
-	if !globalExists {
-		originalRV := localCopy.GetResourceVersion()
-		originalUID := localCopy.GetUID()
-
-		localCopy.SetResourceVersion("")
-		annotations := localCopy.GetAnnotations()
-		if annotations == nil {
-			annotations = map[string]string{}
+	var globalCopy *unstructured.Unstructured
+	if cachedObjExists {
+		globalCopy, err = r.getGlobalCopyFromCachedObject(cachedObj)
+		if err != nil {
+			return err
 		}
-		annotations[genericrequest.ShardAnnotationKey] = r.shardName
-		annotations[AnnotationKeyOriginalResourceVersion] = originalRV
-		annotations[AnnotationKeyOriginalResourceUID] = string(originalUID)
+		// Exit early if there were no changes on the resource.
+		if localPartialObjMeta.GetResourceVersion() != "" && globalCopy.GetResourceVersion() == localPartialObjMeta.GetResourceVersion() {
+			logger.V(4).Info("Object is up to date")
+			return nil
+		}
+	}
 
-		localCopy.SetAnnotations(annotations)
+	// The local DDSIF informer yields only PartialObjectMetadata, and we need the full object for replication.
+	localCopy, err := r.getLocalCopy(ctx, clusterName, ns, name)
+	if err != nil {
+		// Return any error we get. If it's NotFound, we want to requeue in that case too: the local DDSIF
+		// informer probably hasn't caught up yet, and we may need to clean up the replicated CachedObject.
+		return err
+	}
 
+	if !cachedObjExists {
 		logger.V(2).Info("Creating object in global cache")
-		_, err := r.createObject(ctx, clusterName, localCopy)
+		_, err = r.createObject(ctx, clusterName, localCopy)
 		return err
 	}
 
@@ -341,6 +373,6 @@ func (r *replicationReconciler) reconcile(ctx context.Context, key string) error
 	}
 
 	logger.V(2).WithValues("kind", globalCopy.GetKind(), "namespace", globalCopy.GetNamespace(), "name", globalCopy.GetName()).Info("Updating object in global cache")
-	_, err = r.updateObject(ctx, clusterName, globalCopy) // no need for patch because there is only this actor
+	_, err = r.updateCachedObjectWithLocalUnstructured(ctx, clusterName, cachedObj, localCopy) // no need for patch because there is only this actor
 	return err
 }

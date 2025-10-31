@@ -83,7 +83,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 		},
 		&replication{
 			shardName:                      c.shardName,
-			dynamicCacheClient:             c.dynamicClient,
+			dynamicClusterClient:           c.dynamicClient,
 			kcpCacheClient:                 c.kcpCacheClient,
 			dynRESTMapper:                  c.dynRESTMapper,
 			cacheKcpInformers:              c.cacheKcpInformers,
