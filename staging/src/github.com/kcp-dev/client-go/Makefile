@@ -17,22 +17,16 @@ SHELL := /usr/bin/env bash -e
 
 KCP_ROOT_DIR ?= $(abspath ../../../../..)
 
-GO_INSTALL = $(KCP_ROOT_DIR)/hack/go-install.sh
-
-TOOLS_DIR=hack/tools
+TOOLS_DIR = hack/tools
 TOOLS_GOBIN_DIR := $(KCP_ROOT_DIR)/$(TOOLS_DIR)
-GOBIN_DIR=$(abspath ./bin)
-PATH := $(GOBIN_DIR):$(TOOLS_GOBIN_DIR):$(PATH)
+PATH := $(TOOLS_GOBIN_DIR):$(PATH)
 
-GOLANGCI_LINT_VER := v2.1.6
-GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
-GOLANGCI_LINT_FLAGS ?=
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/golangci-lint
 
 $(GOLANGCI_LINT):
-	GOBIN=$(TOOLS_GOBIN_DIR) $(GO_INSTALL) github.com/golangci/golangci-lint/v2/cmd/golangci-lint $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
+	make -C ../../../../.. $(GOLANGCI_LINT)
 
-tools: $(CODE_GENERATOR)
+tools: $(CODE_GENERATOR) $(GOLANGCI_LINT)
 .PHONY: tools
 
 codegen:
