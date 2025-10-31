@@ -32,13 +32,14 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
+	cachev1alpha1informers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions/cache/v1alpha1"
 )
 
 // Locally we store object with the original form of the object.
@@ -53,8 +54,9 @@ const (
 // NewController returns a new replication controller.
 func NewController(
 	shardName string,
-	dynamicCacheClient kcpdynamic.ClusterInterface,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
+	cachedObjectsInformer cachev1alpha1informers.CachedObjectClusterInformer,
 	gvr schema.GroupVersionResource,
 	replicated *ReplicatedGVR,
 	callback func(),
@@ -68,12 +70,13 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-		dynamicCacheClient: dynamicCacheClient,
-		kcpCacheClient:     kcpCacheClient,
-		replicated:         replicated,
-		callback:           callback,
-		cleanupFuncs:       make([]func(), 0),
-		localLabelSelector: localLabelSelector,
+		dynamicClusterClient:  dynamicClusterClient,
+		kcpCacheClient:        kcpCacheClient,
+		cachedObjectsInformer: cachedObjectsInformer,
+		replicated:            replicated,
+		callback:              callback,
+		cleanupFuncs:          make([]func(), 0),
+		localLabelSelector:    localLabelSelector,
 	}
 
 	localHandler, err := c.replicated.Local.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -88,16 +91,16 @@ func NewController(
 		_ = c.replicated.Local.RemoveEventHandler(localHandler)
 	})
 
-	globalHandler, err := c.replicated.Global.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj) },
+	globalHandler, err := c.cachedObjectsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+		DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
 	})
 	if err != nil {
 		return nil, err
 	}
 	c.cleanupFuncs = append(c.cleanupFuncs, func() {
-		_ = c.replicated.Global.RemoveEventHandler(globalHandler)
+		_ = c.cachedObjectsInformer.Informer().RemoveEventHandler(globalHandler)
 	})
 
 	return c, nil
@@ -113,13 +116,7 @@ func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResou
 	c.queue.Add(gvrKey)
 }
 
-func (c *Controller) enqueueCacheObject(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		utilruntime.HandleError(err)
-		return
-	}
-
+func (c *Controller) enqueueCacheObject(obj interface{}, replicateGVR schema.GroupVersionResource) {
 	// This way we extract what is the original GVR of the object that we are replicating.
 	cr, ok := obj.(*cachev1alpha1.CachedObject)
 	if !ok {
@@ -133,6 +130,15 @@ func (c *Controller) enqueueCacheObject(obj interface{}) {
 		Version:  labels[LabelKeyObjectVersion],
 		Resource: labels[LabelKeyObjectResource],
 	}
+
+	if gvr.Group != replicateGVR.Group ||
+		gvr.Version != replicateGVR.Version ||
+		gvr.Resource != replicateGVR.Resource {
+		// We care only about CachedObjects that replicate our GVR.
+		return
+	}
+
+	key := kcpcache.ToClusterAwareKey(string(logicalcluster.From(cr)), labels[LabelKeyObjectOriginalNamespace], labels[LabelKeyObjectOriginalName])
 
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
 	c.queue.Add(gvrKey)
@@ -203,8 +209,9 @@ type Controller struct {
 	shardName string
 	queue     workqueue.TypedRateLimitingInterface[string]
 
-	dynamicCacheClient kcpdynamic.ClusterInterface
-	kcpCacheClient     kcpclientset.ClusterInterface
+	dynamicClusterClient  kcpdynamic.ClusterInterface
+	kcpCacheClient        kcpclientset.ClusterInterface
+	cachedObjectsInformer cachev1alpha1informers.CachedObjectClusterInformer
 
 	replicated *ReplicatedGVR
 
@@ -228,17 +235,7 @@ type Controller struct {
 }
 
 type ReplicatedGVR struct {
-	Kind          string
-	Filter        func(u *unstructured.Unstructured) bool
-	Global, Local cache.SharedIndexInformer
-}
-
-// InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(replicated *ReplicatedGVR) {
-	indexers.AddIfNotPresentOrDie(
-		replicated.Global.GetIndexer(),
-		cache.Indexers{
-			ByGVRAndShardAndLogicalClusterAndNamespaceAndName: IndexByGVRAndShardAndLogicalClusterAndNamespace,
-		},
-	)
+	Kind   string
+	Filter func(u *unstructured.Unstructured) bool
+	Local  cache.SharedIndexInformer
 }
