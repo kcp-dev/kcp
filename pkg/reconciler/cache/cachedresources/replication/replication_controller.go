@@ -92,9 +92,9 @@ func NewController(
 	})
 
 	globalHandler, err := c.cachedObjectsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj) },
-		DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj) },
+		AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
+		DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
 	})
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResou
 	c.queue.Add(gvrKey)
 }
 
-func (c *Controller) enqueueCacheObject(obj interface{}) {
+func (c *Controller) enqueueCacheObject(obj interface{}, replicateGVR schema.GroupVersionResource) {
 	// This way we extract what is the original GVR of the object that we are replicating.
 	cr, ok := obj.(*cachev1alpha1.CachedObject)
 	if !ok {
@@ -130,6 +130,14 @@ func (c *Controller) enqueueCacheObject(obj interface{}) {
 		Version:  labels[LabelKeyObjectVersion],
 		Resource: labels[LabelKeyObjectResource],
 	}
+
+	if gvr.Group != replicateGVR.Group ||
+		gvr.Version != replicateGVR.Version ||
+		gvr.Resource != replicateGVR.Resource {
+		// We care only about CachedObjects that replicate our GVR.
+		return
+	}
+
 	key := kcpcache.ToClusterAwareKey(string(logicalcluster.From(cr)), labels[LabelKeyObjectOriginalNamespace], labels[LabelKeyObjectOriginalName])
 
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
