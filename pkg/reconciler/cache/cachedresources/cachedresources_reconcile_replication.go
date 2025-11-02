@@ -105,6 +105,7 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			r.shardName,
 			r.dynamicCacheClient,
 			r.kcpCacheClient,
+			cluster,
 			gvr,
 			replicated,
 			callback,
