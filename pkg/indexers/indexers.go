@@ -26,8 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	"github.com/kcp-dev/kcp/sdk/apis/core"
+	"github.com/kcp-dev/sdk/apis/core"
 )
 
 const (

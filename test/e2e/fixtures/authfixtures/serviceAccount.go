@@ -29,8 +29,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 )
 
 func CreateServiceAccount(t *testing.T, client kcpkubernetesclientset.ClusterInterface, workspace logicalcluster.Path, namespace string, generateName string) (*corev1.ServiceAccount, *corev1.Secret) {

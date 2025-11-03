@@ -29,7 +29,7 @@ import (
 	eventsinstall "k8s.io/kubernetes/pkg/apis/events/install"
 	rbacinstall "k8s.io/kubernetes/pkg/apis/rbac/install"
 
-	installkcpcore "github.com/kcp-dev/kcp/sdk/apis/core/install"
+	installkcpcore "github.com/kcp-dev/sdk/apis/core/install"
 )
 
 func init() {

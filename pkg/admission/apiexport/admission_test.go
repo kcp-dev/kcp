@@ -29,10 +29,11 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 
+	"github.com/kcp-dev/sdk/apis/apis"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
-	"github.com/kcp-dev/kcp/sdk/apis/apis"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func createAttr(name string, obj runtime.Object, kind, resource string) admission.Attributes {

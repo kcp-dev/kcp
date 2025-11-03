@@ -36,11 +36,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
-	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 )
 
 func StartMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoidc.MockOIDC, *crypto.CA) {

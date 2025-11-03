@@ -30,9 +30,9 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
-	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
 )
 
 func createAttr(cachedResource *cachev1alpha1.CachedResource) admission.Attributes {

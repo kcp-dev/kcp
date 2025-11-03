@@ -25,9 +25,9 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	kcpclient "github.com/kcp-dev/sdk/client/clientset/versioned"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
-	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 )
 
 //go:embed *.yaml

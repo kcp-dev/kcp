@@ -25,9 +25,9 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
+	kcpcorehelper "github.com/kcp-dev/sdk/apis/core/helper"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
 )
 
 func (c *controller) reconcile(ctx context.Context, rb *rbacv1.ClusterRole) (bool, error) {

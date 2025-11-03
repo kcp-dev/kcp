@@ -30,8 +30,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kcp-dev/kcp/sdk/testing/env"
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	"github.com/kcp-dev/sdk/testing/env"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 )
 
 // KcpCliPluginCommand returns the cli args to run the workspace plugin directly or

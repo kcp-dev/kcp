@@ -28,8 +28,9 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kcp-dev/sdk/cmd/help"
+
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
-	"github.com/kcp-dev/kcp/sdk/cmd/help"
 )
 
 func main() {

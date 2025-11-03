@@ -24,8 +24,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/sdk/apis/core"
+
 	configshard "github.com/kcp-dev/kcp/config/shard"
-	"github.com/kcp-dev/kcp/sdk/apis/core"
 )
 
 func (c *controller) reconcile(ctx context.Context) error {

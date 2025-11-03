@@ -30,10 +30,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcpclient "github.com/kcp-dev/sdk/client/clientset/versioned"
+
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 )
 
 //go:embed *.yaml

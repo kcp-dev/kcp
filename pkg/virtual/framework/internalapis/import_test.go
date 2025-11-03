@@ -34,8 +34,9 @@ import (
 	"k8s.io/kube-openapi/pkg/common"
 	k8sopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+
 	kcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 
 	_ "k8s.io/kubernetes/pkg/apis/core/install"
 )

@@ -19,7 +19,7 @@ package cachedresources
 import (
 	"context"
 
-	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 )
 
 // purge is a reconciler that purges the cache resources for a published resource.

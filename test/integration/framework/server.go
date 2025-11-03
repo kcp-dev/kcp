@@ -32,12 +32,12 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/embeddedetcd"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	kcpoptions "github.com/kcp-dev/kcp/cmd/kcp/options"
 	kcpserver "github.com/kcp-dev/kcp/pkg/server"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
 var ContextRunInProcess kcptestingserver.KcpRunner = func(ctx context.Context, t kcptestingserver.TestingT, cfg kcptestingserver.Config) (<-chan struct{}, error) {

@@ -38,11 +38,12 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
+
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
-	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
 func startFrontProxy(

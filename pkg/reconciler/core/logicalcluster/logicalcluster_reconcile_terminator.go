@@ -19,7 +19,7 @@ package logicalcluster
 import (
 	"context"
 
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
 
 const LogicalClusterHasTerminatorFinalizer = "kcp.io/has-terminators"

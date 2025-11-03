@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io"
 
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned"
 )
 
 type APIBinding interface {

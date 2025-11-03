@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/rest"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 type mux interface {

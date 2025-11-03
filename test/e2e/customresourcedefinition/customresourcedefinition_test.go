@@ -28,10 +28,10 @@ import (
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/sdk/apis/core"
+	kcptesting "github.com/kcp-dev/sdk/testing"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
