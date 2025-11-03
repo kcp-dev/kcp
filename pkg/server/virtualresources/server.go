@@ -41,6 +41,8 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
@@ -66,7 +68,7 @@ type Server struct {
 	delegate         http.Handler
 
 	getCRD                       func(cluster logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	getUnstructuredEndpointSlice func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error)
+	getUnstructuredEndpointSlice func(ctx context.Context, cluster logicalcluster.Name, shard shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error)
 	getAPIExportByPath           func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
 
@@ -76,27 +78,12 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 		Extra:    c.Extra,
 		delegate: delegationTarget.UnprotectedHandler(),
 
-		getUnstructuredEndpointSlice: func(ctx context.Context, cluster logicalcluster.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
-			list, err := c.Extra.DynamicClusterClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				return nil, err
-			}
-
-			if len(list.Items) == 0 {
-				return nil, apierrors.NewNotFound(gvr.GroupResource(), name)
-			}
-
-			var slice *unstructured.Unstructured
-			for _, item := range list.Items {
-				if item.GetName() == name {
-					if slice != nil {
-						return nil, apierrors.NewInternalError(fmt.Errorf("multiple objects found"))
-					}
-					slice = &item
-				}
-			}
-
-			return slice, nil
+		getUnstructuredEndpointSlice: func(ctx context.Context, cluster logicalcluster.Name, shardName shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
+			// We assume the endpoint slice is cluster-scoped.
+			return c.Extra.DynamicClusterClient.
+				Cluster(cluster.Path()).
+				Resource(gvr).
+				Get(cacheclient.WithShardInContext(ctx, shardName), name, metav1.GetOptions{})
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return c.Extra.CRDLister.Lister().Cluster(clusterName).Get(name)
@@ -283,7 +270,11 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 
 	// We have a virtual resource. Get the endpoint URL, create a proxy handler and serve from that endpoint.
 
-	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), virtualStorage)
+	apiExportShard := shard.Name(apiExport.Annotations[shard.AnnotationKey])
+	if apiExportShard.Empty() {
+		apiExportShard = shard.New(s.Extra.ShardName)
+	}
+	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExportShard, virtualStorage)
 	if err != nil {
 		utilruntime.HandleError(err)
 		responsewriters.ErrorNegotiated(
@@ -306,7 +297,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	vrHandler.ServeHTTP(w, r)
 }
 
-func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster logicalcluster.Name, virtual *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
+func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster logicalcluster.Name, apiExportShard shard.Name, virtual *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
 	sliceMapping, err := s.drm.ForCluster(apiExportCluster).RESTMapping(schema.GroupKind{
 		Group: ptr.Deref(virtual.Reference.APIGroup, ""),
 		Kind:  virtual.Reference.Kind,
@@ -315,7 +306,7 @@ func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster log
 		return "", err
 	}
 
-	slice, err := s.getUnstructuredEndpointSlice(ctx, apiExportCluster, schema.GroupVersionResource{
+	slice, err := s.getUnstructuredEndpointSlice(ctx, apiExportCluster, apiExportShard, schema.GroupVersionResource{
 		Group:    sliceMapping.Resource.Group,
 		Version:  sliceMapping.Resource.Version,
 		Resource: sliceMapping.Resource.Resource,

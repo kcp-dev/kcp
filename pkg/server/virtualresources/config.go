@@ -38,6 +38,7 @@ type ExtraConfig struct {
 	VWClientConfig       *rest.Config
 	DynamicClusterClient kcpdynamic.ClusterInterface
 
+	ShardName                      string
 	ShardVirtualWorkspaceURLGetter func() string
 
 	CRDLister               kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer
@@ -85,6 +86,7 @@ func NewConfig(
 	cfg *genericapiserver.Config,
 	vwClientConfig *rest.Config,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
+	shardName string,
 	shardVirtualWorkspaceURLGetter func() string,
 	crdLister kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
@@ -100,6 +102,7 @@ func NewConfig(
 			VWClientConfig:       vwClientConfig,
 			DynamicClusterClient: dynamicClusterClient,
 
+			ShardName:                      shardName,
 			ShardVirtualWorkspaceURLGetter: shardVirtualWorkspaceURLGetter,
 
 			CRDLister:               crdLister,

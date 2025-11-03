@@ -696,6 +696,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			&virtualResourcesConfig,
 			vwClientConfig,
 			c.CacheDynamicClient,
+			c.Options.Extra.ShardName,
 			c.ShardVirtualWorkspaceURL,
 			c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
