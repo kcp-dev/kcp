@@ -24,10 +24,10 @@ import (
 	rbacrest "k8s.io/kubernetes/pkg/registry/rbac/rest"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac/bootstrappolicy"
 
-	"github.com/kcp-dev/kcp/sdk/apis/apis"
-	"github.com/kcp-dev/kcp/sdk/apis/cache"
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
+	"github.com/kcp-dev/sdk/apis/apis"
+	"github.com/kcp-dev/sdk/apis/cache"
+	"github.com/kcp-dev/sdk/apis/core"
+	"github.com/kcp-dev/sdk/apis/tenancy"
 )
 
 const (

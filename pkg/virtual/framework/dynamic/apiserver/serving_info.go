@@ -45,9 +45,9 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
 )
 
 var _ apidefinition.APIDefinition = (*servingInfo)(nil)

@@ -31,8 +31,8 @@ ${LOGCHECK} ${LOGCHECK_ARGS} ./... > "${work_file}" 2>&1
 set -o errexit
 
 # sdk is a separate module, so check that in addition to our root packages
-echo "Checking "${REPO_ROOT}"/sdk"
-cd "${REPO_ROOT}"/sdk
+echo "Checking "${REPO_ROOT}"/staging/src/github.com/kcp-dev/sdk"
+cd "${REPO_ROOT}"/staging/src/github.com/kcp-dev/sdk
 set +o errexit
 ${LOGCHECK} ${LOGCHECK_ARGS} ./... >> "${work_file}" 2>&1
 set -o errexit

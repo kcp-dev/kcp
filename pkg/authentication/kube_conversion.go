@@ -19,7 +19,7 @@ package authentication
 import (
 	"k8s.io/apiserver/pkg/apis/apiserver"
 
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
 // The functions in this file convert the kcp AuthConfig to Kubernetes AuthConfig, which cannot be

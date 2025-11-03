@@ -36,9 +36,9 @@ import (
 	"k8s.io/apiserver/pkg/warning"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 var (

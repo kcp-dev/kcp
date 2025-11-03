@@ -28,10 +28,11 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/utils/strings/slices"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/core"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+
 	"github.com/kcp-dev/kcp/pkg/authorization"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
 )
 
 const (

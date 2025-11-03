@@ -35,12 +35,12 @@ import (
 	"k8s.io/utils/ptr"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/sdk/apis/core"
+	"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1/helper"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 

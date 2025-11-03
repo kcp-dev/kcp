@@ -30,9 +30,9 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 func createAttr(obj *apiextensions.CustomResourceDefinition) admission.Attributes {

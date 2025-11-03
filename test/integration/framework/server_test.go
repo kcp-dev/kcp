@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kcp-dev/kcp/sdk/apis/core"
+	"github.com/kcp-dev/sdk/apis/core"
 )
 
 func TestServer(t *testing.T) {

@@ -35,9 +35,9 @@ import (
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	authz "github.com/kcp-dev/kcp/pkg/authorization"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 type Authorization struct {

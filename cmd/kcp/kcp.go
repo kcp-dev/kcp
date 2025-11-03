@@ -36,11 +36,11 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/embeddedetcd"
+	"github.com/kcp-dev/sdk/cmd/help"
 
 	"github.com/kcp-dev/kcp/cmd/kcp/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"
-	"github.com/kcp-dev/kcp/sdk/cmd/help"
 
 	_ "k8s.io/component-base/logs/json/register"
 )

@@ -27,11 +27,12 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/sdk/cmd/help"
+
 	bindcmd "github.com/kcp-dev/kcp/cli/pkg/bind/cmd"
 	claimscmd "github.com/kcp-dev/kcp/cli/pkg/claims/cmd"
 	crdcmd "github.com/kcp-dev/kcp/cli/pkg/crd/cmd"
 	workspacecmd "github.com/kcp-dev/kcp/cli/pkg/workspace/cmd"
-	"github.com/kcp-dev/kcp/sdk/cmd/help"
 )
 
 func KubectlKcpCommand() *cobra.Command {

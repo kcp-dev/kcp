@@ -18,6 +18,6 @@ extend-ignore-identifiers-re = [
 extend-exclude = [
    "config/crds",
    "contrib/crds",
-   "sdk/apis/third_party",
-   "sdk/testing/third_party",
+   "staging/src/github.com/kcp-dev/sdk/apis/third_party",
+   "staging/src/github.com/kcp-dev/sdk/testing/third_party",
 ]

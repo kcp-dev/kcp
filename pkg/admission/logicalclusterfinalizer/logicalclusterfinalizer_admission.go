@@ -21,9 +21,10 @@ import (
 
 	"k8s.io/apiserver/pkg/admission"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+
 	"github.com/kcp-dev/kcp/pkg/admission/finalizer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion/deletion"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 const (

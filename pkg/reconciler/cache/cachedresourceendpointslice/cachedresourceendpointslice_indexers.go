@@ -20,9 +20,8 @@ import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
-	"github.com/kcp-dev/kcp/sdk/client"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	"github.com/kcp-dev/sdk/client"
 )
 
 const (

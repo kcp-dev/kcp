@@ -25,8 +25,7 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	"github.com/kcp-dev/kcp/sdk/client"
+	"github.com/kcp-dev/sdk/client"
 )
 
 func FilterInformers(clusterName logicalcluster.Name, informers rbacinformers.Interface) rbacinformers.Interface {

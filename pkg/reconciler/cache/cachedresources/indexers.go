@@ -20,8 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 )
 
 const (

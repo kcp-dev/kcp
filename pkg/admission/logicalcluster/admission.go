@@ -30,11 +30,12 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
+
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
-	corev1alpha1listers "github.com/kcp-dev/kcp/sdk/client/listers/core/v1alpha1"
 )
 
 // Protects deletion of LogicalCluster if spec.directlyDeletable is false.

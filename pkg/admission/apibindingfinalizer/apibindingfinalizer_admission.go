@@ -21,9 +21,10 @@ import (
 
 	"k8s.io/apiserver/pkg/admission"
 
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+
 	"github.com/kcp-dev/kcp/pkg/admission/finalizer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
 )
 
 const (

@@ -28,7 +28,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 )
 
 func RunWebhook(ctx context.Context, t *testing.T, port string, response string) context.CancelFunc {

@@ -28,15 +28,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
-	tenancyv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1"
-	utilconditions "github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
-	kcpclusterclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
-	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	utilconditions "github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned"
+	kcpclusterclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
+
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 

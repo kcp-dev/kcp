@@ -27,8 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 )
 
 func TestReconcileCachedResourceEndpointSlice(t *testing.T) {

@@ -32,12 +32,13 @@ import (
 	"k8s.io/kube-openapi/pkg/common"
 	generatedopenapi "k8s.io/kubernetes/pkg/generated/openapi"
 
+	"github.com/kcp-dev/sdk/apis/apis"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+
 	generatedkcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
-	"github.com/kcp-dev/kcp/sdk/apis/apis"
-	apisv1alpha1 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha1"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
 )
 
 // Create APIResourceSchemas for built-in APIs available as permission claims

@@ -28,8 +28,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
+
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
-	"github.com/kcp-dev/kcp/sdk/testing/third_party/library-go/crypto"
 )
 
 func newShard(ctx context.Context, n int, args []string, standaloneVW bool, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string, clientCA *crypto.CA) (*shard.Shard, error) {

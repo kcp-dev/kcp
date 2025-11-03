@@ -25,8 +25,7 @@ import (
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
+	kcpcorehelper "github.com/kcp-dev/sdk/apis/core/helper"
 )
 
 func (c *controller) reconcile(ctx context.Context, crb *rbacv1.ClusterRoleBinding) (bool, error) {

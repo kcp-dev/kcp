@@ -19,9 +19,9 @@ package framework
 import (
 	"path/filepath"
 
-	kcptesting "github.com/kcp-dev/kcp/sdk/testing"
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
-	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
+	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 )
 
 // DefaultTokenAuthFile returns the default auth tokens file.

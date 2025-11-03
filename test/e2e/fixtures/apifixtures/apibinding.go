@@ -26,11 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/kcp/sdk/apis/third_party/conditions/util/conditions"
-	kcpclientset "github.com/kcp-dev/kcp/sdk/client/clientset/versioned/cluster"
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 )
 
 // BindToExport creates an APIBinding in bindingClusterName that points at apiExportName in exportClusterName. It waits

@@ -21,8 +21,8 @@ import (
 
 	"k8s.io/klog/v2"
 
-	kcpcorehelper "github.com/kcp-dev/kcp/sdk/apis/core/helper"
-	corev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/core/v1alpha1"
+	kcpcorehelper "github.com/kcp-dev/sdk/apis/core/helper"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
 
 func (c *controller) reconcile(ctx context.Context, cluster *corev1alpha1.LogicalCluster) (bool, error) {

@@ -38,13 +38,13 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/embeddedetcd"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	cacheopitons "github.com/kcp-dev/kcp/pkg/cache/server/options"
-	kcptestinghelpers "github.com/kcp-dev/kcp/sdk/testing/helpers"
-	kcptestingserver "github.com/kcp-dev/kcp/sdk/testing/server"
 )
 
 // StartStandaloneCacheServer runs the cache server as a separate process

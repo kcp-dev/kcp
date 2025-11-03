@@ -43,11 +43,12 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog/v2"
 
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
+	tenancyhelper "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1/helper"
+	kcpclient "github.com/kcp-dev/sdk/client/clientset/versioned"
+
 	"github.com/kcp-dev/kcp/pkg/logging"
-	apisv1alpha2 "github.com/kcp-dev/kcp/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/kcp/sdk/apis/core"
-	tenancyhelper "github.com/kcp-dev/kcp/sdk/apis/tenancy/v1alpha1/helper"
-	kcpclient "github.com/kcp-dev/kcp/sdk/client/clientset/versioned"
 )
 
 // TransformFileFunc transforms a resource file before being applied to the cluster.

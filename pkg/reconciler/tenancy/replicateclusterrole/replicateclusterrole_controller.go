@@ -23,9 +23,9 @@ import (
 	kcprbacinformers "github.com/kcp-dev/client-go/informers/rbac/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/tenancy"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
-	"github.com/kcp-dev/kcp/sdk/apis/tenancy"
 )
 
 const (

@@ -39,9 +39,8 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	"github.com/kcp-dev/kcp/sdk/apis/cache"
-	cachev1alpha1 "github.com/kcp-dev/kcp/sdk/apis/cache/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/cache"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 )
 
 const (

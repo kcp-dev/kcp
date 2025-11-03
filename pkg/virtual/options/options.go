@@ -24,13 +24,13 @@ import (
 	"k8s.io/client-go/rest"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
 	terminatingworkspaceoptions "github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces/options"
-	kcpinformers "github.com/kcp-dev/kcp/sdk/client/informers/externalversions"
 )
 
 const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
