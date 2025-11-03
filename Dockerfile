@@ -28,8 +28,6 @@ ENV GOPROXY=$goproxy
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-COPY sdk/go.mod sdk/go.mod
-COPY sdk/go.sum sdk/go.sum
 COPY cli/go.mod cli/go.mod
 COPY cli/go.sum cli/go.sum
 COPY staging/src/github.com/kcp-dev/apimachinery/go.mod staging/src/github.com/kcp-dev/apimachinery/go.mod
@@ -38,6 +36,8 @@ COPY staging/src/github.com/kcp-dev/client-go/go.mod staging/src/github.com/kcp-
 COPY staging/src/github.com/kcp-dev/client-go/go.sum staging/src/github.com/kcp-dev/client-go/go.sum
 COPY staging/src/github.com/kcp-dev/code-generator/go.mod staging/src/github.com/kcp-dev/code-generator/go.mod
 COPY staging/src/github.com/kcp-dev/code-generator/go.sum staging/src/github.com/kcp-dev/code-generator/go.sum
+COPY staging/src/github.com/kcp-dev/sdk/go.mod staging/src/github.com/kcp-dev/sdk/go.mod
+COPY staging/src/github.com/kcp-dev/sdk/go.sum staging/src/github.com/kcp-dev/sdk/go.sum
 USER 0
 
 # Install kubectl.

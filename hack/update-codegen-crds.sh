@@ -28,8 +28,8 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 # Update generated CRD YAML
 (
-    cd "${REPO_ROOT}/sdk/apis"
-    "../../${CONTROLLER_GEN}" \
+    cd "${REPO_ROOT}/staging/src/github.com/kcp-dev/sdk/apis"
+    "../../../../../../${CONTROLLER_GEN}" \
         crd \
         rbac:roleName=manager-role \
         webhook \

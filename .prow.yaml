@@ -98,7 +98,7 @@ presubmits:
   - name: pull-kcp-test-integration
     decorate: true
     # only run integration tests if code changed.
-    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -125,7 +125,7 @@ presubmits:
   - name: pull-kcp-test-e2e
     decorate: true
     # only run e2e tests if code changed.
-    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -154,7 +154,7 @@ presubmits:
   - name: pull-kcp-test-e2e-multiple-runs
     decorate: true
     # only run e2e tests if code changed.
-    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -187,7 +187,7 @@ presubmits:
   - name: pull-kcp-test-e2e-shared
     decorate: true
     # only run e2e tests if code changed.
-    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
@@ -216,7 +216,7 @@ presubmits:
   - name: pull-kcp-test-e2e-sharded
     decorate: true
     # only run e2e tests if code changed.
-    run_if_changed: "(cmd|config|pkg|sdk|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
     clone_uri: "https://github.com/kcp-dev/kcp"
     labels:
       preset-goproxy: "true"
