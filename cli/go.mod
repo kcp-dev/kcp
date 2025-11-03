@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/google/go-cmp v0.7.0
 	github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b
-	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
+	github.com/kcp-dev/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -98,5 +98,5 @@ replace (
 	github.com/charmbracelet/colorprofile => github.com/charmbracelet/colorprofile v0.2.2
 	github.com/charmbracelet/x/ansi => github.com/charmbracelet/x/ansi v0.8.0
 	github.com/kcp-dev/client-go => ../staging/src/github.com/kcp-dev/client-go
-	github.com/kcp-dev/kcp/sdk => ../sdk
+	github.com/kcp-dev/sdk => ../staging/src/github.com/kcp-dev/sdk
 )

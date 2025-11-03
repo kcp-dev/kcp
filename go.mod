@@ -23,8 +23,8 @@ require (
 	github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b
 	github.com/kcp-dev/code-generator/v3 v3.0.0-20250728122101-5b4ff5c24054
 	github.com/kcp-dev/embeddedetcd v1.0.3-0.20250805142358-a4839a83564a
-	github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
+	github.com/kcp-dev/sdk v0.0.0-00010101000000-000000000000
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.22.0
@@ -180,7 +180,6 @@ require (
 )
 
 replace (
-	github.com/kcp-dev/kcp/sdk => ./sdk
 	k8s.io/api => github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20251003054701-d4b0368d53f0
 	k8s.io/apiextensions-apiserver => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20251003054701-d4b0368d53f0
 	k8s.io/apimachinery => github.com/kcp-dev/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20251003054701-d4b0368d53f0
@@ -219,6 +218,7 @@ replace (
 	github.com/kcp-dev/apimachinery/v2 => ./staging/src/github.com/kcp-dev/apimachinery
 	github.com/kcp-dev/client-go => ./staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
+	github.com/kcp-dev/sdk => ./staging/src/github.com/kcp-dev/sdk
 )
 
 // This fork is required to use IgnoreCreatedBy. The PR to add this
