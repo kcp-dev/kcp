@@ -45,6 +45,20 @@ rules:
             - staging/src/github.com/kcp-dev/sdk
     destination-tag-base: v0
     library: true
+  - destination: cli
+    branches:
+      - name: main
+        dependencies:
+          - repository: client-go
+            branch: main
+          - repository: sdk
+            branch: main
+        source:
+          branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/cli
+    destination-tag-base: v0
+    library: true
 recursive-delete-patterns:
   - '*/.gitattributes'
 default-go-version: 1.24.5
