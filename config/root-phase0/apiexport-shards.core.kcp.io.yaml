@@ -7,7 +7,7 @@ spec:
   resources:
   - group: core.kcp.io
     name: shards
-    schema: v240903-d6797056a.shards.core.kcp.io
+    schema: v251020-aa1b96e5d.shards.core.kcp.io
     storage:
       crd: {}
 status: {}

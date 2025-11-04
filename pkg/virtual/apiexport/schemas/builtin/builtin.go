@@ -48,7 +48,7 @@ func init() {
 	schemes := []*runtime.Scheme{kcpscheme.Scheme}
 	openAPIDefinitionsGetters := []common.GetOpenAPIDefinitions{
 		generatedopenapi.GetOpenAPIDefinitions,    // core types
-		generatedkcpopenapi.GetOpenAPIDefinitions, // KCP core types for LogicalCluster
+		generatedkcpopenapi.GetOpenAPIDefinitions, // kcp core types for LogicalCluster
 	}
 
 	apis, err := internalapis.CreateAPIResourceSchemas(schemes, openAPIDefinitionsGetters, BuiltInAPIs...)

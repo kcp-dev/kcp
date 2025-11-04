@@ -14,20 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build container images for KCP using Docker
+# Build container images for kcp using Docker
 #
 # This script builds container images using Docker (with or without buildx).
 #
 # Usage examples:
 #   # Build locally with default settings (uses current git commit hash)
 #   ./hack/build-image-docker.sh
-#   
+#
 #   # Build locally with custom repository name
 #   REPOSITORY=my-registry/kcp ./hack/build-image-docker.sh
-#   
+#
 #   # Build locally without pushing (dry run)
 #   DRY_RUN=1 ./hack/build-image-docker.sh
-#   
+#
 #   # Build for specific architectures only
 #   ARCHITECTURES="amd64" ./hack/build-image-docker.sh
 #
@@ -38,7 +38,7 @@
 #   KCP_GHCR_USERNAME/KCP_GHCR_PASSWORD - Registry credentials for pushing
 #
 # Build tool support:
-#   - docker + buildx: Multi-arch support with intelligent platform handling  
+#   - docker + buildx: Multi-arch support with intelligent platform handling
 #   - docker only: Single architecture fallback
 
 set -euo pipefail
@@ -105,7 +105,7 @@ echo "Building container image $image ..."
 # Function to build images with docker buildx
 build_with_docker_buildx() {
   echo "Building multi-arch image $image ..."
-  
+
   # Create platforms string for buildx
   platforms=""
   for arch in $architectures; do
@@ -115,7 +115,7 @@ build_with_docker_buildx() {
       platforms="linux/$arch"
     fi
   done
-  
+
   # For push builds, use multi-platform; for local builds, build per arch
   if [ -z "${DRY_RUN:-}" ]; then
     # Building for push - use multi-platform with --push
@@ -151,7 +151,7 @@ build_with_docker() {
   # Use only the first architecture for regular docker
   arch=$(echo $architectures | cut -d' ' -f1)
   fullTag="$image-$arch"
-  
+
   echo "Building single-arch image $fullTag (docker without buildx) ..."
   docker build \
     --file Dockerfile \
@@ -160,7 +160,7 @@ build_with_docker() {
     --build-arg "TARGETOS=linux" \
     --build-arg "TARGETARCH=$arch" \
     .
-    
+
   # Tag it as the main image too
   docker tag "$fullTag" "$image"
 }
@@ -191,7 +191,7 @@ fi
 # push images, except in dry runs
 if [ -z "${DRY_RUN:-}" ]; then
   echo "Logging into GHCR ..."
-  
+
   if [ "$DOCKER_BUILDX" = true ]; then
     # buildx with --push already pushed during build
     echo "Images already pushed during buildx build"
@@ -202,7 +202,7 @@ if [ -z "${DRY_RUN:-}" ]; then
     else
       echo "Skipping login (GHCR_USERNAME/GHCR_PASSWORD not provided)"
     fi
-    
+
     echo "Pushing images ..."
     docker push "$image"
 
