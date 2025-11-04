@@ -2431,18 +2431,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#create-the-tags" class="md-nav__link">
+  <a href="#create-the-tag" class="md-nav__link">
     <span class="md-ellipsis">
-      Create the Tags
+      Create the Tag
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#push-the-tags" class="md-nav__link">
+  <a href="#push-the-tag" class="md-nav__link">
     <span class="md-ellipsis">
-      Push the Tags
+      Push the Tag
     </span>
   </a>
   
@@ -3699,18 +3699,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#create-the-tags" class="md-nav__link">
+  <a href="#create-the-tag" class="md-nav__link">
     <span class="md-ellipsis">
-      Create the Tags
+      Create the Tag
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#push-the-tags" class="md-nav__link">
+  <a href="#push-the-tag" class="md-nav__link">
     <span class="md-ellipsis">
-      Push the Tags
+      Push the Tag
     </span>
   </a>
   
@@ -3821,8 +3821,13 @@ tasks.</p>
 <li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account">https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account</a></li>
 <li><a href="https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key">https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key</a></li>
 </ol>
-<h3 id="create-the-tags">Create the Tags<a class="headerlink" href="#create-the-tags" title="Permanent link">&para;</a></h3>
-<p>kcp has 2 go modules, and a unique tag is needed for each module every time we create a new release.</p>
+<h3 id="create-the-tag">Create the Tag<a class="headerlink" href="#create-the-tag" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>kcp used two have two submodules (<code>sdk</code> and <code>cli</code>) which were tagged separately in addition to the main kcp module.
+With the introduction of the monorepo, those two submodules became staging repositories. Their tags are now handled
+automatically by publishing-bot, so it's only needed to create one tag for the main kcp module.</p>
+</div>
 <ol>
 <li><code>git fetch</code> from the main kcp repository (kcp-dev/kcp) to ensure you have the latest commits</li>
 <li>Tag the main module</li>
@@ -3835,25 +3840,11 @@ tasks.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 </code></pre></div>
 </li>
-<li>
-<p>Tag the <code>sdk</code> module, following the same logic as above for <code>REF</code> and <code>TAG</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
-</code></pre></div>
-</li>
-<li>
-<p>Tag the <code>cli</code> module, following the same logic as above for <code>REF</code> and <code>TAG</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
-</code></pre></div>
-</li>
 </ol>
-<h3 id="push-the-tags">Push the Tags<a class="headerlink" href="#push-the-tags" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;sdk/</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;cli/</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
+<h3 id="push-the-tag">Push the Tag<a class="headerlink" href="#push-the-tag" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
 </code></pre></div>
 <h2 id="if-its-a-new-minor-version">If it's a New Minor Version<a class="headerlink" href="#if-its-a-new-minor-version" title="Permanent link">&para;</a></h2>
 <p>If this is the first release of a new minor version (e.g. the last release was v0.7.x, and you are releasing the first
@@ -3861,11 +3852,11 @@ tasks.</p>
 <p>Otherwise, you can skip to <a href="#generate-release-notes">Generate release notes</a></p>
 <h3 id="create-a-release-branch">Create a Release Branch<a class="headerlink" href="#create-a-release-branch" title="Permanent link">&para;</a></h3>
 <p>Set <code>REMOTE</code>, <code>REF</code>, and <code>VERSION</code> as appropriate.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">REF</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">/main&quot;</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">VERSION</span><span class="o">=</span><span class="m">1</span>.2
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">REF</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">/main&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">VERSION</span><span class="o">=</span><span class="m">1</span>.2
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
 </code></pre></div>
 <h3 id="update-the-publishing-bot-rules">Update the <code>publishing-bot</code> Rules<a class="headerlink" href="#update-the-publishing-bot-rules" title="Permanent link">&para;</a></h3>
 <p>The <a href="https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml"><code>publishing-bot</code> rules</a> must be updated
@@ -3875,7 +3866,7 @@ This tool can be installed by cloning kcp's fork of <a href="https://github.com/
 and running <code>make build</code> in the repository, which will install the tool in <code>_output/update-rules</code>.
 Alternatively, the tool can be ran inside a Docker container using the <code>ghcr.io/kcp-dev/publishing-bot:latest</code> image.</p>
 <p>The tool takes the path to the rules file, the branch name, and the Go version used on that branch:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>_output/update-rules<span class="w"> </span>-branch<span class="w"> </span>release-0.x<span class="w"> </span>-go<span class="w"> </span><span class="m">1</span>.x.y<span class="w"> </span>-rules<span class="w"> </span>../kcp/staging/publishing/rules.yaml<span class="w"> </span>-o<span class="w"> </span>/tmp/rules.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>_output/update-rules<span class="w"> </span>-branch<span class="w"> </span>release-0.x<span class="w"> </span>-go<span class="w"> </span><span class="m">1</span>.x.y<span class="w"> </span>-rules<span class="w"> </span>../kcp/staging/publishing/rules.yaml<span class="w"> </span>-o<span class="w"> </span>/tmp/rules.yaml
 </code></pre></div>
 <p>This will generate a temporary rules file in <code>/tmp/rules.yaml</code>. You'll need to replace <code>staging/publishing/rules.yaml</code>
 in the kcp repo with that temporary file and push it to the repo before proceeding. The new rules file will be used
@@ -3884,20 +3875,20 @@ on the next publishing-bot run automatically.</p>
 <p>To generate release notes from the information in PR descriptions you should use Kubernetes' <a href="https://github.com/kubernetes/release/tree/master/cmd/release-notes">release-notes</a> tool.
 This tool will use the <code>release-notes</code> blocks in PR descriptions and the <code>kind/</code> labels on those PRs to find user-facing changes and categorize them.
 You can run the command below to install the latest version of it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
 </code></pre></div>
 <p>To use <code>release-notes</code> you will need to generate a GitHub API token (Settings -&gt; Developers settings -&gt; Personal access tokens -&gt; Fine-grained tokens). A token with <em>Public Repositories (read-only)</em> repository access and no further permissions is sufficient. Store the token somewhere safe and export it as <code>GITHUB_TOKEN</code> environment variable.</p>
 <p>Then, run run the <code>release-notes</code> tool (set <code>PREV_VERSION</code> to the version released before the one you have just released).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
 </code></pre></div>
 <p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
 <h2 id="revieweditpublish-the-release-in-github">Review/Edit/Publish the Release in GitHub<a class="headerlink" href="#revieweditpublish-the-release-in-github" title="Permanent link">&para;</a></h2>
