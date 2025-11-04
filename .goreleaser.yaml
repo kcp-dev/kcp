@@ -18,7 +18,7 @@ builds:
 # plugin builds
 - id: "kubectl-kcp"
   main: ./cmd/kubectl-kcp
-  dir: cli
+  dir: staging/src/github.com/kcp-dev/cli
   binary: bin/kubectl-kcp
   ldflags:
   - "{{ .Env.LDFLAGS }}"
@@ -34,7 +34,7 @@ builds:
 
 - id: "kubectl-ws"
   main: ./cmd/kubectl-ws
-  dir: cli
+  dir: staging/src/github.com/kcp-dev/cli
   binary: bin/kubectl-ws
   ldflags:
   - "{{ .Env.LDFLAGS }}"
@@ -50,7 +50,7 @@ builds:
 
 - id: "kubectl-create-workspace"
   main: ./cmd/kubectl-create-workspace
-  dir: cli
+  dir: staging/src/github.com/kcp-dev/cli
   binary: bin/kubectl-create-workspace
   ldflags:
   - "{{ .Env.LDFLAGS }}"
@@ -66,7 +66,7 @@ builds:
 
 - id: apigen
   main: ./cmd/apigen
-  dir: sdk
+  dir: staging/src/github.com/kcp-dev/sdk
   binary: bin/apigen
   ldflags:
   - "{{ .Env.LDFLAGS }}"

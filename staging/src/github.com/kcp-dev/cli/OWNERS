@@ -1,0 +1,12 @@
+approvers:
+  - clubanderson
+  - scheeles
+  - sttts
+  - xrstf
+  - mjudeikis
+  - embik
+filters:
+  ".*":
+    # make sure that all PRs to this package are marked as CLI (kubectl plugin) changes.
+    labels:
+        - area/cli

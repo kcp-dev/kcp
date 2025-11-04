@@ -17,9 +17,12 @@ description: >
 2. <https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account>
 3. <https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key>
 
-### Create the Tags
+### Create the Tag
 
-kcp has 2 go modules, and a unique tag is needed for each module every time we create a new release.
+!!! note
+    kcp used two have two submodules (`sdk` and `cli`) which were tagged separately in addition to the main kcp module.
+    With the introduction of the monorepo, those two submodules became staging repositories. Their tags are now handled
+    automatically by publishing-bot, so it's only needed to create one tag for the main kcp module.
 
 1. `git fetch` from the main kcp repository (kcp-dev/kcp) to ensure you have the latest commits
 2. Tag the main module
@@ -33,28 +36,12 @@ kcp has 2 go modules, and a unique tag is needed for each module every time we c
     git tag --sign --message "$TAG" "$TAG" "$REF"
     ```
 
- 3. Tag the `sdk` module, following the same logic as above for `REF` and `TAG`
-
-    ```shell
-    REF=upstream/main
-    TAG=v1.2.3
-    git tag --sign --message "sdk/$TAG" "sdk/$TAG" "$REF"
-    ```
-    
-4. Tag the `cli` module, following the same logic as above for `REF` and `TAG`
-
-    ```shell
-    REF=upstream/main
-    TAG=v1.2.3
-    git tag --sign --message "cli/$TAG" "cli/$TAG" "$REF"
-    ```
-
-### Push the Tags
+### Push the Tag
 
 ```shell
 REMOTE=upstream
 TAG=v1.2.3
-git push "$REMOTE" "$TAG" "sdk/$TAG" "cli/$TAG"
+git push "$REMOTE" "$TAG"
 ```
 
 ## If it's a New Minor Version
