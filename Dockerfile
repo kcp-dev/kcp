@@ -28,10 +28,10 @@ ENV GOPROXY=$goproxy
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-COPY cli/go.mod cli/go.mod
-COPY cli/go.sum cli/go.sum
 COPY staging/src/github.com/kcp-dev/apimachinery/go.mod staging/src/github.com/kcp-dev/apimachinery/go.mod
 COPY staging/src/github.com/kcp-dev/apimachinery/go.sum staging/src/github.com/kcp-dev/apimachinery/go.sum
+COPY staging/src/github.com/kcp-dev/cli/go.mod staging/src/github.com/kcp-dev/cli/go.mod
+COPY staging/src/github.com/kcp-dev/cli/go.sum staging/src/github.com/kcp-dev/cli/go.sum
 COPY staging/src/github.com/kcp-dev/client-go/go.mod staging/src/github.com/kcp-dev/client-go/go.mod
 COPY staging/src/github.com/kcp-dev/client-go/go.sum staging/src/github.com/kcp-dev/client-go/go.sum
 COPY staging/src/github.com/kcp-dev/code-generator/go.mod staging/src/github.com/kcp-dev/code-generator/go.mod
