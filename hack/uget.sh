@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2025 Christoph Mewes, https://codeberg.org/xrstf/uget
 # SPDX-License-Identifier: MIT
 #
-# µget 0.2.0 – your friendly downloader
+# µget 0.2.2 – your friendly downloader
 # -------------------------------------
 #
 # µget can download software as binaries, archives or Go modules.
@@ -121,7 +121,7 @@ uget::checksum::read() {
   local kvString="$1"
 
   if [[ -f "$UGET_CHECKSUMS" ]]; then
-    awk -F'|' "{ if (\$1 == \"$BINARY\" && \$2 == \"$kvString\") print \$3 }" "$UGET_CHECKSUMS"
+    awk -F'|' -v "binary=$BINARY" -v "kv=$kvString" '{ if ($1 == binary && $2 == kv) print $3 }' "$UGET_CHECKSUMS"
   fi
 }
 
@@ -141,9 +141,9 @@ uget::checksum::write() {
     # (for better readability, do not invert the condition here);
     # grep will drop any empty lines
     awk \
-      -F'|' \
-      "{ if (\$1 == \"$BINARY\" && \$2 == \"$kvString\") {} else print }" \
-      "$UGET_CHECKSUMS" | grep . > "$tempDir/checksums.txt"
+      -F'|' -v "binary=$BINARY" -v "kv=$kvString" \
+      '{ if ($1 == binary && $2 == kv) {} else print }' \
+      "$UGET_CHECKSUMS" | (grep . || true) > "$tempDir/checksums.txt"
 
     # add our new checksum
     echo "$BINARY|$kvString|$checksum" >> "$tempDir/checksums.txt"
@@ -469,7 +469,7 @@ if $UGET_UPDATE; then
 
     # download binary into tempdir, update checksums, but then delete it again
     uget::update "$kvString" "$url"
-  done < <(awk -F'|' "{ if (\$1 == \"$BINARY\") print \$2 }" "$UGET_CHECKSUMS")
+  done < <(awk -F'|' -v "binary=$BINARY" '{ if ($1 == binary) print $2 }' "$UGET_CHECKSUMS")
 
   uget::log "All checksums were updated."
 else
