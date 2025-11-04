@@ -24,9 +24,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	kubectlCreateWorkspace "github.com/kcp-dev/kcp/cli/cmd/kubectl-create-workspace/cmd"
-	kubectlKcp "github.com/kcp-dev/kcp/cli/cmd/kubectl-kcp/cmd"
-	kubectlWs "github.com/kcp-dev/kcp/cli/cmd/kubectl-ws/cmd"
+	kubectlCreateWorkspace "github.com/kcp-dev/cli/cmd/kubectl-create-workspace/cmd"
+	kubectlKcp "github.com/kcp-dev/cli/cmd/kubectl-kcp/cmd"
+	kubectlWs "github.com/kcp-dev/cli/cmd/kubectl-ws/cmd"
+
 	"github.com/kcp-dev/kcp/hack/third_party/github.com/spf13/cobra/doc"
 )
 
