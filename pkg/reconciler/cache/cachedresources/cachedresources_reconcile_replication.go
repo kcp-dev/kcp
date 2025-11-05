@@ -41,7 +41,7 @@ import (
 // Or deletes the replication controller if the published resource is being deleted.
 type replication struct {
 	shardName                      string
-	dynamicCacheClient             kcpdynamic.ClusterInterface
+	dynamicClusterClient           kcpdynamic.ClusterInterface
 	kcpCacheClient                 kcpclientset.ClusterInterface
 	dynRESTMapper                  *dynamicrestmapper.DynamicRESTMapper
 	cacheKcpInformers              kcpinformers.SharedInformerFactory
@@ -103,8 +103,9 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 
 		c, err := replicationcontroller.NewController(
 			r.shardName,
-			r.dynamicCacheClient,
+			r.dynamicClusterClient,
 			r.kcpCacheClient,
+			cluster,
 			gvr,
 			replicated,
 			callback,

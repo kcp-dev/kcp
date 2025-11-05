@@ -367,16 +367,29 @@ func TestCachedResources(t *testing.T) {
 	// Eventually we should see two of each in the resourcesCounter,
 	// i.e. one for each consumer workspace.
 	t.Logf("Creating a Cowboy in %q", providerPath)
-	cowboyOne, err := wildwestClusterClient.Cluster(providerPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &wildwestv1alpha1.Cowboy{
+	cowboyOne := createCowboy(t, ctx, wildwestClusterClient, providerPath, &wildwestv1alpha1.Cowboy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cowboys-1",
+			Name:      "cowboys-1",
+			Namespace: "default",
 		},
-	}, metav1.CreateOptions{})
+		Spec: wildwestv1alpha1.CowboySpec{
+			Intent: "cowboys-1-spec",
+		},
+		Status: wildwestv1alpha1.CowboyStatus{
+			Result: "cowboys-1-status",
+		},
+	})
 	require.NoError(t, err)
 	t.Logf("Creating a Sheriff in %q", providerPath)
-	sheriffOne, err := createSheriff(ctx, kcpDynClusterClient, logicalcluster.Name(providerPath.String()), &wildwestv1alpha1.Sheriff{
+	sheriffOne := createSheriff(t, ctx, kcpDynClusterClient, logicalcluster.Name(providerPath.String()), &wildwestv1alpha1.Sheriff{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sheriffs-1",
+		},
+		Spec: wildwestv1alpha1.SheriffSpec{
+			Intent: "sheriffs-1-spec",
+		},
+		Status: wildwestv1alpha1.SheriffStatus{
+			Result: "sheriffs-1-status",
 		},
 	})
 	require.NoError(t, err)
@@ -530,21 +543,7 @@ func normalizeUnstructuredMap(origObj map[string]interface{}) map[string]interfa
 		delete(meta, "uid")
 		delete(meta, "generation")
 		delete(meta, "managedFields")
-
-		ann, hasAnn := meta["annotations"].(map[string]interface{})
-		if hasAnn {
-			// TODO(gman0): HACK! https://github.com/kcp-dev/kcp/issues/3478
-			// Partial metadata objects have this annotation added.
-			// This will go away once we have full objects.
-			delete(ann, "kcp.io/original-api-version")
-		}
 	}
-
-	// TODO(gman0): HACK! https://github.com/kcp-dev/kcp/issues/3478
-	// We need to remove spec and status, because we're getting only metadata for now.
-	// This will go away once we have full objects.
-	delete(obj, "spec")
-	delete(obj, "status")
 
 	return obj
 }
@@ -566,11 +565,11 @@ func listSheriffs(ctx context.Context, c kcpdynamic.ClusterInterface, cluster lo
 	return &sheriffs, nil
 }
 
-func createSheriff(ctx context.Context, c kcpdynamic.ClusterInterface, cluster logicalcluster.Name, sheriff *wildwestv1alpha1.Sheriff) (*wildwestv1alpha1.Sheriff, error) {
+func createSheriff(t *testing.T, ctx context.Context, c kcpdynamic.ClusterInterface, cluster logicalcluster.Name, sheriff *wildwestv1alpha1.Sheriff) *wildwestv1alpha1.Sheriff {
+	t.Helper()
+
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sheriff)
-	if err != nil {
-		return nil, err
-	}
+	require.NoError(t, err)
 	u := &unstructured.Unstructured{
 		Object: m,
 	}
@@ -580,11 +579,44 @@ func createSheriff(ctx context.Context, c kcpdynamic.ClusterInterface, cluster l
 	u, err = c.Cluster(cluster.Path()).Resource(
 		wildwestv1alpha1.SchemeGroupVersion.WithResource("sheriffs"),
 	).Create(ctx, u, metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
+	require.NoError(t, err)
 
 	createdSheriff := &wildwestv1alpha1.Sheriff{}
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, createdSheriff)
-	return createdSheriff, err
+	require.NoError(t, err)
+
+	createdSheriff.Status = sheriff.Status
+	m, err = runtime.DefaultUnstructuredConverter.ToUnstructured(createdSheriff)
+	require.NoError(t, err)
+	u.Object = m
+
+	u, err = c.Cluster(cluster.Path()).Resource(
+		wildwestv1alpha1.SchemeGroupVersion.WithResource("sheriffs"),
+	).UpdateStatus(ctx, u, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	sheriffWithStatus := &wildwestv1alpha1.Sheriff{}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, sheriffWithStatus)
+	require.NoError(t, err)
+
+	require.Equal(t, sheriff.Spec, sheriffWithStatus.Spec, "created Sheriff should have Spec")
+	require.Equal(t, sheriff.Status, sheriffWithStatus.Status, "created Sheriff should have Status")
+
+	return sheriffWithStatus
+}
+
+func createCowboy(t *testing.T, ctx context.Context, c wildwestclientset.ClusterInterface, path logicalcluster.Path, cowboy *wildwestv1alpha1.Cowboy) *wildwestv1alpha1.Cowboy {
+	t.Helper()
+
+	createdCowboy, err := c.Cluster(path).WildwestV1alpha1().Cowboys(cowboy.Namespace).Create(ctx, cowboy, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	createdCowboy.Status = cowboy.Status
+	cowboyWithStatus, err := c.Cluster(path).WildwestV1alpha1().Cowboys(cowboy.Namespace).UpdateStatus(ctx, createdCowboy, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	require.Equal(t, cowboy.Spec, cowboyWithStatus.Spec, "created Cowboy should have Spec")
+	require.Equal(t, cowboy.Status, cowboyWithStatus.Status, "created Cowboy should have Status")
+
+	return cowboyWithStatus
 }
