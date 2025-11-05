@@ -206,7 +206,7 @@ tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PAT
 .PHONY: tools
 
 $(CONTROLLER_GEN):
-	@GO_MODULE=true hack/uget.sh sigs.k8s.io/controller-tools/cmd/controller-gen ${CONTROLLER_GEN_BIN} $(CONTROLLER_GEN_VER)
+	@UNCOMPRESSED=true hack/uget.sh https://github.com/kubernetes-sigs/controller-tools/releases/download/{VERSION}/controller-gen-{GOOS}-{GOARCH} ${CONTROLLER_GEN_BIN} $(CONTROLLER_GEN_VER) controller-gen*
 
 $(YAML_PATCH):
 	@GO_MODULE=true hack/uget.sh github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
