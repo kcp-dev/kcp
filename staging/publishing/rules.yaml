@@ -37,8 +37,10 @@ rules:
         dependencies:
           - repository: apimachinery
             branch: main
-          - repository: client-go
+          - repository: code-generator
             branch: main
+          - repository: client-go
+            branch: main          
         source:
           branch: main
           dirs:
@@ -49,6 +51,10 @@ rules:
     branches:
       - name: main
         dependencies:
+          - repository: apimachinery
+            branch: main
+          - repository: code-generator
+            branch: main
           - repository: client-go
             branch: main
           - repository: sdk
