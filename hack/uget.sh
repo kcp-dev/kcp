@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2025 Christoph Mewes, https://codeberg.org/xrstf/uget
 # SPDX-License-Identifier: MIT
 #
-# µget 0.3.0 – your friendly downloader
+# µget 0.3.2 – your friendly downloader
 # -------------------------------------
 #
 # µget can download software as binaries, archives or Go modules.
@@ -30,9 +30,15 @@ UNCOMPRESSED=${UNCOMPRESSED:-false}
 
 # UGET_UPDATE can be set to true when the VERSION parameter of a program has
 # been updated and you want µget to update all known variants (based on the
-# checksums file). When UGET_CHECKSUMS is not in use, this variable has no
-# effect.
+# checksums file) before installing the correct variant for the current system.
+# When UGET_CHECKSUMS is not in use, this variable has no effect.
+# Use UGET_UPDATE_ONLY if you want to just update the checksums without also
+# installing the binary.
 UGET_UPDATE=${UGET_UPDATE:-false}
+
+# UGET_UPDATE_ONLY is like UGET_UPDATE, but does not install the binary on
+# the current system (i.e. it only touches the checksum file).
+UGET_UPDATE_ONLY=${UGET_UPDATE_ONLY:-false}
 
 # UGET_DIRECTORY is where downloaded binaries will be placed.
 UGET_DIRECTORY="${UGET_DIRECTORY:-_tools}"
@@ -123,6 +129,8 @@ uget_checksum_check() {
     uget_error "  If you are updating $BINARY, this error is expected."
     uget_error "  Re-run this command with the environment variable UGET_UPDATE=true to make"
     uget_error "  µget update the checksums for all known variants of $BINARY."
+    uget_error "  Use UGET_UPDATE_ONLY=true if you want to just update the checksums and not"
+    uget_error "  install the given binary on this machine."
     uget_error "  *************************************************************************"
     uget_error
 
@@ -515,22 +523,30 @@ if uget_checksum_enabled; then
   touch "$UGET_CHECKSUMS"
   UGET_CHECKSUMS="$(realpath "$UGET_CHECKSUMS")"
 else
-  if $UGET_UPDATE && $GO_MODULE; then
-    uget_error "Checksums are disabled for Go modules, cannot update them."
-    exit 1
+  if $GO_MODULE; then
+    if $UGET_UPDATE || $UGET_UPDATE_ONLY; then
+      uget_error "Checksums are disabled for Go modules, cannot update $BINARY checksums."
+      # This is not an error because in complex Makefiles, there might be 3 binaries required
+      # for one make target, and if one of them is a Go module and you have no direct way
+      # to just update a single binary, then running "UGET_UPDATE make complex-task" would
+      # fail at the Go module. It's simply more convenient to just warn and move on to the next
+      # binary.
+    fi
   fi
 
   UGET_UPDATE=false
+  UGET_UPDATE_ONLY=false
 fi
 
 ###############################################################################
 # Main application logic
 
-# When in update mode, we do not download the binary for the current system
+# When in update-only mode, we do not download the binary for the current system
 # only, but instead for all known variants based on the checksums file,
-# recalculate the checksums and then discard the temporary binaries.
+# recalculate the checksums and then discard the temporary binaries. Otherwise
+# after updating the checksums we continue with the regular install logic.
 
-if $UGET_UPDATE; then
+if $UGET_UPDATE || $UGET_UPDATE_ONLY; then
   uget_log "Updating checksums for $BINARY ..."
 
   # Find and process all known variants...
@@ -543,7 +559,9 @@ if $UGET_UPDATE; then
   done
 
   uget_log "All checksums were updated."
-else
+fi
+
+if ! $UGET_UPDATE_ONLY; then
   if ! uget_ready; then
     # Replace placeholders in the URL with system-specific data, like arch or OS
     result="$(uget_url_build)"
