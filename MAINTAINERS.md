@@ -10,6 +10,8 @@ The table below lists all current maintainers for the kcp project as defined by 
 | Christoph Mewes       | [@xrstf](https://github.com/xrstf)               | kcp core, API Syncagent kcp-operator, infrastructure           | Kubermatic                  |
 | Mangirdas Judeikis    | [@mjudeikis](https://github.com/mjudeikis)       | kcp core                                                       | Upbound                     |
 | Marvin Beckers        | [@embik](https://github.com/embik)               | kcp core, kcp-operator, multicluster-provider, infrastructure  | Kubermatic                  |
+| Nelo-T. Wallus        | [@ntnn](https://github.com/ntnn)                 | kcp core                                                       | SAP                         |
+| Marko Mudrinić        | [@xmudrii](https://github.com/xmudrii)           | kcp core                                                       | Kubermatic                  |
 
 ## Emeritus Maintainers
 
