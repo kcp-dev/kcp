@@ -128,24 +128,28 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
   	done
 .PHONY: install
 
+.PHONY: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT):
 	@hack/uget.sh \
 		https://github.com/golangci/golangci-lint/releases/download/v{VERSION}/golangci-lint-{VERSION}-{GOOS}-{GOARCH}.tar.gz \
 		${GOLANGCI_LINT_BIN} \
 		${GOLANGCI_LINT_VER}
 
+.PHONY: $(HTTEST)
 $(HTTEST):
 	@hack/uget.sh \
 		https://codeberg.org/xrstf/httest/releases/download/v{VERSION}/httest_{VERSION}_{GOOS}_{GOARCH}.tar.gz \
 		${HTTEST_BIN} \
 		${HTTEST_VER}
 
+.PHONY: $(LOGCHECK)
 $(LOGCHECK):
 	@GO_MODULE=true hack/uget.sh \
 		sigs.k8s.io/logtools/logcheck \
 		${LOGCHECK_BIN} \
 		$(LOGCHECK_VER)
 
+.PHONY: $(KCP_APIGEN_GEN)
 $(KCP_APIGEN_GEN):
 	pushd . && cd staging/src/github.com/kcp-dev/sdk && GOBIN=$(TOOLS_GOBIN_DIR) go install ./cmd/apigen && popd
 
@@ -205,12 +209,15 @@ vendor: ## Vendor the dependencies
 tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
 .PHONY: tools
 
+.PHONY: $(CONTROLLER_GEN)
 $(CONTROLLER_GEN):
 	@UNCOMPRESSED=true hack/uget.sh https://github.com/kubernetes-sigs/controller-tools/releases/download/{VERSION}/controller-gen-{GOOS}-{GOARCH} ${CONTROLLER_GEN_BIN} $(CONTROLLER_GEN_VER) controller-gen*
 
+.PHONY: $(YAML_PATCH)
 $(YAML_PATCH):
 	@GO_MODULE=true hack/uget.sh github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
+.PHONY: $(GOTESTSUM)
 $(GOTESTSUM):
 	@hack/uget.sh \
 		https://github.com/gotestyourself/gotestsum/releases/download/v{VERSION}/gotestsum_{VERSION}_{GOOS}_{GOARCH}.tar.gz \
