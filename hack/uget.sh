@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2025 Christoph Mewes, https://codeberg.org/xrstf/uget
 # SPDX-License-Identifier: MIT
 #
-# µget 0.3.2 – your friendly downloader
+# µget 0.3.3 – your friendly downloader
 # -------------------------------------
 #
 # µget can download software as binaries, archives or Go modules.
@@ -47,6 +47,13 @@ UGET_DIRECTORY="${UGET_DIRECTORY:-_tools}"
 # ensure subsequent downloads match previously known checksums to prevent
 # tampering on the server side.
 UGET_CHECKSUMS="${UGET_CHECKSUMS:-}"
+
+# UGET_VERSIONED_BINARIES can be set to true to append the binary's version to
+# its filename, leading to final paths like "_tools/mytool-v1.2.3". This can
+# help when µget is being used in Makefiles to improve staleness detection.
+# Note that µget never deletes any installed binaries, so enabling this can
+# lead to leftover binaries that you can cleanup at your own convenience.
+UGET_VERSIONED_BINARIES=${UGET_VERSIONED_BINARIES:-false}
 
 # UGET_TEMPDIR is the root directory to use when creating new temporary dirs.
 UGET_TEMPDIR="${UGET_TEMPDIR:-/tmp}"
@@ -126,9 +133,9 @@ uget_checksum_check() {
     uget_error "  Expected: $oldChecksum"
     uget_error "  Actual  : $newChecksum"
     uget_error
-    uget_error "  If you are updating $BINARY, this error is expected."
+    uget_error "  If you are updating $IDENTIFIER, this error is expected."
     uget_error "  Re-run this command with the environment variable UGET_UPDATE=true to make"
-    uget_error "  µget update the checksums for all known variants of $BINARY."
+    uget_error "  µget update the checksums for all known variants of $IDENTIFIER."
     uget_error "  Use UGET_UPDATE_ONLY=true if you want to just update the checksums and not"
     uget_error "  install the given binary on this machine."
     uget_error "  *************************************************************************"
@@ -148,7 +155,7 @@ uget_checksum_read() {
   local kvString="$1"
 
   if [ -f "$UGET_CHECKSUMS" ]; then
-    awk -F'|' -v "binary=$BINARY" -v "kv=$kvString" '{ if ($1 == binary && $2 == kv) print $3 }' "$UGET_CHECKSUMS"
+    awk -F'|' -v "binary=$IDENTIFIER" -v "kv=$kvString" '{ if ($1 == binary && $2 == kv) print $3 }' "$UGET_CHECKSUMS"
   fi
 }
 
@@ -171,12 +178,12 @@ uget_checksum_write() {
     # (for better readability, do not invert the condition here);
     # checking for NF (number of fields) to drop empty lines
     awk \
-      -F'|' -v "binary=$BINARY" -v "kv=$kvString" \
+      -F'|' -v "binary=$IDENTIFIER" -v "kv=$kvString" \
       '{ if (NF == 0 || ($1 == binary && $2 == kv)) {} else print }' \
       "$UGET_CHECKSUMS" > "$tempDir/checksums.txt"
 
     # add our new checksum
-    echo "$BINARY|$kvString|$checksum" >> "$tempDir/checksums.txt"
+    echo "$IDENTIFIER|$kvString|$checksum" >> "$tempDir/checksums.txt"
 
     # sort the file because it looks nicer and prevents ugly git diffs
     sort "$tempDir/checksums.txt" > "$UGET_CHECKSUMS"
@@ -184,7 +191,7 @@ uget_checksum_write() {
     rm -rf -- "$tempDir"
   else
     # start a new file
-    echo "$BINARY|$kvString|$checksum" > "$UGET_CHECKSUMS"
+    echo "$IDENTIFIER|$kvString|$checksum" > "$UGET_CHECKSUMS"
   fi
 }
 
@@ -361,11 +368,13 @@ uget_go_install() {
   go mod init temp 2>/dev/null
   go get "$url@$VERSION"
 
+  local tmpFilename="__tmp.bin"
+
   # go build command is meant to be expanded
   # shellcheck disable=SC2086
-  GOFLAGS=-trimpath GOARCH="$arch" GOOS="$os" $UGET_GO_BUILD_CMD -o "$BINARY" "$url"
+  GOFLAGS=-trimpath GOARCH="$arch" GOOS="$os" $UGET_GO_BUILD_CMD -o "$tmpFilename" "$url"
 
-  mv "$BINARY" "$destinationDir/$BINARY"
+  mv "$tmpFilename" "$destinationDir/$BINARY"
 }
 
 # uget_extract_archive extracts a downloaded archive and moves the one interesting
@@ -437,9 +446,17 @@ uget_download() {
 # ready() checks if the desired binary already exists in the desired version.
 uget_ready() {
   local fullFinalPath="$ABS_UGET_DIRECTORY/$BINARY"
-  local versionFile="$fullFinalPath.version"
+  if ! [ -f "$fullFinalPath" ]; then
+    return 1
+  fi
 
-  [ -f "$fullFinalPath" ] && [ -f "$versionFile" ] && [ "$VERSION" = "$(cat "$versionFile")" ]
+  # skip further checks if we're using versioned binaries
+  if $UGET_VERSIONED_BINARIES; then
+    return 0
+  fi
+
+  local versionFile="$fullFinalPath.version"
+  [ -f "$versionFile" ] && [ "$VERSION" = "$(cat "$versionFile")" ]
 }
 
 # install() downloads the binary, checks the checksum and places it in UGET_DIRECTORY.
@@ -457,15 +474,18 @@ uget_install() {
   local tempDir
   tempDir="$(uget_mktemp)"
 
-  uget_log "Downloading $BINARY version $VERSION ..."
+  uget_log "Downloading $IDENTIFIER version $VERSION ..."
   uget_download "$tempDir" "$kvString" "$url"
 
-  local fullBinaryPath="$tempDir/$BINARY"
-  uget_checksum_check "$kvString" "$fullBinaryPath"
+  local fullTempBinary="$tempDir/$BINARY"
+  uget_checksum_check "$kvString" "$fullTempBinary"
 
   # if everything is fine, place the binary in its final location
-  mv "$fullBinaryPath" "$fullFinalPath"
-  echo "$VERSION" > "$versionFile"
+  mv "$fullTempBinary" "$fullFinalPath"
+
+  if ! $UGET_VERSIONED_BINARIES; then
+    echo "$VERSION" > "$versionFile"
+  fi
 
   uget_log "Installed at $UGET_DIRECTORY/$BINARY."
 
@@ -505,9 +525,14 @@ uget_update() {
 
 # get CLI flags
 export URL_PATTERN="$1"
-export BINARY="$2"
+export IDENTIFIER="$2"
 export VERSION="$3"
-BINARY_PATTERN="${4:-**/$BINARY}"
+BINARY_PATTERN="${4:-**/$IDENTIFIER}"
+
+export BINARY="$IDENTIFIER"
+if $UGET_VERSIONED_BINARIES; then
+  BINARY="$IDENTIFIER-$VERSION"
+fi
 
 # ensure target directory exists
 mkdir -p "$UGET_DIRECTORY" "$UGET_TEMPDIR"
@@ -525,7 +550,7 @@ if uget_checksum_enabled; then
 else
   if $GO_MODULE; then
     if $UGET_UPDATE || $UGET_UPDATE_ONLY; then
-      uget_error "Checksums are disabled for Go modules, cannot update $BINARY checksums."
+      uget_error "Checksums are disabled for Go modules, cannot update $IDENTIFIER checksums."
       # This is not an error because in complex Makefiles, there might be 3 binaries required
       # for one make target, and if one of them is a Go module and you have no direct way
       # to just update a single binary, then running "UGET_UPDATE make complex-task" would
@@ -547,10 +572,10 @@ fi
 # after updating the checksums we continue with the regular install logic.
 
 if $UGET_UPDATE || $UGET_UPDATE_ONLY; then
-  uget_log "Updating checksums for $BINARY ..."
+  uget_log "Updating checksums for $IDENTIFIER ..."
 
   # Find and process all known variants...
-  awk -F'|' -v "binary=$BINARY" '{ if ($1 == binary) print $2 }' "$UGET_CHECKSUMS" | while IFS= read -r kvString; do
+  awk -F'|' -v "binary=$IDENTIFIER" '{ if ($1 == binary) print $2 }' "$UGET_CHECKSUMS" | while IFS= read -r kvString; do
     result="$(uget_url_build "$kvString")"
     url="$(echo "$result" | cut -d'|' -f2)"
 

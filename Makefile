@@ -26,6 +26,7 @@ endif
 TOOLS_DIR = hack/tools
 export UGET_DIRECTORY = $(TOOLS_DIR)
 export UGET_CHECKSUMS = hack/tools.checksums
+export UGET_VERSIONED_BINARIES = true
 ROOT_DIR=$(abspath .)
 TOOLS_GOBIN_DIR := $(abspath $(TOOLS_DIR))
 GOBIN_DIR=$(abspath ./bin)
@@ -42,30 +43,30 @@ endif
 
 CONTROLLER_GEN_VER := v0.17.3
 CONTROLLER_GEN_BIN := controller-gen
-CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)
+CONTROLLER_GEN := $(TOOLS_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER)
 export CONTROLLER_GEN # so hack scripts can use it
 
 YAML_PATCH_VER ?= v0.0.11
 YAML_PATCH_BIN := yaml-patch
-YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)
+YAML_PATCH := $(TOOLS_DIR)/$(YAML_PATCH_BIN)-$(YAML_PATCH_VER)
 export YAML_PATCH # so hack scripts can use it
 
 GOLANGCI_LINT_VER := 2.1.6
 GOLANGCI_LINT_BIN := golangci-lint
-GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 GOLANGCI_LINT_FLAGS ?=
 
 HTTEST_VER := 0.3.4
 HTTEST_BIN := httest
-HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)
+HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)-$(HTTEST_VER)
 
 GOTESTSUM_VER := 1.12.3
 GOTESTSUM_BIN := gotestsum
-GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)
+GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
 
 LOGCHECK_VER := d35c84c015fe03a1421e5f2ce1e3c0c3bc38d077
 LOGCHECK_BIN := logcheck
-LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)
+LOGCHECK := $(TOOLS_GOBIN_DIR)/$(LOGCHECK_BIN)-$(LOGCHECK_VER)
 export LOGCHECK # so hack scripts can use it
 
 KCP_APIGEN_BIN := apigen
@@ -128,21 +129,23 @@ install: require-jq require-go require-git verify-go-versions ## Install the pro
   	done
 .PHONY: install
 
-.PHONY: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT):
 	@hack/uget.sh \
 		https://github.com/golangci/golangci-lint/releases/download/v{VERSION}/golangci-lint-{VERSION}-{GOOS}-{GOARCH}.tar.gz \
 		${GOLANGCI_LINT_BIN} \
 		${GOLANGCI_LINT_VER}
 
-.PHONY: $(HTTEST)
+# help staging modules to install the same linter version
+golangci-lint-version:
+	@echo $(GOLANGCI_LINT_VER)
+.PHONY: golangci-lint-version
+
 $(HTTEST):
 	@hack/uget.sh \
 		https://codeberg.org/xrstf/httest/releases/download/v{VERSION}/httest_{VERSION}_{GOOS}_{GOARCH}.tar.gz \
 		${HTTEST_BIN} \
 		${HTTEST_VER}
 
-.PHONY: $(LOGCHECK)
 $(LOGCHECK):
 	@GO_MODULE=true hack/uget.sh \
 		sigs.k8s.io/logtools/logcheck \
@@ -209,15 +212,12 @@ vendor: ## Vendor the dependencies
 tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
 .PHONY: tools
 
-.PHONY: $(CONTROLLER_GEN)
 $(CONTROLLER_GEN):
 	@UNCOMPRESSED=true hack/uget.sh https://github.com/kubernetes-sigs/controller-tools/releases/download/{VERSION}/controller-gen-{GOOS}-{GOARCH} ${CONTROLLER_GEN_BIN} $(CONTROLLER_GEN_VER) controller-gen*
 
-.PHONY: $(YAML_PATCH)
 $(YAML_PATCH):
 	@GO_MODULE=true hack/uget.sh github.com/pivotal-cf/yaml-patch/cmd/yaml-patch $(YAML_PATCH_BIN) $(YAML_PATCH_VER)
 
-.PHONY: $(GOTESTSUM)
 $(GOTESTSUM):
 	@hack/uget.sh \
 		https://github.com/gotestyourself/gotestsum/releases/download/v{VERSION}/gotestsum_{VERSION}_{GOOS}_{GOARCH}.tar.gz \

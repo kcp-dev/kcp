@@ -15,16 +15,18 @@
 # We need bash for some conditional logic below.
 SHELL := /usr/bin/env bash -e
 
-KCP_ROOT_DIR ?= $(abspath ../../../../..)
+KCP_ROOT_PATH = ../../../../..
+KCP_ROOT_DIR ?= $(abspath $(KCP_ROOT_PATH))
 
 TOOLS_DIR = hack/tools
 TOOLS_GOBIN_DIR := $(KCP_ROOT_DIR)/$(TOOLS_DIR)
 PATH := $(TOOLS_GOBIN_DIR):$(PATH)
 
-GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/golangci-lint
+GOLANGCI_LINT_VER = $(shell $(MAKE) --no-print-directory -C $(KCP_ROOT_PATH) golangci-lint-version)
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VER)
 
 $(GOLANGCI_LINT):
-	make -C ../../../../.. $(GOLANGCI_LINT)
+	$(MAKE) -C $(KCP_ROOT_PATH) $(GOLANGCI_LINT)
 
 tools: $(CODE_GENERATOR) $(GOLANGCI_LINT)
 .PHONY: tools

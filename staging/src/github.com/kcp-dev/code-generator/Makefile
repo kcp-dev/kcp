@@ -14,7 +14,8 @@
 
 SHELL := /usr/bin/env bash
 
-KCP_ROOT_DIR ?= $(abspath ../../../../..)
+KCP_ROOT_PATH = ../../../../..
+KCP_ROOT_DIR ?= $(abspath $(KCP_ROOT_PATH))
 
 BUILD_DEST ?= _build
 BUILDFLAGS ?=
@@ -23,10 +24,11 @@ CMD ?= $(notdir $(wildcard ./cmd/*))
 TOOLS_DIR = hack/tools
 TOOLS_GOBIN_DIR := $(KCP_ROOT_DIR)/$(TOOLS_DIR)
 
-GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/golangci-lint
+GOLANGCI_LINT_VER = $(shell $(MAKE) --no-print-directory -C $(KCP_ROOT_PATH) golangci-lint-version)
+GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/golangci-lint-$(GOLANGCI_LINT_VER)
 
 $(GOLANGCI_LINT):
-	make -C ../../../../.. $(GOLANGCI_LINT)
+	$(MAKE) -C $(KCP_ROOT_PATH) $(GOLANGCI_LINT)
 
 .PHONY: imports
 imports: WHAT ?=
