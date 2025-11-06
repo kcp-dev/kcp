@@ -44,7 +44,13 @@ func RunWebhook(ctx context.Context, t *testing.T, port string, response string)
 		"--listen", address,
 	}
 
-	cmd := exec.CommandContext(ctx, "httest", args...)
+	// get the binary name from our Makefile
+	httestBinary := os.Getenv("HTTEST")
+	if httestBinary == "" {
+		httestBinary = "httest"
+	}
+
+	cmd := exec.CommandContext(ctx, httestBinary, args...)
 	if err := cmd.Start(); err != nil {
 		cancel()
 		t.Fatalf("Failed to start webhook: %v", err)
