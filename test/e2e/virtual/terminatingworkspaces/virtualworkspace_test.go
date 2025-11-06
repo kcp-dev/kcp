@@ -49,10 +49,10 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
-	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
@@ -157,12 +157,17 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 	}
 
-	t.Log("Wait for WorkspaceTypes to have their type extensions resolved")
-	for _, wst := range workspaceTypes {
-		name := wst.Name
-		kcptestinghelpers.EventuallyReady(t, func() (conditions.Getter, error) {
-			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, name, metav1.GetOptions{})
-		}, "could not wait for readiness on WorkspaceType %s|%s", wsPath.String(), name)
+	t.Log("Wait for WorkspaceTypes and their virtual workspace URLs to be ready")
+	for name, wst := range workspaceTypes {
+		wt := &tenancyv1alpha1.WorkspaceType{}
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			wt, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+			require.NoError(c, err)
+			require.NotEmpty(c, wt.Status.VirtualWorkspaces)
+			require.True(c, conditions.IsTrue(wt, tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady))
+			require.True(c, conditions.IsTrue(wt, conditionsv1alpha1.ReadyCondition))
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
+		workspaceTypes[name] = wt
 	}
 
 	t.Log("Create workspaces using the new types")
@@ -544,13 +549,15 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 		})
 	}
 
-	t.Log("Wait for WorkspaceTypes to have their type extensions resolved and vw URLs published")
+	t.Log("Wait for WorkspaceTypes and their virtual workspace URLs to be ready")
 	for name, wst := range workspaceTypes {
 		wt := &tenancyv1alpha1.WorkspaceType{}
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			wt, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
 			require.NoError(c, err)
 			require.NotEmpty(c, wt.Status.VirtualWorkspaces)
+			require.True(c, conditions.IsTrue(wt, tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady))
+			require.True(c, conditions.IsTrue(wt, conditionsv1alpha1.ReadyCondition))
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		workspaceTypes[name] = wt
 	}
