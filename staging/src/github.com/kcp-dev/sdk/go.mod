@@ -8,7 +8,7 @@ require (
 	github.com/egymgmbh/go-prefix-writer v0.0.0-20180609083313-7326ea162eca
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.7.0
-	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51
+	github.com/kcp-dev/apimachinery/v2 v2.0.0-20250728122101-adbf20db3e51
 	github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/martinlindhe/base36 v1.1.1
@@ -117,4 +117,5 @@ require (
 replace (
 	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
 	github.com/kcp-dev/client-go => ../client-go
+	github.com/kcp-dev/code-generator/v3 => ../code-generator
 )
