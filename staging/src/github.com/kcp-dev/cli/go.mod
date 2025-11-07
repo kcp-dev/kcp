@@ -49,7 +49,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51 // indirect
+	github.com/kcp-dev/apimachinery/v2 v2.0.0-20250728122101-adbf20db3e51 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
@@ -97,6 +97,11 @@ require (
 replace (
 	github.com/charmbracelet/colorprofile => github.com/charmbracelet/colorprofile v0.2.2
 	github.com/charmbracelet/x/ansi => github.com/charmbracelet/x/ansi v0.8.0
+)
+
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
 	github.com/kcp-dev/client-go => ../client-go
+	github.com/kcp-dev/code-generator/v3 => ../code-generator
 	github.com/kcp-dev/sdk => ../sdk
 )

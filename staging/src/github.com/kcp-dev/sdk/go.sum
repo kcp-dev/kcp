@@ -95,10 +95,6 @@ github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8Hm
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51 h1:l38RDS+VUMx9etvyaCgJIZa4nM7FaNevNubWN0kDZY4=
-github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51/go.mod h1:rF1jfvUfPjFXs+HV/LN1BtPzAz1bfjJOwVa+hAVfroQ=
-github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b h1:2LGrXvY9sc4l5yjKIbMZ86GEou7NyrHhA4qBPaeFfxs=
-github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b/go.mod h1:QdO8AaGAZPr/rIZ1iVanCM3tUOiiuX897GWv7WTByLE=
 github.com/kcp-dev/logicalcluster/v3 v3.0.5 h1:JbYakokb+5Uinz09oTXomSUJVQsqfxEvU4RyHUYxHOU=
 github.com/kcp-dev/logicalcluster/v3 v3.0.5/go.mod h1:EWBUBxdr49fUB1cLMO4nOdBWmYifLbP1LfoL20KkXYY=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
