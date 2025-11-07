@@ -6,15 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Accessing embedded etcd for local development
+">
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-initialization/">
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/contributing/guides/accessing-embedded-etcd/">
       
       
-        <link rel="prev" href="../virtual-workspaces/">
+        <link rel="prev" href="../../continuous-integration/inspecting-e2e-metrics/">
       
       
-        <link rel="next" href="../workspace-termination/">
+        <link rel="next" href="../publishing-a-new-kcp-release/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -22,7 +25,7 @@
     
     
       
-        <title>Workspace Initialization - docs.kcp.io</title>
+        <title>Accessing Embedded etcd for Local Development - docs.kcp.io</title>
       
     
     
@@ -76,7 +79,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#workspace-initialization" class="md-skip">
+        <a href="#accessing-embedded-etcd-for-local-development" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Workspace Initialization
+              Accessing Embedded etcd for Local Development
             
           </span>
         </div>
@@ -268,13 +271,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../concepts/" class="md-tabs__link">
           
   
     
@@ -310,11 +311,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../contributing/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -659,8 +662,6 @@
       
   
   
-    
-  
   
   
     
@@ -689,22 +690,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -715,13 +715,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -737,7 +737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../terminology/" class="md-nav__link">
+      <a href="../../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -758,7 +758,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -776,8 +776,6 @@
                 
   
   
-    
-  
   
   
     
@@ -803,16 +801,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -829,7 +829,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Workspaces
@@ -845,7 +845,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace-types/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -866,7 +866,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../virtual-workspaces/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -884,30 +884,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Workspace Initialization
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -916,101 +896,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#initializers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Initializers
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Initializers">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#defining-initializers-in-workspacetypes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Defining Initializers in WorkspaceTypes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#enforcing-permissions-for-initializers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Enforcing Permissions for Initializers
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#writing-custom-initialization-controllers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Writing Custom Initialization Controllers
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Writing Custom Initialization Controllers">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#responsibilities-of-custom-initialization-controllers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Responsibilities Of Custom Initialization Controllers
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-initializingworkspaces-virtual-workspace" class="md-nav__link">
-    <span class="md-ellipsis">
-      The initializingworkspaces Virtual Workspace
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#code-sample" class="md-nav__link">
-    <span class="md-ellipsis">
-      Code Sample
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1023,7 +908,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspace-termination/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1044,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mounts/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1106,7 +991,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../apis/" class="md-nav__link ">
+            <a href="../../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1139,7 +1024,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1160,7 +1045,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/built-in/" class="md-nav__link">
+      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1181,7 +1066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/cached-resources/" class="md-nav__link">
+      <a href="../../../concepts/apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1202,7 +1087,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/exporting-apis/" class="md-nav__link">
+      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1223,7 +1108,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1279,7 +1164,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../authentication/" class="md-nav__link ">
+            <a href="../../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1312,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../authentication/oidc/" class="md-nav__link">
+      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1333,7 +1218,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../authentication/workspace/" class="md-nav__link">
+      <a href="../../../concepts/authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1387,7 +1272,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../authorization/" class="md-nav__link ">
+            <a href="../../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1420,7 +1305,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../authorization/authorizers/" class="md-nav__link">
+      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1478,7 +1363,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../sharding/" class="md-nav__link ">
+            <a href="../../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1511,7 +1396,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../sharding/shards/" class="md-nav__link">
+      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1532,7 +1417,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../sharding/partitions/" class="md-nav__link">
+      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1553,7 +1438,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../sharding/cache-server/" class="md-nav__link">
+      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1607,7 +1492,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../miscellaneous/" class="md-nav__link ">
+            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1640,7 +1525,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2113,6 +1998,8 @@
       
   
   
+    
+  
   
   
     
@@ -2137,21 +2024,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../contributing/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2162,13 +2050,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             Contributing
@@ -2184,7 +2072,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/getting-started/" class="md-nav__link">
+      <a href="../../getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2205,7 +2093,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/coding/" class="md-nav__link">
+      <a href="../../coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2226,7 +2114,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/monorepo/" class="md-nav__link">
+      <a href="../../monorepo/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2293,7 +2181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/governance/general-technical-review/" class="md-nav__link">
+      <a href="../../governance/general-technical-review/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2314,7 +2202,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/governance/security-self-assessment/" class="md-nav__link">
+      <a href="../../governance/security-self-assessment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2368,7 +2256,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../contributing/continuous-integration/" class="md-nav__link ">
+            <a href="../../continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2401,7 +2289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2427,8 +2315,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -2446,13 +2336,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" checked>
         
           
           <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
@@ -2466,7 +2354,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             Guides
@@ -2477,10 +2365,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Accessing Embedded etcd for Local Development
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -2489,6 +2397,35 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#known-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Known issues
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2501,7 +2438,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2522,7 +2459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2543,7 +2480,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+      <a href="../replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3664,77 +3601,11 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#initializers" class="md-nav__link">
+  <a href="#known-issues" class="md-nav__link">
     <span class="md-ellipsis">
-      Initializers
+      Known issues
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Initializers">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#defining-initializers-in-workspacetypes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Defining Initializers in WorkspaceTypes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#enforcing-permissions-for-initializers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Enforcing Permissions for Initializers
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#writing-custom-initialization-controllers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Writing Custom Initialization Controllers
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Writing Custom Initialization Controllers">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#responsibilities-of-custom-initialization-controllers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Responsibilities Of Custom Initialization Controllers
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-initializingworkspaces-virtual-workspace" class="md-nav__link">
-    <span class="md-ellipsis">
-      The initializingworkspaces Virtual Workspace
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#code-sample" class="md-nav__link">
-    <span class="md-ellipsis">
-      Code Sample
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3756,95 +3627,30 @@
   
 
 
-<h1 id="workspace-initialization">Workspace Initialization<a class="headerlink" href="#workspace-initialization" title="Permanent link">&para;</a></h1>
-<p>Workspace initialization in kcp involves setting up initial configurations and resources for a workspace when it is created. This process is managed through <code>initializers</code>, which are enabled via <code>WorkspaceType</code> objects. This concept is the opposite of Kubernetes <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/">finalizers</a>. This document covers how to configure initializers, the necessary RBAC permissions, URL schemes, and the reasons for using initializers.</p>
-<h2 id="initializers">Initializers<a class="headerlink" href="#initializers" title="Permanent link">&para;</a></h2>
-<p>Initializers are used to customize workspaces and bootstrap required resources upon creation. Initializers are defined in WorkspaceType objects. This way, a user can define a controller that will process the Workspace and remove the initializer, moving it from the Initializing phase to the Ready phase.</p>
-<h3 id="defining-initializers-in-workspacetypes">Defining Initializers in WorkspaceTypes<a class="headerlink" href="#defining-initializers-in-workspacetypes" title="Permanent link">&para;</a></h3>
-<p>A <code>WorkspaceType</code> can specify having an initializer using the <code>initializer</code> field. Here is an example of a <code>WorkspaceType</code> with an initializer.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">initializer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">defaultChildWorkspaceType</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">universal</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
+<h1 id="accessing-embedded-etcd-for-local-development">Accessing Embedded etcd for Local Development<a class="headerlink" href="#accessing-embedded-etcd-for-local-development" title="Permanent link">&para;</a></h1>
+<p>When developing locally with <code>kcp start</code>, you need to pass in client authentication and endpoint to access the embedded etcd. The correspond files can be found in the <code>.kcp/etcd-server/secrets</code> folder.</p>
+<p>For example, you can pass them directly to the command</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>etcdctl<span class="w"> </span>--cert<span class="w"> </span>./.kcp/etcd-server/secrets/client/cert.pem<span class="w"> </span>--key<span class="w"> </span>./.kcp/etcd-server/secrets/client/key.pem<span class="w"> </span>--cacert<span class="w"> </span>./.kcp/etcd-server/secrets/ca/cert.pem<span class="w"> </span>--endpoints<span class="o">=</span>localhost:2379<span class="w"> </span>member<span class="w"> </span>list
 </code></pre></div>
-<p>Each initializer has a unique name, which gets automatically generated using  <code>&lt;workspace-path-of-WorkspaceType&gt;:&lt;WorkspaceType-name&gt;</code>. So for example, if you were to apply the aforementioned WorkspaceType on the root workspace, your initializer would be called <code>root:example</code>.</p>
-<p>Since <code>WorkspaceType.spec.initializers</code> is a boolean field, each WorkspaceType comes with a single initializer by default. However each WorkspaceType inherits the initializers of its parent WorkspaceType. As a result, it is possible to have multiple initializers on a WorkspaceType using <a href="../workspace-types/#workspace-type-extensions-and-constraints">WorkspaceType Extension</a></p>
-<p>In the following example, <code>child</code> inherits the initializers of <code>parent</code>. As a result, child workspaces will have the <code>root:child</code> and <code>root:parent</code> initializers set.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">child</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">initializer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">extend</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">parent</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root</span>
+<p>or set up the corresponding environment variables</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ETCDCTL_ENDPOINTS</span><span class="o">=</span>https://localhost:2379
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ETCDCTL_CACERT</span><span class="o">=</span>./.kcp/etcd-server/secrets/ca/cert.pem
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ETCDCTL_KEY</span><span class="o">=</span>./.kcp/etcd-server/secrets/client/key.pem
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ETCDCTL_CERT</span><span class="o">=</span>./.kcp/etcd-server/secrets/client/cert.pem
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>etcdctl<span class="w"> </span>member<span class="w"> </span>list
 </code></pre></div>
-<h3 id="enforcing-permissions-for-initializers">Enforcing Permissions for Initializers<a class="headerlink" href="#enforcing-permissions-for-initializers" title="Permanent link">&para;</a></h3>
-<p>The non-root user must have the <code>verb=initialize</code> on the <code>WorkspaceType</code> that the initializer is for. This ensures that only authorized users can perform initialization actions using virtual workspace endpoint. Here is an example of the <code>ClusterRole</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">rules</span><span class="p">:</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;tenancy.kcp.io&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;workspacetypes&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">resourceNames</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;example&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;initialize&quot;</span><span class="p p-Indicator">]</span>
-</code></pre></div>
-<p>You can then bind this role to a user or a group.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRoleBinding</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype-binding</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">subjects</span><span class="p">:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user1</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="nt">roleRef</span><span class="p">:</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterRole</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
-</code></pre></div>
-<h2 id="writing-custom-initialization-controllers">Writing Custom Initialization Controllers<a class="headerlink" href="#writing-custom-initialization-controllers" title="Permanent link">&para;</a></h2>
-<h3 id="responsibilities-of-custom-initialization-controllers">Responsibilities Of Custom Initialization Controllers<a class="headerlink" href="#responsibilities-of-custom-initialization-controllers" title="Permanent link">&para;</a></h3>
-<p>Custom Initialization Controllers are responsible for handling initialization logic for custom WorkspaceTypes. They interact with kcp by:</p>
-<ol>
-<li>Watching for the creation of new LogicalClusters (the backing object behind Workspaces) with the corresponding initializer on them</li>
-<li>Running any custom initialization logic</li>
-<li>Removing the corresponding initializer from the <code>.status.initializers</code> list of the LogicalCluster after initialization logic has successfully finished</li>
-</ol>
-<p>In order to simplify these processes, kcp provides the <code>initializingworkspaces</code> virtual workspace.</p>
-<h3 id="the-initializingworkspaces-virtual-workspace">The <code>initializingworkspaces</code> Virtual Workspace<a class="headerlink" href="#the-initializingworkspaces-virtual-workspace" title="Permanent link">&para;</a></h3>
-<p>As a service provider, you can use the <code>initializingworkspaces</code> virtual workspace to manage workspace resources in the initializing phase. This virtual workspace allows you to fetch <code>LogicalCluster</code> objects that are in the initializing phase and request initialization by a specific controller.</p>
-<p>You can retrieve the url of a Virtual Workspace directly from the <code>.status.virtualWorkspaces</code> field of the corresponding WorkspaceType. Returning to our previous example using a custom WorkspaceType called "example", you will receive the following output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>workspacetype<span class="w"> </span>example<span class="w"> </span>-o<span class="w"> </span>yaml
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>...
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>status:
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>virtualWorkspaces:
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>-<span class="w"> </span>url:<span class="w"> </span>https://&lt;shard-url&gt;/services/initializingworkspaces/root:example
-</code></pre></div>
-<p>You can use this url to construct a kubeconfig for your controller. To do so, use the url directly as the <code>cluster.server</code> in your kubeconfig and provide the subject with sufficient permissions (see <a href="#enforcing-permissions-for-initializers">Enforcing Permissions for Initializers</a>)</p>
-<h3 id="code-sample">Code Sample<a class="headerlink" href="#code-sample" title="Permanent link">&para;</a></h3>
-<p>When writing a custom initializer, the following needs to be taken into account:</p>
-<ul>
-<li>We strongly recommend to use the kcp <a href="https://github.com/kcp-dev/multicluster-provider">initializingworkspace multicluster-provider</a> to build your custom initializer</li>
-<li>You need to update LogicalClusters using patches; They cannot be updated using the update api</li>
-</ul>
-<p>Keeping this in mind, you can use the <a href="https://github.com/kcp-dev/multicluster-provider/tree/main/examples/initializingworkspaces">multicluster-provider initializingworkspaces example</a> as a starting point for your initialization controller</p>
+<h2 id="known-issues">Known issues<a class="headerlink" href="#known-issues" title="Permanent link">&para;</a></h2>
+<p>Currently it is not possible to connect using <a href="https://github.com/tzfun/etcd-workbench">etcd-workbench</a>, because the underlying TLS library <a href="https://github.com/tzfun/etcd-workbench/issues/108#issuecomment-3023031468">cannot handle embedded etcds ECDSA P-521 keys</a></p>
 
 
 
 
 
 
+
+  
+  
 
 
 
