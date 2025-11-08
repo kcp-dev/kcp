@@ -18,10 +18,15 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+)
+
 // VirtualWorkspaceApplyConfiguration represents a declarative configuration of the VirtualWorkspace type for use
 // with apply.
 type VirtualWorkspaceApplyConfiguration struct {
-	URL *string `json:"url,omitempty"`
+	URL  *string                               `json:"url,omitempty"`
+	Type *tenancyv1alpha1.VirtualWorkspaceType `json:"type,omitempty"`
 }
 
 // VirtualWorkspaceApplyConfiguration constructs a declarative configuration of the VirtualWorkspace type for use with
@@ -35,5 +40,13 @@ func VirtualWorkspace() *VirtualWorkspaceApplyConfiguration {
 // If called multiple times, the URL field is set to the value of the last call.
 func (b *VirtualWorkspaceApplyConfiguration) WithURL(value string) *VirtualWorkspaceApplyConfiguration {
 	b.URL = &value
+	return b
+}
+
+// WithType sets the Type field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Type field is set to the value of the last call.
+func (b *VirtualWorkspaceApplyConfiguration) WithType(value tenancyv1alpha1.VirtualWorkspaceType) *VirtualWorkspaceApplyConfiguration {
+	b.Type = &value
 	return b
 }

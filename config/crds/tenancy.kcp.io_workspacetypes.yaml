@@ -316,6 +316,13 @@ spec:
                   URLs.
                 items:
                   properties:
+                    type:
+                      description: type indicates the type of virtual workspace this
+                        URL represents.
+                      enum:
+                      - initializing
+                      - terminating
+                      type: string
                     url:
                       description: url is a WorkspaceType initialization virtual workspace
                         URL.
