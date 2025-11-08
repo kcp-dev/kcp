@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v251015-1d163d0e5.workspacetypes.tenancy.kcp.io
+  name: v251204-7c13b4e0a.workspacetypes.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -312,6 +312,13 @@ spec:
                 URLs.
               items:
                 properties:
+                  type:
+                    description: type indicates the type of virtual workspace this
+                      URL represents.
+                    enum:
+                    - initializing
+                    - terminating
+                    type: string
                   url:
                     description: url is a WorkspaceType initialization virtual workspace
                       URL.

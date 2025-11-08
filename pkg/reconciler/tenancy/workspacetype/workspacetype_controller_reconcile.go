@@ -22,7 +22,6 @@ import (
 	"net/url"
 	"path"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/sdk/apis/tenancy/initialization"
@@ -63,7 +62,7 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
-	desiredURLs := sets.New[string]()
+	desiredURLs := make(map[string]tenancyv1alpha1.VirtualWorkspaceType)
 	for _, shard := range shards {
 		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
@@ -85,9 +84,9 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			string(initialization.InitializerForType(wt)),
 		)
 
-		desiredURLs.Insert(u.String())
+		desiredURLs[u.String()] = tenancyv1alpha1.VirtualWorkspaceTypeInitializing
 
-		// add finalizing workspace URLs
+		// add terminating workspace URLs
 		u.Path = path.Join(
 			base,
 			virtualworkspacesoptions.DefaultRootPathPrefix,
@@ -95,14 +94,15 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			string(termination.TerminatorForType(wt)),
 		)
 
-		desiredURLs.Insert(u.String())
+		desiredURLs[u.String()] = tenancyv1alpha1.VirtualWorkspaceTypeTerminating
 	}
 
 	wt.Status.VirtualWorkspaces = nil
 
-	for _, u := range sets.List(desiredURLs) {
+	for url, vwType := range desiredURLs {
 		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
-			URL: u,
+			URL:  url,
+			Type: vwType,
 		})
 	}
 

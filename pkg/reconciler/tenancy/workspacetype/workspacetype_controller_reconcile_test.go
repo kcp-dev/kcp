@@ -137,12 +137,30 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://item.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://something.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://whatever.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
+						{
+							URL:  "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
+						{
+							URL:  "https://item.com/services/terminatingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
+						},
+						{
+							URL:  "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
+						{
+							URL:  "https://something.com/services/terminatingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
+						},
+						{
+							URL:  "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
+						{
+							URL:  "https://whatever.com/services/terminatingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
+						},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
@@ -173,7 +191,10 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
+						{
+							URL:  "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
@@ -196,12 +217,30 @@ func TestReconcile(t *testing.T) {
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
 					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{
-						{URL: "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://item.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://something.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype"},
-						{URL: "https://whatever.com/services/terminatingworkspaces/root:org:team:ws:sometype"},
+						{
+							URL:  "https://item.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
+						{
+							URL:  "https://item.com/services/terminatingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
+						},
+						{
+							URL:  "https://something.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
+						{
+							URL:  "https://something.com/services/terminatingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
+						},
+						{
+							URL:  "https://whatever.com/services/initializingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+						},
+						{
+							URL:  "https://whatever.com/services/terminatingworkspaces/root:org:team:ws:sometype",
+							Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
+						},
 					},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
@@ -237,7 +276,17 @@ func TestReconcile(t *testing.T) {
 			}
 			c.reconcile(context.TODO(), testCase.wt)
 			c.reconcile(context.TODO(), testCase.wt) // relationships require resolved extensions
-			if diff := cmp.Diff(testCase.wt, testCase.expected, cmpopts.IgnoreTypes(metav1.Time{})); diff != "" {
+			if diff := cmp.Diff(
+				testCase.wt,
+				testCase.expected,
+				cmpopts.IgnoreTypes(metav1.Time{}),
+				cmpopts.SortSlices(func(a, b tenancyv1alpha1.VirtualWorkspace) bool {
+					if a.URL != b.URL { // SortSlices makes the comparison order-agnostic
+						return a.URL < b.URL
+					}
+					return a.Type < b.Type
+				}),
+			); diff != "" {
 				t.Errorf("incorrect WorkspaceType after reconciliation: %v", diff)
 			}
 		})
