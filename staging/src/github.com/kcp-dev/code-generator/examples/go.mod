@@ -5,8 +5,8 @@ go 1.24.0
 replace acme.corp/pkg => ./pkg
 
 require (
-	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250717064240-78e565b4a69a
-	github.com/kcp-dev/client-go v0.0.0-20250721105427-d4a93d7c5fc9
+	github.com/kcp-dev/apimachinery/v2 v2.0.0-00010101000000-000000000000
+	github.com/kcp-dev/client-go v0.0.0
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
@@ -55,4 +55,5 @@ require (
 replace (
 	github.com/kcp-dev/apimachinery/v2 => ../../apimachinery
 	github.com/kcp-dev/client-go => ../../client-go
+	github.com/kcp-dev/code-generator/v3 => ../../code-generator
 )

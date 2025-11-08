@@ -3,15 +3,21 @@ module github.com/kcp-dev/kcp/docs/generators/cli-doc
 go 1.24.0
 
 require (
-	github.com/kcp-dev/kcp v0.0.0-00010101000000-000000000000
-	github.com/kcp-dev/cli v0.0.0-00010101000000-000000000000
+	github.com/kcp-dev/cli v0.0.0
+	github.com/kcp-dev/kcp v0.0.0
 	github.com/spf13/cobra v1.9.1
 )
 
 replace (
 	github.com/charmbracelet/colorprofile => github.com/charmbracelet/colorprofile v0.2.2
 	github.com/charmbracelet/x/ansi => github.com/charmbracelet/x/ansi v0.8.0
+)
+
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../../../staging/src/github.com/kcp-dev/apimachinery
 	github.com/kcp-dev/cli => ../../../staging/src/github.com/kcp-dev/cli
+	github.com/kcp-dev/client-go => ../../../staging/src/github.com/kcp-dev/client-go
+	github.com/kcp-dev/code-generator/v3 => ../../../staging/src/github.com/kcp-dev/code-generator
 	github.com/kcp-dev/kcp => ../../../
 	github.com/kcp-dev/sdk => ../../../staging/src/github.com/kcp-dev/sdk
 )
@@ -48,8 +54,8 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51 // indirect
-	github.com/kcp-dev/sdk v0.0.0-00010101000000-000000000000 // indirect
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5 // indirect
+	github.com/kcp-dev/sdk v0.0.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
