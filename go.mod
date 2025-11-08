@@ -20,11 +20,11 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/kcp-dev/apimachinery/v2 v2.0.1-0.20250728122101-adbf20db3e51
-	github.com/kcp-dev/client-go v0.0.0-20250728134101-0355faa9361b
-	github.com/kcp-dev/code-generator/v3 v3.0.0-20250728122101-5b4ff5c24054
+	github.com/kcp-dev/client-go v0.0.0
+	github.com/kcp-dev/code-generator/v3 v3.0.0-00010101000000-000000000000
 	github.com/kcp-dev/embeddedetcd v1.0.3-0.20250805142358-a4839a83564a
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
-	github.com/kcp-dev/sdk v0.0.0-00010101000000-000000000000
+	github.com/kcp-dev/sdk v0.0.0
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.22.0
