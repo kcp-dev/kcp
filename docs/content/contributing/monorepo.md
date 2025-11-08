@@ -13,8 +13,10 @@ The [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository is a monorepo that 
 At the moment, the following libraries are part of the monorepo:
 
 - [kcp-dev/apimachinery](https://github.com/kcp-dev/apimachinery)
+- [kcp-dev/cli](https://github.com/kcp-dev/cli)
 - [kcp-dev/client-go](https://github.com/kcp-dev/client-go)
 - [kcp-dev/code-generator](https://github.com/kcp-dev/code-generator)
+- [kcp-dev/sdk](https://github.com/kcp-dev/sdk)
 
 ## Terminology
 
@@ -36,7 +38,8 @@ within published repositories (this is explained later in this document).
 The source code for staging repositories is located on the special path in the monorepo which is
 [`./staging/src/github.com/kcp-dev`](https://github.com/kcp-dev/kcp/tree/main/staging/src/github.com/kcp-dev).
 Every subdirectory on that path corresponds to a single staging repository.
-The code in the staging/ directory is authoritative, i.e. the only copy of the code. You can directly modify such code.
+The code in the `staging/` directory is authoritative, i.e. the only copy of the code. You can directly modify such
+code.
 
 In order to preserve standalone Go modules for each staging repository, the source code from staging repositories
 is mirrored to standalone (aka published) repositories. The mirroring is an automatic process happening every
@@ -57,7 +60,7 @@ version v2 will be v2.29.0.
 
 Concretely:
 
-- kcp-dev/client-go has the Go module major version at v0, so tags will be v0.x.y
+- kcp-dev/cli, kcp-dev/client-go, and kcp-dev/sdk have the Go module major version at v0, so tags will be v0.x.y
 - kcp-dev/apimachinery has the Go module major version at v2, so tags will be v2.x.y
 - kcp-dev/code-generator has the Go module major version at v3, so tags will be v3.x.y
 
@@ -73,6 +76,7 @@ include:
 
 - Add support for running publishing-bot on ARM64
 - Add image building process compatible with kcp
+- Add support for non-v0 and non-v1 Go modules
 - Add support for customizing tags mirroring
 - Add kcp-related configuration
 
@@ -87,6 +91,11 @@ The kcp configuration for publishing-bot can be found at https://github.com/kcp-
 
 The mirroring rules are located in the kcp-dev/kcp repoitory and can be found at https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml
 
+The kcp project also has a testing envrionment for publishing-bot called `kcp-nightly`. There's a dedicated [GitHub
+organization](https://github.com/kcp-nightly) and a dedicated instance of publishing-bot running in the
+`publishing-bot-nightly` namespace in the Prow control plane cluster. The publishing-bot configuration for the
+`kcp-nightly` environemnt can be found at https://github.com/kcp-dev/publishing-bot/blob/master/configs/kcp-nightly
+
 At the moment, the bot is configured to run every 4 hours.
 
 ## Creating a New Staging Repository
@@ -99,9 +108,11 @@ Adding a completely new staging repository to the monorepo must follow this proc
   [kcp-dev/kcp](https://github.com/kcp-dev/kcp) repository
 - Create a staging repository in `staging/src/github.com/kcp-dev` with all required files for a repository
   (e.g. LICENSE, OWNERS...)
-- Create a new Git repository on GitHub to serve as a published repository with an empty initial commit
+- Create a new Git repository on GitHub to serve as a published repository with an **empty** initial commit
 - Update the publishing-bot rules to mirror from the new staging repository to the new published repository
 
 Adding an existing standalone repository to the monorepo is generally discouraged and will be considered on
-a case-by-case basis by Maintainers. This case requires following different steps that will be documented
-in the future.
+a case-by-case basis by Maintainers. This case requires following different steps that are documented as part of the
+monorepo proposal: https://github.com/kcp-dev/enhancements/pull/7
+
+<!-- TODO(xmudrii): replace the PR link with a link to the document once merged -->
