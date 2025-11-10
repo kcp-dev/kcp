@@ -25,6 +25,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 mapfile -t DIRS < <(find "${REPO_ROOT}" -name go.mod -print0 | xargs -0 dirname)
 
 for dir in "${DIRS[@]}"; do
+  cd "$dir"
   echo "Tidying ${dir}"
   go mod tidy
 done
