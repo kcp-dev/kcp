@@ -3726,8 +3726,10 @@
 <p>At the moment, the following libraries are part of the monorepo:</p>
 <ul>
 <li><a href="https://github.com/kcp-dev/apimachinery">kcp-dev/apimachinery</a></li>
+<li><a href="https://github.com/kcp-dev/cli">kcp-dev/cli</a></li>
 <li><a href="https://github.com/kcp-dev/client-go">kcp-dev/client-go</a></li>
 <li><a href="https://github.com/kcp-dev/code-generator">kcp-dev/code-generator</a></li>
+<li><a href="https://github.com/kcp-dev/sdk">kcp-dev/sdk</a></li>
 </ul>
 <h2 id="terminology">Terminology<a class="headerlink" href="#terminology" title="Permanent link">&para;</a></h2>
 <ul>
@@ -3745,7 +3747,8 @@ within published repositories (this is explained later in this document).</p>
 <p>The source code for staging repositories is located on the special path in the monorepo which is
 <a href="https://github.com/kcp-dev/kcp/tree/main/staging/src/github.com/kcp-dev"><code>./staging/src/github.com/kcp-dev</code></a>.
 Every subdirectory on that path corresponds to a single staging repository.
-The code in the staging/ directory is authoritative, i.e. the only copy of the code. You can directly modify such code.</p>
+The code in the <code>staging/</code> directory is authoritative, i.e. the only copy of the code. You can directly modify such
+code.</p>
 <p>In order to preserve standalone Go modules for each staging repository, the source code from staging repositories
 is mirrored to standalone (aka published) repositories. The mirroring is an automatic process happening every
 several hours.</p>
@@ -3760,7 +3763,7 @@ In other words, the tag's major version will <strong>not</strong> correspond to 
 version v2 will be v2.29.0.</p>
 <p>Concretely:</p>
 <ul>
-<li>kcp-dev/client-go has the Go module major version at v0, so tags will be v0.x.y</li>
+<li>kcp-dev/cli, kcp-dev/client-go, and kcp-dev/sdk have the Go module major version at v0, so tags will be v0.x.y</li>
 <li>kcp-dev/apimachinery has the Go module major version at v2, so tags will be v2.x.y</li>
 <li>kcp-dev/code-generator has the Go module major version at v3, so tags will be v3.x.y</li>
 </ul>
@@ -3774,6 +3777,7 @@ include:</p>
 <ul>
 <li>Add support for running publishing-bot on ARM64</li>
 <li>Add image building process compatible with kcp</li>
+<li>Add support for non-v0 and non-v1 Go modules</li>
 <li>Add support for customizing tags mirroring</li>
 <li>Add kcp-related configuration</li>
 </ul>
@@ -3784,6 +3788,10 @@ The issue being closed indicates that the bot is healthy and has at least one su
 issue being open indicates that the bot is not healthy and at least the last run has failed.</p>
 <p>The kcp configuration for publishing-bot can be found at https://github.com/kcp-dev/publishing-bot/blob/master/configs/kcp-dev</p>
 <p>The mirroring rules are located in the kcp-dev/kcp repoitory and can be found at https://github.com/kcp-dev/kcp/blob/main/staging/publishing/rules.yaml</p>
+<p>The kcp project also has a testing envrionment for publishing-bot called <code>kcp-nightly</code>. There's a dedicated <a href="https://github.com/kcp-nightly">GitHub
+organization</a> and a dedicated instance of publishing-bot running in the
+<code>publishing-bot-nightly</code> namespace in the Prow control plane cluster. The publishing-bot configuration for the
+<code>kcp-nightly</code> environemnt can be found at https://github.com/kcp-dev/publishing-bot/blob/master/configs/kcp-nightly</p>
 <p>At the moment, the bot is configured to run every 4 hours.</p>
 <h2 id="creating-a-new-staging-repository">Creating a New Staging Repository<a class="headerlink" href="#creating-a-new-staging-repository" title="Permanent link">&para;</a></h2>
 <p>Adding a completely new staging repository to the monorepo must follow this process:</p>
@@ -3794,12 +3802,13 @@ issue being open indicates that the bot is not healthy and at least the last run
   <a href="https://github.com/kcp-dev/kcp">kcp-dev/kcp</a> repository</li>
 <li>Create a staging repository in <code>staging/src/github.com/kcp-dev</code> with all required files for a repository
   (e.g. LICENSE, OWNERS...)</li>
-<li>Create a new Git repository on GitHub to serve as a published repository with an empty initial commit</li>
+<li>Create a new Git repository on GitHub to serve as a published repository with an <strong>empty</strong> initial commit</li>
 <li>Update the publishing-bot rules to mirror from the new staging repository to the new published repository</li>
 </ul>
 <p>Adding an existing standalone repository to the monorepo is generally discouraged and will be considered on
-a case-by-case basis by Maintainers. This case requires following different steps that will be documented
-in the future.</p>
+a case-by-case basis by Maintainers. This case requires following different steps that are documented as part of the
+monorepo proposal: https://github.com/kcp-dev/enhancements/pull/7</p>
+<!-- TODO(xmudrii): replace the PR link with a link to the document once merged -->
 
 
 

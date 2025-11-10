@@ -3853,20 +3853,22 @@ automatically by publishing-bot, so it's only needed to create one tag for the m
 </div>
 <ol>
 <li><code>git fetch</code> from the main kcp repository (kcp-dev/kcp) to ensure you have the latest commits</li>
-<li>Tag the main module</li>
-<li>If your git remote for kcp-dev/kcp is named something other than <code>upstream</code>, change <code>REF</code> accordingly</li>
 <li>
-<p>If you are creating a release from a release branch, change <code>main</code> in <code>REF</code> accordingly, or you can
-      make <code>REF</code> a commit hash.</p>
+<p>Tag the main module</p>
+<ol>
+<li>If your git remote for kcp-dev/kcp is named something other than <code>upstream</code>, change <code>REF</code> accordingly</li>
+<li>If you are creating a release from a release branch, change <code>main</code> in <code>REF</code> accordingly, or you can
+   make <code>REF</code> a commit hash.</li>
+</ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">REF</span><span class="o">=</span>upstream/main
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">TAG</span><span class="o">=</span>&lt;tag&gt;<span class="w"> </span><span class="c1"># e.g. v1.2.3</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>tag<span class="w"> </span>--sign<span class="w"> </span>--message<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 </code></pre></div>
 </li>
 </ol>
 <h3 id="push-the-tag">Push the Tag<a class="headerlink" href="#push-the-tag" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">TAG</span><span class="o">=</span>&lt;tag&gt;<span class="w"> </span><span class="c1"># e.g. v1.2.3</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$TAG</span><span class="s2">&quot;</span>
 </code></pre></div>
 <h2 id="if-its-a-new-minor-version">If it's a New Minor Version<a class="headerlink" href="#if-its-a-new-minor-version" title="Permanent link">&para;</a></h2>
@@ -3877,7 +3879,7 @@ automatically by publishing-bot, so it's only needed to create one tag for the m
 <p>Set <code>REMOTE</code>, <code>REF</code>, and <code>VERSION</code> as appropriate.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">REMOTE</span><span class="o">=</span>upstream
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">REF</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">/main&quot;</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">VERSION</span><span class="o">=</span><span class="m">1</span>.2
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">VERSION</span><span class="o">=</span>&lt;version&gt;<span class="w"> </span><span class="c1"># e.g. 1.2</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REF</span><span class="s2">&quot;</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>git<span class="w"> </span>push<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$REMOTE</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;release-</span><span class="nv">$VERSION</span><span class="s2">&quot;</span>
 </code></pre></div>
@@ -3926,7 +3928,7 @@ You can run the command below to install the latest version of it:</p>
 <p>Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.</p>
 <ol>
 <li>Navigate to the <a href="https://github.com/kcp-dev/kcp/actions/workflows/docs-gen-and-push.yaml">Generate and push docs</a> GitHub Action.</li>
-<li>Hit the "Run forkflow" button, run workflow against <code>release-$VERSION</code>.</li>
+<li>Hit the "Run workflow" button, run workflow against <code>release-$VERSION</code>.</li>
 <li>Make sure the triggered workflow ran and deployed a new version of the documentation to <a href="https://docs.kcp.io">docs.kcp.io</a>.</li>
 </ol>
 <h2 id="notify">Notify<a class="headerlink" href="#notify" title="Permanent link">&para;</a></h2>
