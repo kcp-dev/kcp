@@ -26,21 +26,21 @@ description: >
 
 1. `git fetch` from the main kcp repository (kcp-dev/kcp) to ensure you have the latest commits
 2. Tag the main module
-   1. If your git remote for kcp-dev/kcp is named something other than `upstream`, change `REF` accordingly
-   2. If you are creating a release from a release branch, change `main` in `REF` accordingly, or you can
-      make `REF` a commit hash.
-
-    ```shell
-    REF=upstream/main
-    TAG=v1.2.3
-    git tag --sign --message "$TAG" "$TAG" "$REF"
-    ```
+    1. If your git remote for kcp-dev/kcp is named something other than `upstream`, change `REF` accordingly
+    2. If you are creating a release from a release branch, change `main` in `REF` accordingly, or you can
+       make `REF` a commit hash.
+       
+       ```shell
+       REF=upstream/main
+       TAG=<tag> # e.g. v1.2.3
+       git tag --sign --message "$TAG" "$TAG" "$REF"
+       ```
 
 ### Push the Tag
 
 ```shell
 REMOTE=upstream
-TAG=v1.2.3
+TAG=<tag> # e.g. v1.2.3
 git push "$REMOTE" "$TAG"
 ```
 
@@ -58,7 +58,7 @@ Set `REMOTE`, `REF`, and `VERSION` as appropriate.
 ```shell
 REMOTE=upstream
 REF="$REMOTE/main"
-VERSION=1.2
+VERSION=<version> # e.g. 1.2
 git checkout -b "release-$VERSION" "$REF"
 git push "$REMOTE" "release-$VERSION"
 ```
@@ -126,7 +126,7 @@ The [goreleaser](https://github.com/kcp-dev/kcp/actions/workflows/goreleaser.yml
 Documentation for the respective release branch needs to be triggered manually after the release branch has been pushed.
 
 1. Navigate to the [Generate and push docs](https://github.com/kcp-dev/kcp/actions/workflows/docs-gen-and-push.yaml) GitHub Action.
-2. Hit the "Run forkflow" button, run workflow against `release-$VERSION`.
+2. Hit the "Run workflow" button, run workflow against `release-$VERSION`.
 3. Make sure the triggered workflow ran and deployed a new version of the documentation to [docs.kcp.io](https://docs.kcp.io).
 
 ## Notify
