@@ -19,6 +19,7 @@ package permissionclaimlabel
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -84,8 +85,11 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 	}
 
 	appliedClaims := sets.New[string]()
+	appliedClaimsMap := make(map[string]apisv1alpha2.ScopedPermissionClaim)
 	for _, claim := range apiBinding.Status.AppliedPermissionClaims {
-		appliedClaims.Insert(setKeyForClaim(claim.PermissionClaim))
+		key := setKeyForClaim(claim.PermissionClaim)
+		appliedClaims.Insert(key)
+		appliedClaimsMap[key] = claim
 	}
 
 	expectedClaims := exportedClaims.Intersection(acceptedClaims)
@@ -93,6 +97,9 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 	needToApply := expectedClaims.Difference(appliedClaims)
 	needToRemove := appliedClaims.Difference(acceptedClaims)
 	allChanges := needToApply.Union(needToRemove)
+
+	selectorChanges := detectSelectorChanges(expectedClaims, acceptedClaims, appliedClaims, acceptedClaimsMap, appliedClaimsMap, logger)
+	allChanges = allChanges.Union(selectorChanges)
 
 	logger.V(4).Info("claim set details",
 		"expected", expectedClaims,
@@ -288,4 +295,25 @@ func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, 
 		return err
 	}
 	return nil
+}
+
+func detectSelectorChanges(
+	expectedClaims, acceptedClaims, appliedClaims sets.Set[string],
+	acceptedClaimsMap, appliedClaimsMap map[string]apisv1alpha2.ScopedPermissionClaim,
+	logger klog.Logger,
+) sets.Set[string] {
+	selectorChanges := sets.New[string]()
+	for key := range expectedClaims {
+		if acceptedClaims.Has(key) && appliedClaims.Has(key) {
+			acceptedClaim := acceptedClaimsMap[key]
+			appliedClaim := appliedClaimsMap[key]
+			if !reflect.DeepEqual(acceptedClaim.Selector, appliedClaim.Selector) {
+				selectorChanges.Insert(key)
+				logger.V(4).Info("detected selector change for claim", "claim", key,
+					"oldSelector", appliedClaim.Selector,
+					"newSelector", acceptedClaim.Selector)
+			}
+		}
+	}
+	return selectorChanges
 }

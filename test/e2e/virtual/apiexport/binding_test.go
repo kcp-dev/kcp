@@ -835,6 +835,183 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 	require.Len(t, configmaps.Items, 2, "expected 2 configmaps inside %q", consumerPath) // kube default + 1 test configmap without label
 }
 
+func TestAPIBindingPermissionClaimsSelectorUpdate(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
+
+	cfg := server.BaseConfig(t)
+
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
+	require.NoError(t, err, "failed to construct kube client for server")
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClusterClient, "wild.wild.west", "board the wanderer")
+
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), "could not wait for APIExport to be valid with identity hash")
+
+	sheriffExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wild.wild.west", metav1.GetOptions{})
+	require.NoError(t, err)
+	identityHash := sheriffExport.Status.IdentityHash
+
+	t.Logf("Found identity hash: %v", identityHash)
+	apifixtures.BindToExport(ctx, t, providerPath, "wild.wild.west", consumerPath, kcpClusterClient)
+	permissionClaims := defaultPermissionsClaims(identityHash)
+
+	t.Logf("set up service provider with permission claims")
+	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClusterClient, false, providerPath, cfg, permissionClaims)
+
+	t.Logf("Set up binding with MatchAll selector initially")
+	bindConsumerToProvider(ctx, t, consumerPath, providerPath, kcpClusterClient, cfg, permissionClaimsToAcceptable(permissionClaims)...)
+
+	t.Logf("Validate that the permission claims are valid")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsValid), "unable to see valid claims")
+
+	t.Logf("Validate that the permission claims were all applied")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsApplied), "unable to see claims applied")
+
+	t.Logf("Create test resources in the consumer workspace")
+	configMapWithTestLabel := testConfigMapWithLabels(1, map[string]string{"foo": "bar", "env": "dev"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Create(ctx, configMapWithTestLabel, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating configmap with foo label")
+
+	configMapWithEnvLabel := testConfigMapWithLabels(2, map[string]string{"env": "prod"})
+	_, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Create(ctx, configMapWithEnvLabel, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating configmap with env label")
+
+	t.Logf("Wait for permission claim labels to be applied on resources with MatchAll selector")
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		cm, err := kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithTestLabel.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		for key := range cm.Labels {
+			if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+				return true, ""
+			}
+		}
+		return false, "permission claim label not found"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for permission claim label on configmap with MatchAll")
+
+	cmWithTest, err := kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithTestLabel.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	hasClaimLabel := false
+	for key := range cmWithTest.Labels {
+		if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+			hasClaimLabel = true
+			break
+		}
+	}
+	require.True(t, hasClaimLabel, "expected configmap to have permission claim label with MatchAll")
+
+	cmWithEnv, err := kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithEnvLabel.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	hasClaimLabel = false
+	for key := range cmWithEnv.Labels {
+		if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+			hasClaimLabel = true
+			break
+		}
+	}
+	require.True(t, hasClaimLabel, "expected configmap to have permission claim label with MatchAll")
+
+	t.Logf("Update permission claim selector from MatchAll to match foo: bar")
+	newAPCModifiers := []func([]apisv1alpha2.AcceptablePermissionClaim){
+		selectorForResource("", "configmaps", "", apisv1alpha2.PermissionClaimSelector{
+			LabelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo": "bar",
+				},
+			},
+		}),
+	}
+
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		binding.Spec.PermissionClaims = permissionClaimsToAcceptable(permissionClaims, newAPCModifiers...)
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating APIBinding with new selector")
+
+	t.Logf("Wait for permission claims to be reapplied after selector change")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsApplied), "unable to see claims reapplied after selector change")
+
+	t.Logf("Verify permission claim labels were updated after selector change from MatchAll to foo:bar")
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		cmWithTest, err := kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithTestLabel.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		for key := range cmWithTest.Labels {
+			if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+				return true, ""
+			}
+		}
+		return false, "permission claim label not found on configmap with foo:bar"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for permission claim label on configmap with foo:bar")
+
+	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
+		cmWithEnv, err := kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithEnvLabel.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		for key := range cmWithEnv.Labels {
+			if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+				return false, "permission claim label still exists on configmap without foo:bar"
+			}
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for permission claim label to be removed from configmap without foo:bar")
+
+	cmWithTest, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithTestLabel.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	hasClaimLabel = false
+	for key := range cmWithTest.Labels {
+		if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+			hasClaimLabel = true
+			break
+		}
+	}
+	require.True(t, hasClaimLabel, "expected configmap with foo:bar label to have permission claim label after selector change")
+
+	cmWithEnv, err = kubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(ctx, configMapWithEnvLabel.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	hasClaimLabel = false
+	for key := range cmWithEnv.Labels {
+		if strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix) {
+			hasClaimLabel = true
+			break
+		}
+	}
+	require.False(t, hasClaimLabel, "expected configmap without foo:bar label to not have permission claim label after selector change")
+}
+
 func readonlyVerbsForResource(group, resource, identityHash string) func([]apisv1alpha2.PermissionClaim) {
 	return func(pcs []apisv1alpha2.PermissionClaim) {
 		for i, pc := range pcs {
