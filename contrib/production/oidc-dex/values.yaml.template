@@ -1,0 +1,68 @@
+config:
+  # The issuer URL is still the public HTTPS URL.
+  issuer: https://auth.example.com
+
+  logger:
+    level: "debug"
+
+  storage:
+    type: postgres
+    config:
+      host: pg-auth-rw.oidc.svc.cluster.local
+      port: 5432
+      database: dex
+      user: postgres
+      password: password
+      ssl:
+        mode: disable
+
+  # Dex will handle TLS termination using the cert-manager certificate
+  web:
+    https: 0.0.0.0:5557
+    tlsCert: /etc/dex/tls/tls.crt
+    tlsKey: /etc/dex/tls/tls.key
+    http: "0.0.0.0:5556" 
+
+  # Your connectors and staticClients remain the same...
+  connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: xxxxxxx
+        clientSecret: xxxxxxxxxx
+        redirectURI: https://auth.example.com/callback
+        org: platform-mesh
+  staticClients:
+    - id: platform-mesh
+      redirectURIs:
+      - https://auth.example.com/callback
+      - http://localhost:8000
+      - http://127.0.0.1:8000/
+      name: 'PlatformMeshApp'
+      secret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+
+# This section configures the Kubernetes Service for Dex.
+service:
+  type: LoadBalancer
+  ports:
+    https:
+      port: 443
+    # Disable HTTP port
+    http:
+      port: 5556
+
+# Enable HTTPS support
+https:
+  enabled: true
+
+# Mount the cert-manager generated certificate
+volumes:
+- name: tls-cert
+  secret:
+    secretName: dex-tls
+
+volumeMounts:
+- name: tls-cert
+  mountPath: /etc/dex/tls
+  readOnly: true

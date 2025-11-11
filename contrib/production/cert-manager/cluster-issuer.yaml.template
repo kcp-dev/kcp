@@ -1,0 +1,20 @@
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # You must replace this email address with your own.
+    email: email@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # Secret resource that will be used to store the account's private key.
+      name: le-issuer-account-key
+    solvers:
+    - dns01:
+        cloudflare:
+          email: email@example.com
+          apiKeySecretRef:
+            name: cloudflare-api-key-secret
+            key: api-key

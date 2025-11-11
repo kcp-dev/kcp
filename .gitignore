@@ -49,3 +49,6 @@ dex/
 *.pem
 
 index.html
+contrib/production/cert-manager/cloudflare-secret.yaml
+contrib/production/cert-manager/cluster-issuer.yaml
+contrib/production/oidc-dex/values.yaml

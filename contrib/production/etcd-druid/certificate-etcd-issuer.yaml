@@ -1,0 +1,30 @@
+# CA authority for etcd components.
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-ca
+  namespace: cert-manager
+spec:
+  secretName: etcd-ca-tls
+  isCA: true
+  commonName: etcd-ca
+  issuerRef:
+    name: selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: etcd-ca
+spec:
+  ca:
+    secretName: etcd-ca-tls

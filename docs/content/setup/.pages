@@ -4,4 +4,5 @@ nav:
     - helm.md
     - kubectl-plugin.md
     - integrations.md
-    - production.md
+    - production
+    

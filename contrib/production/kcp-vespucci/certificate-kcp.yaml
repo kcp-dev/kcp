@@ -1,0 +1,30 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+  namespace: kcp-vespucci
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kcp-ca
+  namespace: kcp-vespucci
+spec:
+  secretName: kcp-ca-tls
+  isCA: true
+  commonName: kcp-ca
+  issuerRef:
+    name: selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kcp-ca
+  namespace: kcp-vespucci
+spec:
+  ca:
+    secretName: kcp-ca-tls

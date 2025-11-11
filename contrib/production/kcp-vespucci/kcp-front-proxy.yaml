@@ -1,0 +1,46 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: FrontProxy
+metadata:
+  name: frontproxy
+  namespace: kcp-vespucci
+spec:
+  external:
+    hostname: api.vespucci.example.com
+    port: 6443
+  rootShard:
+    ref:
+      name: root
+  caBundleSecretRef:
+      name: letsencrypt-ca
+  certificateTemplates:
+    server:
+      metadata:
+        annotations:
+          cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      spec:
+        issuerRef:
+          name: letsencrypt-prod
+          kind: ClusterIssuer
+          group: cert-manager.io
+        dnsNames:
+        - api.vespucci.example.com
+  auth:
+    serviceAccount:
+      enabled: true
+    oidc:
+      issuerURL: https://auth.example.com
+      clientID: platform-mesh
+      groupsClaim: groups
+      usernameClaim: email
+      usernamePrefix: "oidc:"
+      groupsPrefix: "oidc:"
+      clientSecret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+  serviceTemplate:
+    metadata:
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+        service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+        service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    spec:
+      type: LoadBalancer

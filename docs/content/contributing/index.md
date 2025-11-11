@@ -104,7 +104,7 @@ do not hesitate to ping maintainers directly or ask on the project communication
 ### The Monorepo Structure
 
 The core `kcp-dev/kcp` repository is a monorepo containing the kcp core and some close to the core libraries.
-See the [monorepo document](./monorepo/) for more details.
+See the [monorepo document](./monorepo.md) for more details.
 
 When contributing to projects like `kcp-dev/apimachinery`, `kcp-dev/client-go`, and `kcp-dev/code-generator`,
 you must create a PR in the `kcp-dev/kcp` repository. Direct PRs to these repositories will be closed.

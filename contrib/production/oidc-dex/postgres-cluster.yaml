@@ -1,0 +1,39 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-auth
+  namespace: oidc
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      database: dex
+      owner: dex
+      secret:
+        name: dex-postgres
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: dex-superuser
+  storage:
+    size: 10Gi
+---
+apiVersion: v1
+data:
+  username: ZGV4Cg==
+  password: cGFzc3dvcmQ=
+kind: Secret
+metadata:
+  namespace: oidc
+  name: dex-postgres
+type: kubernetes.io/basic-auth
+---
+apiVersion: v1
+data:
+  username: cG9zdGdyZXM=
+  password: cGFzc3dvcmQ=
+kind: Secret
+metadata:
+  namespace: oidc
+  name: dex-superuser
+type: kubernetes.io/basic-auth
