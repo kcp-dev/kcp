@@ -598,7 +598,7 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
@@ -844,7 +844,7 @@ func TestAPIBindingPermissionClaimsSelectorUpdate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	orgPath, _ := framework.NewOrganizationFixture(t, server) //nolint:staticcheck // TODO: switch to NewWorkspaceFixture.
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
