@@ -6,7 +6,7 @@ The table below lists all current maintainers for the kcp project as defined by 
 | --------------------- | ------------------------------------------------ | -------------------------------------------------------------- | --------------------------- |
 | Andy Anderson         | [@clubanderson](https://github.com/clubanderson) | Governance                                                     | IBM                         |
 | Marvin Beckers        | [@embik](https://github.com/embik)               | kcp core, kcp-operator, multicluster-provider, infrastructure  | Kubermatic                  |
-| Mangirdas Judeikis    | [@mjudeikis](https://github.com/mjudeikis)       | kcp core                                                       | Upbound                     |
+| Mangirdas Judeikis    | [@mjudeikis](https://github.com/mjudeikis)       | kcp core                                                       | -                           |
 | Nelo-T. Wallus        | [@ntnn](https://github.com/ntnn)                 | kcp core                                                       | SAP                         |
 | Sebastian Scheele     | [@scheeles](https://github.com/scheeles)         | Governance                                                     | Kubermatic                  |
 | Dr. Stefan Schimanski | [@sttts](https://github.com/sttts)               | Governance, kcp core                                           | NVIDIA                      |
