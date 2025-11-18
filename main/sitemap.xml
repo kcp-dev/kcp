@@ -2,529 +2,529 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
         <loc>https://docs.kcp.io/kcp/main/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/GOALS/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/GOALS/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/quickstart-tenancy-and-apis/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/quickstart-tenancy-and-apis/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/terminology/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/terminology/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/admission-webhooks/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/admission-webhooks/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/built-in/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/built-in/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/cached-resources/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/cached-resources/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/exporting-apis/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/exporting-apis/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/apis/rest-access-patterns/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/apis/rest-access-patterns/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/authentication/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/authentication/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/authentication/oidc/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/authentication/oidc/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/authentication/workspace/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/authentication/workspace/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/authorization/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/authorization/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/authorization/authorizers/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/authorization/authorizers/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/miscellaneous/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/miscellaneous/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/miscellaneous/braindump/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/miscellaneous/braindump/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/sharding/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/sharding/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/sharding/cache-server/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/sharding/cache-server/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/sharding/partitions/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/sharding/partitions/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/sharding/shards/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/sharding/shards/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/mounts/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/mounts/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/virtual-workspaces/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/virtual-workspaces/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-initialization/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-initialization/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-termination/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-termination/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/coding/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/coding/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/getting-started/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/getting-started/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/monorepo/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/monorepo/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/continuous-integration/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/continuous-integration/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/continuous-integration/inspecting-e2e-metrics/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/continuous-integration/inspecting-e2e-metrics/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/governance/general-technical-review/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/governance/general-technical-review/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/governance/security-self-assessment/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/governance/security-self-assessment/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/guides/accessing-embedded-etcd/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/accessing-embedded-etcd/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/guides/publishing-a-new-kcp-release/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/publishing-a-new-kcp-release/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/guides/rebasing-kubernetes/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/rebasing-kubernetes/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/guides/replicate-new-resource/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/replicate-new-resource/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/controllers/client-go/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/controllers/client-go/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/controllers/writing-kcp-aware-controllers/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/controllers/writing-kcp-aware-controllers/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/internals/etcd-structure/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/internals/etcd-structure/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/internals/using-kcp-as-a-library/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/internals/using-kcp-as-a-library/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/investigations/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/investigations/logical-clusters/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/logical-clusters/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/investigations/minimal-api-server/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/minimal-api-server/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/investigations/self-service-policy/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/self-service-policy/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/investigations/transparent-multi-cluster/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/transparent-multi-cluster/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/create_workspace/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/create_workspace/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_bind/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_bind/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_bind_apiexport/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_bind_apiexport/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_claims/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_claims/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_claims_get/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_claims_get/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_claims_get_apibinding/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_claims_get_apibinding/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_crd/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_crd/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_crd_snapshot/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_crd_snapshot/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_create-context/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_create-context/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_current/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_current/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_tree/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_tree/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_use/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/kcp_workspace_use/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_create-context/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_create-context/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_current/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_current/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_tree/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_tree/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/cli/workspace_use/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/cli/workspace_use/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apibindings/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apibindings/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiconversions/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiconversions/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiexportendpointslices/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiexportendpointslices/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiexports/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiexports/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiresourceschemas/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiresourceschemas/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/core.kcp.io/logicalclusters/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/core.kcp.io/logicalclusters/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/core.kcp.io/shards/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/core.kcp.io/shards/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/tenancy.kcp.io/workspaces/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/tenancy.kcp.io/workspaces/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/tenancy.kcp.io/workspacetypes/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/tenancy.kcp.io/workspacetypes/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/topology.kcp.io/partitions/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/topology.kcp.io/partitions/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/reference/crd/topology.kcp.io/partitionsets/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/reference/crd/topology.kcp.io/partitionsets/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/setup/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/setup/helm/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/helm/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/setup/integrations/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/integrations/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/setup/kubectl-plugin/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/kubectl-plugin/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/setup/production/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/production/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/setup/quickstart/</loc>
-        <lastmod>2025-11-12</lastmod>
+        <lastmod>2025-11-18</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/quickstart/"/>
     </url>
