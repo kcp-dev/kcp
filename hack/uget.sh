@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2025 Christoph Mewes, https://codeberg.org/xrstf/uget
 # SPDX-License-Identifier: MIT
 #
-# µget 0.3.3 – your friendly downloader
+# µget 0.4.0 – your friendly downloader
 # -------------------------------------
 #
 # µget can download software as binaries, archives or Go modules.
@@ -58,6 +58,13 @@ UGET_VERSIONED_BINARIES=${UGET_VERSIONED_BINARIES:-false}
 # UGET_TEMPDIR is the root directory to use when creating new temporary dirs.
 UGET_TEMPDIR="${UGET_TEMPDIR:-/tmp}"
 
+# UGET_CACHE is an optional path to a directory where binaries are stored/read
+# from instead of being downloaded from the internet. This can be useful if you
+# have many projects using µget and do not want to re-download the same binary
+# for all of them. This does not apply for Go modules since those are already
+# effectively cached by Go itself.
+UGET_CACHE="${UGET_CACHE:-}"
+
 # UGET_PRINT_PATH can be set to "relative" to make µget only omit log output
 # and only print the relative path to the binary, and set to "absolute" to
 # output the absolute path.
@@ -107,6 +114,11 @@ uget_lowercase() {
 uget_checksum_enabled() {
   set -e
   [ -n "$UGET_CHECKSUMS" ]
+}
+
+uget_cache_enabled() {
+  set -e
+  [ -n "$UGET_CACHE" ]
 }
 
 uget_checksum_check() {
@@ -162,6 +174,14 @@ uget_checksum_read() {
 uget_checksum_calculate() {
   set -e
   "$UGET_HASHFUNC" "$1" | awk '{ print $1 }'
+}
+
+# hash_string includes a trailing newline in the hashed data
+# (because of echo), but since *all* hashes contain it, it
+# doesn't matter.
+uget_hash_string() {
+  set -e
+  echo "$1" | "$UGET_HASHFUNC" | awk '{ print $1 }'
 }
 
 uget_checksum_write() {
@@ -411,8 +431,9 @@ uget_extract_archive() {
   chmod +x "$destinationDir/$BINARY"
 }
 
-# uget_download performs the actual download
-# and places the binary in a given directory.
+# uget_download performs the actual download or reads a binary
+# from the configured cache (if any), and finally places it
+# in a given directory.
 uget_download() {
   set -e
 
@@ -431,12 +452,26 @@ uget_download() {
   if $GO_MODULE; then
     uget_go_install "$destinationDir" "$kvString" "$url"
   else
-    uget_http_download "$url"
+    local urlHash
+    urlHash="$(uget_hash_string "$url")"
 
-    local archive
-    archive="$(ls)"
+    cacheFile="$UGET_CACHE/$IDENTIFIER-$VERSION-$urlHash"
 
-    uget_extract_archive "$destinationDir" "$archive"
+    if uget_cache_enabled && [ -f "$cacheFile" ]; then
+      cp "$cacheFile" "$destinationDir/$BINARY"
+      uget_log "Copied $BINARY from µget cache."
+    else
+      uget_http_download "$url"
+
+      local archive
+      archive="$(ls)"
+
+      uget_extract_archive "$destinationDir" "$archive"
+
+      if uget_cache_enabled; then
+        cp "$destinationDir/$BINARY" "$cacheFile"
+      fi
+    fi
   fi
 
   cd "$startDir"
@@ -539,6 +574,11 @@ mkdir -p "$UGET_DIRECTORY" "$UGET_TEMPDIR"
 
 ABS_UGET_DIRECTORY="$(realpath "$UGET_DIRECTORY")"
 ABS_UGET_TEMPDIR="$(realpath "$UGET_TEMPDIR")"
+
+if uget_cache_enabled; then
+  mkdir -p "$UGET_CACHE"
+  UGET_CACHE="$(realpath "$UGET_CACHE")"
+fi
 
 if $GO_MODULE && ! $UGET_GO_CHECKSUMS; then
   UGET_CHECKSUMS=""
