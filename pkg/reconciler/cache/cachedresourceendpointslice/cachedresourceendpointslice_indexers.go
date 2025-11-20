@@ -60,6 +60,14 @@ func IndexCachedResourceEndpointSliceByCachedResourceFunc(obj interface{}) ([]st
 	}
 
 	pathLocal := logicalcluster.From(slice).Path()
-	// TODO(gman0): add an optional external path index key once we add "CachedResourceEndpointSlice.spec.cachedResource.path".
-	return []string{pathLocal.Join(slice.Spec.CachedResource.Name).String()}, nil
+	keys := []string{pathLocal.Join(slice.Spec.CachedResource.Name).String()}
+
+	if refPath := logicalcluster.NewPath(slice.Spec.CachedResource.Path); !refPath.Empty() {
+		key := refPath.Join(slice.Spec.CachedResource.Name).String()
+		if key != keys[0] {
+			keys = append(keys, key)
+		}
+	}
+
+	return keys, nil
 }

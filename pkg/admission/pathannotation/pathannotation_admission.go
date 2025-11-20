@@ -29,6 +29,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -69,6 +70,7 @@ type pathAnnotationPlugin struct {
 
 var pathAnnotationResources = sets.New[string](
 	apisv1alpha2.Resource("apiexports").String(),
+	cachev1alpha1.Resource("cachedresources").String(),
 	tenancyv1alpha1.Resource("workspacetypes").String(),
 )
 

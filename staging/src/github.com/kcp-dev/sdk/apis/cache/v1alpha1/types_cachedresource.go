@@ -179,6 +179,13 @@ type ResourceCount struct {
 
 // CachedResourceReference is a reference to a CachedResource.
 type CachedResourceReference struct {
+	// path is a logical cluster path where the CachedResource is defined. If empty,
+	// the CachedResource is assumed to be co-located with the referencing resource.
+	//
+	// +optional
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path,omitempty"`
+
 	// name is the name of the CachedResource the reference points to.
 	//
 	// +required

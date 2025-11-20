@@ -31,6 +31,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -129,6 +130,15 @@ func TestPathAnnotationAdmit(t *testing.T) {
 			admissionVerb:           admission.Create,
 			admissionResource:       tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"),
 			admissionObject:         &tenancyv1alpha1.WorkspaceType{},
+			admissionContext:        admissionContextFor("foo"),
+			getLogicalCluster:       getCluster("foo"),
+			validateAdmissionObject: objectHasPathAnnotation("root:foo"),
+		},
+		{
+			name:                    "happy path: a CachedResource is annotated with a path",
+			admissionVerb:           admission.Create,
+			admissionResource:       cachev1alpha1.SchemeGroupVersion.WithResource("cachedresources"),
+			admissionObject:         &cachev1alpha1.CachedResource{},
 			admissionContext:        admissionContextFor("foo"),
 			getLogicalCluster:       getCluster("foo"),
 			validateAdmissionObject: objectHasPathAnnotation("root:foo"),
@@ -238,6 +248,15 @@ func TestPathAnnotationValidate(t *testing.T) {
 			admissionObject:   &apisv1alpha2.APIExport{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "root:foo"}}},
 			admissionContext:  admissionContextFor("foo"),
 			getLogicalCluster: getCluster("foo"),
+		},
+		{
+			name:              "a CachedResource with incorrect path annotation is NOT admitted",
+			admissionVerb:     admission.Create,
+			admissionResource: cachev1alpha1.SchemeGroupVersion.WithResource("cachedresources"),
+			admissionObject:   &cachev1alpha1.CachedResource{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{core.LogicalClusterPathAnnotationKey: "root:bar"}}},
+			admissionContext:  admissionContextFor("foo"),
+			getLogicalCluster: getCluster("foo"),
+			expectError:       true,
 		},
 	}
 
