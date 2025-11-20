@@ -17,6 +17,7 @@ limitations under the License.
 package plugin
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -125,6 +126,9 @@ func (m model) View() string {
 				typeRef = m.currentNode.info.Type.Path + ":" + typeRef
 			}
 			detailParts = append(detailParts, typeRef)
+		}
+		if m.currentNode.info.Cluster != "" {
+			detailParts = append(detailParts, fmt.Sprintf("cluster:%s", m.currentNode.info.Cluster))
 		}
 		details = detailStyle.Render(strings.Join(detailParts, " | "))
 	}
