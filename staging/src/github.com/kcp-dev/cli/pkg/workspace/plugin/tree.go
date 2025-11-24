@@ -38,8 +38,9 @@ import (
 
 // workspaceInfo contains workspace path and type information.
 type workspaceInfo struct {
-	Path logicalcluster.Path
-	Type *tenancyv1alpha1.WorkspaceTypeReference
+	Path    logicalcluster.Path
+	Type    *tenancyv1alpha1.WorkspaceTypeReference
+	Cluster string
 }
 
 // TreeOptions contains options for displaying the workspace tree.
@@ -170,17 +171,25 @@ func (o *TreeOptions) runInteractive(ctx context.Context, currentWorkspace logic
 
 func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *treeNode, workspace logicalcluster.Path, workspaceName string, currentWorkspace logicalcluster.Path, currentNode **treeNode) error {
 	var workspaceType *tenancyv1alpha1.WorkspaceTypeReference
+	var workspaceCluster string
 	if parent, hasParent := workspace.Parent(); hasParent {
 		workspaceBaseName := workspace.Base()
 		ws, err := o.kcpClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Get(ctx, workspaceBaseName, metav1.GetOptions{})
-		if err == nil && ws.Spec.Type != nil {
-			workspaceType = ws.Spec.Type
+		if err == nil {
+			if ws.Spec.Type != nil {
+				workspaceType = ws.Spec.Type
+			}
+			workspaceCluster = ws.Spec.Cluster
 		}
+	}
+	if workspaceCluster == "" {
+		workspaceCluster = workspace.Base()
 	}
 
 	wsInfo := &workspaceInfo{
-		Path: workspace,
-		Type: workspaceType,
+		Path:    workspace,
+		Type:    workspaceType,
+		Cluster: workspaceCluster,
 	}
 
 	node.info = wsInfo
@@ -210,8 +219,9 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 		}
 
 		childWorkspaceInfo := &workspaceInfo{
-			Path: childPath,
-			Type: ws.Spec.Type,
+			Path:    childPath,
+			Type:    ws.Spec.Type,
+			Cluster: ws.Spec.Cluster,
 		}
 
 		childNode := &treeNode{
