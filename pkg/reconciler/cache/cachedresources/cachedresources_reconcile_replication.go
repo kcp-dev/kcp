@@ -72,7 +72,13 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 	controller := r.controllerRegistry.get(controllerName)
 	// We setup controller even if we are deleting. This is to ensure that we can purge the cache.
 	// If for some reason was dead, we will recreate it.
+	danglingResources := cachedResource.Status.ResourceCounts != nil && cachedResource.Status.ResourceCounts.Cache > 0
 	if controller == nil {
+		if cachedResource.DeletionTimestamp != nil && !danglingResources {
+			cachedResource.Status.Phase = cachev1alpha1.CachedResourcePhaseDeleted
+			return reconcileStatusStopAndRequeue, nil
+		}
+
 		// Global informer is based on the CachedResource type and we construct index based on the schema labels.
 		controllerCtx, cancel := context.WithCancel(ctx)
 
@@ -140,7 +146,6 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 	// Check if we need to wait for cleaning. This can be few cases:
 	// 1. We are in deleting phase, but nothing to delete - we are good.
 	// 2. We are in deleting phase, and there is something to delete - we need to wait.
-	danglingResources := cachedResource.Status.ResourceCounts != nil && cachedResource.Status.ResourceCounts.Cache > 0
 
 	switch {
 	case cachedResource.Status.Phase == cachev1alpha1.CachedResourcePhaseDeleting && danglingResources:
