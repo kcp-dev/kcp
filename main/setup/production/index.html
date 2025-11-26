@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Tips and notes for running a production-grade kcp setup.
+        <meta name="description" content="Production-ready deployment guide for kcp with multiple certificate management strategies and deployment patterns.
 ">
       
       
@@ -17,7 +17,7 @@
         <link rel="prev" href="../integrations/">
       
       
-        <link rel="next" href="../../concepts/">
+        <link rel="next" href="overview/">
       
       
       <link rel="icon" href="../../favicons/favicon.ico">
@@ -641,173 +641,171 @@
   
   
   
-    <li class="md-nav__item md-nav__item--active">
+    
+    
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
+        
+          
+        
       
         
       
+        
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
+        
+      
+        
+      
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" checked>
+        
           
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./" class="md-nav__link md-nav__link--active">
+              
   
   <span class="md-ellipsis">
-    Production Setup
+    Production Deployment
   </span>
   
 
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+            </a>
+            
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            Production Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Production Setup
+    Architecture Overview
   </span>
   
 
       </a>
-      
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+              
+            
+              
+                
   
   
   
-    
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running etcd
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Running etcd">
-      <ul class="md-nav__list">
+    <li class="md-nav__item">
+      <a href="prerequisites/" class="md-nav__link">
         
-          <li class="md-nav__item">
-  <a href="#kubernetes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Kubernetes
-    </span>
-  </a>
   
-</li>
+  <span class="md-ellipsis">
+    Prerequisites
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="kcp-dekker/" class="md-nav__link">
         
-          <li class="md-nav__item">
-  <a href="#high-availability" class="md-nav__link">
-    <span class="md-ellipsis">
-      High Availability
-    </span>
-  </a>
   
-</li>
+  <span class="md-ellipsis">
+    kcp-dekker: Self-Signed Certificate Deployment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="kcp-vespucci/" class="md-nav__link">
         
-          <li class="md-nav__item">
-  <a href="#tls" class="md-nav__link">
-    <span class="md-ellipsis">
-      TLS
-    </span>
-  </a>
   
-</li>
+  <span class="md-ellipsis">
+    kcp-vespucci: External Certificate Deployment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="kcp-comer/" class="md-nav__link">
         
-          <li class="md-nav__item">
-  <a href="#backups" class="md-nav__link">
-    <span class="md-ellipsis">
-      Backups
-    </span>
-  </a>
   
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      Encryption
-    </span>
-  </a>
+  <span class="md-ellipsis">
+    kcp-comer: Dual Front-Proxy with Edge re-encryption
+  </span>
   
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#scaling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Scaling
-    </span>
-  </a>
+
+      </a>
+    </li>
   
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-kcp" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running kcp
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Running kcp">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#sharding" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sharding
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#high-availability_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      High Availability
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#backups_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Backups
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -3831,6 +3829,75 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#production-deployment-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Production Deployment Options
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment Variants
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Variants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#kcp-dekker-self-signed-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      kcp-dekker - Self-Signed Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kcp-vespucci-external-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      kcp-vespucci - External Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kcp-comer-dual-front-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      kcp-comer - Dual Front-Proxy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      Support Matrix
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3850,7 +3917,12 @@
 
 
 <h1 id="production-setup">Production Setup<a class="headerlink" href="#production-setup" title="Permanent link">&para;</a></h1>
-<p>This document collects notes and tips on how to run a production-grade kcp setup.</p>
+<p>This document provides comprehensive guidance for deploying kcp in production environments with enterprise-grade reliability, security, and scalability. If you are looking "hands on" deployment instructions, please refer to the specific deployment variant guides linked below <a href="#deployment-variants">#deployment-variants</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We are working on extending this documentation further, to include multiple site deployment, where indivudual shards are deployed in the different regions. 
+This would allow for geo-distributed deployments to mimic real-world usage scenarios.</p>
+</div>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>Running kcp consists of mainly two challenges:</p>
 <ul>
@@ -3934,11 +4006,100 @@ only. This not only improves realiability and performance, but can also help ens
 kcp client software does not by accident make false assumptions about sharding.</p>
 <h3 id="high-availability_1">High Availability<a class="headerlink" href="#high-availability_1" title="Permanent link">&para;</a></h3>
 <p>To improve resilience against node failures, it is strongly recommended to not just spread the
-workload across multiple shards, but also to ensure that shard pods are distributed across nodes or
+kcp workspaces across multiple shards, but also to ensure that shard pods are distributed across nodes or
 availability zones. The same advice for etcd applies to kcp as well: Use anti-affinities to ensure
 pods are scheduled properly.</p>
 <h3 id="backups_1">Backups<a class="headerlink" href="#backups_1" title="Permanent link">&para;</a></h3>
 <p>All kcp data is stored in etcd, there is no need to perform a dedicated kcp backup.</p>
+<hr />
+<h2 id="production-deployment-options">Production Deployment Options<a class="headerlink" href="#production-deployment-options" title="Permanent link">&para;</a></h2>
+<p>For specific deployment instructions, kcp production deployments require careful consideration of:</p>
+<ul>
+<li><strong>Certificate Management</strong>: Self-signed, Let's Encrypt, or enterprise CA integration</li>
+<li><strong>High Availability</strong>: Multi-shard deployment with proper load distribution  </li>
+<li><strong>Network Architecture</strong>: Front-proxy configuration and shard accessibility patterns</li>
+<li><strong>Security</strong>: TLS encryption, RBAC, and authentication integration</li>
+<li><strong>Observability</strong>: Monitoring, logging, and alerting</li>
+</ul>
+<h2 id="deployment-variants">Deployment Variants<a class="headerlink" href="#deployment-variants" title="Permanent link">&para;</a></h2>
+<p>We provide three reference deployment patterns:</p>
+<h3 id="kcp-dekker-self-signed-certificates"><a href="kcp-dekker/">kcp-dekker</a> - Self-Signed Certificates<a class="headerlink" href="#kcp-dekker-self-signed-certificates" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Best for</strong>: Development, testing, or closed internal environments</li>
+<li><strong>Certificate approach</strong>: All certificates are self-signed using an internal CA</li>
+<li><strong>Access pattern</strong>: Only front-proxy is publicly accessible, shards are private</li>
+<li><strong>Network</strong>: Simple single-cluster deployment</li>
+</ul>
+<h3 id="kcp-vespucci-external-certificates"><a href="kcp-vespucci/">kcp-vespucci</a> - External Certificates<a class="headerlink" href="#kcp-vespucci-external-certificates" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Best for</strong>: Production environments requiring trusted certificates</li>
+<li><strong>Certificate approach</strong>: Let's Encrypt for front-proxy, self-signed certificates for shards</li>
+<li><strong>Access pattern</strong>: Both front-proxy and shards are publicly accessible</li>
+<li><strong>Network</strong>: Multi-zone deployment with external certificate validation</li>
+</ul>
+<h3 id="kcp-comer-dual-front-proxy"><a href="kcp-comer/">kcp-comer</a> - Dual Front-Proxy<a class="headerlink" href="#kcp-comer-dual-front-proxy" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Best for</strong>: Enterprise environments with CDN and edge requirements</li>
+<li><strong>Certificate approach</strong>: CDN integration with edge re-encryption</li>
+<li><strong>Access pattern</strong>: Dual front-proxy with CloudFlare integration</li>
+<li><strong>Network</strong>: Complex multi-layer architecture with edge termination</li>
+</ul>
+<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong><a href="prerequisites/">Prerequisites</a></strong>: Install shared components (etcd-druid, cert-manager, kcp-operator, OIDC)</li>
+<li><strong><a href="overview/">Architecture Overview</a></strong>: Understand kcp component communication patterns  </li>
+<li><strong>Choose Deployment</strong>: Select the appropriate variant for your environment</li>
+</ol>
+<h2 id="support-matrix">Support Matrix<a class="headerlink" href="#support-matrix" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>kcp-dekker</th>
+<th>kcp-vespucci</th>
+<th>kcp-comer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Self-signed certs</td>
+<td>✓</td>
+<td>-</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Let's Encrypt</td>
+<td>-</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Public shard access</td>
+<td>-</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>CDN integration</td>
+<td>-</td>
+<td>-</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Multi-region</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>OIDC authentication</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<p>Choose the deployment that best matches your security, compliance, and operational requirements.</p>
 
 
 
