@@ -56,7 +56,7 @@ type endpointsReconciler struct {
 	listAPIExportsByCachedResourceIdentityAndGR func(identityHash string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error)
 	listAPIBindingsByAPIExports                 func(exports []*apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	getMyShard                                  func() (*corev1alpha1.Shard, error)
-	getCachedResource                           func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error)
+	getCachedResource                           func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
 	patchAPIExportEndpointSlice                 func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.CachedResourceEndpointSliceApplyConfiguration) error
 }
 
@@ -105,7 +105,12 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev
 		return nil, nil
 	}
 
-	cr, err := r.getCachedResource(logicalcluster.From(slice), slice.Spec.CachedResource.Name)
+	cachedResourcePath := logicalcluster.NewPath(slice.Spec.CachedResource.Path)
+	if cachedResourcePath.Empty() {
+		cachedResourcePath = logicalcluster.From(slice).Path()
+	}
+
+	cr, err := r.getCachedResource(cachedResourcePath, slice.Spec.CachedResource.Name)
 	if err != nil {
 		return nil, err
 	}

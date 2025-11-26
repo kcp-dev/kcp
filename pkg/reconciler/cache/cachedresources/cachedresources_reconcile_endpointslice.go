@@ -25,6 +25,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/core"
 )
 
 // endpointSlice creates CachedResourceEndopointSlice for the published resource.
@@ -43,6 +44,7 @@ func (r *endpointSlice) reconcile(ctx context.Context, cachedResource *cachev1al
 	}
 
 	clusterName := logicalcluster.From(cachedResource)
+	clusterPath := cachedResource.Annotations[core.LogicalClusterPathAnnotationKey]
 
 	_, err := r.getEndpointSlice(ctx, clusterName, cachedResource.Name)
 	if err != nil {
@@ -62,6 +64,7 @@ func (r *endpointSlice) reconcile(ctx context.Context, cachedResource *cachev1al
 				},
 				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
 					CachedResource: cachev1alpha1.CachedResourceReference{
+						Path: clusterPath,
 						Name: cachedResource.Name,
 					},
 				},

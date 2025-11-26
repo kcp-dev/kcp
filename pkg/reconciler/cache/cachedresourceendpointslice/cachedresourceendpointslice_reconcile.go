@@ -30,7 +30,12 @@ import (
 )
 
 func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) error {
-	_, err := c.getCachedResource(logicalcluster.From(endpoints).Path(), endpoints.Spec.CachedResource.Name)
+	cachedResourcePath := logicalcluster.NewPath(endpoints.Spec.CachedResource.Path)
+	if cachedResourcePath.Empty() {
+		cachedResourcePath = logicalcluster.From(endpoints).Path()
+	}
+
+	_, err := c.getCachedResource(cachedResourcePath, endpoints.Spec.CachedResource.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Don't keep the endpoints if the CachedResource has been deleted.
@@ -41,7 +46,7 @@ func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.Cac
 				cachev1alpha1.CachedResourceNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Error getting CachedResource %s|%s",
-				logicalcluster.From(endpoints),
+				cachedResourcePath,
 				endpoints.Spec.CachedResource.Name,
 			)
 			// No need to try again.
@@ -53,7 +58,7 @@ func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.Cac
 				cachev1alpha1.InternalErrorReason,
 				conditionsv1alpha1.ConditionSeverityError,
 				"Error getting CachedResource %s|%s",
-				logicalcluster.From(endpoints),
+				cachedResourcePath,
 				endpoints.Spec.CachedResource.Name,
 			)
 			return err

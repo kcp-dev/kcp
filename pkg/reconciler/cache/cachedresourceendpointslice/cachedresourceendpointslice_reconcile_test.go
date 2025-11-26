@@ -35,6 +35,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	const workspacePath = "root:org:ws"
 	tests := map[string]struct {
 		keyMissing                bool
 		cachedResourceMissing     bool
@@ -49,29 +50,45 @@ func TestReconcile(t *testing.T) {
 		wantPartitionValid         bool
 		wantCachedResourceNotValid bool
 		wantPartitionNotValid      bool
+
+		sliceMutator               func(slice *cachev1alpha1.CachedResourceEndpointSlice)
+		expectedCachedResourcePath string
 	}{
 		"CachedResourceValid set to false when CachedResource is missing": {
 			cachedResourceMissing:      true,
 			errorReason:                cachev1alpha1.CachedResourceNotFoundReason,
 			wantCachedResourceNotValid: true,
+			expectedCachedResourcePath: workspacePath,
 		},
 		"CachedResourceValid set to false if an internal error happens when fetching the CachedResource": {
 			cachedResourceInternalErr:  true,
 			wantError:                  true,
 			errorReason:                cachev1alpha1.InternalErrorReason,
 			wantCachedResourceNotValid: true,
+			expectedCachedResourcePath: workspacePath,
 		},
 		"PartitionValid set to false when the Partition is missing": {
-			partitionMissing:      true,
-			errorReason:           cachev1alpha1.PartitionInvalidReferenceReason,
-			wantPartitionNotValid: true,
+			partitionMissing:           true,
+			errorReason:                cachev1alpha1.PartitionInvalidReferenceReason,
+			wantPartitionNotValid:      true,
+			expectedCachedResourcePath: workspacePath,
+		},
+		"CachedResource lookup uses referenced path when provided": {
+			sliceMutator: func(slice *cachev1alpha1.CachedResourceEndpointSlice) {
+				slice.Spec.CachedResource.Path = "root:org:external"
+			},
+			expectedCachedResourcePath: "root:org:external",
+			wantCachedResourceValid:    true,
+			wantPartitionValid:         true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			var gotCachedResourcePath string
 			c := &controller{
 				getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
+					gotCachedResourcePath = path.String()
 					if tc.cachedResourceMissing {
 						return nil, apierrors.NewNotFound(cachev1alpha1.Resource("CachedResource"), name)
 					} else if tc.cachedResourceInternalErr {
@@ -113,7 +130,7 @@ func TestReconcile(t *testing.T) {
 			cachedResourceEndpointSlice := &cachev1alpha1.CachedResourceEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:ws",
+						logicalcluster.AnnotationKey: workspacePath,
 					},
 					Name: "my-slice",
 				},
@@ -123,6 +140,9 @@ func TestReconcile(t *testing.T) {
 					},
 					Partition: "my-partition",
 				},
+			}
+			if tc.sliceMutator != nil {
+				tc.sliceMutator(cachedResourceEndpointSlice)
 			}
 			err := c.reconcile(context.Background(), cachedResourceEndpointSlice)
 			if tc.wantError {
@@ -163,6 +183,10 @@ func TestReconcile(t *testing.T) {
 				requireConditionMatches(t, cachedResourceEndpointSlice,
 					conditions.TrueCondition(cachev1alpha1.PartitionValid),
 				)
+			}
+
+			if tc.expectedCachedResourcePath != "" {
+				require.Equal(t, tc.expectedCachedResourcePath, gotCachedResourcePath, "unexpected cached resource lookup path")
 			}
 		})
 	}
