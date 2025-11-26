@@ -407,7 +407,7 @@ title: General Technical Review
             # the kubeconfig generated from this should be kept secure at all times
             - system:kcp:admin
           # the kubeconfig will be valid for 365d but will be automatically refreshed
-          validity: 8766h
+          validity: 8766h # 1 year
           secretRef:
             # the name of the secret that the assembled kubeconfig should be written to
             name: admin-kubeconfig

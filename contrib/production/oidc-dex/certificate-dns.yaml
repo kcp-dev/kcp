@@ -1,0 +1,17 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dex-tls-cert
+  namespace: oidc
+spec:
+  secretName: dex-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
+  dnsNames:
+  - auth.example.com
+  usages:
+  - digital signature
+  - key encipherment

@@ -35,4 +35,8 @@ fi
 MIKE_OPTIONS+=(--ignore-remote-status)
 
 mike set-default "${MIKE_OPTIONS[@]}" --allow-undefined main
-mike serve "${MIKE_OPTIONS[@]}"
+if [[ -n "${DEV_MODE:-}" ]]; then
+  mkdocs serve --dev-addr=127.0.0.1:8000 --livereload
+else
+  mike serve "${MIKE_OPTIONS[@]}"
+fi

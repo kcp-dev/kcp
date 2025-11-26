@@ -1,0 +1,67 @@
+apiVersion: druid.gardener.cloud/v1alpha1
+kind: Etcd
+metadata:
+  name: alpha
+  namespace: kcp-comer
+  labels:
+    app: etcd-statefulset
+    role: alpha
+spec:
+  replicas: 3
+
+  etcd:
+    metrics: basic
+    defragmentationSchedule: "0 */24 * * *"
+    resources:
+      limits: { cpu: 500m, memory: 1Gi }
+      requests: { cpu: 100m, memory: 200Mi }
+    clientPort: 2379
+    serverPort: 2380
+    quota: 8Gi
+
+    # configure the certificates we just created
+
+    clientUrlTls:
+      tlsCASecretRef:     { name: "etcd-ca-tls" }
+      serverTLSSecretRef: { name: "etcd-server-tls" }
+      clientTLSSecretRef: { name: "etcd-client-tls" }
+
+    peerUrlTls:
+      tlsCASecretRef:     { name: "etcd-peer-ca-tls" }
+      serverTLSSecretRef: { name: "etcd-peer-tls" }
+      clientTLSSecretRef: { name: "etcd-peer-tls" }
+
+  backup:
+    port: 8080
+    fullSnapshotSchedule: "0 */24 * * *"
+    resources:
+      limits: { cpu: 200m, memory: 1Gi }
+      requests: { cpu: 23m, memory: 128Mi }
+    garbageCollectionPolicy: Exponential
+    garbageCollectionPeriod: 43200s
+    deltaSnapshotPeriod: 300s
+    deltaSnapshotMemoryLimit: 1Gi
+    compression:
+      enabled: false
+      policy: "gzip"
+    leaderElection:
+      reelectionPeriod: 5s
+      etcdConnectionTimeout: 5s
+
+    # configure the certificates we just created
+
+    tls:
+      tlsCASecretRef:     { name: "etcd-ca-tls" }
+      serverTLSSecretRef: { name: "etcd-backup-restore-server-tls" }
+      clientTLSSecretRef: { name: "etcd-backup-restore-client-tls" }
+
+  sharedConfig:
+    autoCompactionMode: periodic
+    autoCompactionRetention: "30m"
+
+  annotations:
+    app: etcd-statefulset
+    role: alpha
+  labels:
+    app: etcd-statefulset
+    role: alpha

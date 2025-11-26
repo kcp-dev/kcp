@@ -1,11 +1,15 @@
 ---
 description: >
-  Tips and notes for running a production-grade kcp setup.
+  Production-ready deployment guide for kcp with multiple certificate management strategies and deployment patterns.
 ---
 
 # Production Setup
 
-This document collects notes and tips on how to run a production-grade kcp setup.
+This document provides comprehensive guidance for deploying kcp in production environments with enterprise-grade reliability, security, and scalability. If you are looking "hands on" deployment instructions, please refer to the specific deployment variant guides linked below [#deployment-variants](#deployment-variants).
+
+!!! note
+    We are working on extending this documentation further, to include multiple site deployment, where indivudual shards are deployed in the different regions. 
+    This would allow for geo-distributed deployments to mimic real-world usage scenarios.
 
 ## Overview
 
@@ -119,10 +123,63 @@ kcp client software does not by accident make false assumptions about sharding.
 ### High Availability
 
 To improve resilience against node failures, it is strongly recommended to not just spread the
-workload across multiple shards, but also to ensure that shard pods are distributed across nodes or
+kcp workspaces across multiple shards, but also to ensure that shard pods are distributed across nodes or
 availability zones. The same advice for etcd applies to kcp as well: Use anti-affinities to ensure
 pods are scheduled properly.
 
 ### Backups
 
 All kcp data is stored in etcd, there is no need to perform a dedicated kcp backup.
+
+---
+
+## Production Deployment Options
+
+For specific deployment instructions, kcp production deployments require careful consideration of:
+
+- **Certificate Management**: Self-signed, Let's Encrypt, or enterprise CA integration
+- **High Availability**: Multi-shard deployment with proper load distribution  
+- **Network Architecture**: Front-proxy configuration and shard accessibility patterns
+- **Security**: TLS encryption, RBAC, and authentication integration
+- **Observability**: Monitoring, logging, and alerting
+
+## Deployment Variants
+
+We provide three reference deployment patterns:
+
+### [kcp-dekker](kcp-dekker.md) - Self-Signed Certificates
+- **Best for**: Development, testing, or closed internal environments
+- **Certificate approach**: All certificates are self-signed using an internal CA
+- **Access pattern**: Only front-proxy is publicly accessible, shards are private
+- **Network**: Simple single-cluster deployment
+
+### [kcp-vespucci](kcp-vespucci.md) - External Certificates  
+- **Best for**: Production environments requiring trusted certificates
+- **Certificate approach**: Let's Encrypt for front-proxy, self-signed certificates for shards
+- **Access pattern**: Both front-proxy and shards are publicly accessible
+- **Network**: Multi-zone deployment with external certificate validation
+
+### [kcp-comer](kcp-comer.md) - Dual Front-Proxy
+- **Best for**: Enterprise environments with CDN and edge requirements
+- **Certificate approach**: CDN integration with edge re-encryption
+- **Access pattern**: Dual front-proxy with CloudFlare integration
+- **Network**: Complex multi-layer architecture with edge termination
+
+## Getting Started
+
+1. **[Prerequisites](prerequisites.md)**: Install shared components (etcd-druid, cert-manager, kcp-operator, OIDC)
+2. **[Architecture Overview](overview.md)**: Understand kcp component communication patterns  
+3. **Choose Deployment**: Select the appropriate variant for your environment
+
+## Support Matrix
+
+| Feature | kcp-dekker | kcp-vespucci | kcp-comer |
+|---------|------------|--------------|-----------|
+| Self-signed certs | ✓ | - | ✓ |
+| Let's Encrypt | - | ✓ | ✓ |
+| Public shard access | - | ✓ | ✓ |
+| CDN integration | - | - | ✓ |
+| Multi-region | ✓ | ✓ | ✓ |
+| OIDC authentication | ✓ | ✓ | ✓ |
+
+Choose the deployment that best matches your security, compliance, and operational requirements.

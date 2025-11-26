@@ -1,0 +1,37 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: alpha
+  namespace: kcp-vespucci
+spec:
+  auth:
+    serviceAccount:
+      enabled: true
+    oidc:
+      issuerURL: https://auth.example.com
+      clientID: platform-mesh
+      groupsClaim: groups
+      usernameClaim: email
+      usernamePrefix: "oidc:"
+      groupsPrefix: "oidc:"
+      clientSecret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+  caBundleSecretRef:
+      name: letsencrypt-ca
+  etcd:
+    endpoints:
+      - https://alpha-client.kcp-vespucci.svc.cluster.local:2379
+    tlsConfig:
+      secretRef:
+        name: etcd-ca-tls
+  shardBaseURL: https://alpha.vespucci.example.com:6443
+  certificateTemplates:
+    server:
+      spec:
+        dnsNames:
+        - alpha.vespucci.example.com
+  rootShard:
+    ref:
+      name: root
+  serviceTemplate:
+    spec:
+      type: LoadBalancer

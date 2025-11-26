@@ -1,0 +1,48 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: RootShard
+metadata:
+  name: root
+  namespace: kcp-vespucci
+spec:
+  auth:
+    serviceAccount:
+      enabled: true
+    oidc:
+      issuerURL: https://auth.example.com
+      clientID: platform-mesh
+      groupsClaim: groups
+      usernameClaim: email
+      usernamePrefix: "oidc:"
+      groupsPrefix: "oidc:"
+      clientSecret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+  caBundleSecretRef:
+      name: letsencrypt-ca
+  external:
+    hostname: api.vespucci.example.com
+    port: 6443
+  certificates:
+    # this references the issuer created above
+    issuerRef:
+      group: cert-manager.io
+      kind: Issuer
+      name: kcp-ca
+  cache:
+    embedded:
+      # kcp comes with a cache server accessible to all shards,
+      # in this case it is fine to enable the embedded instance
+      enabled: true
+  shardBaseURL: https://root.vespucci.example.com:6443
+  certificateTemplates:
+    server:
+      spec:
+        dnsNames:
+        - root.vespucci.example.com
+  etcd:
+    endpoints:
+      - https://root-client.kcp-vespucci.svc.cluster.local:2379
+    tlsConfig:
+      secretRef:
+        name: etcd-ca-tls
+  serviceTemplate:
+    spec:
+      type: LoadBalancer
