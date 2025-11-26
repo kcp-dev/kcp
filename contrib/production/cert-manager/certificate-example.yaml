@@ -10,7 +10,7 @@ spec:
   
   # Reference to the ClusterIssuer
   issuerRef:
-    name: kcp-comerletsencrypt-prod
+    name: letsencrypt-prod
     kind: ClusterIssuer
   
   # Domains for the certificate

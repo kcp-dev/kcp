@@ -156,4 +156,7 @@ kubectl config set-credentials oidc \
   --exec-arg=--oidc-client-secret=Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
 
 kubectl config set-context --current --user=oidc
+
+# And this should redirect to OIDC login flow but fails to list with lack of permissions.
+KUBECONFIG=kcp-admin-kubeconfig-dekker.yaml kubectl get shards --user oidc
 ```

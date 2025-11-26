@@ -132,7 +132,8 @@ choco install kubelogin
 # For other platforms, see: https://github.com/int128/kubelogin
 ```
 
-**Solution**: Use OIDC authentication for external access.
+So to authenticate with the kcp-comer deployment for outside access, you must use OIDC authentication.
+
 
 ### 6. Create Admin Access and Test
 

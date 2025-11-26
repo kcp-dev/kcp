@@ -7,7 +7,7 @@ metadata:
 spec:
   secretName: dex-tls
   issuerRef:
-    name: kcp-comerletsencrypt-prod
+    name: letsencrypt-prod
     kind: ClusterIssuer
     group: cert-manager.io
   dnsNames:

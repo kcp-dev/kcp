@@ -155,7 +155,7 @@ We provide three reference deployment patterns:
 
 ### [kcp-vespucci](kcp-vespucci.md) - External Certificates  
 - **Best for**: Production environments requiring trusted certificates
-- **Certificate approach**: Let's Encrypt for front-proxy with public shard access
+- **Certificate approach**: Let's Encrypt for front-proxy, self-signed certificates for shards
 - **Access pattern**: Both front-proxy and shards are publicly accessible
 - **Network**: Multi-zone deployment with external certificate validation
 
