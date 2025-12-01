@@ -34,7 +34,17 @@ fi
 # for local docs testing, we don't care what the remote branch looks like.
 MIKE_OPTIONS+=(--ignore-remote-status)
 
-mike set-default "${MIKE_OPTIONS[@]}" --allow-undefined main
+MIKE_OUTPUT=$(mike list "${MIKE_OPTIONS[@]}" 2>&1)
+
+VERSIONS=$(echo "$MIKE_OUTPUT" | grep -oE '^v[0-9]+\.[0-9]+' 2>/dev/null || true)
+
+if [[ -n "$VERSIONS" ]]; then
+  DEFAULT_VERSION=$(echo "$VERSIONS" | sort -V | tail -1 2>/dev/null || echo "main")
+else
+  DEFAULT_VERSION="main"
+fi
+
+mike set-default "${MIKE_OPTIONS[@]}" --allow-undefined "${DEFAULT_VERSION}"
 if [[ -n "${DEV_MODE:-}" ]]; then
   mkdocs serve --dev-addr=127.0.0.1:8000 --livereload
 else
