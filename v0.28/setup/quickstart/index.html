@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Get started with kcp by running it locally and understanding its role as a platform-building framework.
+        <meta name="description" content="Get started with kcp by running it locally.
 ">
       
       
@@ -598,15 +598,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-is-kcp" class="md-nav__link">
-    <span class="md-ellipsis">
-      What is kcp?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       Prerequisites
@@ -646,15 +637,6 @@
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Next steps
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#building-your-platform" class="md-nav__link">
-    <span class="md-ellipsis">
-      Building your platform
     </span>
   </a>
   
@@ -3350,15 +3332,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-is-kcp" class="md-nav__link">
-    <span class="md-ellipsis">
-      What is kcp?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       Prerequisites
@@ -3403,15 +3376,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#building-your-platform" class="md-nav__link">
-    <span class="md-ellipsis">
-      Building your platform
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -3431,9 +3395,6 @@
 
 
 <h1 id="quickstart">Quickstart</h1>
-<h2 id="what-is-kcp">What is kcp?</h2>
-<p>kcp is not a platform you can simply pick up and use immediately. Instead, it's a framework for building platforms. As Kelsey Hightower noted in 2017, Kubernetes itself is not a platform but rather a better way to start building one. kcp extends this philosophy further by providing a foundation for creating multi-tenant, workspace-based platforms.</p>
-<p>Think of kcp as the infrastructure layer that provides core abstractions and services for building cloud-native application platforms. This quickstart will help you run kcp locally and explore its foundational capabilities, but building a complete platform on top of kcp requires additional design, development, and configuration tailored to your specific needs.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <ul>
 <li><a href="https://kubernetes.io/docs/tasks/tools/#kubectl">kubectl</a></li>
@@ -3444,7 +3405,7 @@ and <code>kubectl-kcp-plugin</code> that match your operating system and archite
 <p>Extract <code>kcp</code> and <code>kubectl-kcp-plugin</code> and place all the files in the <code>bin</code> directories somewhere in your <code>$PATH</code>.</p>
 <h2 id="start-kcp">Start kcp</h2>
 <p>You can start kcp using this command:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start<span class="w"> </span>--bind-address<span class="o">=</span><span class="m">127</span>.0.0.1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp<span class="w"> </span>start
 </code></pre></div>
 <p>This launches kcp in the foreground. You can press <code>ctrl-c</code> to stop it.</p>
 <p>To see a complete list of server options, run <code>kcp start options</code>.</p>
@@ -3458,14 +3419,9 @@ version to confirm it's working:</p>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>Server<span class="w"> </span>Version:<span class="w"> </span>v1.32.3+kcp-v0.28.0
 </code></pre></div>
 <h2 id="next-steps">Next steps</h2>
-<p>Congratulations on successfully running kcp! You've now experienced the basic mechanics of starting and connecting to kcp. However, remember that what you've run is the foundational layer for building platforms, not an end-user platform itself.</p>
-<p>To understand how to build meaningful platforms with kcp, here are your next steps:</p>
-<ul>
-<li><a href="https://docs.kcp.io/contrib/learning/20250401-kubecon-london/workshop/">kcp Workshop</a> - a hands-on workshop that guides you through kcp's core concepts and features, including workspaces, syncers, and creating a provider-consumer architecture. We recommend using <code>github workspaces</code> for the best experience and following along with the exercises.</li>
-<li><a href="https://docs.kcp.io/api-syncagent/main/getting-started/">api-syncagent quick start</a> - learn how to use the api-syncagent to sync APIs from a kcp workspace to a downstream Kubernetes cluster. This is more advanced than workshop content and assumes familiarity with kcp concepts.</li>
-</ul>
-<h2 id="building-your-platform">Building your platform</h2>
-<p>Remember, kcp provides the building blocks, but you'll need to design and implement the higher-level abstractions that make sense for your users and use cases. To understand how to leverage kcp's capabilities effectively, explore our additional documentation:</p>
+<p>Thanks for checking out our quickstart!</p>
+<p>If you're interested in learning more about all the features kcp has to offer, please check out our additional
+documentation:</p>
 <ul>
 <li><a href="../../concepts/">Concepts</a> - a high level overview of kcp concepts</li>
 <li><a href="../../concepts/workspaces/">Workspaces</a> - a more thorough introduction on kcp's workspaces</li>
