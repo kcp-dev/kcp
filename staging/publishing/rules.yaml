@@ -7,7 +7,7 @@ rules:
       dirs:
       - staging/src/github.com/kcp-dev/apimachinery
   - name: release-0.29
-    go: 1.24.9
+    go: 1.24.11
     source:
       branch: release-0.29
       dirs:
@@ -22,7 +22,7 @@ rules:
       dirs:
       - staging/src/github.com/kcp-dev/code-generator
   - name: release-0.29
-    go: 1.24.9
+    go: 1.24.11
     source:
       branch: release-0.29
       dirs:
@@ -42,7 +42,7 @@ rules:
       dirs:
       - staging/src/github.com/kcp-dev/client-go
   - name: release-0.29
-    go: 1.24.9
+    go: 1.24.11
     dependencies:
     - repository: apimachinery
       branch: release-0.29
@@ -69,7 +69,7 @@ rules:
       dirs:
       - staging/src/github.com/kcp-dev/sdk
   - name: release-0.29
-    go: 1.24.9
+    go: 1.24.11
     dependencies:
     - repository: apimachinery
       branch: release-0.29
@@ -100,7 +100,7 @@ rules:
       dirs:
       - staging/src/github.com/kcp-dev/cli
   - name: release-0.29
-    go: 1.24.9
+    go: 1.24.11
     dependencies:
     - repository: apimachinery
       branch: release-0.29
@@ -118,6 +118,6 @@ rules:
   library: true
 recursive-delete-patterns:
   - '*/.gitattributes'
-default-go-version: 1.24.9
+default-go-version: 1.24.11
 skip-tags: false
 skip-non-semver-tags: true
