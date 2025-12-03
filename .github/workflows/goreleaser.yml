@@ -46,7 +46,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # tag=v6.1.0
         with:
-          go-version: v1.24.9
+          go-version: v1.24.11
 
       - name: Delete non-semver tags
         run: 'git tag -d $(git tag -l | grep -v "^v")'
