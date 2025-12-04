@@ -33,6 +33,7 @@ import (
 type CertificatesV1alpha1ClusterInterface interface {
 	CertificatesV1alpha1ClusterScoper
 	ClusterTrustBundlesClusterGetter
+	PodCertificateRequestsClusterGetter
 }
 
 type CertificatesV1alpha1ClusterScoper interface {
@@ -53,6 +54,10 @@ func (c *CertificatesV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.P
 
 func (c *CertificatesV1alpha1ClusterClient) ClusterTrustBundles() ClusterTrustBundleClusterInterface {
 	return &clusterTrustBundlesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *CertificatesV1alpha1ClusterClient) PodCertificateRequests() PodCertificateRequestClusterInterface {
+	return &podCertificateRequestsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new CertificatesV1alpha1ClusterClient for the given config.

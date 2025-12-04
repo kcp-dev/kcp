@@ -23,16 +23,8 @@ import (
 )
 
 type ClusterInterface interface {
-	// DeviceClasses returns a DeviceClassClusterInformer.
-	DeviceClasses() DeviceClassClusterInformer
 	// DeviceTaintRules returns a DeviceTaintRuleClusterInformer.
 	DeviceTaintRules() DeviceTaintRuleClusterInformer
-	// ResourceClaims returns a ResourceClaimClusterInformer.
-	ResourceClaims() ResourceClaimClusterInformer
-	// ResourceClaimTemplates returns a ResourceClaimTemplateClusterInformer.
-	ResourceClaimTemplates() ResourceClaimTemplateClusterInformer
-	// ResourceSlices returns a ResourceSliceClusterInformer.
-	ResourceSlices() ResourceSliceClusterInformer
 }
 
 type version struct {
@@ -45,27 +37,7 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// DeviceClasses returns a DeviceClassClusterInformer.
-func (v *version) DeviceClasses() DeviceClassClusterInformer {
-	return &deviceClassClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // DeviceTaintRules returns a DeviceTaintRuleClusterInformer.
 func (v *version) DeviceTaintRules() DeviceTaintRuleClusterInformer {
 	return &deviceTaintRuleClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ResourceClaims returns a ResourceClaimClusterInformer.
-func (v *version) ResourceClaims() ResourceClaimClusterInformer {
-	return &resourceClaimClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ResourceClaimTemplates returns a ResourceClaimTemplateClusterInformer.
-func (v *version) ResourceClaimTemplates() ResourceClaimTemplateClusterInformer {
-	return &resourceClaimTemplateClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ResourceSlices returns a ResourceSliceClusterInformer.
-func (v *version) ResourceSlices() ResourceSliceClusterInformer {
-	return &resourceSliceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

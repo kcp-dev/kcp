@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1beta1
 
+type MutatingAdmissionPolicyClusterExpansion interface{}
+
+type MutatingAdmissionPolicyBindingClusterExpansion interface{}
+
 type MutatingWebhookConfigurationClusterExpansion interface{}
 
 type ValidatingAdmissionPolicyClusterExpansion interface{}

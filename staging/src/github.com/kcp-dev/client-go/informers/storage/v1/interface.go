@@ -33,6 +33,8 @@ type ClusterInterface interface {
 	StorageClasses() StorageClassClusterInformer
 	// VolumeAttachments returns a VolumeAttachmentClusterInformer.
 	VolumeAttachments() VolumeAttachmentClusterInformer
+	// VolumeAttributesClasses returns a VolumeAttributesClassClusterInformer.
+	VolumeAttributesClasses() VolumeAttributesClassClusterInformer
 }
 
 type version struct {
@@ -68,4 +70,9 @@ func (v *version) StorageClasses() StorageClassClusterInformer {
 // VolumeAttachments returns a VolumeAttachmentClusterInformer.
 func (v *version) VolumeAttachments() VolumeAttachmentClusterInformer {
 	return &volumeAttachmentClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// VolumeAttributesClasses returns a VolumeAttributesClassClusterInformer.
+func (v *version) VolumeAttributesClasses() VolumeAttributesClassClusterInformer {
+	return &volumeAttributesClassClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

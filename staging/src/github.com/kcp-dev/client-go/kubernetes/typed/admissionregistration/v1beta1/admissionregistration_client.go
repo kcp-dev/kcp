@@ -32,6 +32,8 @@ import (
 
 type AdmissionregistrationV1beta1ClusterInterface interface {
 	AdmissionregistrationV1beta1ClusterScoper
+	MutatingAdmissionPoliciesClusterGetter
+	MutatingAdmissionPolicyBindingsClusterGetter
 	MutatingWebhookConfigurationsClusterGetter
 	ValidatingAdmissionPoliciesClusterGetter
 	ValidatingAdmissionPolicyBindingsClusterGetter
@@ -52,6 +54,14 @@ func (c *AdmissionregistrationV1beta1ClusterClient) Cluster(clusterPath logicalc
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+func (c *AdmissionregistrationV1beta1ClusterClient) MutatingAdmissionPolicies() MutatingAdmissionPolicyClusterInterface {
+	return &mutatingAdmissionPoliciesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *AdmissionregistrationV1beta1ClusterClient) MutatingAdmissionPolicyBindings() MutatingAdmissionPolicyBindingClusterInterface {
+	return &mutatingAdmissionPolicyBindingsClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *AdmissionregistrationV1beta1ClusterClient) MutatingWebhookConfigurations() MutatingWebhookConfigurationClusterInterface {

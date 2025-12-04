@@ -41,6 +41,7 @@ func WithoutVerbType(name, namespace string) *WithoutVerbTypeApplyConfiguration 
 	b.WithAPIVersion("example.dev/v1")
 	return b
 }
+func (b WithoutVerbTypeApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
@@ -200,8 +201,24 @@ func (b *WithoutVerbTypeApplyConfiguration) ensureObjectMetaApplyConfigurationEx
 	}
 }
 
+// GetKind retrieves the value of the Kind field in the declarative configuration.
+func (b *WithoutVerbTypeApplyConfiguration) GetKind() *string {
+	return b.TypeMetaApplyConfiguration.Kind
+}
+
+// GetAPIVersion retrieves the value of the APIVersion field in the declarative configuration.
+func (b *WithoutVerbTypeApplyConfiguration) GetAPIVersion() *string {
+	return b.TypeMetaApplyConfiguration.APIVersion
+}
+
 // GetName retrieves the value of the Name field in the declarative configuration.
 func (b *WithoutVerbTypeApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Name
+}
+
+// GetNamespace retrieves the value of the Namespace field in the declarative configuration.
+func (b *WithoutVerbTypeApplyConfiguration) GetNamespace() *string {
+	b.ensureObjectMetaApplyConfigurationExists()
+	return b.ObjectMetaApplyConfiguration.Namespace
 }

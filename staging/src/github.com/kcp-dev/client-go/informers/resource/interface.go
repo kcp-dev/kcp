@@ -20,6 +20,7 @@ package resource
 
 import (
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
+	kcpv1 "github.com/kcp-dev/client-go/informers/resource/v1"
 	kcpv1alpha3 "github.com/kcp-dev/client-go/informers/resource/v1alpha3"
 	kcpv1beta1 "github.com/kcp-dev/client-go/informers/resource/v1beta1"
 	kcpv1beta2 "github.com/kcp-dev/client-go/informers/resource/v1beta2"
@@ -27,6 +28,8 @@ import (
 
 // ClusterInterface provides access to each of this group's versions.
 type ClusterInterface interface {
+	// V1 provides access to shared informers for resources in V1.
+	V1() kcpv1.ClusterInterface
 	// V1alpha3 provides access to shared informers for resources in V1alpha3.
 	V1alpha3() kcpv1alpha3.ClusterInterface
 	// V1beta1 provides access to shared informers for resources in V1beta1.
@@ -43,6 +46,11 @@ type group struct {
 // New returns a new ClusterInterface.
 func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) ClusterInterface {
 	return &group{factory: f, tweakListOptions: tweakListOptions}
+}
+
+// V1 returns a new kcpv1.ClusterInterface.
+func (g *group) V1() kcpv1.ClusterInterface {
+	return kcpv1.New(g.factory, g.tweakListOptions)
 }
 
 // V1alpha3 returns a new kcpv1alpha3.ClusterInterface.

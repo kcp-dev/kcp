@@ -1,5 +1,6 @@
 /*
 Copyright 2017 The Kubernetes Authors.
+Modifications Copyright YEAR The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,15 +20,11 @@ package v1beta1
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
-
-// PodDisruptionBudgetClusterListerExpansion allows custom methods to be added to
-// PodDisruptionBudgetClusterLister.
-type PodDisruptionBudgetClusterListerExpansion interface{}
 
 // PodDisruptionBudgetListerExpansion allows custom methods to be added to
 // PodDisruptionBudgetLister.
