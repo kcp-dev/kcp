@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cliflag "k8s.io/component-base/cli/flag"
@@ -133,6 +134,7 @@ func NewOptions(rootDir string) *Options {
 	// turn on the watch cache
 	o.GenericControlPlane.Etcd.EnableWatchCache = true
 
+	o.GenericControlPlane.SystemNamespaces = append(o.GenericControlPlane.SystemNamespaces, metav1.NamespaceSystem)
 	return o
 }
 
