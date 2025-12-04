@@ -68,7 +68,7 @@ var DefaultFeatureGate = utilfeature.DefaultFeatureGate
 func init() {
 	utilruntime.Must(utilfeature.DefaultMutableFeatureGate.AddVersioned(defaultVersionedGenericControlPlaneFeatureGates))
 
-	disableFeatures()
+	utilruntime.Must(disableFeatures())
 }
 
 func KnownFeatures() []string {
@@ -163,13 +163,17 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 }
 
 // disableFeatures sets features that kcp wants disabled/enabled by default.
-func disableFeatures() {
+func disableFeatures() error {
 	toDisable := map[featuregate.Feature]bool{
 		// We disable SizeBasedListCostEstimate by default in kcp as stats collector does not have cluster awarness yet.
 		// We add this here to track changes in future k8s releases.
 		genericfeatures.SizeBasedListCostEstimate: false,
 	}
 	for f, v := range toDisable {
-		utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=%v", f, v))
+		err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=%v", f, v))
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
