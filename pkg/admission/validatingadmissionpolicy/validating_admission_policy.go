@@ -18,10 +18,13 @@ package validatingadmissionpolicy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
@@ -33,12 +36,15 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
@@ -59,7 +65,7 @@ func Register(plugins *admission.Plugins) {
 func NewKubeValidatingAdmissionPolicy() *KubeValidatingAdmissionPolicy {
 	return &KubeValidatingAdmissionPolicy{
 		Handler:   admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
-		delegates: make(map[logicalcluster.Name]*stoppableValidatingAdmissionPolicy),
+		delegates: make(map[string]*stoppableValidatingAdmissionPolicy),
 	}
 }
 
@@ -75,8 +81,10 @@ type KubeValidatingAdmissionPolicy struct {
 	serverDone                      <-chan struct{}
 	authorizer                      authorizer.Authorizer
 
+	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+
 	lock      sync.RWMutex
-	delegates map[logicalcluster.Name]*stoppableValidatingAdmissionPolicy
+	delegates map[string]*stoppableValidatingAdmissionPolicy
 
 	logicalClusterDeletionMonitorStarter sync.Once
 }
@@ -84,6 +92,7 @@ type KubeValidatingAdmissionPolicy struct {
 var _ admission.ValidationInterface = &KubeValidatingAdmissionPolicy{}
 var _ = initializers.WantsKubeClusterClient(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsKubeInformers(&KubeValidatingAdmissionPolicy{})
+var _ = initializers.WantsKcpInformers(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeValidatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeValidatingAdmissionPolicy{})
@@ -95,6 +104,33 @@ func (k *KubeValidatingAdmissionPolicy) SetKubeClusterClient(kubeClusterClient k
 
 func (k *KubeValidatingAdmissionPolicy) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
 	k.logicalClusterInformer = local.Core().V1alpha1().LogicalClusters()
+	k.getAPIBindings = func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+		return local.Apis().V1alpha2().APIBindings().Lister().Cluster(clusterName).List(labels.Everything())
+	}
+
+	_, _ = local.Core().V1alpha1().LogicalClusters().Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: func(obj interface{}) {
+				cl, ok := obj.(*corev1alpha1.LogicalCluster)
+				if !ok {
+					return
+				}
+
+				clName := logicalcluster.Name(cl.Annotations[logicalcluster.AnnotationKey])
+
+				k.lock.Lock()
+				defer k.lock.Unlock()
+
+				prefix := clName.String() + ":"
+				for key, delegate := range k.delegates {
+					if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+						delete(k.delegates, key)
+						delegate.stop()
+					}
+				}
+			},
+		},
+	)
 }
 
 func (k *KubeValidatingAdmissionPolicy) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
@@ -129,7 +165,12 @@ func (k *KubeValidatingAdmissionPolicy) Validate(ctx context.Context, a admissio
 		return err
 	}
 
-	delegate, err := k.getOrCreateDelegate(cluster.Name)
+	sourceCluster, err := k.getSourceClusterForGroupResource(cluster.Name, a.GetResource().GroupResource())
+	if err != nil {
+		return err
+	}
+
+	delegate, err := k.getOrCreateDelegate(cluster.Name, sourceCluster)
 	if err != nil {
 		return err
 	}
@@ -137,10 +178,29 @@ func (k *KubeValidatingAdmissionPolicy) Validate(ctx context.Context, a admissio
 	return delegate.Validate(ctx, a, o)
 }
 
+func (k *KubeValidatingAdmissionPolicy) getSourceClusterForGroupResource(clusterName logicalcluster.Name, groupResource schema.GroupResource) (logicalcluster.Name, error) {
+	objs, err := k.getAPIBindings(clusterName)
+	if err != nil {
+		return "", err
+	}
+
+	for _, apiBinding := range objs {
+		for _, br := range apiBinding.Status.BoundResources {
+			if br.Group == groupResource.Group && br.Resource == groupResource.Resource {
+				return logicalcluster.Name(apiBinding.Status.APIExportClusterName), nil
+			}
+		}
+	}
+
+	return clusterName, nil
+}
+
 // getOrCreateDelegate creates an actual plugin for clusterName.
-func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalcluster.Name) (*stoppableValidatingAdmissionPolicy, error) {
+func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalcluster.Name, sourceCluster logicalcluster.Name) (*stoppableValidatingAdmissionPolicy, error) {
+	delegateKey := fmt.Sprintf("%s:%s", clusterName.String(), sourceCluster.String())
+
 	k.lock.RLock()
-	delegate := k.delegates[clusterName]
+	delegate := k.delegates[delegateKey]
 	k.lock.RUnlock()
 
 	if delegate != nil {
@@ -150,7 +210,7 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
-	delegate = k.delegates[clusterName]
+	delegate = k.delegates[delegateKey]
 	if delegate != nil {
 		return delegate, nil
 	}
@@ -185,17 +245,17 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 	plugin.SetDrainedNotification(ctx.Done())
 	plugin.SetAuthorizer(k.authorizer)
 	plugin.SetClusterName(clusterName)
-	plugin.SetSourceFactory(func(_ informers.SharedInformerFactory, client kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, clusterName logicalcluster.Name) generic.Source[validating.PolicyHook] {
+	plugin.SetSourceFactory(func(_ informers.SharedInformerFactory, client kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, _ logicalcluster.Name) generic.Source[validating.PolicyHook] {
 		return generic.NewPolicySource(
-			k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer().Cluster(clusterName),
-			k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer().Cluster(clusterName),
+			k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies().Informer().Cluster(sourceCluster),
+			k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer().Cluster(sourceCluster),
 			validating.NewValidatingAdmissionPolicyAccessor,
 			validating.NewValidatingAdmissionPolicyBindingAccessor,
 			validating.CompilePolicy,
 			nil,
 			dynamicClient,
 			restMapper,
-			clusterName,
+			sourceCluster,
 		)
 	})
 
@@ -204,7 +264,7 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(clusterName logicalc
 		return nil, err
 	}
 
-	k.delegates[clusterName] = delegate
+	k.delegates[delegateKey] = delegate
 
 	return delegate, nil
 }
@@ -213,19 +273,24 @@ func (k *KubeValidatingAdmissionPolicy) logicalClusterDeleted(clusterName logica
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
-	delegate := k.delegates[clusterName]
-
 	logger := klog.Background().WithValues("clusterName", clusterName)
 
-	if delegate == nil {
+	prefix := clusterName.String() + ":"
+	found := false
+	for key, delegate := range k.delegates {
+		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+			delete(k.delegates, key)
+			delegate.stop()
+			found = true
+		}
+	}
+
+	if !found {
 		logger.V(3).Info("received event to stop validating admission policy for logical cluster, but it wasn't in the map")
 		return
 	}
 
 	logger.V(2).Info("stopping validating admission policy for logical cluster")
-
-	delete(k.delegates, clusterName)
-	delegate.stop()
 }
 
 type stoppableValidatingAdmissionPolicy struct {
