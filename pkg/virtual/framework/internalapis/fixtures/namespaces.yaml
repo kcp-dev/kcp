@@ -1,5 +1,4 @@
 metadata:
-  creationTimestamp: null
   name: internal.namespaces.core
 spec:
   group: ""
