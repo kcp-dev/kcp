@@ -1,7 +1,6 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: v251120-d8e87a979.cachedresourceendpointslices.cache.kcp.io
 spec:
   group: cache.kcp.io

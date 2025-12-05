@@ -1,7 +1,7 @@
 # Rebasing Kubernetes
 
 This describes the process of rebasing kcp onto a new Kubernetes version. For the examples below, we'll be rebasing
-onto v1.33.3
+onto v1.34.2
 
 1. Create a new branch for the update, such as `1.34.2-prep` in main monorepo
 

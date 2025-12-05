@@ -1,7 +1,6 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: v250827-717cfea84.workspaceauthenticationconfigurations.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
