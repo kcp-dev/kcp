@@ -17,7 +17,6 @@ limitations under the License.
 package initializingworkspaces
 
 import (
-	"context"
 	"encoding/json"
 	"math/rand"
 	"sort"
@@ -102,8 +101,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	sourceConfig := source.BaseConfig(t)
 

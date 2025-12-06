@@ -372,8 +372,7 @@ func TestCacheServerAllScenarios(t *testing.T) {
 
 	_, dataDir, err := kcptestingserver.ScratchDirs(t)
 	require.NoError(t, err)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	cacheKubeconfigPath := cache2e.StartStandaloneCacheServer(ctx, t, dataDir)
 	cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)

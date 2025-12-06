@@ -17,7 +17,6 @@ limitations under the License.
 package authorizer
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -42,8 +41,7 @@ func TestImpersonation(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancelFn := context.WithCancel(context.Background())
-	t.Cleanup(cancelFn)
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -90,8 +88,7 @@ func TestImpersonateScoping(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancelFn := context.WithCancel(context.Background())
-	t.Cleanup(cancelFn)
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
