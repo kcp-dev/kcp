@@ -244,7 +244,23 @@ type VirtualWorkspace struct {
 	// +kubebuilder:format:URL
 	// +required
 	URL string `json:"url"`
+
+	// type indicates the type of virtual workspace this URL represents.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=initializing;terminating
+	Type VirtualWorkspaceType `json:"type,omitempty"`
 }
+
+// VirtualWorkspaceType indicates the type of virtual workspace.
+type VirtualWorkspaceType string
+
+const (
+	// VirtualWorkspaceTypeInitializing indicates this is an initializing workspace URL.
+	VirtualWorkspaceTypeInitializing VirtualWorkspaceType = "initializing"
+	// VirtualWorkspaceTypeTerminating indicates this is a terminating workspace URL.
+	VirtualWorkspaceTypeTerminating VirtualWorkspaceType = "terminating"
+)
 
 func (in *WorkspaceType) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions

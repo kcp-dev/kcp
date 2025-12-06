@@ -4499,6 +4499,13 @@ func schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type indicates the type of virtual workspace this URL represents.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"url"},
 			},
