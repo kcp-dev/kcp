@@ -159,11 +159,14 @@ var (
 		"show-hidden-metrics-for-version", // The previous version for which you want to show hidden metrics. Only the previous minor version is meaningful, other values will not be allowed. The format is <major>.<minor>, e.g.: '1.16'. The purpose of this format is make sure you have the opportunity to notice if the next release hides additional metrics, rather than being surprised when they are permanently removed in the release after that.
 
 		// misc flags
-		"enable-logs-handler",          // If true, install a /logs handler for the apiserver logs.
-		"event-ttl",                    // Amount of time to retain events.
-		"max-connection-bytes-per-sec", // If non-zero, throttle each user connection to this number of bytes/sec. Currently only applies to long-running requests.
-		"proxy-client-cert-file",       // Client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins. It is expected that this cert includes a signature from the CA in the --requestheader-client-ca-file flag. That CA is published in the 'extension-apiserver-authentication' configmap in the kube-system namespace. Components receiving calls from kube-aggregator should use that CA to perform their half of the mutual TLS verification.
-		"proxy-client-key-file",        // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
+		"enable-logs-handler",                   // If true, install a /logs handler for the apiserver logs.
+		"event-ttl",                             // Amount of time to retain events.
+		"max-connection-bytes-per-sec",          // If non-zero, throttle each user connection to this number of bytes/sec. Currently only applies to long-running requests.
+		"proxy-client-cert-file",                // Client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins. It is expected that this cert includes a signature from the CA in the --requestheader-client-ca-file flag. That CA is published in the 'extension-apiserver-authentication' configmap in the kube-system namespace. Components receiving calls from kube-aggregator should use that CA to perform their half of the mutual TLS verification.
+		"proxy-client-key-file",                 // Private key for the client certificate used to prove the identity of the aggregator or kube-apiserver when it must call out during a request. This includes proxying requests to a user api-server and calling out to webhook admission plugins.
+		"coordinated-leadership-lease-duration", // The duration of the lease used for Coordinated Leader Election.
+		"coordinated-leadership-renew-deadline", // The deadline for renewing a coordinated leader election lease.
+		"coordinated-leadership-retry-period",   // The period for retrying to renew a coordinated leader election lease.
 	)
 
 	disallowedFlags = sets.New[string](
@@ -182,10 +185,12 @@ var (
 		"enable-garbage-collector",  // Enables the generic garbage collector. MUST be synced with the corresponding flag of the kube-controller-manager.
 
 		// admission flags
-		"admission-control-config-file", // File with admission control configuration.
-		"disable-admission-plugins",     // admission plugins that should be disabled although they are in the default enabled plugins list (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
-		"enable-admission-plugins",      // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
-		"admission-control",             // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
+		"default-not-ready-toleration-seconds",   // Indicates the tolerationSeconds of the toleration for notReady:NoExecute that is added by default to every pod that does not already have such a toleration.
+		"default-unreachable-toleration-seconds", // Indicates the tolerationSeconds of the toleration for unreachable:NoExecute that is added by default to every pod that does not already have such a toleration.
+		"admission-control-config-file",          // File with admission control configuration.
+		"disable-admission-plugins",              // admission plugins that should be disabled although they are in the default enabled plugins list (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
+		"enable-admission-plugins",               // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
+		"admission-control",                      // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
 
 		// egress selector flags
 		"egress-selector-config-file", // File with apiserver egress selector configuration.

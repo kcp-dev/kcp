@@ -60,6 +60,10 @@ func (c *StorageV1ClusterClient) VolumeAttachments() kcpstoragev1.VolumeAttachme
 	return newFakeVolumeAttachmentClusterClient(c)
 }
 
+func (c *StorageV1ClusterClient) VolumeAttributesClasses() kcpstoragev1.VolumeAttributesClassClusterInterface {
+	return newFakeVolumeAttributesClassClusterClient(c)
+}
+
 type StorageV1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -83,6 +87,10 @@ func (c *StorageV1Client) StorageClasses() storagev1.StorageClassInterface {
 
 func (c *StorageV1Client) VolumeAttachments() storagev1.VolumeAttachmentInterface {
 	return newFakeVolumeAttachmentClient(c.Fake, c.ClusterPath)
+}
+
+func (c *StorageV1Client) VolumeAttributesClasses() storagev1.VolumeAttributesClassInterface {
+	return newFakeVolumeAttributesClassClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

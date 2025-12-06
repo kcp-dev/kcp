@@ -1,36 +1,35 @@
 # Rebasing Kubernetes
 
 This describes the process of rebasing kcp onto a new Kubernetes version. For the examples below, we'll be rebasing
-onto v1.33.3
+onto v1.34.2
+
+1. Create a new branch for the update, such as `1.34.2-prep` in main monorepo
 
 # 1. Update kcp-dev/apimachinery
 
-1. Create a new branch for the update, such as `1.31-prep`.
-2. Update go.mod:
+2. Go into the `staging/src/github.com/kcp-dev/apimachinery` directory.
+3. Update go.mod:
    1. You may need to change the go version at the top of the file to match what's in go.mod in the root of the
       Kubernetes repo. This is not required, but probably a good idea.
    2. Update the primary Kubernetes dependencies:
       ```
-      go get k8s.io/api@v0.31.0  k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0
+      go get k8s.io/api@v0.34.2  k8s.io/apimachinery@v0.34.2 k8s.io/client-go@v0.34.2
       ```
    3. Run `go mod tidy`.
-3. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that
+4. Manually review the code that is upstream from `third_party` and make the same/similar edits to anything that
    changed upstream. For example, we maintain a slightly modified copy of the
-   [shared informer code](https://github.com/kubernetes/kubernetes/blob/v1.30.1/staging/src/k8s.io/client-go/tools/cache/shared_informer.go).
-4. Run `make lint test`. Fix any issues you encounter.
-5. Commit your changes.
-6. Push to your fork.
-7. Open a PR; get it reviewed and merged.
+   [shared informer code](https://github.com/kubernetes/kubernetes/blob/v1.34.2/staging/src/k8s.io/client-go/tools/cache/shared_informer.go).
+5. Run `make lint test`. Fix any issues you encounter.
+6. Commit your changes so we have a clean commits for each step.
 
 # 2. Update kcp-dev/code-generator
 
-1. Create a new branch for the update, such as `1.26-prep`.
 2. Update `go.mod`:
    1. You may need to change the go version at the top of the file to match what's in go.mod in the root of the
       Kubernetes repo. This is not required, but probably a good idea.
    2. Update the primary Kubernetes dependencies:
       ```
-      go get k8s.io/apimachinery@v0.31.0 k8s.io/code-generator@v0.31.0
+      go get k8s.io/apimachinery@v0.34.2 k8s.io/code-generator@v0.34.2
       ```
    3. Run `go mod tidy`.
 3. Repeat step 2 for `examples/go.mod`:
@@ -42,33 +41,25 @@ onto v1.33.3
    2. If there were any substantive changes, make the corresponding edits to our generators.
    3. You'll probably want to commit your changes at this point.
 5. Run `make codegen`. You'll probably want to commit these changes as a standalone commit.
-6. Run `make lint test build` and fix any issues you encounter.
-7. Commit any remaining changes.
-8. Push to your fork.
-9. Open a PR; get it reviewed and merged.
+6. Run `make build` and fix any issues you encounter.
+7. Commit your changes so we have a clean commits for each step.
 
 # 3. Update kcp-dev/client-go
 1. Create a new branch for the update, such as `1.26-prep`.
 2. Update go.mod:
    1. You may need to change the go version at the top of the file to match what's in go.mod in the root of the
       Kubernetes repo. This is not required, but probably a good idea.
-   2. Update the `kcp-dev/apimachinery` dependency:
+   2. That should have updated the primary Kubernetes dependencies, but in case it didn't, you can do so manually:
       ```
-      go get github.com/kcp-dev/apimachinery@main github.com/kcp-dev/code-generator@main
+      go get k8s.io/api@v0.34.2 k8s.io/apimachinery@v0.34.2 k8s.io/client-go@v0.34.2 k8s.io/apiextensions-apiserver@v0.34.2 k8s.io/code-generator@v0.34.2
       ```
-   3. That should have updated the primary Kubernetes dependencies, but in case it didn't, you can do so manually:
-      ```
-      go get k8s.io/api@v0.31.0 k8s.io/apimachinery@v0.31.0 k8s.io/client-go@v0.31.0 k8s.io/apiextensions-apiserver@v0.31.0
-      ```
-   4. Run `go mod tidy`.
+   3. Run `go mod tidy`.
 3. Run `hack/populate-copies.sh`, this will copy files originally copied
    from upstream over the local copies. Review the changes and ensure
-   changes from upstream are handled.
+   changes from upstream are handled. Its recommented to have clean branch 
+   for this as it will produce many changes, which most are "carry-on", so will require manual review.
 4. Run `make codegen`. You'll probably want to commit these changes as a standalone commit.
-5. Run `make lint` and fix any issues you encounter.
-6. Commit any remaining changes.
-7. Push to your fork.
-8. Open a PR; get it reviewed and merged.
+5. Commit your changes so we have a clean commits for each step.
 
 # 4. Update kcp-dev/kubernetes
 
@@ -106,7 +97,7 @@ Commits merged into `kcp-dev/kubernetes` follow this commit message format:
 5. Prepare a list of commits:
     1. Checkout the current fork branch:
        ```
-       git checkout kcp-dev/kcp-1.32.3
+       git checkout kcp-dev/kcp-1.33.5
        ```
     2. Export the commits to cherry-pick them:
        ```
@@ -118,14 +109,22 @@ Commits merged into `kcp-dev/kubernetes` follow this commit message format:
        attention.
 6. Prepare a branch to cherry-pick the commits onto:
    ```
-   git reset --hard v1.33.3
+   git reset --hard v1.34.2
+   ```
+7. Prepare base branch in kcp fork (you might need to ask maintainer to do this):
+   1. Create a new branch in kcp-dev/kubernetes fork, e.g. `kcp-1.34-baseline`, based off `v1.34.2` in
+      `kcp-dev/kubernetes`.
+   2. Push the new branch to kcp fork in GitHub.
+8. Set up your local repo to point to the new baseline branch and prepare to cherry-pick:
+   ```
+   git checkout -b kcp-1.34.2-pre.1
    ```
 
 Note: To make validating changes easier you can use these functions:
 
 ```bash
 # record the changed files between the version kcp will jump
-git diff --name-only v1.32.3 v1.33.3 > ../changed_files.txt
+   git diff --name-only v1.33.5 v1.34.2 > changed_files.txt
 
 # list_changed_files lists the files changed in the current commit
 list_changed_files() {
@@ -228,6 +227,8 @@ two kube versions.
     even open it in draft mode - you don't want to merge anything just yet.
 
 # 5. Update kcp-dev/kcp
+
+If you want to test this before pushing - you can use `go.work` to point to your local copy of kcp-dev/kubernetes and test.
 
 1. At this point, you're ready to try to integrate the updates into kcp proper. There is still likely a good
    amount of work to do, so don't get discouraged if you encounter dozens or hundreds of compilation issues at

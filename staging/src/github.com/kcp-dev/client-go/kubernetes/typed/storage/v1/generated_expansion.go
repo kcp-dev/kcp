@@ -27,3 +27,5 @@ type CSIStorageCapacityClusterExpansion interface{}
 type StorageClassClusterExpansion interface{}
 
 type VolumeAttachmentClusterExpansion interface{}
+
+type VolumeAttributesClassClusterExpansion interface{}

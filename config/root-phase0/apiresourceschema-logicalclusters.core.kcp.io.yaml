@@ -1,7 +1,6 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: v251016-6e24e0d49.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io

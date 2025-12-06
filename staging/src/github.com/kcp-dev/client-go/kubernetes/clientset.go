@@ -63,7 +63,6 @@ import (
 	flowcontrolv1beta2 "github.com/kcp-dev/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	flowcontrolv1beta3 "github.com/kcp-dev/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	networkingv1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1"
-	networkingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1alpha1"
 	networkingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1beta1"
 	nodev1 "github.com/kcp-dev/client-go/kubernetes/typed/node/v1"
 	nodev1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/node/v1alpha1"
@@ -73,6 +72,7 @@ import (
 	rbacv1 "github.com/kcp-dev/client-go/kubernetes/typed/rbac/v1"
 	rbacv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/rbac/v1alpha1"
 	rbacv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/rbac/v1beta1"
+	resourcev1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1"
 	resourcev1alpha3 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1alpha3"
 	resourcev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta1"
 	resourcev1beta2 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta2"
@@ -124,7 +124,6 @@ type ClusterInterface interface {
 	FlowcontrolV1beta2() flowcontrolv1beta2.FlowcontrolV1beta2ClusterInterface
 	FlowcontrolV1beta3() flowcontrolv1beta3.FlowcontrolV1beta3ClusterInterface
 	NetworkingV1() networkingv1.NetworkingV1ClusterInterface
-	NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1ClusterInterface
 	NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1ClusterInterface
 	NodeV1() nodev1.NodeV1ClusterInterface
 	NodeV1alpha1() nodev1alpha1.NodeV1alpha1ClusterInterface
@@ -134,6 +133,7 @@ type ClusterInterface interface {
 	RbacV1() rbacv1.RbacV1ClusterInterface
 	RbacV1alpha1() rbacv1alpha1.RbacV1alpha1ClusterInterface
 	RbacV1beta1() rbacv1beta1.RbacV1beta1ClusterInterface
+	ResourceV1() resourcev1.ResourceV1ClusterInterface
 	ResourceV1alpha3() resourcev1alpha3.ResourceV1alpha3ClusterInterface
 	ResourceV1beta1() resourcev1beta1.ResourceV1beta1ClusterInterface
 	ResourceV1beta2() resourcev1beta2.ResourceV1beta2ClusterInterface
@@ -185,7 +185,6 @@ type ClusterClientset struct {
 	flowcontrolV1beta2            *flowcontrolv1beta2.FlowcontrolV1beta2ClusterClient
 	flowcontrolV1beta3            *flowcontrolv1beta3.FlowcontrolV1beta3ClusterClient
 	networkingV1                  *networkingv1.NetworkingV1ClusterClient
-	networkingV1alpha1            *networkingv1alpha1.NetworkingV1alpha1ClusterClient
 	networkingV1beta1             *networkingv1beta1.NetworkingV1beta1ClusterClient
 	nodeV1                        *nodev1.NodeV1ClusterClient
 	nodeV1alpha1                  *nodev1alpha1.NodeV1alpha1ClusterClient
@@ -195,6 +194,7 @@ type ClusterClientset struct {
 	rbacV1                        *rbacv1.RbacV1ClusterClient
 	rbacV1alpha1                  *rbacv1alpha1.RbacV1alpha1ClusterClient
 	rbacV1beta1                   *rbacv1beta1.RbacV1beta1ClusterClient
+	resourceV1                    *resourcev1.ResourceV1ClusterClient
 	resourceV1alpha3              *resourcev1alpha3.ResourceV1alpha3ClusterClient
 	resourceV1beta1               *resourcev1beta1.ResourceV1beta1ClusterClient
 	resourceV1beta2               *resourcev1beta2.ResourceV1beta2ClusterClient
@@ -390,11 +390,6 @@ func (c *ClusterClientset) NetworkingV1() networkingv1.NetworkingV1ClusterInterf
 	return c.networkingV1
 }
 
-// NetworkingV1alpha1 retrieves the NetworkingV1alpha1ClusterClient.
-func (c *ClusterClientset) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1ClusterInterface {
-	return c.networkingV1alpha1
-}
-
 // NetworkingV1beta1 retrieves the NetworkingV1beta1ClusterClient.
 func (c *ClusterClientset) NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1ClusterInterface {
 	return c.networkingV1beta1
@@ -438,6 +433,11 @@ func (c *ClusterClientset) RbacV1alpha1() rbacv1alpha1.RbacV1alpha1ClusterInterf
 // RbacV1beta1 retrieves the RbacV1beta1ClusterClient.
 func (c *ClusterClientset) RbacV1beta1() rbacv1beta1.RbacV1beta1ClusterInterface {
 	return c.rbacV1beta1
+}
+
+// ResourceV1 retrieves the ResourceV1ClusterClient.
+func (c *ClusterClientset) ResourceV1() resourcev1.ResourceV1ClusterInterface {
+	return c.resourceV1
 }
 
 // ResourceV1alpha3 retrieves the ResourceV1alpha3ClusterClient.
@@ -682,10 +682,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	if err != nil {
 		return nil, err
 	}
-	cs.networkingV1alpha1, err = networkingv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.networkingV1beta1, err = networkingv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -719,6 +715,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		return nil, err
 	}
 	cs.rbacV1beta1, err = rbacv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.resourceV1, err = resourcev1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -818,7 +818,6 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.flowcontrolV1beta2 = flowcontrolv1beta2.NewForConfigOrDie(c)
 	cs.flowcontrolV1beta3 = flowcontrolv1beta3.NewForConfigOrDie(c)
 	cs.networkingV1 = networkingv1.NewForConfigOrDie(c)
-	cs.networkingV1alpha1 = networkingv1alpha1.NewForConfigOrDie(c)
 	cs.networkingV1beta1 = networkingv1beta1.NewForConfigOrDie(c)
 	cs.nodeV1 = nodev1.NewForConfigOrDie(c)
 	cs.nodeV1alpha1 = nodev1alpha1.NewForConfigOrDie(c)
@@ -828,6 +827,7 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.rbacV1 = rbacv1.NewForConfigOrDie(c)
 	cs.rbacV1alpha1 = rbacv1alpha1.NewForConfigOrDie(c)
 	cs.rbacV1beta1 = rbacv1beta1.NewForConfigOrDie(c)
+	cs.resourceV1 = resourcev1.NewForConfigOrDie(c)
 	cs.resourceV1alpha3 = resourcev1alpha3.NewForConfigOrDie(c)
 	cs.resourceV1beta1 = resourcev1beta1.NewForConfigOrDie(c)
 	cs.resourceV1beta2 = resourcev1beta2.NewForConfigOrDie(c)

@@ -32,11 +32,7 @@ import (
 
 type ResourceV1alpha3ClusterInterface interface {
 	ResourceV1alpha3ClusterScoper
-	DeviceClassesClusterGetter
 	DeviceTaintRulesClusterGetter
-	ResourceClaimsClusterGetter
-	ResourceClaimTemplatesClusterGetter
-	ResourceSlicesClusterGetter
 }
 
 type ResourceV1alpha3ClusterScoper interface {
@@ -55,24 +51,8 @@ func (c *ResourceV1alpha3ClusterClient) Cluster(clusterPath logicalcluster.Path)
 	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
-func (c *ResourceV1alpha3ClusterClient) DeviceClasses() DeviceClassClusterInterface {
-	return &deviceClassesClusterInterface{clientCache: c.clientCache}
-}
-
 func (c *ResourceV1alpha3ClusterClient) DeviceTaintRules() DeviceTaintRuleClusterInterface {
 	return &deviceTaintRulesClusterInterface{clientCache: c.clientCache}
-}
-
-func (c *ResourceV1alpha3ClusterClient) ResourceClaims() ResourceClaimClusterInterface {
-	return &resourceClaimsClusterInterface{clientCache: c.clientCache}
-}
-
-func (c *ResourceV1alpha3ClusterClient) ResourceClaimTemplates() ResourceClaimTemplateClusterInterface {
-	return &resourceClaimTemplatesClusterInterface{clientCache: c.clientCache}
-}
-
-func (c *ResourceV1alpha3ClusterClient) ResourceSlices() ResourceSliceClusterInterface {
-	return &resourceSlicesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new ResourceV1alpha3ClusterClient for the given config.

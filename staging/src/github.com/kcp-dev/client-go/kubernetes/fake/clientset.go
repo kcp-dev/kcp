@@ -58,7 +58,6 @@ import (
 	flowcontrolv1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	flowcontrolv1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
-	networkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	nodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
 	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
@@ -68,6 +67,7 @@ import (
 	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
+	resourcev1 "k8s.io/client-go/kubernetes/typed/resource/v1"
 	resourcev1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
 	resourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
 	resourcev1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
@@ -151,8 +151,6 @@ import (
 	kcpfakeflowcontrolv1beta3 "github.com/kcp-dev/client-go/kubernetes/typed/flowcontrol/v1beta3/fake"
 	kcpnetworkingv1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1"
 	kcpfakenetworkingv1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1/fake"
-	kcpnetworkingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1alpha1"
-	kcpfakenetworkingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1alpha1/fake"
 	kcpnetworkingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1beta1"
 	kcpfakenetworkingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/networking/v1beta1/fake"
 	kcpnodev1 "github.com/kcp-dev/client-go/kubernetes/typed/node/v1"
@@ -171,6 +169,8 @@ import (
 	kcpfakerbacv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/rbac/v1alpha1/fake"
 	kcprbacv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/rbac/v1beta1"
 	kcpfakerbacv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/rbac/v1beta1/fake"
+	kcpresourcev1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1"
+	kcpfakeresourcev1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1/fake"
 	kcpresourcev1alpha3 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1alpha3"
 	kcpfakeresourcev1alpha3 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1alpha3/fake"
 	kcpresourcev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta1"
@@ -422,11 +422,6 @@ func (c *ClusterClientset) NetworkingV1() kcpnetworkingv1.NetworkingV1ClusterInt
 	return &kcpfakenetworkingv1.NetworkingV1ClusterClient{Fake: &c.Fake}
 }
 
-// NetworkingV1alpha1 retrieves the NetworkingV1alpha1ClusterClient
-func (c *ClusterClientset) NetworkingV1alpha1() kcpnetworkingv1alpha1.NetworkingV1alpha1ClusterInterface {
-	return &kcpfakenetworkingv1alpha1.NetworkingV1alpha1ClusterClient{Fake: &c.Fake}
-}
-
 // NetworkingV1beta1 retrieves the NetworkingV1beta1ClusterClient
 func (c *ClusterClientset) NetworkingV1beta1() kcpnetworkingv1beta1.NetworkingV1beta1ClusterInterface {
 	return &kcpfakenetworkingv1beta1.NetworkingV1beta1ClusterClient{Fake: &c.Fake}
@@ -470,6 +465,11 @@ func (c *ClusterClientset) RbacV1alpha1() kcprbacv1alpha1.RbacV1alpha1ClusterInt
 // RbacV1beta1 retrieves the RbacV1beta1ClusterClient
 func (c *ClusterClientset) RbacV1beta1() kcprbacv1beta1.RbacV1beta1ClusterInterface {
 	return &kcpfakerbacv1beta1.RbacV1beta1ClusterClient{Fake: &c.Fake}
+}
+
+// ResourceV1 retrieves the ResourceV1ClusterClient
+func (c *ClusterClientset) ResourceV1() kcpresourcev1.ResourceV1ClusterInterface {
+	return &kcpfakeresourcev1.ResourceV1ClusterClient{Fake: &c.Fake}
 }
 
 // ResourceV1alpha3 retrieves the ResourceV1alpha3ClusterClient
@@ -740,11 +740,6 @@ func (c *Clientset) NetworkingV1() networkingv1.NetworkingV1Interface {
 	return &kcpfakenetworkingv1.NetworkingV1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
-// NetworkingV1alpha1 retrieves the NetworkingV1alpha1Client
-func (c *Clientset) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface {
-	return &kcpfakenetworkingv1alpha1.NetworkingV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
-}
-
 // NetworkingV1beta1 retrieves the NetworkingV1beta1Client
 func (c *Clientset) NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1Interface {
 	return &kcpfakenetworkingv1beta1.NetworkingV1beta1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
@@ -788,6 +783,11 @@ func (c *Clientset) RbacV1alpha1() rbacv1alpha1.RbacV1alpha1Interface {
 // RbacV1beta1 retrieves the RbacV1beta1Client
 func (c *Clientset) RbacV1beta1() rbacv1beta1.RbacV1beta1Interface {
 	return &kcpfakerbacv1beta1.RbacV1beta1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// ResourceV1 retrieves the ResourceV1Client
+func (c *Clientset) ResourceV1() resourcev1.ResourceV1Interface {
+	return &kcpfakeresourcev1.ResourceV1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // ResourceV1alpha3 retrieves the ResourceV1alpha3Client
