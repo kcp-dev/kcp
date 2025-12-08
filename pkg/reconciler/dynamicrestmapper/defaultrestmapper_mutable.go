@@ -19,7 +19,6 @@ package dynamicrestmapper
 import (
 	"slices"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -42,7 +41,7 @@ func (m *DefaultRESTMapper) add(typeMeta typeMeta) {
 	m.resourceToKind[plural] = kind
 
 	m.kindToPluralResource[kind] = plural
-	m.kindToScope[kind] = meta.RESTScopeRoot
+	m.kindToScope[kind] = typeMeta.Scope
 
 	foundDefaultVersion := false
 	for i := range m.defaultGroupVersions {

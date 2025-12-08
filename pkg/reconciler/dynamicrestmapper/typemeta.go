@@ -35,9 +35,9 @@ type typeMeta struct {
 
 func resourceScopeToRESTScope(scope apiextensionsv1.ResourceScope) meta.RESTScope {
 	if scope == apiextensionsv1.ClusterScoped {
-		return meta.RESTScopeNamespace
+		return meta.RESTScopeRoot
 	}
-	return meta.RESTScopeRoot
+	return meta.RESTScopeNamespace
 }
 
 func newTypeMeta(group, version, kind, singular, plural string, scope meta.RESTScope) typeMeta {
