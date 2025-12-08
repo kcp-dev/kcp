@@ -155,10 +155,10 @@ func TestValidateAPIBindingPermissionClaims(t *testing.T) {
 				},
 			},
 			wantErrs: []string{
-				"spec.permissionClaims[0].selector.matchLabels: Invalid value: v1alpha2.PermissionClaimSelector{LabelSelector:v1.LabelSelector{MatchLabels:map[string]string{\"test\":\"test\"}, MatchExpressions:[]v1.LabelSelectorRequirement(nil)}, MatchAll:true}: matchLabels cannot be used with matchAll",
-				"spec.permissionClaims[1].selector.matchExpressions: Invalid value: v1alpha2.PermissionClaimSelector{LabelSelector:v1.LabelSelector{MatchLabels:map[string]string(nil), MatchExpressions:[]v1.LabelSelectorRequirement{v1.LabelSelectorRequirement{Key:\"test\", Operator:\"In\", Values:[]string{\"test\"}}}}, MatchAll:true}: matchExpressions cannot be used with matchAll",
-				"spec.permissionClaims[2].selector.matchExpressions: Invalid value: v1alpha2.PermissionClaimSelector{LabelSelector:v1.LabelSelector{MatchLabels:map[string]string{\"test\":\"test\"}, MatchExpressions:[]v1.LabelSelectorRequirement{v1.LabelSelectorRequirement{Key:\"test\", Operator:\"In\", Values:[]string{\"test\"}}}}, MatchAll:true}: matchExpressions cannot be used with matchAll",
-				"spec.permissionClaims[2].selector.matchLabels: Invalid value: v1alpha2.PermissionClaimSelector{LabelSelector:v1.LabelSelector{MatchLabels:map[string]string{\"test\":\"test\"}, MatchExpressions:[]v1.LabelSelectorRequirement{v1.LabelSelectorRequirement{Key:\"test\", Operator:\"In\", Values:[]string{\"test\"}}}}, MatchAll:true}: matchLabels cannot be used with matchAll",
+				"spec.permissionClaims[0].selector.matchLabels: Invalid value: {\"matchLabels\":{\"test\":\"test\"},\"matchAll\":true}: matchLabels cannot be used with matchAll",
+				"spec.permissionClaims[1].selector.matchExpressions: Invalid value: {\"matchExpressions\":[{\"key\":\"test\",\"operator\":\"In\",\"values\":[\"test\"]}],\"matchAll\":true}: matchExpressions cannot be used with matchAll",
+				"spec.permissionClaims[2].selector.matchExpressions: Invalid value: {\"matchLabels\":{\"test\":\"test\"},\"matchExpressions\":[{\"key\":\"test\",\"operator\":\"In\",\"values\":[\"test\"]}],\"matchAll\":true}: matchExpressions cannot be used with matchAll",
+				"spec.permissionClaims[2].selector.matchLabels: Invalid value: {\"matchLabels\":{\"test\":\"test\"},\"matchExpressions\":[{\"key\":\"test\",\"operator\":\"In\",\"values\":[\"test\"]}],\"matchAll\":true}: matchLabels cannot be used with matchAll",
 			},
 		},
 	}

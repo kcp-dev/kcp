@@ -56,7 +56,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.5.0
-  creationTimestamp: null
   name: endpoints.core
 spec:
   group: ""
@@ -205,7 +204,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.5.0
-  creationTimestamp: null
   name: services.core
 spec:
   group: ""
@@ -362,7 +360,6 @@ spec:
 var expectedYAML = `apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: testing.endpoints.core
 spec:
   conversion:
@@ -583,7 +580,6 @@ spec:
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: testing.services.core
 spec:
   conversion:
