@@ -62,7 +62,161 @@ an APIExport in the same workspace.
 
     
     
-    
+     
+<style>
+  #version-banner {
+    display: none;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background-color: #00bcd4;
+    color: white;
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    z-index: 10000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  #version-banner a {
+    color: white;
+    text-decoration: underline;
+    margin-left: 8px;
+  }
+
+  #version-banner a:hover {
+    text-decoration: none;
+  }
+
+  .md-header {
+    transition: top 0.2s ease;
+  }
+</style>
+
+<script>
+  (function () {
+    "use strict";
+
+    const CONFIG = {
+      UNRELEASED_VERSION: "main",
+      RETRY_DELAY: 500,
+      HEADER_ADJUST_DELAY: 100,
+    };
+
+    function getCurrentVersion() {
+      const path = window.location.pathname;
+      const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
+      return versionMatch ? versionMatch[1] : null;
+    }
+
+    function getAvailableVersions() {
+      const versionList = document.querySelector("ul.md-version__list");
+      if (!versionList) return [];
+
+      const links = Array.from(
+        versionList.querySelectorAll("a.md-version__link")
+      );
+
+      return links
+        .map((link) => {
+          const href = link.href || link.getAttribute("href");
+          const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
+          return match ? match[1] : null;
+        })
+        .filter((v) => v && /^v\d+\.\d+/.test(v))
+        .filter((v, i, arr) => arr.indexOf(v) === i);
+    }
+
+    function getLatestVersionPath() {
+      const versions = getAvailableVersions();
+
+      const latestVersion = versions[0];
+      const currentPath = window.location.pathname;
+
+      return (
+        currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
+        `/${latestVersion}/`
+      );
+    }
+
+    function createBanner() {
+      const banner = document.createElement("div");
+      banner.id = "version-banner";
+      banner.innerHTML = `
+    <strong>You are viewing the docs for an unreleased version.</strong>
+    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
+  `;
+
+      document.body.insertBefore(banner, document.body.firstChild);
+      banner.style.display = "block";
+
+      return banner;
+    }
+
+    function updateBannerLink(banner) {
+      const link = banner.querySelector("#latest-version-link");
+      if (!link) return;
+
+      const latestPath = getLatestVersionPath();
+      link.href = latestPath;
+    }
+
+    function adjustHeader(banner) {
+      setTimeout(() => {
+        const header = document.querySelector(".md-header");
+        if (!header) return;
+
+        const bannerHeight = banner.offsetHeight;
+        const headerHeight = header.offsetHeight;
+
+        header.style.top = `${bannerHeight}px`;
+        document.documentElement.style.setProperty(
+          "--md-header-height",
+          `${bannerHeight + headerHeight}px`
+        );
+        document.documentElement.style.setProperty(
+          "--md-scroll-margin",
+          `${bannerHeight + headerHeight}px`
+        );
+      }, CONFIG.HEADER_ADJUST_DELAY);
+    }
+
+    function init() {
+      const currentVersion = getCurrentVersion();
+
+      if (currentVersion !== CONFIG.UNRELEASED_VERSION) {
+        return;
+      }
+
+      const banner = createBanner();
+      updateBannerLink(banner);
+
+      setTimeout(() => updateBannerLink(banner), CONFIG.RETRY_DELAY);
+
+      adjustHeader(banner);
+    }
+
+    function waitForDOM() {
+      if (
+        document.readyState === "complete" ||
+        document.readyState === "interactive"
+      ) {
+        console.log("DOM is ready, initializing...");
+        init();
+        return;
+      }
+
+      console.log("DOM not ready yet, checking again...");
+      setTimeout(waitForDOM, 1000);
+    }
+
+    waitForDOM();
+  })();
+</script>
+
   </head>
   
   
