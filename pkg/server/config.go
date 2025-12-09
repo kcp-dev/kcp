@@ -526,7 +526,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// But this is not harmful as the kcp warnings are not many.
 		apiHandler = filters.WithWarningRecorder(apiHandler)
 
-		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler)
+		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler, c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		apiHandler = kcpfilters.WithBlockInactiveLogicalClusters(apiHandler, c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 
 		// Add a mux before the chain, for other handlers with their own handler chain to hook in. For example, when

@@ -35,6 +35,9 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
 type (
@@ -43,6 +46,7 @@ type (
 
 const (
 	workspaceAnnotation = "tenancy.kcp.io/workspace"
+	clusterAnnotation   = "kcp.io/cluster"
 
 	// clusterKey is the context key for the request namespace.
 	acceptHeaderContextKey acceptHeaderContextKeyType = iota
@@ -61,11 +65,23 @@ func init() {
 
 // WithAuditEventClusterAnnotation adds the cluster name into the annotation of an audit
 // event. Needs initialized annotations.
-func WithAuditEventClusterAnnotation(handler http.Handler) http.HandlerFunc {
+func WithAuditEventClusterAnnotation(handler http.Handler, kcpClusterClient corev1alpha1informers.LogicalClusterClusterInformer) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		cluster := request.ClusterFrom(req.Context())
-		if cluster != nil {
+		if cluster != nil && !cluster.Name.Empty() {
+			var canonicalPath string
+			if kcpClusterClient != nil {
+				logicalCluster, err := kcpClusterClient.Cluster(cluster.Name).Lister().Get(corev1alpha1.LogicalClusterName)
+				if err == nil {
+					if path, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found && path != "" {
+						canonicalPath = path
+					}
+				}
+			}
+
+			kaudit.AddAuditAnnotation(req.Context(), core.LogicalClusterPathAnnotationKey, canonicalPath)
 			kaudit.AddAuditAnnotation(req.Context(), workspaceAnnotation, cluster.Name.String())
+			kaudit.AddAuditAnnotation(req.Context(), clusterAnnotation, cluster.Name.String())
 		}
 
 		handler.ServeHTTP(w, req)
