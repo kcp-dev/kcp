@@ -236,6 +236,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	if err := c.startGarbageCollectorForLogicalCluster(ctx, clusterName); err != nil {
 		cancel()
+		delete(c.cancelFuncs, clusterName)
 		return fmt.Errorf("error starting garbage collector controller for cluster %q: %w", clusterName, err)
 	}
 
@@ -245,11 +246,9 @@ func (c *Controller) process(ctx context.Context, key string) error {
 func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
 	logger := klog.FromContext(ctx)
 
-	kubeClient := c.kubeClusterClient.Cluster(clusterName.Path())
-
 	garbageCollector, err := garbagecollector.NewGarbageCollector(
 		ctx,
-		kubeClient,
+		c.kubeClusterClient.Cluster(clusterName.Path()),
 		c.metadataClient.Cluster(clusterName.Path()),
 		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
 		c.ignoredResources,
@@ -270,7 +269,7 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{
-				Name: "quota-" + clusterName.String(),
+				Name: "gc-" + clusterName.String(),
 			},
 		),
 		work: func(ctx context.Context) {
@@ -297,8 +296,11 @@ func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context,
 	// Do this in a goroutine to avoid holding up a worker in the event ResyncMonitors stalls for whatever reason
 	go func() {
 		// Make sure the GC monitors are synced at least once
-		//nolint:errcheck
-		garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+		err = garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
+		if err != nil {
+			logger.Error(err, "failed to sync garbage collector monitors for the first time")
+			return
+		}
 
 		// Initial sync timeout is set to 30s - as it was hardcoded in
 		// e8b1d7dc24713db99808028e0d02bacf6d48e01f in k/k. Should it timeout,

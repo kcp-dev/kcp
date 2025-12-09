@@ -1,5 +1,4 @@
 metadata:
-  creationTimestamp: null
   name: internal.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
