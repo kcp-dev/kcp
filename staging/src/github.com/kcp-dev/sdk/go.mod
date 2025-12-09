@@ -33,6 +33,12 @@ require (
 	sigs.k8s.io/yaml v1.6.0
 )
 
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
+	github.com/kcp-dev/client-go => ../client-go
+	github.com/kcp-dev/code-generator/v3 => ../code-generator
+)
+
 require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
@@ -114,10 +120,4 @@ require (
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-)
-
-replace (
-	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
-	github.com/kcp-dev/client-go => ../client-go
-	github.com/kcp-dev/code-generator/v3 => ../code-generator
 )

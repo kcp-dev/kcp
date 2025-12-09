@@ -21,6 +21,18 @@ require (
 	k8s.io/klog/v2 v2.130.1
 )
 
+replace (
+	github.com/charmbracelet/colorprofile => github.com/charmbracelet/colorprofile v0.2.2
+	github.com/charmbracelet/x/ansi => github.com/charmbracelet/x/ansi v0.8.0
+)
+
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
+	github.com/kcp-dev/client-go => ../client-go
+	github.com/kcp-dev/code-generator/v3 => ../code-generator
+	github.com/kcp-dev/sdk => ../sdk
+)
+
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
@@ -94,16 +106,4 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-)
-
-replace (
-	github.com/charmbracelet/colorprofile => github.com/charmbracelet/colorprofile v0.2.2
-	github.com/charmbracelet/x/ansi => github.com/charmbracelet/x/ansi v0.8.0
-)
-
-replace (
-	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
-	github.com/kcp-dev/client-go => ../client-go
-	github.com/kcp-dev/code-generator/v3 => ../code-generator
-	github.com/kcp-dev/sdk => ../sdk
 )
