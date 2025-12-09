@@ -101,7 +101,9 @@ func NewSharedIndexInformerWithOptions(lw cache.ListerWatcher, exampleObject run
 	}
 }
 
-// SharedIndexInformerOptions configures a sharedIndexInformer.
+// InformerSynced is a function that can be used to determine if an informer has synced.  This is useful for determining if caches have synced.
+type InformerSynced func() bool
+
 const (
 	// syncedPollPeriod controls how often you look at the status of your sync funcs
 	syncedPollPeriod = 100 * time.Millisecond
@@ -109,6 +111,60 @@ const (
 	// initialBufferSize is the initial number of event notifications that can be buffered.
 	initialBufferSize = 1024
 )
+
+// WaitForNamedCacheSync is a wrapper around WaitForCacheSync that generates log messages
+// indicating that the caller identified by name is waiting for syncs, followed by
+// either a successful or failed sync.
+//
+// Contextual logging: WaitForNamedCacheSyncWithContext should be used instead of WaitForNamedCacheSync in code which supports contextual logging.
+func WaitForNamedCacheSync(controllerName string, stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool {
+	klog.Background().Info("Waiting for caches to sync", "controller", controllerName)
+
+	if !WaitForCacheSync(stopCh, cacheSyncs...) {
+		utilruntime.HandleErrorWithContext(context.Background(), nil, "Unable to sync caches", "controller", controllerName)
+		return false
+	}
+
+	klog.Background().Info("Caches are synced", "controller", controllerName)
+	return true
+}
+
+// WaitForNamedCacheSyncWithContext is a wrapper around WaitForCacheSyncWithContext that generates log messages
+// indicating that the caller is waiting for syncs, followed by either a successful or failed sync.
+//
+// Contextual logging can be used to identify the caller in those log messages. The log level is zero,
+// the same as in [WaitForNamedCacheSync]. If this is too verbose, then store a logger with an increased
+// threshold in the context:
+//
+//	WaitForNamedCacheSyncWithContext(klog.NewContext(ctx, logger.V(5)), ...)
+func WaitForNamedCacheSyncWithContext(ctx context.Context, cacheSyncs ...InformerSynced) bool {
+	logger := klog.FromContext(ctx)
+	logger.Info("Waiting for caches to sync")
+
+	if !WaitForCacheSync(ctx.Done(), cacheSyncs...) {
+		utilruntime.HandleErrorWithContext(ctx, nil, "Unable to sync caches")
+		return false
+	}
+
+	logger.Info("Caches are synced")
+	return true
+}
+
+// WaitForCacheSync waits for caches to populate.  It returns true if it was successful, false
+// if the controller should shutdown
+// callers should prefer WaitForNamedCacheSync()
+func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool {
+	err := wait.PollUntilContextCancel(wait.ContextForChannel(stopCh), syncedPollPeriod, true,
+		func(context.Context) (bool, error) {
+			for _, syncFunc := range cacheSyncs {
+				if !syncFunc() {
+					return false, nil
+				}
+			}
+			return true, nil
+		})
+	return err == nil
+}
 
 // `*sharedIndexInformer` implements SharedIndexInformer and has three
 // main components.  One is an indexed local cache, `indexer cache.Indexer`.
@@ -356,7 +412,7 @@ func (s *sharedIndexInformer) GetController() cache.Controller {
 }
 
 func (s *sharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
-	return s.AddEventHandlerWithResyncPeriod(handler, s.defaultEventHandlerResyncPeriod)
+	return s.AddEventHandlerWithOptions(handler, cache.HandlerOptions{})
 }
 
 func determineResyncPeriod(logger klog.Logger, desired, check time.Duration) time.Duration {
@@ -409,8 +465,7 @@ func (s *sharedIndexInformer) AddEventHandlerWithOptions(handler cache.ResourceE
 			}
 		}
 	}
-	// TODO: upstream returns s.HasSynced, why don't we?
-	listener := newProcessListener(logger, handler, resyncPeriod, determineResyncPeriod(logger, resyncPeriod, s.resyncCheckPeriod), s.clock.Now(), initialBufferSize, func() bool { return true })
+	listener := newProcessListener(logger, handler, resyncPeriod, determineResyncPeriod(logger, resyncPeriod, s.resyncCheckPeriod), s.clock.Now(), initialBufferSize, s.HasSynced)
 
 	if !s.started {
 		return s.processor.addListener(listener), nil
@@ -445,7 +500,7 @@ func (s *sharedIndexInformer) HandleDeltas(obj interface{}, isInInitialList bool
 	defer s.blockDeltas.Unlock()
 
 	if deltas, ok := obj.(cache.Deltas); ok {
-		return processDeltas(s, s.indexer, s.transform, deltas, isInInitialList)
+		return processDeltas(s, s.indexer, deltas, isInInitialList)
 	}
 	return errors.New("object given as Process argument is not Deltas")
 }
@@ -841,20 +896,12 @@ func processDeltas(
 	// Object which receives event notifications from the given deltas
 	handler cache.ResourceEventHandler,
 	clientState cache.Store,
-	transformer cache.TransformFunc,
 	deltas cache.Deltas,
 	isInInitialList bool,
 ) error {
 	// from oldest to newest
 	for _, d := range deltas {
 		obj := d.Object
-		if transformer != nil {
-			var err error
-			obj, err = transformer(obj)
-			if err != nil {
-				return err
-			}
-		}
 
 		switch d.Type {
 		case cache.Sync, cache.Replaced, cache.Added, cache.Updated:

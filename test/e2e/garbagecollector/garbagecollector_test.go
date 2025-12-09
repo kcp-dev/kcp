@@ -342,12 +342,17 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 		require.NoError(t, err, "Error deleting all sheriffs in %s", ws)
 	}
 
-	t.Logf("Waiting for the owned configmaps to be garbage collected")
+	t.Logf("Waiting for the owned configmaps in ws1 to be garbage collected")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err1 := kubeClusterClient.Cluster(ws1Path).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
+		return apierrors.IsNotFound(err1), "configmaps not garbage collected"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmaps ws1 to be garbage collected")
+
+	t.Logf("Waiting for the owned configmaps in ws2 to be garbage collected")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err2 := kubeClusterClient.Cluster(ws2Path).CoreV1().ConfigMaps("default").Get(ctx, "owned", metav1.GetOptions{})
-		return apierrors.IsNotFound(err1) && apierrors.IsNotFound(err2), "configmaps not garbage collected"
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmaps to be garbage collected")
+		return apierrors.IsNotFound(err2), "configmaps not garbage collected"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned configmaps ws2 to be garbage collected")
 }
 
 func TestGarbageCollectorVersionedCRDs(t *testing.T) {

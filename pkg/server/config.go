@@ -206,6 +206,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, err
 		}
+		c.EmbeddedEtcd.LogLevel = "error"
 	}
 
 	var err error

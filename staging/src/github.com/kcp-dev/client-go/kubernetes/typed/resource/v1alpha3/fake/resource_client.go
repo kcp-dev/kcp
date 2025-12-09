@@ -40,24 +40,8 @@ func (c *ResourceV1alpha3ClusterClient) Cluster(clusterPath logicalcluster.Path)
 	return &ResourceV1alpha3Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
-func (c *ResourceV1alpha3ClusterClient) DeviceClasses() kcpresourcev1alpha3.DeviceClassClusterInterface {
-	return newFakeDeviceClassClusterClient(c)
-}
-
 func (c *ResourceV1alpha3ClusterClient) DeviceTaintRules() kcpresourcev1alpha3.DeviceTaintRuleClusterInterface {
 	return newFakeDeviceTaintRuleClusterClient(c)
-}
-
-func (c *ResourceV1alpha3ClusterClient) ResourceClaims() kcpresourcev1alpha3.ResourceClaimClusterInterface {
-	return newFakeResourceClaimClusterClient(c)
-}
-
-func (c *ResourceV1alpha3ClusterClient) ResourceClaimTemplates() kcpresourcev1alpha3.ResourceClaimTemplateClusterInterface {
-	return newFakeResourceClaimTemplateClusterClient(c)
-}
-
-func (c *ResourceV1alpha3ClusterClient) ResourceSlices() kcpresourcev1alpha3.ResourceSliceClusterInterface {
-	return newFakeResourceSliceClusterClient(c)
 }
 
 type ResourceV1alpha3Client struct {
@@ -65,24 +49,8 @@ type ResourceV1alpha3Client struct {
 	ClusterPath logicalcluster.Path
 }
 
-func (c *ResourceV1alpha3Client) DeviceClasses() resourcev1alpha3.DeviceClassInterface {
-	return newFakeDeviceClassClient(c.Fake, c.ClusterPath)
-}
-
 func (c *ResourceV1alpha3Client) DeviceTaintRules() resourcev1alpha3.DeviceTaintRuleInterface {
 	return newFakeDeviceTaintRuleClient(c.Fake, c.ClusterPath)
-}
-
-func (c *ResourceV1alpha3Client) ResourceClaims(namespace string) resourcev1alpha3.ResourceClaimInterface {
-	return newFakeResourceClaimClient(c.Fake, namespace, c.ClusterPath)
-}
-
-func (c *ResourceV1alpha3Client) ResourceClaimTemplates(namespace string) resourcev1alpha3.ResourceClaimTemplateInterface {
-	return newFakeResourceClaimTemplateClient(c.Fake, namespace, c.ClusterPath)
-}
-
-func (c *ResourceV1alpha3Client) ResourceSlices() resourcev1alpha3.ResourceSliceInterface {
-	return newFakeResourceSliceClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

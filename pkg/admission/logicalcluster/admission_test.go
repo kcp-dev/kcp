@@ -144,8 +144,7 @@ func TestAdmit(t *testing.T) {
 					"apiVersion": corev1alpha1.SchemeGroupVersion.String(),
 					"kind":       "Shard",
 					"metadata": map[string]interface{}{
-						"name":              "test",
-						"creationTimestamp": nil,
+						"name": "test",
 					},
 					"spec": map[string]interface{}{
 						"baseURL": "",

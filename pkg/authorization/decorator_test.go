@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	auditapis "k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
@@ -218,17 +217,14 @@ func TestDecorator(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			ctx := audit.WithAuditContext(context.Background())
-			auditCtx := audit.AuditContextFrom(ctx)
-			auditCtx.Event = auditapis.Event{
-				Level: auditapis.LevelMetadata,
-			}
+
 			attr := authorizer.AttributesRecord{}
 			dec, reason, _ := tc.authz.Authorize(ctx, attr)
 			if dec != tc.wantDecision {
 				t.Errorf("want decision %v got %v", tc.wantDecision, dec)
 			}
-			ev := audit.AuditEventFrom(ctx)
-			if diff := cmp.Diff(tc.wantAudit, ev.Annotations); diff != "" {
+			ev := audit.AuditContextFrom(ctx)
+			if diff := cmp.Diff(tc.wantAudit, ev.GetEventAnnotations()); diff != "" {
 				t.Errorf("audit log annotations differ: %v", diff)
 			}
 			if tc.wantReason != reason {

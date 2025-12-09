@@ -37,6 +37,7 @@ type StorageV1ClusterInterface interface {
 	CSIStorageCapacitiesClusterGetter
 	StorageClassesClusterGetter
 	VolumeAttachmentsClusterGetter
+	VolumeAttributesClassesClusterGetter
 }
 
 type StorageV1ClusterScoper interface {
@@ -73,6 +74,10 @@ func (c *StorageV1ClusterClient) StorageClasses() StorageClassClusterInterface {
 
 func (c *StorageV1ClusterClient) VolumeAttachments() VolumeAttachmentClusterInterface {
 	return &volumeAttachmentsClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *StorageV1ClusterClient) VolumeAttributesClasses() VolumeAttributesClassClusterInterface {
+	return &volumeAttributesClassesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new StorageV1ClusterClient for the given config.

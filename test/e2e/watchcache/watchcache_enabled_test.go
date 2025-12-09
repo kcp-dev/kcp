@@ -100,7 +100,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
 	}
 
-	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "/wildwest.dev/cowboys/customresources")
+	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "wildwest.dev", "cowboys")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -152,7 +152,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
 	}
 
-	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "/newyork.io/sheriffs")
+	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "newyork.io", "sheriffs")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -212,7 +212,7 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 		}
 	}
 
-	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "/core/secrets")
+	totalCacheHits, secretsCacheHit := collectCacheHitsFor(ctx, t, server.RootShardSystemMasterBaseConfig(t), "", "secrets")
 	if totalCacheHits == 0 {
 		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
 	}
@@ -221,13 +221,14 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	}
 }
 
-func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, metricResourcePrefix string) (int, int) {
+func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, group, resource string) (int, int) {
 	t.Helper()
 
 	rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootCfg)
 	require.NoError(t, err)
 
-	t.Logf("Reading %q metrics from the API server via %q endpoint for %q prefix", "apiserver_cache_list_total", "/metrics", metricResourcePrefix)
+	// metrics example: "apiserver_cache_list_total{group=\"\",index=\"\",resource=\"secrets\"} 118
+	t.Logf("Reading %q metrics from the API server via %q endpoint for group %q and resource %q", "apiserver_cache_list_total", "/metrics", group, resource)
 	rsp := rootShardKubeClusterClient.RESTClient().Get().AbsPath("/metrics").Do(ctx)
 	raw, err := rsp.Raw()
 	require.NoError(t, err)
@@ -237,7 +238,8 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 		txt := scanner.Text()
 		if strings.Contains(txt, "apiserver_cache_list_total") {
 			totalCacheHits++
-			if strings.Contains(txt, fmt.Sprintf(`resource_prefix="%v`, metricResourcePrefix)) {
+			if strings.Contains(txt, fmt.Sprintf(`group=%q`, group)) &&
+				strings.Contains(txt, fmt.Sprintf(`resource=%q`, resource)) {
 				re := regexp.MustCompile(`\b\d+\b`)
 				prefixCacheHitInstance, err := strconv.Atoi(string(re.Find([]byte(txt))))
 				if err != nil {

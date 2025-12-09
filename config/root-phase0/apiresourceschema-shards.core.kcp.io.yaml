@@ -1,7 +1,6 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: v240903-d6797056a.shards.core.kcp.io
 spec:
   group: core.kcp.io

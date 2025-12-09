@@ -1,7 +1,6 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  creationTimestamp: null
   name: v250523-2b8c1d3c5.cachedobjects.cache.kcp.io
 spec:
   group: cache.kcp.io
