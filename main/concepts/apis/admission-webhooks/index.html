@@ -6,6 +6,9 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="How admission webhooks and validating admission policies work across workspaces in kcp.
+">
+      
       
       
         <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/apis/admission-webhooks/">
@@ -1345,6 +1348,17 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Admission Webhooks
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1354,6 +1368,49 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#validatingadmissionpolicy-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      ValidatingAdmissionPolicy Support
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ValidatingAdmissionPolicy Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -3864,6 +3921,38 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#validatingadmissionpolicy-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      ValidatingAdmissionPolicy Support
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ValidatingAdmissionPolicy Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -3881,12 +3970,12 @@
 
 
 <h1 id="admission-webhooks">Admission Webhooks<a class="headerlink" href="#admission-webhooks" title="Permanent link">&para;</a></h1>
-<p>kcp extends the vanilla <a href="https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/">admission plugins</a> for webhooks, and makes them cluster-aware.</p>
+<p>kcp extends the vanilla <a href="https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/">admission plugins</a> for webhooks and validating admission policies, and makes them cluster-aware.</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph ws1["API Provider Workspace ws1"]
         export["Widgets APIExport"]
         schema["Widgets APIResourceSchema&lt;br/&gt;(widgets.v1.example.org)"]
-        webhook["Mutating/ValidatingWebhookConfiguration&lt;br/&gt;for widgets.v1.example.org&lt;br/&gt;&lt;br/&gt;Handle a from ws2 (APIResourceSchema)&lt;br/&gt;Handle b from ws3 (APIResourceSchema)&lt;br/&gt;Handle a from ws1 (CRD)"]
+        webhook["Mutating/ValidatingWebhookConfiguration&lt;br/&gt;ValidatingAdmissionPolicy&lt;br/&gt;for widgets.v1.example.org&lt;br/&gt;&lt;br/&gt;Handle a from ws2 (APIResourceSchema)&lt;br/&gt;Handle b from ws3 (APIResourceSchema)&lt;br/&gt;Handle a from ws1 (CRD)"]
         crd["Widgets CustomResourceDefinition&lt;br/&gt;(widgets.v1.example.org)"]
 
         export --&gt; schema
@@ -3914,18 +4003,46 @@
     classDef state color:#F77
     classDef or fill:none,stroke:none
     class export,schema,webhook,crd,binding1,binding2 resource;</code></pre>
-<p>When an object is to be mutated or validated, the webhook admission plugin (<a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/mutatingwebhook"><code>apis.kcp.io/MutatingWebhook</code></a> and <a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/validatingwebhook"><code>apis.kcp.io/ValidatingWebhook</code></a> respectively) looks for the owner of the resource schema. Once found, it then dispatches the handling for that object in the owner's workspace. There are two such cases in the diagram above:</p>
+<p>When an object is to be mutated or validated, the admission plugins (<a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/mutatingwebhook"><code>apis.kcp.io/MutatingWebhook</code></a>, <a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/validatingwebhook"><code>apis.kcp.io/ValidatingWebhook</code></a>, and <a href="https://github.com/kcp-dev/kcp/tree/main/pkg/admission/validatingadmissionpolicy"><code>ValidatingAdmissionPolicy</code></a> respectively) look for the owner of the resource schema. Once found, they then dispatch the handling for that object in the owner's workspace. There are two such cases in the diagram above:</p>
 <ul>
-<li><strong>Admitting bound resources.</strong> During the request handling, Widget objects inside the consumer workspaces <code>ws2</code> and <code>ws3</code> are picked up by the respective webhook admission plugin. The plugin sees the resource's schema comes from an APIBinding, and so it sets up an instance of <code>{Mutating,Validating}Webhook</code> to be working with its APIExport's workspace, in <code>ws1</code>. Afterwards, normal webhook admission flow continues: the request is dispatched to all eligible webhook configurations inside <code>ws1</code> and the object in request is mutated or validated.</li>
-<li><strong>Admitting local resources.</strong> The second case is when the webhook configuration exists in the same workspace as the object it's handling. The admission plugin sees the resource is not sourced via an APIBinding, and so it looks for eligible webhook configurations locally, and dispatches the request to the webhooks there. The same would of course be true if APIExport and its APIBinding lived in the same workspace: the APIExport would resolve to the same cluster.</li>
+<li><strong>Admitting bound resources.</strong> During the request handling, Widget objects inside the consumer workspaces <code>ws2</code> and <code>ws3</code> are picked up by the respective admission plugin. The plugin sees the resource's schema comes from an APIBinding, and so it sets up an instance of the admission plugin to be working with its APIExport's workspace, in <code>ws1</code>. Afterwards, normal admission flow continues: the request is dispatched to all eligible webhook configurations or validating admission policies inside <code>ws1</code> and the object in request is mutated or validated.</li>
+<li><strong>Admitting local resources.</strong> The second case is when the webhook configuration or validating admission policy exists in the same workspace as the object it's handling. The admission plugin sees the resource is not sourced via an <code>APIBinding</code>, and so it looks for eligible webhook configurations or policies locally, and dispatches the request accordingly. The same would of course be true if <code>APIExport</code> and its <code>APIBinding</code> lived in the same workspace: the <code>APIExport</code> would resolve to the same cluster.</li>
 </ul>
-<p>Lastly, objects in admission review are annotated with the name of the workspace that owns that object. For example, when Widget <code>b</code> from <code>ws3</code> is being validated, its caught by <code>ValidatingWebhookConfiguration</code> in <code>ws1</code>, but the webhook will see <code>kcp.io/cluster: ws3</code> annotation on the reviewed object.</p>
+<h2 id="validatingadmissionpolicy-support">ValidatingAdmissionPolicy Support<a class="headerlink" href="#validatingadmissionpolicy-support" title="Permanent link">&para;</a></h2>
+<p>kcp supports cross-workspace <code>ValidatingAdmissionPolicy</code> and <code>ValidatingAdmissionPolicyBinding</code> resources, similar to how it supports cross-workspace webhooks. When a resource is created in a consumer workspace that is bound via an <code>APIBinding</code>, the <code>ValidatingAdmissionPolicy</code> plugin will:</p>
+<ol>
+<li>Check the <code>APIBinding</code> to find the source workspace (<code>APIExport</code> workspace)</li>
+<li>Look for <code>ValidatingAdmissionPolicy</code> and <code>ValidatingAdmissionPolicyBinding</code> resources in the source workspace</li>
+<li>Apply those policies to validate the resource in the consumer workspace</li>
+</ol>
+<p>This means that policies defined in an <code>APIExport</code> workspace will automatically apply to all resources created in consuming workspaces, providing a consistent validation experience across all consumers of an API.</p>
+<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
+<p>Consider a scenario where:
+- <strong>Provider workspace</strong> (<code>root:provider</code>) has:
+  - An <code>APIExport</code> for <code>cowboys.wildwest.dev</code>
+  - A <code>ValidatingAdmissionPolicy</code> that rejects cowboys with <code>intent: "bad"</code>
+  - A <code>ValidatingAdmissionPolicyBinding</code> that binds the policy</p>
+<ul>
+<li><strong>Consumer workspace</strong> (<code>root:consumer</code>) has:</li>
+<li>An <code>APIBinding</code> that binds to the provider's <code>APIExport</code></li>
+<li>A user trying to create a cowboy with <code>intent: "bad"</code></li>
+</ul>
+<p>When the user creates the cowboy in the consumer workspace, the <code>ValidatingAdmissionPolicy</code> plugin will:
+1. Detect that the cowboy resource comes from an <code>APIBinding</code>
+2. Look up the source workspace (provider workspace)
+3. Find and apply the policy from the provider workspace
+4. Reject the cowboy creation because it violates the policy</p>
+<p>This ensures that API providers can enforce consistent validation rules across all consumers of their APIs.</p>
+<p>Lastly, objects in admission review are annotated with the name of the workspace that owns that object. For example, when Widget <code>b</code> from <code>ws3</code> is being validated, its caught by <code>ValidatingWebhookConfiguration</code> or <code>ValidatingAdmissionPolicy</code> in <code>ws1</code>, but the webhook or policy evaluator will see <code>kcp.io/cluster: ws3</code> annotation on the reviewed object.</p>
 
 
 
 
 
 
+
+  
+  
 
 
 
