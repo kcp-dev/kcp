@@ -17,8 +17,6 @@ limitations under the License.
 package authentication
 
 import (
-	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,8 +39,7 @@ func TestCrossShardWorkspaceType(t *testing.T) {
 		teamCluster = "logicalteamcluster"
 	)
 
-	ctx, cancel := context.WithCancelCause(context.Background())
-	defer cancel(errors.New("test has ended"))
+	ctx := t.Context()
 
 	clusterIndex := index.New(nil)
 	authIndex := NewIndex(ctx, nil)

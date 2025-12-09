@@ -17,7 +17,6 @@ limitations under the License.
 package workspace
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -43,8 +42,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 

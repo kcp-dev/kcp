@@ -17,7 +17,6 @@ limitations under the License.
 package homeworkspaces
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -44,8 +43,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	serverArgs = append(serverArgs, "--home-workspaces-home-creator-groups=team-1")
 	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(serverArgs...))
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	kcpConfig := server.BaseConfig(t)
 

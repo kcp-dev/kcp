@@ -17,7 +17,6 @@ limitations under the License.
 package homeworkspaces
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"testing"
@@ -65,8 +64,7 @@ func TestMountsMachinery(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	// This will create structure as bellow for testing:
 	// └── root
