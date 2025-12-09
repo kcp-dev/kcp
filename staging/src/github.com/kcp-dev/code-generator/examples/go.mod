@@ -13,6 +13,12 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0
 )
 
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../../apimachinery
+	github.com/kcp-dev/client-go => ../../client-go
+	github.com/kcp-dev/code-generator/v3 => ../../code-generator
+)
+
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
@@ -53,10 +59,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-)
-
-replace (
-	github.com/kcp-dev/apimachinery/v2 => ../../apimachinery
-	github.com/kcp-dev/client-go => ../../client-go
-	github.com/kcp-dev/code-generator/v3 => ../../code-generator
 )

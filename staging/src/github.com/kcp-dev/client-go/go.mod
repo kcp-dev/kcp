@@ -17,6 +17,11 @@ require (
 	sigs.k8s.io/yaml v1.6.0
 )
 
+replace (
+	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
+	github.com/kcp-dev/code-generator/v3 => ../code-generator
+)
+
 require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
@@ -91,9 +96,4 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-)
-
-replace (
-	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
-	github.com/kcp-dev/code-generator/v3 => ../code-generator
 )
