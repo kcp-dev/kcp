@@ -14,3 +14,4 @@ updates:
     prefix: ":seedling:"
   labels:
   - "ok-to-test"
+  - "kind/dependency-change"
