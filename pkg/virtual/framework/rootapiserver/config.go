@@ -21,6 +21,8 @@ import (
 	"k8s.io/apiserver/pkg/util/compatibility"
 	"k8s.io/client-go/rest"
 
+	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
+
 	"github.com/kcp-dev/kcp/pkg/virtual/framework"
 )
 
@@ -36,6 +38,7 @@ type Config struct {
 
 type ExtraConfig struct {
 	VirtualWorkspaces []NamedVirtualWorkspace
+	KcpClusterClient  corev1alpha1informers.LogicalClusterClusterInformer
 }
 
 type completedConfig struct {

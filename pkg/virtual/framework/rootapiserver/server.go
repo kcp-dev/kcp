@@ -17,6 +17,7 @@ limitations under the License.
 package rootapiserver
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -27,13 +28,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	kaudit "k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/warning"
 	componentbaseversion "k8s.io/component-base/version"
 
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+
 	virtualcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/context"
 )
+
+type auditClusterKeyType int
+
+const auditClusterKey auditClusterKeyType = iota
 
 var (
 	errorScheme = runtime.NewScheme()
@@ -80,17 +90,35 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 
 func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.DelegationTarget) func(http.Handler, *genericapiserver.Config) http.Handler {
 	return func(apiHandler http.Handler, genericConfig *genericapiserver.Config) http.Handler {
-		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
-			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				if _, virtualWorkspaceNameExists := virtualcontext.VirtualWorkspaceNameFrom(req.Context()); virtualWorkspaceNameExists {
-					delegatedHandler := delegateAPIServer.UnprotectedHandler()
-					if delegatedHandler != nil {
-						delegatedHandler.ServeHTTP(w, req)
+		auditAnnotationWrapper := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if cluster, ok := req.Context().Value(auditClusterKey).(*request.Cluster); ok {
+				if cluster != nil && !cluster.Name.Empty() && c.Extra.KcpClusterClient != nil {
+					var canonicalPath string
+					logicalCluster, err := c.Extra.KcpClusterClient.Cluster(cluster.Name).Lister().Get(corev1alpha1.LogicalClusterName)
+					if err == nil {
+						if path, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found && path != "" {
+							canonicalPath = path
+						}
 					}
-					return
+
+					kaudit.AddAuditAnnotation(req.Context(), core.LogicalClusterPathAnnotationKey, canonicalPath)
+					kaudit.AddAuditAnnotation(req.Context(), "tenancy.kcp.io/workspace", cluster.Name.String())
+					kaudit.AddAuditAnnotation(req.Context(), "kcp.io/cluster", cluster.Name.String())
 				}
-				apiHandler.ServeHTTP(w, req)
-			}), c.Generic.Config)
+			}
+
+			if _, virtualWorkspaceNameExists := virtualcontext.VirtualWorkspaceNameFrom(req.Context()); virtualWorkspaceNameExists {
+				delegatedHandler := delegateAPIServer.UnprotectedHandler()
+				if delegatedHandler != nil {
+					delegatedHandler.ServeHTTP(w, req)
+				}
+				return
+			}
+			apiHandler.ServeHTTP(w, req)
+		})
+
+		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(auditAnnotationWrapper, c.Generic.Config)
+
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			requestContext := req.Context()
 			// detect old kubectl plugins and inject warning headers
@@ -112,7 +140,14 @@ func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.D
 						return
 					}
 					req.URL = newURL
+
+					cluster := request.ClusterFrom(completedContext)
+					if cluster != nil && !cluster.Name.Empty() {
+						completedContext = context.WithValue(completedContext, auditClusterKey, cluster)
+					}
+
 					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, vw.Name))
+
 					break
 				}
 			}
