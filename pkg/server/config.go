@@ -68,6 +68,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
@@ -141,6 +142,12 @@ type ExtraConfig struct {
 	CacheDiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
 	CacheKcpSharedInformerFactory                kcpinformers.SharedInformerFactory
 	CacheKubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+
+	// DynRESTMapper is a workspace-aware REST mapper, backed by a reconciler,
+	// which dynamically loads all bound resources through every type associated
+	// with an APIBinding in the workspace into the mapper. Another controller can
+	// use this to resolve the Kind/Resource of the objects.
+	DynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
 }
 
 type completedConfig struct {
@@ -556,6 +563,9 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
 
+	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
+	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
+
 	admissionPluginInitializers := []admission.PluginInitializer{
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeInformersInitializer(c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory),
@@ -567,6 +577,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
+		kcpadmissioninitializers.NewDynamicRESTMapperInitializer(c.DynamicRESTMapper),
 	}
 
 	c.ShardBaseURL = func() string {

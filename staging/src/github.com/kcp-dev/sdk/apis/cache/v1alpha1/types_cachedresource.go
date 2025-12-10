@@ -138,6 +138,9 @@ const (
 	CachedResourceInvalidReferenceReason = "CachedResourceInvalidReference"
 	// CachedResourceNotFoundReason is a reason for the CachedResourceValid condition that the referenced CachedResource is not found.
 	CachedResourceNotFoundReason = "CachedResourceNotFound"
+	// ResourceNotClusterScoped is a reason for the CachedResourceValid condition
+	// that the resource in CachedResource is not cluster scoped.
+	ResourceNotClusterScoped = "ResourceNotClusterScoped"
 
 	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
 	InternalErrorReason = "InternalError"

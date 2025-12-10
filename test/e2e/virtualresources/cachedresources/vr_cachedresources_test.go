@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 
@@ -55,7 +54,6 @@ import (
 
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
-	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -99,16 +97,13 @@ func TestCachedResources(t *testing.T) {
 
 	kcpCRDClusterClient := kcpApiExtensionClusterClient.ApiextensionsV1().CustomResourceDefinitions()
 
-	wildwestClusterClient, err := wildwestclientset.NewForConfig(rest.CopyConfig(cfg))
-	require.NoError(t, err)
-
 	//
 	// Prepare the provider cluster.
 	//
 
-	resourceNames := sets.New("cowboys", "sheriffs")
+	resourceNames := sets.New("sheriffs")
 
-	// Prepare wildwest.dev resources "cowboys" and "sheriffs":
+	// Prepare wildwest.dev resource "sheriffs":
 	// * Create CRD and generate its associated APIResourceSchema to be used with an APIExport later.
 	// * Create a CachedResource for that resource and wait until it's ready.
 	cachedResourceIdentities := make(map[string]string)
@@ -160,21 +155,6 @@ func TestCachedResources(t *testing.T) {
 		},
 		Spec: apisv1alpha2.APIExportSpec{
 			Resources: []apisv1alpha2.ResourceSchema{
-				{
-					Group:  "wildwest.dev",
-					Name:   "cowboys",
-					Schema: "today.cowboys.wildwest.dev",
-					Storage: apisv1alpha2.ResourceSchemaStorage{
-						Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-							Reference: corev1.TypedLocalObjectReference{
-								APIGroup: ptr.To(cachev1alpha1.SchemeGroupVersion.Group),
-								Kind:     "CachedResourceEndpointSlice",
-								Name:     "cowboys.wildwest.dev",
-							},
-							IdentityHash: cachedResourceIdentities["cowboys"],
-						},
-					},
-				},
 				{
 					Group:  "wildwest.dev",
 					Name:   "sheriffs",
@@ -282,7 +262,7 @@ func TestCachedResources(t *testing.T) {
 				return false, err.Error()
 			}
 			return found, fmt.Sprintf("URL for workspace %q not found in APIExportEndpointSlice %s|%s", consumerPath, providerPath, apiExport.Name)
-		}, wait.ForeverTestTimeout, time.Second*1, "waiting for three cowboys")
+		}, wait.ForeverTestTimeout, time.Second*1, "waiting for workspace URL in APIExportEndpointSlice")
 
 		if _, ok := apiExportVWClientConfigs[vwURL]; !ok {
 			vwCfg := rest.CopyConfig(cfg)
@@ -300,13 +280,8 @@ func TestCachedResources(t *testing.T) {
 	// Verify.
 	//
 
-	// Make sure there are no cowboys or sheriffs in either of the consumer workspaces at the beginning.
+	// Make sure there are no sheriffs in either of the consumer workspaces at the beginning.
 	for consumerPath := range consumerPaths {
-		t.Logf("Ensure that there are no Cowboys in %q", consumerPath)
-		cowboysList, err := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
-		require.NoError(t, err)
-		require.Empty(t, cowboysList.Items, "there should be no Cowboy objects at this point in time")
-
 		t.Logf("Ensure that there are no Sheriffs in %q", consumerPath)
 		sheriffsList, err := listSheriffs(ctx, kcpDynClusterClient, logicalcluster.Name(consumerPath.String()))
 		require.NoError(t, err)
@@ -316,7 +291,6 @@ func TestCachedResources(t *testing.T) {
 	t.Log("Verify watching and wildcards work")
 
 	resourceCounters := map[string]*int32{
-		"cowboys":  ptr.To[int32](0),
 		"sheriffs": ptr.To[int32](0),
 	}
 	var watchStopFuncs []func()
@@ -326,8 +300,7 @@ func TestCachedResources(t *testing.T) {
 		}
 	}()
 
-	// Create a watch for each resource we're interested in (Cowboys and Sheriffs)
-	// against each APIExport VW endpoint we've found above.
+	// Create a watch for Sheriffs against each APIExport VW endpoint we've found above.
 	for resourceName, counter := range resourceCounters {
 		for _, cfg := range apiExportVWClientConfigs {
 			dynClient, err := kcpdynamic.NewForConfig(cfg)
@@ -363,23 +336,9 @@ func TestCachedResources(t *testing.T) {
 		}
 	}
 
-	// Create one Cowboy and one Sheriff in the provider workspace.
-	// Eventually we should see two of each in the resourcesCounter,
+	// Create one Sheriff in the provider workspace.
+	// Eventually we should see two Sheriffs in the resourcesCounter,
 	// i.e. one for each consumer workspace.
-	t.Logf("Creating a Cowboy in %q", providerPath)
-	cowboyOne := createCowboy(t, ctx, wildwestClusterClient, providerPath, &wildwestv1alpha1.Cowboy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cowboys-1",
-			Namespace: "default",
-		},
-		Spec: wildwestv1alpha1.CowboySpec{
-			Intent: "cowboys-1-spec",
-		},
-		Status: wildwestv1alpha1.CowboyStatus{
-			Result: "cowboys-1-status",
-		},
-	})
-	require.NoError(t, err)
 	t.Logf("Creating a Sheriff in %q", providerPath)
 	sheriffOne := createSheriff(t, ctx, kcpDynClusterClient, logicalcluster.Name(providerPath.String()), &wildwestv1alpha1.Sheriff{
 		ObjectMeta: metav1.ObjectMeta{
@@ -405,7 +364,7 @@ func TestCachedResources(t *testing.T) {
 			}
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, time.Second*1, "waiting for two cowboys and two sheriffs")
+	}, wait.ForeverTestTimeout, time.Second*1, "waiting for two sheriffs")
 
 	t.Log("Stopping watches")
 	for _, stop := range watchStopFuncs {
@@ -414,7 +373,7 @@ func TestCachedResources(t *testing.T) {
 		stop()
 	}
 
-	// Make sure listing * for Cowboys and Sheriffs returns two items for each.
+	// Make sure listing * for Sheriffs returns two items for each.
 	for resourceName := range resourceNames {
 		counter := 0
 		for _, cfg := range apiExportVWClientConfigs {
@@ -435,16 +394,7 @@ func TestCachedResources(t *testing.T) {
 
 	// Make sure listing and getting resources in a specific cluster works, both through
 	// APIExport VW and regular workspace, and that it has expected contents.
-	wildwestResourceNamespaces := map[string]string{
-		cowboyOne.Name:  cowboyOne.Namespace,
-		sheriffOne.Name: sheriffOne.Namespace, // Actually, no namespace here -- this is just for the consistency's sake
-	}
-	namespaceableResource := func(namespace string, nsRes dynamic.NamespaceableResourceInterface) dynamic.ResourceInterface {
-		if namespace == "" {
-			return nsRes
-		}
-		return nsRes.Namespace(namespace)
-	}
+
 	// Get all dynamic clients in a single slice so that we can do this all in one go.
 	cfgs := make([]*rest.Config, 0, len(apiExportVWClientConfigs))
 	for _, c := range apiExportVWClientConfigs {
@@ -457,12 +407,7 @@ func TestCachedResources(t *testing.T) {
 		dynClients[cfg.Host] = dynClient
 	}
 	for resourceName := range resourceNames {
-		// We'll need these for object comparison below.
-		cowboyOneNormalized := cowboyOne.DeepCopy()
-		cowboyOneNormalized.APIVersion = wildwestv1alpha1.SchemeGroupVersion.String()
-		cowboyOneNormalized.Kind = "Cowboy"
-		cowboyOneNormalized.Annotations = make(map[string]string)
-
+		// We'll need this for object comparison below.
 		sheriffOneNormalized := sheriffOne.DeepCopy()
 		sheriffOneNormalized.APIVersion = wildwestv1alpha1.SchemeGroupVersion.String()
 		sheriffOneNormalized.Kind = "Sheriff"
@@ -470,17 +415,11 @@ func TestCachedResources(t *testing.T) {
 
 		for consumerPath, consumerWS := range consumerWorkspaces {
 			// Set the cluster name to the expected values.
-			cowboyOneNormalized.Annotations[logicalcluster.AnnotationKey] = consumerWS.Spec.Cluster
 			sheriffOneNormalized.Annotations[logicalcluster.AnnotationKey] = consumerWS.Spec.Cluster
-
-			cowboyOneNormalizedUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cowboyOneNormalized)
-			require.NoError(t, err)
-
 			sheriffOneNormalizedUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sheriffOneNormalized)
 			require.NoError(t, err)
 
 			wildwestObjsNormalizedUnstructured := map[string]map[string]interface{}{
-				cowboyOneNormalized.Name:  normalizeUnstructuredMap(cowboyOneNormalizedUnstructured),
 				sheriffOneNormalized.Name: normalizeUnstructuredMap(sheriffOneNormalizedUnstructured),
 			}
 
@@ -490,13 +429,10 @@ func TestCachedResources(t *testing.T) {
 				}
 
 				objName := resourceName + "-1"
-				objNamespace := wildwestResourceNamespaces[objName]
 
 				t.Logf("Listing %s resources in %q via %q should return one object", resourceName, consumerPath, host)
-				list, err := namespaceableResource(
-					objNamespace,
-					dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
-						Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName))).
+				list, err := dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
+					Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
 					List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 				require.Equal(t, 1, len(list.Items), "Unexpected number of items in %s list in %q when listing through %q", resourceName, consumerPath, host)
@@ -505,10 +441,8 @@ func TestCachedResources(t *testing.T) {
 				require.EqualValues(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(list.Items[0].Object))
 
 				t.Logf("Getting a %s resource named %s in %q via %q should return that object", resourceName, objName, consumerPath, host)
-				obj, err := namespaceableResource(
-					objNamespace,
-					dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
-						Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName))).
+				obj, err := dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
+					Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
 					Get(ctx, objName, metav1.GetOptions{})
 				require.NoError(t, err)
 				require.EqualValues(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(obj.Object))
@@ -603,20 +537,4 @@ func createSheriff(t *testing.T, ctx context.Context, c kcpdynamic.ClusterInterf
 	require.Equal(t, sheriff.Status, sheriffWithStatus.Status, "created Sheriff should have Status")
 
 	return sheriffWithStatus
-}
-
-func createCowboy(t *testing.T, ctx context.Context, c wildwestclientset.ClusterInterface, path logicalcluster.Path, cowboy *wildwestv1alpha1.Cowboy) *wildwestv1alpha1.Cowboy {
-	t.Helper()
-
-	createdCowboy, err := c.Cluster(path).WildwestV1alpha1().Cowboys(cowboy.Namespace).Create(ctx, cowboy, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	createdCowboy.Status = cowboy.Status
-	cowboyWithStatus, err := c.Cluster(path).WildwestV1alpha1().Cowboys(cowboy.Namespace).UpdateStatus(ctx, createdCowboy, metav1.UpdateOptions{})
-	require.NoError(t, err)
-
-	require.Equal(t, cowboy.Spec, cowboyWithStatus.Spec, "created Cowboy should have Spec")
-	require.Equal(t, cowboy.Status, cowboyWithStatus.Status, "created Cowboy should have Status")
-
-	return cowboyWithStatus
 }

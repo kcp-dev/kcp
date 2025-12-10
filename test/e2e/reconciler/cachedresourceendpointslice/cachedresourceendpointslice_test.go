@@ -64,20 +64,20 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 	kcpApiExtensionClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp apiextensions cluster client")
 	crdClient := kcpApiExtensionClusterClient.ApiextensionsV1().CustomResourceDefinitions()
-	cowboysGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
-	wildwest.Create(t, providerPath, crdClient, cowboysGR)
+	sheriffsGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "sheriffs"}
+	wildwest.Create(t, providerPath, crdClient, sheriffsGR)
 
 	// Create a CachedResource in the provider workspace
 	t.Logf("Creating CachedResource in provider workspace %q", providerPath)
 	cachedResource := &cachev1alpha1.CachedResource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cowboysGR.String(),
+			Name: sheriffsGR.String(),
 		},
 		Spec: cachev1alpha1.CachedResourceSpec{
 			GroupVersionResource: cachev1alpha1.GroupVersionResource{
 				Group:    "wildwest.dev",
 				Version:  "v1alpha1",
-				Resource: "cowboys",
+				Resource: "sheriffs",
 			},
 		},
 	}
@@ -97,7 +97,7 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 	t.Logf("Creating CachedResourceEndpointSlice in consumer workspace %q with path reference to provider workspace %q", consumerPath, providerPath)
 	sliceExternalPath := &cachev1alpha1.CachedResourceEndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "cowboys-external-path-slice-",
+			GenerateName: "sheriffs-external-path-slice-",
 		},
 		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
 			CachedResource: cachev1alpha1.CachedResourceReference{
@@ -134,7 +134,7 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 	t.Logf("Creating CachedResourceEndpointSlice in provider workspace that references the CachedResource in the same workspace")
 	sliceSameWorkspace := &cachev1alpha1.CachedResourceEndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "cowboys-same-workspace-slice-",
+			GenerateName: "sheriffs-same-workspace-slice-",
 		},
 		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
 			CachedResource: cachev1alpha1.CachedResourceReference{
@@ -168,7 +168,7 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 
 	sliceInvalidReference := &cachev1alpha1.CachedResourceEndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cowboys-invalid-reference-slice",
+			Name: "sheriffs-invalid-reference-slice",
 		},
 		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
 			CachedResource: cachev1alpha1.CachedResourceReference{

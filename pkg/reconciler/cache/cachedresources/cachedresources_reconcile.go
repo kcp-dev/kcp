@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -58,6 +59,20 @@ type reconciler interface {
 func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) (bool, error) {
 	reconcilers := []reconciler{
 		&finalizer{},
+		&validSchema{
+			getResourceScope: func(gvr schema.GroupVersionResource) (meta.RESTScope, error) {
+				scopedMapper := c.dynRESTMapper.ForCluster(logicalcluster.From(cachedResource))
+				kind, err := scopedMapper.KindFor(schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource))
+				if err != nil {
+					return nil, err
+				}
+				mapping, err := scopedMapper.RESTMapping(kind.GroupKind(), kind.Version)
+				if err != nil {
+					return nil, err
+				}
+				return mapping.Scope, nil
+			},
+		},
 		&identity{
 			ensureSecretNamespaceExists: c.ensureSecretNamespaceExists,
 			getSecret:                   c.getSecret,

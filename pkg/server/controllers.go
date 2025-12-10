@@ -684,7 +684,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		dynamicClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 		s.DiscoveringDynamicSharedInformerFactory,
-		s.DynRESTMapper,
+		s.completedConfig.DynamicRESTMapper,
 	)
 	if err != nil {
 		return err
@@ -1665,7 +1665,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 }
 
 func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
-	builtinTypesController, err := dynamicrestmapper.NewBuiltinTypesController(ctx, s.DynRESTMapper,
+	builtinTypesController, err := dynamicrestmapper.NewBuiltinTypesController(ctx, s.completedConfig.DynamicRESTMapper,
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
@@ -1686,7 +1686,7 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
 		return err
 	}
 
-	dynamicTypesController, err := dynamicrestmapper.NewDynamicTypesController(ctx, s.DynRESTMapper,
+	dynamicTypesController, err := dynamicrestmapper.NewDynamicTypesController(ctx, s.completedConfig.DynamicRESTMapper,
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
@@ -1745,7 +1745,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		s.KubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
-		s.DynRESTMapper,
+		s.completedConfig.DynamicRESTMapper,
 		s.DiscoveringDynamicSharedInformerFactory,
 		s.CacheKcpSharedInformerFactory,
 		cachedResourceInformer,
@@ -1900,7 +1900,7 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 	)
 	workspacemounts.InstallIndexers(
-		s.DynRESTMapper,
+		s.completedConfig.DynamicRESTMapper,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
 	)
 	extraannotationsync.InstallIndexers(

@@ -73,7 +73,7 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	logicalClusterName := logicalcluster.Name(workspace.Spec.Cluster)
 
-	drm := server.Server.DynRESTMapper.ForCluster(logicalClusterName)
+	drm := server.Server.ExtraConfig.DynamicRESTMapper.ForCluster(logicalClusterName)
 
 	t.Logf("Testing if we can resolve the ConfigMap kind")
 	var gvk schema.GroupVersionKind
