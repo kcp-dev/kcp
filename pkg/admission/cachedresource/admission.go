@@ -22,6 +22,7 @@ import (
 	"io"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,6 +37,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	cachedresourcesreconciler "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 // PluginName is the name used to identify this admission webhook.
@@ -72,6 +74,8 @@ type CachedResourceAdmission struct {
 
 	listCachedResourcesByGVR    func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) ([]*cachev1alpha1.CachedResource, error)
 	localCachedResourcesIndexer cache.Indexer
+
+	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
 }
 
 func (adm *CachedResourceAdmission) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
@@ -83,6 +87,10 @@ func (adm *CachedResourceAdmission) SetKcpInformers(local, global kcpinformers.S
 	indexers.AddIfNotPresentOrDie(local.Cache().V1alpha1().CachedResources().Informer().GetIndexer(), cache.Indexers{
 		cachedresourcesreconciler.ByGVRAndLogicalCluster: cachedresourcesreconciler.IndexByGVRAndLogicalCluster,
 	})
+}
+
+func (adm *CachedResourceAdmission) SetDynamicRESTMapper(dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper) {
+	adm.dynamicRESTMapper = dynamicRESTMapper
 }
 
 // ValidateInitialization ensures the required injected fields are set.
@@ -122,6 +130,27 @@ func (adm *CachedResourceAdmission) validateV1alpha1(ctx context.Context, a admi
 	}
 
 	gvr := schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource)
+
+	// We check that the resource in the CachedResource is cluster-scoped.
+	// This is only advisory as the real check is done by CachedResource's controller,
+	// which sets a condition if the resource is not cluster-scoped.
+	scopedDynRESTMapper := adm.dynamicRESTMapper.ForCluster(clusterName)
+	kind, err := scopedDynRESTMapper.KindFor(gvr)
+	if err == nil {
+		mapping, err := scopedDynRESTMapper.RESTMapping(kind.GroupKind(), kind.Version)
+		if err == nil {
+			if mapping.Scope != meta.RESTScopeRoot {
+				return admission.NewForbidden(a,
+					field.Invalid(
+						field.NewPath("spec"),
+						gvr.GroupResource().String(),
+						"Resource referenced in CachedResource must be cluster-scoped",
+					),
+				)
+			}
+		}
+	}
+
 	existing, err := adm.listCachedResourcesByGVR(clusterName, gvr)
 	if err != nil {
 		return err

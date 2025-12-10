@@ -33,6 +33,7 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 func createAttr(cachedResource *cachev1alpha1.CachedResource) admission.Attributes {
@@ -187,6 +188,7 @@ func TestAdmission(t *testing.T) {
 				listCachedResourcesByGVR: func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) ([]*cachev1alpha1.CachedResource, error) {
 					return tc.index[cluster][gvr], nil
 				},
+				dynamicRESTMapper: dynamicrestmapper.NewDynamicRESTMapper(),
 			}
 
 			err := plugin.Validate(ctx, tc.attr, nil)
