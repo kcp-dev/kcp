@@ -577,6 +577,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
+		kcpadmissioninitializers.NewDynamicRESTMapperInitializer(c.DynamicRESTMapper),
 	}
 
 	c.ShardBaseURL = func() string {
