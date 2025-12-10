@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1beta1
 
+// LeaseClusterListerExpansion allows custom methods to be added to
+// LeaseClusterLister.
+type LeaseClusterListerExpansion interface{}
+
 // LeaseCandidateClusterListerExpansion allows custom methods to be added to
 // LeaseCandidateClusterLister.
 type LeaseCandidateClusterListerExpansion interface{}

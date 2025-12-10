@@ -22,6 +22,18 @@ package v1
 // IPAddressClusterLister.
 type IPAddressClusterListerExpansion interface{}
 
+// IngressClusterListerExpansion allows custom methods to be added to
+// IngressClusterLister.
+type IngressClusterListerExpansion interface{}
+
+// IngressClassClusterListerExpansion allows custom methods to be added to
+// IngressClassClusterLister.
+type IngressClassClusterListerExpansion interface{}
+
+// NetworkPolicyClusterListerExpansion allows custom methods to be added to
+// NetworkPolicyClusterLister.
+type NetworkPolicyClusterListerExpansion interface{}
+
 // ServiceCIDRClusterListerExpansion allows custom methods to be added to
 // ServiceCIDRClusterLister.
 type ServiceCIDRClusterListerExpansion interface{}

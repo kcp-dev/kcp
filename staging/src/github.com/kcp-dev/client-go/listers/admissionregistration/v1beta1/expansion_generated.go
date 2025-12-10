@@ -25,3 +25,19 @@ type MutatingAdmissionPolicyClusterListerExpansion interface{}
 // MutatingAdmissionPolicyBindingClusterListerExpansion allows custom methods to be added to
 // MutatingAdmissionPolicyBindingClusterLister.
 type MutatingAdmissionPolicyBindingClusterListerExpansion interface{}
+
+// MutatingWebhookConfigurationClusterListerExpansion allows custom methods to be added to
+// MutatingWebhookConfigurationClusterLister.
+type MutatingWebhookConfigurationClusterListerExpansion interface{}
+
+// ValidatingAdmissionPolicyClusterListerExpansion allows custom methods to be added to
+// ValidatingAdmissionPolicyClusterLister.
+type ValidatingAdmissionPolicyClusterListerExpansion interface{}
+
+// ValidatingAdmissionPolicyBindingClusterListerExpansion allows custom methods to be added to
+// ValidatingAdmissionPolicyBindingClusterLister.
+type ValidatingAdmissionPolicyBindingClusterListerExpansion interface{}
+
+// ValidatingWebhookConfigurationClusterListerExpansion allows custom methods to be added to
+// ValidatingWebhookConfigurationClusterLister.
+type ValidatingWebhookConfigurationClusterListerExpansion interface{}
