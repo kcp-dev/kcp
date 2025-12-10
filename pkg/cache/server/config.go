@@ -95,6 +95,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		if err != nil {
 			return nil, err
 		}
+		c.EmbeddedEtcd.LogLevel = "error"
 	}
 	// change the storage prefix under which all resources are kept
 	// this allows us to store the same GR under a different
