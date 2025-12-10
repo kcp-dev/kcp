@@ -27,6 +27,7 @@ import (
 
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -291,6 +292,17 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	t.Logf("Creating default namespace in target workspace")
+	defaultNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(targetPath).CoreV1().Namespaces().Create(ctx, defaultNS, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		require.NoError(t, err, "failed to create default namespace")
+	}
+
 	t.Logf("Create an APIBinding in workspace %q that points to the cowboybebop export", targetPath)
 	apiBinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -396,6 +408,18 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 					return true
 				}
 			}
+
+			if errors.IsNotFound(err) && strings.Contains(err.Error(), "namespace \"default\" not found") {
+				t.Logf("Namespace not found, creating it: %s", err)
+				_, createErr := kubeClusterClient.Cluster(targetPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "default"},
+				}, metav1.CreateOptions{})
+				if createErr != nil && !errors.IsAlreadyExists(createErr) {
+					t.Logf("Failed to create namespace: %s", createErr)
+				}
+				return false
+			}
+
 			t.Logf("Unexpected error when trying to create bad cowboy: %s", err)
 		}
 		return false
