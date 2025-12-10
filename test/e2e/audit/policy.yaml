@@ -4,6 +4,6 @@ rules:
   - level: Request
     verbs: ["list"]
     resources:
-    - group: "" 
-      resources: ["configmaps"]
+      - group: ""
+        resources: ["configmaps"]
     namespaces: ["default"]
