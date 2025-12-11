@@ -32,7 +32,7 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
 	github.com/xrstf/mockoidc v0.0.0-20250721141841-711cc4e835f6
-	go.uber.org/goleak v1.3.1-0.20241121203838-4ff5fa6529ee
+	go.uber.org/goleak v1.3.1-0.20251210191316-2b7fd8a0d244
 	go.uber.org/multierr v1.11.0
 	golang.org/x/sys v0.39.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -92,10 +92,6 @@ replace (
 	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
 	github.com/kcp-dev/sdk => ./staging/src/github.com/kcp-dev/sdk
 )
-
-// This fork is required to use IgnoreCreatedBy. The PR to add this
-// feature is here: https://github.com/uber-go/goleak/pull/136
-replace go.uber.org/goleak => github.com/ntnn/goleak v1.2.2-0.20251003233619-cbb740da4265
 
 require (
 	cel.dev/expr v0.24.0 // indirect
