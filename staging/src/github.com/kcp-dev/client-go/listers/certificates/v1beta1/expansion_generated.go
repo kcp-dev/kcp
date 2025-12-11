@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1beta1
 
+// CertificateSigningRequestClusterListerExpansion allows custom methods to be added to
+// CertificateSigningRequestClusterLister.
+type CertificateSigningRequestClusterListerExpansion interface{}
+
 // ClusterTrustBundleClusterListerExpansion allows custom methods to be added to
 // ClusterTrustBundleClusterLister.
 type ClusterTrustBundleClusterListerExpansion interface{}

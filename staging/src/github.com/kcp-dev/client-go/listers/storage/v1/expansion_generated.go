@@ -18,6 +18,26 @@ limitations under the License.
 
 package v1
 
+// CSIDriverClusterListerExpansion allows custom methods to be added to
+// CSIDriverClusterLister.
+type CSIDriverClusterListerExpansion interface{}
+
+// CSINodeClusterListerExpansion allows custom methods to be added to
+// CSINodeClusterLister.
+type CSINodeClusterListerExpansion interface{}
+
+// CSIStorageCapacityClusterListerExpansion allows custom methods to be added to
+// CSIStorageCapacityClusterLister.
+type CSIStorageCapacityClusterListerExpansion interface{}
+
+// StorageClassClusterListerExpansion allows custom methods to be added to
+// StorageClassClusterLister.
+type StorageClassClusterListerExpansion interface{}
+
+// VolumeAttachmentClusterListerExpansion allows custom methods to be added to
+// VolumeAttachmentClusterLister.
+type VolumeAttachmentClusterListerExpansion interface{}
+
 // VolumeAttributesClassClusterListerExpansion allows custom methods to be added to
 // VolumeAttributesClassClusterLister.
 type VolumeAttributesClassClusterListerExpansion interface{}
