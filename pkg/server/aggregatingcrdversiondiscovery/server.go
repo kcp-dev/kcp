@@ -17,6 +17,7 @@ limitations under the License.
 package aggregatingcrdversiondiscovery
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -24,7 +25,9 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v1"
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,10 +37,14 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/warning"
+	"k8s.io/client-go/rest"
 
+	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
@@ -69,13 +76,23 @@ type Server struct {
 	// verbs for each group-version tuple. storageAwareResourceVerbsProvider
 	// knows what storage is defined for which resource, and based on that
 	// information it can provide the correct set of verbs to advertise.
-	verbsProvider *storageAwareResourceVerbsProvider
+	verbsProviderFactory *storageAwareResourceVerbsProviderFactory
 
 	getCRD             func(cluster logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	getAPIExportByPath func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
 
 func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTarget) (*Server, error) {
+	getAPIExportByPath := func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+		return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](
+			apisv1alpha2.Resource("apiexports"),
+			c.Extra.LocalAPIExportInformer.Informer().GetIndexer(),
+			c.Extra.GlobalAPIExportInformer.Informer().GetIndexer(),
+			clusterPath,
+			name,
+		)
+	}
+
 	s := &Server{
 		Extra:    c.Extra,
 		delegate: delegationTarget.UnprotectedHandler(),
@@ -83,38 +100,40 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return c.Extra.CRDLister.Lister().Cluster(clusterName).Get(name)
 		},
-		getAPIExportByPath: func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](
-				apisv1alpha2.Resource("apiexports"),
-				c.Extra.LocalAPIExportInformer.Informer().GetIndexer(),
-				c.Extra.GlobalAPIExportInformer.Informer().GetIndexer(),
-				clusterPath,
-				name,
-			)
-		},
-	}
+		getAPIExportByPath: getAPIExportByPath,
 
-	s.verbsProvider = &storageAwareResourceVerbsProvider{
-		getAPIExportByPath: s.getAPIExportByPath,
-		getAPIExportsByVirtualResourceIdentity: func(vrIdentity string) ([]*apisv1alpha2.APIExport, error) {
-			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](
-				c.Extra.LocalAPIExportInformer.Informer().GetIndexer(),
-				c.Extra.GlobalAPIExportInformer.Informer().GetIndexer(),
-				indexers.APIExportByVirtualResourceIdentities,
-				vrIdentity,
-			)
-		},
-		// For now we have only CachedResourceEndpointSlice as a source of virtual resources.
-		// The Replication VW supports only the verbs below. We just stash them here so
-		// that we don't have to do discovery each time we process a request.
-		knownVirtualResourceVerbs: map[string][]string{
-			"CachedResourceEndpointSlice.cache.kcp.io": {"get", "list", "patch"},
-		},
-		knownVirtualResourceStatusVerbs: map[string][]string{
-			"CachedResourceEndpointSlice.cache.kcp.io": {"get"},
-		},
-		knownVirtualResourceScaleVerbs: map[string][]string{
-			"CachedResourceEndpointSlice.cache.kcp.io": {"get"},
+		verbsProviderFactory: &storageAwareResourceVerbsProviderFactory{
+			getAPIExportByPath: getAPIExportByPath,
+			getAPIExportsByVirtualResourceIdentity: func(vrIdentity string) ([]*apisv1alpha2.APIExport, error) {
+				return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](
+					c.Extra.LocalAPIExportInformer.Informer().GetIndexer(),
+					c.Extra.GlobalAPIExportInformer.Informer().GetIndexer(),
+					indexers.APIExportByVirtualResourceIdentities,
+					vrIdentity,
+				)
+			},
+			virtualStorageClientOptions: &virtualStorageClientOptions{
+				VWClientConfig:                     c.Extra.VWClientConfig,
+				ThisShardName:                      shard.Name(c.Extra.ShardName),
+				ThisShardVirtualWorkspaceURLGetter: c.Extra.ShardVirtualWorkspaceURLGetter,
+				GetUnstructuredEndpointSlice: func(ctx context.Context, cluster logicalcluster.Name, shard shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
+					// We assume the endpoint slice is cluster-scoped.
+					return c.Extra.DynamicClusterClient.
+						Cluster(cluster.Path()).
+						Resource(gvr).
+						Get(cacheclient.WithShardInContext(ctx, shard), name, metav1.GetOptions{})
+				},
+				APIResourceDiscoveryForResource: func(ctx context.Context, cfg *rest.Config, groupVersion schema.GroupVersion) (*metav1.APIResourceList, error) {
+					c, err := kcpdiscovery.NewForConfig(cfg)
+					if err != nil {
+						return nil, err
+					}
+					return c.ServerResourcesForGroupVersion(groupVersion.Identifier())
+				},
+				RESTMappingFor: func(cluster logicalcluster.Name, gk schema.GroupKind) (*meta.RESTMapping, error) {
+					return c.Extra.DynamicRESTMapper.ForCluster(cluster).RESTMapping(gk)
+				},
+			},
 		},
 	}
 
@@ -153,7 +172,7 @@ func (s *Server) newApisHandler() http.HandlerFunc {
 // apiResourcesForGroupVersion is taken from apiextensions-apiserver source,
 // but we use the verbsProvider to get the list of supported verbs when
 // constructing the APIResource objects.
-func apiResourcesForGroupVersion(requestedGroup, requestedVersion string, crds []*apiextensionsv1.CustomResourceDefinition, verbsProvider resourceVerbsProvider) ([]metav1.APIResource, []error) {
+func apiResourcesForGroupVersion(ctx context.Context, requestedGroup, requestedVersion string, crds []*apiextensionsv1.CustomResourceDefinition, verbsProviderFactory *storageAwareResourceVerbsProviderFactory) ([]metav1.APIResource, []error) {
 	apiResourcesForDiscovery := []metav1.APIResource{}
 	var errs []error
 
@@ -199,7 +218,7 @@ func apiResourcesForGroupVersion(requestedGroup, requestedVersion string, crds [
 			continue
 		}
 
-		resourceVerbs, err := verbsProvider.resource(crd)
+		verbsProvider, err := verbsProviderFactory.newResourceVerbsProvider(ctx, crd, requestedVersion)
 		if err != nil {
 			utilruntime.HandleError(err)
 			errs = append(errs, fmt.Errorf("%s.%s", crd.Status.AcceptedNames.Plural, crd.Spec.Group))
@@ -211,43 +230,29 @@ func apiResourcesForGroupVersion(requestedGroup, requestedVersion string, crds [
 			SingularName:       crd.Status.AcceptedNames.Singular,
 			Namespaced:         crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
 			Kind:               crd.Status.AcceptedNames.Kind,
-			Verbs:              resourceVerbs,
+			Verbs:              verbsProvider.resource(),
 			ShortNames:         crd.Status.AcceptedNames.ShortNames,
 			Categories:         crd.Status.AcceptedNames.Categories,
 			StorageVersionHash: storageVersionHash,
 		})
 
 		if subresources != nil && subresources.Status != nil {
-			statusVerbs, err := verbsProvider.statusSubresource(crd)
-			if err != nil {
-				utilruntime.HandleError(err)
-				errs = append(errs, fmt.Errorf("%s.%s status subresource", crd.Status.AcceptedNames.Plural, crd.Spec.Group))
-				continue
-			}
-
 			apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
 				Name:       crd.Status.AcceptedNames.Plural + "/status",
 				Namespaced: crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
 				Kind:       crd.Status.AcceptedNames.Kind,
-				Verbs:      statusVerbs,
+				Verbs:      verbsProvider.statusSubresource(),
 			})
 		}
 
 		if subresources != nil && subresources.Scale != nil {
-			scaleVerbs, err := verbsProvider.scaleSubresource(crd)
-			if err != nil {
-				utilruntime.HandleError(err)
-				errs = append(errs, fmt.Errorf("%s.%s scale subresource", crd.Status.AcceptedNames.Plural, crd.Spec.Group))
-				continue
-			}
-
 			apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
 				Group:      autoscaling.GroupName,
 				Version:    "v1",
 				Kind:       "Scale",
 				Name:       crd.Status.AcceptedNames.Plural + "/scale",
 				Namespaced: crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
-				Verbs:      scaleVerbs,
+				Verbs:      verbsProvider.scaleSubresource(),
 			})
 		}
 	}
@@ -288,7 +293,7 @@ func (s *Server) handleAPIResourceList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiResources, errs := apiResourcesForGroupVersion(requestedGroup, requestedVersion, crds, s.verbsProvider)
+	apiResources, errs := apiResourcesForGroupVersion(r.Context(), requestedGroup, requestedVersion, crds, s.verbsProviderFactory)
 	if len(errs) > 0 {
 		warning.AddWarning(r.Context(), "", fmt.Sprintf("Some resources are temporarily unavailable: %v.", errs))
 	}
