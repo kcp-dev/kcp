@@ -33,9 +33,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	vrcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/virtualresource/context"
 )
 
 type alwaysDenyAuthrizer struct{}
@@ -83,19 +84,6 @@ func TestContentAuthorizer(t *testing.T) {
 			expectedDecision: authorizer.DecisionNoOpinion,
 			expectedErrorStr: "error getting valid cluster from context: no cluster in the request context",
 		},
-		"missing APIExport identity in context": {
-			ctx: dynamiccontext.WithAPIDomainKey(
-				genericapirequest.WithCluster(
-					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
-				),
-				"CachedResourceCluster/cachedresource-1",
-			),
-			attr: authorizer.AttributesRecord{
-				Verb: "get",
-			},
-			expectedDecision: authorizer.DecisionNoOpinion,
-			expectedErrorStr: "APIExport identity missing in context",
-		},
 		"missing CachedResource": {
 			a: contentAuthorizer{
 				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
@@ -107,9 +95,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Name: "TargetCluster"},
+					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -131,9 +117,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Wildcard: true},
+					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -161,9 +145,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Wildcard: true},
+					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -216,9 +198,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Wildcard: true},
+					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -280,9 +260,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Wildcard: true},
+					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -344,9 +322,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Wildcard: true},
+					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -371,7 +347,10 @@ func TestContentAuthorizer(t *testing.T) {
 						},
 					}, nil
 				},
-				getAPIBindingByIdentityAndGR: func(cluster logicalcluster.Name, apiExportIdentity string, gr schema.GroupResource) (*apisv1alpha2.APIBinding, error) {
+				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+					return &corev1alpha1.LogicalCluster{}, nil
+				},
+				getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 					return nil, nil
 				},
 				newDelegatedAuthorizer: func(cluster logicalcluster.Name) (authorizer.Authorizer, error) {
@@ -388,9 +367,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Name: "TargetCluster"},
+					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -415,7 +392,16 @@ func TestContentAuthorizer(t *testing.T) {
 						},
 					}, nil
 				},
-				getAPIBindingByIdentityAndGR: func(cluster logicalcluster.Name, apiExportIdentity string, gr schema.GroupResource) (*apisv1alpha2.APIBinding, error) {
+				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+					return &corev1alpha1.LogicalCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`,
+							},
+						},
+					}, nil
+				},
+				getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 					return &apisv1alpha2.APIBinding{
 						Spec: apisv1alpha2.APIBindingSpec{
 							Reference: apisv1alpha2.BindingReference{
@@ -473,9 +459,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Name: "TargetCluster"},
+					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -500,7 +484,16 @@ func TestContentAuthorizer(t *testing.T) {
 						},
 					}, nil
 				},
-				getAPIBindingByIdentityAndGR: func(cluster logicalcluster.Name, apiExportIdentity string, gr schema.GroupResource) (*apisv1alpha2.APIBinding, error) {
+				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+					return &corev1alpha1.LogicalCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`,
+							},
+						},
+					}, nil
+				},
+				getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 					return &apisv1alpha2.APIBinding{
 						Spec: apisv1alpha2.APIBindingSpec{
 							Reference: apisv1alpha2.BindingReference{
@@ -558,9 +551,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Name: "TargetCluster"},
+					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),
@@ -585,7 +576,16 @@ func TestContentAuthorizer(t *testing.T) {
 						},
 					}, nil
 				},
-				getAPIBindingByIdentityAndGR: func(cluster logicalcluster.Name, apiExportIdentity string, gr schema.GroupResource) (*apisv1alpha2.APIBinding, error) {
+				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+					return &corev1alpha1.LogicalCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`,
+							},
+						},
+					}, nil
+				},
+				getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 					return &apisv1alpha2.APIBinding{
 						Spec: apisv1alpha2.APIBindingSpec{
 							Reference: apisv1alpha2.BindingReference{
@@ -643,9 +643,7 @@ func TestContentAuthorizer(t *testing.T) {
 			},
 			ctx: dynamiccontext.WithAPIDomainKey(
 				genericapirequest.WithCluster(
-					vrcontext.WithVirtualResourceAPIExportIdentity(
-						context.Background(), "APIExportIdentity",
-					), genericapirequest.Cluster{Name: "TargetCluster"},
+					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
 				"CachedResourceCluster/cachedresource-1",
 			),

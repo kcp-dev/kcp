@@ -30,6 +30,7 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
@@ -38,7 +39,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/replication/apidomainkey"
-	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
 
 type contentAuthorizer struct {
