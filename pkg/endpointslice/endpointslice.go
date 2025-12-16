@@ -23,22 +23,69 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type DeserializeErrorCode int
+
+const (
+	NoEndpoints DeserializeErrorCode = iota
+	BadObject
+)
+
+type DeserializeError struct {
+	Code DeserializeErrorCode
+	Err  error
+}
+
+func (e *DeserializeError) Error() string {
+	return e.Err.Error()
+}
+
 // ListURLsFromUnstructured retrieves list of endpoint URLs from an unstructured object.
 // The URLs are expected to be present at `.status.endpoints[].url` path inside the object.
 func ListURLsFromUnstructured(endpointSlice unstructured.Unstructured) ([]string, error) {
-	endpoints, found, err := unstructured.NestedSlice(endpointSlice.Object, "status", "endpoints")
+	statusRaw, found, err := unstructured.NestedFieldNoCopy(endpointSlice.Object, "status")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status.endpoints: %w", err)
+		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("status.endpoints not found")
+		return nil, &DeserializeError{
+			Code: NoEndpoints,
+			Err:  fmt.Errorf("missing status"),
+		}
+	}
+	status, ok := statusRaw.(map[string]interface{})
+	if !ok {
+		return nil, &DeserializeError{
+			Code: BadObject,
+			Err:  fmt.Errorf("status field is of type %T, expected map[string]interface{}", statusRaw),
+		}
+	}
+
+	endpointsRaw, found, err := unstructured.NestedFieldNoCopy(status, "endpoints")
+	if err != nil {
+		return nil, err
+	}
+	if !found || endpointsRaw == nil {
+		return nil, &DeserializeError{
+			Code: NoEndpoints,
+			Err:  fmt.Errorf("missing status.endpoints"),
+		}
+	}
+	endpoints, ok := endpointsRaw.([]interface{})
+	if !ok {
+		return nil, &DeserializeError{
+			Code: BadObject,
+			Err:  fmt.Errorf("status.endpoints field is of type %T, expected map[string]interface{}", statusRaw),
+		}
 	}
 
 	urls := make([]string, 0, len(endpoints))
 	for i, ep := range endpoints {
 		endpointMap, ok := ep.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("endpoint at index %d is not an object", i)
+			return nil, &DeserializeError{
+				Code: BadObject,
+				Err:  fmt.Errorf("endpoint at index %d is not an object", i),
+			}
 		}
 
 		url, found, err := unstructured.NestedString(endpointMap, "url")
@@ -46,7 +93,10 @@ func ListURLsFromUnstructured(endpointSlice unstructured.Unstructured) ([]string
 			return nil, fmt.Errorf("failed to get url from endpoint at index %d: %w", i, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("missing url in endpoint at index %d", i)
+			return nil, &DeserializeError{
+				Code: BadObject,
+				Err:  fmt.Errorf("missing url in endpoint at index %d", i),
+			}
 		}
 
 		urls = append(urls, url)
