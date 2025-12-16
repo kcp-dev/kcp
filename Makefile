@@ -316,7 +316,7 @@ ifdef SUITES
 SUITES_ARG = --suites $(SUITES)
 COMPLETE_SUITES_ARG = -args $(SUITES_ARG)
 endif
-TEST_FEATURE_GATES ?= WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true
+TEST_FEATURE_GATES ?= WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,KcpNativeGarbageCollector=false
 PROXY_FEATURE_GATES ?= $(TEST_FEATURE_GATES)
 
 .PHONY: test-e2e

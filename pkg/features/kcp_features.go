@@ -60,6 +60,11 @@ const (
 	// users into workspaces from foreign OIDC issuers. This feature can be individually enabled on each shard and
 	// the front-proxy.
 	WorkspaceAuthentication featuregate.Feature = "WorkspaceAuthentication"
+
+	// owner: @ntnn
+	// alpha: v0.1
+	// Enables the kcp-native garbage collector. When disabled kcp relies on a modified version of the upstream garbage collector.
+	KcpNativeGarbageCollector featuregate.Feature = "KcpNativeGarbageCollector"
 )
 
 // DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
@@ -140,6 +145,9 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 	},
 	WorkspaceAuthentication: {
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
+	KcpNativeGarbageCollector: {
+		{Version: version.MustParse("1.34"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
