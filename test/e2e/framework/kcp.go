@@ -37,7 +37,7 @@ func init() {
 
 	var args []string
 	args = append(args, "--token-auth-file", DefaultTokenAuthFile) //nolint:gocritic // no.
-	args = append(args, "--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true")
+	args = append(args, "--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,KcpNativeGarbageCollector=false")
 
 	kcptesting.InitSharedKcpServer(kcptestingserver.WithCustomArguments(args...))
 }

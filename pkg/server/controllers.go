@@ -1635,16 +1635,26 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		workersPerLogicalCluster = 1
 	)
 
-	c, err := garbagecollector.NewController(
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		kubeClusterClient,
-		metadataClient,
-		s.DiscoveringDynamicSharedInformerFactory,
-		workersPerLogicalCluster,
-		s.syncedCh,
-	)
-	if err != nil {
-		return err
+	var runner RunFunc
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.KcpNativeGarbageCollector) {
+		// runner = func(ctx context.Context) {
+		// }
+		return fmt.Errorf("kcp native garbage collector is not yet implemented")
+	} else {
+		c, err := garbagecollector.NewController(
+			s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			s.DynRESTMapper,
+			metadataClient,
+			s.DiscoveringDynamicSharedInformerFactory,
+			s.syncedCh,
+		)
+		if err != nil {
+			return err
+		}
+		runner = func(ctx context.Context) {
+			c.Start(ctx, 2)
+		}
 	}
 
 	return s.registerController(&controllerWrapper{
@@ -1658,9 +1668,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
 			})
 		},
-		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
-		},
+		Runner: runner,
 	})
 }
 
