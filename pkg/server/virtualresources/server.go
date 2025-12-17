@@ -277,6 +277,15 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExportShard, virtualStorage)
 	if err != nil {
 		utilruntime.HandleError(err)
+		if deserializeErr, ok := err.(*endpointslice.DeserializeError); ok {
+			if deserializeErr.Code == endpointslice.NoEndpoints {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf("error resolving resource %s; please contact APIExport owner to resolve", gr)),
+					errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, r,
+				)
+				return
+			}
+		}
 		responsewriters.ErrorNegotiated(
 			apierrors.NewInternalError(fmt.Errorf("error resolving resource: %v", err)),
 			errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, r,
