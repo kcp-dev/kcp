@@ -30,21 +30,23 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	vrcontext "github.com/kcp-dev/kcp/pkg/virtual/framework/virtualresource/context"
 	"github.com/kcp-dev/kcp/pkg/virtual/replication/apidomainkey"
 )
 
 type contentAuthorizer struct {
-	getAPIBindingByIdentityAndGR                func(cluster logicalcluster.Name, apiExportIdentity string, gr schema.GroupResource) (*apisv1alpha2.APIBinding, error)
+	getAPIBinding                               func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 	getAPIExportsByVirtualResourceIdentityAndGR func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error)
 	getAPIExportByPath                          func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getCachedResource                           func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error)
+	getLogicalCluster                           func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
 	newDelegatedAuthorizer func(cluster logicalcluster.Name) (authorizer.Authorizer, error)
 }
@@ -60,19 +62,8 @@ func NewContentAuthorizer(
 	globalKcpInformers kcpinformers.SharedInformerFactory,
 ) authorizer.Authorizer {
 	return &contentAuthorizer{
-		getAPIBindingByIdentityAndGR: func(cluster logicalcluster.Name, apiExportIdentity string, gr schema.GroupResource) (*apisv1alpha2.APIBinding, error) {
-			bindings, err := indexers.ByIndex[*apisv1alpha2.APIBinding](
-				localKcpInformers.Apis().V1alpha2().APIBindings().Informer().GetIndexer(),
-				indexers.APIBindingByIdentityAndGroupResource,
-				indexers.IdentityGroupResourceKeyFunc(apiExportIdentity, gr.Group, gr.Resource),
-			)
-			if err != nil {
-				return nil, err
-			}
-			if len(bindings) == 0 {
-				return nil, nil
-			}
-			return bindings[0], nil
+		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
+			return localKcpInformers.Apis().V1alpha2().APIBindings().Lister().Cluster(cluster).Get(name)
 		},
 
 		getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
@@ -91,6 +82,10 @@ func NewContentAuthorizer(
 				path,
 				name,
 			)
+		},
+
+		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return localKcpInformers.Core().V1alpha1().LogicalClusters().Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
 
 		getCachedResource: informer.NewScopedGetterWithFallback(
@@ -120,33 +115,38 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting valid cluster from context: %w", err)
 	}
 
-	apiExportIdentity, hasAPIExportIdentity := vrcontext.VirtualResourceAPIExportIdentityFrom(ctx)
-	if !hasAPIExportIdentity {
-		return authorizer.DecisionNoOpinion, "", fmt.Errorf("APIExport identity missing in context")
-	}
-
 	cachedResource, err := a.getCachedResource(parsedKey.CachedResourceCluster, parsedKey.CachedResourceName)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
+	}
+	wrappedGR := schema.GroupResource{
+		Group:    cachedResource.Spec.Group,
+		Resource: cachedResource.Spec.Resource,
 	}
 
 	var exports []*apisv1alpha2.APIExport
 
 	if targetCluster.Wildcard || !attr.IsResourceRequest() {
 		// For non-resource or wildcard requests we need to check all relevant APIExports.
-		exports, err = a.getAPIExportsByVirtualResourceIdentityAndGR(cachedResource.Status.IdentityHash, schema.GroupResource{
-			Group:    cachedResource.Spec.Group,
-			Resource: cachedResource.Spec.Resource,
-		})
+		exports, err = a.getAPIExportsByVirtualResourceIdentityAndGR(cachedResource.Status.IdentityHash, wrappedGR)
 		if err != nil {
 			return authorizer.DecisionNoOpinion, "", err
 		}
 	} else {
 		// We have a request against a concrete cluster. There should be an associated binding in that cluster.
-		binding, err := a.getAPIBindingByIdentityAndGR(targetCluster.Name, apiExportIdentity, schema.GroupResource{
-			Group:    cachedResource.Spec.Group,
-			Resource: cachedResource.Spec.Resource,
-		})
+		lc, err := a.getLogicalCluster(targetCluster.Name)
+		if err != nil {
+			return authorizer.DecisionNoOpinion, "logical cluster not found", err
+		}
+		boundResources, err := apibinding.GetResourceBindings(lc)
+		if err != nil {
+			return authorizer.DecisionNoOpinion, "failed to retrieve bound resources", err
+		}
+
+		var binding *apisv1alpha2.APIBinding
+		if boundResourceLock, hasBinding := boundResources[wrappedGR.String()]; hasBinding {
+			binding, err = a.getAPIBinding(targetCluster.Name, boundResourceLock.Name)
+		}
 		if err != nil || binding == nil {
 			return authorizer.DecisionDeny, "could not find suitable APIBinding in target logical cluster", nil //nolint:nilerr // this is on purpose, we want to deny, not return a server error
 		}
@@ -175,12 +175,6 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 
 	var seenCachedResourceReference bool
 	for _, export := range exports {
-		if export.Status.IdentityHash != apiExportIdentity {
-			// getAPIExportsByVirtualResourceIdentityAndGR has returned APIExports
-			// that don't include the APIExport identity we've received in the request URL.
-			continue
-		}
-
 		for _, resource := range export.Spec.Resources {
 			if resource.Storage.Virtual == nil ||
 				resource.Storage.Virtual.IdentityHash != cachedResource.Status.IdentityHash {

@@ -228,7 +228,6 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		framework.ReplicationVirtualWorkspaceURLs(cres))
 	require.NoError(t, err)
 	require.True(t, found, "expected to have found a suitable VW url for in %v endpoint slice", cres.Status.CachedResourceEndpoints)
-	cachedResourceVWCfg.Host += ":" + apiExport.Status.IdentityHash // Required to by virtual resources / Replication VW.
 
 	// Construct the VW client config.
 	user1CachedResourceVWCfg := framework.StaticTokenUserConfig("user-1", cachedResourceVWCfg)

@@ -293,7 +293,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, apiExport.Status.IdentityHash, clusterNameOrWildcard.String())
+	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String())
 	if err != nil {
 		utilruntime.HandleError(err)
 		responsewriters.ErrorNegotiated(
@@ -369,8 +369,8 @@ func (s *Server) getAPIBindingForRequest(
 	return nil, nil
 }
 
-func newVirtualResourceHandler(cfg *rest.Config, vwURL, apiExportIdentity, clusterNameOrWildcard string) (http.Handler, error) {
-	scopedURL, err := url.Parse(virtualResourceURLWithCluster(vwURL, apiExportIdentity, clusterNameOrWildcard))
+func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string) (http.Handler, error) {
+	scopedURL, err := url.Parse(virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard))
 	if err != nil {
 		return nil, err
 	}
@@ -386,10 +386,10 @@ func newVirtualResourceHandler(cfg *rest.Config, vwURL, apiExportIdentity, clust
 	return proxy, nil
 }
 
-func virtualResourceURLWithCluster(vwURL, apiExportIdentity string, clusterNameOrWildcard string) string {
+func virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard string) string {
 	// Formats the URL like so:
-	//     <Virtual resource VW endpoint>:<APIExport identity>/clusters/<Target cluster>
+	//     <Virtual resource VW endpoint>/clusters/<Target cluster>
 	// E.g.:
-	//     /services/replication/1oget0q1249b2vcy/sheriffs:66ac33d6a2baad00af9ba5bac354bf5fed52b29a92d54be33dc94402e8bd9a73/clusters/385doly4poks8a45/apis/wildwest.dev/v1alpha1/sheriffs
-	return fmt.Sprintf("%s:%s/clusters/%s", vwURL, apiExportIdentity, clusterNameOrWildcard)
+	//     /services/replication/1oget0q1249b2vcy/sheriffs/clusters/385doly4poks8a45/apis/wildwest.dev/v1alpha1/sheriffs
+	return fmt.Sprintf("%s/clusters/%s", vwURL, clusterNameOrWildcard)
 }

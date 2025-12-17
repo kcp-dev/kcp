@@ -29,44 +29,32 @@ import (
 func TestDigestUrl(t *testing.T) {
 	rootPathPrefix := "/services/replication/"
 	testCases := []struct {
-		urlPath                   string
-		expectedAccept            bool
-		expectedCluster           genericapirequest.Cluster
-		expectedKey               context.APIDomainKey
-		expectedAPIExportIdentity string
-		expectedLogicalPath       string
+		urlPath             string
+		expectedAccept      bool
+		expectedCluster     genericapirequest.Cluster
+		expectedKey         context.APIDomainKey
+		expectedLogicalPath string
 	}{
 		{
-			urlPath:                   "/services/replication/my-cluster/my-cachedresource:123abc/clusters/my-cluster/apis",
-			expectedAccept:            true,
-			expectedKey:               "my-cluster/my-cachedresource",
-			expectedCluster:           genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
-			expectedAPIExportIdentity: "123abc",
-			expectedLogicalPath:       "/services/replication/my-cluster/my-cachedresource:123abc/clusters/my-cluster",
+			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster/apis",
+			expectedAccept:      true,
+			expectedKey:         "my-cluster/my-cachedresource",
+			expectedCluster:     genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
+			expectedLogicalPath: "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster",
 		},
 		{
-			urlPath:                   "/services/replication/my-cluster/my-cachedresource:123abc/clusters/my-cluster",
-			expectedAccept:            true,
-			expectedKey:               "my-cluster/my-cachedresource",
-			expectedCluster:           genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
-			expectedAPIExportIdentity: "123abc",
-			expectedLogicalPath:       "/services/replication/my-cluster/my-cachedresource:123abc/clusters/my-cluster",
+			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster",
+			expectedAccept:      true,
+			expectedKey:         "my-cluster/my-cachedresource",
+			expectedCluster:     genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
+			expectedLogicalPath: "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster",
 		},
 		{
-			urlPath:                   "/services/replication/my-cluster/my-cachedresource:123abc/clusters/other-cluster",
-			expectedAccept:            true,
-			expectedKey:               "my-cluster/my-cachedresource",
-			expectedCluster:           genericapirequest.Cluster{Name: "other-cluster", Wildcard: false},
-			expectedAPIExportIdentity: "123abc",
-			expectedLogicalPath:       "/services/replication/my-cluster/my-cachedresource:123abc/clusters/other-cluster",
-		},
-		{
-			urlPath:                   "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster/apis",
-			expectedAccept:            false,
-			expectedKey:               "",
-			expectedCluster:           genericapirequest.Cluster{},
-			expectedAPIExportIdentity: "",
-			expectedLogicalPath:       "",
+			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters/other-cluster",
+			expectedAccept:      true,
+			expectedKey:         "my-cluster/my-cachedresource",
+			expectedCluster:     genericapirequest.Cluster{Name: "other-cluster", Wildcard: false},
+			expectedLogicalPath: "/services/replication/my-cluster/my-cachedresource/clusters/other-cluster",
 		},
 		{
 			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters",
@@ -79,11 +67,10 @@ func TestDigestUrl(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.urlPath, func(t *testing.T) {
-			clusterName, key, logicalPath, apiExportIdentity, accepted := digestURL(tc.urlPath, rootPathPrefix)
+			clusterName, key, logicalPath, accepted := digestURL(tc.urlPath, rootPathPrefix)
 			require.Equal(t, tc.expectedAccept, accepted, "Accepted should match expected value")
 			require.Equal(t, tc.expectedKey, key, "Key should match expected value")
 			require.Equal(t, tc.expectedCluster, clusterName, "cluster name should match expected value")
-			require.Equal(t, tc.expectedAPIExportIdentity, apiExportIdentity, "APIExport identity should match expected value")
 			require.Equal(t, tc.expectedLogicalPath, logicalPath, "LogicalPath should match expected value")
 		})
 	}
