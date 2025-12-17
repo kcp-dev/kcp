@@ -19,11 +19,15 @@ package aggregatingcrdversiondiscovery
 import (
 	apiextensionsapiserverkcp "k8s.io/apiextensions-apiserver/pkg/kcp"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/rest"
 
 	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
+
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 type Config struct {
@@ -32,6 +36,8 @@ type Config struct {
 }
 
 type ExtraConfig struct {
+	DynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
+
 	CRDLister                  kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer
 	APIBindingAwareCRDLister   apiextensionsapiserverkcp.ClusterAwareCRDClusterLister
 	APIBindingInformer         apisv1alpha2informers.APIBindingClusterInformer
@@ -39,6 +45,12 @@ type ExtraConfig struct {
 	LocalAPIExportInformer     apisv1alpha2informers.APIExportClusterInformer
 	GlobalAPIExportInformer    apisv1alpha2informers.APIExportClusterInformer
 	GlobalShardClusterInformer corev1alpha1informers.ShardClusterInformer
+
+	DynamicClusterClient kcpdynamic.ClusterInterface
+	VWClientConfig       *rest.Config
+
+	ShardName                      string
+	ShardVirtualWorkspaceURLGetter func() string
 }
 
 type completedConfig struct {
@@ -73,6 +85,14 @@ func (c *completedConfig) WithOpenAPIAggregationController(delegatedAPIServer *g
 
 func NewConfig(
 	cfg *genericapiserver.Config,
+
+	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper,
+
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	vwClientConfig *rest.Config,
+	shardName string,
+	shardVirtualWorkspaceURLGetter func() string,
+
 	crdLister kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	apiBindingAwareCRDLister apiextensionsapiserverkcp.ClusterAwareCRDClusterLister,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
@@ -80,11 +100,18 @@ func NewConfig(
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalShardClusterInformer corev1alpha1informers.ShardClusterInformer,
 ) (*Config, error) {
+	rest.AddUserAgent(vwClientConfig, "kcp-aggregatingcrdversiondiscovery-apiserver")
 	cfg.SkipOpenAPIInstallation = true
 
 	ret := &Config{
 		Generic: cfg,
 		Extra: ExtraConfig{
+			DynamicRESTMapper:              dynamicRESTMapper,
+			DynamicClusterClient:           dynamicClusterClient,
+			VWClientConfig:                 vwClientConfig,
+			ShardName:                      shardName,
+			ShardVirtualWorkspaceURLGetter: shardVirtualWorkspaceURLGetter,
+
 			CRDLister:                  crdLister,
 			APIBindingAwareCRDLister:   apiBindingAwareCRDLister,
 			APIBindingInformer:         apiBindingInformer,

@@ -670,6 +670,16 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		// vwClientConfig is used by the proxy handler to proxy the client requests to the virtual workspace.
+		vwClientConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+		if !opts.Virtual.Enabled {
+			vwClientConfig.TLSClientConfig = rest.TLSClientConfig{
+				CAFile:   opts.Extra.ShardVirtualWorkspaceCAFile,
+				CertFile: opts.Extra.ShardClientCertFile,
+				KeyFile:  opts.Extra.ShardClientKeyFile,
+			}
+		}
+
 		// We need an aggregating version discovery for CRDs that is RESTstorage-aware.
 		// The apiextensions apiserver sources its data from the apiBindingAwareCRDClusterLister.
 		// With the onset of virtual resources, not all bound CRDs use CRD storage, and as a consequence,
@@ -680,6 +690,11 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		aggregatingVersionDiscoveryConfig := *c.GenericConfig
 		c.AggregatingCRDVersionDiscovery, err = aggregatingcrdversiondiscovery.NewConfig(
 			&aggregatingVersionDiscoveryConfig,
+			c.DynamicRESTMapper,
+			c.CacheDynamicClient,
+			vwClientConfig,
+			c.Options.Extra.ShardName,
+			c.ShardVirtualWorkspaceURL,
 			c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 			apiBindingAwareCRDClusterLister,
 			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
@@ -694,16 +709,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// The virtual resources apiserver serves resources from a virtual workspace.
 		virtualResourcesConfig := *c.GenericConfig
 		virtualResourcesConfig.SkipOpenAPIInstallation = true
-		// vwClientConfig is used by the proxy handler to proxy the client requests to the virtual workspace.
-		vwClientConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-		if !opts.Virtual.Enabled {
-			vwClientConfig.TLSClientConfig = rest.TLSClientConfig{
-				CAFile:   opts.Extra.ShardVirtualWorkspaceCAFile,
-				CertFile: opts.Extra.ShardClientCertFile,
-				KeyFile:  opts.Extra.ShardClientKeyFile,
-			}
-		}
-
 		c.VirtualResources, err = virtualresources.NewConfig(
 			&virtualResourcesConfig,
 			vwClientConfig,
