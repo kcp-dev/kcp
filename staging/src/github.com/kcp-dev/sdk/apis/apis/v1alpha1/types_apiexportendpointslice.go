@@ -78,7 +78,7 @@ type APIExportEndpointSliceStatus struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=url
-	APIExportEndpoints []APIExportEndpoint `json:"endpoints"`
+	APIExportEndpoints []APIExportEndpoint `json:"endpoints,omitempty"`
 
 	// +optional
 
