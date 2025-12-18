@@ -38,8 +38,10 @@ import (
 	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/sdk/cmd/help"
 
+	"github.com/kcp-dev/kcp/cmd/kcp/apis"
 	"github.com/kcp-dev/kcp/cmd/kcp/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+
 	"github.com/kcp-dev/kcp/pkg/server"
 
 	_ "k8s.io/component-base/logs/json/register"
@@ -67,6 +69,8 @@ func main() {
 	}
 
 	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
+
+	cmd.AddCommand(apis.NewCmdAPIs(streams))
 
 	// manually extract root directory from flags first as it influence all other flags
 	rootDir := ".kcp"
