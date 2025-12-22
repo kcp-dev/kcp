@@ -70,7 +70,8 @@ import (
 )
 
 // AllOrderedPlugins is the list of all the plugins in order.
-var AllOrderedPlugins = beforeWebhooks(kubeapiserveroptions.AllOrderedPlugins,
+var AllOrderedPlugins = beforeWebhooks(
+	kubeapiserveroptions.AllOrderedPlugins,
 	workspacenamespacelifecycle.PluginName,
 	apiresourceschema.PluginName,
 	workspace.PluginName,

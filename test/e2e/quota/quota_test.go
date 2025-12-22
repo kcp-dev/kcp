@@ -402,9 +402,9 @@ func TestClusterScopedQuota(t *testing.T) {
 			if !ok {
 				return false, fmt.Sprintf("waiting for %q count/configmaps to show up in used", wsPath)
 			}
-			// 1 for each kube-root-ca.crt x 2 namespaces = 2
-			if !used.Equal(resource.MustParse("2")) {
-				return false, fmt.Sprintf("waiting for %q count/configmaps %s to be 2", wsPath, used.String())
+			// 1 for each kube-root-ca.crt x 3 namespaces = 3
+			if !used.Equal(resource.MustParse("3")) {
+				return false, fmt.Sprintf("waiting for %q count/configmaps %s to be 3", wsPath, used.String())
 			}
 
 			used, ok = quota.Status.Used["count/workspaces.tenancy.kcp.io"]
@@ -416,7 +416,7 @@ func TestClusterScopedQuota(t *testing.T) {
 			}
 
 			return true, ""
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 2 used configmaps and 1 used workspace")
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for 3 used configmaps and 1 used workspace")
 
 		t.Logf("Make sure quota is enforcing configmap limits for %q", wsPath)
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
