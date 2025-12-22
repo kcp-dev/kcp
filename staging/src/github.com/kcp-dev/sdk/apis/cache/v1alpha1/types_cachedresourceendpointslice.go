@@ -73,7 +73,7 @@ type CachedResourceEndpointSliceStatus struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=url
-	CachedResourceEndpoints []CachedResourceEndpoint `json:"endpoints"`
+	CachedResourceEndpoints []CachedResourceEndpoint `json:"endpoints,omitempty"`
 
 	// shardSelector is the selector used to filter the shards. It is used to filter the shards
 	// when determining partition scope when deriving the endpoints. This is set by owning shard,
