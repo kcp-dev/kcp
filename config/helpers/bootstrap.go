@@ -159,6 +159,47 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
 const annotationBattery = "bootstrap.kcp.io/battery"
 
+type AcceptanceCriteria struct {
+	FieldPath string
+	Value     any
+}
+
+var objectAcceptanceCriteria = map[string]AcceptanceCriteria{
+	"Namespace": {
+		FieldPath: "status.phase",
+		Value:     "Active",
+	},
+}
+
+func checkAcceptanceCriteria(obj *unstructured.Unstructured, kind string) bool {
+	criteria, exists := objectAcceptanceCriteria[kind]
+	if !exists {
+		return true
+	}
+
+	value, found, err := unstructured.NestedFieldCopy(obj.Object, strings.Split(criteria.FieldPath, ".")...)
+	if err != nil || !found {
+		return false
+	}
+
+	return value == criteria.Value
+}
+
+func waitForObjectAcceptance(ctx context.Context, client dynamic.Interface, m *meta.RESTMapping, obj *unstructured.Unstructured) error {
+	criteria, exists := objectAcceptanceCriteria[obj.GetKind()]
+	if !exists || criteria.FieldPath == "" {
+		return nil
+	}
+
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		current, err := client.Resource(m.Resource).Namespace(obj.GetNamespace()).Get(ctx, obj.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return checkAcceptanceCriteria(current, obj.GetKind()), nil
+	})
+}
+
 func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.Set[string]) error {
 	logger := klog.FromContext(ctx)
 	type Input struct {
@@ -219,16 +260,15 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 
 			if _, exists := existing.GetAnnotations()[annotationCreateOnlyKey]; exists {
 				logger.Info("skipping update of object because it has the create-only annotation")
-
-				return nil
+				return waitForObjectAcceptance(ctx, client, m, existing)
 			}
 
 			u.SetResourceVersion(existing.GetResourceVersion())
-			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
+			if updated, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, tenancyhelper.QualifiedObjectName(existing), err)
 			} else {
 				logger.Info("updated object")
-				return nil
+				return waitForObjectAcceptance(ctx, client, m, updated)
 			}
 		}
 		return err
@@ -236,7 +276,7 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 
 	logging.WithObject(logger, upserted).Info("upserted object")
 
-	return nil
+	return waitForObjectAcceptance(ctx, client, m, upserted)
 }
 
 func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
