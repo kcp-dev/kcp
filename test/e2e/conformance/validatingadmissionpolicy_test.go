@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -171,6 +172,8 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 					return true
 				}
 			}
+			// DEBUG
+			spew.Dump(kubeClusterClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{}))
 			t.Logf("Unexpected error when trying to create bad cowboy: %s", err)
 		}
 		return false
