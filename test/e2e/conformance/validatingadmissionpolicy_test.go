@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -76,11 +75,14 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 	ws1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	ws2Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	sharedHTTPClient, err := rest.HTTPClientFor(cfg)
+	require.NoError(t, err)
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfigAndClient(cfg, sharedHTTPClient)
 	require.NoError(t, err, "failed to construct client for server")
-	cowboyClusterClient, err := wildwestclientset.NewForConfig(cfg)
+	cowboyClusterClient, err := wildwestclientset.NewForConfigAndClient(cfg, sharedHTTPClient)
 	require.NoError(t, err, "failed to construct cowboy client for server")
-	apiExtensionsClusterClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
+	apiExtensionsClusterClient, err := kcpapiextensionsclientset.NewForConfigAndClient(cfg, sharedHTTPClient)
 	require.NoError(t, err, "failed to construct apiextensions client for server")
 
 	t.Logf("Install the Cowboy resources into logical clusters")
@@ -357,37 +359,10 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	require.Eventually(t, func() bool {
 		p, err := kubeClusterClient.Cluster(sourcePath).AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
 		if err != nil {
-			spew.Dump(err)
 			return false
 		}
-		spew.Dump(p)
 		return p.Generation == p.Status.ObservedGeneration && p.Status.TypeChecking != nil && len(p.Status.TypeChecking.ExpressionWarnings) == 0
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
-
-	newCowboy := func(intent string) *wildwestv1alpha1.Cowboy {
-		return &wildwestv1alpha1.Cowboy{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "cowboy-",
-			},
-			Spec: wildwestv1alpha1.CowboySpec{
-				Intent: intent,
-			},
-		}
-	}
-
-	t.Logf("Verifying that creating bad cowboy resource in first logical cluster is rejected")
-	require.Eventually(t, func() bool {
-		_, err = cowboyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(ctx, newCowboy("bad"), metav1.CreateOptions{})
-		if err != nil {
-			if errors.IsInvalid(err) {
-				if strings.Contains(err.Error(), "failed expression: object.spec.intent != 'bad'") {
-					return true
-				}
-			}
-			t.Logf("Unexpected error when trying to create bad cowboy: %s", err)
-		}
-		return false
-	}, wait.ForeverTestTimeout, 1*time.Second)
 
 	t.Logf("Installing validating admission policy binding into the source workspace")
 	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
@@ -402,6 +377,17 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 
 	_, err = kubeClusterClient.Cluster(sourcePath).AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, binding, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create ValidatingAdmissionPolicyBinding")
+
+	newCowboy := func(intent string) *wildwestv1alpha1.Cowboy {
+		return &wildwestv1alpha1.Cowboy{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "cowboy-",
+			},
+			Spec: wildwestv1alpha1.CowboySpec{
+				Intent: intent,
+			},
+		}
+	}
 
 	t.Logf("Verifying that creating bad cowboy resource in target workspace is rejected by policy in source workspace")
 	require.Eventually(t, func() bool {
