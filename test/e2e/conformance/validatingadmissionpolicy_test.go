@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -352,12 +353,14 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	}
 	policy, err = kubeClusterClient.Cluster(sourcePath).AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, policy, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create ValidatingAdmissionPolicy")
+
 	require.Eventually(t, func() bool {
 		p, err := kubeClusterClient.Cluster(sourcePath).AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, policy.Name, metav1.GetOptions{})
 		if err != nil {
+			spew.Dump(err)
 			return false
 		}
-
+		spew.Dump(p)
 		return p.Generation == p.Status.ObservedGeneration && p.Status.TypeChecking != nil && len(p.Status.TypeChecking.ExpressionWarnings) == 0
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
