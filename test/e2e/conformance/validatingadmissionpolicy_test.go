@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/api/admission/v1"
@@ -175,6 +176,7 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 					return true
 				}
 			}
+			spew.Dump(kubeClusterClient.Cluster(ws1Path).CoreV1().Namespaces())
 			t.Logf("Unexpected error when trying to create bad cowboy: %s", err)
 		}
 		return false
@@ -399,6 +401,7 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 					return true
 				}
 			}
+			spew.Dump(kubeClusterClient.Cluster(targetPath).CoreV1().Namespaces())
 			t.Logf("Unexpected error when trying to create bad cowboy: %s", err)
 		}
 		return false
