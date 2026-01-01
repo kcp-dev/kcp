@@ -17,7 +17,6 @@ limitations under the License.
 package apiexport
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -56,8 +55,7 @@ func TestBinding(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	t.Logf("Creating two service workspaces and a consumer workspace")
 	org, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
@@ -257,8 +255,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -440,8 +437,7 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -595,8 +591,7 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -841,8 +836,7 @@ func TestAPIBindingPermissionClaimsSelectorUpdate(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
