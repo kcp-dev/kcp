@@ -77,8 +77,7 @@ func TestCachedResources(t *testing.T) {
 	t.Logf("consumer1Path: %v", consumer1Path)
 	t.Logf("consumer2Path: %v", consumer2Path)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 

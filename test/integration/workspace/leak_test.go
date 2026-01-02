@@ -101,8 +101,7 @@ var (
 )
 
 func TestWorkspaceDeletionLeak(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel) // TODO update in go1.24
+	ctx := t.Context()
 
 	_, kcpClient, _ := framework.StartTestServer(t)
 

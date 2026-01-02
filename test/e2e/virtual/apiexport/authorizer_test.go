@@ -71,8 +71,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
@@ -516,8 +515,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	cfg := server.BaseConfig(t)
@@ -922,8 +920,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
@@ -1087,8 +1084,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 func vwURL(t *testing.T, kcpClusterClient kcpclientset.ClusterInterface, path logicalcluster.Path, export string, ws *tenancyv1alpha1.Workspace, wsPath logicalcluster.Path) string {
 	t.Helper()
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	var vwURL string
 	kcptestinghelpers.Eventually(t, func() (bool, string) {

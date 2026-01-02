@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	gohttp "net/http"
@@ -62,8 +61,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -247,8 +245,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)

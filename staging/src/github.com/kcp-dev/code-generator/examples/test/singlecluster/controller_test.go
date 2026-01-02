@@ -17,7 +17,6 @@ limitations under the License.
 package singlecluster
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -34,8 +33,7 @@ import (
 
 // TestFakeClient demonstrates how to use a fake client with SharedInformerFactory in tests.
 func TestFakeClient(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	watcherStarted := make(chan struct{})
 	// Create the fake client.
