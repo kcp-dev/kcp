@@ -7,6 +7,8 @@ description: >
 
 This guide walks you through deploying kcp on a [kind](https://kind.sigs.k8s.io/) (Kubernetes in Docker) cluster using Helm, setting up multiple workspaces, and configuring access for different teams using client certificates.
 
+This guide covers the Helm-based deployment. A kcp-operator-based walkthrough will be added in a follow-up.
+
 ## Prerequisites
 
 Before starting, ensure you have the following tools installed:
@@ -28,7 +30,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
   extraPortMappings:
-  - containerPort: 8443
+  - containerPort: 30443
     hostPort: 8443
     protocol: TCP
 EOF
@@ -45,7 +47,7 @@ kubectl cluster-info --context kind-kcp
 kcp requires cert-manager for TLS certificate management:
 
 ```bash
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.yaml
 ```
 
 Wait for cert-manager to be ready:
@@ -71,30 +73,29 @@ helm repo add kcp https://kcp-dev.github.io/helm-charts
 helm repo update
 ```
 
-Create a values file for the kind deployment:
-
-```bash
-cat <<EOF > kcp-values.yaml
-externalHostname: kcp.dev.local
-
-kcpFrontProxy:
-  service:
-    type: NodePort
-    nodePort: 8443
-
-# Development settings
-audit:
-  enabled: false
-EOF
-```
-
 Install kcp:
 
 ```bash
 helm upgrade --install kcp kcp/kcp \
   --namespace kcp \
   --create-namespace \
-  --values kcp-values.yaml \
+  --set externalHostname=kcp.dev.local \
+  --set kcpFrontProxy.service.type=NodePort \
+  --set kcpFrontProxy.service.nodePort=30443 \
+  --set audit.enabled=false \
+  --wait
+```
+
+Set up host aliases so in-cluster kcp components can resolve `kcp.dev.local`:
+
+```bash
+KCP_FRONT_PROXY_IP=$(kubectl get svc kcp-front-proxy -n kcp -o jsonpath='{.spec.clusterIP}')
+helm upgrade kcp kcp/kcp \
+  --namespace kcp \
+  --reuse-values \
+  --set kcp.hostAliases.enabled=true \
+  --set kcp.hostAliases.values[0].ip=${KCP_FRONT_PROXY_IP} \
+  --set kcp.hostAliases.values[0].hostnames[0]=kcp.dev.local \
   --wait
 ```
 
