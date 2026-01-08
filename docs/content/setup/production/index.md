@@ -131,6 +131,12 @@ pods are scheduled properly.
 
 All kcp data is stored in etcd, there is no need to perform a dedicated kcp backup.
 
+#### Audit Logging
+
+kcp extends Kubernetes audit events with workspace-specific annotations that help identify which workspace (logical cluster) each request belongs to. This is essential for multi-tenant environments where you need to track and audit access across different workspaces.
+
+See [Audit Logging](audit-logging.md) for details on the annotations (`kcp.io/path`, `tenancy.kcp.io/workspace`, `kcp.io/cluster`) and how to use them.
+
 ---
 
 ## Production Deployment Options

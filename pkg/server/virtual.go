@@ -104,6 +104,9 @@ func newVirtualConfig(
 		return nil, err
 	}
 
+	// Set the LogicalCluster informer for audit annotations
+	c.Extra.KcpClusterClient = kcpSharedInformerFactory.Core().V1alpha1().LogicalClusters()
+
 	return (*VirtualConfig)(c), nil
 }
 
