@@ -6,33 +6,33 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Production-ready deployment guide for kcp with multiple certificate management strategies and deployment patterns.
+        <meta name="description" content="Understanding kcp audit event annotations and how to use them for monitoring and compliance.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/production/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/production/audit-logging/">
       
       
-        <link rel="prev" href="../integrations/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="overview/">
+        <link rel="next" href="../kcp-comer/">
       
       
-      <link rel="icon" href="../../favicons/favicon.ico">
+      <link rel="icon" href="../../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>Production Setup - docs.kcp.io</title>
+        <title>Audit Logging - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/crd.css">
+      <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -233,7 +233,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#production-setup" class="md-skip">
+        <a href="#audit-logging" class="md-skip">
           Skip to content
         </a>
       
@@ -251,9 +251,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -270,7 +270,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Production Setup
+              Audit Logging
             
           </span>
         </div>
@@ -389,7 +389,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../.." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
     
@@ -411,7 +411,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -431,7 +431,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../concepts/" class="md-tabs__link">
+        <a href="../../../concepts/" class="md-tabs__link">
           
   
     
@@ -451,7 +451,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../developers/" class="md-tabs__link">
+        <a href="../../../developers/" class="md-tabs__link">
           
   
     
@@ -471,7 +471,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+        <a href="../../../contributing/" class="md-tabs__link">
           
   
     
@@ -491,7 +491,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reference/" class="md-tabs__link">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -526,9 +526,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -580,7 +580,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../.." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -613,7 +613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../GOALS/" class="md-nav__link">
+      <a href="../../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -677,7 +677,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -710,7 +710,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart/" class="md-nav__link">
+      <a href="../../quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -731,7 +731,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../helm/" class="md-nav__link">
+      <a href="../../helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -752,7 +752,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kubectl-plugin/" class="md-nav__link">
+      <a href="../../kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -773,7 +773,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../integrations/" class="md-nav__link">
+      <a href="../../integrations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -827,7 +827,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -838,7 +838,7 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -860,7 +860,7 @@
   
   
     <li class="md-nav__item">
-      <a href="overview/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -881,7 +881,7 @@
   
   
     <li class="md-nav__item">
-      <a href="prerequisites/" class="md-nav__link">
+      <a href="../prerequisites/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -902,7 +902,7 @@
   
   
     <li class="md-nav__item">
-      <a href="kcp-dekker/" class="md-nav__link">
+      <a href="../kcp-dekker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -923,7 +923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="kcp-vespucci/" class="md-nav__link">
+      <a href="../kcp-vespucci/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -944,7 +944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="kcp-comer/" class="md-nav__link">
+      <a href="../kcp-comer/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1019,7 +1019,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/" class="md-nav__link ">
+            <a href="../../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1052,7 +1052,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/terminology/" class="md-nav__link">
+      <a href="../../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1073,7 +1073,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1127,7 +1127,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1160,7 +1160,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1181,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1202,7 +1202,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1223,7 +1223,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1244,7 +1244,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/mounts/" class="md-nav__link">
+      <a href="../../../concepts/workspaces/mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1306,7 +1306,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/apis/" class="md-nav__link ">
+            <a href="../../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1339,7 +1339,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1360,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1381,7 +1381,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/cached-resources/" class="md-nav__link">
+      <a href="../../../concepts/apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1402,7 +1402,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1423,7 +1423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1479,7 +1479,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/authentication/" class="md-nav__link ">
+            <a href="../../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1512,7 +1512,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1533,7 +1533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authentication/workspace/" class="md-nav__link">
+      <a href="../../../concepts/authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1587,7 +1587,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1620,7 +1620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1678,7 +1678,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1711,7 +1711,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1732,7 +1732,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1753,7 +1753,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1807,7 +1807,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1840,7 +1840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1907,7 +1907,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../developers/" class="md-nav__link ">
+            <a href="../../../developers/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1986,7 +1986,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2007,7 +2007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/controllers/client-go/" class="md-nav__link">
+      <a href="../../../developers/controllers/client-go/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2036,7 +2036,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/storage-to-rest-patterns/" class="md-nav__link">
+      <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2103,7 +2103,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/internals/etcd-structure/" class="md-nav__link">
+      <a href="../../../developers/internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2124,7 +2124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2184,7 +2184,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../developers/investigations/" class="md-nav__link ">
+            <a href="../../../developers/investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2217,7 +2217,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../../developers/investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2238,7 +2238,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../../developers/investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2259,7 +2259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../../developers/investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2280,7 +2280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2351,7 +2351,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/" class="md-nav__link ">
+            <a href="../../../contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2384,7 +2384,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/getting-started/" class="md-nav__link">
+      <a href="../../../contributing/getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2405,7 +2405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/coding/" class="md-nav__link">
+      <a href="../../../contributing/coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2426,7 +2426,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/monorepo/" class="md-nav__link">
+      <a href="../../../contributing/monorepo/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2493,7 +2493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/governance/general-technical-review/" class="md-nav__link">
+      <a href="../../../contributing/governance/general-technical-review/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2514,7 +2514,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/governance/security-self-assessment/" class="md-nav__link">
+      <a href="../../../contributing/governance/security-self-assessment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2568,7 +2568,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/continuous-integration/" class="md-nav__link ">
+            <a href="../../../contributing/continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2601,7 +2601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2680,7 +2680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
+      <a href="../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2701,7 +2701,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2722,7 +2722,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2743,7 +2743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2806,7 +2806,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../reference/" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2919,7 +2919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2940,7 +2940,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2961,7 +2961,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2982,7 +2982,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3003,7 +3003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3024,7 +3024,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3045,7 +3045,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3066,7 +3066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3087,7 +3087,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3108,7 +3108,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3129,7 +3129,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3150,7 +3150,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3171,7 +3171,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3192,7 +3192,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3213,7 +3213,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3234,7 +3234,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3255,7 +3255,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3276,7 +3276,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3297,7 +3297,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3428,7 +3428,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3449,7 +3449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3470,7 +3470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3491,7 +3491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3512,7 +3512,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3587,7 +3587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3608,7 +3608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3683,7 +3683,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3704,7 +3704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3779,7 +3779,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3800,7 +3800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3864,73 +3864,37 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#audit-event-annotations" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Audit Event Annotations
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running etcd
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Running etcd">
+    <nav class="md-nav" aria-label="Audit Event Annotations">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#kubernetes" class="md-nav__link">
+  <a href="#kcpiopath" class="md-nav__link">
     <span class="md-ellipsis">
-      Kubernetes
+      kcp.io/path
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#high-availability" class="md-nav__link">
+  <a href="#tenancykcpioworkspace" class="md-nav__link">
     <span class="md-ellipsis">
-      High Availability
+      tenancy.kcp.io/workspace
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#tls" class="md-nav__link">
+  <a href="#kcpiocluster" class="md-nav__link">
     <span class="md-ellipsis">
-      TLS
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#backups" class="md-nav__link">
-    <span class="md-ellipsis">
-      Backups
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      Encryption
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#scaling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Scaling
+      kcp.io/cluster
     </span>
   </a>
   
@@ -3942,47 +3906,83 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-kcp" class="md-nav__link">
+  <a href="#example-audit-event" class="md-nav__link">
     <span class="md-ellipsis">
-      Running kcp
+      Example Audit Event
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Running kcp">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-workspace-audit-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-Workspace Audit Logging
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-Workspace Audit Logging">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#sharding" class="md-nav__link">
+  <a href="#setting-up-cross-workspace-event-logging" class="md-nav__link">
     <span class="md-ellipsis">
-      Sharding
+      Setting Up Cross-Workspace Event Logging
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Up Cross-Workspace Event Logging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-create-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Create Workspaces
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#high-availability_1" class="md-nav__link">
+  <a href="#step-2-create-apiresourceschema-and-apiexport" class="md-nav__link">
     <span class="md-ellipsis">
-      High Availability
+      Step 2: Create APIResourceSchema and APIExport
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#backups_1" class="md-nav__link">
+  <a href="#step-3-create-apibinding-in-consumer-workspace" class="md-nav__link">
     <span class="md-ellipsis">
-      Backups
+      Step 3: Create APIBinding in Consumer Workspace
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Backups">
-      <ul class="md-nav__list">
+</li>
         
           <li class="md-nav__item">
-  <a href="#audit-logging" class="md-nav__link">
+  <a href="#step-4-configure-audit-policy" class="md-nav__link">
     <span class="md-ellipsis">
-      Audit Logging
+      Step 4: Configure Audit Policy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-access-resources-via-virtual-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Access Resources via Virtual Workspace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-6-verify-audit-logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 6: Verify Audit Logs
     </span>
   </a>
   
@@ -3999,46 +3999,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#production-deployment-options" class="md-nav__link">
+  <a href="#enabling-audit-logging" class="md-nav__link">
     <span class="md-ellipsis">
-      Production Deployment Options
+      Enabling Audit Logging
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deployment-variants" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deployment Variants
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Deployment Variants">
+    <nav class="md-nav" aria-label="Enabling Audit Logging">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#kcp-dekker-self-signed-certificates" class="md-nav__link">
+  <a href="#basic-setup" class="md-nav__link">
     <span class="md-ellipsis">
-      kcp-dekker - Self-Signed Certificates
+      Basic Setup
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#kcp-vespucci-external-certificates" class="md-nav__link">
+  <a href="#required-flags" class="md-nav__link">
     <span class="md-ellipsis">
-      kcp-vespucci - External Certificates
+      Required Flags
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#kcp-comer-dual-front-proxy" class="md-nav__link">
+  <a href="#example-audit-policy" class="md-nav__link">
     <span class="md-ellipsis">
-      kcp-comer - Dual Front-Proxy
+      Example Audit Policy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete Example
     </span>
   </a>
   
@@ -4050,18 +4050,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#getting-started" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
-      Getting Started
+      Configuration
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#support-matrix" class="md-nav__link">
+  <a href="#notes" class="md-nav__link">
     <span class="md-ellipsis">
-      Support Matrix
+      Notes
     </span>
   </a>
   
@@ -4085,193 +4085,271 @@
   
 
 
-<h1 id="production-setup">Production Setup<a class="headerlink" href="#production-setup" title="Permanent link">&para;</a></h1>
-<p>This document provides comprehensive guidance for deploying kcp in production environments with enterprise-grade reliability, security, and scalability. If you are looking "hands on" deployment instructions, please refer to the specific deployment variant guides linked below <a href="#deployment-variants">#deployment-variants</a>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>We are working on extending this documentation further, to include multiple site deployment, where indivudual shards are deployed in the different regions. 
-This would allow for geo-distributed deployments to mimic real-world usage scenarios.</p>
-</div>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>Running kcp consists of mainly two challenges:</p>
-<ul>
-<li>Running reliable <strong>etcd</strong> clusters for each kcp shard.</li>
-<li>Running <strong>kcp</strong> and dealing with its <strong>sharding</strong> to distribute load and limit the impact of
-  downtimes to a subset of the entire kcp setup.</li>
-</ul>
-<h2 id="running-etcd">Running etcd<a class="headerlink" href="#running-etcd" title="Permanent link">&para;</a></h2>
-<p>Just like Kubernetes, kcp uses <a href="https://etcd.io/">etcd</a> as its database: each (root)shard uses its own
-etcd cluster.</p>
-<p>The etcd documentation already contains a great number of <a href="https://etcd.io/docs/v3.7/op-guide/">operations guides</a>
-for common operations like performing backups, monitoring the health etc. Administrators should
-familiarize themselves with the practices laid out there.</p>
-<h3 id="kubernetes">Kubernetes<a class="headerlink" href="#kubernetes" title="Permanent link">&para;</a></h3>
-<p>When running etcd inside Kubernetes, an operator can greatly help in running etcd.
-<a href="https://gardener.github.io/etcd-druid/">Etcd Druid</a> is one of them and offers great support for
-operations tasks and the entire etcd lifecycle. Etcd clusters managed by Etcd Druid can be seamlessly
-used with kcp.</p>
-<h3 id="high-availability">High Availability<a class="headerlink" href="#high-availability" title="Permanent link">&para;</a></h3>
-<p>Care should be taken to distribute the etcd pods across availability zones and/or different nodes.
-This ensures that node failure will not immediately bring down an entire etcd cluster. Please refer
-to the <a href="https://gardener.github.io/etcd-druid/proposals/01-multi-node-etcd-clusters.html?h=affinity#high-availability">Etcd Druid documentation</a>
-for more details and configuration examples.</p>
-<h3 id="tls">TLS<a class="headerlink" href="#tls" title="Permanent link">&para;</a></h3>
-<p>It is highly recommended to enable TLS in etcd to encrypt traffic in-transtit between kcp and etcd.
-When using Kubernetes, <a href="https://cert-manager.io/">cert-manager</a> is a great choice for managing CAs
-and certificates in your cluster, and it can also provide certificates for use in etcd.</p>
-<p>On the kcp side, all that is required is to configure three CLI flags:</p>
-<ul>
-<li><code>--etcd-certfile</code></li>
-<li><code>--etcd-keyfile</code></li>
-<li><code>--etcd-cafile</code></li>
-</ul>
-<p>When using cert-manager, all three files are available in the Secret that is created for the
-Certificate object.</p>
-<p>When using Etcd Druid you have to manually create the necessary certificates or make use of one of
-the community Helm charts like <a href="https://artifacthub.io/packages/helm/hajowieland/etcd-druid-certs">hajowieland/etcd-druid-certs</a>.</p>
-<h3 id="backups">Backups<a class="headerlink" href="#backups" title="Permanent link">&para;</a></h3>
-<p>As with any database, etcd clusters should be backed up regularly. This is especially important with
-etcd because a permanent quorum loss can make the entire database unavailable, even though the data
-is technically in some form still there.</p>
-<p>Using an operator like the aforementioned Etcd Druid can greatly help in performing backups and
-restores.</p>
-<h3 id="encryption">Encryption<a class="headerlink" href="#encryption" title="Permanent link">&para;</a></h3>
-<p>kcp supports encryption-at-rest for its storage backend, allowing administrators to configure
-encryption keys or integration with external key-management systems to encrypt data written to disk.</p>
-<p>Please refer to the <a href="https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/">Kubernetes documentation</a>
-for more information on configuring and using encryption in kcp.</p>
-<p>Since each shard and its etcd is independent from other shards, the encryption configuration can be
-different per shard, if desired.</p>
-<h3 id="scaling">Scaling<a class="headerlink" href="#scaling" title="Permanent link">&para;</a></h3>
-<p>etcd can be scaled to some degree by adding more resources and/or more members to an etcd cluster,
-however <a href="https://etcd.io/docs/v3.7/dev-guide/limit/">hard limits</a> set an upper boundary. It is
-important to monitor etcd performance to assign resources accordingly.</p>
-<p>Note that using scaling solutions like the Vertical Pod Autoscaler (VPA), care must be taken so that
-not too many etcd members restart simultaneously or a permanent loss of quorum can occur, which would
-require restoring etcd from a backup.</p>
-<h2 id="running-kcp">Running kcp<a class="headerlink" href="#running-kcp" title="Permanent link">&para;</a></h2>
-<p>Kubernetes is the native habitat of kcp and its recommended runtime environment. The kcp project
-offers two ways of running kcp in Kubernetes:</p>
-<ul>
-<li>via <a href="https://github.com/kcp-dev/helm-charts/">Helm chart</a></li>
-<li>using the <a href="https://docs.kcp.io/kcp-operator/">kcp-operator</a></li>
-</ul>
-<p>While still in its early stages, the kcp-operator is aimed to be the recommended approach to running
-kcp: it offers more features than the Helm charts and can actively reconcile missing/changed
-resources on its own.</p>
-<h3 id="sharding">Sharding<a class="headerlink" href="#sharding" title="Permanent link">&para;</a></h3>
-<p>kcp supports the concept of sharding to spread the workload horizontally across kcp processes. Even
-if the database behind kcp would offer infinite performance at zero cost, kcp itself cannot scale
-vertically indefinitely: each logical cluster requires a minimum of runtime resources, even if the
-cluster is not actively used.</p>
-<p>New workspaces in kcp are spread evenly across all available shards, however as of kcp 0.28, this
-does not take into account the current number of logicalclusters on each shard. This means once
-every existing shard has reached its administrator-defined limit, simply adding a new shard will not
-make kcp schedule all new clusters onto it, but still distribute them evenly. There is currently
-no mechanism to mark shards as "full" or unavailable for schedulding and the kcp scheduled does not
-take shard metrics into account.</p>
-<p>It's therefore recommended to start with a sharded setup instead of working with a single root shard
-only. This not only improves realiability and performance, but can also help ensure newly developed
-kcp client software does not by accident make false assumptions about sharding.</p>
-<h3 id="high-availability_1">High Availability<a class="headerlink" href="#high-availability_1" title="Permanent link">&para;</a></h3>
-<p>To improve resilience against node failures, it is strongly recommended to not just spread the
-kcp workspaces across multiple shards, but also to ensure that shard pods are distributed across nodes or
-availability zones. The same advice for etcd applies to kcp as well: Use anti-affinities to ensure
-pods are scheduled properly.</p>
-<h3 id="backups_1">Backups<a class="headerlink" href="#backups_1" title="Permanent link">&para;</a></h3>
-<p>All kcp data is stored in etcd, there is no need to perform a dedicated kcp backup.</p>
-<h4 id="audit-logging">Audit Logging<a class="headerlink" href="#audit-logging" title="Permanent link">&para;</a></h4>
+<h1 id="audit-logging">Audit Logging<a class="headerlink" href="#audit-logging" title="Permanent link">&para;</a></h1>
 <p>kcp extends Kubernetes audit events with workspace-specific annotations that help identify which workspace (logical cluster) each request belongs to. This is essential for multi-tenant environments where you need to track and audit access across different workspaces.</p>
-<p>See <a href="audit-logging/">Audit Logging</a> for details on the annotations (<code>kcp.io/path</code>, <code>tenancy.kcp.io/workspace</code>, <code>kcp.io/cluster</code>) and how to use them.</p>
-<hr />
-<h2 id="production-deployment-options">Production Deployment Options<a class="headerlink" href="#production-deployment-options" title="Permanent link">&para;</a></h2>
-<p>For specific deployment instructions, kcp production deployments require careful consideration of:</p>
+<h2 id="audit-event-annotations">Audit Event Annotations<a class="headerlink" href="#audit-event-annotations" title="Permanent link">&para;</a></h2>
+<p>kcp automatically adds the following annotations to all audit events:</p>
+<h3 id="kcpiopath"><code>kcp.io/path</code><a class="headerlink" href="#kcpiopath" title="Permanent link">&para;</a></h3>
+<p>The canonical workspace path (e.g., <code>root:consumer:production</code>). This is the human-readable hierarchical path that uniquely identifies the workspace.</p>
+<h3 id="tenancykcpioworkspace"><code>tenancy.kcp.io/workspace</code><a class="headerlink" href="#tenancykcpioworkspace" title="Permanent link">&para;</a></h3>
+<p>The workspace cluster name (logical cluster identifier). This is the internal cluster name used by kcp.</p>
+<h3 id="kcpiocluster"><code>kcp.io/cluster</code><a class="headerlink" href="#kcpiocluster" title="Permanent link">&para;</a></h3>
+<p>Alias for the workspace cluster name. Contains the same value as <code>tenancy.kcp.io/workspace</code>.</p>
+<h2 id="example-audit-event">Example Audit Event<a class="headerlink" href="#example-audit-event" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Event&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;apiVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;audit.k8s.io/v1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Request&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;auditID&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;5684337a-48d6-4491-aed2-a0bca6fcda2b&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;stage&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RequestReceived&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;requestURI&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/api/v1/namespaces/default/configmaps?limit=500&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;verb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;list&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">&quot;user&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kcp-admin&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;e6741a4d-fc7c-44c5-b5ec-9357b44b7e0b&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">&quot;groups&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="s2">&quot;system:kcp:admin&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="s2">&quot;system:authenticated&quot;</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="nt">&quot;sourceIPs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="s2">&quot;127.0.0.1&quot;</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">  </span><span class="nt">&quot;userAgent&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kubectl/v1.30.1 (darwin/arm64) kubernetes/6911225&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">  </span><span class="nt">&quot;objectRef&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">    </span><span class="nt">&quot;resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;configmaps&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="nt">&quot;namespace&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">    </span><span class="nt">&quot;apiVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v1&quot;</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">  </span><span class="nt">&quot;requestReceivedTimestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-12-09T16:03:44.214758Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">  </span><span class="nt">&quot;stageTimestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-12-09T16:03:44.214758Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">  </span><span class="nt">&quot;annotations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">    </span><span class="nt">&quot;kcp.io/cluster&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16iai06e7ob717ht&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">    </span><span class="nt">&quot;kcp.io/path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;root:consumer:production&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">    </span><span class="nt">&quot;tenancy.kcp.io/workspace&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16iai06e7ob717ht&quot;</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="p">}</span>
+</code></pre></div>
+<p>The example audit event above would be generated by running the following command:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span>https://127.0.0.1:6443/clusters/root:consumer:production<span class="w"> </span>get<span class="w"> </span>configmap<span class="w"> </span>-n<span class="w"> </span>default
+</code></pre></div>
+<p>This command lists configmaps in the <code>default</code> namespace within the <code>root:consumer:production</code> workspace, which triggers the audit event with the workspace annotations shown in the example.</p>
+<h2 id="cross-workspace-audit-logging">Cross-Workspace Audit Logging<a class="headerlink" href="#cross-workspace-audit-logging" title="Permanent link">&para;</a></h2>
+<p>The workspace path annotations (<code>kcp.io/path</code>, <code>tenancy.kcp.io/workspace</code>) are especially important when accessing resources across workspaces via <a href="/docs/concepts/apis/">APIExport and APIBinding</a>. When you claim resources from another workspace through an APIBinding, audit events are generated for the consumer workspace, allowing you to track which workspace is accessing which resources.</p>
+<h3 id="setting-up-cross-workspace-event-logging">Setting Up Cross-Workspace Event Logging<a class="headerlink" href="#setting-up-cross-workspace-event-logging" title="Permanent link">&para;</a></h3>
+<p>This example demonstrates how to set up cross-workspace access and verify that audit logs include workspace path annotations.</p>
+<h4 id="step-1-create-workspaces">Step 1: Create Workspaces<a class="headerlink" href="#step-1-create-workspaces" title="Permanent link">&para;</a></h4>
+<p>Create a provider workspace to export APIs and a consumer workspace to consume them:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Create provider workspace</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>root:monitoring
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Create consumer workspace</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>root:team-a-production
+</code></pre></div>
+<h4 id="step-2-create-apiresourceschema-and-apiexport">Step 2: Create APIResourceSchema and APIExport<a class="headerlink" href="#step-2-create-apiresourceschema-and-apiexport" title="Permanent link">&para;</a></h4>
+<p>In the provider workspace, create an APIResourceSchema and APIExport:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Switch to provider workspace</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>root:monitoring
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Create APIResourceSchema</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | kubectl apply -f -</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="s">kind: APIResourceSchema</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="s">metadata:</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="s">  name: v1.monitoringevents.monitoring.kcp.io</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="s">spec:</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="s">  group: monitoring.kcp.io</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="s">  names:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="s">    kind: MonitoringEvent</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="s">    plural: monitoringevents</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="s">  versions:</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="s">    - name: v1</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="s">      schema:</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="s">        openAPIV3Schema:</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="s">          type: object</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="s">          properties:</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="s">            spec:</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="s">              type: object</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="s">      served: true</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="s">      storage: true</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="s">EOF</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="c1"># Create APIExport with permission claim for events</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | kubectl apply -f -</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="s">kind: APIExport</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="s">metadata:</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="s">  name: events-monitoring</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="s">spec:</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="s">  latestResourceSchemas:</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="s">    - v1.monitoringevents.monitoring.kcp.io</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="s">  permissionClaims:</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="s">    - group: &quot;&quot;</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a><span class="s">      resource: &quot;events&quot;</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="s">      identityHash: &quot;events&quot;</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="s">      verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;]</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="s">EOF</span>
+</code></pre></div>
+<h4 id="step-3-create-apibinding-in-consumer-workspace">Step 3: Create APIBinding in Consumer Workspace<a class="headerlink" href="#step-3-create-apibinding-in-consumer-workspace" title="Permanent link">&para;</a></h4>
+<p>Switch to the consumer workspace and create an APIBinding:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Switch to consumer workspace</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>root:team-a-production
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Create APIBinding</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | kubectl apply -f -</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="s">kind: APIBinding</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="s">metadata:</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="s">  name: events-monitoring</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="s">spec:</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="s">  reference:</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="s">    workspace:</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="s">      path: root:monitoring</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="s">      exportName: events-monitoring</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="s">  permissionClaims:</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="s">    - group: &quot;&quot;</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="s">      resource: &quot;events&quot;</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="s">      identityHash: &quot;events&quot;</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="s">      verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;]</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="s">      state: Accepted</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="s">EOF</span>
+</code></pre></div>
+<h4 id="step-4-configure-audit-policy">Step 4: Configure Audit Policy<a class="headerlink" href="#step-4-configure-audit-policy" title="Permanent link">&para;</a></h4>
+<p>Create an audit policy that captures cross-workspace requests. The policy should include rules for the resources you want to audit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">audit.k8s.io/v1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Policy</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Request</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;monitoring.kcp.io&quot;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">        </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;monitoringevents&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;events&quot;</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>Start kcp with audit logging enabled:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kcp<span class="w"> </span>start<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--audit-policy-file<span class="o">=</span>./audit-policy.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--audit-log-path<span class="o">=</span>./kcp.audit<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--audit-log-format<span class="o">=</span>json
+</code></pre></div>
+<h4 id="step-5-access-resources-via-virtual-workspace">Step 5: Access Resources via Virtual Workspace<a class="headerlink" href="#step-5-access-resources-via-virtual-workspace" title="Permanent link">&para;</a></h4>
+<p>Access resources from the consumer workspace using the virtual workspace endpoint:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Get cluster names from Workspace resources</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># Switch to root workspace to query child workspaces</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nv">PROVIDER_CLUSTER</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>monitoring<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span><span class="k">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nv">CONSUMER_CLUSTER</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>team-a-production<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span><span class="k">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Access via virtual workspace endpoint</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># Replace &lt;kcp-server&gt; with your kcp server address (e.g., 192.168.1.230:6443)</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>kubectl<span class="w"> </span>--server<span class="o">=</span>https://&lt;kcp-server&gt;/services/apiexport/<span class="si">${</span><span class="nv">PROVIDER_CLUSTER</span><span class="si">}</span>/events-monitoring/clusters/<span class="si">${</span><span class="nv">CONSUMER_CLUSTER</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>get<span class="w"> </span>monitoringevents
+</code></pre></div>
+<p>Example:s59r6w07v3evzwjw</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Set variables for cluster names from Workspace resources</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Switch to root workspace to query child workspaces</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>monitoring<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span><span class="k">)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nv">CONSUMER_CLUSTER</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>team-a-production<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span><span class="k">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Access monitoring events via virtual workspace</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>kubectl<span class="w"> </span>--server<span class="o">=</span>https://192.168.1.230:6443/services/apiexport/<span class="si">${</span><span class="nv">CLUSTER_NAME</span><span class="si">}</span>/events-monitoring/clusters/<span class="si">${</span><span class="nv">CONSUMER_CLUSTER</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span>get<span class="w"> </span>monitoringevents
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> <code>events-monitoring</code> in the URL path is the name of the APIExport created in Step 2.</p>
+</blockquote>
+<h4 id="step-6-verify-audit-logs">Step 6: Verify Audit Logs<a class="headerlink" href="#step-6-verify-audit-logs" title="Permanent link">&para;</a></h4>
+<p>Check the audit log file to verify that events include workspace path annotations:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># View recent audit events with workspace annotations</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>cat<span class="w"> </span>kcp.audit<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;select(.annotations.&quot;kcp.io/path&quot; != null) | {</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="s1">  timestamp: .requestReceivedTimestamp,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="s1">  verb: .verb,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="s1">  resource: .objectRef.resource,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="s1">  workspace_path: .annotations.&quot;kcp.io/path&quot;,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="s1">  workspace_cluster: .annotations.&quot;tenancy.kcp.io/workspace&quot;,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="s1">  user: .user.username</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="s1">}&#39;</span>
+</code></pre></div>
+<p>Example output showing cross-workspace access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Event&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">&quot;apiVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;audit.k8s.io/v1&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Request&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="nt">&quot;auditID&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;d71ac943-774d-495c-a605-99acc117974f&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="nt">&quot;stage&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ResponseComplete&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="nt">&quot;requestURI&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/apis/monitoring.kcp.io/v1/monitoringevents?limit=500&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="nt">&quot;verb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;list&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span><span class="nt">&quot;user&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kcp-admin&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;9d8d8c2e-06e6-4ac5-a093-bdd53519a890&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="nt">&quot;groups&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;system:kcp:admin&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;system:authenticated&quot;</span><span class="p">]</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="nt">&quot;objectRef&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="nt">&quot;resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;monitoringevents&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">    </span><span class="nt">&quot;apiGroup&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;monitoring.kcp.io&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">    </span><span class="nt">&quot;apiVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v1&quot;</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">  </span><span class="nt">&quot;annotations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">    </span><span class="nt">&quot;kcp.io/cluster&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dnwjm29bmxcaz9x7&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">    </span><span class="nt">&quot;kcp.io/path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;root:team-a-production&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="w">    </span><span class="nt">&quot;tenancy.kcp.io/workspace&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dnwjm29bmxcaz9x7&quot;</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="p">}</span>
+</code></pre></div>
+<p>Notice that the <code>kcp.io/path</code> annotation shows <code>root:team-a-production</code> (the consumer workspace), even though the resource is being accessed from the provider workspace's APIExport. This allows you to track which workspace is consuming which resources.</p>
+<h2 id="enabling-audit-logging">Enabling Audit Logging<a class="headerlink" href="#enabling-audit-logging" title="Permanent link">&para;</a></h2>
+<p>To enable audit logging in kcp, you need to provide an audit policy file and configure where audit logs should be written. Audit logging is disabled by default.</p>
+<h3 id="basic-setup">Basic Setup<a class="headerlink" href="#basic-setup" title="Permanent link">&para;</a></h3>
+<p>Enable audit logging by starting kcp with the following flags:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kcp<span class="w"> </span>start<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--audit-policy-file<span class="o">=</span>/path/to/audit-policy.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>--audit-log-path<span class="o">=</span>/path/to/kcp.audit<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>--audit-log-format<span class="o">=</span>json
+</code></pre></div>
+<h3 id="required-flags">Required Flags<a class="headerlink" href="#required-flags" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Certificate Management</strong>: Self-signed, Let's Encrypt, or enterprise CA integration</li>
-<li><strong>High Availability</strong>: Multi-shard deployment with proper load distribution  </li>
-<li><strong>Network Architecture</strong>: Front-proxy configuration and shard accessibility patterns</li>
-<li><strong>Security</strong>: TLS encryption, RBAC, and authentication integration</li>
-<li><strong>Observability</strong>: Monitoring, logging, and alerting</li>
+<li><strong><code>--audit-policy-file</code></strong>: Path to the audit policy YAML file that defines which events should be logged</li>
+<li><strong><code>--audit-log-path</code></strong>: Path where audit logs will be written</li>
+<li><strong><code>--audit-log-format</code></strong>: Output format (<code>json</code> or <code>legacy</code>). JSON format is recommended for easier parsing</li>
 </ul>
-<h2 id="deployment-variants">Deployment Variants<a class="headerlink" href="#deployment-variants" title="Permanent link">&para;</a></h2>
-<p>We provide three reference deployment patterns:</p>
-<h3 id="kcp-dekker-self-signed-certificates"><a href="kcp-dekker/">kcp-dekker</a> - Self-Signed Certificates<a class="headerlink" href="#kcp-dekker-self-signed-certificates" title="Permanent link">&para;</a></h3>
+<h3 id="example-audit-policy">Example Audit Policy<a class="headerlink" href="#example-audit-policy" title="Permanent link">&para;</a></h3>
+<p>Create an audit policy file (e.g., <code>audit-policy.yaml</code>) to define what events to log:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">audit.k8s.io/v1</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Policy</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Request</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>This example policy logs all requests at the <code>Request</code> level. For production environments, you may want to be more selective about what gets logged to manage log volume.</p>
+<h3 id="complete-example">Complete Example<a class="headerlink" href="#complete-example" title="Permanent link">&para;</a></h3>
+<p>Here's a complete example of starting kcp with audit logging enabled:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Create audit policy file</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>cat<span class="w"> </span>&gt;<span class="w"> </span>audit-policy.yaml<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="s">apiVersion: audit.k8s.io/v1</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="s">kind: Policy</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="s">rules:</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="s">  - level: Request</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="s">    verbs: [&quot;*&quot;]</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="s">    resources:</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="s">      - group: &quot;&quot;</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="s">        resources: [&quot;*&quot;]</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="s">EOF</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Start kcp with audit logging</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>kcp<span class="w"> </span>start<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">  </span>--audit-policy-file<span class="o">=</span>./audit-policy.yaml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">  </span>--audit-log-path<span class="o">=</span>./kcp.audit<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">  </span>--audit-log-format<span class="o">=</span>json
+</code></pre></div>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Audit logging in kcp uses the standard Kubernetes audit policy configuration. For detailed information on configuring audit policies, including different log levels and filtering options, see the <a href="https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/">Kubernetes audit documentation</a>.</p>
+<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Best for</strong>: Development, testing, or closed internal environments</li>
-<li><strong>Certificate approach</strong>: All certificates are self-signed using an internal CA</li>
-<li><strong>Access pattern</strong>: Only front-proxy is publicly accessible, shards are private</li>
-<li><strong>Network</strong>: Simple single-cluster deployment</li>
+<li>The <code>kcp.io/path</code> annotation is only populated when the LogicalCluster informer is available. In cache-server deployments, this annotation may be empty.</li>
+<li>All annotations are added to both <code>RequestReceived</code> and <code>ResponseComplete</code> audit event stages.</li>
+<li>The workspace annotations are automatically added to all audit events, regardless of the audit policy configuration.</li>
 </ul>
-<h3 id="kcp-vespucci-external-certificates"><a href="kcp-vespucci/">kcp-vespucci</a> - External Certificates<a class="headerlink" href="#kcp-vespucci-external-certificates" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Best for</strong>: Production environments requiring trusted certificates</li>
-<li><strong>Certificate approach</strong>: Let's Encrypt for front-proxy, self-signed certificates for shards</li>
-<li><strong>Access pattern</strong>: Both front-proxy and shards are publicly accessible</li>
-<li><strong>Network</strong>: Multi-zone deployment with external certificate validation</li>
-</ul>
-<h3 id="kcp-comer-dual-front-proxy"><a href="kcp-comer/">kcp-comer</a> - Dual Front-Proxy<a class="headerlink" href="#kcp-comer-dual-front-proxy" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Best for</strong>: Enterprise environments with CDN and edge requirements</li>
-<li><strong>Certificate approach</strong>: CDN integration with edge re-encryption</li>
-<li><strong>Access pattern</strong>: Dual front-proxy with CloudFlare integration</li>
-<li><strong>Network</strong>: Complex multi-layer architecture with edge termination</li>
-</ul>
-<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong><a href="prerequisites/">Prerequisites</a></strong>: Install shared components (etcd-druid, cert-manager, kcp-operator, OIDC)</li>
-<li><strong><a href="overview/">Architecture Overview</a></strong>: Understand kcp component communication patterns  </li>
-<li><strong>Choose Deployment</strong>: Select the appropriate variant for your environment</li>
-</ol>
-<h2 id="support-matrix">Support Matrix<a class="headerlink" href="#support-matrix" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Feature</th>
-<th>kcp-dekker</th>
-<th>kcp-vespucci</th>
-<th>kcp-comer</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Self-signed certs</td>
-<td>✓</td>
-<td>-</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Let's Encrypt</td>
-<td>-</td>
-<td>✓</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Public shard access</td>
-<td>-</td>
-<td>✓</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>CDN integration</td>
-<td>-</td>
-<td>-</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Multi-region</td>
-<td>✓</td>
-<td>✓</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>OIDC authentication</td>
-<td>✓</td>
-<td>✓</td>
-<td>✓</td>
-</tr>
-</tbody>
-</table>
-<p>Choose the deployment that best matches your security, compliance, and operational requirements.</p>
 
 
 
@@ -4364,10 +4442,10 @@ pods are scheduled properly.</p>
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
     
   </body>
