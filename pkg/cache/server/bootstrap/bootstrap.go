@@ -60,6 +60,8 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 		{"rbac.authorization.k8s.io", "rolebindings"},
 		{"rbac.authorization.k8s.io", "clusterrolebindings"},
 		{"admissionregistration.k8s.io", "mutatingwebhookconfigurations"},
+		{"admissionregistration.k8s.io", "mutatingadmissionpolicies"},
+		{"admissionregistration.k8s.io", "mutatingadmissionpolicybindings"},
 		{"admissionregistration.k8s.io", "validatingwebhookconfigurations"},
 		{"admissionregistration.k8s.io", "validatingadmissionpolicies"},
 		{"admissionregistration.k8s.io", "validatingadmissionpolicybindings"},

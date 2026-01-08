@@ -278,7 +278,6 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, t
 			cn,
 		)
 	})
-
 	if err := plugin.ValidateInitialization(); err != nil {
 		cancel()
 		return nil, err

@@ -413,6 +413,26 @@ func (s *Server) installKubeValidatingAdmissionPolicyStatusController(_ context.
 	})
 }
 
+func (s *Server) installKubeMutatingAdmissionPolicyStatusController(_ context.Context, config *rest.Config) error {
+	// The controller package does not expose a NewController function.
+	// This can be implemented when it is available. The current implementation is a placeholder and it does not really work.
+	controllerName := fmt.Sprintf("kube-%s", "mutatingadmissionpolicy-status")
+
+	c := s.KubeSharedInformerFactory.Admissionregistration().V1beta1().MutatingAdmissionPolicies().Informer()
+
+	return s.registerController(&controllerWrapper{
+		Name: controllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KubeSharedInformerFactory.Admissionregistration().V1beta1().MutatingAdmissionPolicies().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Run(ctx.Done())
+		},
+	})
+}
+
 func readCA(file string) ([]byte, error) {
 	rootCA, err := os.ReadFile(file)
 	if err != nil {

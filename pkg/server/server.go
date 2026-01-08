@@ -237,6 +237,10 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		return err
 	}
 
+	if err := s.installKubeMutatingAdmissionPolicyStatusController(ctx, controllerConfig); err != nil {
+		return err
+	}
+
 	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}

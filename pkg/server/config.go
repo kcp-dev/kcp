@@ -29,6 +29,7 @@ import (
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
@@ -38,10 +39,12 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
 	"k8s.io/apiserver/pkg/util/compatibility"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/controlplane"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
@@ -197,6 +200,14 @@ func (c *Config) Complete() (CompletedConfig, error) {
 
 const KcpBootstrapperUserName = "system:kcp:bootstrapper"
 
+func newKCPAPIResourceConfigSource() *serverstorage.ResourceConfig {
+	config := controlplane.DefaultAPIResourceConfigSource()
+	if utilfeature.DefaultFeatureGate.Enabled(featuregate.Feature("MutatingAdmissionPolicy")) {
+		config.EnableVersions(schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"})
+	}
+	return config
+}
+
 func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Config, error) {
 	c := &Config{
 		Options: opts,
@@ -221,7 +232,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.GenericConfig, c.KubeSharedInformerFactory, storageFactory, err = controlplaneapiserver.BuildGenericConfig(
 		opts.GenericControlPlane,
 		[]*runtime.Scheme{legacyscheme.Scheme, apiextensionsapiserver.Scheme},
-		controlplane.DefaultAPIResourceConfigSource(),
+		newKCPAPIResourceConfigSource(),
 		generatedopenapi.GetOpenAPIDefinitions,
 	)
 	if err != nil {
