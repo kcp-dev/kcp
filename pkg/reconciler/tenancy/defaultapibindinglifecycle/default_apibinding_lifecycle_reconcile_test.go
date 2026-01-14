@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2026 The KCP Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package initialization
+package defaultapibindinglifecycle
 
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,64 +30,6 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
-
-func TestGenerateAPIBindingName(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		exportName           string
-		expectedPrefixLength int
-	}{
-		"short export name": {
-			exportName:           "a",
-			expectedPrefixLength: 1,
-		},
-		"max length without truncation": {
-			exportName:           strings.Repeat("a", 247),
-			expectedPrefixLength: 247,
-		},
-		"over max length": {
-			exportName:           strings.Repeat("a", 248),
-			expectedPrefixLength: 247,
-		},
-	}
-
-	re := regexp.MustCompile(`^(a+)-(.+)$`)
-
-	for testName, tc := range tests {
-		t.Run(testName, func(t *testing.T) {
-			clusterName := logicalcluster.Name("root:some:ws")
-			exportPath := "root:some:export:ws"
-
-			generated := generateAPIBindingName(clusterName, exportPath, tc.exportName)
-			t.Logf("generated: %s", generated)
-
-			matches := re.FindStringSubmatch(generated)
-			require.Len(t, matches, 3)
-			require.Len(t, matches[1], tc.expectedPrefixLength)
-			require.Len(t, matches[2], 5)
-		})
-	}
-}
-
-func TestGenerateAPIBindingNameWithMultipleSimilarLongNames(t *testing.T) {
-	t.Parallel()
-
-	clusterName := logicalcluster.Name("root:some:ws")
-	exportPath := "root:some:export:ws"
-
-	// 252 chars
-	longName1 := "thisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongname"
-	// 263 chars
-	longName2 := "thisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethatdiffers"
-	generated1 := generateAPIBindingName(clusterName, exportPath, longName1)
-	t.Logf("generated1: %s", generated1)
-	generated2 := generateAPIBindingName(clusterName, exportPath, longName2)
-	t.Logf("generated2: %s", generated2)
-	require.Len(t, generated1, 253)
-	require.Len(t, generated2, 253)
-	require.NotEqual(t, generated1, generated2, "expected different generated names")
-}
 
 func TestFindSelectorInWorkspace(t *testing.T) {
 	t.Parallel()
@@ -103,7 +43,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 		expectedSelector  *apisv1alpha2.PermissionClaimSelector
 		expectedFound     bool
 	}{
-		"returns matchLabels selector when workspace has matching APIBinding with label selector": {
+		"returns matchLabels selector when parent workspace has matching APIBinding with label selector": {
 			workspacePath: logicalcluster.NewPath("root:parent"),
 			exportRef: tenancyv1alpha1.APIExportReference{
 				Path:   "root:export-ws",
@@ -162,7 +102,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 			},
 			expectedFound: true,
 		},
-		"returns MatchAll selector when workspace only has MatchAll selector": {
+		"returns MatchAll selector when parent workspace only has MatchAll selector": {
 			workspacePath: logicalcluster.NewPath("root:parent"),
 			exportRef: tenancyv1alpha1.APIExportReference{
 				Path:   "root:export-ws",
@@ -213,7 +153,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 			},
 			expectedFound: true,
 		},
-		"returns nil when no APIBinding matches the export reference": {
+		"returns nil where no APIBinding matches the export reference": {
 			workspacePath: logicalcluster.NewPath("root:parent"),
 			exportRef: tenancyv1alpha1.APIExportReference{
 				Path:   "root:export-ws",
@@ -317,7 +257,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
-			b := &APIBinder{
+			c := &DefaultAPIBindingController{
 				listAPIBindingsByPath: func(ctx context.Context, path logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error) {
 					if tc.listBindingsError != nil {
 						return nil, tc.listBindingsError
@@ -330,8 +270,9 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 			}
 
 			ctx := klog.NewContext(context.Background(), klog.Background())
+			logger := klog.FromContext(ctx)
 
-			result := b.findSelectorInWorkspace(ctx, tc.workspacePath, tc.exportRef, tc.exportClaim)
+			result := c.findSelectorInWorkspace(ctx, tc.workspacePath, tc.exportRef, tc.exportClaim, logger)
 
 			if !tc.expectedFound {
 				require.Nil(t, result, "expected no selector to be found")
