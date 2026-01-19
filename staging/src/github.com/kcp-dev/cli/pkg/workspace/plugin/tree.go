@@ -32,15 +32,21 @@ import (
 	"github.com/kcp-dev/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/cli/pkg/helpers"
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 )
 
 // workspaceInfo contains workspace path and type information.
+
 type workspaceInfo struct {
-	Path    logicalcluster.Path
-	Type    *tenancyv1alpha1.WorkspaceTypeReference
-	Cluster string
+	Path                    logicalcluster.Path
+	Type                    *tenancyv1alpha1.WorkspaceTypeReference
+	Cluster                 string
+	APIExports              []apisv1alpha2.APIExport
+	APIExportEndpointSlices []apisv1alpha1.APIExportEndpointSlice
+	APIBindings             []apisv1alpha2.APIBinding
 }
 
 // TreeOptions contains options for displaying the workspace tree.
@@ -186,10 +192,31 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 		workspaceCluster = workspace.Base()
 	}
 
+	var apiExports []apisv1alpha2.APIExport
+	exportsList, err := o.kcpClusterClient.Cluster(workspace).ApisV1alpha2().APIExports().List(ctx, metav1.ListOptions{})
+	if err == nil {
+		apiExports = exportsList.Items
+	}
+
+	var apiExportEndpointSlices []apisv1alpha1.APIExportEndpointSlice
+	endpointSlicesList, err := o.kcpClusterClient.Cluster(workspace).ApisV1alpha1().APIExportEndpointSlices().List(ctx, metav1.ListOptions{})
+	if err == nil {
+		apiExportEndpointSlices = endpointSlicesList.Items
+	}
+
+	var apiBindings []apisv1alpha2.APIBinding
+	bindingsList, err := o.kcpClusterClient.Cluster(workspace).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
+	if err == nil {
+		apiBindings = bindingsList.Items
+	}
+
 	wsInfo := &workspaceInfo{
-		Path:    workspace,
-		Type:    workspaceType,
-		Cluster: workspaceCluster,
+		Path:                    workspace,
+		Type:                    workspaceType,
+		Cluster:                 workspaceCluster,
+		APIExports:              apiExports,
+		APIExportEndpointSlices: apiExportEndpointSlices,
+		APIBindings:             apiBindings,
 	}
 
 	node.info = wsInfo
