@@ -37,6 +37,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -603,11 +604,11 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 
 	t.Logf("Bind sheriffs into %s and create initial sheriff", consumer1Path)
 	apifixtures.BindToExport(ctx, t, sheriffProviderPath, "wild.wild.west", consumer1Path, kcpClusterClient)
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, consumer1Path, "wild.wild.west", "in-vw-before")
+	createSheriff(ctx, t, dynamicClusterClient, consumer1Path, "wild.wild.west", "in-vw-before")
 
 	t.Logf("Bind sheriffs into %s and create initial sheriff", consumer2Path)
 	apifixtures.BindToExport(ctx, t, sheriffProviderPath, "wild.wild.west", consumer2Path, kcpClusterClient)
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, consumer2Path, "wild.wild.west", "not-in-vw")
+	createSheriff(ctx, t, dynamicClusterClient, consumer2Path, "wild.wild.west", "not-in-vw")
 
 	t.Logf("Create cowboys API Export in %v with permission claims to core resources and sheriffs provided by %v", claimerPath, sheriffProviderPath)
 	setUpServiceProviderWithPermissionClaims(ctx, t, dynamicClusterClient, kcpClusterClient, claimerPath, cfg, identityHash)
@@ -718,7 +719,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to see more than 1 binding")
 
 	t.Logf("Creating a sheriff in %s", consumer1Path)
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, consumer1Path, "wild.wild.west", "in-vw")
+	createSheriff(ctx, t, dynamicClusterClient, consumer1Path, "wild.wild.west", "in-vw")
 
 	t.Logf("Verify that two sherrifs are eventually returned")
 	kcptestinghelpers.Eventually(t, func() (done bool, str string) {
@@ -1187,4 +1188,33 @@ func toJSON(t *testing.T, obj interface{}) string {
 	ret, err := json.Marshal(obj)
 	require.NoError(t, err)
 	return string(ret)
+}
+
+func createSheriff(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	clusterName logicalcluster.Path,
+	group, name string,
+) {
+	t.Helper()
+
+	name = strings.ReplaceAll(name, ":", "-")
+
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+
+	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+
+	sheriff := &unstructured.Unstructured{}
+	sheriff.SetAPIVersion(group + "/v1")
+	sheriff.SetKind("Sheriff")
+	sheriff.SetName(name)
+
+	// CRDs are asynchronously served because they are informer based.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{}); err != nil {
+			return false, fmt.Sprintf("failed to create Sheriff %s|%s: %v", clusterName, name, err.Error())
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
 }

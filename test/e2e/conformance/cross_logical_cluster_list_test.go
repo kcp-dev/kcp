@@ -19,6 +19,7 @@ package conformance
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,6 +47,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -196,20 +199,20 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	t.Logf("Install a different sheriffs CRD into workspace %q", wsNormalCRD2)
 	bootstrapCRD(t, wsNormalCRD2, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD2)
 
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1a, group, wsNormalCRD1a.String())
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b, group, wsNormalCRD1b.String())
+	createSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1a, group)
+	createSheriff(ctx, t, dynamicClusterClient, wsNormalCRD1b, group)
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1a, kcpClusterClient, group, "export1")
 	apifixtures.BindToExport(ctx, t, wsExport1a, group, wsConsume1a, kcpClusterClient)
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1a, group, wsConsume1a.String())
+	createSheriff(ctx, t, dynamicClusterClient, wsConsume1a, group)
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport1b, kcpClusterClient, group, "export1")
 	apifixtures.BindToExport(ctx, t, wsExport1b, group, wsConsume1b, kcpClusterClient)
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume1b, group, wsConsume1b.String())
+	createSheriff(ctx, t, dynamicClusterClient, wsConsume1b, group)
 
 	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, wsExport2, kcpClusterClient, group, "export2")
 	apifixtures.BindToExport(ctx, t, wsExport2, group, wsConsume2, kcpClusterClient)
-	apifixtures.CreateSheriff(ctx, t, dynamicClusterClient, wsConsume2, group, wsConsume2.String())
+	createSheriff(ctx, t, dynamicClusterClient, wsConsume2, group)
 
 	t.Logf("Trying to wildcard list with PartialObjectMetadata content-type and it should work")
 	rootShardMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rootShardConfig)
@@ -320,4 +323,33 @@ func TestBuiltInCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	expected := []string{"test-cm-0", "test-cm-1", "test-cm-2"}
 
 	require.Subset(t, sets.List[string](names), expected)
+}
+
+func createSheriff(
+	ctx context.Context,
+	t *testing.T,
+	dynamicClusterClient kcpdynamic.ClusterInterface,
+	clusterName logicalcluster.Path,
+	group string,
+) {
+	t.Helper()
+
+	name := strings.ReplaceAll(clusterName.String(), ":", "-")
+
+	t.Logf("Creating %s/v1 sheriffs %s|default/%s", group, clusterName, name)
+
+	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+
+	sheriff := &unstructured.Unstructured{}
+	sheriff.SetAPIVersion(group + "/v1")
+	sheriff.SetKind("Sheriff")
+	sheriff.SetName(name)
+
+	// CRDs are asynchronously served because they are informer based.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := dynamicClusterClient.Cluster(clusterName).Resource(sheriffsGVR).Namespace("default").Create(ctx, sheriff, metav1.CreateOptions{}); err != nil {
+			return false, fmt.Sprintf("failed to create Sheriff %s|%s: %v", clusterName, name, err.Error())
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100, "error creating Sheriff %s|%s", clusterName, name)
 }
