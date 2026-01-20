@@ -72,13 +72,13 @@ Optional:
 We gonna use the CloudFlare DNS01 challenge solver for Let's Encrypt certificates in some deployment variants. If you plan to use CloudFlare, install the cert-manager CloudFlare DNS01 solver:
 
 ```bash
-cp contrib/production/cert-manager/cluster-issuer.yaml.template kcp/assets/cert-manager/cluster-issuer.yaml
-# Edit kcp/assets/cert-manager/cluster-issuer.yaml to add your Email.
-kubectl apply -f kcp/assets/cert-manager/cluster-issuer.yaml
+cp contrib/production/cert-manager/cluster-issuer.yaml.template contrib/production/cert-manager/cluster-issuer.yaml        
+# Edit contrib/production/cert-manager/cluster-issuer.yaml to add your Email.
+kubectl apply -f contrib/production/cert-manager/cluster-issuer.yaml
 
-cp contrib/production/cert-manager/cloudflare-secret.yaml.template kcp/assets/cert-manager/cloudflare-secret.yaml
-# Edit kcp/assets/cert-manager/cloudflare-secret.yaml to add your CloudFlare API token.
-kubectl apply -f kcp/assets/cert-manager/cloudflare-secret.yaml
+cp contrib/production/cert-manager/cloudflare-secret.yaml.template contrib/production/cert-manager/cloudflare-secret.yaml
+# Edit contrib/production/cert-manager/cloudflare-secret.yaml to add your CloudFlare API token.
+kubectl apply -f contrib/production/cert-manager/cloudflare-secret.yaml
 ```
 
 ### 3. kcp-operator
@@ -158,6 +158,7 @@ api.dekker.example.com → LoadBalancer IP
 api.vespucci.example.com → LoadBalancer IP
 root.vespucci.example.com → LoadBalancer IP  
 alpha.vespucci.example.com → LoadBalancer IP
+beta.vespucci.example.com → LoadBalancer IP - remote
 ```
 
 #### kcp-comer (Dual Front-Proxy)

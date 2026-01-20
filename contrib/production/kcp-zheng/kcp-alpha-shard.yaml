@@ -1,0 +1,42 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: alpha
+  namespace: kcp-zheng
+  annotations:
+    operator.kcp.io/bundle: "true"
+spec:
+  replicas: 2 # must in bundle mode!!!
+  auth:
+    serviceAccount:
+      enabled: true
+    oidc:
+      issuerURL: https://auth.example.io
+      clientID: platform-mesh
+      groupsClaim: groups
+      usernameClaim: email
+      usernamePrefix: "oidc:"
+      groupsPrefix: "oidc:"
+      clientSecret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+  caBundleSecretRef:
+      name: letsencrypt-ca
+  etcd:
+    endpoints:
+      - https://alpha-client.kcp-zheng.svc.cluster.local:2379
+    tlsConfig:
+      secretRef:
+        name: etcd-ca-tls
+  shardBaseURL: https://alpha.zheng.example.io:6443
+  certificateTemplates:
+    server:
+      spec:
+        dnsNames:
+        - alpha.zheng.example.io
+  rootShard:
+    ref:
+      name: root
+  serviceTemplate:
+    spec:
+      type: LoadBalancer
+    annotations:
+      networking.gardener.cloud/access-restricted: "false"
