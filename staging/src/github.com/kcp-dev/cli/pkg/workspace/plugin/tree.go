@@ -136,10 +136,12 @@ func (o *TreeOptions) runInteractive(ctx context.Context, currentWorkspace logic
 	}
 
 	root := &treeNode{
-		name:       rootName,
-		path:       rootWorkspace,
-		expanded:   true,
-		selectable: true,
+		name:           rootName,
+		path:           rootWorkspace,
+		expanded:       true,
+		selectable:     true,
+		childrenLoaded: false,
+		apiInfoLoaded:  false,
 	}
 
 	var currentNode *treeNode
@@ -160,6 +162,7 @@ func (o *TreeOptions) runInteractive(ctx context.Context, currentWorkspace logic
 		tree:              root,
 		currentNode:       currentNode,
 		selectedWorkspace: nil,
+		treeOptions:       o,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
@@ -192,34 +195,14 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 		workspaceCluster = workspace.Base()
 	}
 
-	var apiExports []apisv1alpha2.APIExport
-	exportsList, err := o.kcpClusterClient.Cluster(workspace).ApisV1alpha2().APIExports().List(ctx, metav1.ListOptions{})
-	if err == nil {
-		apiExports = exportsList.Items
-	}
-
-	var apiExportEndpointSlices []apisv1alpha1.APIExportEndpointSlice
-	endpointSlicesList, err := o.kcpClusterClient.Cluster(workspace).ApisV1alpha1().APIExportEndpointSlices().List(ctx, metav1.ListOptions{})
-	if err == nil {
-		apiExportEndpointSlices = endpointSlicesList.Items
-	}
-
-	var apiBindings []apisv1alpha2.APIBinding
-	bindingsList, err := o.kcpClusterClient.Cluster(workspace).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
-	if err == nil {
-		apiBindings = bindingsList.Items
-	}
-
 	wsInfo := &workspaceInfo{
-		Path:                    workspace,
-		Type:                    workspaceType,
-		Cluster:                 workspaceCluster,
-		APIExports:              apiExports,
-		APIExportEndpointSlices: apiExportEndpointSlices,
-		APIBindings:             apiBindings,
+		Path:    workspace,
+		Type:    workspaceType,
+		Cluster: workspaceCluster,
 	}
 
 	node.info = wsInfo
+	node.apiInfoLoaded = false
 
 	if workspace == currentWorkspace {
 		node.selected = true
@@ -229,41 +212,74 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 	results, err := o.kcpClusterClient.Cluster(workspace).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			node.hasChildren = false
+			node.childrenLoaded = true
 			return nil
 		}
 		return err
 	}
 
-	for _, ws := range results.Items {
-		_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
-		if err != nil {
-			return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
-		}
+	node.hasChildren = len(results.Items) > 0
+	node.childrenLoaded = false
 
-		childName := ws.Name
-		if o.Full {
-			childName = workspaceName + ":" + childName
+	shouldLoadChildren := node.expanded
+	if !shouldLoadChildren {
+		if workspace == currentWorkspace {
+			shouldLoadChildren = true
+		} else if currentWorkspace.HasPrefix(workspace) {
+			shouldLoadChildren = true
 		}
+	}
 
-		childWorkspaceInfo := &workspaceInfo{
-			Path:    childPath,
-			Type:    ws.Spec.Type,
-			Cluster: ws.Spec.Cluster,
+	if shouldLoadChildren {
+		loadAllChildren := node.expanded
+
+		for _, ws := range results.Items {
+			_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
+			if err != nil {
+				return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
+			}
+
+			if !loadAllChildren {
+				if !currentWorkspace.HasPrefix(childPath) && childPath != currentWorkspace {
+					continue
+				}
+			}
+
+			childName := ws.Name
+			if o.Full {
+				childName = workspaceName + ":" + childName
+			}
+
+			childWorkspaceInfo := &workspaceInfo{
+				Path:    childPath,
+				Type:    ws.Spec.Type,
+				Cluster: ws.Spec.Cluster,
+			}
+
+			childResults, err := o.kcpClusterClient.Cluster(childPath).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{Limit: childrenCheckLimit})
+			hasChildren := err == nil && len(childResults.Items) > 0
+
+			childNode := &treeNode{
+				name:           childName,
+				path:           childPath,
+				info:           childWorkspaceInfo,
+				selectable:     true,
+				parent:         node,
+				childrenLoaded: false,
+				apiInfoLoaded:  false,
+				hasChildren:    hasChildren,
+			}
+
+			node.children = append(node.children, childNode)
+
+			if !loadAllChildren {
+				if err := o.populateInteractiveNodeBubble(ctx, childNode, childPath, childName, currentWorkspace, currentNode); err != nil {
+					return err
+				}
+			}
 		}
-
-		childNode := &treeNode{
-			name:       childName,
-			path:       childPath,
-			info:       childWorkspaceInfo,
-			selectable: true,
-			parent:     node,
-		}
-
-		node.children = append(node.children, childNode)
-
-		if err := o.populateInteractiveNodeBubble(ctx, childNode, childPath, childName, currentWorkspace, currentNode); err != nil {
-			return err
-		}
+		node.childrenLoaded = true
 	}
 
 	return nil
