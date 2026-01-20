@@ -61,7 +61,7 @@ kubectl wait --for=condition=Available deployment --all -n cert-manager --timeou
 For local development, add an entry to your hosts file:
 
 ```bash
-echo "127.0.0.1 kcp.dev.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1 kcp.local.test" | sudo tee -a /etc/hosts
 ```
 
 ## Step 4: Deploy kcp with Helm
@@ -79,14 +79,14 @@ Install kcp:
 helm upgrade --install kcp kcp/kcp \
   --namespace kcp \
   --create-namespace \
-  --set externalHostname=kcp.dev.local \
+  --set externalHostname=kcp.local.test \
   --set kcpFrontProxy.service.type=NodePort \
   --set kcpFrontProxy.service.nodePort=30443 \
   --set audit.enabled=false \
   --wait
 ```
 
-Set up host aliases so in-cluster kcp components can resolve `kcp.dev.local`:
+Set up host aliases so in-cluster kcp components can resolve `kcp.local.test`:
 
 ```bash
 KCP_FRONT_PROXY_IP=$(kubectl get svc kcp-front-proxy -n kcp -o jsonpath='{.spec.clusterIP}')
@@ -94,8 +94,8 @@ helm upgrade kcp kcp/kcp \
   --namespace kcp \
   --reuse-values \
   --set kcp.hostAliases.enabled=true \
-  --set kcp.hostAliases.values[0].ip=${KCP_FRONT_PROXY_IP} \
-  --set kcp.hostAliases.values[0].hostnames[0]=kcp.dev.local \
+  --set "kcp.hostAliases.values[0].ip=${KCP_FRONT_PROXY_IP}" \
+  --set "kcp.hostAliases.values[0].hostnames[0]=kcp.local.test" \
   --wait
 ```
 
@@ -112,7 +112,7 @@ All pods should reach the `Running` state.
 Set environment variables for easier access:
 
 ```bash
-export KCP_EXTERNAL_HOSTNAME=kcp.dev.local
+export KCP_EXTERNAL_HOSTNAME=kcp.local.test
 export KCP_PORT=8443
 ```
 
@@ -127,7 +127,7 @@ kubectl get secret kcp-front-proxy-cert -n kcp \
 
 ```bash
 kubectl --kubeconfig=admin.kubeconfig config set-cluster base \
-  --server https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT} \
+  --server https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT}/clusters/root \
   --certificate-authority=ca.crt
 ```
 
@@ -511,7 +511,7 @@ rm -f team-*.crt team-*.key team-*.kubeconfig
 rm -f kcp-values.yaml
 
 # Remove hosts entry (optional)
-sudo sed -i '' '/kcp.dev.local/d' /etc/hosts
+sudo sed -i '' '/kcp.local.test/d' /etc/hosts
 ```
 
 ## Next Steps
