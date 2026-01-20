@@ -174,7 +174,7 @@ func (d *logicalClusterResourcesDeleter) deleteCollection(ctx context.Context, c
 	opts := metav1.DeleteOptions{PropagationPolicy: &background}
 	if err := d.metadataClusterClient.Resource(gvr).Cluster(clusterName.Path()).DeleteCollection(
 		ctx, opts, metav1.ListOptions{}); err != nil {
-		logger.V(5).Error(err, "unexpected deleteCollection error")
+		logger.Error(err, "unexpected deleteCollection error")
 		return true, err
 	}
 
@@ -262,7 +262,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContentForGroupVersionResource
 	// estimate how long it will take for the resource to be deleted (needed for objects that support graceful delete)
 	estimate, err := d.estimateGracefulTermination(ctx, gvr, clusterName, clusterDeletedAt)
 	if err != nil {
-		logger.V(5).Error(err, "unable to estimate")
+		logger.Error(err, "unable to estimate")
 		return gvrDeletionMetadata{}, err
 	}
 	logger.V(5).Info("created estimate", "estimate", estimate)
@@ -286,7 +286,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContentForGroupVersionResource
 	logger.V(5).Info("checking for no more items")
 	unstructuredList, listSupported, err := d.listCollection(ctx, clusterName, gvr, verbs)
 	if err != nil {
-		logger.V(5).Error(err, "error verifying no items in logical cluster")
+		logger.Error(err, "error verifying no items in logical cluster")
 		return gvrDeletionMetadata{finalizerEstimateSeconds: estimate}, err
 	}
 	if !listSupported {
@@ -453,7 +453,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 			"%s",
 			message,
 		)
-		logger.V(4).Error(utilerrors.NewAggregate(errs), "resource remaining")
+		logger.Error(utilerrors.NewAggregate(errs), "resource remaining")
 		return estimate, message, utilerrors.NewAggregate(errs)
 	}
 
