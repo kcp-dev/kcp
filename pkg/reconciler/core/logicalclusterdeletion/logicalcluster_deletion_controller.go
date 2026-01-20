@@ -216,7 +216,7 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	if errors.As(err, &estimate) {
 		t := estimate.Estimate/2 + 1
 		duration := time.Duration(t) * time.Second
-		logger.V(2).Error(err, "content remaining in logical cluster after a wait, waiting more to continue", "duration", time.Since(startTime), "waiting", duration)
+		logger.Error(err, "content remaining in logical cluster after a wait, waiting more to continue", "duration", time.Since(startTime), "waiting", duration)
 
 		c.queue.AddAfter(key, duration)
 	} else {
