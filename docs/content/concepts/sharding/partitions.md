@@ -32,7 +32,7 @@ spec:
      - key: country
        operator: NotIn
        values:
-       - LI
+       - LT
 ```
 
 `Partitions` can be referenced in [`APIExportEndpointSlices`](../quickstart-tenancy-and-apis.md).
@@ -52,7 +52,7 @@ spec:
    dimensions:
    - region
    - cloud
-   selectors:
+   shardSelector:
      matchExpressions:
      - key: region
        operator: NotIn

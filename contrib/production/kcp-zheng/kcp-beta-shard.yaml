@@ -11,7 +11,7 @@ spec:
     serviceAccount:
       enabled: true
     oidc:
-      issuerURL: https://auth.example.io
+      issuerURL: https://auth.example.com
       clientID: platform-mesh
       groupsClaim: groups
       usernameClaim: email
@@ -26,12 +26,12 @@ spec:
     tlsConfig:
       secretRef:
         name: etcd-ca-tls
-  shardBaseURL: https://beta.zheng.example.io:6443
+  shardBaseURL: https://beta.zheng.example.com:6443
   certificateTemplates:
     server:
       spec:
         dnsNames:
-        - beta.zheng.example.io
+        - beta.zheng.example.com
   rootShard:
     ref:
       name: root

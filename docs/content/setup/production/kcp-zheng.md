@@ -31,8 +31,8 @@ Create public DNS records for all endpoints:
 
 ```bash
 # Required DNS records
-api.zheng.example.io    → Front-proxy LoadBalancer IP
-root.zheng.example.io   → Root shard LoadBalancer IP
+api.zheng.example.io    → Front-proxy LoadBalancer IP (cluster 1)
+root.zheng.example.io   → Root shard LoadBalancer IP (cluster 1)
 alpha.zheng.example.io  → Alpha shard LoadBalancer IP (cluster 2)
 beta.zheng.example.io   → Beta shard LoadBalancer IP (cluster 3)
 ```
@@ -135,13 +135,13 @@ kubectl get svc -n kcp-zheng root-kcp -o jsonpath='{.status.loadBalancer}'
 
 **Verify DNS propagation**:
 ```bash
-nslookup api.zheng.example.io
-nslookup root.zheng.example.io
+nslookup api.zheng.example.com
+nslookup root.zheng.example.com
 ```
 
 Verify the front-proxy is accessible:
 ```bash
-curl -k https://api.zheng.example.io:6443/healthz
+curl -k https://api.zheng.example.com:6443/healthz
 ```
 
 ### 8. Create Admin Access and Test Connectivity
@@ -301,7 +301,7 @@ Add DNS record `alpha.zheng.example.io` pointing to the shard LoadBalancer IP.
 
 **Verify DNS propagation**:
 ```bash
-nslookup alpha.zheng.example.io
+nslookup alpha.zheng.example.com
 ```
 
 ### 7. Verify Alpha Shard Joined
@@ -427,3 +427,284 @@ alpha            https://alpha.zheng.example.io:6443    https://api.zheng.exampl
 beta             https://beta.zheng.example.io:6443     https://api.zheng.example.io:6443     2m
 root             https://root.zheng.example.io:6443     https://api.zheng.example.io:6443     50m
 ```
+
+### Optional: Create Partitions
+
+Partitions allow you to group shards for topology-aware workload placement. This is useful for geo-distributed deployments where you want to control which shards handle specific workloads.
+
+#### Option 1: Create Individual Partitions
+
+Create a partition for each shard:
+
+```bash
+kubectl apply -f - <<EOF
+kind: Partition
+apiVersion: topology.kcp.io/v1alpha1
+metadata:
+  name: root
+spec:
+  selector:
+    matchLabels:
+      name: root
+---
+kind: Partition
+apiVersion: topology.kcp.io/v1alpha1
+metadata:
+  name: alpha
+spec:
+  selector:
+    matchLabels:
+      name: alpha
+---
+kind: Partition
+apiVersion: topology.kcp.io/v1alpha1
+metadata:
+  name: beta
+spec:
+  selector:
+    matchLabels:
+      name: beta
+EOF
+```
+
+#### Option 2: Use a PartitionSet
+
+Alternatively, use a `PartitionSet` to automatically create partitions based on shard labels:
+
+```bash
+kubectl apply -f - <<EOF
+kind: PartitionSet
+apiVersion: topology.kcp.io/v1alpha1
+metadata:
+  name: cloud-regions
+spec:
+  dimensions:
+  - name
+  shardSelector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values:
+      - root
+      - alpha
+      - beta
+EOF
+```
+
+Verify the partitions were created:
+
+```bash
+kubectl get partitions
+```
+
+**Expected output:**
+```
+NAME                        OWNER           AGE
+alpha                                       6m
+beta                                        6m
+cloud-regions-alpha-hcfcx   cloud-regions   6s
+cloud-regions-beta-78xkz    cloud-regions   6s
+cloud-regions-root-4vrlm    cloud-regions   6s
+root                                        6m
+```
+
+#### Create Workspaces on Specific Shards
+
+Create workspaces targeting specific shards using the `--location-selector` flag:
+
+```bash
+kubectl ws create provider --location-selector name=root
+kubectl ws create consumer-alpha-1 --location-selector name=alpha
+kubectl ws create consumer-alpha-2 --location-selector name=alpha
+kubectl ws create consumer-beta-1 --location-selector name=beta
+kubectl ws create consumer-beta-2 --location-selector name=beta
+```
+
+#### Partitions in Non-Root Workspaces
+
+Partitions can also be created outside of the root workspace. For example, in the provider workspace:
+
+```bash
+kubectl ws use provider
+
+kubectl apply -f - <<EOF
+kind: PartitionSet
+apiVersion: topology.kcp.io/v1alpha1
+metadata:
+  name: cloud-regions
+spec:
+  dimensions:
+  - name
+  shardSelector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values:
+      - alpha
+EOF
+```
+
+#### Example: Export and Bind an API
+
+Create an APIExport in the provider workspace:
+
+```bash
+kubectl ws use provider
+kubectl create -f config/examples/cowboys/apiresourceschema.yaml
+kubectl create -f config/examples/cowboys/apiexport.yaml
+```
+
+Create bindings in the consumer workspaces:
+
+```bash
+kubectl ws use :root:consumer-alpha-1
+kubectl kcp bind apiexport root:provider:cowboys --name cowboys
+
+kubectl ws use :root:consumer-alpha-2
+kubectl kcp bind apiexport root:provider:cowboys --name cowboys
+
+kubectl ws use :root:consumer-beta-1
+kubectl kcp bind apiexport root:provider:cowboys --name cowboys
+
+kubectl ws use :root:consumer-beta-2
+kubectl kcp bind apiexport root:provider:cowboys --name cowboys
+```
+
+
+#### Partitioned APIExportEndpointSlices for High Availability
+
+Create dedicated child workspaces on each shard to host shard-local APIExportEndpointSlices:
+
+```bash
+kubectl ws use :root:provider
+kubectl ws create alpha --location-selector name=alpha
+kubectl ws create beta --location-selector name=beta
+```
+
+Inside each workspace, create a partition and APIExportEndpointSlice targeting that shard:
+
+!!! note
+    Partitions must be co-located in the same workspace as the APIExportEndpointSlice.
+
+```bash
+# Setup alpha shard endpoint
+kubectl ws use :root:provider:alpha
+kubectl apply -f - <<EOF
+apiVersion: topology.kcp.io/v1alpha1
+kind: Partition
+metadata:
+  name: alpha
+spec:
+  selector:
+    matchLabels:
+      name: alpha
+---
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExportEndpointSlice
+metadata:
+  name: cowboys-alpha
+spec:
+  export:
+    name: cowboys
+    path: root:provider
+  partition: alpha
+EOF
+
+# Setup beta shard endpoint
+kubectl ws use :root:provider:beta
+kubectl apply -f - <<EOF
+apiVersion: topology.kcp.io/v1alpha1
+kind: Partition
+metadata:
+  name: beta
+spec:
+  selector:
+    matchLabels:
+      name: beta
+---
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExportEndpointSlice
+metadata:
+  name: cowboys-beta
+spec:
+  export:
+    name: cowboys
+    path: root:provider
+  partition: beta
+EOF
+```
+
+The resulting workspace structure:
+
+```
+root
+├── consumer-alpha-1
+├── consumer-alpha-2
+├── consumer-beta-1
+├── consumer-beta-2
+└── provider     (contains APIExport to be used by alpha, beta)
+    ├── alpha    (contains Partition + APIExportEndpointSlice for alpha shard)
+    └── beta     (contains Partition + APIExportEndpointSlice for beta shard)
+```
+
+The `provider` workspace is on the root shard, while `provider:alpha` and `provider:beta` are on their respective shards.
+
+#### High Availability Testing
+
+Create test resources in the consumer workspaces:
+
+```bash
+kubectl ws use :root:consumer-alpha-1
+kubectl create -f config/examples/cowboys/cowboy.yaml
+
+kubectl ws use :root:consumer-beta-1
+kubectl create -f config/examples/cowboys/cowboy.yaml
+```
+
+**Simulate root shard failure** by scaling down the root shard deployment:
+
+```bash
+# On cluster 1
+kubectl scale deployment root-kcp -n kcp-zheng --replicas=0
+```
+
+**Verify behavior during root shard outage:**
+
+| Operation | Result |
+|-----------|--------|
+| `kubectl ws use :root` | Timeout (root shard unavailable) |
+| `kubectl ws use :root:consumer-alpha-1` | Works (alpha shard) |
+| `kubectl ws use :root:consumer-alpha-2` | Works (alpha shard) |
+| `kubectl ws use :root:provider` | Timeout (root shard unavailable) |
+| `kubectl ws use :root:provider:alpha` | Works (alpha shard) |
+
+**Access the virtual API endpoint directly:**
+
+```bash
+# Get the endpoint URL from the APIExportEndpointSlice
+kubectl ws use :root:provider:alpha
+kubectl get apiexportendpointslice cowboys-alpha -o jsonpath='{.status.endpoints[0].url}'
+```
+
+**Expected output:**
+```
+https://alpha.zheng.example.io:6443/services/apiexport/<identity>/cowboys
+```
+
+**Query cowboys across all consumer workspaces on the alpha shard:**
+
+```bash
+kubectl -s 'https://alpha.zheng.example.io:6443/services/apiexport/<identity>/cowboys/clusters/*' \
+  get cowboys.wildwest.dev -A
+```
+
+**Expected output:**
+```
+NAMESPACE   NAME
+default     john-wayne
+default     john-wayne
+```
+
+This demonstrates that alpha and beta shards can continue to serve API requests even when the root shard is unavailable, as long as they have their own APIExportEndpointSlices. Important part is that there must be dedicated operators running on each shard to manage these resources.
+
+For more details on sharding strategies, see the [Sharding Overview](../sharding.md).

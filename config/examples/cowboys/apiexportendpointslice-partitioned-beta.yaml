@@ -1,0 +1,9 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExportEndpointSlice
+metadata:
+  name: cowboys-alpha
+spec:
+  export:
+    name: cowboys
+    path: root:provider
+  partition: beta

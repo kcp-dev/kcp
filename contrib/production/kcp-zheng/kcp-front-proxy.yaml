@@ -5,7 +5,7 @@ metadata:
   namespace: kcp-zheng
 spec:
   external:
-    hostname: api.zheng.example.io
+    hostname: api.zheng.example.com
     port: 6443
   rootShard:
     ref:
@@ -23,12 +23,12 @@ spec:
           kind: ClusterIssuer
           group: cert-manager.io
         dnsNames:
-        - api.zheng.example.io
+        - api.zheng.example.com
   auth:
     serviceAccount:
       enabled: true
     oidc:
-      issuerURL: https://auth.example.io
+      issuerURL: https://auth.example.com
       clientID: platform-mesh
       groupsClaim: groups
       usernameClaim: email
