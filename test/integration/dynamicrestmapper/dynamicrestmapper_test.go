@@ -17,7 +17,6 @@ limitations under the License.
 package dynamicrestmapper
 
 import (
-	"context"
 	"fmt"
 	"math/rand/v2"
 	"strings"
@@ -51,7 +50,7 @@ import (
 
 func TestDynamicRestMapper(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	server, kcpClientSet, _ := framework.StartTestServer(t)
 

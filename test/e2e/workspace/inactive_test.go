@@ -17,7 +17,6 @@ limitations under the License.
 package workspace
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -41,9 +40,7 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	// TODO(ntnn): Repalce with t.Context in go1.24
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

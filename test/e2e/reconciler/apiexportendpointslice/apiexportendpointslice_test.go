@@ -17,7 +17,6 @@ limitations under the License.
 package apiexportendpointslice
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"testing"
@@ -54,8 +53,7 @@ var testFiles embed.FS
 
 func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create Organization and Workspaces
@@ -181,8 +179,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 
 	cfg := server.BaseConfig(t)
 

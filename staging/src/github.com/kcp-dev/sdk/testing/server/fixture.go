@@ -109,17 +109,12 @@ func NewFixture(t TestingT, cfgs ...Config) Fixture {
 		// Wait for the server to become ready
 		g.Go(func() error {
 			if err := srv.loadCfg(ctx); err != nil {
-				// Cancel the context to kill all goroutines - if any
-				// server failed to setup properly the setup quits
-				// anyhow.
-				cancel()
 				return err
 			}
 
 			rootCfg := srv.RootShardSystemMasterBaseConfig(t)
 			t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
 			if err := WaitForReady(ctx, rootCfg); err != nil {
-				cancel()
 				return err
 			}
 

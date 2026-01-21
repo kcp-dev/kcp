@@ -16,9 +16,12 @@ limitations under the License.
 
 package testing
 
+import "context"
+
 // TestingT is implemented by *testing.T and potentially other test frameworks.
 type TestingT interface {
 	Cleanup(func())
+	Context() context.Context
 	Error(args ...any)
 	Errorf(format string, args ...any)
 	FailNow()

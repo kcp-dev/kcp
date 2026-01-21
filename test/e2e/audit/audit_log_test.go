@@ -17,7 +17,6 @@ limitations under the License.
 package audit
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -59,8 +58,7 @@ func TestAuditLogs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Listing configmaps")
-	ctx := context.Background()
-	_, err = workspaceKubeClient.Cluster(wsPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+	_, err = workspaceKubeClient.Cluster(wsPath).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err, "Error listing configmaps")
 
 	auditLogPath := filepath.Join(artifactDir, "kcp", "main", "kcp.audit")

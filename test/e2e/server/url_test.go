@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -82,9 +81,7 @@ func TestURLs(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
 
-			// TODO(ntnn): Replace with t.Context in go1.24
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
+			ctx := t.Context()
 
 			u, err := url.Parse(cfg.Host)
 			require.NoError(t, err)
@@ -120,9 +117,7 @@ func TestURLWithClusterKind(t *testing.T) {
 		t.Run(string(scope), func(t *testing.T) {
 			t.Parallel()
 
-			// TODO(ntnn): Replace with t.Context in go1.24
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
+			ctx := t.Context()
 
 			orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
