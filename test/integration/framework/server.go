@@ -164,11 +164,7 @@ func (s *InProcessServer) Start(ctx context.Context, t kcptestingserver.TestingT
 }
 
 func (s *InProcessServer) Wait(t kcptestingserver.TestingT) {
-	// TODO: replace with t.Context() in go1.24
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	if err := kcptestingserver.WaitForReady(ctx, s.RESTConfig(t, "base")); err != nil {
+	if err := kcptestingserver.WaitForReady(t.Context(), s.RESTConfig(t, "base")); err != nil {
 		t.Fatalf("server did not become ready: %v", err)
 	}
 }
@@ -201,11 +197,7 @@ func (s *InProcessServer) KubeconfigPath() string {
 func (s *InProcessServer) loadCfg(t kcptestingserver.TestingT) {
 	t.Helper()
 	s.loadCfgOnce.Do(func() {
-		// TODO replace with t.Context() in go1.24
-		ctx, cancel := context.WithCancel(context.Background())
-		t.Cleanup(cancel)
-
-		config, err := kcptestingserver.WaitLoadKubeConfig(ctx, s.Config.KubeconfigPath(), "base")
+		config, err := kcptestingserver.WaitLoadKubeConfig(t.Context(), s.Config.KubeconfigPath(), "base")
 		if err != nil {
 			t.Fatalf("failed to load base kubeconfig: %v", err)
 		}

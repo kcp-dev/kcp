@@ -17,7 +17,6 @@ limitations under the License.
 package apiexport
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,9 +40,6 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	workspacePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -74,12 +70,12 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	t.Logf("Creating APIExport with reference to nonexistent identity secret")
 	apiExportClient := kcpClusterClient.ApisV1alpha2().APIExports()
 
-	_, err = apiExportClient.Cluster(workspacePath).Create(ctx, apiExport, metav1.CreateOptions{})
+	_, err = apiExportClient.Cluster(workspacePath).Create(t.Context(), apiExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
 	t.Logf("Verifying the APIExport gets IdentityVerificationFailedReason")
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
+		return apiExportClient.Cluster(workspacePath).Get(t.Context(), apiExport.Name, metav1.GetOptions{})
 	}, kcptestinghelpers.IsNot(apisv1alpha2.APIExportIdentityValid).WithReason(apisv1alpha2.IdentityVerificationFailedReason))
 
 	secret := &corev1.Secret{
@@ -93,15 +89,15 @@ func TestRequeueWhenIdentitySecretAdded(t *testing.T) {
 	}
 
 	t.Logf("Creating the referenced secret")
-	_, err = kubeClusterClient.Cluster(workspacePath).CoreV1().Secrets("default").Create(ctx, secret, metav1.CreateOptions{})
+	_, err = kubeClusterClient.Cluster(workspacePath).CoreV1().Secrets("default").Create(t.Context(), secret, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating secret")
 
 	t.Logf("Verifying the APIExport verifies and the identity and gets the expected generated identity hash")
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
+		return apiExportClient.Cluster(workspacePath).Get(t.Context(), apiExport.Name, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid))
 
-	export, err := apiExportClient.Cluster(workspacePath).Get(ctx, apiExport.Name, metav1.GetOptions{})
+	export, err := apiExportClient.Cluster(workspacePath).Get(t.Context(), apiExport.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, "e9cee71ab932fde863338d08be4de9dfe39ea049bdafb342ce659ec5450b69ae", export.Status.IdentityHash)
 }

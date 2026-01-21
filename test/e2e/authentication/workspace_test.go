@@ -17,7 +17,6 @@ limitations under the License.
 package authentication
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -45,7 +44,7 @@ import (
 func TestWorkspaceOIDC(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -254,7 +253,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 func TestUserScope(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -343,7 +342,7 @@ func TestUserScope(t *testing.T) {
 func TestForbiddenSystemAccess(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -571,7 +570,7 @@ func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)

@@ -63,9 +63,6 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	cfg := server.BaseConfig(t)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -88,8 +85,8 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, consumerPath, []string{"user-1"}, nil, false)
+	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
+	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClusterClient, consumerPath, []string{"user-1"}, nil, false)
 
 	//
 	// Prepare the provider cluster.
@@ -107,7 +104,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	t.Logf("Creating Sheriff CRD in %q", serviceProviderPath)
 	wildwest.Create(t, serviceProviderPath, kcpCRDClusterClient, metav1.GroupResource(gvr.GroupResource()))
 	t.Logf("Creating a Sheriff in %q", serviceProviderPath)
-	sheriffOne, err := createSheriff(ctx, kcpDynClusterClient, serviceProviderClusterName, &wildwestv1alpha1.Sheriff{
+	sheriffOne, err := createSheriff(t.Context(), kcpDynClusterClient, serviceProviderClusterName, &wildwestv1alpha1.Sheriff{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sheriff-1",
 		},
@@ -115,12 +112,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Creating %s APIResourceSchema in %q", sch.Name, serviceProviderPath)
-	_, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, sch, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha1().APIResourceSchemas().Create(t.Context(), sch, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// Create a CachedResource for that CR.
 	t.Logf("Creating CachedResource for %s in %q", gvr, serviceProviderPath)
-	cachedResource, err := kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResources().Create(ctx, &cachev1alpha1.CachedResource{
+	cachedResource, err := kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResources().Create(t.Context(), &cachev1alpha1.CachedResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: gvr.GroupResource().String(),
 		},
@@ -131,13 +128,13 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	cachedResourceName := cachedResource.Name
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		cachedResource, err = kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResources().Get(ctx, cachedResourceName, metav1.GetOptions{})
+		cachedResource, err = kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResources().Get(t.Context(), cachedResourceName, metav1.GetOptions{})
 		return cachedResource, err
 	}, kcptestinghelpers.Is(cachev1alpha1.ReplicationStarted), fmt.Sprintf("CachedResource %s should become ready", cachedResourceName))
 
 	// Create an APIExport for the created CachedResource.
 	t.Logf("Creating APIExport for Sheriff CachedResource in %q", serviceProviderPath)
-	apiExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Create(ctx, &apisv1alpha2.APIExport{
+	apiExport, err := kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Create(t.Context(), &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cached-wildwest-provider",
 		},
@@ -165,7 +162,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	// Wait for export's identity to be available. We'll need it later.
 	apiExportName := apiExport.Name
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		apiExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		apiExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Get(t.Context(), apiExportName, metav1.GetOptions{})
 		return apiExport, err
 	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), fmt.Sprintf("APIExport %s should have its identity ready", apiExportName))
 
@@ -176,7 +173,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	// Bind that APIExport in consumer workspaces.
 	t.Logf("Binding %s|%s in %s", serviceProviderPath, apiExport.Name, consumerPath)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, &apisv1alpha2.APIBinding{
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), &apisv1alpha2.APIBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cached-wildwest",
 			},
@@ -220,11 +217,11 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	//
 
 	// At this point we should have a CachedResourceEndpointSlice ready with one consumer.
-	cres, err := kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(ctx, cachedResourceName, metav1.GetOptions{})
+	cres, err := kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(t.Context(), cachedResourceName, metav1.GetOptions{})
 	require.NoError(t, err)
 	cachedResourceVWCfg := rest.CopyConfig(cfg)
 	var found bool
-	cachedResourceVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWorkspace,
+	cachedResourceVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace,
 		framework.ReplicationVirtualWorkspaceURLs(cres))
 	require.NoError(t, err)
 	require.True(t, found, "expected to have found a suitable VW url for in %v endpoint slice", cres.Status.CachedResourceEndpoints)
@@ -237,7 +234,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	t.Logf("=== get ===")
 	{
 		t.Logf("Verify that user-1 cannot GET")
-		_, err = getSheriff(ctx, user1CachedResourceDynClient, consumerClusterName, sheriffOne.Name)
+		_, err = getSheriff(t.Context(), user1CachedResourceDynClient, consumerClusterName, sheriffOne.Name)
 		require.True(t, apierrors.IsForbidden(err))
 
 		t.Logf("Give user-1 GET access to the virtual workspace and apiexport content")
@@ -247,7 +244,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that user-1 can now get sheriff")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
-			_, err = getSheriff(ctx, user1CachedResourceDynClient, consumerClusterName, sheriffOne.Name)
+			_, err = getSheriff(t.Context(), user1CachedResourceDynClient, consumerClusterName, sheriffOne.Name)
 			if apierrors.IsForbidden(err) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
@@ -261,7 +258,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 
 	sheriffLabels := map[string]string{"hello": "world"}
 	t.Logf("Creating another Sheriff in %q", serviceProviderPath)
-	sheriffTwo, err := createSheriff(ctx, kcpDynClusterClient, serviceProviderClusterName, &wildwestv1alpha1.Sheriff{
+	sheriffTwo, err := createSheriff(t.Context(), kcpDynClusterClient, serviceProviderClusterName, &wildwestv1alpha1.Sheriff{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "sheriff-2",
 			Labels: sheriffLabels,
@@ -273,7 +270,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	var sherrifList *wildwestv1alpha1.SheriffList
 	{
 		t.Logf("Verify that user-1 cannot LIST")
-		_, err = listSheriffs(ctx, user1CachedResourceDynClient, consumerClusterName)
+		_, err = listSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName)
 		require.True(t, apierrors.IsForbidden(err))
 
 		t.Logf("Give user-1 LIST access to the virtual workspace")
@@ -283,7 +280,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that user-1 can now LIST sheriffs")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
-			sherrifList, err = listSheriffs(ctx, user1CachedResourceDynClient, consumerClusterName)
+			sherrifList, err = listSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName)
 			if apierrors.IsForbidden(err) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
@@ -309,7 +306,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	t.Logf("=== watch ===")
 	{
 		t.Logf("Verify that user-1 cannot WATCH")
-		_, err = watchSheriffs(ctx, user1CachedResourceDynClient, consumerClusterName, metav1.ListOptions{})
+		_, err = watchSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName, metav1.ListOptions{})
 		require.True(t, apierrors.IsForbidden(err))
 
 		t.Logf("Give user-1 WATCH access to the virtual workspace")
@@ -320,7 +317,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		var sheriffWatch watch.Interface
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
-			sheriffWatch, err = watchSheriffs(ctx, user1CachedResourceDynClient, consumerClusterName, metav1.ListOptions{
+			sheriffWatch, err = watchSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName, metav1.ListOptions{
 				LabelSelector:   labels.SelectorFromSet(labels.Set(sheriffLabels)).String(),
 				ResourceVersion: sherrifList.ResourceVersion, // We want to see only changes to existing sheriffs.
 			})
@@ -361,7 +358,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		}
 
 		t.Logf("Set labels on first sheriff to %v", sheriffLabels)
-		err = setSheriffLabels(ctx, kcpDynClusterClient, serviceProviderClusterName, sheriffOne.Name, sheriffLabels)
+		err = setSheriffLabels(t.Context(), kcpDynClusterClient, serviceProviderClusterName, sheriffOne.Name, sheriffLabels)
 		require.NoError(t, err, "expected to set labels on sheriff %s", sheriffOne.Name)
 
 		t.Logf("Verify that the second watched event is the first sheriff with updated labels %v", sheriffLabels)
@@ -425,13 +422,10 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 }
 
 func admit(t *testing.T, kubeClusterClient kubernetesclientset.Interface, ruleName, subjectName, subjectKind string, verbs []string, resources ...string) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
-
 	cr, crb := createClusterRoleAndBindings(ruleName, subjectName, subjectKind, verbs, resources...)
-	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(ctx, cr, metav1.CreateOptions{})
+	_, err := kubeClusterClient.RbacV1().ClusterRoles().Create(t.Context(), cr, metav1.CreateOptions{})
 	require.NoError(t, err)
-	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	_, err = kubeClusterClient.RbacV1().ClusterRoleBindings().Create(t.Context(), crb, metav1.CreateOptions{})
 	require.NoError(t, err)
 }
 

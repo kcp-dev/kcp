@@ -39,7 +39,7 @@ import (
 
 func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset.ClusterInterface, name string) {
 	t.Logf("Create workspace %q", name)
-	workspace, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
+	workspace, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Create(t.Context(), &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: tenancyv1alpha1.WorkspaceSpec{
 			Type: &tenancyv1alpha1.WorkspaceTypeReference{
@@ -59,7 +59,7 @@ func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset
 
 	t.Logf("Wait until the %q workspace is ready", workspace.Name)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		workspace, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+		workspace, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(t.Context(), workspace.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -70,12 +70,12 @@ func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Delete workspace %q", workspace.Name)
-	err = kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Delete(ctx, workspace.Name, metav1.DeleteOptions{})
+	err = kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Delete(t.Context(), workspace.Name, metav1.DeleteOptions{})
 	require.NoError(t, err, "failed to delete workspace %s", workspace.Name)
 
 	t.Logf("Ensure workspace %q is removed", workspace.Name)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		ws, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+		ws, err := kcpClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(t.Context(), workspace.Name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return true, ""
@@ -101,19 +101,16 @@ var (
 )
 
 func TestWorkspaceDeletionLeak(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel) // TODO update in go1.24
-
 	_, kcpClient, _ := framework.StartTestServer(t)
 
 	t.Logf("Create warmup workspace")
-	createAndDeleteWs(ctx, t, kcpClient, "leak-warmup")
+	createAndDeleteWs(t.Context(), t, kcpClient, "leak-warmup")
 
 	t.Logf("Register current goroutines after warmup")
 	curGoroutines := goleak.IgnoreCurrent()
 
 	t.Logf("Create workspace")
-	createAndDeleteWs(ctx, t, kcpClient, "leak-test")
+	createAndDeleteWs(t.Context(), t, kcpClient, "leak-test")
 
 	t.Logf("Check for leftover goroutines")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {

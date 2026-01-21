@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -57,15 +56,12 @@ func TestDefaultAPIBinding(t *testing.T) {
 
 	t.Logf("providerPath: %v", providerPath)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	cfg := server.BaseConfig(t)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-	_, err = kcpClusterClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
+	_, err = kcpClusterClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err, "failed to list logical clusters")
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
@@ -76,7 +72,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", providerPath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(serviceProviderClient.Cluster(providerPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -106,7 +102,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, apiExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(t.Context(), apiExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	workspaceType := tenancyv1alpha1.WorkspaceType{
@@ -135,7 +131,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 		},
 	}
 
-	_, err = kcpClusterClient.Cluster(providerPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, &workspaceType, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), &workspaceType, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create workspace type")
 
 	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithType(providerPath, tenancyv1alpha1.WorkspaceTypeName(workspaceType.GetName())))
@@ -143,7 +139,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 
 	awaitAPIBinding := func(apiExport *apisv1alpha2.APIExport, group, resource string, expectedAppliedPermissionsClaims ...apisv1alpha2.PermissionClaim) {
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			list, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
+			list, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().List(t.Context(), metav1.ListOptions{})
 			if err != nil {
 				return false, fmt.Sprintf("failed to list api bindings: %v", err)
 			}
@@ -182,10 +178,10 @@ func TestDefaultAPIBinding(t *testing.T) {
 	)
 
 	t.Logf("Install today TLSRoutes APIResourceSchema into service provider workspace %q", providerPath)
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_tlsroutes.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_tlsroutes.yaml", testFiles)
 	require.NoError(t, err)
 
-	currentAPIExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, apiExport.GetName(), metav1.GetOptions{})
+	currentAPIExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(t.Context(), apiExport.GetName(), metav1.GetOptions{})
 	require.NoError(t, err)
 
 	updatedAPIExport := currentAPIExport.DeepCopy()
@@ -213,7 +209,7 @@ func TestDefaultAPIBinding(t *testing.T) {
 	oldResource := &apiExportResource{ObjectMeta: currentAPIExport.ObjectMeta, Spec: &currentAPIExport.Spec, Status: &currentAPIExport.Status}
 	newResource := &apiExportResource{ObjectMeta: currentAPIExport.ObjectMeta, Spec: &updatedAPIExport.Spec, Status: &currentAPIExport.Status}
 
-	err = commitAPIExport(ctx, oldResource, newResource)
+	err = commitAPIExport(t.Context(), oldResource, newResource)
 	require.NoError(t, err)
 
 	awaitAPIBinding(
