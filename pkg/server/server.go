@@ -531,14 +531,16 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("bootstrapped root workspace phase 0")
 
 			logger.Info("getting kcp APIExport identities")
+			var identityErr error
 			if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 				if err := s.resolveIdentities(ctx); err != nil {
 					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
+					identityErr = err
 					return false, nil
 				}
 				return true, nil
 			}); err != nil {
-				logger.Error(err, "failed to get or create identities")
+				logger.Error(err, "failed to get or create identities: %w", identityErr)
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("finished getting kcp APIExport identities")
