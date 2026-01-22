@@ -40,6 +40,7 @@ Verify the cluster is running:
 
 ```bash
 kubectl cluster-info --context kind-kcp
+kubectl config use-context kind-kcp
 ```
 
 ## Step 2: Install cert-manager
@@ -80,6 +81,7 @@ helm upgrade --install kcp kcp/kcp \
   --namespace kcp \
   --create-namespace \
   --set externalHostname=kcp.local.test \
+  --set externalPort=8443 \
   --set kcpFrontProxy.service.type=NodePort \
   --set kcpFrontProxy.service.nodePort=30443 \
   --set audit.enabled=false \
@@ -119,7 +121,7 @@ export KCP_PORT=8443
 ### Extract the CA Certificate
 
 ```bash
-kubectl get secret kcp-front-proxy-cert -n kcp \
+kubectl get secret kcp-ca -n kcp \
   -o=jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
 ```
 
@@ -208,6 +210,12 @@ kubectl ws ..
 kubectl ws create team-delta --enter
 kubectl ws :root
 ```
+
+> **Note:** Steps 6 through 10 can be automated using the verification script:
+> ```bash
+> ./docs/scripts/verify-kind-install.sh
+> ```
+
 
 Verify the workspaces:
 
@@ -332,7 +340,9 @@ EOF
 Wait for all certificates:
 
 ```bash
-kubectl wait --for=condition=Ready certificate --all -n kcp --timeout=60s
+for team in alpha beta gamma delta; do
+  kubectl wait --for=condition=Ready certificate/team-${team}-cert -n kcp --timeout=60s
+done
 ```
 
 ## Step 8: Grant Workspace Access
