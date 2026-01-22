@@ -17,7 +17,6 @@ limitations under the License.
 package apiexport
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -97,7 +96,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, tenantShadowCRDPath, []string{"tenant-user"}, nil, true)
 
 	t.Logf("install sherriffs API resource schema, API export, permissions for tenant-user to be able to bind to the export in service provider workspace %q", serviceProvider1Path)
-	require.NoError(t, apply(t, t.Context(), serviceProvider1Path, serviceProvider1Admin,
+	require.NoError(t, apply(t, serviceProvider1Path, serviceProvider1Admin,
 		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{Name: "today.sheriffs.wild.wild.west"},
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
@@ -152,7 +151,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	t.Logf("Found identity hash: %v", sherriffsIdentityHash)
 
 	t.Logf("install cowboys API resource schema, API export, and permissions for tenant-user to be able to bind to the export in second service provider workspace %q", serviceProvider2Path)
-	require.NoError(t, apply(t, t.Context(), serviceProvider2Path, serviceProvider2Admin,
+	require.NoError(t, apply(t, serviceProvider2Path, serviceProvider2Admin,
 		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{Name: "today.cowboys.wildwest.dev"},
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
@@ -218,7 +217,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	t.Logf("bind cowboys and claimed sherriffs in the tenant workspace %q", tenantPath)
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err := apply(t, t.Context(), tenantPath, tenantUser,
+		err := apply(t, tenantPath, tenantUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
@@ -291,7 +290,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "discovery failed")
 
 	t.Logf("Install cowboys CRD and also bind the conflicting cowboys API export in tenant workspace %q", tenantShadowCRDPath)
-	require.NoError(t, apply(t, t.Context(), tenantShadowCRDPath, tenantUser,
+	require.NoError(t, apply(t, tenantShadowCRDPath, tenantUser,
 		&apiextensionsv1.CustomResourceDefinition{
 			ObjectMeta: metav1.ObjectMeta{Name: "cowboys.wildwest.dev"},
 			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -327,7 +326,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	t.Logf("Create a cowboys APIBinding in consumer workspace %q that points to the today-cowboys export from %q but shadows a local cowboys CRD at the same time", tenantShadowCRDPath, serviceProvider2Path)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		err := apply(t, t.Context(), tenantShadowCRDPath, tenantUser,
+		err := apply(t, tenantShadowCRDPath, tenantUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cowboys",
@@ -386,7 +385,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	// the cache server.
 	t.Logf("Creating cowboy (via APIBinding) in %q", tenantPath)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		err := apply(t, t.Context(), tenantPath, tenantUser, `
+		err := apply(t, tenantPath, tenantUser, `
 apiVersion: wildwest.dev/v1alpha1
 kind: Cowboy
 metadata:
@@ -400,7 +399,7 @@ metadata:
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "unable to create cowboy (via APIBinding)")
 
 	t.Logf("Creating cowboy (via CRD) in %q", tenantShadowCRDPath)
-	require.NoError(t, apply(t, t.Context(), tenantShadowCRDPath, tenantUser, `
+	require.NoError(t, apply(t, tenantShadowCRDPath, tenantUser, `
 apiVersion: wildwest.dev/v1alpha1
 kind: Cowboy
 metadata:
@@ -441,7 +440,7 @@ metadata:
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "service-provider-2-admin must be allowed to list native types")
 
-	require.NoError(t, apply(t, t.Context(), serviceProvider1Path, serviceProvider1Admin,
+	require.NoError(t, apply(t, serviceProvider1Path, serviceProvider1Admin,
 		&rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "service-provider-2-admin-maximum-permission-policy"},
 			Rules: []rbacv1.PolicyRule{
@@ -544,7 +543,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, tenantPath, []string{"tenant-user"}, nil, true)
 
 	t.Logf("install sherriffs API resource schema, API export, permissions for tenant-user to be able to bind to the export in service provider workspace %q", serviceProviderPath)
-	require.NoError(t, apply(t, t.Context(), serviceProviderPath, serviceProviderAdmin,
+	require.NoError(t, apply(t, serviceProviderPath, serviceProviderAdmin,
 		&apisv1alpha1.APIResourceSchema{
 			ObjectMeta: metav1.ObjectMeta{Name: "today.sheriffs.wild.wild.west"},
 			Spec: apisv1alpha1.APIResourceSchemaSpec{
@@ -687,7 +686,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 
 	t.Logf("bind sherriffs with ConfigMaps PermissionClaim rejected in the tenant workspace %q", tenantPath)
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err := apply(t, t.Context(), tenantPath, tenantUser,
+		err := apply(t, tenantPath, tenantUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
@@ -729,7 +728,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 
 	t.Logf("update sherriffs APIBinding to accept the ConfigMaps PermissionClaim")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err := apply(t, t.Context(), tenantPath, tenantUser,
+		err := apply(t, tenantPath, tenantUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
@@ -795,7 +794,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 
 	t.Logf("update sherriffs APIBinding to reject the ConfigMaps PermissionClaim again")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err := apply(t, t.Context(), tenantPath, tenantUser,
+		err := apply(t, tenantPath, tenantUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "wild.wild.west",
@@ -850,7 +849,7 @@ func init() {
 	_ = corev1.AddToScheme(scheme)
 }
 
-func apply(t *testing.T, ctx context.Context, workspace logicalcluster.Path, cfg *rest.Config, manifests ...any) error {
+func apply(t *testing.T, workspace logicalcluster.Path, cfg *rest.Config, manifests ...any) error {
 	t.Helper()
 	discoveryClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)

@@ -73,7 +73,7 @@ func TestBinding(t *testing.T) {
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, consumerWorkspacePath, []string{"service-provider"}, nil, true)
 
 	t.Logf("Creating 'api-manager' APIExport in service-provider workspace with apibindings permission claim")
-	require.NoError(t, apply(t, t.Context(), serviceWorkspacePath, cfg,
+	require.NoError(t, apply(t, serviceWorkspacePath, cfg,
 		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "api-manager"},
 			Spec: apisv1alpha2.APIExportSpec{
@@ -90,7 +90,7 @@ func TestBinding(t *testing.T) {
 		},
 	))
 	t.Logf("Creating APIExport in restricted workspace without anybody allowed to bind")
-	require.NoError(t, apply(t, t.Context(), restrictedWorkspacePath, cfg,
+	require.NoError(t, apply(t, restrictedWorkspacePath, cfg,
 		&apisv1alpha2.APIExport{
 			ObjectMeta: metav1.ObjectMeta{Name: "restricted-service"},
 			Spec:       apisv1alpha2.APIExportSpec{},
@@ -99,7 +99,7 @@ func TestBinding(t *testing.T) {
 
 	t.Logf("Binding to 'api-manager' APIExport succeeds because service-provider user is admin in 'service-provider' workspace")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, t.Context(), consumerWorkspacePath, serviceProviderUser,
+		err = apply(t, consumerWorkspacePath, serviceProviderUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "api-manager"},
 				Spec: apisv1alpha2.APIBindingSpec{
@@ -137,7 +137,7 @@ func TestBinding(t *testing.T) {
 
 	t.Logf("Binding directly to 'restricted-service' APIExport should be forbidden")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, t.Context(), consumerWorkspacePath, serviceProviderUser,
+		err = apply(t, consumerWorkspacePath, serviceProviderUser,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "should-fail"},
 				Spec: apisv1alpha2.APIBindingSpec{
@@ -173,7 +173,7 @@ func TestBinding(t *testing.T) {
 
 	t.Logf("Binding to 'restricted-service' APIExport through 'api-manager' APIExport virtual workspace is forbidden")
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
-		err = apply(t, t.Context(), logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig,
+		err = apply(t, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "should-fail"},
 				Spec: apisv1alpha2.APIBindingSpec{
@@ -195,7 +195,7 @@ func TestBinding(t *testing.T) {
 	}, wait.ForeverTestTimeout, 1000*time.Millisecond, "waiting on binding to 'restricted-service' APIExport to fail because it is forbidden")
 
 	t.Logf("Giving service-provider 'bind' access to 'restricted-service' APIExport")
-	require.NoError(t, apply(t, t.Context(), restrictedWorkspacePath, cfg,
+	require.NoError(t, apply(t, restrictedWorkspacePath, cfg,
 		&rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "restricted-service:bind"},
 			Rules: []rbacv1.PolicyRule{
@@ -227,7 +227,7 @@ func TestBinding(t *testing.T) {
 
 	t.Logf("Binding to 'restricted-service' APIExport through 'api-manager' APIExport virtual workspace succeeds, proving that the service provider identity is used through the APIExport virtual workspace")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		err := apply(t, t.Context(), logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig,
+		err := apply(t, logicalcluster.Name(consumerWorkspace.Spec.Cluster).Path(), serviceProviderVirtualWorkspaceConfig,
 			&apisv1alpha2.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "should-not-fail"},
 				Spec: apisv1alpha2.APIBindingSpec{

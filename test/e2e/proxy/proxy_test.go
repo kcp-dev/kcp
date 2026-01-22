@@ -43,8 +43,6 @@ import (
 func TestMappingWithClusterContext(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := t.Context()
-
 	// start kcp and setup clients;
 	// note that the sharded-test-server will configure a special
 	// `/e2e/clusters/{cluster}` route, which we are testing here
@@ -96,10 +94,10 @@ func TestMappingWithClusterContext(t *testing.T) {
 	mock, ca := authfixtures.StartMockOIDC(t, server)
 
 	// setup a new workspace auth config that uses mockoidc's server
-	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca, nil)
+	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mock, ca, nil)
 
 	// use these configs in new WorkspaceTypes
-	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig)
+	wsType := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc", authConfig)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspace...")
@@ -107,7 +105,7 @@ func TestMappingWithClusterContext(t *testing.T) {
 	teamCluster := teamWs.Spec.Cluster
 
 	// grant permissions to the user
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user@example.com",
 	}, {
@@ -139,7 +137,7 @@ func TestMappingWithClusterContext(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		_, _ = client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		_, _ = client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 
 		if lastHeaders == nil {
 			return false

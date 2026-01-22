@@ -50,7 +50,6 @@ import (
 
 func TestDynamicRestMapper(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
 
 	server, kcpClientSet, _ := framework.StartTestServer(t)
 
@@ -90,13 +89,13 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	t.Logf("Install kubecluster CRD into workspace %q", workspace.Name)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClientSet.Cluster(logicalClusterName.Path()).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(logicalClusterName.Path()), mapper, nil, "crd_kubecluster.yaml", assets.EmbeddedResources)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(logicalClusterName.Path()), mapper, nil, "crd_kubecluster.yaml", assets.EmbeddedResources)
 	require.NoError(t, err)
 
 	t.Logf("Waiting for CRD to be established")
 	crdName := "kubeclusters.contrib.kcp.io"
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		crd, err := extensionsClusterClient.Cluster(logicalClusterName.Path()).CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		crd, err := extensionsClusterClient.Cluster(logicalClusterName.Path()).CustomResourceDefinitions().Get(t.Context(), crdName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -118,12 +117,12 @@ func TestDynamicRestMapper(t *testing.T) {
 	require.Equal(t, "KubeCluster", gvk.Kind)
 
 	t.Logf("Updating the KubeCluster kind with v1alpha2, not serving v1alpha1 anymore")
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(logicalClusterName.Path()), mapper, nil, "crd_kubecluster_updates.yaml", assets.EmbeddedResources)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(logicalClusterName.Path()), mapper, nil, "crd_kubecluster_updates.yaml", assets.EmbeddedResources)
 	require.NoError(t, err)
 
 	t.Logf("Waiting for CRD to be established")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		crd, err := extensionsClusterClient.Cluster(logicalClusterName.Path()).CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		crd, err := extensionsClusterClient.Cluster(logicalClusterName.Path()).CustomResourceDefinitions().Get(t.Context(), crdName, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -163,13 +162,13 @@ func TestDynamicRestMapper(t *testing.T) {
 	systemCRDsPath := logicalcluster.NewPath("system:system-crds")
 
 	sheriffsCRD := apifixtures.NewSheriffsCRDWithVersions("wildsystem.dev", "v1alpha1")
-	_, err = loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Create(ctx, sheriffsCRD, metav1.CreateOptions{})
+	_, err = loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Create(t.Context(), sheriffsCRD, metav1.CreateOptions{})
 	require.NoError(t, err, "creating a CRD in system:system-crds should succeed")
 
 	t.Logf("Waiting for sheriffs system CRD to be established")
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		crd, err := loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Get(ctx, sheriffsCRD.Name, metav1.GetOptions{})
+		crd, err := loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Get(t.Context(), sheriffsCRD.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -193,19 +192,19 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	sheriffsCRD = apifixtures.NewSheriffsCRDWithVersions("wildsystem.dev", "v1alpha1", "v1alpha2")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		crd, err := loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Get(ctx, sheriffsCRD.Name, metav1.GetOptions{})
+		crd, err := loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Get(t.Context(), sheriffsCRD.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 		crd.Spec.Versions = sheriffsCRD.Spec.Versions
-		_, err = loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{})
+		_, err = loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Update(t.Context(), crd, metav1.UpdateOptions{})
 		return err == nil, fmt.Sprintf("%v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for system CRD to be updated")
 
 	t.Logf("Waiting for updated system sheriffs CRD to be established")
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		crd, err := loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Get(ctx, sheriffsCRD.Name, metav1.GetOptions{})
+		crd, err := loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Get(t.Context(), sheriffsCRD.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
@@ -227,7 +226,7 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	t.Logf("Deleting the sheriffs system CRD")
 
-	err = loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Delete(ctx, sheriffsCRD.Name, metav1.DeleteOptions{})
+	err = loopbackExtensionsClusterClient.Cluster(systemCRDsPath).CustomResourceDefinitions().Delete(t.Context(), sheriffsCRD.Name, metav1.DeleteOptions{})
 	require.NoError(t, err, "deleting sheriffs system CRD should succeed")
 
 	t.Logf("Testing that sheriffs system CRD is no longer discoverable")
