@@ -172,14 +172,20 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
+	var identityErr error
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := s.CompletedConfig.ResolveIdentities(ctx); err != nil {
 			logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
+			identityErr = err
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
-		return fmt.Errorf("failed to get or create identities: %w", err)
+		err = fmt.Errorf("failed to get or create identities: %w", err)
+		if identityErr != nil {
+			err = fmt.Errorf("%v: %w", err, identityErr)
+		}
+		return err
 	}
 
 	// start indexes
