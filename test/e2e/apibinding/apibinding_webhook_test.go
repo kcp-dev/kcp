@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	gohttp "net/http"
@@ -62,9 +61,6 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	targetPath, targetWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -85,7 +81,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourcePath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Cluster(sourcePath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourcePath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(sourcePath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -106,7 +102,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(t.Context(), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetPath)
@@ -126,7 +122,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(targetPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClusterClient.Cluster(targetPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -188,7 +184,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 				AdmissionReviewVersions: []string{"v1"},
 			}},
 		}
-		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().MutatingWebhookConfigurations().Create(t.Context(), webhook, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to add validating webhook configurations")
 	}
 
@@ -202,7 +198,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 	// Avoid race condition here by making sure that CRD is served after installing the types into logical clusters
 	t.Logf("Creating cowboy resource in target logical cluster")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err := cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(t.Context(), &cowboy, metav1.CreateOptions{})
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return false, err.Error()
 		}
@@ -214,13 +210,13 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", sourcePath)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClusterClient.Cluster(sourcePath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Ensure cowboys are served in %q", sourcePath)
 	require.Eventually(t, func() bool {
-		_, err := cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+		_, err := cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").List(t.Context(), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	t.Logf("Cowboys are served")
@@ -229,7 +225,7 @@ func TestAPIBindingMutatingWebhook(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in source logical cluster, eventually going through admission webhook")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").Create(t.Context(), &cowboy, metav1.CreateOptions{})
 		require.NoError(t, err)
 		return testWebhooks[sourcePath].Calls() > sourceWHCalls
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -246,9 +242,6 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
 	server := kcptesting.SharedKcpServer(t)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	sourcePath, sourceWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -270,7 +263,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", sourcePath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(sourceWorkspaceClient.Cluster(sourcePath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(sourcePath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(sourcePath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -291,7 +284,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClients.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClients.Cluster(sourcePath).ApisV1alpha2().APIExports().Create(t.Context(), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", targetPath)
@@ -311,7 +304,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClients.Cluster(targetPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClients.Cluster(targetPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -383,7 +376,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 				AdmissionReviewVersions: []string{"v1"},
 			}},
 		}
-		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, webhook, metav1.CreateOptions{})
+		_, err = kubeClusterClient.Cluster(cluster).AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(t.Context(), webhook, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to add validating webhook configurations")
 	}
 
@@ -396,13 +389,13 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Ensure cowboys are served")
 	require.Eventually(t, func() bool {
-		_, err := cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+		_, err := cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").List(t.Context(), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Logf("Creating cowboy resource in target logical cluster, eventually going through admission webhook")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(t.Context(), &cowboy, metav1.CreateOptions{})
 		require.NoError(t, err)
 		return testWebhooks[sourcePath].Calls() >= 1
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -412,13 +405,13 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Create an APIBinding in workspace %q that points to the today-cowboys export", sourcePath)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClients.Cluster(sourcePath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err := kcpClients.Cluster(sourcePath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Ensure cowboys are served in %q", sourcePath)
 	require.Eventually(t, func() bool {
-		_, err := cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").List(ctx, metav1.ListOptions{})
+		_, err := cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").List(t.Context(), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	t.Logf("Cowboys are served")
@@ -427,7 +420,7 @@ func TestAPIBindingValidatingWebhook(t *testing.T) {
 
 	t.Logf("Creating cowboy resource in source logical cluster, eventually going through admission webhook")
 	require.Eventually(t, func() bool {
-		_, err = cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").Create(ctx, &cowboy, metav1.CreateOptions{})
+		_, err = cowbyClusterClient.Cluster(sourcePath).WildwestV1alpha1().Cowboys("default").Create(t.Context(), &cowboy, metav1.CreateOptions{})
 		require.NoError(t, err)
 		return testWebhooks[sourcePath].Calls() > sourceWHCalls
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)

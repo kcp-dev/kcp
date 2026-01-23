@@ -17,7 +17,6 @@ limitations under the License.
 package authentication
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -45,8 +44,6 @@ import (
 func TestWorkspaceOIDC(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := context.Background()
-
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
 
@@ -65,14 +62,14 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	// setup a new workspace auth config that uses mockoidc's server, one for
 	// each of our mockoidc servers
-	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockA, ca, nil)
-	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mockB, ca, nil)
+	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mockA, ca, nil)
+	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mockB, ca, nil)
 
 	// use these configs in new WorkspaceTypes and create one extra workspace type that allows
 	// both mockoidc issuers
-	wsTypeA := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc-a", authConfigA)
-	wsTypeB := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc-b", authConfigB)
-	wsTypeC := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc-c", authConfigA, authConfigB)
+	wsTypeA := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc-a", authConfigA)
+	wsTypeB := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc-b", authConfigB)
+	wsTypeC := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc-c", authConfigA, authConfigB)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
@@ -83,12 +80,12 @@ func TestWorkspaceOIDC(t *testing.T) {
 	// sanity check: owner can access their own workspaces
 	for _, path := range []logicalcluster.Path{teamAPath, teamBPath, teamCPath} {
 		t.Logf("The workspace owner should be allowed to list ConfigMaps in %s...", path)
-		_, err = kubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		_, err = kubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 		require.NoError(t, err)
 	}
 
 	// grant permissions to random users and groups
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamAPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamAPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user-a@example.com",
 	}, {
@@ -96,7 +93,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 		Name: "oidc:developers",
 	}})
 
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamBPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamBPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user-b@example.com",
 	}, {
@@ -107,7 +104,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 		Name: "oidc:developers",
 	}})
 
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamCPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamCPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:user-c@example.com",
 	}, {
@@ -121,7 +118,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	for _, path := range []logicalcluster.Path{teamAPath, teamBPath, teamCPath} {
 		t.Logf("An unauthenticated user shouldn't be able to list ConfigMaps in %s...", path)
-		_, err = randoKubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		_, err = randoKubeClusterClient.Cluster(path).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 		require.Error(t, err)
 	}
 
@@ -238,11 +235,11 @@ func TestWorkspaceOIDC(t *testing.T) {
 						// performing OIDC discovery.
 
 						require.Eventually(t, func() bool {
-							_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+							_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 							return err == nil
 						}, wait.ForeverTestTimeout, 500*time.Millisecond)
 					} else {
-						_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+						_, err := client.Cluster(workspace).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 						require.Error(t, err, "user should have no access")
 					}
 				})
@@ -253,8 +250,6 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 func TestUserScope(t *testing.T) {
 	framework.Suite(t, "control-plane")
-
-	ctx := context.Background()
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -268,7 +263,7 @@ func TestUserScope(t *testing.T) {
 	require.NoError(t, err)
 
 	mock, ca := authfixtures.StartMockOIDC(t, server)
-	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca,
+	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mock, ca,
 		[]tenancyv1alpha1.ExtraMapping{
 			{
 				Key:             "authentication.kcp.io/scopes",
@@ -284,7 +279,7 @@ func TestUserScope(t *testing.T) {
 			},
 		},
 	)
-	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig)
+	wsType := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc", authConfig)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
@@ -309,7 +304,7 @@ func TestUserScope(t *testing.T) {
 		expectedGroups = append(expectedGroups, "oidc:"+group)
 	}
 
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:" + userEmail,
 	}})
@@ -326,7 +321,7 @@ func TestUserScope(t *testing.T) {
 		request := &authenticationv1.SelfSubjectReview{}
 
 		var err error
-		review, err = peterClient.Cluster(teamPath).AuthenticationV1().SelfSubjectReviews().Create(ctx, request, metav1.CreateOptions{})
+		review, err = peterClient.Cluster(teamPath).AuthenticationV1().SelfSubjectReviews().Create(t.Context(), request, metav1.CreateOptions{})
 		if err != nil {
 			t.Log(err)
 		}
@@ -342,8 +337,6 @@ func TestUserScope(t *testing.T) {
 
 func TestForbiddenSystemAccess(t *testing.T) {
 	framework.Suite(t, "control-plane")
-
-	ctx := context.Background()
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -373,17 +366,17 @@ func TestForbiddenSystemAccess(t *testing.T) {
 	}
 
 	t.Logf("Creating WorkspaceAuthenticationConfguration %s...", authConfig.Name)
-	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(ctx, authConfig, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(baseWsPath).TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Create(t.Context(), authConfig, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig.Name)
+	wsType := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc", authConfig.Name)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
 	teamPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
 
 	// give a dummy user access
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "dummy@example.com",
 	}})
@@ -396,7 +389,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 
 	t.Log("Waiting for authenticator to be ready...")
 	require.Eventually(t, func() bool {
-		_, err := client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+		_, err := client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 500*time.Millisecond)
 
@@ -433,7 +426,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 			client, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(token, kcpConfig))
 			require.NoError(t, err)
 
-			_, err = client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
+			_, err = client.Cluster(teamPath).CoreV1().ConfigMaps("default").List(t.Context(), metav1.ListOptions{})
 			require.Error(t, err, "user should have no access")
 		})
 	}
@@ -571,8 +564,6 @@ func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	framework.Suite(t, "control-plane")
 
-	ctx := context.Background()
-
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
 
@@ -589,8 +580,8 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	require.NoError(t, err)
 
 	mock, ca := authfixtures.StartMockOIDC(t, server)
-	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, ctx, kcpClusterClient, baseWsPath, mock, ca, nil)
-	wsType := authfixtures.CreateWorkspaceType(t, ctx, kcpClusterClient, baseWsPath, "with-oidc", authConfig)
+	authConfig := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mock, ca, nil)
+	wsType := authfixtures.CreateWorkspaceType(t, t.Context(), kcpClusterClient, baseWsPath, "with-oidc", authConfig)
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
@@ -607,7 +598,7 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 		expectedGroups = append(expectedGroups, "oidc:"+group)
 	}
 
-	authfixtures.GrantWorkspaceAccess(t, ctx, kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
+	authfixtures.GrantWorkspaceAccess(t, t.Context(), kubeClusterClient, teamPath, "grant-oidc-user", "cluster-admin", []rbacv1.Subject{{
 		Kind: "User",
 		Name: "oidc:" + userEmail,
 	}})
@@ -632,7 +623,7 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	require.Eventually(t, func() bool {
 		var err error
 
-		response, err = kubeClusterClient.Cluster(teamPath).AuthenticationV1().TokenReviews().Create(ctx, review, metav1.CreateOptions{})
+		response, err = kubeClusterClient.Cluster(teamPath).AuthenticationV1().TokenReviews().Create(t.Context(), review, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		return response.Status.Authenticated

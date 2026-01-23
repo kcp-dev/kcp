@@ -17,7 +17,6 @@ limitations under the License.
 package apibinding
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -47,9 +46,6 @@ func TestProtectedAPI(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -67,7 +63,7 @@ func TestProtectedAPI(t *testing.T) {
 
 	t.Logf("Install today cowboys APIResourceSchema into service provider workspace %q", providerPath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(providerWorkspaceClient.Cluster(providerPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_tlsroutes.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_tlsroutes.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create an APIExport for it")
@@ -88,7 +84,7 @@ func TestProtectedAPI(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(t.Context(), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	t.Logf("Create an APIBinding in consumer workspace %q that points to the gateway-api export from %q", consumerPath, providerPath)
@@ -107,16 +103,16 @@ func TestProtectedAPI(t *testing.T) {
 	}
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, apiBinding, metav1.CreateOptions{})
+		_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create APIBinding")
 
 	t.Logf("Make sure APIBinding %q in workspace %q is completed and up-to-date", apiBinding.Name, consumerPath)
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), apiBinding.Name, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, apiBinding.Name, metav1.GetOptions{})
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), apiBinding.Name, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.BindingUpToDate))
 
 	t.Logf("Make sure gateway API resource shows up in workspace %q group version discovery", consumerPath)

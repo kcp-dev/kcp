@@ -17,7 +17,6 @@ limitations under the License.
 package workspace
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -41,10 +40,6 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	// TODO(ntnn): Repalce with t.Context in go1.24
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
@@ -55,17 +50,17 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Get the logicalcluster")
-	lc, err := kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Get(ctx, "cluster", v1.GetOptions{})
+	lc, err := kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Get(t.Context(), "cluster", v1.GetOptions{})
 	require.NoError(t, err)
 
 	t.Log("Mark the logicalcluster as inactive")
 	lc.Annotations[filters.InactiveAnnotation] = "true"
-	lc, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(ctx, lc, v1.UpdateOptions{})
+	lc, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
 	require.NoError(t, err)
 
 	t.Log("Verify that normal requests fail")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kubeClient.Cluster(orgPath).CoreV1().Namespaces().List(ctx, v1.ListOptions{})
+		_, err := kubeClient.Cluster(orgPath).CoreV1().Namespaces().List(t.Context(), v1.ListOptions{})
 		if err == nil {
 			return false, "expected error when accessing an inactive logical cluster"
 		}
@@ -74,13 +69,13 @@ func TestInactiveLogicalCluster(t *testing.T) {
 
 	t.Log("Remove inactive annotation again")
 	delete(lc.Annotations, filters.InactiveAnnotation)
-	_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(ctx, lc, v1.UpdateOptions{})
+	_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
 	require.NoError(t, err)
 
 	t.Log("Verify that normal requests succeed again")
 	assert.NoError(t, err, "expected no error when accessing an active logical cluster")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kubeClient.Cluster(orgPath).CoreV1().Namespaces().List(ctx, v1.ListOptions{})
+		_, err := kubeClient.Cluster(orgPath).CoreV1().Namespaces().List(t.Context(), v1.ListOptions{})
 		if err != nil {
 			return false, err.Error()
 		}

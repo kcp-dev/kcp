@@ -17,7 +17,6 @@ limitations under the License.
 package workspace
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -43,9 +42,6 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	cowboysProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("cowboys-provider"))
@@ -62,14 +58,14 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 
 	t.Logf("Install a cowboys APIResourceSchema into workspace %q", cowboysProviderPath)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(cowboysProviderKCPClient.Cluster(cowboysProviderPath).Discovery()))
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	// Create rolebinding to allow bind to APIExport of coboys provider. Else nobody can bind to it.
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrole_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrole_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
-	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrolebinding_cowboys.yaml", testFiles)
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(cowboysProviderPath), mapper, nil, "clusterrolebinding_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
 	t.Logf("Create today-cowboys APIExport")
@@ -98,7 +94,7 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 			},
 		},
 	}
-	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha2().APIExports().Create(ctx, cowboysAPIExport, metav1.CreateOptions{})
+	cowboysAPIExport, err = kcpClusterClient.Cluster(cowboysProviderPath).ApisV1alpha2().APIExports().Create(t.Context(), cowboysAPIExport, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating APIExport")
 
 	universalPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("universal"))
@@ -158,15 +154,15 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	}
 
 	t.Logf("Creating WorkspaceType parent1")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wtParent1, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent1, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating wt parent1")
 
 	t.Logf("Creating WorkspaceType parent2")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wtParent2, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent2, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating wt parent2")
 
 	t.Logf("Creating WorkspaceType test")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(ctx, wt, metav1.CreateOptions{})
+	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wt, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating wt test")
 
 	// This will create and wait for ready, which only happens if the APIBinding initialization is working correctly

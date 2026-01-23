@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -82,15 +81,11 @@ func TestURLs(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
 
-			// TODO(ntnn): Replace with t.Context in go1.24
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
-
 			u, err := url.Parse(cfg.Host)
 			require.NoError(t, err)
 			u.Path = testPath.path
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, u.String(), http.NoBody)
 			require.NoError(t, err)
 
 			t.Logf("Testing URL: %s", req.URL.String())
@@ -119,10 +114,6 @@ func TestURLWithClusterKind(t *testing.T) {
 	} {
 		t.Run(string(scope), func(t *testing.T) {
 			t.Parallel()
-
-			// TODO(ntnn): Replace with t.Context in go1.24
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
 
 			orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
@@ -161,7 +152,7 @@ func TestURLWithClusterKind(t *testing.T) {
 					},
 				},
 			}
-			err = configcrds.CreateSingle(ctx, crdClient.Cluster(orgPath).ApiextensionsV1().CustomResourceDefinitions(), crd)
+			err = configcrds.CreateSingle(t.Context(), crdClient.Cluster(orgPath).ApiextensionsV1().CustomResourceDefinitions(), crd)
 			require.NoError(t, err)
 
 			t.Log("Create a resource to retrieve")
@@ -188,7 +179,7 @@ func TestURLWithClusterKind(t *testing.T) {
 				resourceInterface = dynamicClient.Cluster(orgPath).Resource(gvr).Namespace("default")
 			}
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err = resourceInterface.Create(ctx, obj, metav1.CreateOptions{})
+				_, err = resourceInterface.Create(t.Context(), obj, metav1.CreateOptions{})
 				if err != nil {
 					return false, err.Error()
 				}
@@ -197,7 +188,7 @@ func TestURLWithClusterKind(t *testing.T) {
 
 			t.Log("Retrieve the resource")
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err = resourceInterface.Get(ctx, "test", metav1.GetOptions{})
+				_, err = resourceInterface.Get(t.Context(), "test", metav1.GetOptions{})
 				if err != nil {
 					return false, err.Error()
 				}
@@ -206,7 +197,7 @@ func TestURLWithClusterKind(t *testing.T) {
 
 			t.Log("Retrieve the status subresource")
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err = resourceInterface.Get(ctx, "test", metav1.GetOptions{}, "status")
+				_, err = resourceInterface.Get(t.Context(), "test", metav1.GetOptions{}, "status")
 				if err != nil {
 					return false, err.Error()
 				}

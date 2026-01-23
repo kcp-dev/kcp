@@ -17,7 +17,6 @@ limitations under the License.
 package testing
 
 import (
-	"context"
 	"embed"
 	"path/filepath"
 
@@ -86,12 +85,9 @@ func SharedKcpServer(t TestingT) kcptestingserver.RunningServer {
 		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, filepath.Dir(KubeconfigPath()))
 		require.NoError(t, err, "failed to create persistent server fixture")
 
-		ctx, cancel := context.WithCancel(context.Background())
-		t.Cleanup(cancel)
-
 		rootCfg := s.RootShardSystemMasterBaseConfig(t)
 		t.Logf("Waiting for readiness for server at %s", rootCfg.Host)
-		err = kcptestingserver.WaitForReady(ctx, rootCfg)
+		err = kcptestingserver.WaitForReady(t.Context(), rootCfg)
 		require.NoError(t, err, "external server is not ready")
 
 		kcptestingserver.MonitorEndpoints(t, rootCfg, "/livez", "/readyz")

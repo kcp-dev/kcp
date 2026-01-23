@@ -17,7 +17,6 @@ limitations under the License.
 package apiexport
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -47,9 +46,6 @@ func TestAPIExportOpenAPI(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	cfg := server.BaseConfig(t)
 
 	kcpClients, err := kcpclientset.NewForConfig(cfg)
@@ -66,20 +62,20 @@ func TestAPIExportOpenAPI(t *testing.T) {
 	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
 
-	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
+	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClusterClient, serviceProviderPath, []string{"user-1"}, nil, false)
 
-	setUpServiceProvider(ctx, t, dynamicClusterClient, kcpClients, true, serviceProviderPath, cfg, nil)
+	setUpServiceProvider(t, dynamicClusterClient, kcpClients, true, serviceProviderPath, cfg, nil)
 
 	t.Logf("set up binding")
-	bindConsumerToProvider(ctx, t, consumerPath, serviceProviderPath, kcpClients, cfg)
+	bindConsumerToProvider(t, consumerPath, serviceProviderPath, kcpClients, cfg)
 
 	t.Logf("Waiting for APIExport to have a virtual workspace URL for the bound workspace %q", consumerWorkspace.Name)
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExportEndpointSlice, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
+		apiExportEndpointSlice, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
