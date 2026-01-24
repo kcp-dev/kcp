@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -601,6 +602,61 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 	}
 
 	t.Log("Start watchers for virtual workspace combinations")
+
+	// retry until kcp-admin can watch logicalclusters
+	role := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kcp-admin-ssar",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"authorization.k8s.io"},
+				Resources: []string{"selfsubjectaccessreviews"},
+				Verbs:     []string{"create"},
+			},
+		},
+	}
+	binding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kcp-admin-ssar-binding",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: "User",
+				Name: "kcp-admin",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "kcp-admin-ssar",
+		},
+	}
+
+	k8sAdminClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
+	require.NoError(t, err)
+	_, err = k8sAdminClient.Cluster(core.RootCluster.Path()).RbacV1().ClusterRoles().Create(ctx, role, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = k8sAdminClient.Cluster(core.RootCluster.Path()).RbacV1().ClusterRoleBindings().Create(ctx, binding, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	ssar := &authorizationv1.SelfSubjectAccessReview{
+		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Verb:     "watch",
+				Group:    "core.kcp.io",
+				Resource: "logicalclusters",
+			},
+		},
+	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		result, err := k8sAdminClient.Cluster(core.RootCluster.Path()).AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, ssar, metav1.CreateOptions{})
+		t.Logf("%#v, %v", result, err)
+		require.NoError(c, err)
+		require.NotNil(c, result)
+		require.True(c, result.Status.Allowed)
+	}, wait.ForeverTestTimeout*2, 100*time.Millisecond)
+
 	// create clients for all suitable connections
 	watchConnections["parent"]["parent"] = &connection{}
 	watchConnections["child"]["child"] = &connection{}
@@ -620,7 +676,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 				watcher, err = clientset.CoreV1alpha1().LogicalClusters().Watch(ctx, metav1.ListOptions{})
 				require.NoError(c, err)
 				require.NotNil(c, watcher) // if we are too fast, it is possible for .Watch to return no error but a nil watcher
-			}, wait.ForeverTestTimeout, 100*time.Millisecond)
+			}, wait.ForeverTestTimeout*2, 100*time.Millisecond)
 			con.watcher = watcher
 		}
 	}
