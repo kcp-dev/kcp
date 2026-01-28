@@ -70,9 +70,27 @@ func (b *apiBindingV1alpha2) Name() string {
 	return b.binding.Name
 }
 
+func (b *apiBindingV1alpha2) Update(ctx context.Context, client kcpclientset.Interface) error {
+	updated, err := client.ApisV1alpha2().APIBindings().Update(ctx, b.binding, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	b.binding = updated
+
+	return nil
+}
+
 func (b *apiBindingV1alpha2) SetPermissionClaims(claims []apisv1alpha2.AcceptablePermissionClaim) error {
 	b.binding.Spec.PermissionClaims = claims
 	return nil
+}
+
+func (b *apiBindingV1alpha2) GetPermissionClaims() []apisv1alpha2.AcceptablePermissionClaim {
+	return b.binding.Spec.PermissionClaims
+}
+
+func (b *apiBindingV1alpha2) GetExportPermissionClaims() []apisv1alpha2.PermissionClaim {
+	return b.binding.Status.ExportPermissionClaims
 }
 
 type apiBindingListV1alpha2 struct {
