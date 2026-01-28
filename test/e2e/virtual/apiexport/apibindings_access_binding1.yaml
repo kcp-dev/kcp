@@ -1,8 +1,8 @@
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIBinding
 metadata:
   name: binding1
 spec:
   reference:
-    workspace:
-      exportName: export1
+    export:
+      name: export1

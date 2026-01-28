@@ -1,7 +1,16 @@
-apiVersion: apis.kcp.io/v1alpha1
+apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
   name: export3
 spec:
-  latestResourceSchemas:
-  - v1.widgets.yetanotherexample.io
+  resources:
+  - name: widgets
+    group: yetanotherexample.io
+    schema: v1.widgets.yetanotherexample.io
+    storage:
+      crd: {}
+  permissionClaims:
+  - group: apis.kcp.io
+    resource: apibindings
+    verbs:
+    - "*"

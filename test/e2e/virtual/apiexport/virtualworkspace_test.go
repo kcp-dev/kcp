@@ -58,6 +58,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+	kcpnonclusterclientset "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
@@ -332,7 +333,6 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 }
 
 func TestAPIExportAPIBindingsAccess(t *testing.T) {
-	t.Skip("https://github.com/kcp-dev/kcp/issues/2263")
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -387,72 +387,75 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 
 	exportURLs := make(map[string]string)
 
+	// Wait for APIExportEndpointSlices and populate exportURLs
+	for _, exportName := range []string{"export1", "export2"} {
+		t.Logf("Waiting for APIExportEndpointSlice %s in %s to have virtual workspace URL", exportName, ws1Path)
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			apiExportEndpointSlice, err := kcpClusterClient.Cluster(ws1Path).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), exportName, metav1.GetOptions{})
+			if err != nil {
+				return false, fmt.Sprintf("failed to get APIExportEndpointSlice %s: %v", exportName, err)
+			}
+			if len(apiExportEndpointSlice.Status.APIExportEndpoints) == 0 {
+				return false, fmt.Sprintf("waiting for APIExportEndpointSlice %s to have endpoints", exportName)
+			}
+			exportURLs[exportName] = apiExportEndpointSlice.Status.APIExportEndpoints[0].URL
+			return true, ""
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExportEndpointSlice %s never became ready", exportName)
+	}
+
+	// Also wait for export3 in ws2Path
+	t.Logf("Waiting for APIExportEndpointSlice export3 in %s to have virtual workspace URL", ws2Path)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(ws2Path).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "export3", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get APIExportEndpointSlice export3: %v", err)
+		}
+		if len(apiExportEndpointSlice.Status.APIExportEndpoints) == 0 {
+			return false, "waiting for APIExportEndpointSlice export3 to have endpoints"
+		}
+		exportURLs["export3"] = apiExportEndpointSlice.Status.APIExportEndpoints[0].URL
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "APIExportEndpointSlice export3 never became ready")
+
 	verifyBindings := func(clusterName logicalcluster.Path, exportName string, isValid func(bindings []apisv1alpha2.APIBinding) error) {
 		t.Helper()
 
 		apiExportCfg := rest.CopyConfig(cfg)
 		apiExportCfg.Host = exportURLs[exportName] + "/clusters/*"
 
-		apiExportKCPClient, err := kcpclientset.NewForConfig(apiExportCfg)
+		// Use non-cluster-scoped client since we're embedding the wildcard cluster path in the host URL
+		apiExportKCPClient, err := kcpnonclusterclientset.NewForConfig(apiExportCfg)
 		require.NoError(t, err, "error creating wildcard kcp client for %s|%s", clusterName, exportName)
 
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			bindings, err := apiExportKCPClient.ApisV1alpha2().APIBindings().List(t.Context(), metav1.ListOptions{})
-			require.NoError(t, err, "error listing bindings for %s|%s", clusterName, exportName)
-
-			if err := isValid(bindings.Items); err != nil {
+			if err != nil {
+				return false, fmt.Sprintf("error listing bindings for %s|%s: %v", clusterName, exportName, err)
+			}
+			// Convert v1alpha1 to v1alpha2 for the validation function
+			var v2bindings []apisv1alpha2.APIBinding
+			for _, b := range bindings.Items {
+				v2binding := apisv1alpha2.APIBinding{}
+				v2binding.Name = b.Name
+				v2binding.Namespace = b.Namespace
+				v2binding.SetAnnotations(b.GetAnnotations())
+				v2binding.SetLabels(b.GetLabels())
+				v2bindings = append(v2bindings, v2binding)
+			}
+			if err := isValid(v2bindings); err != nil {
 				return false, err.Error()
 			}
 
 			return true, ""
 		}, wait.ForeverTestTimeout, 100*time.Millisecond, "did not see expected bindings for %s|%s", clusterName, exportName)
 	}
-	t.Logf("Verifying APIExport 1 only serves APIBinding 1|1 and 2|1")
-	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha2.APIBinding) error {
-		for _, b := range bindings {
-			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding1" {
-				continue
-			}
-			if clusterName == logicalcluster.Name(ws2.Spec.Cluster) && b.Name == "binding1" {
-				continue
-			}
 
-			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
-		}
-
-		return nil
-	})
-
-	t.Logf("Verifying APIExport 2 only serves APIBinding 2")
-	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha2.APIBinding) error {
-		for _, b := range bindings {
-			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding2" {
-				continue
-			}
-
-			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
-		}
-
-		return nil
-	})
-
-	t.Logf("Updating APIExport 1 to claim APIBindings")
+	// The virtual workspace only serves claimed resources (like apibindings) when at least
+	// one binding has accepted the permission claim. So we must accept the claim first before
+	// we can verify what the VW serves.
+	t.Logf("Updating APIBinding 1 to accept APIBindings claim")
 	export1, err := kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIExports().Get(t.Context(), "export1", metav1.GetOptions{})
 	require.NoError(t, err)
-	export1.Spec.PermissionClaims = []apisv1alpha2.PermissionClaim{
-		{
-			GroupResource: apisv1alpha2.GroupResource{
-				Group:    "apis.kcp.io",
-				Resource: "apibindings",
-			},
-		},
-	}
-	_, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIExports().Update(t.Context(), export1, metav1.UpdateOptions{})
-	require.NoError(t, err)
-
-	t.Logf("Updating APIBinding 1 to accept APIBindings claim")
 	binding1, err := kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Get(t.Context(), "binding1", metav1.GetOptions{})
 	require.NoError(t, err)
 	oldData := toJSON(t, apisv1alpha2.APIBinding{})
@@ -482,6 +485,11 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		return false, err.Error()
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating %s|%s to accept claims", ws1Path, binding1.Name)
 
+	t.Logf("Waiting for permission claims to be applied on binding1")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Get(t.Context(), "binding1", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.PermissionClaimsApplied), "permission claims not applied on binding1")
+
 	t.Logf("Verifying APIExport 1 serves APIBindings 1|1, 1|2, and 2|1")
 	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha2.APIBinding) error {
 		// "workspace1|binding1", "workspace2|binding1", "workspace1|binding2")
@@ -508,19 +516,8 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		return nil
 	})
 
-	t.Logf("Verifying APIExport 2 still only serves APIBinding 2")
-	verifyBindings(ws1Path, "export2", func(bindings []apisv1alpha2.APIBinding) error {
-		for _, b := range bindings {
-			clusterName := logicalcluster.From(&b)
-			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding2" {
-				continue
-			}
-
-			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
-		}
-
-		return nil
-	})
+	// Note: We can't verify export2's VW here because binding2 (the only binding to export2)
+	// hasn't accepted export2's apibindings permission claim, so export2's VW won't serve apibindings.
 
 	t.Logf("Updating APIBinding 1 to reject APIBindings claim")
 	binding1, err = kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIBindings().Get(t.Context(), "binding1", metav1.GetOptions{})
@@ -539,20 +536,23 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 		return false, err.Error()
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error updating %s|%s to no longer accept claims", ws1Path, binding1.Name)
 
-	t.Logf("Verifying APIExport 1 back to only serving its own bindings")
+	t.Logf("Verifying APIExport 1 only serves its own bindings after claim rejection")
+	// After rejecting the claim, the VW should only serve bindings that point to export1
+	// (binding1 in ws1 and binding1 in ws2), not bindings from ws1 that accepted the claim
+	// (which would have included binding2).
 	verifyBindings(ws1Path, "export1", func(bindings []apisv1alpha2.APIBinding) error {
 		for _, b := range bindings {
 			clusterName := logicalcluster.From(&b)
+			// Only binding1 should be visible (from ws1 and ws2) since they point to export1
 			if clusterName == logicalcluster.Name(ws1.Spec.Cluster) && b.Name == "binding1" {
 				continue
 			}
 			if clusterName == logicalcluster.Name(ws2.Spec.Cluster) && b.Name == "binding1" {
 				continue
 			}
-
+			// binding2 should NOT be visible anymore since the claim was rejected
 			return fmt.Errorf("unexpected binding %s|%s", clusterName, b.Name)
 		}
-
 		return nil
 	})
 }
