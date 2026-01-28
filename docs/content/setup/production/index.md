@@ -171,6 +171,12 @@ We provide three reference deployment patterns:
 - **Access pattern**: Dual front-proxy with CloudFlare integration
 - **Network**: Complex multi-layer architecture with edge termination
 
+### [kcp-zheng](kcp-zheng.md) - Multi-Region Self-Signed
+- **Best for**: Multi-region deployments across different clouds without shared network
+- **Certificate approach**: All certificates are self-signed using an internal CA
+- **Access pattern**: Front-proxy is public, shards have external URLs for cross-region access
+- **Network**: 3 Kubernetes clusters in different clouds with external shard connectivity
+
 ## Getting Started
 
 1. **[Prerequisites](prerequisites.md)**: Install shared components (etcd-druid, cert-manager, kcp-operator, OIDC)
@@ -179,13 +185,13 @@ We provide three reference deployment patterns:
 
 ## Support Matrix
 
-| Feature | kcp-dekker | kcp-vespucci | kcp-comer |
-|---------|------------|--------------|-----------|
-| Self-signed certs | ✓ | - | ✓ |
-| Let's Encrypt | - | ✓ | ✓ |
-| Public shard access | - | ✓ | ✓ |
-| CDN integration | - | - | ✓ |
-| Multi-region | ✓ | ✓ | ✓ |
-| OIDC authentication | ✓ | ✓ | ✓ |
+| Feature | kcp-dekker | kcp-vespucci | kcp-comer | kcp-zheng |
+|---------|------------|--------------|-----------|-----------|
+| Self-signed certs | ✓ | - | ✓ | ✓ |
+| Let's Encrypt | - | ✓ | ✓ | - |
+| Public shard access | - | ✓ | ✓ | ✓ |
+| CDN integration | - | - | ✓ | - |
+| Multi-region | ✓ | ✓ | ✓ | ✓ |
+| OIDC authentication | ✓ | ✓ | ✓ | ✓ |
 
 Choose the deployment that best matches your security, compliance, and operational requirements.
