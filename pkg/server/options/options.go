@@ -332,6 +332,16 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 	// o.GenericControlPlane.Complete creates self-signed certificates
 	// with the advertise address by default. This can cause spurious
 	// errors if the server binds on multiple interfaces.
+	//
+	// Set AdvertiseAddress to 127.0.0.1 by default. This ensures that
+	// self-signed certificates are generated with 127.0.0.1 as the CN,
+	// which is stable across network changes (unlike NIC IPs that can change).
+	// The --advertise-address flag is intentionally not exposed to users,
+	// so we set a sensible default here.
+	if o.GenericControlPlane.GenericServerRunOptions.AdvertiseAddress == nil || o.GenericControlPlane.GenericServerRunOptions.AdvertiseAddress.IsUnspecified() {
+		o.GenericControlPlane.GenericServerRunOptions.AdvertiseAddress = net.ParseIP("127.0.0.1")
+	}
+
 	possibleIPs := []net.IP{
 		o.GenericControlPlane.GenericServerRunOptions.AdvertiseAddress,
 		o.GenericControlPlane.SecureServing.BindAddress,
