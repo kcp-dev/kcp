@@ -37,6 +37,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpreflector "github.com/kcp-dev/apimachinery/v2/third_party/reflector"
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
@@ -327,7 +328,10 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 			})
 		}
 
-		cfg := &cache.Config{
+		// KCP modification: use our forked controller that passes the KeyFunction to the reflector
+		// This is critical for WatchList (client-go 1.34+) where the reflector creates a temporaryStore
+		// that needs cluster-aware keys to avoid objects from different clusters overwriting each other.
+		cfg := &kcpreflector.Config{
 			Queue:             fifo,
 			ListerWatcher:     s.listerWatcher,
 			ObjectType:        s.objectType,
@@ -337,9 +341,10 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 
 			Process:                      s.HandleDeltas,
 			WatchErrorHandlerWithContext: s.watchErrorHandler,
+			KeyFunction:                  kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc,
 		}
 
-		s.controller = cache.New(cfg)
+		s.controller = kcpreflector.New(cfg)
 		// KCP modification: we removed setting the s.controller.clock here as it's an unexported field we can't access
 		s.started = true
 	}()
