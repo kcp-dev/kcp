@@ -28,6 +28,13 @@ func (gc *GarbageCollector) anyToRef(gvk schema.GroupVersionKind, obj any) (*uns
 	u := tombstone.Obj[*unstructured.Unstructured](obj)
 	ref := ObjectReferenceFrom(u)
 
+	gc.log.Info("Processing object",
+		"cluster", ref.ClusterName,
+		"namespace", ref.Namespace,
+		"name", ref.Name,
+		"gvk", gvk.String(),
+	)
+
 	switch {
 	case u.GetKind() == "PartialObjectMetadata":
 		// Override wrong info from PartialObjectMetadata

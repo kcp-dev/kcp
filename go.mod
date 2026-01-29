@@ -27,6 +27,7 @@ require (
 	github.com/kcp-dev/sdk v0.0.0
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+	github.com/ntnn/go-ntnn v0.0.0-20251229015853-51cc0da7e08f
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
