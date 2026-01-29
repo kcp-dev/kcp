@@ -28,8 +28,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// deletionItem is an item in the deletion queue, representing an object
+// that should be deleted, either because it was explicitly deleted or
+// because it is owned by an object that is being deleted with an
+// appropriate deletion propagation.
 type deletionItem struct {
-	reference           ObjectReference
+	reference ObjectReference
+	// deletionPropagation is the deletion propagation policy to use.
+	// This may be set based on the owning objects deletion propagation.
+	// If empty the deletion propagation will be determined when processing
+	// the item based on the object's finalizers.
 	deletionPropagation metav1.DeletionPropagation
 }
 
@@ -61,12 +69,13 @@ func (gc *GarbageCollector) processDeletionQueue(ctx context.Context) bool {
 	}
 	defer gc.deletionQueue.Done(di)
 
-	gc.log.Info("processing deletion queue item", "object", di.reference)
-	requeue, err := gc.processDeletionQueueItem(ctx, di)
+	requeue, enqueueDeletionItems, err := gc.processDeletionQueueItem(ctx, di)
 	if err != nil {
-		gc.log.Error(err, "error processing deletion queue item", "object", di.reference)
 		gc.deletionQueue.AddRateLimited(di)
 		return true
+	}
+	for _, deletionItem := range enqueueDeletionItems {
+		gc.deletionQueue.Add(deletionItem)
 	}
 	if requeue {
 		gc.deletionQueue.Add(di)
@@ -81,7 +90,6 @@ func (gc *GarbageCollector) processDeletionQueue(ctx context.Context) bool {
 	// requeue the object for reprocessing.
 	success, owned := gc.graph.Remove(di.reference)
 	if !success || len(owned) > 0 {
-		gc.log.Error(nil, "owned objects still exist, requeuing", "object", di.reference, "graphRemovalSuccess", success, "ownedCount", len(owned))
 		gc.deletionQueue.AddRateLimited(di)
 		return true
 	}
@@ -90,10 +98,17 @@ func (gc *GarbageCollector) processDeletionQueue(ctx context.Context) bool {
 	return true
 }
 
-func (gc *GarbageCollector) processDeletionQueueItem(ctx context.Context, di *deletionItem) (bool, error) {
+// processDeletionQueueItem processes a single item from the deletion queue.
+//
+// It does not interact with the deletion queue itself. Only the calling
+// function interacts with the queue based on the return values of this
+// function.
+// This is to keep the flow of the queue processing the items and the
+// deletion logic simple and separate.
+func (gc *GarbageCollector) processDeletionQueueItem(ctx context.Context, di *deletionItem) (bool, []*deletionItem, error) {
 	gvr, err := gc.GVR(di.reference)
 	if err != nil {
-		return false, fmt.Errorf("error getting GVR for object %v: %w", di.reference, err)
+		return false, nil, fmt.Errorf("error getting GVR for object %v: %w", di.reference, err)
 	}
 
 	client := gc.options.MetadataClusterClient.Cluster(di.reference.ClusterName.Path()).
@@ -119,65 +134,61 @@ func (gc *GarbageCollector) processDeletionQueueItem(ctx context.Context, di *de
 		switch di.deletionPropagation {
 		case metav1.DeletePropagationOrphan:
 			// Orphan owned resources and requeue until the graph lists no owned objects.
-			if err := gc.orphanOwned(ctx, di.reference, owned); err != nil {
-				return false, err
+			if err := gc.orphanOwnedRefs(ctx, di.reference, owned); err != nil {
+				return false, nil, err
 			}
-			return true, nil
+			return true, nil, nil
 		case metav1.DeletePropagationForeground:
 			// Owned resources should be foreground deleted. Enqueue them for
 			// deletion and requeue the original object. This will requeue this
 			// object until owned objects are gone.
-			for _, ownedRef := range owned {
-				gc.log.Info("queuing owned object for deletion", "ownedObject", ownedRef, "ownerObject", di.reference)
-				gc.deletionQueue.Add(&deletionItem{
+			deletionItems := make([]*deletionItem, 0, len(owned))
+			for i, ownedRef := range owned {
+				deletionItems[i] = &deletionItem{
 					reference: ownedRef,
 					// Propagate the foreground deletion down the chain.
 					deletionPropagation: metav1.DeletePropagationForeground,
-				})
+				}
 			}
 			// Requeue the original object to check later if owned objects are gone.
-			gc.log.Info("owned objects exist, requeuing deletion", "object", di.reference, "ownedCount", len(owned))
-			return true, nil
+			return true, deletionItems, nil
 		case metav1.DeletePropagationBackground:
-			// Owned resources should be background deleted. Enqueue them for
-			// deletion, but do not requeue the original object as it can be
-			// deleted right away.
-			for _, ownedRef := range owned {
-				gc.log.Info("queuing owned object for deletion", "ownedObject", ownedRef, "ownerObject", di.reference)
-				gc.deletionQueue.Add(&deletionItem{
+			// Owned resources should be background deleted. Enqueue
+			// them for deletion and requeue the original object.
+			deletionItems := make([]*deletionItem, 0, len(owned))
+			for i, ownedRef := range owned {
+				deletionItems[i] = &deletionItem{
 					reference: ownedRef,
 					// Do not set an explicit deletion propagation. This
 					// will be discovered per object when it is processed.
 					// deletionPropagation: ,
-				})
+				}
 			}
+			return true, deletionItems, nil
 		default:
-			return false, fmt.Errorf("unknown deletion propagation policy %q for object %v with owned objects", di.deletionPropagation, di.reference)
+			return false, nil, fmt.Errorf("unknown deletion propagation policy %q for object %v with owned objects", di.deletionPropagation, di.reference)
 		}
 	}
 
 	latest, err := client.Get(ctx, di.reference.Name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		// Object is already gone, report success.
-		return false, nil
+		return false, nil, nil
 	}
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	// No owned objects. Proceed to delete the object.
-	gc.log.Info("deleting object from API server", "object", di.reference)
-
 	// TODO(ntnn): scrub other gc finalizers
 	if hasFinalizer(latest, metav1.FinalizerOrphanDependents) {
-		gc.log.Info("removing orphan finalizer from object", "object", di.reference)
 		patch, err := patchRemoveFinalizer(latest, metav1.FinalizerOrphanDependents)
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 
 		if _, err := client.Patch(ctx, di.reference.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
-			return false, err
+			return false, nil, err
 		}
 	}
 
@@ -186,44 +197,51 @@ func (gc *GarbageCollector) processDeletionQueueItem(ctx context.Context, di *de
 	if err := client.Delete(ctx, di.reference.Name, metav1.DeleteOptions{
 		Preconditions: &preconditions,
 	}); err != nil && !apierrors.IsNotFound(err) {
-		return false, err
+		return false, nil, err
 	}
 
 	// Deletion successful.
-	return false, nil
+	return false, nil, nil
 }
 
-func (gc *GarbageCollector) orphanOwned(ctx context.Context, or ObjectReference, owned []ObjectReference) error {
+// orphanOwnedRefs removes the owner reference from all owned objects in the API server.
+func (gc *GarbageCollector) orphanOwnedRefs(ctx context.Context, ownerUID types.UID, ownedRefs []ObjectReference) error {
 	// Remove owner reference from all owned objects.
 	var errs error
-	for _, ownedRef := range owned {
-		gvr, err := gc.GVR(ownedRef)
-		if err != nil {
-			errs = errors.Join(errs, err)
-			continue
-		}
-
-		client := gc.options.MetadataClusterClient.
-			Cluster(ownedRef.ClusterName.Path()).
-			Resource(gvr).
-			Namespace(ownedRef.Namespace)
-
-		latest, err := client.Get(ctx, ownedRef.Name, metav1.GetOptions{})
-		if err != nil {
-			errs = errors.Join(errs, err)
-			continue
-		}
-
-		patch, err := patchRemoveOwnerReference(latest, or.UID)
-		if err != nil {
-			errs = errors.Join(errs, err)
-			continue
-		}
-
-		if _, err := client.Patch(ctx, ownedRef.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
-			errs = errors.Join(errs, err)
+	for _, ownedRef := range ownedRefs {
+		if err := gc.orphanOwnedRef(ctx, ownerUID, ownedRef); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("error orphaning owned object %v: %w", ownedRef, err))
 			continue
 		}
 	}
 	return errs
+}
+
+// orphanOwnedRef removes the owner reference from an owned object in the API server.
+func (gc *GarbageCollector) orphanOwnedRef(ctx context.Context, ownerUID types.UID, ownedRef ObjectReference) error {
+	gvr, err := gc.GVR(ownedRef)
+	if err != nil {
+		return err
+	}
+
+	client := gc.options.MetadataClusterClient.
+		Cluster(ownedRef.ClusterName.Path()).
+		Resource(gvr).
+		Namespace(ownedRef.Namespace)
+
+	latest, err := client.Get(ctx, ownedRef.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	patch, err := patchRemoveOwnerReference(latest, ownerUID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := client.Patch(ctx, ownedRef.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		return err
+	}
+
+	return nil
 }

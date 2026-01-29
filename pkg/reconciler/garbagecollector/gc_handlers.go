@@ -29,14 +29,6 @@ import (
 )
 
 func (gc *GarbageCollector) registerHandlers(ctx context.Context) func() {
-	// TODO(ntnn): Handle sharding? Could add a filter on all watches to
-	// only watch resources for logical clusters assigned to this shard.
-	// Question is whether that even matters.
-	// Also if the GC of all shards works against all logical clusters
-	// it could help with balancing the gc load - but it could also
-	// produce a lot of redundant work when the same objects are worked
-	// on by multiple gc instances.
-
 	// Start monitors for builtin APIs
 	// TODO(ntnn): instead of making a wacky list of fake builtin crds
 	// update monitors off of lists of GVRs and use a helper function to

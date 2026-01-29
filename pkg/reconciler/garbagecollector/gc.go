@@ -50,6 +50,8 @@ type Options struct {
 	DeletionWorkers int
 }
 
+// GarbageCollector is a kcp-native garbage collector that cascades and
+// orphans resources based on their relationships.
 type GarbageCollector struct {
 	options Options
 
@@ -84,6 +86,15 @@ func NewGarbageCollector(options Options) *GarbageCollector {
 	return gc
 }
 
+// Start starts the garbage collector.
+//
+// The GC uses cluster-aware informers to watch builtin Kubernetes
+// resources, as well as CRDs to dynamically start and stop watchers for
+// dynamic resources across all logical clusters the shard is
+// responsible for.
+//
+// Whne resources are changed, the GC updates an internal graph to track
+// the relationships between objects.
 func (gc *GarbageCollector) Start(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	defer gc.deletionQueue.ShutDown()
@@ -98,7 +109,7 @@ func (gc *GarbageCollector) Start(ctx context.Context) {
 	// handlers and the caches being started and synced should be
 	// independent.
 	// I suspect that somewhere something in the informer factory is
-	// swapped out without carrying the existing regisrations over,
+	// swapped out without carrying the existing registrations over,
 	// causing handlers registered before the swapping to not be
 	// notified once the informers are started.
 	<-gc.options.InformersSynced
