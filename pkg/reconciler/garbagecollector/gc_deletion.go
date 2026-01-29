@@ -134,7 +134,7 @@ func (gc *GarbageCollector) processDeletionQueueItem(ctx context.Context, di *de
 		switch di.deletionPropagation {
 		case metav1.DeletePropagationOrphan:
 			// Orphan owned resources and requeue until the graph lists no owned objects.
-			if err := gc.orphanOwnedRefs(ctx, di.reference, owned); err != nil {
+			if err := gc.orphanOwnedRefs(ctx, di.reference.UID, owned); err != nil {
 				return false, nil, err
 			}
 			return true, nil, nil
