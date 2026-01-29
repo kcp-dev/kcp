@@ -124,7 +124,6 @@ func (gc *GarbageCollector) updateHandlers(oldCrd, newCrd *apiextensionsv1.Custo
 
 	// Stop monitors for removed versions.
 	for gvr := range oldVersions {
-		gc.log.Info("stopping monitor for removed CRD version", "crd", oldCrd.Name, "gvr", gvr)
 		cancel, ok := gc.handlerCancels[gvr]
 		if !ok {
 			// This shouldn't happen, events are guaranteed to be sent
@@ -138,7 +137,6 @@ func (gc *GarbageCollector) updateHandlers(oldCrd, newCrd *apiextensionsv1.Custo
 
 	// Start monitors for added versions.
 	for gvr := range newVersions {
-		gc.log.Info("ensuring monitor for CRD version", "crd", newCrd.Name, "gvr", gvr)
 		if _, exists := gc.handlerCancels[gvr]; exists {
 			// Skip if already monitored.
 			continue
@@ -168,18 +166,15 @@ func (gc *GarbageCollector) registerHandlerForVersion(crd *apiextensionsv1.Custo
 	// fast.
 	handlers := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			gc.log.Info("add event for object", "gvr", gvr, "obj", obj)
 			u, or := gc.anyToRef(gvk, obj)
 			owners := ObjectReferencesFromOwnerReferences(
 				or.ClusterName,
 				or.Namespace,
 				u.GetOwnerReferences(),
 			)
-			gc.log.Info("adding object to graph", "object", or, "owners", owners)
 			gc.graph.Add(or, nil, owners)
 		},
 		UpdateFunc: func(oldRaw, newRaw interface{}) {
-			gc.log.Info("update event for object", "gvr", gvr, "oldObj", oldRaw, "newObj", newRaw)
 			oldObj, oldRef := gc.anyToRef(gvk, oldRaw)
 			oldOwners := ObjectReferencesFromOwnerReferences(
 				oldRef.ClusterName,
@@ -194,13 +189,10 @@ func (gc *GarbageCollector) registerHandlerForVersion(crd *apiextensionsv1.Custo
 				newObj.GetOwnerReferences(),
 			)
 
-			gc.log.Info("updating object in graph", "object", newRef, "oldOwners", oldOwners, "newOwners", newOwners)
 			gc.graph.Add(newRef, oldOwners, newOwners)
 		},
 		DeleteFunc: func(obj interface{}) {
-			gc.log.Info("delete event for object", "gvr", gvr, "obj", obj)
 			u, ref := gc.anyToRef(gvk, obj)
-			gc.log.Info("queuing object for deletion", "object", ref)
 			di := &deletionItem{
 				reference:           ref,
 				deletionPropagation: deletionPropagationFromFinalizers(u),
@@ -217,7 +209,6 @@ func (gc *GarbageCollector) registerHandlerForVersion(crd *apiextensionsv1.Custo
 		return nil, fmt.Errorf("error getting informer for GVR %v: %w", gvr, err)
 	}
 
-	gc.log.Info("starting monitor for CRD version", "crd", crd.Name, "gvr", gvr)
 	registration, err := informer.Informer().AddEventHandler(handlers)
 	if err != nil {
 		return nil, fmt.Errorf("error adding event handler for GVR %v: %w", gvr, err)

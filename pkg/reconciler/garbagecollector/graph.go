@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector/syncmap"
 )
 
+// Graph stores the relationship of objects to their owned objects.
 type Graph struct {
 	// global is a map of objects to its owned objects across all clusters.
 	//
@@ -36,6 +37,7 @@ type Graph struct {
 	global *syncmap.SyncMap[ID, *[]ObjectReference]
 }
 
+// NewGraph creates a new empty graph.
 func NewGraph() *Graph {
 	g := &Graph{}
 	g.global = syncmap.NewSyncMap[ID, *[]ObjectReference]()
@@ -71,22 +73,16 @@ func (g *Graph) Add(obj ObjectReference, oldOwners, newOwners []ObjectReference)
 	// Store the object.
 	g.global.StoreIfAbsent(obj.ID(), ptr.To([]ObjectReference{}))
 
-	// TODO diff oldOwners and newOwners to avoid unnecessary
-	// modifications.
-
+	// Store old owner IDs for diffing.
+	oldOwnerIDs := map[ID]bool{}
 	for _, owner := range oldOwners {
-		g.global.Modify(owner.ID(), func(deps *[]ObjectReference, exists bool) *[]ObjectReference {
-			if !exists || deps == nil {
-				deps = ptr.To([]ObjectReference{})
-			}
-			newDeps := slices.DeleteFunc(*deps, func(dep ObjectReference) bool {
-				return dep.Equals(obj)
-			})
-			return &newDeps
-		})
+		oldOwnerIDs[owner.ID()] = true
 	}
 
 	for _, owner := range newOwners {
+		// Remove owner ID from oldOwnerIDs.
+		oldOwnerIDs[owner.ID()] = false
+		// Add the object to the owner's dependents.
 		g.global.Modify(owner.ID(), func(deps *[]ObjectReference, exists bool) *[]ObjectReference {
 			return ptr.To(
 				append(
@@ -96,8 +92,22 @@ func (g *Graph) Add(obj ObjectReference, oldOwners, newOwners []ObjectReference)
 			)
 		})
 	}
+
+	// Remove the object from owners that are no longer owners.
+	for oldOwnerID := range oldOwnerIDs {
+		g.global.Modify(oldOwnerID, func(deps *[]ObjectReference, exists bool) *[]ObjectReference {
+			if !exists || deps == nil {
+				deps = ptr.To([]ObjectReference{})
+			}
+			newDeps := slices.DeleteFunc(*deps, func(dep ObjectReference) bool {
+				return dep.Equals(obj)
+			})
+			return &newDeps
+		})
+	}
 }
 
+// Owned returns the references of all objects owned by the given object.
 func (g *Graph) Owned(or ObjectReference) []ObjectReference {
 	ownedObjs, _ := g.global.Load(or.ID())
 	if ownedObjs == nil {
@@ -114,13 +124,18 @@ func (g *Graph) Remove(or ObjectReference) (bool, []ObjectReference) {
 	// TODO(ntnn): This could be an error. Depends on if "empty" objects
 	// (so nodes not owning anything) are expected to be in the graph or
 	// not.
+	// At the moment empty objects are present in the graph.
 	if !exists {
 		return true, nil
 	}
 	if len(*ownedObjs) > 0 {
 		return false, *ownedObjs
 	}
+	// Object owns no other objects, remove it from the graph.
 	g.global.Delete(or.ID())
+	// Also remove it from all owners' owned objects.
+	// Range over all object in the graph and call modify for each with
+	// a function that removes the object from the owned objects slice.
 	g.global.Range(func(ownerID ID, ownedObjs *[]ObjectReference) bool {
 		g.global.Modify(ownerID, func(ownedObjs *[]ObjectReference, _ bool) *[]ObjectReference {
 			newOwnedObjs := slices.DeleteFunc(*ownedObjs, func(ownedObj ObjectReference) bool {
