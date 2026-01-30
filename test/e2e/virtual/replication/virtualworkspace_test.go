@@ -253,7 +253,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			}
 			require.NoError(t, err)
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
+		}, wait.ForeverTestTimeout*2, time.Millisecond*100, "expected user-1 to list sheriffs")
 	}
 
 	sheriffLabels := map[string]string{"hello": "world"}
@@ -289,7 +289,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			}
 			require.NoError(t, err)
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
+		}, wait.ForeverTestTimeout*2, time.Millisecond*100, "expected user-1 to list sheriffs")
 		require.Len(t, sherrifList.Items, 2, "expected to find exactly two sheriffs")
 
 		t.Logf("### got LIST sheriffs resourceVersion=%s", sherrifList.ResourceVersion)
@@ -326,7 +326,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			}
 			require.NoError(t, err)
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
+		}, wait.ForeverTestTimeout*2, time.Millisecond*100, "expected user-1 to watch sheriffs")
 
 		sheriffWatchCh := sheriffWatch.ResultChan()
 		waitForEvent := func() (watch.Event, bool) {

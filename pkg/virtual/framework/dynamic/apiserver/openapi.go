@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
+	validationspec "k8s.io/kube-openapi/pkg/validation/spec"
 	"k8s.io/utils/keymutex"
 	"k8s.io/utils/lru"
 
@@ -305,10 +307,18 @@ func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) 
 		},
 	}
 
-	for _, ver := range versions {
+	if isCRDResource(crd) {
+		ensureCompleteSchemaGeneration(crd)
+	}
+
+	for i, ver := range versions {
 		spec, err := builder.BuildOpenAPIV3(crd, ver.Name, builder.Options{V2: false})
 		if err != nil {
 			return nil, err
+		}
+
+		if isCRDResource(crd) {
+			patchCRDSchemaForOpenAPI(spec, &apiResourceSchema.Spec.Versions[i])
 		}
 
 		gv := schema.GroupVersion{Group: crd.Spec.Group, Version: ver.Name}
@@ -317,6 +327,112 @@ func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) 
 	}
 
 	return specs, nil
+}
+
+// This is used to trigger special handling for CRD's recursive schema structure, ensuring
+// the OpenAPI builder generates a complete schema instead of a shallow one (due to
+// XPreserveUnknownFields behavior) and allowing validation of OpenAPI keywords.
+func ensureCompleteSchemaGeneration(crd *apiextensionsv1.CustomResourceDefinition) {
+	falseVal := false
+	for i := range crd.Spec.Versions {
+		if crd.Spec.Versions[i].Schema != nil && crd.Spec.Versions[i].Schema.OpenAPIV3Schema != nil {
+			crd.Spec.Versions[i].Schema.OpenAPIV3Schema.XPreserveUnknownFields = &falseVal
+		}
+	}
+}
+
+func patchCRDSchemaForOpenAPI(spec *spec3.OpenAPI, ver *apisv1alpha1.APIResourceVersion) {
+	if spec.Components == nil || spec.Components.Schemas == nil {
+		return
+	}
+
+	for name, s := range spec.Components.Schemas {
+		if !strings.HasSuffix(name, "CustomResourceDefinition") {
+			continue
+		}
+		if _, hasSpec := s.Properties["spec"]; hasSpec {
+			continue
+		}
+
+		sourceSchema, err := ver.GetSchema()
+		if err != nil || sourceSchema == nil {
+			continue
+		}
+
+		patchedSchema, err := convertToOpenAPISchema(sourceSchema)
+		if err != nil {
+			continue
+		}
+
+		patchedSchema.VendorExtensible.Extensions = s.VendorExtensible.Extensions
+		enhanceOpenAPIV3SchemaProperty(&patchedSchema)
+		spec.Components.Schemas[name] = &patchedSchema
+	}
+}
+
+func convertToOpenAPISchema(source *apiextensionsv1.JSONSchemaProps) (validationspec.Schema, error) {
+	bs, err := json.Marshal(source)
+	if err != nil {
+		return validationspec.Schema{}, err
+	}
+
+	var result validationspec.Schema
+	if err := json.Unmarshal(bs, &result); err != nil {
+		return validationspec.Schema{}, err
+	}
+
+	return result, nil
+}
+
+func enhanceOpenAPIV3SchemaProperty(schema *validationspec.Schema) {
+	specProp, ok := schema.Properties["spec"]
+	if !ok {
+		return
+	}
+
+	versionsProp, ok := specProp.Properties["versions"]
+	if !ok {
+		return
+	}
+
+	if versionsProp.Items == nil || versionsProp.Items.Schema == nil {
+		return
+	}
+
+	itemSchema := versionsProp.Items.Schema
+	schemaProp, ok := itemSchema.Properties["schema"]
+	if !ok {
+		return
+	}
+
+	oaProp, ok := schemaProp.Properties["openAPIV3Schema"]
+	if !ok {
+		return
+	}
+
+	if len(oaProp.Properties) > 0 {
+		return
+	}
+	if oaProp.Properties == nil {
+		oaProp.Properties = make(map[string]validationspec.Schema)
+	}
+
+	oaProp.Properties["type"] = validationspec.Schema{
+		SchemaProps: validationspec.SchemaProps{Type: []string{"string"}},
+	}
+	oaProp.Properties["properties"] = validationspec.Schema{
+		SchemaProps: validationspec.SchemaProps{
+			Type:                 []string{"object"},
+			AdditionalProperties: &validationspec.SchemaOrBool{Allows: true},
+		},
+	}
+
+	oaProp.AdditionalProperties = &validationspec.SchemaOrBool{Allows: true}
+	schemaProp.Properties["openAPIV3Schema"] = oaProp
+	itemSchema.Properties["schema"] = schemaProp
+	versionsProp.Items.Schema = itemSchema
+	specProp.Properties["versions"] = versionsProp
+	schema.Properties["spec"] = specProp
 }
 
 func groupVersionToOpenAPIV3Path(gv schema.GroupVersion) string {
