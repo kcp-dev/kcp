@@ -4228,6 +4228,10 @@ Alternatively, the tool can be ran inside a Docker container using the <code>ghc
 <p>The tool takes the path to the rules file, the branch name, and the Go version used on that branch:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>_output/update-rules<span class="w"> </span>-branch<span class="w"> </span>release-0.x<span class="w"> </span>-go<span class="w"> </span><span class="m">1</span>.x.y<span class="w"> </span>-rules<span class="w"> </span>../kcp/staging/publishing/rules.yaml<span class="w"> </span>-o<span class="w"> </span>/tmp/rules.yaml
 </code></pre></div>
+<p>Image example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/staging/publishing:/rules<span class="w"> </span>ghcr.io/kcp-dev/publishing-bot:latest<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>/update-rules<span class="w"> </span>-branch<span class="w"> </span>release-0.x<span class="w"> </span>-go<span class="w"> </span><span class="m">1</span>.x.y<span class="w"> </span>-rules<span class="w"> </span>/rules/rules.yaml<span class="w"> </span>-o<span class="w"> </span>/rules/rules.yaml
+</code></pre></div>
 <p>This will generate a temporary rules file in <code>/tmp/rules.yaml</code>. You'll need to replace <code>staging/publishing/rules.yaml</code>
 in the kcp repo with that temporary file and push it to the repo before proceeding. The new rules file will be used
 on the next publishing-bot run automatically.</p>
@@ -4235,20 +4239,20 @@ on the next publishing-bot run automatically.</p>
 <p>To generate release notes from the information in PR descriptions you should use Kubernetes' <a href="https://github.com/kubernetes/release/tree/master/cmd/release-notes">release-notes</a> tool.
 This tool will use the <code>release-notes</code> blocks in PR descriptions and the <code>kind/</code> labels on those PRs to find user-facing changes and categorize them.
 You can run the command below to install the latest version of it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>go<span class="w"> </span>install<span class="w"> </span>k8s.io/release/cmd/release-notes@latest
 </code></pre></div>
 <p>To use <code>release-notes</code> you will need to generate a GitHub API token (Settings -&gt; Developers settings -&gt; Personal access tokens -&gt; Fine-grained tokens). A token with <em>Public Repositories (read-only)</em> repository access and no further permissions is sufficient. Store the token somewhere safe and export it as <code>GITHUB_TOKEN</code> environment variable.</p>
 <p>Then, run run the <code>release-notes</code> tool (set <code>PREV_VERSION</code> to the version released before the one you have just released).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">TAG</span><span class="o">=</span>v1.2.3
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">PREV_TAG</span><span class="o">=</span>v1.2.2
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>release-notes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--required-author<span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--org<span class="w"> </span>kcp-dev<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>--repo<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>--branch<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>--start-rev<span class="w"> </span><span class="nv">$PREV_TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span>--end-rev<span class="w"> </span><span class="nv">$TAG</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>--output<span class="w"> </span>CHANGELOG.md<span class="w"> </span>
 </code></pre></div>
 <p>Don't commit the <code>CHANGELOG.md</code> to the repository, just keep it around to update the release on GitHub (next step).</p>
 <h2 id="revieweditpublish-the-release-in-github">Review/Edit/Publish the Release in GitHub<a class="headerlink" href="#revieweditpublish-the-release-in-github" title="Permanent link">&para;</a></h2>
