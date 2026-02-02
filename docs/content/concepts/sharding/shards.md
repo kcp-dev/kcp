@@ -1,12 +1,14 @@
 ---
 description: >
-    Horizontal Scaling of kcp through sharding
+  Horizontal Scaling of kcp through sharding
 ---
 
 # Shards
 
+To learn how to run a sharded environment for development, see [Running a Sharded Environment](../../developers/running-sharded.md).
+
 Every kcp shard is hosting a set of logical clusters. A logical cluster is
-identified by a globally unique identifier called a *cluster name*. A shard
+identified by a globally unique identifier called a **cluster name**. A shard
 serves the logical clusters under `/clusters/<cluster-name>`.
 
 A set of known shards comprises a kcp installation.
@@ -30,7 +32,7 @@ Logical clusters are defined through the existence of a `LogicalCluster` object
 "in themselves", similar to a `.` directory defining the existence of a directory
 in Unix.
 
-Every logical cluster name `name` is a *logical cluster path*. Every logical
+Every logical cluster name `name` is a **logical cluster path**. Every logical
 cluster is reachable through `/cluster/<path>` for every of their paths.
 
 A `Workspace` in `tenancy.kcp.io/v1alpha1` of name `name` references a logical
@@ -40,21 +42,21 @@ can be reached via a path `path:name`.
 
 ## Canonical Paths
 
-The longest path a logical cluster is reachable under is called the *canonical
-path*. By default, all canonical paths start with `root`, i.e. they start in
+The longest path a logical cluster is reachable under is called the **canonical
+path**. By default, all canonical paths start with `root`, i.e. they start in
 root logical cluster.
 
 The logical cluster object annotated with `kcp.io/path: <canonical-path>`.
 
 Additional subtrees of the workspace path hierarchy can be defined by creating
-logical clusters with `kcp.io/path` annotation *not* starting in `root`. E.g.
+logical clusters with `kcp.io/path` annotation _not_ starting in `root`. E.g.
 a home workspace hierarchy could start at `home:<user-name>`. There is no need
 for the parent (`home` in this case) to exist.
 
 ## Front Proxy
 
 A front-proxy is aware of all logical clusters, their shard they live on,
-their canonical paths and all `Workspaces`s. Non canonical paths can be
+their canonical paths and all `Workspaces`. Non canonical paths can be
 reconstructed from the canonical path prefixes and the workspace names.
 
 Requests to `/cluster/<path>` are forwarded to the shard via inverse proxying.
