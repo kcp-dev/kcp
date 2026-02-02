@@ -12,6 +12,7 @@ Sharding in kcp allows you to distribute workspaces across multiple kcp server i
 **Important**: Without additional engineering effort from the platform team (building on top of kcp) at the code level, sharding in kcp is fundamentally a **capacity concept**, not a **high-availability concept**.
 
 Adding more shards increases the total number of workspaces and resources your kcp deployment can handle, but it does not automatically provide redundancy or failover capabilities for individual workspaces or providers.
+Shards operate independently, and can be made highly available at the infrastructure level (e.g., multiple replicas, high availability etcd and shards itself), but this does not translate to high availability for workspaces allocated to those shards.
 
 ### Why Sharding Alone Doesn't Provide HA
 
