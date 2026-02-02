@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Shared components and prerequisites required for all kcp production deployments.
+        <meta name="description" content="Deploy kcp with self-signed certificates across multiple regions.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/production/prerequisites/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/production/kcp-zheng/">
       
       
-        <link rel="prev" href="../overview/">
+        <link rel="prev" href="../kcp-vespucci/">
       
       
-        <link rel="next" href="../kcp-dekker/">
+        <link rel="next" href="../overview/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Prerequisites - docs.kcp.io</title>
+        <title>kcp-zheng: Multi-Region Self-Signed Certificate Deployment - docs.kcp.io</title>
       
     
     
@@ -233,7 +233,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#prerequisites" class="md-skip">
+        <a href="#kcp-zheng-multi-region-self-signed-certificate-deployment" class="md-skip">
           Skip to content
         </a>
       
@@ -270,7 +270,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Prerequisites
+              kcp-zheng: Multi-Region Self-Signed Certificate Deployment
             
           </span>
         </div>
@@ -878,30 +878,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Prerequisites
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../prerequisites/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -910,209 +890,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#required-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      Required Components
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#installation-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Installation Steps
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Installation Steps">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-etcd-druid-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. etcd-druid Operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#install-required-crds" class="md-nav__link">
-    <span class="md-ellipsis">
-      Install Required CRDs
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-cert-manager" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. cert-manager
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-kcp-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. kcp-operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-optional-oidc-provider-dex" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. (Optional) OIDC Provider (Dex)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#41-install-postgresql-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.1. Install PostgreSQL Operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#42-deploy-postgresql-database" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.2. Deploy PostgreSQL Database
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#43-configure-dex-certificates" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.3 Configure Dex Certificates
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#44-deploy-dex" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.4 Deploy Dex
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-dns-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. DNS Configuration
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5. DNS Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#kcp-dekker-self-signed" class="md-nav__link">
-    <span class="md-ellipsis">
-      kcp-dekker (Self-Signed)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#kcp-vespucci-external-certs" class="md-nav__link">
-    <span class="md-ellipsis">
-      kcp-vespucci (External Certs)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#kcp-comer-dual-front-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      kcp-comer (Dual Front-Proxy)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Verification Steps
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resource Requirements
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security Considerations
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Next Steps
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -4087,137 +3864,353 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#required-components" class="md-nav__link">
+  <a href="#architecture-overview" class="md-nav__link">
     <span class="md-ellipsis">
-      Required Components
+      Architecture Overview
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#installation-steps" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
-      Installation Steps
+      Prerequisites
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Installation Steps">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment Steps
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Steps">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-etcd-druid-operator" class="md-nav__link">
+  <a href="#1-create-dns-records" class="md-nav__link">
     <span class="md-ellipsis">
-      1. etcd-druid Operator
+      1. Create DNS Records
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#install-required-crds" class="md-nav__link">
-    <span class="md-ellipsis">
-      Install Required CRDs
-    </span>
-  </a>
+      </ul>
+    </nav>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#2-cert-manager" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#cluster-1-deploy-root-shard-and-front-proxy" class="md-nav__link">
     <span class="md-ellipsis">
-      2. cert-manager
+      Cluster 1: Deploy Root Shard and Front-Proxy
     </span>
   </a>
   
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-kcp-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. kcp-operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-optional-oidc-provider-dex" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. (Optional) OIDC Provider (Dex)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#41-install-postgresql-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.1. Install PostgreSQL Operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#42-deploy-postgresql-database" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.2. Deploy PostgreSQL Database
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#43-configure-dex-certificates" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.3 Configure Dex Certificates
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#44-deploy-dex" class="md-nav__link">
-    <span class="md-ellipsis">
-      4.4 Deploy Dex
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-dns-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. DNS Configuration
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="5. DNS Configuration">
+    <nav class="md-nav" aria-label="Cluster 1: Deploy Root Shard and Front-Proxy">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#kcp-dekker-self-signed" class="md-nav__link">
+  <a href="#2-create-namespace-and-certificate-issuer" class="md-nav__link">
     <span class="md-ellipsis">
-      kcp-dekker (Self-Signed)
+      2. Create Namespace and Certificate Issuer
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#kcp-vespucci-external-certs" class="md-nav__link">
+  <a href="#3-deploy-etcd-cluster" class="md-nav__link">
     <span class="md-ellipsis">
-      kcp-vespucci (External Certs)
+      3. Deploy etcd Cluster
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#kcp-comer-dual-front-proxy" class="md-nav__link">
+  <a href="#4-configure-kcp-system-certificates" class="md-nav__link">
     <span class="md-ellipsis">
-      kcp-comer (Dual Front-Proxy)
+      4. Configure KCP System Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-deploy-kcp-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Deploy KCP Components
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-verify-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Verify Services
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-update-dns-records-with-loadbalancer-ips" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Update DNS Records with LoadBalancer IPs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-create-admin-access-and-test-connectivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Create Admin Access and Test Connectivity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-create-alpha-and-beta-shard-bundles" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Create Alpha and Beta Shard Bundles
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cluster-2-deploy-alpha-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cluster 2: Deploy Alpha Shard
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cluster 2: Deploy Alpha Shard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Create Namespace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-install-prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Install Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-deploy-etcd-issuers-and-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Deploy etcd Issuers and Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-deploy-etcd-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Deploy etcd Cluster
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-deploy-alpha-shard-from-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Deploy Alpha Shard from Bundle
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-configure-dns-for-alpha-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Configure DNS for Alpha Shard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-verify-alpha-shard-joined" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Verify Alpha Shard Joined
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cluster-3-deploy-beta-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cluster 3: Deploy Beta Shard
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cluster 3: Deploy Beta Shard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-namespace_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Create Namespace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-install-prerequisites_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Install Prerequisites
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-deploy-etcd-issuers-and-certificates_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Deploy etcd Issuers and Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-deploy-etcd-cluster_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Deploy etcd Cluster
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-deploy-beta-shard-from-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Deploy Beta Shard from Bundle
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-configure-dns-for-beta-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Configure DNS for Beta Shard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-verify-all-shards-joined" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Verify All Shards Joined
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-create-partitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Optional: Create Partitions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional: Create Partitions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-create-individual-partitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1: Create Individual Partitions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-use-a-partitionset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2: Use a PartitionSet
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-workspaces-on-specific-shards" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Workspaces on Specific Shards
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#partitions-in-non-root-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Partitions in Non-Root Workspaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-export-and-bind-an-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Export and Bind an API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#partitioned-apiexportendpointslices-for-high-availability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Partitioned APIExportEndpointSlices for High Availability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-availability-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      High Availability Testing
     </span>
   </a>
   
@@ -4230,42 +4223,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Verification Steps
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resource-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resource Requirements
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security Considerations
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Next Steps
-    </span>
-  </a>
   
 </li>
       
@@ -4287,196 +4244,525 @@
   
 
 
-<h1 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h1>
-<p>Before deploying any kcp production variant, you must install shared components that all deployments depend on. This guide covers the installation and configuration of these foundational components.</p>
+<h1 id="kcp-zheng-multi-region-self-signed-certificate-deployment">kcp-zheng: Multi-Region Self-Signed Certificate Deployment<a class="headerlink" href="#kcp-zheng-multi-region-self-signed-certificate-deployment" title="Permanent link">&para;</a></h1>
+<p>The kcp-zheng deployment pattern uses self-signed certificates with an internal CA and is ideal for multi-region deployments across different clouds without shared network. In this scenario we use 3 different Kubernetes clusters for shards, with all shards accessed via external URLs and front-proxy as the only public endpoint.</p>
+<p>Note: This guilde uses kcp-operators bundle feature to deploy shards from the root cluster. Ensure you have flag enabled in your kcp-operator deployment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--feature-gates=ConfigurationBundle=true</span>
+</code></pre></div>
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A Kubernetes cluster with sufficient resources</li>
-<li><code>kubectl</code> configured to access your cluster  </li>
-<li><code>helm</code> CLI tool installed</li>
-<li>DNS management capability (manual or automated)</li>
-<li>(Optional) CloudFlare account for DNS01 challenges</li>
+<li><strong>Certificate approach</strong>: All certificates are self-signed using an internal CA</li>
+<li><strong>Access pattern</strong>: Only front-proxy is publicly accessible, shards have external URLs for cross-region access</li>
+<li><strong>Network</strong>: 3 Kubernetes cluster deployments in different clouds without shared network</li>
+<li><strong>DNS requirements</strong>: Public DNS records for front-proxy and each shard</li>
 </ul>
-<h2 id="required-components">Required Components<a class="headerlink" href="#required-components" title="Permanent link">&para;</a></h2>
-<p>All kcp production deployments require:</p>
-<ol>
-<li><strong>etcd-druid operator</strong> - Database storage management</li>
-<li><strong>cert-manager</strong> - Certificate lifecycle management  </li>
-<li><strong>kcp-operator</strong> - kcp resource lifecycle management</li>
-<li><strong>OIDC provider (dex)</strong> - Authentication services</li>
-<li><strong>DNS configuration</strong> - Domain name resolution</li>
-<li><strong>LoadBalancer service</strong> - External traffic routing</li>
-</ol>
-<h2 id="installation-steps">Installation Steps<a class="headerlink" href="#installation-steps" title="Permanent link">&para;</a></h2>
-<h3 id="1-etcd-druid-operator">1. etcd-druid Operator<a class="headerlink" href="#1-etcd-druid-operator" title="Permanent link">&para;</a></h3>
-<p>etcd-druid manages etcd clusters for kcp shards with automated backup, restore, and scaling capabilities.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Install etcd-druid operator</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>helm<span class="w"> </span>install<span class="w"> </span>etcd-druid<span class="w"> </span>oci://europe-docker.pkg.dev/gardener-project/releases/charts/gardener/etcd-druid<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--namespace<span class="w"> </span>etcd-druid<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--version<span class="w"> </span>v0.33.0
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Ensure all <a href="../prerequisites/">shared components</a> are installed before proceeding.</p>
+<p><strong>Additional requirements for kcp-zheng:</strong>
+- Public DNS domain with ability to create multiple A records
+- LoadBalancer service capability for front-proxy and shard endpoints
+- External network connectivity between clusters</p>
+<h2 id="deployment-steps">Deployment Steps<a class="headerlink" href="#deployment-steps" title="Permanent link">&para;</a></h2>
+<h3 id="1-create-dns-records">1. Create DNS Records<a class="headerlink" href="#1-create-dns-records" title="Permanent link">&para;</a></h3>
+<p>Create public DNS records for all endpoints:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Required DNS records</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>api.zheng.example.io<span class="w">    </span>→<span class="w"> </span>Front-proxy<span class="w"> </span>LoadBalancer<span class="w"> </span>IP<span class="w"> </span><span class="o">(</span>cluster<span class="w"> </span><span class="m">1</span><span class="o">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>root.zheng.example.io<span class="w">   </span>→<span class="w"> </span>Root<span class="w"> </span>shard<span class="w"> </span>LoadBalancer<span class="w"> </span>IP<span class="w"> </span><span class="o">(</span>cluster<span class="w"> </span><span class="m">1</span><span class="o">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>alpha.zheng.example.io<span class="w">  </span>→<span class="w"> </span>Alpha<span class="w"> </span>shard<span class="w"> </span>LoadBalancer<span class="w"> </span>IP<span class="w"> </span><span class="o">(</span>cluster<span class="w"> </span><span class="m">2</span><span class="o">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>beta.zheng.example.io<span class="w">   </span>→<span class="w"> </span>Beta<span class="w"> </span>shard<span class="w"> </span>LoadBalancer<span class="w"> </span>IP<span class="w"> </span><span class="o">(</span>cluster<span class="w"> </span><span class="m">3</span><span class="o">)</span>
 </code></pre></div>
-<h3 id="install-required-crds">Install Required CRDs<a class="headerlink" href="#install-required-crds" title="Permanent link">&para;</a></h3>
-<p><strong>Known Issue</strong>: The etcd-druid chart doesn't install CRDs automatically. Install them manually:
-(<a href="https://github.com/gardener/etcd-druid/issues/1185">Issue #1185</a>).
-Once #1185 is released, this step can be skipped.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcdcopybackupstasks.druid.gardener.cloud.yaml
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcds.druid.gardener.cloud.yaml
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>DNS records must be configured before proceeding with deployment.</p>
+</div>
+<hr />
+<h2 id="cluster-1-deploy-root-shard-and-front-proxy">Cluster 1: Deploy Root Shard and Front-Proxy<a class="headerlink" href="#cluster-1-deploy-root-shard-and-front-proxy" title="Permanent link">&para;</a></h2>
+<h3 id="2-create-namespace-and-certificate-issuer">2. Create Namespace and Certificate Issuer<a class="headerlink" href="#2-create-namespace-and-certificate-issuer" title="Permanent link">&para;</a></h3>
+<p>On cluster 1, where the operator is running and root shard will be deployed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>kcp-zheng
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/certificate-etcd-issuer.yaml
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/certificate-etcd-root.yaml
 </code></pre></div>
-<h3 id="2-cert-manager">2. cert-manager<a class="headerlink" href="#2-cert-manager" title="Permanent link">&para;</a></h3>
-<p>cert-manager automates certificate management for TLS encryption throughout the kcp deployment.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>jetstack<span class="w"> </span>https://charts.jetstack.io
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>helm<span class="w"> </span>upgrade<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--install<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>--namespace<span class="w"> </span>cert-manager<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span>--version<span class="w"> </span>v1.18.2<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span>--set<span class="w"> </span>crds.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span>--atomic<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>cert-manager<span class="w"> </span>jetstack/cert-manager
+<p><strong>Verify issuer is ready</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>issuer<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
 </code></pre></div>
-<p>Optional:</p>
-<p>We gonna use the CloudFlare DNS01 challenge solver for Let's Encrypt certificates in some deployment variants. If you plan to use CloudFlare, install the cert-manager CloudFlare DNS01 solver:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml.template<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml<span class="w">        </span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># Edit contrib/production/cert-manager/cluster-issuer.yaml to add your Email.</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cp<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml.template<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Edit contrib/production/cert-manager/cloudflare-secret.yaml to add your CloudFlare API token.</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml
+<h3 id="3-deploy-etcd-cluster">3. Deploy etcd Cluster<a class="headerlink" href="#3-deploy-etcd-cluster" title="Permanent link">&para;</a></h3>
+<p>Deploy etcd cluster with self-signed certificates:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/etcd-druid-root.yaml
 </code></pre></div>
-<h3 id="3-kcp-operator">3. kcp-operator<a class="headerlink" href="#3-kcp-operator" title="Permanent link">&para;</a></h3>
-<p>The kcp-operator manages kcp resource lifecycle and ensures proper configuration.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>kcp<span class="w"> </span>https://kcp-dev.github.io/helm-charts
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--namespace<span class="w"> </span>kcp-operator<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>kcp-operator<span class="w"> </span>kcp/kcp-operator
+<p><strong>Verify etcd cluster</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>--all<span class="w"> </span>--timeout<span class="o">=</span>300s
+</code></pre></div></p>
+<h3 id="4-configure-kcp-system-certificates">4. Configure KCP System Certificates<a class="headerlink" href="#4-configure-kcp-system-certificates" title="Permanent link">&para;</a></h3>
+<p>Set up certificates for kcp components using the internal CA:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/certificate-kcp.yaml
 </code></pre></div>
-<h3 id="4-optional-oidc-provider-dex">4. (Optional) OIDC Provider (Dex)<a class="headerlink" href="#4-optional-oidc-provider-dex" title="Permanent link">&para;</a></h3>
-<p>If you have an existing OIDC provider, you can skip this section. This guide uses Dex as the OIDC provider with PostgreSQL as the backend database.</p>
-<h3 id="41-install-postgresql-operator">4.1. Install PostgreSQL Operator<a class="headerlink" href="#41-install-postgresql-operator" title="Permanent link">&para;</a></h3>
-<p>Create the OIDC namespace and install CloudNative PostgreSQL operator:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>oidc
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>--server-side<span class="w"> </span>-f<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
+<p><strong>Verify certificate issuance</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>certificate<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<p>Because we use Let's Encrypt for the front-proxy, and since kubectl needs explicit CA configuration, we need to deploy kcp components with extended CA bundle trust:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>isrgrootx1.pem<span class="w"> </span>https://letsencrypt.org/certs/isrgrootx1.pem
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>letsencrypt-ca<span class="w"> </span>--from-file<span class="o">=</span>tls.crt<span class="o">=</span>isrgrootx1.pem<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
 </code></pre></div>
-<h3 id="42-deploy-postgresql-database">4.2. Deploy PostgreSQL Database<a class="headerlink" href="#42-deploy-postgresql-database" title="Permanent link">&para;</a></h3>
-<p>Create a PostgreSQL cluster and database for Dex:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/postgres-cluster.yaml
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/postgres-database.yaml
+<h3 id="5-deploy-kcp-components">5. Deploy KCP Components<a class="headerlink" href="#5-deploy-kcp-components" title="Permanent link">&para;</a></h3>
+<p>Deploy kcp components:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># NOTE: These files need to be customized with your domain name before applying</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kcp-root-shard.yaml
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kcp-front-proxy.yaml
 </code></pre></div>
-<h3 id="43-configure-dex-certificates">4.3 Configure Dex Certificates<a class="headerlink" href="#43-configure-dex-certificates" title="Permanent link">&para;</a></h3>
-<p>Request a certificate for Dex from cert-manager:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/certificate-dns.yaml
+<p><strong>Verify deployment</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<h3 id="6-verify-services">6. Verify Services<a class="headerlink" href="#6-verify-services" title="Permanent link">&para;</a></h3>
+<p>Ensure the front-proxy LoadBalancer is provisioned:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>-o<span class="w"> </span>wide
 </code></pre></div>
-<h3 id="44-deploy-dex">4.4 Deploy Dex<a class="headerlink" href="#44-deploy-dex" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Check certificate status</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>certificate<span class="w"> </span>-n<span class="w"> </span>oidc
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Once the certificate is ready, generate Dex values file</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>cp<span class="w"> </span>contrib/production/oidc-dex/values.yaml.template<span class="w"> </span>contrib/production/oidc-dex/values.yaml
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># Edit contrib/production/oidc-dex/values.yaml to set the correct domain name for Dex and database credentials.</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>dex<span class="w"> </span>https://charts.dexidp.io
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>-i<span class="w"> </span>dex<span class="w"> </span>dex/dex<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span>--namespace<span class="w"> </span>oidc<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span>-f<span class="w"> </span>contrib/production/oidc-dex/values.yaml
+<p><strong>Expected services</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>NAME                     TYPE           EXTERNAL-IP     PORT(S)          AGE
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>frontproxy-front-proxy   LoadBalancer   203.0.113.10    6443:30001/TCP   5m
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>root-kcp                 LoadBalancer   203.0.113.11    6443:30002/TCP   5m
+</code></pre></div></p>
+<h3 id="7-update-dns-records-with-loadbalancer-ips">7. Update DNS Records with LoadBalancer IPs<a class="headerlink" href="#7-update-dns-records-with-loadbalancer-ips" title="Permanent link">&para;</a></h3>
+<p>Update your DNS records with the LoadBalancer IP addresses:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>frontproxy-front-proxy<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.loadBalancer}&#39;</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>root-kcp<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.loadBalancer}&#39;</span>
 </code></pre></div>
-<h3 id="5-dns-configuration">5. DNS Configuration<a class="headerlink" href="#5-dns-configuration" title="Permanent link">&para;</a></h3>
-<p>Each deployment type requires specific DNS records. The exact requirements depend on your chosen variant:</p>
-<h4 id="kcp-dekker-self-signed">kcp-dekker (Self-Signed)<a class="headerlink" href="#kcp-dekker-self-signed" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>api.dekker.example.com → LoadBalancer IP
+<p><strong>Verify DNS propagation</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>nslookup<span class="w"> </span>api.zheng.example.com
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>nslookup<span class="w"> </span>root.zheng.example.com
+</code></pre></div></p>
+<p>Verify the front-proxy is accessible:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>curl<span class="w"> </span>-k<span class="w"> </span>https://api.zheng.example.com:6443/healthz
+</code></pre></div></p>
+<h3 id="8-create-admin-access-and-test-connectivity">8. Create Admin Access and Test Connectivity<a class="headerlink" href="#8-create-admin-access-and-test-connectivity" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kubeconfig-kcp-admin.yaml
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>kcp-admin-frontproxy<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.kubeconfig}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>kcp-admin-kubeconfig-zheng.yaml
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nv">KUBECONFIG</span><span class="o">=</span>kcp-admin-kubeconfig-zheng.yaml<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shards
 </code></pre></div>
-<h4 id="kcp-vespucci-external-certs">kcp-vespucci (External Certs)<a class="headerlink" href="#kcp-vespucci-external-certs" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>api.vespucci.example.com → LoadBalancer IP
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>root.vespucci.example.com → LoadBalancer IP  
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>alpha.vespucci.example.com → LoadBalancer IP
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>beta.vespucci.example.com → LoadBalancer IP - remote
+<p><strong>Expected output</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>NAME   REGION   URL                                    EXTERNAL URL                          AGE
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>root            https://root.zheng.example.io:6443    https://api.zheng.example.io:6443     3m20s
+</code></pre></div></p>
+<h3 id="9-create-alpha-and-beta-shard-bundles">9. Create Alpha and Beta Shard Bundles<a class="headerlink" href="#9-create-alpha-and-beta-shard-bundles" title="Permanent link">&para;</a></h3>
+<p>Now configure the root cluster to generate alpha and beta shard bundles:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kcp-alpha-shard.yaml
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kcp-beta-shard.yaml
 </code></pre></div>
-<h4 id="kcp-comer-dual-front-proxy">kcp-comer (Dual Front-Proxy)<a class="headerlink" href="#kcp-comer-dual-front-proxy" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>api.comer.example.com → CDN/LoadBalancer IP
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>root.comer.example.com → Internal LoadBalancer IP
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>alpha.comer.example.com → Internal LoadBalancer IP
+<p><strong>Verify bundles are created</strong> (shards should NOT be running yet):
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>deployments.apps<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<p><strong>Expected output</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>NAME                     READY   UP-TO-DATE   AVAILABLE   AGE
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>alpha-shard-kcp          0/0     0            0           2m
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>beta-shard-kcp           0/0     0            0           2m
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>frontproxy-front-proxy   2/2     2            2           31m
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>root-kcp                 2/2     2            2           31m
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>root-proxy               2/2     2            2           31m
+</code></pre></div></p>
+<p><strong>Verify bundles are ready</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>bundles.operator.kcp.io<span class="w"> </span>-A
+</code></pre></div></p>
+<p><strong>Expected output</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>NAMESPACE   NAME           TARGET   PHASE   AGE
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>kcp-zheng   alpha-bundle            Ready   2m
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>kcp-zheng   beta-bundle             Ready   2m
+</code></pre></div></p>
+<hr />
+<h2 id="cluster-2-deploy-alpha-shard">Cluster 2: Deploy Alpha Shard<a class="headerlink" href="#cluster-2-deploy-alpha-shard" title="Permanent link">&para;</a></h2>
+<p>Now move to cluster 2 and deploy the alpha shard using the generated bundle.</p>
+<h3 id="1-create-namespace">1. Create Namespace<a class="headerlink" href="#1-create-namespace" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>kcp-zheng
 </code></pre></div>
-<h2 id="verification-steps">Verification Steps<a class="headerlink" href="#verification-steps" title="Permanent link">&para;</a></h2>
-<p>After installing all prerequisites, verify the installation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Check all required namespaces exist</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>namespaces<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">&quot;(cert-manager|etcd-druid|kcp-operator|dex)&quot;</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Verify operators are running</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-A<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">&quot;(cert-manager|etcd-druid|kcp-operator|dex)&quot;</span>
+<h3 id="2-install-prerequisites">2. Install Prerequisites<a class="headerlink" href="#2-install-prerequisites" title="Permanent link">&para;</a></h3>
+<p>Install etcd operator:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>helm<span class="w"> </span>install<span class="w"> </span>etcd-druid<span class="w"> </span>oci://europe-docker.pkg.dev/gardener-project/releases/charts/gardener/etcd-druid<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>--namespace<span class="w"> </span>etcd-druid<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">  </span>--version<span class="w"> </span>v0.33.0
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcdcopybackupstasks.druid.gardener.cloud.yaml
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcds.druid.gardener.cloud.yaml
+</code></pre></div></p>
+<p>Install cert-manager if not already installed:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>jetstack<span class="w"> </span>https://charts.jetstack.io
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>helm<span class="w"> </span>upgrade<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span>--install<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">  </span>--namespace<span class="w"> </span>cert-manager<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="w">  </span>--version<span class="w"> </span>v1.18.2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="w">  </span>--set<span class="w"> </span>crds.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">  </span>--atomic<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="w">  </span>cert-manager<span class="w"> </span>jetstack/cert-manager
+</code></pre></div></p>
+<h3 id="3-deploy-etcd-issuers-and-certificates">3. Deploy etcd Issuers and Certificates<a class="headerlink" href="#3-deploy-etcd-issuers-and-certificates" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/certificate-etcd-issuer.yaml
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/certificate-etcd-alpha.yaml
 </code></pre></div>
-<h2 id="resource-requirements">Resource Requirements<a class="headerlink" href="#resource-requirements" title="Permanent link">&para;</a></h2>
-<p>Minimum recommended resources for shared components:</p>
+<h3 id="4-deploy-etcd-cluster">4. Deploy etcd Cluster<a class="headerlink" href="#4-deploy-etcd-cluster" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/etcd-druid-alpha.yaml
+</code></pre></div>
+<p><strong>Verify etcd cluster</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>--all<span class="w"> </span>--timeout<span class="o">=</span>300s
+</code></pre></div></p>
+<h3 id="5-deploy-alpha-shard-from-bundle">5. Deploy Alpha Shard from Bundle<a class="headerlink" href="#5-deploy-alpha-shard-from-bundle" title="Permanent link">&para;</a></h3>
+<p>Once etcd is ready, deploy the alpha shard using the generated bundle from cluster 1.</p>
+<p>On cluster 1, export the alpha bundle secret:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>alpha-bundle<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span>&gt;<span class="w"> </span>alpha-bundle.yaml
+</code></pre></div></p>
+<p>Copy the <code>alpha-bundle.yaml</code> file to cluster 2 and apply it:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>alpha-bundle.yaml
+</code></pre></div></p>
+<p>Deploy resources from the bundle secret:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>../kcp-operator/_build/bundler<span class="w"> </span>--bundle-name<span class="w"> </span>alpha-bundle<span class="w"> </span>--bundle-namespace<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<p><strong>Verify shard is running</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<p><strong>Expected output</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>NAME                               READY   STATUS    RESTARTS   AGE
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>alpha-0                            2/2     Running   0          9m
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>alpha-1                            2/2     Running   0          9m
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>alpha-2                            2/2     Running   0          9m
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>alpha-shard-kcp-69db8985bf-hllmw   1/1     Running   0          90s
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>alpha-shard-kcp-69db8985bf-qzftr   1/1     Running   0          90s
+</code></pre></div></p>
+<h3 id="6-configure-dns-for-alpha-shard">6. Configure DNS for Alpha Shard<a class="headerlink" href="#6-configure-dns-for-alpha-shard" title="Permanent link">&para;</a></h3>
+<p>Get the LoadBalancer IP:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>alpha-shard-kcp
+</code></pre></div></p>
+<p>Add DNS record <code>alpha.zheng.example.io</code> pointing to the shard LoadBalancer IP.</p>
+<p><strong>Verify DNS propagation</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>nslookup<span class="w"> </span>alpha.zheng.example.com
+</code></pre></div></p>
+<h3 id="7-verify-alpha-shard-joined">7. Verify Alpha Shard Joined<a class="headerlink" href="#7-verify-alpha-shard-joined" title="Permanent link">&para;</a></h3>
+<p>From any machine with the admin kubeconfig:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="nv">KUBECONFIG</span><span class="o">=</span>kcp-admin-kubeconfig-zheng.yaml<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shards
+</code></pre></div></p>
+<p><strong>Expected output</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>NAME    REGION   URL                                     EXTERNAL URL                          AGE
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>alpha            https://alpha.zheng.example.io:6443    https://api.zheng.example.io:6443     2m
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>root             https://root.zheng.example.io:6443     https://api.zheng.example.io:6443     38m
+</code></pre></div></p>
+<hr />
+<h2 id="cluster-3-deploy-beta-shard">Cluster 3: Deploy Beta Shard<a class="headerlink" href="#cluster-3-deploy-beta-shard" title="Permanent link">&para;</a></h2>
+<p>Repeat the same steps as cluster 2 for the beta shard.</p>
+<h3 id="1-create-namespace_1">1. Create Namespace<a class="headerlink" href="#1-create-namespace_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>kcp-zheng
+</code></pre></div>
+<h3 id="2-install-prerequisites_1">2. Install Prerequisites<a class="headerlink" href="#2-install-prerequisites_1" title="Permanent link">&para;</a></h3>
+<p>Install etcd operator:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>helm<span class="w"> </span>install<span class="w"> </span>etcd-druid<span class="w"> </span>oci://europe-docker.pkg.dev/gardener-project/releases/charts/gardener/etcd-druid<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a><span class="w">  </span>--namespace<span class="w"> </span>etcd-druid<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a><span class="w">  </span>--version<span class="w"> </span>v0.33.0
+<a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a>
+<a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcdcopybackupstasks.druid.gardener.cloud.yaml
+<a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcds.druid.gardener.cloud.yaml
+</code></pre></div></p>
+<p>Install cert-manager if not already installed:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>jetstack<span class="w"> </span>https://charts.jetstack.io
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>helm<span class="w"> </span>upgrade<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a><span class="w">  </span>--install<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a><span class="w">  </span>--namespace<span class="w"> </span>cert-manager<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a><span class="w">  </span>--version<span class="w"> </span>v1.18.2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a><span class="w">  </span>--set<span class="w"> </span>crds.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-10" name="__codelineno-40-10" href="#__codelineno-40-10"></a><span class="w">  </span>--atomic<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-40-11" name="__codelineno-40-11" href="#__codelineno-40-11"></a><span class="w">  </span>cert-manager<span class="w"> </span>jetstack/cert-manager
+</code></pre></div></p>
+<h3 id="3-deploy-etcd-issuers-and-certificates_1">3. Deploy etcd Issuers and Certificates<a class="headerlink" href="#3-deploy-etcd-issuers-and-certificates_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/certificate-etcd-issuer.yaml
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/certificate-etcd-beta.yaml
+</code></pre></div>
+<h3 id="4-deploy-etcd-cluster_1">4. Deploy etcd Cluster<a class="headerlink" href="#4-deploy-etcd-cluster_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/etcd-druid-beta.yaml
+</code></pre></div>
+<p><strong>Verify etcd cluster</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>--all<span class="w"> </span>--timeout<span class="o">=</span>300s
+</code></pre></div></p>
+<h3 id="5-deploy-beta-shard-from-bundle">5. Deploy Beta Shard from Bundle<a class="headerlink" href="#5-deploy-beta-shard-from-bundle" title="Permanent link">&para;</a></h3>
+<p>On cluster 1, export the beta bundle secret:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>beta-bundle<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span>&gt;<span class="w"> </span>beta-bundle.yaml
+</code></pre></div></p>
+<p>Copy the <code>beta-bundle.yaml</code> file to cluster 3 and apply it:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>beta-bundle.yaml
+</code></pre></div></p>
+<p>Deploy resources from the bundle secret:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>../kcp-operator/_build/bundler<span class="w"> </span>--bundle-name<span class="w"> </span>beta-bundle<span class="w"> </span>--bundle-namespace<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<p><strong>Verify shard is running</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
+</code></pre></div></p>
+<h3 id="6-configure-dns-for-beta-shard">6. Configure DNS for Beta Shard<a class="headerlink" href="#6-configure-dns-for-beta-shard" title="Permanent link">&para;</a></h3>
+<p>Get the LoadBalancer IP:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>beta-shard-kcp
+</code></pre></div></p>
+<p>Add DNS record <code>beta.zheng.example.io</code> pointing to the shard LoadBalancer IP.</p>
+<p><strong>Verify DNS propagation</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>nslookup<span class="w"> </span>beta.zheng.example.io
+</code></pre></div></p>
+<h3 id="7-verify-all-shards-joined">7. Verify All Shards Joined<a class="headerlink" href="#7-verify-all-shards-joined" title="Permanent link">&para;</a></h3>
+<p>From any machine with the admin kubeconfig:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="nv">KUBECONFIG</span><span class="o">=</span>kcp-admin-kubeconfig-zheng.yaml<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shards
+</code></pre></div></p>
+<p><strong>Expected output</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>NAME    REGION   URL                                     EXTERNAL URL                          AGE
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>alpha            https://alpha.zheng.example.io:6443    https://api.zheng.example.io:6443     15m
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>beta             https://beta.zheng.example.io:6443     https://api.zheng.example.io:6443     2m
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>root             https://root.zheng.example.io:6443     https://api.zheng.example.io:6443     50m
+</code></pre></div></p>
+<h3 id="optional-create-partitions">Optional: Create Partitions<a class="headerlink" href="#optional-create-partitions" title="Permanent link">&para;</a></h3>
+<p>Partitions allow you to group shards for topology-aware workload placement. This is useful for geo-distributed deployments where you want to control which shards handle specific workloads.</p>
+<h4 id="option-1-create-individual-partitions">Option 1: Create Individual Partitions<a class="headerlink" href="#option-1-create-individual-partitions" title="Permanent link">&para;</a></h4>
+<p>Create a partition for each shard:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-52-3" name="__codelineno-52-3" href="#__codelineno-52-3"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-52-4" name="__codelineno-52-4" href="#__codelineno-52-4"></a><span class="s">metadata:</span>
+<a id="__codelineno-52-5" name="__codelineno-52-5" href="#__codelineno-52-5"></a><span class="s">  name: root</span>
+<a id="__codelineno-52-6" name="__codelineno-52-6" href="#__codelineno-52-6"></a><span class="s">spec:</span>
+<a id="__codelineno-52-7" name="__codelineno-52-7" href="#__codelineno-52-7"></a><span class="s">  selector:</span>
+<a id="__codelineno-52-8" name="__codelineno-52-8" href="#__codelineno-52-8"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-52-9" name="__codelineno-52-9" href="#__codelineno-52-9"></a><span class="s">      name: root</span>
+<a id="__codelineno-52-10" name="__codelineno-52-10" href="#__codelineno-52-10"></a><span class="s">---</span>
+<a id="__codelineno-52-11" name="__codelineno-52-11" href="#__codelineno-52-11"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-52-12" name="__codelineno-52-12" href="#__codelineno-52-12"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-52-13" name="__codelineno-52-13" href="#__codelineno-52-13"></a><span class="s">metadata:</span>
+<a id="__codelineno-52-14" name="__codelineno-52-14" href="#__codelineno-52-14"></a><span class="s">  name: alpha</span>
+<a id="__codelineno-52-15" name="__codelineno-52-15" href="#__codelineno-52-15"></a><span class="s">spec:</span>
+<a id="__codelineno-52-16" name="__codelineno-52-16" href="#__codelineno-52-16"></a><span class="s">  selector:</span>
+<a id="__codelineno-52-17" name="__codelineno-52-17" href="#__codelineno-52-17"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-52-18" name="__codelineno-52-18" href="#__codelineno-52-18"></a><span class="s">      name: alpha</span>
+<a id="__codelineno-52-19" name="__codelineno-52-19" href="#__codelineno-52-19"></a><span class="s">---</span>
+<a id="__codelineno-52-20" name="__codelineno-52-20" href="#__codelineno-52-20"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-52-21" name="__codelineno-52-21" href="#__codelineno-52-21"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-52-22" name="__codelineno-52-22" href="#__codelineno-52-22"></a><span class="s">metadata:</span>
+<a id="__codelineno-52-23" name="__codelineno-52-23" href="#__codelineno-52-23"></a><span class="s">  name: beta</span>
+<a id="__codelineno-52-24" name="__codelineno-52-24" href="#__codelineno-52-24"></a><span class="s">spec:</span>
+<a id="__codelineno-52-25" name="__codelineno-52-25" href="#__codelineno-52-25"></a><span class="s">  selector:</span>
+<a id="__codelineno-52-26" name="__codelineno-52-26" href="#__codelineno-52-26"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-52-27" name="__codelineno-52-27" href="#__codelineno-52-27"></a><span class="s">      name: beta</span>
+<a id="__codelineno-52-28" name="__codelineno-52-28" href="#__codelineno-52-28"></a><span class="s">EOF</span>
+</code></pre></div>
+<h4 id="option-2-use-a-partitionset">Option 2: Use a PartitionSet<a class="headerlink" href="#option-2-use-a-partitionset" title="Permanent link">&para;</a></h4>
+<p>Alternatively, use a <code>PartitionSet</code> to automatically create partitions based on shard labels:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a><span class="s">kind: PartitionSet</span>
+<a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-53-4" name="__codelineno-53-4" href="#__codelineno-53-4"></a><span class="s">metadata:</span>
+<a id="__codelineno-53-5" name="__codelineno-53-5" href="#__codelineno-53-5"></a><span class="s">  name: cloud-regions</span>
+<a id="__codelineno-53-6" name="__codelineno-53-6" href="#__codelineno-53-6"></a><span class="s">spec:</span>
+<a id="__codelineno-53-7" name="__codelineno-53-7" href="#__codelineno-53-7"></a><span class="s">  dimensions:</span>
+<a id="__codelineno-53-8" name="__codelineno-53-8" href="#__codelineno-53-8"></a><span class="s">  - name</span>
+<a id="__codelineno-53-9" name="__codelineno-53-9" href="#__codelineno-53-9"></a><span class="s">  shardSelector:</span>
+<a id="__codelineno-53-10" name="__codelineno-53-10" href="#__codelineno-53-10"></a><span class="s">    matchExpressions:</span>
+<a id="__codelineno-53-11" name="__codelineno-53-11" href="#__codelineno-53-11"></a><span class="s">    - key: name</span>
+<a id="__codelineno-53-12" name="__codelineno-53-12" href="#__codelineno-53-12"></a><span class="s">      operator: In</span>
+<a id="__codelineno-53-13" name="__codelineno-53-13" href="#__codelineno-53-13"></a><span class="s">      values:</span>
+<a id="__codelineno-53-14" name="__codelineno-53-14" href="#__codelineno-53-14"></a><span class="s">      - root</span>
+<a id="__codelineno-53-15" name="__codelineno-53-15" href="#__codelineno-53-15"></a><span class="s">      - alpha</span>
+<a id="__codelineno-53-16" name="__codelineno-53-16" href="#__codelineno-53-16"></a><span class="s">      - beta</span>
+<a id="__codelineno-53-17" name="__codelineno-53-17" href="#__codelineno-53-17"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>Verify the partitions were created:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>partitions
+</code></pre></div>
+<p><strong>Expected output:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>NAME                        OWNER           AGE
+<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>alpha                                       6m
+<a id="__codelineno-55-3" name="__codelineno-55-3" href="#__codelineno-55-3"></a>beta                                        6m
+<a id="__codelineno-55-4" name="__codelineno-55-4" href="#__codelineno-55-4"></a>cloud-regions-alpha-hcfcx   cloud-regions   6s
+<a id="__codelineno-55-5" name="__codelineno-55-5" href="#__codelineno-55-5"></a>cloud-regions-beta-78xkz    cloud-regions   6s
+<a id="__codelineno-55-6" name="__codelineno-55-6" href="#__codelineno-55-6"></a>cloud-regions-root-4vrlm    cloud-regions   6s
+<a id="__codelineno-55-7" name="__codelineno-55-7" href="#__codelineno-55-7"></a>root                                        6m
+</code></pre></div></p>
+<h4 id="create-workspaces-on-specific-shards">Create Workspaces on Specific Shards<a class="headerlink" href="#create-workspaces-on-specific-shards" title="Permanent link">&para;</a></h4>
+<p>Create workspaces targeting specific shards using the <code>--location-selector</code> flag:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>provider<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>root
+<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-alpha-1<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>alpha
+<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-alpha-2<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>alpha
+<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-beta-1<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>beta
+<a id="__codelineno-56-5" name="__codelineno-56-5" href="#__codelineno-56-5"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-beta-2<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>beta
+</code></pre></div>
+<h4 id="partitions-in-non-root-workspaces">Partitions in Non-Root Workspaces<a class="headerlink" href="#partitions-in-non-root-workspaces" title="Permanent link">&para;</a></h4>
+<p>Partitions can also be created outside of the root workspace. For example, in the provider workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>provider
+<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>
+<a id="__codelineno-57-3" name="__codelineno-57-3" href="#__codelineno-57-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-57-4" name="__codelineno-57-4" href="#__codelineno-57-4"></a><span class="s">kind: PartitionSet</span>
+<a id="__codelineno-57-5" name="__codelineno-57-5" href="#__codelineno-57-5"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-57-6" name="__codelineno-57-6" href="#__codelineno-57-6"></a><span class="s">metadata:</span>
+<a id="__codelineno-57-7" name="__codelineno-57-7" href="#__codelineno-57-7"></a><span class="s">  name: cloud-regions</span>
+<a id="__codelineno-57-8" name="__codelineno-57-8" href="#__codelineno-57-8"></a><span class="s">spec:</span>
+<a id="__codelineno-57-9" name="__codelineno-57-9" href="#__codelineno-57-9"></a><span class="s">  dimensions:</span>
+<a id="__codelineno-57-10" name="__codelineno-57-10" href="#__codelineno-57-10"></a><span class="s">  - name</span>
+<a id="__codelineno-57-11" name="__codelineno-57-11" href="#__codelineno-57-11"></a><span class="s">  shardSelector:</span>
+<a id="__codelineno-57-12" name="__codelineno-57-12" href="#__codelineno-57-12"></a><span class="s">    matchExpressions:</span>
+<a id="__codelineno-57-13" name="__codelineno-57-13" href="#__codelineno-57-13"></a><span class="s">    - key: name</span>
+<a id="__codelineno-57-14" name="__codelineno-57-14" href="#__codelineno-57-14"></a><span class="s">      operator: In</span>
+<a id="__codelineno-57-15" name="__codelineno-57-15" href="#__codelineno-57-15"></a><span class="s">      values:</span>
+<a id="__codelineno-57-16" name="__codelineno-57-16" href="#__codelineno-57-16"></a><span class="s">      - alpha</span>
+<a id="__codelineno-57-17" name="__codelineno-57-17" href="#__codelineno-57-17"></a><span class="s">EOF</span>
+</code></pre></div>
+<h4 id="example-export-and-bind-an-api">Example: Export and Bind an API<a class="headerlink" href="#example-export-and-bind-an-api" title="Permanent link">&para;</a></h4>
+<p>Create an APIExport in the provider workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>provider
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>config/examples/cowboys/apiresourceschema.yaml
+<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a>kubectl<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>config/examples/cowboys/apiexport.yaml
+</code></pre></div>
+<p>Create bindings in the consumer workspaces:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-alpha-1
+<a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>apiexport<span class="w"> </span>root:provider:cowboys<span class="w"> </span>--name<span class="w"> </span>cowboys
+<a id="__codelineno-59-3" name="__codelineno-59-3" href="#__codelineno-59-3"></a>
+<a id="__codelineno-59-4" name="__codelineno-59-4" href="#__codelineno-59-4"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-alpha-2
+<a id="__codelineno-59-5" name="__codelineno-59-5" href="#__codelineno-59-5"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>apiexport<span class="w"> </span>root:provider:cowboys<span class="w"> </span>--name<span class="w"> </span>cowboys
+<a id="__codelineno-59-6" name="__codelineno-59-6" href="#__codelineno-59-6"></a>
+<a id="__codelineno-59-7" name="__codelineno-59-7" href="#__codelineno-59-7"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-beta-1
+<a id="__codelineno-59-8" name="__codelineno-59-8" href="#__codelineno-59-8"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>apiexport<span class="w"> </span>root:provider:cowboys<span class="w"> </span>--name<span class="w"> </span>cowboys
+<a id="__codelineno-59-9" name="__codelineno-59-9" href="#__codelineno-59-9"></a>
+<a id="__codelineno-59-10" name="__codelineno-59-10" href="#__codelineno-59-10"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-beta-2
+<a id="__codelineno-59-11" name="__codelineno-59-11" href="#__codelineno-59-11"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>apiexport<span class="w"> </span>root:provider:cowboys<span class="w"> </span>--name<span class="w"> </span>cowboys
+</code></pre></div>
+<h4 id="partitioned-apiexportendpointslices-for-high-availability">Partitioned APIExportEndpointSlices for High Availability<a class="headerlink" href="#partitioned-apiexportendpointslices-for-high-availability" title="Permanent link">&para;</a></h4>
+<p>Create dedicated child workspaces on each shard to host shard-local APIExportEndpointSlices:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider
+<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>alpha<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>alpha
+<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>beta<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>beta
+</code></pre></div>
+<p>Inside each workspace, create a partition and APIExportEndpointSlice targeting that shard:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Partitions must be co-located in the same workspace as the APIExportEndpointSlice.</p>
+</div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a><span class="c1"># Setup alpha shard endpoint</span>
+<a id="__codelineno-61-2" name="__codelineno-61-2" href="#__codelineno-61-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider:alpha
+<a id="__codelineno-61-3" name="__codelineno-61-3" href="#__codelineno-61-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-61-4" name="__codelineno-61-4" href="#__codelineno-61-4"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-61-5" name="__codelineno-61-5" href="#__codelineno-61-5"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-61-6" name="__codelineno-61-6" href="#__codelineno-61-6"></a><span class="s">metadata:</span>
+<a id="__codelineno-61-7" name="__codelineno-61-7" href="#__codelineno-61-7"></a><span class="s">  name: alpha</span>
+<a id="__codelineno-61-8" name="__codelineno-61-8" href="#__codelineno-61-8"></a><span class="s">spec:</span>
+<a id="__codelineno-61-9" name="__codelineno-61-9" href="#__codelineno-61-9"></a><span class="s">  selector:</span>
+<a id="__codelineno-61-10" name="__codelineno-61-10" href="#__codelineno-61-10"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-61-11" name="__codelineno-61-11" href="#__codelineno-61-11"></a><span class="s">      name: alpha</span>
+<a id="__codelineno-61-12" name="__codelineno-61-12" href="#__codelineno-61-12"></a><span class="s">---</span>
+<a id="__codelineno-61-13" name="__codelineno-61-13" href="#__codelineno-61-13"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-61-14" name="__codelineno-61-14" href="#__codelineno-61-14"></a><span class="s">kind: APIExportEndpointSlice</span>
+<a id="__codelineno-61-15" name="__codelineno-61-15" href="#__codelineno-61-15"></a><span class="s">metadata:</span>
+<a id="__codelineno-61-16" name="__codelineno-61-16" href="#__codelineno-61-16"></a><span class="s">  name: cowboys-alpha</span>
+<a id="__codelineno-61-17" name="__codelineno-61-17" href="#__codelineno-61-17"></a><span class="s">spec:</span>
+<a id="__codelineno-61-18" name="__codelineno-61-18" href="#__codelineno-61-18"></a><span class="s">  export:</span>
+<a id="__codelineno-61-19" name="__codelineno-61-19" href="#__codelineno-61-19"></a><span class="s">    name: cowboys</span>
+<a id="__codelineno-61-20" name="__codelineno-61-20" href="#__codelineno-61-20"></a><span class="s">    path: root:provider</span>
+<a id="__codelineno-61-21" name="__codelineno-61-21" href="#__codelineno-61-21"></a><span class="s">  partition: alpha</span>
+<a id="__codelineno-61-22" name="__codelineno-61-22" href="#__codelineno-61-22"></a><span class="s">EOF</span>
+<a id="__codelineno-61-23" name="__codelineno-61-23" href="#__codelineno-61-23"></a>
+<a id="__codelineno-61-24" name="__codelineno-61-24" href="#__codelineno-61-24"></a><span class="c1"># Setup beta shard endpoint</span>
+<a id="__codelineno-61-25" name="__codelineno-61-25" href="#__codelineno-61-25"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider:beta
+<a id="__codelineno-61-26" name="__codelineno-61-26" href="#__codelineno-61-26"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-61-27" name="__codelineno-61-27" href="#__codelineno-61-27"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-61-28" name="__codelineno-61-28" href="#__codelineno-61-28"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-61-29" name="__codelineno-61-29" href="#__codelineno-61-29"></a><span class="s">metadata:</span>
+<a id="__codelineno-61-30" name="__codelineno-61-30" href="#__codelineno-61-30"></a><span class="s">  name: beta</span>
+<a id="__codelineno-61-31" name="__codelineno-61-31" href="#__codelineno-61-31"></a><span class="s">spec:</span>
+<a id="__codelineno-61-32" name="__codelineno-61-32" href="#__codelineno-61-32"></a><span class="s">  selector:</span>
+<a id="__codelineno-61-33" name="__codelineno-61-33" href="#__codelineno-61-33"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-61-34" name="__codelineno-61-34" href="#__codelineno-61-34"></a><span class="s">      name: beta</span>
+<a id="__codelineno-61-35" name="__codelineno-61-35" href="#__codelineno-61-35"></a><span class="s">---</span>
+<a id="__codelineno-61-36" name="__codelineno-61-36" href="#__codelineno-61-36"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-61-37" name="__codelineno-61-37" href="#__codelineno-61-37"></a><span class="s">kind: APIExportEndpointSlice</span>
+<a id="__codelineno-61-38" name="__codelineno-61-38" href="#__codelineno-61-38"></a><span class="s">metadata:</span>
+<a id="__codelineno-61-39" name="__codelineno-61-39" href="#__codelineno-61-39"></a><span class="s">  name: cowboys-beta</span>
+<a id="__codelineno-61-40" name="__codelineno-61-40" href="#__codelineno-61-40"></a><span class="s">spec:</span>
+<a id="__codelineno-61-41" name="__codelineno-61-41" href="#__codelineno-61-41"></a><span class="s">  export:</span>
+<a id="__codelineno-61-42" name="__codelineno-61-42" href="#__codelineno-61-42"></a><span class="s">    name: cowboys</span>
+<a id="__codelineno-61-43" name="__codelineno-61-43" href="#__codelineno-61-43"></a><span class="s">    path: root:provider</span>
+<a id="__codelineno-61-44" name="__codelineno-61-44" href="#__codelineno-61-44"></a><span class="s">  partition: beta</span>
+<a id="__codelineno-61-45" name="__codelineno-61-45" href="#__codelineno-61-45"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>The resulting workspace structure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a>root
+<a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a>├── consumer-alpha-1
+<a id="__codelineno-62-3" name="__codelineno-62-3" href="#__codelineno-62-3"></a>├── consumer-alpha-2
+<a id="__codelineno-62-4" name="__codelineno-62-4" href="#__codelineno-62-4"></a>├── consumer-beta-1
+<a id="__codelineno-62-5" name="__codelineno-62-5" href="#__codelineno-62-5"></a>├── consumer-beta-2
+<a id="__codelineno-62-6" name="__codelineno-62-6" href="#__codelineno-62-6"></a>└── provider     (contains APIExport to be used by alpha, beta)
+<a id="__codelineno-62-7" name="__codelineno-62-7" href="#__codelineno-62-7"></a>    ├── alpha    (contains Partition + APIExportEndpointSlice for alpha shard)
+<a id="__codelineno-62-8" name="__codelineno-62-8" href="#__codelineno-62-8"></a>    └── beta     (contains Partition + APIExportEndpointSlice for beta shard)
+</code></pre></div>
+<p>The <code>provider</code> workspace is on the root shard, while <code>provider:alpha</code> and <code>provider:beta</code> are on their respective shards.</p>
+<h4 id="high-availability-testing">High Availability Testing<a class="headerlink" href="#high-availability-testing" title="Permanent link">&para;</a></h4>
+<p>Create test resources in the consumer workspaces:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-alpha-1
+<a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>config/examples/cowboys/cowboy.yaml
+<a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a>
+<a id="__codelineno-63-4" name="__codelineno-63-4" href="#__codelineno-63-4"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-beta-1
+<a id="__codelineno-63-5" name="__codelineno-63-5" href="#__codelineno-63-5"></a>kubectl<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>config/examples/cowboys/cowboy.yaml
+</code></pre></div>
+<p><strong>Simulate root shard failure</strong> by scaling down the root shard deployment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="c1"># On cluster 1</span>
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a>kubectl<span class="w"> </span>scale<span class="w"> </span>deployment<span class="w"> </span>root-kcp<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>--replicas<span class="o">=</span><span class="m">0</span>
+</code></pre></div>
+<p><strong>Verify behavior during root shard outage:</strong></p>
 <table>
 <thead>
 <tr>
-<th>Component</th>
-<th>CPU</th>
-<th>Memory</th>
-<th>Storage</th>
+<th>Operation</th>
+<th>Result</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>etcd-druid</td>
-<td>100m</td>
-<td>128Mi</td>
-<td>-</td>
+<td><code>kubectl ws use :root</code></td>
+<td>Timeout (root shard unavailable)</td>
 </tr>
 <tr>
-<td>cert-manager</td>
-<td>100m</td>
-<td>128Mi</td>
-<td>-</td>
+<td><code>kubectl ws use :root:consumer-alpha-1</code></td>
+<td>Works (alpha shard)</td>
 </tr>
 <tr>
-<td>kcp-operator</td>
-<td>100m</td>
-<td>128Mi</td>
-<td>-</td>
+<td><code>kubectl ws use :root:consumer-alpha-2</code></td>
+<td>Works (alpha shard)</td>
 </tr>
 <tr>
-<td>dex</td>
-<td>100m</td>
-<td>64Mi</td>
-<td>-</td>
+<td><code>kubectl ws use :root:provider</code></td>
+<td>Timeout (root shard unavailable)</td>
 </tr>
 <tr>
-<td><strong>Total</strong></td>
-<td><strong>400m</strong></td>
-<td><strong>448Mi</strong></td>
-<td>-</td>
+<td><code>kubectl ws use :root:provider:alpha</code></td>
+<td>Works (alpha shard)</td>
 </tr>
 </tbody>
 </table>
-<h2 id="security-considerations">Security Considerations<a class="headerlink" href="#security-considerations" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Network policies</strong>: Implement network policies to restrict communication between components</li>
-<li><strong>RBAC</strong>: Configure minimal required permissions for each component</li>
-<li><strong>Secret management</strong>: Use external secret management systems in production</li>
-<li><strong>Certificate rotation</strong>: Configure automatic certificate rotation policies</li>
-<li><strong>Backup encryption</strong>: Ensure etcd backups are encrypted at rest</li>
-</ol>
-<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
-<p>Once all prerequisites are installed and verified:</p>
-<ol>
-<li>Choose your deployment variant:</li>
-<li><a href="../kcp-dekker/">kcp-dekker</a> - Self-signed certificates</li>
-<li><a href="../kcp-vespucci/">kcp-vespucci</a> - External certificates</li>
-<li>
-<p><a href="../kcp-comer/">kcp-comer</a> - Dual front-proxy</p>
-</li>
-<li>
-<p>Follow the specific deployment guide for your chosen variant</p>
-</li>
-</ol>
+<p><strong>Access the virtual API endpoint directly:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a><span class="c1"># Get the endpoint URL from the APIExportEndpointSlice</span>
+<a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider:alpha
+<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>apiexportendpointslice<span class="w"> </span>cowboys-alpha<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.endpoints[0].url}&#39;</span>
+</code></pre></div>
+<p><strong>Expected output:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a>https://alpha.zheng.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys
+</code></pre></div></p>
+<p><strong>Query cowboys across all consumer workspaces on the alpha shard:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>kubectl<span class="w"> </span>-s<span class="w"> </span><span class="s1">&#39;https://alpha.zheng.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys/clusters/*&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-67-2" name="__codelineno-67-2" href="#__codelineno-67-2"></a><span class="w">  </span>get<span class="w"> </span>cowboys.wildwest.dev<span class="w"> </span>-A
+</code></pre></div>
+<p><strong>Expected output:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a>NAMESPACE   NAME
+<a id="__codelineno-68-2" name="__codelineno-68-2" href="#__codelineno-68-2"></a>default     john-wayne
+<a id="__codelineno-68-3" name="__codelineno-68-3" href="#__codelineno-68-3"></a>default     john-wayne
+</code></pre></div></p>
+<p>This demonstrates that alpha and beta shards can continue to serve API requests even when the root shard is unavailable, as long as they have their own APIExportEndpointSlices. Important part is that there must be dedicated operators running on each shard to manage these resources.</p>
+<p>For more details on sharding strategies, see the <a href="../../sharding/">Sharding Overview</a>.</p>
 
 
 

@@ -4044,6 +4044,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#kcp-zheng-multi-region-self-signed" class="md-nav__link">
+    <span class="md-ellipsis">
+      kcp-zheng - Multi-Region Self-Signed
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4216,6 +4225,13 @@ pods are scheduled properly.</p>
 <li><strong>Access pattern</strong>: Dual front-proxy with CloudFlare integration</li>
 <li><strong>Network</strong>: Complex multi-layer architecture with edge termination</li>
 </ul>
+<h3 id="kcp-zheng-multi-region-self-signed"><a href="kcp-zheng/">kcp-zheng</a> - Multi-Region Self-Signed<a class="headerlink" href="#kcp-zheng-multi-region-self-signed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Best for</strong>: Multi-region deployments across different clouds without shared network</li>
+<li><strong>Certificate approach</strong>: All certificates are self-signed using an internal CA</li>
+<li><strong>Access pattern</strong>: Front-proxy is public, shards have external URLs for cross-region access</li>
+<li><strong>Network</strong>: 3 Kubernetes clusters in different clouds with external shard connectivity</li>
+</ul>
 <h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
 <ol>
 <li><strong><a href="prerequisites/">Prerequisites</a></strong>: Install shared components (etcd-druid, cert-manager, kcp-operator, OIDC)</li>
@@ -4230,6 +4246,7 @@ pods are scheduled properly.</p>
 <th>kcp-dekker</th>
 <th>kcp-vespucci</th>
 <th>kcp-comer</th>
+<th>kcp-zheng</th>
 </tr>
 </thead>
 <tbody>
@@ -4238,16 +4255,19 @@ pods are scheduled properly.</p>
 <td>✓</td>
 <td>-</td>
 <td>✓</td>
+<td>✓</td>
 </tr>
 <tr>
 <td>Let's Encrypt</td>
 <td>-</td>
 <td>✓</td>
 <td>✓</td>
+<td>-</td>
 </tr>
 <tr>
 <td>Public shard access</td>
 <td>-</td>
+<td>✓</td>
 <td>✓</td>
 <td>✓</td>
 </tr>
@@ -4256,15 +4276,18 @@ pods are scheduled properly.</p>
 <td>-</td>
 <td>-</td>
 <td>✓</td>
+<td>-</td>
 </tr>
 <tr>
 <td>Multi-region</td>
 <td>✓</td>
 <td>✓</td>
 <td>✓</td>
+<td>✓</td>
 </tr>
 <tr>
 <td>OIDC authentication</td>
+<td>✓</td>
 <td>✓</td>
 <td>✓</td>
 <td>✓</td>

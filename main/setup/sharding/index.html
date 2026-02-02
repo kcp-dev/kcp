@@ -6,33 +6,33 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to create shard partitions.
+        <meta name="description" content="Sharding overview and best practices for deploying kcp with multiple shards.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/sharding/partitions/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/sharding/">
       
       
-        <link rel="prev" href="../shards/">
+        <link rel="prev" href="../quickstart/">
       
       
-        <link rel="next" href="../cache-server/">
+        <link rel="next" href="../production/">
       
       
-      <link rel="icon" href="../../../favicons/favicon.ico">
+      <link rel="icon" href="../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>Partitions - docs.kcp.io</title>
+        <title>Sharding Overview - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../stylesheets/crd.css">
+      <link rel="stylesheet" href="../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -233,7 +233,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#partitions" class="md-skip">
+        <a href="#sharding-overview" class="md-skip">
           Skip to content
         </a>
       
@@ -251,9 +251,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -270,7 +270,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Partitions
+              Sharding Overview
             
           </span>
         </div>
@@ -389,32 +389,12 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+        <a href="../.." class="md-tabs__link">
           
   
     
   
   Home
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../../setup/" class="md-tabs__link">
-          
-  
-    
-  
-  Setup
 
         </a>
       </li>
@@ -431,7 +411,27 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+        <a href="../" class="md-tabs__link">
+          
+  
+    
+  
+  Setup
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/" class="md-tabs__link">
           
   
     
@@ -451,7 +451,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../developers/" class="md-tabs__link">
+        <a href="../../developers/" class="md-tabs__link">
           
   
     
@@ -471,7 +471,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../contributing/" class="md-tabs__link">
+        <a href="../../contributing/" class="md-tabs__link">
           
   
     
@@ -491,7 +491,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../reference/" class="md-tabs__link">
+        <a href="../../reference/" class="md-tabs__link">
           
   
     
@@ -526,9 +526,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -580,7 +580,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../.." class="md-nav__link ">
+            <a href="../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -613,7 +613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../GOALS/" class="md-nav__link">
+      <a href="../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -638,6 +638,8 @@
       
   
   
+    
+  
   
   
     
@@ -660,21 +662,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../setup/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -685,13 +688,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Setup
@@ -707,7 +710,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/quickstart/" class="md-nav__link">
+      <a href="../quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -728,7 +731,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/helm/" class="md-nav__link">
+      <a href="../helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -749,7 +752,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -770,7 +773,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/integrations/" class="md-nav__link">
+      <a href="../integrations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -824,7 +827,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../setup/production/" class="md-nav__link ">
+            <a href="../production/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -857,7 +860,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/production/overview/" class="md-nav__link">
+      <a href="../production/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -878,7 +881,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/production/prerequisites/" class="md-nav__link">
+      <a href="../production/prerequisites/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -899,7 +902,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/production/kcp-dekker/" class="md-nav__link">
+      <a href="../production/kcp-dekker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -920,7 +923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/production/kcp-vespucci/" class="md-nav__link">
+      <a href="../production/kcp-vespucci/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -941,7 +944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../setup/production/kcp-comer/" class="md-nav__link">
+      <a href="../production/kcp-comer/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -974,8 +977,6 @@
       
   
   
-    
-  
   
   
     
@@ -1004,22 +1005,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1030,13 +1030,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -1052,7 +1052,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../terminology/" class="md-nav__link">
+      <a href="../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1073,7 +1073,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1127,7 +1127,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../workspaces/" class="md-nav__link ">
+            <a href="../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1160,7 +1160,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1181,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1202,7 +1202,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1223,7 +1223,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1244,7 +1244,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../workspaces/mounts/" class="md-nav__link">
+      <a href="../../concepts/workspaces/mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1306,7 +1306,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../apis/" class="md-nav__link ">
+            <a href="../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1339,7 +1339,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1360,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/built-in/" class="md-nav__link">
+      <a href="../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1381,7 +1381,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/cached-resources/" class="md-nav__link">
+      <a href="../../concepts/apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1402,7 +1402,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/exporting-apis/" class="md-nav__link">
+      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1423,7 +1423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1479,7 +1479,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../authentication/" class="md-nav__link ">
+            <a href="../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1512,7 +1512,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../authentication/oidc/" class="md-nav__link">
+      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1533,7 +1533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../authentication/workspace/" class="md-nav__link">
+      <a href="../../concepts/authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1587,7 +1587,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../authorization/" class="md-nav__link ">
+            <a href="../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1620,7 +1620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../authorization/authorizers/" class="md-nav__link">
+      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1646,8 +1646,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1669,16 +1667,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_8" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1695,7 +1695,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             Sharding
@@ -1711,7 +1711,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../shards/" class="md-nav__link">
+      <a href="../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1729,30 +1729,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Partitions
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1761,44 +1741,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#partitions_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Partitions
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#partitionsets" class="md-nav__link">
-    <span class="md-ellipsis">
-      PartitionSets
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1811,7 +1753,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cache-server/" class="md-nav__link">
+      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1865,7 +1807,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../miscellaneous/" class="md-nav__link ">
+            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1898,7 +1840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1965,7 +1907,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../developers/" class="md-nav__link ">
+            <a href="../../developers/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2044,7 +1986,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2065,7 +2007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/controllers/client-go/" class="md-nav__link">
+      <a href="../../developers/controllers/client-go/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2094,7 +2036,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
+      <a href="../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2161,7 +2103,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/internals/etcd-structure/" class="md-nav__link">
+      <a href="../../developers/internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2182,7 +2124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2242,7 +2184,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../developers/investigations/" class="md-nav__link ">
+            <a href="../../developers/investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2275,7 +2217,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../developers/investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2296,7 +2238,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../developers/investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2317,7 +2259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../developers/investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2338,7 +2280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2409,7 +2351,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../contributing/" class="md-nav__link ">
+            <a href="../../contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2442,7 +2384,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/getting-started/" class="md-nav__link">
+      <a href="../../contributing/getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2463,7 +2405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/coding/" class="md-nav__link">
+      <a href="../../contributing/coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2484,7 +2426,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/monorepo/" class="md-nav__link">
+      <a href="../../contributing/monorepo/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2551,7 +2493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/governance/general-technical-review/" class="md-nav__link">
+      <a href="../../contributing/governance/general-technical-review/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2572,7 +2514,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/governance/security-self-assessment/" class="md-nav__link">
+      <a href="../../contributing/governance/security-self-assessment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2626,7 +2568,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../contributing/continuous-integration/" class="md-nav__link ">
+            <a href="../../contributing/continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2659,7 +2601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2738,7 +2680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
+      <a href="../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2759,7 +2701,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2780,7 +2722,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2801,7 +2743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+      <a href="../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2864,7 +2806,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../reference/" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2977,7 +2919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
+      <a href="../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2998,7 +2940,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp/" class="md-nav__link">
+      <a href="../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3019,7 +2961,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3040,7 +2982,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3061,7 +3003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3082,7 +3024,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3103,7 +3045,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3124,7 +3066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3145,7 +3087,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3166,7 +3108,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3187,7 +3129,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3208,7 +3150,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3229,7 +3171,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3250,7 +3192,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3271,7 +3213,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/workspace/" class="md-nav__link">
+      <a href="../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3292,7 +3234,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3313,7 +3255,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3334,7 +3276,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3355,7 +3297,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
+      <a href="../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3486,7 +3428,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3507,7 +3449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3528,7 +3470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3549,7 +3491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3570,7 +3512,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3645,7 +3587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3666,7 +3608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3741,7 +3683,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3762,7 +3704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3837,7 +3779,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3858,7 +3800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3922,18 +3864,210 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#partitions_1" class="md-nav__link">
+  <a href="#key-concept-capacity-vs-high-availability" class="md-nav__link">
     <span class="md-ellipsis">
-      Partitions
+      Key Concept: Capacity vs High Availability
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Concept: Capacity vs High Availability">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-sharding-alone-doesnt-provide-ha" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why Sharding Alone Doesn't Provide HA
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provider-and-consumer-relationships" class="md-nav__link">
+    <span class="md-ellipsis">
+      Provider and Consumer Relationships
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Provider and Consumer Relationships">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-single-point-of-failure-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Single Point of Failure Problem
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#impact-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      Impact Scenario
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mitigation-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mitigation Strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mitigation Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#strategy-1-accept-and-plan-for-the-risk" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy 1: Accept and Plan for the Risk
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-2-per-shard-provider-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy 2: Per-Shard Provider Deployment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-3-partitioned-apiexportendpointslices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy 3: Partitioned APIExportEndpointSlices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strategy 3: Partitioned APIExportEndpointSlices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How It Works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Architecture
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setup Steps
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Failure Behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Benefits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Limitations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strategy-4-smart-caching-in-operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strategy 4: Smart Caching in Operators
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geo-distributed-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Geo-Distributed Deployments
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Geo-Distributed Deployments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recommendations-for-geo-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendations for Geo-Distribution
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#partitionsets" class="md-nav__link">
+  <a href="#building-your-platform" class="md-nav__link">
     <span class="md-ellipsis">
-      PartitionSets
+      Building your platform
     </span>
   </a>
   
@@ -3957,61 +4091,324 @@
   
 
 
-<h1 id="partitions">Partitions<a class="headerlink" href="#partitions" title="Permanent link">&para;</a></h1>
-<p><code>Partitions</code> and <code>PartitionSets</code> build an API that allows service providers and cluster administrators to create shard Partitions. These partitions can then be leveraged:</p>
+<h1 id="sharding-overview">Sharding Overview<a class="headerlink" href="#sharding-overview" title="Permanent link">&para;</a></h1>
+<p>Sharding in kcp allows you to distribute workspaces across multiple kcp server instances (shards). This document explains the architectural implications of sharding and provides guidance for designing resilient multi-shard deployments.</p>
+<h2 id="key-concept-capacity-vs-high-availability">Key Concept: Capacity vs High Availability<a class="headerlink" href="#key-concept-capacity-vs-high-availability" title="Permanent link">&para;</a></h2>
+<p><strong>Important</strong>: Without additional engineering effort from the platform team (building on top of kcp) at the code level, sharding in kcp is fundamentally a <strong>capacity concept</strong>, not a <strong>high-availability concept</strong>.</p>
+<p>Adding more shards increases the total number of workspaces and resources your kcp deployment can handle, but it does not automatically provide redundancy or failover capabilities for individual workspaces or providers.
+Shards operate independently, and can be made highly available at the infrastructure level (e.g., multiple replicas, high availability etcd and shards itself), but this does not translate to high availability for workspaces allocated to those shards.</p>
+<h3 id="why-sharding-alone-doesnt-provide-ha">Why Sharding Alone Doesn't Provide HA<a class="headerlink" href="#why-sharding-alone-doesnt-provide-ha" title="Permanent link">&para;</a></h3>
+<p>Each workspace in kcp is allocated to exactly one shard. This allocation is static. A workspace does not automatically migrate or replicate across shards. If a shard becomes unavailable, all workspaces on that shard become unavailable until the shard recovers.</p>
+<p>This has significant implications for provider workspaces and their consumers.</p>
+<h2 id="provider-and-consumer-relationships">Provider and Consumer Relationships<a class="headerlink" href="#provider-and-consumer-relationships" title="Permanent link">&para;</a></h2>
+<p>Consider a typical deployment topology with three shards (root, alpha, beta):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Shard: root                      Shard: alpha                     Shard: beta
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── root:provider (APIExport)    ├── root:consumer-alpha-1        ├── root:consumer-beta-1
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── root:consumer-root-1         └── root:consumer-alpha-2        └── root:consumer-beta-2
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>└── root:consumer-root-2
+</code></pre></div>
+<p>In this example:
+- The <code>root:provider</code> workspace contains an <code>APIExport</code> that exposes APIs to consumer workspaces
+- Consumer workspaces are distributed across all three shards and bind to this <code>APIExport</code> via <code>APIBindings</code>
+- The provider workspace is allocated to <strong>the root shard only</strong></p>
+<h3 id="the-single-point-of-failure-problem">The Single Point of Failure Problem<a class="headerlink" href="#the-single-point-of-failure-problem" title="Permanent link">&para;</a></h3>
+<p>When a provider workspace exists on a single shard, several components become potential single points of failure:</p>
+<ol>
+<li>
+<p><strong>APIExport Availability</strong>: The <code>APIExport</code> resource lives on one shard. If that shard is down, the <code>APIExport</code> is inaccessible.</p>
+</li>
+<li>
+<p><strong>APIExportEndpointSlice Access</strong>: The <code>APIExportEndpointSlice</code> resources that advertise API endpoints are tied to the provider workspace's shard. Operators and controllers that need to discover these endpoints depend on this shard being available.</p>
+</li>
+<li>
+<p><strong>Operator Behavior</strong>: Operators typically watch specific URLs per shard. When an operator starts or restarts:</p>
+</li>
+<li>It queries the <code>APIExportEndpointSlice</code> to discover endpoints</li>
+<li>If the provider's shard is unavailable, the operator cannot obtain the necessary URLs</li>
+<li>This can cause the operator to fail entirely, even if the consumer workspaces it manages are on healthy shards</li>
+</ol>
+<h3 id="impact-scenario">Impact Scenario<a class="headerlink" href="#impact-scenario" title="Permanent link">&para;</a></h3>
+<p>If the root shard (hosting the provider) experiences downtime:</p>
 <ul>
-<li>for the deployment of the controllers of the service providers and other components. These APIs provide the information on shard topology required for the scheduling.</li>
-<li>for grouping APIExport endpoints of multiple shards in common buckets, that is <code>Partitions</code>. These buckets can the be used to achieve geo proximity: controllers should communicate with API servers of shards in the same region. They can also be leveraged for scalability and load distribution, that is to adapt the number of deployment/ processes to the load pattern specific to the controllers of a service provider.</li>
+<li>Consumers on the root shard (<code>consumer-root-1</code>, <code>consumer-root-2</code>) are directly affected</li>
+<li>Consumers on alpha and beta shards may <strong>also</strong> be affected if:</li>
+<li>Their operators need to reconnect to the provider's <code>APIExport</code></li>
+<li>Controllers need to refresh <code>APIExportEndpointSlice</code> information</li>
+<li>Any component restarts and needs to rediscover provider endpoints</li>
 </ul>
-<h2 id="partitions_1">Partitions<a class="headerlink" href="#partitions_1" title="Permanent link">&para;</a></h2>
-<p>The partitioning of <code>Shards</code> is done through labels and <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors">label selectors</a>.</p>
-<p>Here is an example of a <code>Partition</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Partition</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">topology.kcp.io/v1alpha1</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud-region-gcp-europe-xdfgs</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">ownerReferences</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">     </span><span class="nt">matchLabels</span><span class="p">:</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">       </span><span class="nt">cloud</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gcp</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">       </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">europe</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">     </span><span class="nt">matchExpressions</span><span class="p">:</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">     </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">       </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">       </span><span class="nt">values</span><span class="p">:</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LT</span>
+<p><strong>Result</strong>: A single shard failure can cascade into downtime affecting all shards if providers are not configured with resilience in mind.</p>
+<h2 id="mitigation-strategies">Mitigation Strategies<a class="headerlink" href="#mitigation-strategies" title="Permanent link">&para;</a></h2>
+<h3 id="strategy-1-accept-and-plan-for-the-risk">Strategy 1: Accept and Plan for the Risk<a class="headerlink" href="#strategy-1-accept-and-plan-for-the-risk" title="Permanent link">&para;</a></h3>
+<p>For non-critical deployments or where simplicity is preferred:</p>
+<ul>
+<li>Document that provider availability is tied to a single shard</li>
+<li>Ensure the provider's shard has appropriate redundancy at the infrastructure level (node redundancy, persistent storage, etc.)</li>
+<li>Plan maintenance windows accordingly</li>
+<li>Monitor provider shard health proactively</li>
+</ul>
+<h3 id="strategy-2-per-shard-provider-deployment">Strategy 2: Per-Shard Provider Deployment<a class="headerlink" href="#strategy-2-per-shard-provider-deployment" title="Permanent link">&para;</a></h3>
+<p>Deploy independent provider instances on each shard:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Shard: alpha                              Shard: beta
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── root:provider-alpha (APIExport)       ├── root:provider-beta (APIExport)
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── root:consumer-alpha-1                 ├── root:consumer-beta-1
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>└── root:consumer-alpha-2                 └── root:consumer-beta-2
 </code></pre></div>
-<p><code>Partitions</code> can be referenced in <a href="../../quickstart-tenancy-and-apis/"><code>APIExportEndpointSlices</code></a>.</p>
-<h2 id="partitionsets">PartitionSets<a class="headerlink" href="#partitionsets" title="Permanent link">&para;</a></h2>
-<p><code>PartitionSets</code> is  an API for convenience. <code>PartitionSet</code> can be used to get <code>Partitions</code> automatically created based on dimensions that match the shard label keys. The <code>Partitions</code> are created in the same workspace as the <code>PartitionSet</code>. They can then be copied to the desired workspace for consumption, for instance, by an <code>APIExportEndpointSlice</code>.</p>
-<p>Here is an example of a <code>PartitionSet</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PartitionSet</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">topology.kcp.io/v1alpha1</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud-region</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">   </span><span class="nt">dimensions</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">   </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">region</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">   </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">   </span><span class="nt">shardSelector</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">     </span><span class="nt">matchExpressions</span><span class="p">:</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">     </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">region</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">       </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">       </span><span class="nt">values</span><span class="p">:</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Antarctica</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Greenland</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">     </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">       </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">       </span><span class="nt">values</span><span class="p">:</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">       </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NK</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="nt">status</span><span class="p">:</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">   </span><span class="nt">count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="nn">...</span>
+<p>Each shard has its own provider workspace. Consumers bind to their local shard's provider.</p>
+<p><strong>Advantages</strong>:
+- Shard failures are isolated
+- No cross-shard dependencies for API access</p>
+<p><strong>Disadvantages</strong>:
+- Multiple provider deployments to manage
+- Data/state not shared between provider instances
+- More complex operational model</p>
+<h3 id="strategy-3-partitioned-apiexportendpointslices">Strategy 3: Partitioned APIExportEndpointSlices<a class="headerlink" href="#strategy-3-partitioned-apiexportendpointslices" title="Permanent link">&para;</a></h3>
+<p>Partitions combined with <code>APIExportEndpointSlice</code> resources provide a mechanism to distribute API access across shards, 
+enabling continued operation even when the provider's home shard is unavailable. </p>
+<p>In this scenarion "home shard" refers to the shard where the provider workspace (and its APIExport) is located and hosted.</p>
+<h4 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h4>
+<ol>
+<li><strong>Create partitions</strong> that match your shard topology (one partition per shard)</li>
+<li><strong>Create child workspaces</strong> of the provider on each target shard</li>
+<li><strong>Deploy <code>APIExportEndpointSlice</code></strong> resources in each child workspace, targeting the local partition</li>
+</ol>
+<p>This creates shard-local entry points for API access that remain available even if the provider's home shard goes down.</p>
+<h4 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Shard Root                        Shard Alpha                      Shard Beta
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── root:provider (APIExport)     ├── root:provider:alpha          ├── root:provider:beta
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│   └── cowboys APIExport         │   ├── Partition: alpha         │   ├── Partition: beta
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── root:consumer-alpha-1 ────────┤   └── APIExportEndpointSlice   │   └── APIExportEndpointSlice
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── root:consumer-alpha-2 ────────┤       (targets alpha)          │       (targets beta)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>├── root:consumer-beta-1 ─────────┼───────────────────────────────►│
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>└── root:consumer-beta-2 ─────────┼───────────────────────────────►│
 </code></pre></div>
-<p>It is to note that a <code>Partition</code> is created only if it matches at least one shard. With the provided example if there is no shard in the cloud provider <code>aliyun</code> in the region <code>europe</code> no <code>Partition</code> will be created for it.</p>
-<p>An example of a <code>Partition</code> generated by this <code>PartitionSet</code> can be found above. The <code>dimensions</code> are translated into <code>matchLabels</code> with values specific to each <code>Partition</code>. An owner reference of the <code>Partition</code> will be set to the <code>PartitionSet</code>.</p>
+<h4 id="setup-steps">Setup Steps<a class="headerlink" href="#setup-steps" title="Permanent link">&para;</a></h4>
+<p><strong>1. Create the provider and consumer workspaces:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Provider on root shard</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>provider<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>root
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Consumers distributed across shards</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-alpha-1<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>alpha
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-alpha-2<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>alpha
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-beta-1<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>beta
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>consumer-beta-2<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>beta
+</code></pre></div>
+<p><strong>2. Create APIExport in the provider workspace:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>provider
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>config/examples/cowboys/apiresourceschema.yaml
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kubectl<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>config/examples/cowboys/apiexport.yaml
+</code></pre></div>
+<p><strong>3. Bind consumers to the APIExport:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-alpha-1
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>apiexport<span class="w"> </span>root:provider:cowboys<span class="w"> </span>--name<span class="w"> </span>cowboys
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:consumer-alpha-2
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>kubectl<span class="w"> </span>kcp<span class="w"> </span><span class="nb">bind</span><span class="w"> </span>apiexport<span class="w"> </span>root:provider:cowboys<span class="w"> </span>--name<span class="w"> </span>cowboys
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Repeat for beta consumers...</span>
+</code></pre></div>
+<p><strong>4. Create per-shard child workspaces with partitions and APIExportEndpointSlices:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Create child workspaces on each shard</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>alpha<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>alpha
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>create<span class="w"> </span>beta<span class="w"> </span>--location-selector<span class="w"> </span><span class="nv">name</span><span class="o">=</span>beta
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Setup alpha shard endpoint</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider:alpha
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="s">metadata:</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="s">  name: alpha</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="s">spec:</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="s">  selector:</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="s">      name: alpha</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="s">---</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="s">kind: APIExportEndpointSlice</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="s">metadata:</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="s">  name: cowboys-alpha</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="s">spec:</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="s">  export:</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="s">    name: cowboys</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="s">    path: root:provider</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="s">  partition: alpha</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="s">EOF</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="c1"># Setup beta shard endpoint</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider:beta
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="s">apiVersion: topology.kcp.io/v1alpha1</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="s">kind: Partition</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="s">metadata:</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="s">  name: beta</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="s">spec:</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="s">  selector:</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="s">    matchLabels:</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="s">      name: beta</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="s">---</span>
+<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a><span class="s">apiVersion: apis.kcp.io/v1alpha1</span>
+<a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a><span class="s">kind: APIExportEndpointSlice</span>
+<a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a><span class="s">metadata:</span>
+<a id="__codelineno-6-44" name="__codelineno-6-44" href="#__codelineno-6-44"></a><span class="s">  name: cowboys-beta</span>
+<a id="__codelineno-6-45" name="__codelineno-6-45" href="#__codelineno-6-45"></a><span class="s">spec:</span>
+<a id="__codelineno-6-46" name="__codelineno-6-46" href="#__codelineno-6-46"></a><span class="s">  export:</span>
+<a id="__codelineno-6-47" name="__codelineno-6-47" href="#__codelineno-6-47"></a><span class="s">    name: cowboys</span>
+<a id="__codelineno-6-48" name="__codelineno-6-48" href="#__codelineno-6-48"></a><span class="s">    path: root:provider</span>
+<a id="__codelineno-6-49" name="__codelineno-6-49" href="#__codelineno-6-49"></a><span class="s">  partition: beta</span>
+<a id="__codelineno-6-50" name="__codelineno-6-50" href="#__codelineno-6-50"></a><span class="s">EOF</span>
+</code></pre></div>
+<h4 id="failure-behavior">Failure Behavior<a class="headerlink" href="#failure-behavior" title="Permanent link">&para;</a></h4>
+<p>With this setup, if the <strong>root shard goes down</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>root:provider</code> workspace</td>
+<td>Unavailable</td>
+</tr>
+<tr>
+<td><code>root:consumer-alpha-*</code> workspaces</td>
+<td>Still accessible (on alpha shard)</td>
+</tr>
+<tr>
+<td><code>root:consumer-beta-*</code> workspaces</td>
+<td>Still accessible (on beta shard)</td>
+</tr>
+<tr>
+<td><code>root:provider:alpha</code> workspace</td>
+<td>Still accessible (on alpha shard)</td>
+</tr>
+<tr>
+<td><code>root:provider:beta</code> workspace</td>
+<td>Still accessible (on beta shard)</td>
+</tr>
+<tr>
+<td>APIExportEndpointSlice on alpha</td>
+<td>Returns alpha shard endpoints</td>
+</tr>
+<tr>
+<td>APIExportEndpointSlice on beta</td>
+<td>Returns beta shard endpoints</td>
+</tr>
+<tr>
+<td>Virtual API access via alpha endpoint</td>
+<td><strong>Works</strong> - can list/get cowboys on alpha consumers</td>
+</tr>
+<tr>
+<td>Virtual API access via beta endpoint</td>
+<td><strong>Works</strong> - can list/get cowboys on beta consumers</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example: Accessing APIs during root shard outage:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Direct access to alpha shard&#39;s virtual API endpoint</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>-s<span class="w"> </span><span class="s1">&#39;https://alpha.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys/clusters/*&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>get<span class="w"> </span>cowboys.wildwest.dev<span class="w"> </span>-A
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># Returns cowboys from alpha shard consumers only</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>NAMESPACE<span class="w">   </span>NAME
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>default<span class="w">     </span>john-wayne
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>default<span class="w">     </span>john-wayne
+</code></pre></div>
+<h4 id="key-benefits">Key Benefits<a class="headerlink" href="#key-benefits" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Shard isolation</strong>: Each shard has its own entry point to the virtual API</li>
+<li><strong>Continued operation</strong>: Consumers remain functional even when the provider's home shard is down</li>
+<li><strong>Partition-aware routing</strong>: Each APIExportEndpointSlice only returns endpoints for its target partition/shard</li>
+</ul>
+<h4 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Requires creating child workspaces and partitions on each shard</li>
+<li>Cross-shard queries (e.g., listing all cowboys across all shards) require the root shard</li>
+<li>The provider's home shard is still needed for creating/modifying the APIExport itself</li>
+</ul>
+<p>For a complete working example, see the <a href="../production/kcp-zheng/#optional-create-partitions">kcp-zheng production deployment guide</a>.</p>
+<h3 id="strategy-4-smart-caching-in-operators">Strategy 4: Smart Caching in Operators<a class="headerlink" href="#strategy-4-smart-caching-in-operators" title="Permanent link">&para;</a></h3>
+<p>Operators can be designed to be more resilient to provider unavailability:</p>
+<ul>
+<li><strong>Cache APIExportEndpointSlice data</strong>: Operators can cache endpoint information locally and continue operating with stale data during provider outages</li>
+<li><strong>Graceful degradation</strong>: Design operators to continue serving existing workloads even when they cannot reach the provider</li>
+<li><strong>Retry with backoff</strong>: Implement robust retry logic for provider connectivity issues</li>
+<li><strong>Health-aware routing</strong>: If multiple provider endpoints exist, operators can route around unhealthy endpoints</li>
+</ul>
+<p>This approach requires custom engineering in your operators but provides the most flexibility.</p>
+<h2 id="geo-distributed-deployments">Geo-Distributed Deployments<a class="headerlink" href="#geo-distributed-deployments" title="Permanent link">&para;</a></h2>
+<p>When deploying kcp across multiple regions or data centers, the sharding considerations become even more critical:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Region US-East (Shard: us-east)     Region EU-West (Shard: eu-west)
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>├── root:provider                   ├── root:consumer-eu-1
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├── root:consumer-us-1              └── root:consumer-eu-2
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>└── root:consumer-us-2
+</code></pre></div>
+<p>In this topology:
+- Cross-region latency affects API binding operations
+- Region failures can impact consumers in other regions if they depend on a remote provider
+- Network partitions between regions can cause split-brain scenarios</p>
+<h3 id="recommendations-for-geo-distribution">Recommendations for Geo-Distribution<a class="headerlink" href="#recommendations-for-geo-distribution" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Deploy providers in each region</strong> where consumers exist</li>
+<li><strong>Minimize cross-region dependencies</strong> for critical paths</li>
+<li><strong>Use region-local bindings</strong> where possible</li>
+<li><strong>Plan for network partition scenarios</strong> in your operational runbooks</li>
+</ol>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Complexity</th>
+<th>Isolation</th>
+<th>Data Consistency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single provider</td>
+<td>Low</td>
+<td>None</td>
+<td>Simple</td>
+</tr>
+<tr>
+<td>Per-shard providers</td>
+<td>Medium</td>
+<td>Full</td>
+<td>Requires sync strategy</td>
+</tr>
+<tr>
+<td>Partitioned APIExportEndpointSlices</td>
+<td>Medium</td>
+<td>Partial</td>
+<td>Consistent (single source of truth)</td>
+</tr>
+<tr>
+<td>Smart caching</td>
+<td>High</td>
+<td>Partial</td>
+<td>Eventually consistent</td>
+</tr>
+</tbody>
+</table>
+<p>When designing your kcp deployment:</p>
+<ol>
+<li><strong>Understand that sharding equals capacity</strong>, not automatic HA</li>
+<li><strong>Map your provider-consumer dependencies</strong> across shards</li>
+<li><strong>Choose a mitigation strategy</strong> appropriate for your availability requirements</li>
+<li><strong>Test failure scenarios</strong> to validate your design</li>
+</ol>
+<h2 id="building-your-platform">Building your platform<a class="headerlink" href="#building-your-platform" title="Permanent link">&para;</a></h2>
+<p>Remember, kcp provides the building blocks, but you'll need to design and implement the higher-level abstractions that make sense for your users and use cases. To understand how to leverage kcp's capabilities effectively, explore our additional documentation:</p>
+<ul>
+<li><a href="../../concepts/">Concepts</a> - a high level overview of kcp concepts</li>
+<li><a href="../../concepts/workspaces/">Workspaces</a> - a more thorough introduction on kcp's workspaces</li>
+<li><a href="../kubectl-plugin/">kubectl plugin</a></li>
+<li><a href="../../concepts/authorization/">Authorization</a> - how kcp manages access control to workspaces and content</li>
+<li><a href="../../concepts/workspaces/virtual-workspaces/">Virtual workspaces</a> - details on kcp's mechanism for virtual views of workspace content</li>
+</ul>
 
 
 
@@ -4104,10 +4501,10 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
     
   </body>
