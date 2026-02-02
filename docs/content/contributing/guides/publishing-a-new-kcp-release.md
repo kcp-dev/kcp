@@ -79,6 +79,13 @@ The tool takes the path to the rules file, the branch name, and the Go version u
 _output/update-rules -branch release-0.x -go 1.x.y -rules ../kcp/staging/publishing/rules.yaml -o /tmp/rules.yaml
 ```
 
+Image example:
+
+```shell
+docker run --rm -v $(pwd)/staging/publishing:/rules ghcr.io/kcp-dev/publishing-bot:latest \
+  /update-rules -branch release-0.x -go 1.x.y -rules /rules/rules.yaml -o /rules/rules.yaml
+```
+
 This will generate a temporary rules file in `/tmp/rules.yaml`. You'll need to replace `staging/publishing/rules.yaml`
 in the kcp repo with that temporary file and push it to the repo before proceeding. The new rules file will be used
 on the next publishing-bot run automatically.
