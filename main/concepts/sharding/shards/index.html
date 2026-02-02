@@ -2029,6 +2029,8 @@
       
         
       
+        
+      
     
     
       
@@ -2175,6 +2177,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../developers/running-sharded/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running a Sharded Environment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
@@ -2214,10 +2237,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_4" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_5" >
         
           
-          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -2228,8 +2251,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
             <span class="md-nav__icon md-icon"></span>
             Internals
           </label>
@@ -2318,7 +2341,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_6" >
         
           
           
@@ -2334,14 +2357,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
             <span class="md-nav__icon md-icon"></span>
             Investigations
           </label>
@@ -4120,8 +4143,9 @@
 
 
 <h1 id="shards">Shards<a class="headerlink" href="#shards" title="Permanent link">&para;</a></h1>
+<p>To learn how to run a sharded environment for development, see <a href="../../../developers/running-sharded/">Running a Sharded Environment</a>.</p>
 <p>Every kcp shard is hosting a set of logical clusters. A logical cluster is
-identified by a globally unique identifier called a <em>cluster name</em>. A shard
+identified by a globally unique identifier called a <strong>cluster name</strong>. A shard
 serves the logical clusters under <code>/clusters/&lt;cluster-name&gt;</code>.</p>
 <p>A set of known shards comprises a kcp installation.</p>
 <h2 id="root-logical-cluster">Root Logical Cluster<a class="headerlink" href="#root-logical-cluster" title="Permanent link">&para;</a></h2>
@@ -4136,15 +4160,15 @@ some worldwide load balancer) and one for direct access (shard to shard).</p>
 <p>Logical clusters are defined through the existence of a <code>LogicalCluster</code> object
 "in themselves", similar to a <code>.</code> directory defining the existence of a directory
 in Unix.</p>
-<p>Every logical cluster name <code>name</code> is a <em>logical cluster path</em>. Every logical
+<p>Every logical cluster name <code>name</code> is a <strong>logical cluster path</strong>. Every logical
 cluster is reachable through <code>/cluster/&lt;path&gt;</code> for every of their paths.</p>
 <p>A <code>Workspace</code> in <code>tenancy.kcp.io/v1alpha1</code> of name <code>name</code> references a logical
 cluster specified in <code>Workspace.spec.cluster</code>. If that workspace object resided
 in a logical cluster reachable via a path <code>path</code>, the referenced logical cluster
 can be reached via a path <code>path:name</code>.</p>
 <h2 id="canonical-paths">Canonical Paths<a class="headerlink" href="#canonical-paths" title="Permanent link">&para;</a></h2>
-<p>The longest path a logical cluster is reachable under is called the <em>canonical
-path</em>. By default, all canonical paths start with <code>root</code>, i.e. they start in
+<p>The longest path a logical cluster is reachable under is called the <strong>canonical
+path</strong>. By default, all canonical paths start with <code>root</code>, i.e. they start in
 root logical cluster.</p>
 <p>The logical cluster object annotated with <code>kcp.io/path: &lt;canonical-path&gt;</code>.</p>
 <p>Additional subtrees of the workspace path hierarchy can be defined by creating
@@ -4153,7 +4177,7 @@ a home workspace hierarchy could start at <code>home:&lt;user-name&gt;</code>. T
 for the parent (<code>home</code> in this case) to exist.</p>
 <h2 id="front-proxy">Front Proxy<a class="headerlink" href="#front-proxy" title="Permanent link">&para;</a></h2>
 <p>A front-proxy is aware of all logical clusters, their shard they live on,
-their canonical paths and all <code>Workspaces</code>s. Non canonical paths can be
+their canonical paths and all <code>Workspaces</code>. Non canonical paths can be
 reconstructed from the canonical path prefixes and the workspace names.</p>
 <p>Requests to <code>/cluster/&lt;path&gt;</code> are forwarded to the shard via inverse proxying.</p>
 <p>A front-proxy in its most simplistic (toy) implementation watches all shards.

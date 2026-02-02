@@ -247,6 +247,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/developers/running-sharded/</loc>
+        <lastmod>2026-02-02</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/running-sharded/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/</loc>
         <lastmod>2026-02-02</lastmod>
         <changefreq>daily</changefreq>
