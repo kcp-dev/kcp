@@ -1,0 +1,40 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: beta
+  namespace: kcp-zheng
+  annotations:
+    operator.kcp.io/bundle: "true"
+spec:
+  replicas: 2 # must be set if shard is intended to be used as bundle
+  auth:
+    serviceAccount:
+      enabled: true
+    oidc:
+      issuerURL: https://auth.example.com
+      clientID: platform-mesh
+      groupsClaim: groups
+      usernameClaim: email
+      usernamePrefix: "oidc:"
+      groupsPrefix: "oidc:"
+      clientSecret: Z2Fyc2lha2FsYmlzdmFuZGVuekWplCg==
+  caBundleSecretRef:
+      name: letsencrypt-ca
+  etcd:
+    endpoints:
+      - https://beta-client.kcp-zheng.svc.cluster.local:2379
+    tlsConfig:
+      secretRef:
+        name: etcd-ca-tls
+  shardBaseURL: https://beta.zheng.example.com:6443
+  certificateTemplates:
+    server:
+      spec:
+        dnsNames:
+        - beta.zheng.example.com
+  rootShard:
+    ref:
+      name: root
+  serviceTemplate:
+    spec:
+      type: LoadBalancer
