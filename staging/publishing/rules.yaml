@@ -1,4 +1,3 @@
-skip-non-semver-tags: true
 rules:
   - destination: apimachinery
     branches:
@@ -171,3 +170,5 @@ rules:
 recursive-delete-patterns:
   - '*/.gitattributes'
 default-go-version: 1.24.11
+skip-tags: false
+skip-non-semver-tags: true
