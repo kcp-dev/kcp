@@ -484,6 +484,16 @@ for team in alpha beta gamma delta; do
 done
 ```
 
+Create a namespace in each team workspace to confirm write access:
+
+```bash
+for team in alpha beta gamma delta; do
+  KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} >/dev/null 2>&1 || \
+    KUBECONFIG=team-${team}.kubeconfig kubectl create namespace demo-${team}
+  KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team}
+done
+```
+
 Verify workspace isolation — each team should be denied access to other workspaces:
 
 ```bash

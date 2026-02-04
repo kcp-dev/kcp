@@ -136,6 +136,20 @@ for team in alpha beta gamma delta; do
     fi
 done
 
+# Verify each team can write to their workspace (idempotent namespace create)
+for team in alpha beta gamma delta; do
+    if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} > /dev/null 2>&1; then
+        if ! KUBECONFIG=team-${team}.kubeconfig kubectl create namespace demo-${team}; then
+            echo "Team ${team}: Namespace create FAILED"
+            FAILED=1
+        fi
+    fi
+    if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} > /dev/null 2>&1; then
+        echo "Team ${team}: Namespace create/lookup FAILED"
+        FAILED=1
+    fi
+done
+
 # Verify workspace isolation
 echo "=== Verifying workspace isolation ==="
 if KUBECONFIG=team-alpha.kubeconfig kubectl get namespaces \
