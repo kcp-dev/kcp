@@ -1,0 +1,106 @@
+# Kubernetes MCP Server Helm Values for KCP
+# This configuration deploys the MCP server to work with kcp control planes
+# using OIDC bearer token authentication (same provider as kcp front-proxy)
+
+# Replica count for the deployment
+replicaCount: 1
+
+# Container image configuration
+image:
+  registry: quay.io
+  repository: containers/kubernetes_mcp_server
+  version: latest
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress configuration - must be configured for your environment
+ingress:
+  enabled: true
+  className: ""
+  host: "mcp.vespucci.genericcontrolplane.io"
+  path: /
+  pathType: ImplementationSpecific
+  termination: edge
+  annotations: {}
+  tls: null
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# RBAC configuration - disable default RBAC as we use kcp's RBAC
+rbac:
+  create: false
+
+# Pod security context
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Extra volumes for mounting base kubeconfig and config
+# The kubeconfig provides cluster endpoint/TLS only (no auth credentials)
+# Authentication is handled via OIDC bearer tokens
+extraVolumes:
+  - name: kubeconfig
+    secret:
+      secretName: kcp-mcp-kubeconfig
+  - name: config
+    configMap:
+      name: kcp-mcp-config
+
+# Extra volume mounts
+extraVolumeMounts:
+  - name: kubeconfig
+    mountPath: /etc/kubernetes-mcp-server/kubeconfig
+    subPath: kubeconfig
+    readOnly: true
+  - name: config
+    mountPath: /etc/kubernetes-mcp-server/config.toml
+    subPath: config.toml
+    readOnly: true
+
+# Configuration file path
+configFilePath: /etc/kubernetes-mcp-server/config.toml
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+
+# Node selector, tolerations, and affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}

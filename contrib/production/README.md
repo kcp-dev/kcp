@@ -8,12 +8,13 @@ This directory contains assets and configuration files for production deployment
 
 These assets are referenced by the production deployment documentation in `docs/content/setup/production/`.
 
-Each deployment type (dekker, vespucci, comer) has its own subdirectory with complete configuration files and deployment manifests.
+Each deployment type (dekker, vespucci, comer, zheng) has its own subdirectory with complete configuration files and deployment manifests.
 
 ## Deployment Types
 
 - **kcp-dekker**: Self-signed certificates, simple single-cluster deployment
 - **kcp-vespucci**: External certificates with Let's Encrypt, public shard access  
 - **kcp-comer**: CDN integration with dual front-proxy configuration
+- **kcp-zheng**: Distributed multi-cluster deployment with high availability
 
 See the corresponding documentation in `docs/content/setup/production/` for detailed deployment instructions.
