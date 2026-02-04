@@ -22,10 +22,14 @@ fi
 echo "Starting verification..."
 
 # Step 6: Create Team Workspaces
-echo "Creating team workspaces..."
+echo "=== Step 6: Creating team workspaces ==="
 for team in team-alpha team-beta team-gamma team-delta; do
-    kubectl ws create "${team}" --enter
-    kubectl ws ..
+    if kubectl ws :root:"${team}" > /dev/null 2>&1; then
+        echo "Workspace ${team} already exists, skipping..."
+    else
+        kubectl ws create "${team}" --enter
+        kubectl ws ..
+    fi
 done
 kubectl ws :root
 
@@ -33,7 +37,7 @@ echo "Workspaces created:"
 kubectl ws tree
 
 # Step 7: Generate Team Certificates
-echo "Generating team certificates..."
+echo "=== Step 7: Generating team certificates ==="
 for team in alpha beta gamma delta; do
     cat <<EOF | kubectl apply -n ${KCP_NAMESPACE} -f -
 apiVersion: cert-manager.io/v1
@@ -63,13 +67,12 @@ for team in alpha beta gamma delta; do
 done
 
 # Step 8: Grant Workspace Access
-echo "Granting workspace access..."
-echo "Note: Using admin.kubeconfig for admin operations if available, otherwise using current context"
+echo "=== Step 8: Granting workspace access ==="
 
 for team in alpha beta gamma delta; do
     echo "Configuring access for team-${team}..."
     kubectl ws :root:team-${team}
-    
+
     cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -89,7 +92,7 @@ done
 kubectl ws :root
 
 # Step 9: Create Team Kubeconfigs
-echo "Creating team kubeconfigs..."
+echo "=== Step 9: Creating team kubeconfigs ==="
 
 # Ensure CA cert is available
 if [ ! -f ca.crt ]; then
@@ -121,21 +124,33 @@ for team in alpha beta gamma delta; do
 done
 
 # Step 10: Verify Team Access
-echo "Verifying team access..."
+echo "=== Step 10: Verifying team access ==="
 FAILED=0
 for team in alpha beta gamma delta; do
-    echo "Checking access for team-${team}..."
-    if KUBECONFIG=team-${team}.kubeconfig kubectl get namespaces > /dev/null 2>&1; then
+    echo "--- team-${team} ---"
+    if KUBECONFIG=team-${team}.kubeconfig kubectl get namespaces; then
         echo "Team ${team}: Access granted (SUCCESS)"
     else
-        echo "Team ${team}: Access denied (FAILURE)"
+        echo "Team ${team}: Access FAILED"
         FAILED=1
     fi
 done
 
+# Verify workspace isolation
+echo "=== Verifying workspace isolation ==="
+if KUBECONFIG=team-alpha.kubeconfig kubectl get namespaces \
+    --server "https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT}/clusters/root:team-beta" 2>/dev/null; then
+    echo "ERROR: Team Alpha can access Team Beta workspace (isolation broken)"
+    FAILED=1
+else
+    echo "OK: Team Alpha cannot access Team Beta workspace (isolation works)"
+fi
+
 if [ $FAILED -eq 0 ]; then
+    echo ""
     echo "All verification checks passed!"
 else
+    echo ""
     echo "Some verification checks failed."
     exit 1
 fi

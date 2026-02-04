@@ -98,6 +98,9 @@ helm upgrade kcp kcp/kcp \
   --set kcp.hostAliases.enabled=true \
   --set "kcp.hostAliases.values[0].ip=${KCP_FRONT_PROXY_IP}" \
   --set "kcp.hostAliases.values[0].hostnames[0]=kcp.local.test" \
+  --set kcpFrontProxy.hostAliases.enabled=true \
+  --set "kcpFrontProxy.hostAliases.values[0].ip=${KCP_FRONT_PROXY_IP}" \
+  --set "kcpFrontProxy.hostAliases.values[0].hostnames[0]=kcp.local.test" \
   --wait
 ```
 
@@ -472,24 +475,23 @@ done
 
 ## Step 10: Verify Team Access
 
-Test that each team can access only their workspace:
+Test that each team can access their workspace and is isolated from others:
 
 ```bash
-# Team Alpha can access their workspace
-KUBECONFIG=team-alpha.kubeconfig kubectl get namespaces
-echo "Team Alpha: Access granted"
+for team in alpha beta gamma delta; do
+  echo "--- team-${team} ---"
+  KUBECONFIG=team-${team}.kubeconfig kubectl get namespaces
+done
+```
 
-# Team Beta can access their workspace
-KUBECONFIG=team-beta.kubeconfig kubectl get namespaces
-echo "Team Beta: Access granted"
+Verify workspace isolation — each team should be denied access to other workspaces:
 
-# Team Gamma can access their workspace
-KUBECONFIG=team-gamma.kubeconfig kubectl get namespaces
-echo "Team Gamma: Access granted"
-
-# Team Delta can access their workspace
-KUBECONFIG=team-delta.kubeconfig kubectl get namespaces
-echo "Team Delta: Access granted"
+```bash
+# Team Alpha should NOT be able to access Team Beta's workspace
+KUBECONFIG=team-alpha.kubeconfig kubectl get namespaces \
+  --server https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT}/clusters/root:team-beta && \
+  echo "ERROR: Team Alpha can access Team Beta (isolation broken)" || \
+  echo "OK: Team Alpha cannot access Team Beta (isolation works)"
 ```
 
 ## Summary
@@ -518,10 +520,12 @@ kind delete cluster --name kcp
 # Remove generated files
 rm -f ca.crt admin-client.crt admin-client.key admin.kubeconfig
 rm -f team-*.crt team-*.key team-*.kubeconfig
-rm -f kcp-values.yaml
 
 # Remove hosts entry (optional)
+# macOS:
 sudo sed -i '' '/kcp.local.test/d' /etc/hosts
+# Linux:
+# sudo sed -i '/kcp.local.test/d' /etc/hosts
 ```
 
 ## Next Steps
