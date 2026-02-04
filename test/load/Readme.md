@@ -1,25 +1,26 @@
 # Load Testing
 
-Structure
-
-* `reference` contains a script to deploy the 10000 workspaces reference architecture
-* `tests` contains an actual loadtest, which can be run on any type of architecture. You just need to tweak the //TODO variables
-
 ## 10000 workspaces reference architecture
 
 Assumptions & Requirements:
 
-* We want to test how a kcp installation with 10000 workspaces behaves on simulated, regular activities. We don't want to test how easily we can add 10000 workspaces at once
-* You don't want to run etcd on machines which are hosting kcp
-* We will be using kcp operator to setup a sharded kcp instance
-* The minimum amount of replicas for any group is 3
-* The loadtests are infrastructure agnostic. Yes your kcp needs to have the apporpriate size, but the test does not require any specific architecture. This will allow us and community members to experiment with different architectures
-* We treat the rootshard like we would any other shard. It will be filled with regulard workspaces. So shard1 = rootshard
+* We want to test how a kcp installation with 10000 workspaces behaves on synthetic workloads
+* We do not want to test how easily kcp handles adding 10000 workspaces at once
+* We don't want to run etcd on machines which are hosting kcp
+* We will be using kcp-operator to setup a sharded kcp instance
+* The minimum amount of replicas for any component is 3
+* The loadtests are infrastructure provider agnostic. This will allow us and community members to
+experiment with different infrastructure sizes
+* We treat the rootshard like we would any other shard. It will be filled with regular workspaces
+So shard1 = rootshard
+* As the kcp-operator currently has no support for a dedicated cache server: We have decided to still
+work with the default model of having an embedded cache in the rootshard (even if it overloads the
+rootshard). Specifically this means when we have 3 shards, we create 1 Rootshard and 2 Shards
 * Results are stored in some permanent storage so we can use them for comparison later
 
 ### Architecture
 
-// TODO insert architecture diagram
+[drawing of the general layout](./architecture.excalidraw)
 
 ### Node calculation
 
@@ -41,15 +42,16 @@ All node calculations are based on the number of workspaces and use the followin
     #shards = round_up(#workspaces / max_workspaces_per_shard)
     ```
 
-1. Now we can calculate the number of etcd nodes. //TODO size per etcd node
+1. Now we can calculate the number of etcd nodes.
 
     ```txt
     #etcd_nodes = #shards * min_replicas
     ```
 
-1. For simplicity, the number of kcp-server nodes remains constant, but their size is calculated in relation to the number of workspaces
+1. We can calculcate the number of shards and their size in relation to the number of workspaces
 
     ```txt
+    #shard_nodes = #shards * min_replicas
     #actual_workspaces_per_shard = workspaces / shards
     kcp_server_node_mem = kcp_server_buffer + (#actual_workspaces * mem_per_workspace)
     ```
@@ -65,6 +67,7 @@ The total number of all required nodes is calculated as follows
 ```txt
 #shards = 10000 / 3500 = 2,85 = 3
 #etcd_nodes = 3 * 3 = 9
+#shard_nodes = 3 * 3 = 9
 #actual_workspaces_per_shard = 10000 / 3 = 3333
 kcp_server_node_mem = 512 + (3333 * 5) = 17777MB
 #total_nodes =  3 + 1 + 9 + 3 + 1 = 17
@@ -72,28 +75,51 @@ kcp_server_node_mem = 512 + (3333 * 5) = 17777MB
 
 ### Testing Protocol
 
-Mantra: We want to test how a kcp installation with 10000 workspaces behaves on simulated, regular activities. We don't want to test how easily we can add 10000 workspaces at once
+Mantra: We want to test how a kcp installation with 10000 workspaces behaves on simulated, regular
+activities. We don't want to test how easily we can add 10000 workspaces at once
 
 #### Procedure
 
 1. Create 10000 workspaces, APIExports, etc. and patiently wait for all of them to become ready
-2. Simulate real workd activity by simulating end-users using custom kubeconfigs to create APIBindings and then CRUD on their custom api-objects
+2. Simulate real world activity by simulating end-users using custom kubeconfigs to create APIBindings
+and then CRUD on their custom api-objects
 
-#### Must haves
+##### Level 1 - 10000 empty workspaces
 
-* custom workspacetypes
+We are just going to put 10000 empty workspaces into a kcp installation. We will have a nesting level
+setting so we can try out if nesting has any impact (it should not). This test case
+is extremely deterministic and has should spread workspaces relatively equally across shards.
+We mainly use this as a base consumption measurement and to verify nesting has no performance impact.
+
+##### Level 2 - Basic CRUD
+
+Every workspace has a type and we are going to do a basic parallel CRUD workflow which we will simulate
+using simple Kubernetes Jobs. The workflow is done on basic objects from a single provider using a
+singular APIExport.
+
+##### Level 3 - Multiple Providers
+
+We are multixplexing the level 2 example to use multiple providers.
+
+##### Outlook
+
+We want to keep the initial version of the tests simple and deterministic. As a result the following
+topics have been discussed, but were considered not to be part of the first 3 level implementation:
+
+* direct user interaction via simulated users
+* custom workspacetypes with initializers and finalizers
+* integrating the init-agent
 * nested workspaces living on different shards
-* APIExports to share apis between workspaces
-* TBD: api-syncagent connected to some workspaces as a stand-in for a typical multiclusterruntime controller? Would be cool because we are testing this component as well. However it introduces quite a bit of additional work, as we would have to provide several instances of it and then all of them connected to different kubernetes clusters (or at least we have to make sure the k8s clusters are not bottlenecks; maybe we could just use kcp as the downstream provider? :D)
-* TBD: init-agent. I think it is a bit early to integrate this in our initial planning. Also we have a lot on our plate already as well
+* having a chaos monkey randomly killing shards
 
-## Open Questions
+### Scraping of Metrics
 
-* Do we want to kcp shards to live on separate clusters? I personally think this is something which requires some code changes in kcp itself. I am aware that there is POC using secret bundling already around, but I have not even seen the code so far and I think this would complicate the setup even more
-* Do we want to test initialization / finalization in the first batch? I understand that this is important down the road, so we can make sure that these features are not unintentionally putting extreme strain on kcp, but it might complicate the testint procedure even more
+We plan on using a plain Prometheus to scrape all of the kcp-instanes: On a higher level we plan to
+monitor:
 
-## Some personal thoughts
-
-I am aware that Kubernetes has a variety of custom written [perf-test](https://github.com/kubernetes/perf-tests) tools, but my gut feeling tells me that building the majority of the test framework from scratch like this, might not be doable with the current number of kcp contributors.
-
-Therefore I think makeing use of an E2E testing framework for the start makes sense. Among them I, would prefer to use k6, since we can write the tests directly in Go, has a proven track-record and is open-source.
+* CPU + Mem on all components
+* Number of Goroutines over time
+* Request response times on front-proxy (probably percentiles). This could also alternatively be
+measured inside the testing suite (clientside)
+* Disk IO and size on both etcd and rootshard
+* Total number of workspaces (to compare expected with actual)
