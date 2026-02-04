@@ -37,6 +37,12 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	changed := false
+
+	if workspace.Status.Phase == "" {
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseScheduling
+		changed = true
+	}
+
 	expected := string(workspace.Status.Phase)
 	if !workspace.DeletionTimestamp.IsZero() {
 		expected = "Deleting"

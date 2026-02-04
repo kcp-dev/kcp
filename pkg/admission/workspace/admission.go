@@ -95,6 +95,10 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	if a.GetOperation() == admission.Create {
 		isSystemPrivileged := sets.New[string](a.GetUserInfo().GetGroups()...).Has(kuser.SystemPrivilegedGroup)
 
+		if ws.Status.Phase == "" {
+			ws.Status.Phase = corev1alpha1.LogicalClusterPhaseScheduling
+		}
+
 		// create owner anntoation
 		if !isSystemPrivileged {
 			userInfo, err := WorkspaceOwnerAnnotationValue(a.GetUserInfo())
