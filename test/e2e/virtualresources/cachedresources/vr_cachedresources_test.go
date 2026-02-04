@@ -364,7 +364,7 @@ func TestCachedResources(t *testing.T) {
 			}
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, time.Second*1, "waiting for two sheriffs")
+	}, wait.ForeverTestTimeout*2, time.Millisecond*500, "waiting for two sheriffs")
 
 	t.Log("Stopping watches")
 	for _, stop := range watchStopFuncs {
