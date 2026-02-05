@@ -9,6 +9,8 @@ set -o pipefail
 KCP_NAMESPACE="kcp"
 KCP_EXTERNAL_HOSTNAME=${KCP_EXTERNAL_HOSTNAME:-"kcp.local.test"}
 KCP_PORT=${KCP_PORT:-8443}
+KIND_KUBECONFIG=${KIND_KUBECONFIG:-"${HOME}/.kube/config"}
+KIND_CONTEXT=${KIND_CONTEXT:-"kind-kcp"}
 KCP_VERIFY_LOG=${KCP_VERIFY_LOG:-""}
 
 if [ -n "${KCP_VERIFY_LOG}" ]; then
@@ -31,6 +33,8 @@ fi
 echo "Verification started at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 echo "KCP_EXTERNAL_HOSTNAME=${KCP_EXTERNAL_HOSTNAME}"
 echo "KCP_PORT=${KCP_PORT}"
+echo "KIND_KUBECONFIG=${KIND_KUBECONFIG}"
+echo "KIND_CONTEXT=${KIND_CONTEXT}"
 if command -v kind >/dev/null 2>&1; then
     echo "kind: $(kind version)"
 fi
@@ -61,7 +65,7 @@ kubectl ws tree
 # Step 7: Generate Team Certificates
 echo "=== Step 7: Generating team certificates ==="
 for team in alpha beta gamma delta; do
-    cat <<EOF | kubectl apply -n ${KCP_NAMESPACE} -f -
+    cat <<EOF | kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" apply -n ${KCP_NAMESPACE} -f -
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -85,7 +89,8 @@ done
 
 echo "Waiting for certificates to be ready..."
 for team in alpha beta gamma delta; do
-    kubectl wait --for=condition=Ready certificate/team-${team}-cert -n ${KCP_NAMESPACE} --timeout=60s
+    kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
+      wait --for=condition=Ready certificate/team-${team}-cert -n ${KCP_NAMESPACE} --timeout=60s
 done
 
 # Step 8: Grant Workspace Access
@@ -119,15 +124,18 @@ echo "=== Step 9: Creating team kubeconfigs ==="
 # Ensure CA cert is available
 if [ ! -f ca.crt ]; then
     echo "Extracting CA certificate..."
-    kubectl get secret kcp-ca -n ${KCP_NAMESPACE} \
+    kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
+      get secret kcp-ca -n ${KCP_NAMESPACE} \
       -o=jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
 fi
 
 for team in alpha beta gamma delta; do
     echo "Processing team-${team}..."
-    kubectl get secret team-${team}-cert -n ${KCP_NAMESPACE} \
+    kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
+        get secret team-${team}-cert -n ${KCP_NAMESPACE} \
         -o=jsonpath='{.data.tls\.crt}' | base64 -d > team-${team}.crt
-    kubectl get secret team-${team}-cert -n ${KCP_NAMESPACE} \
+    kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
+        get secret team-${team}-cert -n ${KCP_NAMESPACE} \
         -o=jsonpath='{.data.tls\.key}' | base64 -d > team-${team}.key
 
     kubectl --kubeconfig=team-${team}.kubeconfig config set-cluster kcp \

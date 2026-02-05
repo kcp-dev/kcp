@@ -81,7 +81,7 @@ helm upgrade --install kcp kcp/kcp \
   --namespace kcp \
   --create-namespace \
   --set externalHostname=kcp.local.test \
-  --set externalPort=8443 \
+  --set-string externalPort=8443 \
   --set kcpFrontProxy.service.type=NodePort \
   --set kcpFrontProxy.service.nodePort=30443 \
   --set audit.enabled=false \
@@ -214,7 +214,7 @@ kubectl ws create team-delta --enter
 kubectl ws :root
 ```
 
-> **Note:** Steps 6 through 10 can be automated using the verification script:
+> **Note:** Steps 6 through 10 can be automated using the verification script (it reads your kind kubeconfig from `~/.kube/config` by default):
 > ```bash
 > ./docs/scripts/verify-kind-install.sh
 > ```
@@ -245,10 +245,17 @@ root
 
 Create client certificates for each team with their respective groups.
 
+These certificates are managed by cert-manager running in the underlying kind cluster.
+If you exported `KUBECONFIG=admin.kubeconfig`, use your kind kubeconfig for the cert-manager steps:
+
+```bash
+export KIND_KUBECONFIG=${KIND_KUBECONFIG:-$HOME/.kube/config}
+```
+
 ### Team Alpha
 
 ```bash
-kubectl apply -n kcp -f - <<EOF
+KUBECONFIG=${KIND_KUBECONFIG} kubectl apply -n kcp -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -273,7 +280,7 @@ EOF
 ### Team Beta
 
 ```bash
-kubectl apply -n kcp -f - <<EOF
+KUBECONFIG=${KIND_KUBECONFIG} kubectl apply -n kcp -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -298,7 +305,7 @@ EOF
 ### Team Gamma
 
 ```bash
-kubectl apply -n kcp -f - <<EOF
+KUBECONFIG=${KIND_KUBECONFIG} kubectl apply -n kcp -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -323,7 +330,7 @@ EOF
 ### Team Delta
 
 ```bash
-kubectl apply -n kcp -f - <<EOF
+KUBECONFIG=${KIND_KUBECONFIG} kubectl apply -n kcp -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -349,7 +356,7 @@ Wait for all certificates:
 
 ```bash
 for team in alpha beta gamma delta; do
-  kubectl wait --for=condition=Ready certificate/team-${team}-cert -n kcp --timeout=60s
+  KUBECONFIG=${KIND_KUBECONFIG} kubectl wait --for=condition=Ready certificate/team-${team}-cert -n kcp --timeout=60s
 done
 ```
 
@@ -451,9 +458,9 @@ Extract team certificates and create kubeconfigs for each team.
 
 ```bash
 for team in alpha beta gamma delta; do
-  kubectl get secret team-${team}-cert -n kcp \
+  KUBECONFIG=${KIND_KUBECONFIG} kubectl get secret team-${team}-cert -n kcp \
     -o=jsonpath='{.data.tls\.crt}' | base64 -d > team-${team}.crt
-  kubectl get secret team-${team}-cert -n kcp \
+  KUBECONFIG=${KIND_KUBECONFIG} kubectl get secret team-${team}-cert -n kcp \
     -o=jsonpath='{.data.tls\.key}' | base64 -d > team-${team}.key
 done
 ```
