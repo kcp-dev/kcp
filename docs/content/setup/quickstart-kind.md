@@ -218,6 +218,11 @@ kubectl ws :root
 > ```bash
 > ./docs/scripts/verify-kind-install.sh
 > ```
+>
+> To capture a verification log for troubleshooting or sharing with reviewers:
+> ```bash
+> KCP_VERIFY_LOG=verify-kind-install.log ./docs/scripts/verify-kind-install.sh
+> ```
 
 
 Verify the workspaces:

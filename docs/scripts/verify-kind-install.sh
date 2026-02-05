@@ -9,6 +9,15 @@ set -o pipefail
 KCP_NAMESPACE="kcp"
 KCP_EXTERNAL_HOSTNAME=${KCP_EXTERNAL_HOSTNAME:-"kcp.local.test"}
 KCP_PORT=${KCP_PORT:-8443}
+KCP_VERIFY_LOG=${KCP_VERIFY_LOG:-""}
+
+if [ -n "${KCP_VERIFY_LOG}" ]; then
+    LOG_DIR=$(dirname "${KCP_VERIFY_LOG}")
+    if [ "${LOG_DIR}" != "." ]; then
+        mkdir -p "${LOG_DIR}"
+    fi
+    exec > >(tee -i "${KCP_VERIFY_LOG}") 2>&1
+fi
 
 if [ -z "${KUBECONFIG:-}" ]; then
     if [ -f admin.kubeconfig ]; then
@@ -17,6 +26,19 @@ if [ -z "${KUBECONFIG:-}" ]; then
         echo "KUBECONFIG is not set and admin.kubeconfig is missing. Run Step 5 first."
         exit 1
     fi
+fi
+
+echo "Verification started at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "KCP_EXTERNAL_HOSTNAME=${KCP_EXTERNAL_HOSTNAME}"
+echo "KCP_PORT=${KCP_PORT}"
+if command -v kind >/dev/null 2>&1; then
+    echo "kind: $(kind version)"
+fi
+if command -v kubectl >/dev/null 2>&1; then
+    echo "kubectl: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null)"
+fi
+if command -v helm >/dev/null 2>&1; then
+    echo "helm: $(helm version --short 2>/dev/null || helm version 2>/dev/null)"
 fi
 
 echo "Starting verification..."
