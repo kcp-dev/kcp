@@ -7,6 +7,9 @@ description: >
 
 The [Kubernetes MCP Server](https://github.com/containers/kubernetes-mcp-server) provides a Model Context Protocol interface that enables AI assistants (like Claude, ChatGPT, etc.) to interact with Kubernetes clusters. When configured for kcp, it allows AI assistants to manage workspaces, logical clusters, and other kcp resources.
 
+!!! warning "Known Limitation"
+    The current MCP server integration does not have a clear cluster-inventory or "what clusters do I have access to" capability. We are actively working on better integration to address this limitation.
+
 ## Overview
 
 The MCP server acts as a bridge between AI assistants and kcp, translating natural language requests into kcp API operations. It supports:

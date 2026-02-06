@@ -239,12 +239,12 @@ Apply the Keycloak deployment:
 kubectl apply -f keycloak.yaml
 ```
 
-### 7. Verify Deployment
+### 7 Verify Deployment
 
 Check the status of the Keycloak deployment:
 
 ```sh
-kubectl get keycloaks/keycloak -n oidc -o go-template='{{range .status.conditions}}CONDITION: {{.type}}{{"\n"}}  STATUS: {{.status}}{{"\n"}}  MESSAGE: {{.message}}{{"\n"}}{{end}}'
+kubectl get keycloaks/keycloak -n oidc -o go-template='{% raw %}{{range .status.conditions}}CONDITION: {{.type}}{{"\n"}}  STATUS: {{.status}}{{"\n"}}  MESSAGE: {{.message}}{{"\n"}}{{end}}{% endraw %}'
 ```
 
 When ready, you should see:
