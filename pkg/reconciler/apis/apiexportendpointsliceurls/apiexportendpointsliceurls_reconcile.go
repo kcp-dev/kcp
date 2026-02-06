@@ -150,7 +150,7 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context,
 		}
 	}
 
-	u, err := url.Parse(shard.Spec.VirtualWorkspaceURL)
+	u, err := url.Parse(shard.Spec.ExternalURL)
 	if err != nil {
 		// Should never happen
 		logger = logging.WithObject(logger, shard)
