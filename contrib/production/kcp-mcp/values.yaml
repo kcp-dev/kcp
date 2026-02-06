@@ -7,26 +7,24 @@ replicaCount: 1
 
 # Container image configuration
 image:
-  registry: quay.io
-  repository: containers/kubernetes_mcp_server
+  registry: ghcr.io
+  repository: mjudeikis/kubernetes-mcp-server
   version: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
-# Service configuration
+# Service configuration - expose HTTPS on port 443, forward to container port 8443
 service:
-  type: ClusterIP
-  port: 8080
+  type: LoadBalancer
+  port: 8443
+  targetPort: 8443
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
 
-# Ingress configuration - must be configured for your environment
+# Ingress disabled - using TLS termination at the application level
 ingress:
-  enabled: true
-  className: ""
-  host: "mcp.vespucci.genericcontrolplane.io"
-  path: /
-  pathType: ImplementationSpecific
-  termination: edge
-  annotations: {}
-  tls: null
+  enabled: false
 
 # Service account configuration
 serviceAccount:
@@ -60,41 +58,69 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-# Extra volumes for mounting base kubeconfig and config
+# Extra volumes for mounting base kubeconfig and TLS certs
 # The kubeconfig provides cluster endpoint/TLS only (no auth credentials)
 # Authentication is handled via OIDC bearer tokens
+# Note: config is handled by the chart via config.existingConfigMap
 extraVolumes:
   - name: kubeconfig
     secret:
       secretName: kcp-mcp-kubeconfig
-  - name: config
-    configMap:
-      name: kcp-mcp-config
+  - name: tls-certs
+    secret:
+      secretName: mcp-tls
 
 # Extra volume mounts
+# Mount to different paths to avoid conflicts with chart's default mounts
 extraVolumeMounts:
   - name: kubeconfig
-    mountPath: /etc/kubernetes-mcp-server/kubeconfig
-    subPath: kubeconfig
+    mountPath: /etc/kcp-mcp/kube
     readOnly: true
-  - name: config
-    mountPath: /etc/kubernetes-mcp-server/config.toml
-    subPath: config.toml
+  - name: tls-certs
+    mountPath: /etc/kcp-mcp/tls
     readOnly: true
 
 # Configuration file path
-configFilePath: /etc/kubernetes-mcp-server/config.toml
+configFilePath: /etc/kcp-mcp/config/config.toml
 
-# Liveness and readiness probes
+# MCP Server configuration - this becomes TOML via the chart's toToml function
+config:
+  port: "8443"
+  cluster_provider_strategy: "kcp"
+  kubeconfig: "/etc/kcp-mcp/kube/kubeconfig"
+  require_oauth: true
+  authorization_url: "https://auth.keycloak.example.com/realms/kcp"
+  oauth_audience: "kcp"
+  tls_cert: "/etc/kcp-mcp/tls/tls.crt"
+  tls_key: "/etc/kcp-mcp/tls/tls.key"
+  toolsets:
+    - "kcp"
+    - "core"
+  disabled_tools:
+    - "pods_list"
+    - "pods_list_in_namespace"
+    - "pods_get"
+    - "pods_delete"
+    - "pods_top"
+    - "pods_exec"
+    - "pods_log"
+    - "pods_run"
+    - "nodes_log"
+    - "nodes_stats_summary"
+    - "nodes_top"
+
+# Liveness and readiness probes - use HTTPS scheme on port 8443
 livenessProbe:
   httpGet:
     path: /healthz
-    port: http
+    port: 8443
+    scheme: HTTPS
 
 readinessProbe:
   httpGet:
     path: /healthz
-    port: http
+    port: 8443
+    scheme: HTTPS
 
 # Node selector, tolerations, and affinity
 nodeSelector: {}

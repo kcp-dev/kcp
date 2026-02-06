@@ -42,6 +42,10 @@ When running with OIDC enabled:
 - Helm 3.x installed
 - Access to create Secrets and ConfigMaps in your cluster
 - The same OIDC provider configured for both kcp and the MCP server
+- **OIDC Provider with Dynamic Client Registration (DCR) support** - The MCP server uses DCR for OAuth flows. Your IdP must:
+  - Support OpenID Connect Dynamic Client Registration
+  - Have the MCP server hostname configured as a trusted host (see [Keycloak configuration](#keycloak-dcr-configuration) below)
+  - Have clients configured with `kcp` as an allowed audience
 
 ## Installation
 
@@ -57,20 +61,28 @@ apiVersion: operator.kcp.io/v1alpha1
 kind: Kubeconfig
 metadata:
   name: kcp-mcp-kubeconfig
-  namespace: kcp-mcp
+  namespace: kcp-vespucci
 spec:
-  # No username/groups needed - OIDC provides identity
+  username: fake-user-for-mcp
+  groups:
+    - kcp:mcp-users
   validity: 8766h # 1 year
   secretRef:
     name: kcp-mcp-kubeconfig
   target:
     frontProxyRef:
       name: frontproxy
-      namespace: <kcp-namespace>  # namespace where your FrontProxy is deployed
 EOF
 ```
 
-The operator will create a Secret named `kcp-mcp-kubeconfig` containing the kubeconfig with the front proxy endpoint and CA certificate.
+The operator will create a Secret named `kcp-mcp-kubeconfig` in the `kcp-vespucci` namespace. Copy it to the `kcp-mcp` namespace:
+
+```bash
+kubectl create namespace kcp-mcp
+kubectl get secret kcp-mcp-kubeconfig -n kcp-vespucci -o json | \
+  jq 'del(.metadata.namespace, .metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.ownerReferences)' | \
+  kubectl apply -n kcp-mcp -f -
+```
 
 Alternatively, create a minimal kubeconfig manually:
 
@@ -99,54 +111,33 @@ stringData:
 EOF
 ```
 
-### 2. Create the Configuration ConfigMap
+### 3. Create the TLS Certificate
 
-Create a ConfigMap with the MCP server configuration:
+Create a cert-manager Certificate to generate TLS certificates signed by Let's Encrypt:
 
 ```bash
 kubectl apply -f - <<EOF
-apiVersion: v1
-kind: ConfigMap
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: kcp-mcp-config
+  name: mcp-tls
   namespace: kcp-mcp
-data:
-  config.toml: |
-    # Cluster provider strategy - use "kcp" for kcp control planes
-    cluster_provider_strategy = "kcp"
-
-    # Base kubeconfig path - provides cluster endpoint and TLS settings
-    kubeconfig = "/etc/kubernetes-mcp-server/kubeconfig"
-
-    # OIDC Authentication Configuration
-    require_oauth = true
-    authorization_url = "https://auth.example.com"
-    oauth_audience = "your-client-id"
-
-    # Optional: CA certificate for OIDC provider TLS verification
-    # certificate_authority = "/etc/kubernetes-mcp-server/oidc-ca.crt"
-
-    # Toolsets to enable - kcp and core provide kcp-specific functionality
-    toolsets = ["kcp", "core"]
-
-    # Disable pod and node related tools as they are not applicable to kcp
-    disabled_tools = [
-        "pods_list",
-        "pods_list_in_namespace",
-        "pods_get",
-        "pods_delete",
-        "pods_top",
-        "pods_exec",
-        "pods_log",
-        "pods_run",
-        "nodes_log",
-        "nodes_stats_summary",
-        "nodes_top",
-    ]
+spec:
+  secretName: mcp-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
+  dnsNames:
+    - mcp.vespucci.example.com
 EOF
 ```
 
-### 3. Install the Helm Chart
+The certificate will be stored in the `mcp-tls` secret and automatically renewed by cert-manager.
+
+### 4. Install the Helm Chart
 
 Install the Kubernetes MCP Server using the official Helm chart:
 
@@ -154,8 +145,7 @@ Install the Kubernetes MCP Server using the official Helm chart:
 helm upgrade -i kubernetes-mcp-server \
   oci://ghcr.io/containers/charts/kubernetes-mcp-server \
   -n kcp-mcp \
-  --set ingress.host=mcp.your-kcp.example.com \
-  -f values.yaml
+  -f contrib/production/kcp-mcp/values.yaml
 ```
 
 Example `values.yaml` for kcp with OIDC:
@@ -189,11 +179,12 @@ rbac:
 
 # Base kubeconfig provides cluster endpoint/TLS only
 # Authentication is handled via OIDC bearer tokens
+# Note: "config" name is reserved by the chart, so we use "kcp-config"
 extraVolumes:
   - name: kubeconfig
     secret:
       secretName: kcp-mcp-kubeconfig
-  - name: config
+  - name: kcp-config
     configMap:
       name: kcp-mcp-config
 
@@ -202,7 +193,7 @@ extraVolumeMounts:
     mountPath: /etc/kubernetes-mcp-server/kubeconfig
     subPath: kubeconfig
     readOnly: true
-  - name: config
+  - name: kcp-config
     mountPath: /etc/kubernetes-mcp-server/config.toml
     subPath: config.toml
     readOnly: true
@@ -265,8 +256,6 @@ auth:
     clientID: platform-mesh
     groupsClaim: groups
     usernameClaim: email
-    usernamePrefix: "oidc:"
-    groupsPrefix: "oidc:"
 ```
 
 **Corresponding MCP server settings:**
@@ -303,10 +292,21 @@ curl https://mcp.your-kcp.example.com/healthz
 
 ```bash
 # Get a token from your OIDC provider
-TOKEN=$(kubectl oidc-login get-token --oidc-issuer-url=https://auth.example.com --oidc-client-id=platform-mesh | jq -r '.status.token')
+TOKEN=$(kubectl oidc-login get-token \
+  --oidc-issuer-url=https://auth.keycloak.example.com/realms/kcp \
+  --oidc-client-id=kcp \
+  --oidc-extra-scope="email" \
+  --oidc-extra-scope="groups" | jq -r '.status.token')
 
 # Test the MCP endpoint with the token
-curl -H "Authorization: Bearer $TOKEN" https://mcp.your-kcp.example.com/api/v1/tools
+curl -H "Authorization: Bearer $TOKEN" https://mcp.example.com/healthz
+```
+
+To do more extensive testing:
+
+```bash
+claude mcp add kcp-mcp https://mcp.example.com:8443/mcp \
+  --transport http
 ```
 
 ## Connecting AI Assistants
@@ -356,6 +356,67 @@ If specific tools return errors:
 1. Verify the toolset configuration in `config.toml`
 2. Check that disabled tools don't include tools you need
 3. Review MCP server logs for detailed error messages
+
+## Keycloak DCR Configuration
+
+The MCP server requires an OIDC provider that supports Dynamic Client Registration (DCR). When using Keycloak, you need to configure:
+
+### 1. Enable Client Registration
+
+In Keycloak Admin Console:
+
+1. Navigate to **Realm Settings** → **Client Registration**
+2. Go to the **Client Registration Policies** tab
+3. Under **Trusted Hosts** policy, add your MCP server hostname (e.g., `mcp.vespucci.genericcontrolplane.io`)
+
+### 2. Configure Client Audience
+
+Each client that will authenticate to the MCP server needs `kcp` as an allowed audience:
+
+1. Navigate to **Clients** → Select your client (e.g., `kcp`)
+2. Go to **Client Scopes** tab
+3. Add a dedicated scope or use the default scope
+4. In the scope's **Mappers** tab, create a new mapper:
+   - **Mapper type**: Audience
+   - **Name**: `kcp-audience`
+   - **Included Client Audience**: `kcp`
+   - **Add to ID token**: On
+   - **Add to access token**: On
+
+## FAQ and Troubleshooting
+
+### Policy 'Trusted Hosts' rejected request
+
+**Error:** `Policy 'Trusted Hosts' rejected request to client-registration service. Details: URI doesn't match any trusted host or trusted domain`
+
+**Cause:** The MCP server hostname is not configured as a trusted host in Keycloak's Client Registration Policies.
+
+**Solution:** In Keycloak Admin Console:
+1. Go to **Realm Settings** → **Client Registration** → **Client Registration Policies**
+2. Edit the **Trusted Hosts** policy
+3. Add your MCP server hostname (e.g., `mcp.vespucci.example.com`)
+
+### Debugging MCP Connection Issues
+
+Use the `--debug` flag with Claude CLI to see detailed connection information:
+
+```sh
+claude --debug
+```
+
+This will show:
+- OAuth/OIDC flow details
+- HTTP request/response headers
+- Token validation errors
+- Connection timeouts
+
+### Invalid Audience Error
+
+**Error:** Token rejected due to invalid audience claim.
+
+**Cause:** The JWT token doesn't include `kcp` in the audience (`aud`) claim.
+
+**Solution:** Configure your Keycloak client to include `kcp` as an audience (see [Configure Client Audience](#2-configure-client-audience) above).
 
 ## Example Production Deployment
 
