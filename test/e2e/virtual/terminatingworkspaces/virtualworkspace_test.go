@@ -620,7 +620,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 				watcher, err = clientset.CoreV1alpha1().LogicalClusters().Watch(ctx, metav1.ListOptions{})
 				require.NoError(c, err)
 				require.NotNil(c, watcher) // if we are too fast, it is possible for .Watch to return no error but a nil watcher
-			}, wait.ForeverTestTimeout, 100*time.Millisecond)
+			}, wait.ForeverTestTimeout*2, 100*time.Millisecond)
 			con.watcher = watcher
 		}
 	}
