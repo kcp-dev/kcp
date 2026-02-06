@@ -372,6 +372,22 @@ func TestAPIExportAPIBindingsAccess(t *testing.T) {
 	create(ws1Path, "APIBinding referencing APIExport 1", "apibindings_access_binding1.yaml")
 	create(ws1Path, "APIBinding referencing APIExport 2", "apibindings_access_binding2.yaml")
 
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to get kube cluster client")
+	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClusterClient, ws1Path, nil, []string{"system:authenticated"}, false)
+
+	t.Logf("Waiting for workspace access to be propagated for %s", ws1Path)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(ws1Path).ApisV1alpha2().APIExports().List(t.Context(), metav1.ListOptions{})
+		if apierrors.IsForbidden(err) {
+			return false, fmt.Sprintf("waiting for RBAC to propagate: %v", err)
+		}
+		if err != nil {
+			return false, fmt.Sprintf("error listing APIExports: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 1*time.Second, "workspace access not propagated for %s yet", ws1Path)
+
 	create(ws2Path, "APIBinding referencing APIExport 1", "apibindings_access_binding1.yaml", func(bs []byte) ([]byte, error) {
 		var binding apisv1alpha2.APIBinding
 		err := yaml.Unmarshal(bs, &binding)
