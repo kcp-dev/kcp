@@ -1,0 +1,4 @@
+namespace: kcp-theseus
+resources:
+  - namespace.yaml
+  - https://github.com/ntnn/kustomize-etcd?ref=main

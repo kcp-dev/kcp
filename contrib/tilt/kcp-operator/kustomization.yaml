@@ -1,0 +1,6 @@
+resources:
+  - https://github.com/kcp-dev/kcp-operator/config/default?ref=main
+
+images:
+  - name: ghcr.io/kcp-dev/kcp-operator
+    newTag: main
