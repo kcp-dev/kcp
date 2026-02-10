@@ -114,6 +114,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	o.Etcd.AddFlags(fs)
 	o.EmbeddedEtcd.AddFlags(fs)
 	o.SecureServing.AddFlags(fs)
 	fs.DurationVar(&o.SyntheticDelay, "synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests. Useful for testing.")
