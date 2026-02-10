@@ -49,6 +49,7 @@ func main() {
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
 	cacheSyntheticDelay := flag.Duration("cache-synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
+	cacheServerKubeconfig := flag.String("cache-kubeconfig", "", "Path to a kubeconfig of an external cache-server. If empty, a dedicated cache-server is started.")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
 	// passed to the respective components.
@@ -64,13 +65,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, *cacheServerKubeconfig); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPath string) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -197,16 +198,17 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
 	cacheServerErrCh := make(chan indexErrTuple)
-	cacheServerConfigPath := ""
-	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay)
-	if err != nil {
-		return fmt.Errorf("error starting the cache server: %w", err)
+	if cacheServerConfigPath == "" {
+		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay)
+		if err != nil {
+			return fmt.Errorf("error starting the cache server: %w", err)
+		}
+		cacheServerConfigPath = configPath
+		go func() {
+			err := <-cacheServerCh
+			cacheServerErrCh <- indexErrTuple{0, err}
+		}()
 	}
-	cacheServerConfigPath = configPath
-	go func() {
-		err := <-cacheServerCh
-		cacheServerErrCh <- indexErrTuple{0, err}
-	}()
 
 	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
 		return err
