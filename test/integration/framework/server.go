@@ -161,6 +161,7 @@ func (s *InProcessServer) Start(ctx context.Context, t kcptestingserver.TestingT
 			t.Errorf("`kcp` failed: %v", err)
 		}
 	}()
+	t.Cleanup(s.Stop)
 }
 
 func (s *InProcessServer) Wait(t kcptestingserver.TestingT) {
