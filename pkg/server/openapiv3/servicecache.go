@@ -104,7 +104,15 @@ func (c *ServiceCache) RegisterStaticAPIs(cont *restful.Container) error {
 	for gvPath, ws := range byGVPath {
 		c.staticSpecs[gvPath] = cached.Once(cached.Func[*spec3.OpenAPI](
 			func() (value *spec3.OpenAPI, etag string, err error) {
-				spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), c.config)
+				// Copy the config and clear Definitions so that newOpenAPI() calls
+				// GetDefinitions, creating a fresh definitions map per invocation.
+				// Without this, the caching layer's listMerger evaluates multiple
+				// closures in parallel and they all share the same Definitions map.
+				// buildDefinitionRecursively mutates Extension maps reachable
+				// through that shared map, causing concurrent map writes.
+				cfg := *c.config
+				cfg.Definitions = nil
+				spec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(ws), &cfg)
 				if err != nil {
 					return nil, "", fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
 				}
