@@ -279,10 +279,11 @@ func TestAuthorizer(t *testing.T) {
 		{"default SelfSubjectRulesReview for non-admin user should be a fixed list of rules", func(t *testing.T) {
 			ws := org1.Join("workspace2")
 
-			// user shouldn't be able to do a SelfSubjectRulesReview in a workspace they don't have access to.
-			t.Logf("verifying that user-4 cannot create SelfSubjectRulesReview in %s", org1.Join("workspace1"))
+			// self-subject reviews bypass the workspace access gate, so they should succeed
+			// even in workspaces the user doesn't have workspace access to.
+			t.Logf("verifying that user-4 can create SelfSubjectRulesReview in %s (no workspace access)", org1.Join("workspace1"))
 			_, err := user4KubeClusterClient.Cluster(org1.Join("workspace1")).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, &authorizationv1.SelfSubjectRulesReview{Spec: authorizationv1.SelfSubjectRulesReviewSpec{Namespace: corev1.NamespaceDefault}}, metav1.CreateOptions{})
-			require.Error(t, err)
+			require.NoError(t, err)
 
 			// the user has been admitted to workspace2, they should have the basic set of rules returned on a SelfSubjectRulesReview.
 			t.Logf("creating SelfSubjectRulesReview as user-4 in %s", ws)

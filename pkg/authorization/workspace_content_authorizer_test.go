@@ -73,6 +73,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		wantReason, wantError string
 		wantDecision          authorizer.Decision
 		deepSARHeader         bool
+		attr                  *authorizer.AttributesRecord // if set, overrides default attr
 	}{
 		{
 			testName: "unknown requested workspace",
@@ -226,6 +227,66 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to deep SAR request",
 		},
+		{
+			testName: "selfsubjectaccessreview bypasses workspace access gate",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
+			attr: &authorizer.AttributesRecord{
+				User:            &user.DefaultInfo{Name: "user-unknown"},
+				Verb:            "create",
+				APIGroup:        "authorization.k8s.io",
+				Resource:        "selfsubjectaccessreviews",
+				ResourceRequest: true,
+			},
+			wantDecision: authorizer.DecisionAllow,
+			wantReason:   "delegating due to self-subject review request",
+		},
+		{
+			testName: "selfsubjectrulesreview bypasses workspace access gate",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
+			attr: &authorizer.AttributesRecord{
+				User:            &user.DefaultInfo{Name: "user-unknown"},
+				Verb:            "create",
+				APIGroup:        "authorization.k8s.io",
+				Resource:        "selfsubjectrulesreviews",
+				ResourceRequest: true,
+			},
+			wantDecision: authorizer.DecisionAllow,
+			wantReason:   "delegating due to self-subject review request",
+		},
+		{
+			testName: "selfsubjectreview (authentication) bypasses workspace access gate",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
+			attr: &authorizer.AttributesRecord{
+				User:            &user.DefaultInfo{Name: "user-unknown"},
+				Verb:            "create",
+				APIGroup:        "authentication.k8s.io",
+				Resource:        "selfsubjectreviews",
+				ResourceRequest: true,
+			},
+			wantDecision: authorizer.DecisionAllow,
+			wantReason:   "delegating due to self-subject review request",
+		},
+		{
+			testName: "non-create verb on selfsubjectaccessreview does not bypass",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
+			attr: &authorizer.AttributesRecord{
+				User:            &user.DefaultInfo{Name: "user-unknown"},
+				Verb:            "get",
+				APIGroup:        "authorization.k8s.io",
+				Resource:        "selfsubjectaccessreviews",
+				ResourceRequest: true,
+			},
+			wantDecision: authorizer.DecisionNoOpinion,
+			wantReason:   "no verb=access permission on /",
+		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
 			ctx := context.Background()
@@ -377,6 +438,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			ctx = request.WithCluster(ctx, requestedCluster)
 			attr := authorizer.AttributesRecord{
 				User: tt.requestingUser,
+			}
+			if tt.attr != nil {
+				attr = *tt.attr
 			}
 			if tt.deepSARHeader {
 				ctx = context.WithValue(ctx, deepSARKey, true)

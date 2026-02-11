@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -78,6 +80,23 @@ type workspaceContentAuthorizer struct {
 	delegate authorizer.Authorizer
 }
 
+// isSelfSubjectReview returns true for create requests on self-subject review resources
+// (selfsubjectaccessreviews, selfsubjectrulesreviews, selfsubjectreviews).
+func isSelfSubjectReview(attr authorizer.Attributes) bool {
+	if attr.GetVerb() != "create" || !attr.IsResourceRequest() {
+		return false
+	}
+
+	switch attr.GetAPIGroup() {
+	case authorizationv1.GroupName:
+		return attr.GetResource() == "selfsubjectaccessreviews" || attr.GetResource() == "selfsubjectrulesreviews"
+	case authenticationv1.GroupName:
+		return attr.GetResource() == "selfsubjectreviews"
+	}
+
+	return false
+}
+
 func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	cluster := genericapirequest.ClusterFrom(ctx)
 
@@ -92,6 +111,12 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
 		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
+	}
+
+	// Self-subject reviews are introspection requests. They should bypass the
+	// workspace access gate and be authorized by downstream RBAC rules directly.
+	if isSelfSubjectReview(attr) {
+		return DelegateAuthorization("self-subject review request", a.delegate).Authorize(ctx, attr)
 	}
 
 	// always let logical-cluster-admins through
