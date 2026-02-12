@@ -151,7 +151,7 @@ func NewTestTypeInformer(client clientsetversioned.Interface, resyncPeriod time.
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredTestTypeInformer(client clientsetversioned.Interface, resyncPeriod time.Duration, namespace string, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -164,7 +164,7 @@ func NewFilteredTestTypeInformer(client clientsetversioned.Interface, resyncPeri
 				}
 				return client.ExampleV1beta1().TestTypes(namespace).Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apisexamplev1beta1.TestType{},
 		resyncPeriod,
 		indexers,

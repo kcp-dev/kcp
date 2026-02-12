@@ -150,7 +150,7 @@ func NewClusterTestTypeInformer(client clientsetversioned.Interface, resyncPerio
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterTestTypeInformer(client clientsetversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -163,7 +163,7 @@ func NewFilteredClusterTestTypeInformer(client clientsetversioned.Interface, res
 				}
 				return client.SecondexampleV1().ClusterTestTypes().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apissecondexamplev1.ClusterTestType{},
 		resyncPeriod,
 		indexers,
