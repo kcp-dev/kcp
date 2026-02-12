@@ -6,8 +6,8 @@ module github.com/kcp-dev/kcp
 // The script hack/verify-go-versions.sh checks that all version
 // references across the codebase are consistent with the versions
 // maintained here.
-// go-build-version 1.24.11
-go 1.24.0
+// go-build-version 1.25.7
+go 1.25.0
 
 require (
 	github.com/abiosoft/lineprefix v0.1.4

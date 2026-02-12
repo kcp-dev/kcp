@@ -1,6 +1,6 @@
 module github.com/kcp-dev/code-generator/v3
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/spf13/pflag v1.0.6
