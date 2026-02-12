@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # tag=v6.3.0
         with:
-          go-version: v1.24.13
+          go-version: v1.25.7
           cache: true
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 #tag=v6.2.0
