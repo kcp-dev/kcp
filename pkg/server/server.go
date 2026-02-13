@@ -22,7 +22,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
+
+	"github.com/ntnn/go-ntnn"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -69,6 +72,12 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
+
+func init() {
+	pwd, err := os.Getwd()
+	ntnn.Panic(err)
+	ntnn.LogToFile = filepath.Join(pwd, "ntnn.log")
+}
 
 type Server struct {
 	CompletedConfig

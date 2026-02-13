@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/kcp-dev/logicalcluster/v3 v3.0.4
+	github.com/ntnn/go-ntnn v0.0.0-20251229015853-51cc0da7e08f
 	github.com/stretchr/testify v1.10.0
 	k8s.io/api v0.34.2
 	k8s.io/apimachinery v0.34.2
