@@ -6,6 +6,12 @@ rules:
           branch: main
           dirs:
             - staging/src/github.com/kcp-dev/apimachinery
+      - name: 1.35.1-staging
+        go: 1.25.7
+        source:
+          branch: 1.35.1-staging
+          dirs:
+            - staging/src/github.com/kcp-dev/apimachinery
       - name: release-0.29
         go: 1.24.11
         source:
@@ -25,6 +31,12 @@ rules:
       - name: main
         source:
           branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/code-generator
+      - name: 1.35.1-staging
+        go: 1.25.7
+        source:
+          branch: 1.35.1-staging
           dirs:
             - staging/src/github.com/kcp-dev/code-generator
       - name: release-0.29
@@ -51,6 +63,17 @@ rules:
             branch: main
         source:
           branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/client-go
+      - name: 1.35.1-staging
+        go: 1.25.7
+        dependencies:
+          - repository: apimachinery
+            branch: 1.35.1-staging
+          - repository: code-generator
+            branch: 1.35.1-staging
+        source:
+          branch: 1.35.1-staging
           dirs:
             - staging/src/github.com/kcp-dev/client-go
       - name: release-0.29
