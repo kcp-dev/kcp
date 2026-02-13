@@ -218,5 +218,5 @@ require (
 	k8s.io/pod-security-admission v0.0.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/randfill v1.0.0 // indirect
+staging/src/github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1/fake/storageversionmigration.go	sigs.k8s.io/randfill v1.0.0 // indirect
 )

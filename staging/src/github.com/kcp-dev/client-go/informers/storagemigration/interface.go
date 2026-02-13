@@ -20,13 +20,13 @@ package storagemigration
 
 import (
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
-	kcpv1alpha1 "github.com/kcp-dev/client-go/informers/storagemigration/v1alpha1"
+	kcpv1beta1 "github.com/kcp-dev/client-go/informers/storagemigration/v1beta1"
 )
 
 // ClusterInterface provides access to each of this group's versions.
 type ClusterInterface interface {
-	// V1alpha1 provides access to shared informers for resources in V1alpha1.
-	V1alpha1() kcpv1alpha1.ClusterInterface
+	// V1beta1 provides access to shared informers for resources in V1beta1.
+	V1beta1() kcpv1beta1.ClusterInterface
 }
 
 type group struct {
@@ -39,7 +39,7 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &group{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// V1alpha1 returns a new kcpv1alpha1.ClusterInterface.
-func (g *group) V1alpha1() kcpv1alpha1.ClusterInterface {
-	return kcpv1alpha1.New(g.factory, g.tweakListOptions)
+// V1beta1 returns a new kcpv1beta1.ClusterInterface.
+func (g *group) V1beta1() kcpv1beta1.ClusterInterface {
+	return kcpv1beta1.New(g.factory, g.tweakListOptions)
 }
