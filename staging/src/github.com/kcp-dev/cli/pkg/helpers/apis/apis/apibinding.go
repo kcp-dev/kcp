@@ -30,7 +30,10 @@ type APIBinding interface {
 	Name() string
 	Refresh(ctx context.Context, client kcpclientset.Interface) error
 	Create(ctx context.Context, client kcpclientset.Interface) error
+	Update(ctx context.Context, client kcpclientset.Interface) error
 	SetPermissionClaims(claims []apisv1alpha2.AcceptablePermissionClaim) error
+	GetPermissionClaims() []apisv1alpha2.AcceptablePermissionClaim
+	GetExportPermissionClaims() []apisv1alpha2.PermissionClaim
 	IsBound() bool
 }
 
