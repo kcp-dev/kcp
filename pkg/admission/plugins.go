@@ -53,6 +53,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
+	kcpmutatingadmissionpolicy "github.com/kcp-dev/kcp/pkg/admission/mutatingadmissionpolicy"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
 	"github.com/kcp-dev/kcp/pkg/admission/pathannotation"
@@ -85,6 +86,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
 	kcpmutatingwebhook.PluginName,
+	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
@@ -126,6 +128,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	apiexportendpointslice.Register(plugins)
 	workspacenamespacelifecycle.Register(plugins)
 	kcpmutatingwebhook.Register(plugins)
+	kcpmutatingadmissionpolicy.Register(plugins)
 	kcpvalidatingadmissionpolicy.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
 	reservedcrdannotations.Register(plugins)
@@ -158,6 +161,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
 	kcpmutatingwebhook.PluginName,
+	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
