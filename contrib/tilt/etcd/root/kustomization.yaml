@@ -1,0 +1,4 @@
+namespace: kcp-root
+resources:
+  - namespace.yaml
+  - https://github.com/ntnn/kustomize-etcd?ref=main

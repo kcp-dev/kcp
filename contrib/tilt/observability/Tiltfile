@@ -1,0 +1,72 @@
+load('ext://helm_remote', 'helm_remote')
+load('ext://namespace', 'namespace_create')
+
+namespace_create('grafana')
+helm_remote(
+  'grafana',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='grafana',
+  namespace='grafana',
+  version='6.38.0',
+  values=['./grafana-values.yaml'],
+  set=[],
+)
+
+k8s_resource(
+  workload='grafana',
+  port_forwards=[
+    port_forward(name="3333", local_port=3333, container_port=3000),
+  ],
+)
+
+namespace_create('loki')
+helm_remote(
+  'loki',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='loki',
+  namespace='loki',
+  version='5.2.0',
+  values=['./loki-values.yaml'],
+  set=[],
+)
+
+k8s_resource(
+  workload='loki',
+  port_forwards=[
+    port_forward(name="ui", local_port=3100, container_port=3100),
+  ],
+)
+
+helm_remote(
+  'promtail',
+  repo_url='https://grafana.github.io/helm-charts',
+  repo_name='grafana',
+  release_name='promtail',
+  namespace='loki',
+  version='3.11.0',
+  values=['promtail-values.yaml'],
+  set=[],
+)
+
+namespace_create('prometheus')
+helm_remote(
+  'prometheus',
+  repo_url='https://prometheus-community.github.io/helm-charts',
+  repo_name='prometheus-community',
+  release_name='prometheus',
+  namespace='prometheus',
+  version='25.8.2',
+  values=['prometheus-values.yaml'],
+  set=[],
+)
+
+# TODO manage via ingress
+k8s_resource(
+  workload='prometheus-server',
+  port_forwards=[
+    port_forward(name="ui", local_port=9091, container_port=9090),
+  ],
+)
+

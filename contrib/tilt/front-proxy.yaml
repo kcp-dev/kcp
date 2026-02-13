@@ -1,0 +1,46 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: FrontProxy
+metadata:
+  name: frontproxy
+spec:
+  image:
+    repository: kcp-front-proxy
+    tag: latest
+  rootShard:
+    ref:
+      name: root
+  external:
+    hostname: kcp.localhost
+    port: 8443
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          hostAliases:
+            - ip: 10.96.2.2
+              hostnames:
+                - kcp.localhost
+                - root.kcp.localhost
+                - theseus.kcp.localhost
+  certificateTemplates:
+    server:
+      spec:
+        dnsNames:
+        - kcp.localhost
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: front-proxy
+  namespace: default
+spec:
+  parentRefs:
+  - name: eg
+    namespace: envoy-gateway-system
+  hostnames:
+  - kcp.localhost
+  rules:
+  - backendRefs:
+    - name: frontproxy-front-proxy
+      port: 6443
+      namespace: default

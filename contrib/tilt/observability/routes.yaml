@@ -1,0 +1,16 @@
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: grafana
+  namespace: grafana
+spec:
+  parentRefs:
+  - name: eg
+    namespace: envoy-gateway-system
+  hostnames:
+  - grafana.kcp.localhost
+  rules:
+  - backendRefs:
+    - name: grafana
+      port: 80
+      namespace: grafana

@@ -1,0 +1,58 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: theseus
+spec:
+  rootShard:
+    ref:
+      name: root
+  image:
+    repository: kcp
+    tag: latest
+  shardBaseURL: https://theseus.kcp.localhost:8443
+  external:
+    hostname: kcp.localhost
+    port: 8443
+  certificates:
+    issuerRef:
+      group: cert-manager.io
+      kind: Issuer
+      name: selfsigned
+  cache:
+    embedded:
+      enabled: true
+  etcd:
+    endpoints:
+      - http://etcd.kcp-theseus.svc.cluster.local:2379
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          hostAliases:
+            - ip: 10.96.2.2
+              hostnames:
+                - kcp.localhost
+                - root.kcp.localhost
+                - theseus.kcp.localhost
+  certificateTemplates:
+    server:
+      spec:
+        dnsNames:
+        - theseus.kcp.localhost
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: theseus
+  namespace: default
+spec:
+  parentRefs:
+  - name: eg
+    namespace: envoy-gateway-system
+  hostnames:
+  - theseus.kcp.localhost
+  rules:
+  - backendRefs:
+    - name: theseus-shard-kcp
+      port: 6443
+      namespace: default
