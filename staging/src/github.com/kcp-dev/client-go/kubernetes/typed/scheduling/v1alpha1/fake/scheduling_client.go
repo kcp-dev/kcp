@@ -44,6 +44,10 @@ func (c *SchedulingV1alpha1ClusterClient) PriorityClasses() kcpschedulingv1alpha
 	return newFakePriorityClassClusterClient(c)
 }
 
+func (c *SchedulingV1alpha1ClusterClient) Workloads() kcpschedulingv1alpha1.WorkloadClusterInterface {
+	return newFakeWorkloadClusterClient(c)
+}
+
 type SchedulingV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -51,6 +55,10 @@ type SchedulingV1alpha1Client struct {
 
 func (c *SchedulingV1alpha1Client) PriorityClasses() schedulingv1alpha1.PriorityClassInterface {
 	return newFakePriorityClassClient(c.Fake, c.ClusterPath)
+}
+
+func (c *SchedulingV1alpha1Client) Workloads(namespace string) schedulingv1alpha1.WorkloadInterface {
+	return newFakeWorkloadClient(c.Fake, namespace, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

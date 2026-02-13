@@ -21,3 +21,7 @@ package v1alpha1
 // PriorityClassClusterListerExpansion allows custom methods to be added to
 // PriorityClassClusterLister.
 type PriorityClassClusterListerExpansion interface{}
+
+// WorkloadClusterListerExpansion allows custom methods to be added to
+// WorkloadClusterLister.
+type WorkloadClusterListerExpansion interface{}
