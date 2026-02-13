@@ -1,0 +1,10 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  namespace: oidc
+  name: db-keycloak
+spec:
+  name: keycloak
+  owner: keycloak
+  cluster:
+    name: keycloak-auth

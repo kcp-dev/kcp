@@ -1,0 +1,25 @@
+---
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: oidc
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: keycloak-auth-rw.oidc.svc.cluster.local
+    usernameSecret:
+      name: keycloak-db-secret
+      key: username
+    passwordSecret:
+      name: keycloak-db-secret
+      key: password
+  http:
+    tlsSecret: keycloak-tls
+  hostname:
+    hostname: auth.keycloak.example.com
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false  # Using LoadBalancer service instead

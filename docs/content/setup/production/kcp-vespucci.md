@@ -157,8 +157,27 @@ KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards
 
 **Expected output**:
 ```
-KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards                                                                                                                   
+KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards 
 NAME    REGION   URL                                                  EXTERNAL URL                                       AGE
 alpha            https://alpha.vespucci.example.com:6443   https://api.vespucci.example.com:6443   7m46s
 root             https://root.vespucci.example.com:6443    https://api.vespucci.example.com:6443   9m23s
+```
+
+### Configure OIDC Credentials
+
+```bash
+kubectl config set-credentials oidc \
+  --exec-api-version=client.authentication.k8s.io/v1beta1 \
+  --exec-command=kubectl \
+  --exec-arg=oidc-login \
+  --exec-arg=get-token \
+  --exec-arg=--oidc-issuer-url="https://auth.keycloak.example.com/realms/kcp" \
+  --exec-arg=--oidc-client-id="kcp" \
+  --exec-arg=--oidc-extra-scope="email" \
+  --exec-arg=--oidc-extra-scope="groups"
+
+kubectl config set-context --current --user=oidc
+
+# And this should redirect to OIDC login flow but fails to list with lack of permissions.
+KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards --user oidc
 ```

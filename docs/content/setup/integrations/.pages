@@ -1,0 +1,8 @@
+nav:
+    - index.md
+    - mcp.md
+    - keycloak.md
+    - dex.md
+    - multicluster-runtime.md
+    - openfga.md
+    - lima.md

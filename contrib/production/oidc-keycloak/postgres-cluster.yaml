@@ -1,0 +1,39 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-auth
+  namespace: oidc
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: keycloak-postgres
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: keycloak-superuser
+  storage:
+    size: 10Gi
+---
+apiVersion: v1
+data:
+  username: a2V5Y2xvYWs=  # keycloak
+  password: cGFzc3dvcmQ=  # password - CHANGE IN PRODUCTION
+kind: Secret
+metadata:
+  namespace: oidc
+  name: keycloak-postgres
+type: kubernetes.io/basic-auth
+---
+apiVersion: v1
+data:
+  username: cG9zdGdyZXM=  # postgres
+  password: cGFzc3dvcmQ=  # password - CHANGE IN PRODUCTION
+kind: Secret
+metadata:
+  namespace: oidc
+  name: keycloak-superuser
+type: kubernetes.io/basic-auth
