@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# verification script for step 6-10 of quickstart-kind.md
+# verification script for docs/content/setup/quickstart-kind.md
 
 set -o errexit
 set -o nounset
@@ -49,7 +49,7 @@ echo "Starting verification..."
 
 # Step 6: Create Team Workspaces
 echo "=== Step 6: Creating team workspaces ==="
-for team in team-alpha team-beta team-gamma team-delta; do
+for team in team-alpha team-beta; do
     if kubectl ws :root:"${team}" > /dev/null 2>&1; then
         echo "Workspace ${team} already exists, skipping..."
     else
@@ -64,7 +64,7 @@ kubectl ws tree
 
 # Step 7: Generate Team Certificates
 echo "=== Step 7: Generating team certificates ==="
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
     cat <<EOF | kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" apply -n ${KCP_NAMESPACE} -f -
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -88,7 +88,7 @@ EOF
 done
 
 echo "Waiting for certificates to be ready..."
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
     kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
       wait --for=condition=Ready certificate/team-${team}-cert -n ${KCP_NAMESPACE} --timeout=60s
 done
@@ -96,7 +96,7 @@ done
 # Step 8: Grant Workspace Access
 echo "=== Step 8: Granting workspace access ==="
 
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
     echo "Configuring access for team-${team}..."
     kubectl ws :root:team-${team}
 
@@ -129,7 +129,7 @@ if [ ! -f ca.crt ]; then
       -o=jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
 fi
 
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
     echo "Processing team-${team}..."
     kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
         get secret team-${team}-cert -n ${KCP_NAMESPACE} \
@@ -156,7 +156,7 @@ done
 # Step 10: Verify Team Access
 echo "=== Step 10: Verifying team access ==="
 FAILED=0
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
     echo "--- team-${team} ---"
     if KUBECONFIG=team-${team}.kubeconfig kubectl get namespaces; then
         echo "Team ${team}: Access granted (SUCCESS)"
@@ -167,7 +167,7 @@ for team in alpha beta gamma delta; do
 done
 
 # Verify each team can write to their workspace (idempotent namespace create)
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
     if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} > /dev/null 2>&1; then
         if ! KUBECONFIG=team-${team}.kubeconfig kubectl create namespace demo-${team}; then
             echo "Team ${team}: Namespace create FAILED"

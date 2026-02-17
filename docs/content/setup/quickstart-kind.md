@@ -203,25 +203,20 @@ kubectl ws tree
 
 Create four workspaces for different teams:
 
-```bash
 kubectl ws create team-alpha --enter
 kubectl ws ..
 kubectl ws create team-beta --enter
-kubectl ws ..
-kubectl ws create team-gamma --enter
-kubectl ws ..
-kubectl ws create team-delta --enter
 kubectl ws :root
 ```
 
 > **Note:** Steps 6 through 10 can be automated using the verification script (it reads your kind kubeconfig from `~/.kube/config` by default):
 > ```bash
-> ./docs/scripts/verify-kind-install.sh
+> ./docs/scripts/verify-docs-quickstart-kind.sh
 > ```
 >
 > To capture a verification log for troubleshooting or sharing with reviewers:
 > ```bash
-> KCP_VERIFY_LOG=verify-kind-install.log ./docs/scripts/verify-kind-install.sh
+> KCP_VERIFY_LOG=verify-kind-install.log ./docs/scripts/verify-docs-quickstart-kind.sh
 > ```
 
 
@@ -236,9 +231,7 @@ You should see:
 ```
 root
 ├── team-alpha
-├── team-beta
-├── team-gamma
-└── team-delta
+└── team-beta
 ```
 
 ## Step 7: Generate Team Certificates
@@ -302,60 +295,10 @@ spec:
 EOF
 ```
 
-### Team Gamma
-
-```bash
-KUBECONFIG=${KIND_KUBECONFIG} kubectl apply -n kcp -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: team-gamma-cert
-spec:
-  commonName: team-gamma-admin
-  issuerRef:
-    name: kcp-front-proxy-client-issuer
-    kind: Issuer
-  secretName: team-gamma-cert
-  privateKey:
-    algorithm: RSA
-    size: 2048
-  usages:
-    - client auth
-  subject:
-    organizations:
-      - team-gamma
-EOF
-```
-
-### Team Delta
-
-```bash
-KUBECONFIG=${KIND_KUBECONFIG} kubectl apply -n kcp -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: team-delta-cert
-spec:
-  commonName: team-delta-admin
-  issuerRef:
-    name: kcp-front-proxy-client-issuer
-    kind: Issuer
-  secretName: team-delta-cert
-  privateKey:
-    algorithm: RSA
-    size: 2048
-  usages:
-    - client auth
-  subject:
-    organizations:
-      - team-delta
-EOF
-```
-
 Wait for all certificates:
 
 ```bash
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
   KUBECONFIG=${KIND_KUBECONFIG} kubectl wait --for=condition=Ready certificate/team-${team}-cert -n kcp --timeout=60s
 done
 ```
@@ -404,46 +347,6 @@ roleRef:
 EOF
 ```
 
-### Team Gamma Access
-
-```bash
-kubectl ws :root:team-gamma
-kubectl apply -f - <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: team-gamma-admin
-subjects:
-- kind: Group
-  name: team-gamma
-  apiGroup: rbac.authorization.k8s.io
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-EOF
-```
-
-### Team Delta Access
-
-```bash
-kubectl ws :root:team-delta
-kubectl apply -f - <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: team-delta-admin
-subjects:
-- kind: Group
-  name: team-delta
-  apiGroup: rbac.authorization.k8s.io
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-EOF
-```
-
 Return to root workspace:
 
 ```bash
@@ -457,7 +360,7 @@ Extract team certificates and create kubeconfigs for each team.
 ### Extract Team Certificates
 
 ```bash
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
   KUBECONFIG=${KIND_KUBECONFIG} kubectl get secret team-${team}-cert -n kcp \
     -o=jsonpath='{.data.tls\.crt}' | base64 -d > team-${team}.crt
   KUBECONFIG=${KIND_KUBECONFIG} kubectl get secret team-${team}-cert -n kcp \
@@ -468,7 +371,7 @@ done
 ### Create Team Kubeconfigs
 
 ```bash
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
   kubectl --kubeconfig=team-${team}.kubeconfig config set-cluster kcp \
     --server https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT}/clusters/root:team-${team} \
     --certificate-authority=ca.crt
@@ -490,7 +393,7 @@ done
 Test that each team can access their workspace and is isolated from others:
 
 ```bash
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
   echo "--- team-${team} ---"
   KUBECONFIG=team-${team}.kubeconfig kubectl get namespaces
 done
@@ -499,7 +402,7 @@ done
 Create a namespace in each team workspace to confirm write access:
 
 ```bash
-for team in alpha beta gamma delta; do
+for team in alpha beta; do
   KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} >/dev/null 2>&1 || \
     KUBECONFIG=team-${team}.kubeconfig kubectl create namespace demo-${team}
   KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team}
@@ -521,8 +424,8 @@ KUBECONFIG=team-alpha.kubeconfig kubectl get namespaces \
 You now have a fully functional kcp deployment on kind with:
 
 - **kcp** deployed via Helm with TLS certificates managed by cert-manager
-- **4 team workspaces**: team-alpha, team-beta, team-gamma, team-delta
-- **4 client certificates**: One for each team with group membership
+- **2 team workspaces**: team-alpha, team-beta
+- **2 client certificates**: One for each team with group membership
 - **RBAC configuration**: Each team has cluster-admin access to their workspace
 
 Each team can independently:
