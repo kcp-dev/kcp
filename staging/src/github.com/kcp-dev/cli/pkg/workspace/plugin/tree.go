@@ -235,6 +235,11 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 		loadAllChildren := node.expanded
 
 		for _, ws := range results.Items {
+			// Skip workspaces that are being deleted, as they may no longer be
+			// accessible and listing their children could result in a 403.
+			if ws.DeletionTimestamp != nil {
+				continue
+			}
 			_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
 			if err != nil {
 				return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
@@ -317,6 +322,9 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 	}
 
 	for _, workspace := range results.Items {
+		if workspace.DeletionTimestamp != nil {
+			continue
+		}
 		_, current, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
 		if err != nil {
 			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)
