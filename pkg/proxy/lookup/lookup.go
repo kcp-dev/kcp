@@ -143,7 +143,7 @@ func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyind
 	if !clusterPath.IsValid() {
 		// this includes wildcards
 		logger.WithValues("requestPath", req.URL.Path).V(4).Info("Invalid cluster path")
-		responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
+		responsewriters.Forbidden(attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 		return nil, nil
 	}
 
@@ -154,7 +154,7 @@ func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyind
 	}
 	if !found {
 		logger.WithValues("clusterPath", clusterPath).V(4).Info("Unknown cluster path")
-		responsewriters.Forbidden(req.Context(), attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
+		responsewriters.Forbidden(attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
 		return nil, nil
 	}
 

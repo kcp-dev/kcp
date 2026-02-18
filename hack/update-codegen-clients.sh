@@ -135,6 +135,7 @@ go install "${OPENAPI_PKG}"/cmd/openapi-gen
   --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
   --output-file zz_generated.openapi.go \
+  --output-model-name-file zz_generated.model_name.go \
   --output-dir "${SCRIPT_ROOT}/pkg/openapi" \
   github.com/kcp-dev/sdk/apis/core/v1alpha1 \
   github.com/kcp-dev/sdk/apis/tenancy/v1alpha1 \

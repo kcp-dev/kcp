@@ -238,6 +238,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 	}
 
 	c, err := serviceaccountcontroller.NewServiceAccountsController(
+		klog.FromContext(ctx).WithValues("controller", controllerName),
 		s.KubeSharedInformerFactory.Core().V1().ServiceAccounts(),
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		kubeClient,

@@ -206,11 +206,11 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 		decision, _, err := h.authz.Authorize(ctx, attr)
 		if err != nil {
 			logger.WithValues("cluster", homeClusterName, "user", effectiveUser.GetName()).Error(err, "error authorizing request")
-			responsewriters.Forbidden(ctx, attr, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
+			responsewriters.Forbidden(attr, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
 			return
 		}
 		if decision != authorizer.DecisionAllow {
-			responsewriters.Forbidden(ctx, attr, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
+			responsewriters.Forbidden(attr, rw, req, authorization.WorkspaceAccessNotPermittedReason, homeWorkspaceCodecs)
 			return
 		}
 
