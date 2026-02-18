@@ -52,38 +52,38 @@ require (
 )
 
 replace (
-	k8s.io/api => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/api
-	k8s.io/apiextensions-apiserver => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiextensions-apiserver
-	k8s.io/apimachinery => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/apimachinery
-	k8s.io/apiserver => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/apiserver
-	k8s.io/cli-runtime => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/cli-runtime
-	k8s.io/client-go => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/client-go
-	k8s.io/cloud-provider => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/cloud-provider
-	k8s.io/cluster-bootstrap => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/cluster-bootstrap
-	k8s.io/code-generator => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/code-generator
-	k8s.io/component-base => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-base
-	k8s.io/component-helpers => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/component-helpers
-	k8s.io/controller-manager => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/controller-manager
-	k8s.io/cri-api => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/cri-api
-	k8s.io/cri-client => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/cri-client
-	k8s.io/csi-translation-lib => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/csi-translation-lib
-	k8s.io/dynamic-resource-allocation => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/dynamic-resource-allocation
-	k8s.io/endpointslice => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/endpointslice
-	k8s.io/externaljwt => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/externaljwt
-	k8s.io/kms => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kms
-	k8s.io/kube-aggregator => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-aggregator
-	k8s.io/kube-controller-manager => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-controller-manager
-	k8s.io/kube-proxy => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-proxy
-	k8s.io/kube-scheduler => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kube-scheduler
-	k8s.io/kubectl => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kubectl
-	k8s.io/kubelet => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/kubelet
-	k8s.io/kubernetes => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes
-	k8s.io/metrics => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/metrics
-	k8s.io/mount-utils => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/mount-utils
-	k8s.io/pod-security-admission => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/pod-security-admission
-	k8s.io/sample-apiserver => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-apiserver
-	k8s.io/sample-cli-plugin => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-cli-plugin
-	k8s.io/sample-controller => /Users/marko/Projects/src/github.com/kcp-dev/kubernetes/staging/src/k8s.io/sample-controller
+	k8s.io/api => github.com/xmudrii/kubernetes/staging/src/k8s.io/api v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/apiextensions-apiserver => github.com/xmudrii/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/apimachinery => github.com/xmudrii/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/apiserver => github.com/xmudrii/kubernetes/staging/src/k8s.io/apiserver v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/cli-runtime => github.com/xmudrii/kubernetes/staging/src/k8s.io/cli-runtime v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/client-go => github.com/xmudrii/kubernetes/staging/src/k8s.io/client-go v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/cloud-provider => github.com/xmudrii/kubernetes/staging/src/k8s.io/cloud-provider v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/cluster-bootstrap => github.com/xmudrii/kubernetes/staging/src/k8s.io/cluster-bootstrap v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/code-generator => github.com/xmudrii/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/component-base => github.com/xmudrii/kubernetes/staging/src/k8s.io/component-base v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/component-helpers => github.com/xmudrii/kubernetes/staging/src/k8s.io/component-helpers v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/controller-manager => github.com/xmudrii/kubernetes/staging/src/k8s.io/controller-manager v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/cri-api => github.com/xmudrii/kubernetes/staging/src/k8s.io/cri-api v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/cri-client => github.com/xmudrii/kubernetes/staging/src/k8s.io/cri-client v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/csi-translation-lib => github.com/xmudrii/kubernetes/staging/src/k8s.io/csi-translation-lib v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/dynamic-resource-allocation => github.com/xmudrii/kubernetes/staging/src/k8s.io/dynamic-resource-allocation v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/endpointslice => github.com/xmudrii/kubernetes/staging/src/k8s.io/endpointslice v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/externaljwt => github.com/xmudrii/kubernetes/staging/src/k8s.io/externaljwt v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kms => github.com/xmudrii/kubernetes/staging/src/k8s.io/kms v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kube-aggregator => github.com/xmudrii/kubernetes/staging/src/k8s.io/kube-aggregator v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kube-controller-manager => github.com/xmudrii/kubernetes/staging/src/k8s.io/kube-controller-manager v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kube-proxy => github.com/xmudrii/kubernetes/staging/src/k8s.io/kube-proxy v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kube-scheduler => github.com/xmudrii/kubernetes/staging/src/k8s.io/kube-scheduler v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kubectl => github.com/xmudrii/kubernetes/staging/src/k8s.io/kubectl v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kubelet => github.com/xmudrii/kubernetes/staging/src/k8s.io/kubelet v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/kubernetes => github.com/xmudrii/kubernetes v1.11.0-alpha.0.0.20260218120632-fd048e7f8d6c
+	k8s.io/metrics => github.com/xmudrii/kubernetes/staging/src/k8s.io/metrics v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/mount-utils => github.com/xmudrii/kubernetes/staging/src/k8s.io/mount-utils v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/pod-security-admission => github.com/xmudrii/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/sample-apiserver => github.com/xmudrii/kubernetes/staging/src/k8s.io/sample-apiserver v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/sample-cli-plugin => github.com/xmudrii/kubernetes/staging/src/k8s.io/sample-cli-plugin v0.0.0-20260218120632-fd048e7f8d6c
+	k8s.io/sample-controller => github.com/xmudrii/kubernetes/staging/src/k8s.io/sample-controller v0.0.0-20260218120632-fd048e7f8d6c
 )
 
 replace (
