@@ -15,5 +15,6 @@ limitations under the License.
 */
 
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=true
 // +k8s:deepcopy-gen=package,register
 package v1alpha1

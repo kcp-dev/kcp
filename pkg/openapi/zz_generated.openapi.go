@@ -27,187 +27,195 @@ import (
 	version "k8s.io/apimachinery/pkg/version"
 	common "k8s.io/kube-openapi/pkg/common"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
+
+	v1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	v1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
 )
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBinding":                                  schema_sdk_apis_apis_v1alpha1_APIBinding(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingList":                              schema_sdk_apis_apis_v1alpha1_APIBindingList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingSpec":                              schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingStatus":                            schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversion":                               schema_sdk_apis_apis_v1alpha1_APIConversion(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionList":                           schema_sdk_apis_apis_v1alpha1_APIConversionList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionRule":                           schema_sdk_apis_apis_v1alpha1_APIConversionRule(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionSpec":                           schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExport":                                   schema_sdk_apis_apis_v1alpha1_APIExport(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpoint":                           schema_sdk_apis_apis_v1alpha1_APIExportEndpoint(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSlice":                      schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceList":                  schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec":                  schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceStatus":                schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportList":                               schema_sdk_apis_apis_v1alpha1_APIExportList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportSpec":                               schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportStatus":                             schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchema":                           schema_sdk_apis_apis_v1alpha1_APIResourceSchema(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchemaList":                       schema_sdk_apis_apis_v1alpha1_APIResourceSchemaList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchemaSpec":                       schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceVersion":                          schema_sdk_apis_apis_v1alpha1_APIResourceVersion(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIVersionConversion":                        schema_sdk_apis_apis_v1alpha1_APIVersionConversion(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.AcceptablePermissionClaim":                   schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.BindingReference":                            schema_sdk_apis_apis_v1alpha1_BindingReference(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.BoundAPIResource":                            schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema":                      schema_sdk_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.CustomResourceConversion":                    schema_sdk_apis_apis_v1alpha1_CustomResourceConversion(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.ExportBindingReference":                      schema_sdk_apis_apis_v1alpha1_ExportBindingReference(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.GroupResource":                               schema_sdk_apis_apis_v1alpha1_GroupResource(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.Identity":                                    schema_sdk_apis_apis_v1alpha1_Identity(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.LocalAPIExportPolicy":                        schema_sdk_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.MaximalPermissionPolicy":                     schema_sdk_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.PermissionClaim":                             schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.ResourceSelector":                            schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.WebhookClientConfig":                         schema_sdk_apis_apis_v1alpha1_WebhookClientConfig(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha1.WebhookConversion":                           schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBinding":                                  schema_sdk_apis_apis_v1alpha2_APIBinding(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingList":                              schema_sdk_apis_apis_v1alpha2_APIBindingList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingSpec":                              schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingStatus":                            schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExport":                                   schema_sdk_apis_apis_v1alpha2_APIExport(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportList":                               schema_sdk_apis_apis_v1alpha2_APIExportList(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportSpec":                               schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportStatus":                             schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.AcceptablePermissionClaim":                   schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.BindingReference":                            schema_sdk_apis_apis_v1alpha2_BindingReference(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.BoundAPIResource":                            schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema":                      schema_sdk_apis_apis_v1alpha2_BoundAPIResourceSchema(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ExportBindingReference":                      schema_sdk_apis_apis_v1alpha2_ExportBindingReference(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.GroupResource":                               schema_sdk_apis_apis_v1alpha2_GroupResource(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.Identity":                                    schema_sdk_apis_apis_v1alpha2_Identity(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy":                        schema_sdk_apis_apis_v1alpha2_LocalAPIExportPolicy(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy":                     schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaim":                             schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector":                     schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchema":                              schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorage":                       schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD":                    schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageCRD(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual":                schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSelector":                            schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ScopedPermissionClaim":                       schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref),
-		"github.com/kcp-dev/sdk/apis/apis/v1alpha2.VirtualWorkspace":                            schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObject":                               schema_sdk_apis_cache_v1alpha1_CachedObject(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObjectList":                           schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObjectSpec":                           schema_sdk_apis_cache_v1alpha1_CachedObjectSpec(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResource":                             schema_sdk_apis_cache_v1alpha1_CachedResource(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpoint":                     schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSlice":                schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceList":            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceSpec":            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceStatus":          schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceList":                         schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceReference":                    schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceSpec":                         schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceStatus":                       schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.GroupVersionResource":                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.Identity":                                   schema_sdk_apis_cache_v1alpha1_Identity(ref),
-		"github.com/kcp-dev/sdk/apis/cache/v1alpha1.ResourceCount":                              schema_sdk_apis_cache_v1alpha1_ResourceCount(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalCluster":                              schema_sdk_apis_core_v1alpha1_LogicalCluster(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterList":                          schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterOwner":                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterSpec":                          schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterStatus":                        schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.Shard":                                       schema_sdk_apis_core_v1alpha1_Shard(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardList":                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardSpec":                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
-		"github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardStatus":                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.APIExportReference":                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.AuthenticationConfigurationReference":     schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimMappings":                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimOrExpression":                        schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimValidationRule":                      schema_sdk_apis_tenancy_v1alpha1_ClaimValidationRule(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ExtraMapping":                             schema_sdk_apis_tenancy_v1alpha1_ExtraMapping(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Issuer":                                   schema_sdk_apis_tenancy_v1alpha1_Issuer(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.JWTAuthenticator":                         schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Mount":                                    schema_sdk_apis_tenancy_v1alpha1_Mount(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ObjectReference":                          schema_sdk_apis_tenancy_v1alpha1_ObjectReference(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression":                schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.UserValidationRule":                       schema_sdk_apis_tenancy_v1alpha1_UserValidationRule(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.VirtualWorkspace":                         schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Workspace":                                schema_sdk_apis_tenancy_v1alpha1_Workspace(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfiguration":     schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfiguration(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationList": schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationList(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationSpec": schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationSpec(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceList":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceLocation":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceLocation(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceSpec":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceStatus":                          schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceType":                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceType(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension":                   schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeList":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeList(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference":                   schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector":                    schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSpec":                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref),
-		"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeStatus":                      schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref),
-		"github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition": schema_conditions_apis_conditions_v1alpha1_Condition(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.Partition":                               schema_sdk_apis_topology_v1alpha1_Partition(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionList":                           schema_sdk_apis_topology_v1alpha1_PartitionList(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSet":                            schema_sdk_apis_topology_v1alpha1_PartitionSet(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetList":                        schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetSpec":                        schema_sdk_apis_topology_v1alpha1_PartitionSetSpec(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetStatus":                      schema_sdk_apis_topology_v1alpha1_PartitionSetStatus(ref),
-		"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSpec":                           schema_sdk_apis_topology_v1alpha1_PartitionSpec(ref),
-		v1.APIGroup{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_APIGroup(ref),
-		v1.APIGroupList{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_APIGroupList(ref),
-		v1.APIResource{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_APIResource(ref),
-		v1.APIResourceList{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_APIResourceList(ref),
-		v1.APIVersions{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_APIVersions(ref),
-		v1.ApplyOptions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		v1.Condition{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_Condition(ref),
-		v1.CreateOptions{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_CreateOptions(ref),
-		v1.DeleteOptions{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		v1.Duration{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_Duration(ref),
-		v1.FieldSelectorRequirement{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		v1.FieldsV1{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_FieldsV1(ref),
-		v1.GetOptions{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_GetOptions(ref),
-		v1.GroupKind{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_GroupKind(ref),
-		v1.GroupResource{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_GroupResource(ref),
-		v1.GroupVersion{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_GroupVersion(ref),
-		v1.GroupVersionForDiscovery{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		v1.GroupVersionKind{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		v1.GroupVersionResource{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		v1.InternalEvent{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_InternalEvent(ref),
-		v1.LabelSelector{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_LabelSelector(ref),
-		v1.LabelSelectorRequirement{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		v1.List{}.OpenAPIModelName():                                                            schema_pkg_apis_meta_v1_List(ref),
-		v1.ListMeta{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_ListMeta(ref),
-		v1.ListOptions{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_ListOptions(ref),
-		v1.ManagedFieldsEntry{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		v1.MicroTime{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_MicroTime(ref),
-		v1.ObjectMeta{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		v1.OwnerReference{}.OpenAPIModelName():                                                  schema_pkg_apis_meta_v1_OwnerReference(ref),
-		v1.PartialObjectMetadata{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		v1.PartialObjectMetadataList{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		v1.Patch{}.OpenAPIModelName():                                                           schema_pkg_apis_meta_v1_Patch(ref),
-		v1.PatchOptions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_PatchOptions(ref),
-		v1.Preconditions{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_Preconditions(ref),
-		v1.RootPaths{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_RootPaths(ref),
-		v1.ServerAddressByClientCIDR{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		v1.Status{}.OpenAPIModelName():                                                          schema_pkg_apis_meta_v1_Status(ref),
-		v1.StatusCause{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_StatusCause(ref),
-		v1.StatusDetails{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_StatusDetails(ref),
-		v1.Table{}.OpenAPIModelName():                                                           schema_pkg_apis_meta_v1_Table(ref),
-		v1.TableColumnDefinition{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		v1.TableOptions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_TableOptions(ref),
-		v1.TableRow{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_TableRow(ref),
-		v1.TableRowCondition{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		v1.Time{}.OpenAPIModelName():                                                            schema_pkg_apis_meta_v1_Time(ref),
-		v1.Timestamp{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_Timestamp(ref),
-		v1.TypeMeta{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_TypeMeta(ref),
-		v1.UpdateOptions{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		v1.WatchEvent{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_WatchEvent(ref),
-		runtime.RawExtension{}.OpenAPIModelName():                                               schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		runtime.TypeMeta{}.OpenAPIModelName():                                                   schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		runtime.Unknown{}.OpenAPIModelName():                                                    schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		version.Info{}.OpenAPIModelName():                                                       schema_k8sio_apimachinery_pkg_version_Info(ref),
+		v1alpha1.APIBinding{}.OpenAPIModelName():                                      schema_sdk_apis_apis_v1alpha1_APIBinding(ref),
+		v1alpha1.APIBindingList{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha1_APIBindingList(ref),
+		v1alpha1.APIBindingSpec{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref),
+		v1alpha1.APIBindingStatus{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref),
+		v1alpha1.APIConversion{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha1_APIConversion(ref),
+		v1alpha1.APIConversionList{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIConversionList(ref),
+		v1alpha1.APIConversionRule{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIConversionRule(ref),
+		v1alpha1.APIConversionSpec{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref),
+		v1alpha1.APIExport{}.OpenAPIModelName():                                       schema_sdk_apis_apis_v1alpha1_APIExport(ref),
+		v1alpha1.APIExportEndpoint{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIExportEndpoint(ref),
+		v1alpha1.APIExportEndpointSlice{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref),
+		v1alpha1.APIExportEndpointSliceList{}.OpenAPIModelName():                      schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref),
+		v1alpha1.APIExportEndpointSliceSpec{}.OpenAPIModelName():                      schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref),
+		v1alpha1.APIExportEndpointSliceStatus{}.OpenAPIModelName():                    schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref),
+		v1alpha1.APIExportList{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha1_APIExportList(ref),
+		v1alpha1.APIExportSpec{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref),
+		v1alpha1.APIExportStatus{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref),
+		v1alpha1.APIResourceSchema{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIResourceSchema(ref),
+		v1alpha1.APIResourceSchemaList{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha1_APIResourceSchemaList(ref),
+		v1alpha1.APIResourceSchemaSpec{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref),
+		v1alpha1.APIResourceVersion{}.OpenAPIModelName():                              schema_sdk_apis_apis_v1alpha1_APIResourceVersion(ref),
+		v1alpha1.APIVersionConversion{}.OpenAPIModelName():                            schema_sdk_apis_apis_v1alpha1_APIVersionConversion(ref),
+		v1alpha1.AcceptablePermissionClaim{}.OpenAPIModelName():                       schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref),
+		v1alpha1.BindingReference{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha1_BindingReference(ref),
+		v1alpha1.BoundAPIResource{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref),
+		v1alpha1.BoundAPIResourceSchema{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha1_BoundAPIResourceSchema(ref),
+		v1alpha1.CustomResourceConversion{}.OpenAPIModelName():                        schema_sdk_apis_apis_v1alpha1_CustomResourceConversion(ref),
+		v1alpha1.ExportBindingReference{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha1_ExportBindingReference(ref),
+		v1alpha1.GroupResource{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha1_GroupResource(ref),
+		v1alpha1.Identity{}.OpenAPIModelName():                                        schema_sdk_apis_apis_v1alpha1_Identity(ref),
+		v1alpha1.LocalAPIExportPolicy{}.OpenAPIModelName():                            schema_sdk_apis_apis_v1alpha1_LocalAPIExportPolicy(ref),
+		v1alpha1.MaximalPermissionPolicy{}.OpenAPIModelName():                         schema_sdk_apis_apis_v1alpha1_MaximalPermissionPolicy(ref),
+		v1alpha1.PermissionClaim{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref),
+		v1alpha1.ResourceSelector{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha1_ResourceSelector(ref),
+		v1alpha1.VirtualWorkspace{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha1_VirtualWorkspace(ref),
+		v1alpha1.WebhookClientConfig{}.OpenAPIModelName():                             schema_sdk_apis_apis_v1alpha1_WebhookClientConfig(ref),
+		v1alpha1.WebhookConversion{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref),
+		v1alpha2.APIBinding{}.OpenAPIModelName():                                      schema_sdk_apis_apis_v1alpha2_APIBinding(ref),
+		v1alpha2.APIBindingList{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha2_APIBindingList(ref),
+		v1alpha2.APIBindingSpec{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref),
+		v1alpha2.APIBindingStatus{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref),
+		v1alpha2.APIExport{}.OpenAPIModelName():                                       schema_sdk_apis_apis_v1alpha2_APIExport(ref),
+		v1alpha2.APIExportList{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha2_APIExportList(ref),
+		v1alpha2.APIExportSpec{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref),
+		v1alpha2.APIExportStatus{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref),
+		v1alpha2.AcceptablePermissionClaim{}.OpenAPIModelName():                       schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref),
+		v1alpha2.BindingReference{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_BindingReference(ref),
+		v1alpha2.BoundAPIResource{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref),
+		v1alpha2.BoundAPIResourceSchema{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha2_BoundAPIResourceSchema(ref),
+		v1alpha2.ExportBindingReference{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha2_ExportBindingReference(ref),
+		v1alpha2.GroupResource{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha2_GroupResource(ref),
+		v1alpha2.Identity{}.OpenAPIModelName():                                        schema_sdk_apis_apis_v1alpha2_Identity(ref),
+		v1alpha2.LocalAPIExportPolicy{}.OpenAPIModelName():                            schema_sdk_apis_apis_v1alpha2_LocalAPIExportPolicy(ref),
+		v1alpha2.MaximalPermissionPolicy{}.OpenAPIModelName():                         schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref),
+		v1alpha2.PermissionClaim{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref),
+		v1alpha2.PermissionClaimSelector{}.OpenAPIModelName():                         schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref),
+		v1alpha2.ResourceSchema{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref),
+		v1alpha2.ResourceSchemaStorage{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref),
+		v1alpha2.ResourceSchemaStorageCRD{}.OpenAPIModelName():                        schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageCRD(ref),
+		v1alpha2.ResourceSchemaStorageVirtual{}.OpenAPIModelName():                    schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref),
+		v1alpha2.ResourceSelector{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref),
+		v1alpha2.ScopedPermissionClaim{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref),
+		v1alpha2.VirtualWorkspace{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
+		cachev1alpha1.CachedObject{}.OpenAPIModelName():                               schema_sdk_apis_cache_v1alpha1_CachedObject(ref),
+		cachev1alpha1.CachedObjectList{}.OpenAPIModelName():                           schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref),
+		cachev1alpha1.CachedObjectSpec{}.OpenAPIModelName():                           schema_sdk_apis_cache_v1alpha1_CachedObjectSpec(ref),
+		cachev1alpha1.CachedResource{}.OpenAPIModelName():                             schema_sdk_apis_cache_v1alpha1_CachedResource(ref),
+		cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName():                     schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref),
+		cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName():                schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref),
+		cachev1alpha1.CachedResourceEndpointSliceList{}.OpenAPIModelName():            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref),
+		cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName():            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref),
+		cachev1alpha1.CachedResourceEndpointSliceStatus{}.OpenAPIModelName():          schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref),
+		cachev1alpha1.CachedResourceList{}.OpenAPIModelName():                         schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref),
+		cachev1alpha1.CachedResourceReference{}.OpenAPIModelName():                    schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref),
+		cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName():                         schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref),
+		cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref),
+		cachev1alpha1.GroupVersionResource{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
+		cachev1alpha1.Identity{}.OpenAPIModelName():                                   schema_sdk_apis_cache_v1alpha1_Identity(ref),
+		cachev1alpha1.ResourceCount{}.OpenAPIModelName():                              schema_sdk_apis_cache_v1alpha1_ResourceCount(ref),
+		corev1alpha1.LogicalCluster{}.OpenAPIModelName():                              schema_sdk_apis_core_v1alpha1_LogicalCluster(ref),
+		corev1alpha1.LogicalClusterList{}.OpenAPIModelName():                          schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref),
+		corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName():                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
+		corev1alpha1.LogicalClusterSpec{}.OpenAPIModelName():                          schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref),
+		corev1alpha1.LogicalClusterStatus{}.OpenAPIModelName():                        schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref),
+		corev1alpha1.Shard{}.OpenAPIModelName():                                       schema_sdk_apis_core_v1alpha1_Shard(ref),
+		corev1alpha1.ShardList{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
+		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
+		corev1alpha1.ShardStatus{}.OpenAPIModelName():                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
+		tenancyv1alpha1.APIExportReference{}.OpenAPIModelName():                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
+		tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName():     schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref),
+		tenancyv1alpha1.ClaimMappings{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
+		tenancyv1alpha1.ClaimOrExpression{}.OpenAPIModelName():                        schema_sdk_apis_tenancy_v1alpha1_ClaimOrExpression(ref),
+		tenancyv1alpha1.ClaimValidationRule{}.OpenAPIModelName():                      schema_sdk_apis_tenancy_v1alpha1_ClaimValidationRule(ref),
+		tenancyv1alpha1.ExtraMapping{}.OpenAPIModelName():                             schema_sdk_apis_tenancy_v1alpha1_ExtraMapping(ref),
+		tenancyv1alpha1.Issuer{}.OpenAPIModelName():                                   schema_sdk_apis_tenancy_v1alpha1_Issuer(ref),
+		tenancyv1alpha1.JWTAuthenticator{}.OpenAPIModelName():                         schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref),
+		tenancyv1alpha1.Mount{}.OpenAPIModelName():                                    schema_sdk_apis_tenancy_v1alpha1_Mount(ref),
+		tenancyv1alpha1.ObjectReference{}.OpenAPIModelName():                          schema_sdk_apis_tenancy_v1alpha1_ObjectReference(ref),
+		tenancyv1alpha1.PrefixedClaimOrExpression{}.OpenAPIModelName():                schema_sdk_apis_tenancy_v1alpha1_PrefixedClaimOrExpression(ref),
+		tenancyv1alpha1.UserValidationRule{}.OpenAPIModelName():                       schema_sdk_apis_tenancy_v1alpha1_UserValidationRule(ref),
+		tenancyv1alpha1.VirtualWorkspace{}.OpenAPIModelName():                         schema_sdk_apis_tenancy_v1alpha1_VirtualWorkspace(ref),
+		tenancyv1alpha1.Workspace{}.OpenAPIModelName():                                schema_sdk_apis_tenancy_v1alpha1_Workspace(ref),
+		tenancyv1alpha1.WorkspaceAuthenticationConfiguration{}.OpenAPIModelName():     schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfiguration(ref),
+		tenancyv1alpha1.WorkspaceAuthenticationConfigurationList{}.OpenAPIModelName(): schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationList(ref),
+		tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{}.OpenAPIModelName(): schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationSpec(ref),
+		tenancyv1alpha1.WorkspaceList{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref),
+		tenancyv1alpha1.WorkspaceLocation{}.OpenAPIModelName():                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceLocation(ref),
+		tenancyv1alpha1.WorkspaceSpec{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref),
+		tenancyv1alpha1.WorkspaceStatus{}.OpenAPIModelName():                          schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref),
+		tenancyv1alpha1.WorkspaceType{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_WorkspaceType(ref),
+		tenancyv1alpha1.WorkspaceTypeExtension{}.OpenAPIModelName():                   schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref),
+		tenancyv1alpha1.WorkspaceTypeList{}.OpenAPIModelName():                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeList(ref),
+		tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName():                   schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeReference(ref),
+		tenancyv1alpha1.WorkspaceTypeSelector{}.OpenAPIModelName():                    schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref),
+		tenancyv1alpha1.WorkspaceTypeSpec{}.OpenAPIModelName():                        schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref),
+		tenancyv1alpha1.WorkspaceTypeStatus{}.OpenAPIModelName():                      schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref),
+		conditionsv1alpha1.Condition{}.OpenAPIModelName():                             schema_conditions_apis_conditions_v1alpha1_Condition(ref),
+		topologyv1alpha1.Partition{}.OpenAPIModelName():                               schema_sdk_apis_topology_v1alpha1_Partition(ref),
+		topologyv1alpha1.PartitionList{}.OpenAPIModelName():                           schema_sdk_apis_topology_v1alpha1_PartitionList(ref),
+		topologyv1alpha1.PartitionSet{}.OpenAPIModelName():                            schema_sdk_apis_topology_v1alpha1_PartitionSet(ref),
+		topologyv1alpha1.PartitionSetList{}.OpenAPIModelName():                        schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref),
+		topologyv1alpha1.PartitionSetSpec{}.OpenAPIModelName():                        schema_sdk_apis_topology_v1alpha1_PartitionSetSpec(ref),
+		topologyv1alpha1.PartitionSetStatus{}.OpenAPIModelName():                      schema_sdk_apis_topology_v1alpha1_PartitionSetStatus(ref),
+		topologyv1alpha1.PartitionSpec{}.OpenAPIModelName():                           schema_sdk_apis_topology_v1alpha1_PartitionSpec(ref),
+		v1.APIGroup{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_APIGroup(ref),
+		v1.APIGroupList{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_APIGroupList(ref),
+		v1.APIResource{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_APIResource(ref),
+		v1.APIResourceList{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_APIResourceList(ref),
+		v1.APIVersions{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_APIVersions(ref),
+		v1.ApplyOptions{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		v1.Condition{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_Condition(ref),
+		v1.CreateOptions{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_CreateOptions(ref),
+		v1.DeleteOptions{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		v1.Duration{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_Duration(ref),
+		v1.FieldSelectorRequirement{}.OpenAPIModelName():                              schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		v1.FieldsV1{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_FieldsV1(ref),
+		v1.GetOptions{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_GetOptions(ref),
+		v1.GroupKind{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_GroupKind(ref),
+		v1.GroupResource{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_GroupResource(ref),
+		v1.GroupVersion{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_GroupVersion(ref),
+		v1.GroupVersionForDiscovery{}.OpenAPIModelName():                              schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		v1.GroupVersionKind{}.OpenAPIModelName():                                      schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		v1.GroupVersionResource{}.OpenAPIModelName():                                  schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		v1.InternalEvent{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_InternalEvent(ref),
+		v1.LabelSelector{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_LabelSelector(ref),
+		v1.LabelSelectorRequirement{}.OpenAPIModelName():                              schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		v1.List{}.OpenAPIModelName():                                                  schema_pkg_apis_meta_v1_List(ref),
+		v1.ListMeta{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_ListMeta(ref),
+		v1.ListOptions{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_ListOptions(ref),
+		v1.ManagedFieldsEntry{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		v1.MicroTime{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_MicroTime(ref),
+		v1.ObjectMeta{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		v1.OwnerReference{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_OwnerReference(ref),
+		v1.PartialObjectMetadata{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		v1.PartialObjectMetadataList{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		v1.Patch{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_Patch(ref),
+		v1.PatchOptions{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_PatchOptions(ref),
+		v1.Preconditions{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_Preconditions(ref),
+		v1.RootPaths{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_RootPaths(ref),
+		v1.ServerAddressByClientCIDR{}.OpenAPIModelName():                             schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		v1.Status{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_Status(ref),
+		v1.StatusCause{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_StatusCause(ref),
+		v1.StatusDetails{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_StatusDetails(ref),
+		v1.Table{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_Table(ref),
+		v1.TableColumnDefinition{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		v1.TableOptions{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_TableOptions(ref),
+		v1.TableRow{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_TableRow(ref),
+		v1.TableRowCondition{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		v1.Time{}.OpenAPIModelName():                                                  schema_pkg_apis_meta_v1_Time(ref),
+		v1.Timestamp{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_Timestamp(ref),
+		v1.TypeMeta{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_TypeMeta(ref),
+		v1.UpdateOptions{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		v1.WatchEvent{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_WatchEvent(ref),
+		runtime.RawExtension{}.OpenAPIModelName():                                     schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		runtime.TypeMeta{}.OpenAPIModelName():                                         schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		runtime.Unknown{}.OpenAPIModelName():                                          schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		version.Info{}.OpenAPIModelName():                                             schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -242,14 +250,14 @@ func schema_sdk_apis_apis_v1alpha1_APIBinding(ref common.ReferenceCallback) comm
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingSpec"),
+							Ref:         ref(v1alpha1.APIBindingSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingStatus"),
+							Ref:         ref(v1alpha1.APIBindingStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -257,7 +265,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBinding(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingSpec", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBindingStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha1.APIBindingSpec{}.OpenAPIModelName(), v1alpha1.APIBindingStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -295,7 +303,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBinding"),
+										Ref:     ref(v1alpha1.APIBinding{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -306,7 +314,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIBinding", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha1.APIBinding{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -321,7 +329,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "reference uniquely identifies an API to bind to.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.BindingReference"),
+							Ref:         ref(v1alpha1.BindingReference{}.OpenAPIModelName()),
 						},
 					},
 					"permissionClaims": {
@@ -332,7 +340,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.AcceptablePermissionClaim"),
+										Ref:     ref(v1alpha1.AcceptablePermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -343,7 +351,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.AcceptablePermissionClaim", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.BindingReference"},
+			v1alpha1.AcceptablePermissionClaim{}.OpenAPIModelName(), v1alpha1.BindingReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -378,7 +386,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.BoundAPIResource"),
+										Ref:     ref(v1alpha1.BoundAPIResource{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -399,7 +407,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -413,7 +421,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref(v1alpha1.PermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -427,7 +435,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref(v1alpha1.PermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -437,7 +445,7 @@ func schema_sdk_apis_apis_v1alpha1_APIBindingStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.BoundAPIResource", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.PermissionClaim", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			v1alpha1.BoundAPIResource{}.OpenAPIModelName(), v1alpha1.PermissionClaim{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -472,7 +480,7 @@ func schema_sdk_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionSpec"),
+							Ref:         ref(v1alpha1.APIConversionSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -480,7 +488,7 @@ func schema_sdk_apis_apis_v1alpha1_APIConversion(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha1.APIConversionSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -518,7 +526,7 @@ func schema_sdk_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversion"),
+										Ref:     ref(v1alpha1.APIConversion{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -529,7 +537,7 @@ func schema_sdk_apis_apis_v1alpha1_APIConversionList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversion", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha1.APIConversion{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -594,7 +602,7 @@ func schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIVersionConversion"),
+										Ref:     ref(v1alpha1.APIVersionConversion{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -605,7 +613,7 @@ func schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIVersionConversion"},
+			v1alpha1.APIVersionConversion{}.OpenAPIModelName()},
 	}
 }
 
@@ -640,21 +648,21 @@ func schema_sdk_apis_apis_v1alpha1_APIExport(ref common.ReferenceCallback) commo
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportSpec"),
+							Ref:         ref(v1alpha1.APIExportSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportStatus"),
+							Ref:         ref(v1alpha1.APIExportStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportSpec", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha1.APIExportSpec{}.OpenAPIModelName(), v1alpha1.APIExportStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -711,21 +719,21 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state: - the targeted APIExport - an optional partition for filtering",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec"),
+							Ref:         ref(v1alpha1.APIExportEndpointSliceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "status communicates the observed state: the filtered list of endpoints for the APIExport service.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceStatus"),
+							Ref:         ref(v1alpha1.APIExportEndpointSliceStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceSpec", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSliceStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha1.APIExportEndpointSliceSpec{}.OpenAPIModelName(), v1alpha1.APIExportEndpointSliceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -763,7 +771,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSlice"),
+										Ref:     ref(v1alpha1.APIExportEndpointSlice{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -774,7 +782,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpointSlice", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha1.APIExportEndpointSlice{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -789,7 +797,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.Referen
 						SchemaProps: spec.SchemaProps{
 							Description: "export points to the API export.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.ExportBindingReference"),
+							Ref:         ref(v1alpha1.ExportBindingReference{}.OpenAPIModelName()),
 						},
 					},
 					"partition": {
@@ -804,7 +812,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.ExportBindingReference"},
+			v1alpha1.ExportBindingReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -823,7 +831,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -845,7 +853,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpoint"),
+										Ref:     ref(v1alpha1.APIExportEndpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -862,7 +870,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExportEndpoint", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			v1alpha1.APIExportEndpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -900,7 +908,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExport"),
+										Ref:     ref(v1alpha1.APIExport{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -911,7 +919,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportList(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIExport", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha1.APIExport{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -945,13 +953,13 @@ func schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 					"identity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity determines an unique etcd prefix for objects stored via this APIExport.\n\nDifferent APIExport in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the APIExport is moved.\n\nThe identity is a secret of the API provider. The APIBindings referencing this APIExport will store a derived, non-sensitive value of this identity.\n\nThe identity of an APIExport cannot be changed. A derived, non-sensitive value of the identity key is stored in the APIExport status and this value is immutable.\n\nThe identity is defaulted. A secret with the name of the APIExport is automatically created.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.Identity"),
+							Ref:         ref(v1alpha1.Identity{}.OpenAPIModelName()),
 						},
 					},
 					"maximalPermissionPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in a workspace that binds to this APIExport via an APIBinding is additionally checked against these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated` and `apis.kcp.io:binding:a-team`.\n\nIf an APIExport with a maximalPermissionPolicy is deleted, these additional checks will no longer be applied to resources of this APIExport.\n\nFor example: Assume an APIExport with a maximalPermissionPolicy that only allows creation and deletion of resources, but not updates - if the APIExport is deleted users will be able to update the resources of the APIExport again (given the constraints of their workspace's RBAC policies).",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.MaximalPermissionPolicy"),
+							Ref:         ref(v1alpha1.MaximalPermissionPolicy{}.OpenAPIModelName()),
 						},
 					},
 					"permissionClaims": {
@@ -971,7 +979,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.PermissionClaim"),
+										Ref:     ref(v1alpha1.PermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -981,7 +989,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportSpec(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.Identity", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.MaximalPermissionPolicy", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.PermissionClaim"},
+			v1alpha1.Identity{}.OpenAPIModelName(), v1alpha1.MaximalPermissionPolicy{}.OpenAPIModelName(), v1alpha1.PermissionClaim{}.OpenAPIModelName()},
 	}
 }
 
@@ -1007,7 +1015,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1021,7 +1029,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.VirtualWorkspace"),
+										Ref:     ref(v1alpha1.VirtualWorkspace{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1031,7 +1039,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportStatus(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			v1alpha1.VirtualWorkspace{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -1066,14 +1074,14 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchema(ref common.ReferenceCallbac
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchemaSpec"),
+							Ref:         ref(v1alpha1.APIResourceSchemaSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchemaSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha1.APIResourceSchemaSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1111,7 +1119,7 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchema"),
+										Ref:     ref(v1alpha1.APIResourceSchema{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1122,7 +1130,7 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceSchema", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha1.APIResourceSchema{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1172,7 +1180,7 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceVersion"),
+										Ref:     ref(v1alpha1.APIResourceVersion{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1188,7 +1196,7 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 					"conversion": {
 						SchemaProps: spec.SchemaProps{
 							Description: "conversion defines conversion settings for the defined custom resource.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.CustomResourceConversion"),
+							Ref:         ref(v1alpha1.CustomResourceConversion{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -1196,7 +1204,7 @@ func schema_sdk_apis_apis_v1alpha1_APIResourceSchemaSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIResourceVersion", "github.com/kcp-dev/sdk/apis/apis/v1alpha1.CustomResourceConversion", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceDefinitionNames"},
+			v1alpha1.APIResourceVersion{}.OpenAPIModelName(), v1alpha1.CustomResourceConversion{}.OpenAPIModelName(), "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.CustomResourceDefinitionNames"},
 	}
 }
 
@@ -1333,7 +1341,7 @@ func schema_sdk_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionRule"),
+										Ref:     ref(v1alpha1.APIConversionRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1359,7 +1367,7 @@ func schema_sdk_apis_apis_v1alpha1_APIVersionConversion(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.APIConversionRule"},
+			v1alpha1.APIConversionRule{}.OpenAPIModelName()},
 	}
 }
 
@@ -1400,7 +1408,7 @@ func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.ResourceSelector"),
+										Ref:     ref(v1alpha1.ResourceSelector{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1425,7 +1433,7 @@ func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.ResourceSelector"},
+			v1alpha1.ResourceSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -1439,14 +1447,14 @@ func schema_sdk_apis_apis_v1alpha1_BindingReference(ref common.ReferenceCallback
 					"export": {
 						SchemaProps: spec.SchemaProps{
 							Description: "export is a reference to an APIExport by cluster name and export name. The creator of the APIBinding needs to have access to the APIExport with the verb `bind` in order to bind to it.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.ExportBindingReference"),
+							Ref:         ref(v1alpha1.ExportBindingReference{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.ExportBindingReference"},
+			v1alpha1.ExportBindingReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -1477,7 +1485,7 @@ func schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Schema references the APIResourceSchema that is bound to this API.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema"),
+							Ref:         ref(v1alpha1.BoundAPIResourceSchema{}.OpenAPIModelName()),
 						},
 					},
 					"storageVersions": {
@@ -1505,7 +1513,7 @@ func schema_sdk_apis_apis_v1alpha1_BoundAPIResource(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.BoundAPIResourceSchema"},
+			v1alpha1.BoundAPIResourceSchema{}.OpenAPIModelName()},
 	}
 }
 
@@ -1565,7 +1573,7 @@ func schema_sdk_apis_apis_v1alpha1_CustomResourceConversion(ref common.Reference
 					"webhook": {
 						SchemaProps: spec.SchemaProps{
 							Description: "webhook describes how to call the conversion webhook. Required when `strategy` is set to `\"Webhook\"`.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.WebhookConversion"),
+							Ref:         ref(v1alpha1.WebhookConversion{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -1573,7 +1581,7 @@ func schema_sdk_apis_apis_v1alpha1_CustomResourceConversion(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.WebhookConversion"},
+			v1alpha1.WebhookConversion{}.OpenAPIModelName()},
 	}
 }
 
@@ -1677,14 +1685,14 @@ func schema_sdk_apis_apis_v1alpha1_MaximalPermissionPolicy(ref common.ReferenceC
 					"local": {
 						SchemaProps: spec.SchemaProps{
 							Description: "local is the policy that is defined in same workspace as the API Export.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.LocalAPIExportPolicy"),
+							Ref:         ref(v1alpha1.LocalAPIExportPolicy{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.LocalAPIExportPolicy"},
+			v1alpha1.LocalAPIExportPolicy{}.OpenAPIModelName()},
 	}
 }
 
@@ -1725,7 +1733,7 @@ func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.ResourceSelector"),
+										Ref:     ref(v1alpha1.ResourceSelector{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1743,7 +1751,7 @@ func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.ResourceSelector"},
+			v1alpha1.ResourceSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -1831,7 +1839,7 @@ func schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref common.ReferenceCallbac
 					"clientConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "clientConfig is the instructions for how to call the webhook if strategy is `Webhook`.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha1.WebhookClientConfig"),
+							Ref:         ref(v1alpha1.WebhookClientConfig{}.OpenAPIModelName()),
 						},
 					},
 					"conversionReviewVersions": {
@@ -1859,7 +1867,7 @@ func schema_sdk_apis_apis_v1alpha1_WebhookConversion(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha1.WebhookClientConfig"},
+			v1alpha1.WebhookClientConfig{}.OpenAPIModelName()},
 	}
 }
 
@@ -1894,14 +1902,14 @@ func schema_sdk_apis_apis_v1alpha2_APIBinding(ref common.ReferenceCallback) comm
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingSpec"),
+							Ref:         ref(v1alpha2.APIBindingSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingStatus"),
+							Ref:         ref(v1alpha2.APIBindingStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -1909,7 +1917,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBinding(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingSpec", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBindingStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha2.APIBindingSpec{}.OpenAPIModelName(), v1alpha2.APIBindingStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1947,7 +1955,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBinding"),
+										Ref:     ref(v1alpha2.APIBinding{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -1958,7 +1966,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIBinding", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha2.APIBinding{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -1973,7 +1981,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "reference uniquely identifies an API to bind to.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.BindingReference"),
+							Ref:         ref(v1alpha2.BindingReference{}.OpenAPIModelName()),
 						},
 					},
 					"permissionClaims": {
@@ -1994,7 +2002,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.AcceptablePermissionClaim"),
+										Ref:     ref(v1alpha2.AcceptablePermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2005,7 +2013,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.AcceptablePermissionClaim", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.BindingReference"},
+			v1alpha2.AcceptablePermissionClaim{}.OpenAPIModelName(), v1alpha2.BindingReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -2040,7 +2048,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.BoundAPIResource"),
+										Ref:     ref(v1alpha2.BoundAPIResource{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2061,7 +2069,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2085,7 +2093,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.ScopedPermissionClaim"),
+										Ref:     ref(v1alpha2.ScopedPermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2099,7 +2107,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaim"),
+										Ref:     ref(v1alpha2.PermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2109,7 +2117,7 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.BoundAPIResource", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaim", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.ScopedPermissionClaim", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			v1alpha2.BoundAPIResource{}.OpenAPIModelName(), v1alpha2.PermissionClaim{}.OpenAPIModelName(), v1alpha2.ScopedPermissionClaim{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -2144,21 +2152,21 @@ func schema_sdk_apis_apis_v1alpha2_APIExport(ref common.ReferenceCallback) commo
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportSpec"),
+							Ref:         ref(v1alpha2.APIExportSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Status communicates the observed state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportStatus"),
+							Ref:         ref(v1alpha2.APIExportStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportSpec", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExportStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			v1alpha2.APIExportSpec{}.OpenAPIModelName(), v1alpha2.APIExportStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2196,7 +2204,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportList(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExport"),
+										Ref:     ref(v1alpha2.APIExport{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2207,7 +2215,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportList(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.APIExport", v1.ListMeta{}.OpenAPIModelName()},
+			v1alpha2.APIExport{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -2235,7 +2243,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchema"),
+										Ref:     ref(v1alpha2.ResourceSchema{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2244,13 +2252,13 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 					"identity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity determines an unique etcd prefix for objects stored via this APIExport.\n\nDifferent APIExport in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the APIExport is moved.\n\nThe identity is a secret of the API provider. The APIBindings referencing this APIExport will store a derived, non-sensitive value of this identity.\n\nThe identity of an APIExport cannot be changed. A derived, non-sensitive value of the identity key is stored in the APIExport status and this value is immutable.\n\nThe identity is defaulted. A secret with the name of the APIExport is automatically created.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.Identity"),
+							Ref:         ref(v1alpha2.Identity{}.OpenAPIModelName()),
 						},
 					},
 					"maximalPermissionPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed for a consumer of this API. If the policy is not set, no upper bound is applied, i.e the consuming users can do whatever the user workspace allows the user to do.\n\nThe policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in a workspace that binds to this APIExport via an APIBinding is additionally checked against these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.\n\nFor example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to this APIExport in another workspace root:org:ws. Then a request in that workspace against a resource of this APIExport is authorized as every other request in that workspace, but in addition the RBAC policy here in the APIExport workspace has to grant access to the user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated` and `apis.kcp.io:binding:a-team`.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy"),
+							Ref:         ref(v1alpha2.MaximalPermissionPolicy{}.OpenAPIModelName()),
 						},
 					},
 					"permissionClaims": {
@@ -2270,7 +2278,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaim"),
+										Ref:     ref(v1alpha2.PermissionClaim{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2280,7 +2288,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.Identity", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.MaximalPermissionPolicy", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaim", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchema"},
+			v1alpha2.Identity{}.OpenAPIModelName(), v1alpha2.MaximalPermissionPolicy{}.OpenAPIModelName(), v1alpha2.PermissionClaim{}.OpenAPIModelName(), v1alpha2.ResourceSchema{}.OpenAPIModelName()},
 	}
 }
 
@@ -2306,7 +2314,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2320,7 +2328,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref common.ReferenceCallback)
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.VirtualWorkspace"),
+										Ref:     ref(v1alpha2.VirtualWorkspace{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -2330,7 +2338,7 @@ func schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.VirtualWorkspace", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			v1alpha2.VirtualWorkspace{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -2386,7 +2394,7 @@ func schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref common.Referenc
 					"selector": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"),
+							Ref:     ref(v1alpha2.PermissionClaimSelector{}.OpenAPIModelName()),
 						},
 					},
 					"state": {
@@ -2401,7 +2409,7 @@ func schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"},
+			v1alpha2.PermissionClaimSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -2415,14 +2423,14 @@ func schema_sdk_apis_apis_v1alpha2_BindingReference(ref common.ReferenceCallback
 					"export": {
 						SchemaProps: spec.SchemaProps{
 							Description: "export is a reference to an APIExport by cluster name and export name. The creator of the APIBinding needs to have access to the APIExport with the verb `bind` in order to bind to it.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.ExportBindingReference"),
+							Ref:         ref(v1alpha2.ExportBindingReference{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ExportBindingReference"},
+			v1alpha2.ExportBindingReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -2453,7 +2461,7 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "Schema references the APIResourceSchema that is bound to this API.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"),
+							Ref:         ref(v1alpha2.BoundAPIResourceSchema{}.OpenAPIModelName()),
 						},
 					},
 					"storageVersions": {
@@ -2481,7 +2489,7 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.BoundAPIResourceSchema"},
+			v1alpha2.BoundAPIResourceSchema{}.OpenAPIModelName()},
 	}
 }
 
@@ -2623,14 +2631,14 @@ func schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref common.ReferenceC
 					"local": {
 						SchemaProps: spec.SchemaProps{
 							Description: "local is the policy that is defined in same workspace as the API Export.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy"),
+							Ref:         ref(v1alpha2.LocalAPIExportPolicy{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.LocalAPIExportPolicy"},
+			v1alpha2.LocalAPIExportPolicy{}.OpenAPIModelName()},
 	}
 }
 
@@ -2782,7 +2790,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "Storage defines how the resource is stored.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorage"),
+							Ref:         ref(v1alpha2.ResourceSchemaStorage{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -2790,7 +2798,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorage"},
+			v1alpha2.ResourceSchemaStorage{}.OpenAPIModelName()},
 	}
 }
 
@@ -2804,20 +2812,20 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref common.ReferenceCal
 					"crd": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CRD storage defines that this APIResourceSchema is exposed as CustomResourceDefinitions inside the workspaces that bind to the APIExport. Like in vanilla Kubernetes, users can then create, update and delete custom resources.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD"),
+							Ref:         ref(v1alpha2.ResourceSchemaStorageCRD{}.OpenAPIModelName()),
 						},
 					},
 					"virtual": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Virtual storage defines that this APIResourceSchema is exposed as a projection of the referenced resource inside the workspaces that bind to the APIExport.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"),
+							Ref:         ref(v1alpha2.ResourceSchemaStorageVirtual{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorageCRD", "github.com/kcp-dev/sdk/apis/apis/v1alpha2.ResourceSchemaStorageVirtual"},
+			v1alpha2.ResourceSchemaStorageCRD{}.OpenAPIModelName(), v1alpha2.ResourceSchemaStorageVirtual{}.OpenAPIModelName()},
 	}
 }
 
@@ -2940,7 +2948,7 @@ func schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref common.ReferenceCal
 					"selector": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"),
+							Ref:     ref(v1alpha2.PermissionClaimSelector{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -2948,7 +2956,7 @@ func schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"},
+			v1alpha2.PermissionClaimSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -3003,7 +3011,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedObject(ref common.ReferenceCallback) c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObjectSpec"),
+							Ref:     ref(cachev1alpha1.CachedObjectSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -3011,7 +3019,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedObject(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObjectSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			cachev1alpha1.CachedObjectSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3049,7 +3057,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObject"),
+										Ref:     ref(cachev1alpha1.CachedObject{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3060,7 +3068,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedObject", v1.ListMeta{}.OpenAPIModelName()},
+			cachev1alpha1.CachedObject{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3115,13 +3123,13 @@ func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback)
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceSpec"),
+							Ref:     ref(cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceStatus"),
+							Ref:     ref(cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -3129,7 +3137,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceSpec", "github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName(), cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3186,21 +3194,21 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state: - the targeted CachedResource",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceSpec"),
+							Ref:         ref(cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "status communicates the observed state: the filtered list of endpoints for the Replication service.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceStatus"),
+							Ref:         ref(cachev1alpha1.CachedResourceEndpointSliceStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceSpec", "github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSliceStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName(), cachev1alpha1.CachedResourceEndpointSliceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3238,7 +3246,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSlice"),
+										Ref:     ref(cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3249,7 +3257,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpointSlice", v1.ListMeta{}.OpenAPIModelName()},
+			cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3264,7 +3272,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.R
 						SchemaProps: spec.SchemaProps{
 							Description: "CachedResource points to the real CachedResource the slice is created for.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceReference"),
+							Ref:         ref(cachev1alpha1.CachedResourceReference{}.OpenAPIModelName()),
 						},
 					},
 					"partition": {
@@ -3279,7 +3287,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceReference"},
+			cachev1alpha1.CachedResourceReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -3298,7 +3306,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3320,7 +3328,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpoint"),
+										Ref:     ref(cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3337,7 +3345,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResourceEndpoint", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -3375,7 +3383,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResource"),
+										Ref:     ref(cachev1alpha1.CachedResource{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3386,7 +3394,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.CachedResource", v1.ListMeta{}.OpenAPIModelName()},
+			cachev1alpha1.CachedResource{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3451,7 +3459,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallb
 					"identity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity allows access to CachedResource's resources via the APIExport.\n\nDifferent  CachedResource in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the  ublishedResource is moved.\n\nThe identity is defaulted. A secret with the name of the CachedResource is automatically created.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.Identity"),
+							Ref:         ref(cachev1alpha1.Identity{}.OpenAPIModelName()),
 						},
 					},
 					"labelSelector": {
@@ -3465,7 +3473,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.Identity", v1.LabelSelector{}.OpenAPIModelName()},
+			cachev1alpha1.Identity{}.OpenAPIModelName(), v1.LabelSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -3486,7 +3494,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCal
 					"resourceCounts": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ResourceCount is the number of resources that match the label selector",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/cache/v1alpha1.ResourceCount"),
+							Ref:         ref(cachev1alpha1.ResourceCount{}.OpenAPIModelName()),
 						},
 					},
 					"phase": {
@@ -3504,7 +3512,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3514,7 +3522,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/cache/v1alpha1.ResourceCount", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			cachev1alpha1.ResourceCount{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -3633,20 +3641,20 @@ func schema_sdk_apis_core_v1alpha1_LogicalCluster(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterSpec"),
+							Ref:     ref(corev1alpha1.LogicalClusterSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterStatus"),
+							Ref:     ref(corev1alpha1.LogicalClusterStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterSpec", "github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			corev1alpha1.LogicalClusterSpec{}.OpenAPIModelName(), corev1alpha1.LogicalClusterStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3684,7 +3692,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalCluster"),
+										Ref:     ref(corev1alpha1.LogicalCluster{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3695,7 +3703,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalCluster", v1.ListMeta{}.OpenAPIModelName()},
+			corev1alpha1.LogicalCluster{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3777,7 +3785,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 					"owner": {
 						SchemaProps: spec.SchemaProps{
 							Description: "owner is a reference to a resource controlling the life-cycle of this logical cluster. On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is removed from the owner.\n\nWhen this object is deleted, but the owner is not deleted, the owner is deleted too.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterOwner"),
+							Ref:         ref(corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName()),
 						},
 					},
 					"initializers": {
@@ -3814,7 +3822,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/core/v1alpha1.LogicalClusterOwner"},
+			corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName()},
 	}
 }
 
@@ -3847,7 +3855,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3887,7 +3895,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -3921,20 +3929,20 @@ func schema_sdk_apis_core_v1alpha1_Shard(ref common.ReferenceCallback) common.Op
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardSpec"),
+							Ref:     ref(corev1alpha1.ShardSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardStatus"),
+							Ref:     ref(corev1alpha1.ShardStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardSpec", "github.com/kcp-dev/sdk/apis/core/v1alpha1.ShardStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			corev1alpha1.ShardSpec{}.OpenAPIModelName(), corev1alpha1.ShardStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -3972,7 +3980,7 @@ func schema_sdk_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) commo
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/core/v1alpha1.Shard"),
+										Ref:     ref(corev1alpha1.Shard{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3983,7 +3991,7 @@ func schema_sdk_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/core/v1alpha1.Shard", v1.ListMeta{}.OpenAPIModelName()},
+			corev1alpha1.Shard{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4052,7 +4060,7 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4062,7 +4070,7 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			conditionsv1alpha1.Condition{}.OpenAPIModelName(), "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -4127,19 +4135,19 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback
 					"username": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression"),
+							Ref:     ref(tenancyv1alpha1.PrefixedClaimOrExpression{}.OpenAPIModelName()),
 						},
 					},
 					"groups": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression"),
+							Ref:     ref(tenancyv1alpha1.PrefixedClaimOrExpression{}.OpenAPIModelName()),
 						},
 					},
 					"uid": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimOrExpression"),
+							Ref:     ref(tenancyv1alpha1.ClaimOrExpression{}.OpenAPIModelName()),
 						},
 					},
 					"extra": {
@@ -4149,7 +4157,7 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ExtraMapping"),
+										Ref:     ref(tenancyv1alpha1.ExtraMapping{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4159,7 +4167,7 @@ func schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimOrExpression", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ExtraMapping", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.PrefixedClaimOrExpression"},
+			tenancyv1alpha1.ClaimOrExpression{}.OpenAPIModelName(), tenancyv1alpha1.ExtraMapping{}.OpenAPIModelName(), tenancyv1alpha1.PrefixedClaimOrExpression{}.OpenAPIModelName()},
 	}
 }
 
@@ -4317,7 +4325,7 @@ func schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref common.ReferenceCallb
 					"issuer": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Issuer"),
+							Ref:     ref(tenancyv1alpha1.Issuer{}.OpenAPIModelName()),
 						},
 					},
 					"claimValidationRules": {
@@ -4327,7 +4335,7 @@ func schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimValidationRule"),
+										Ref:     ref(tenancyv1alpha1.ClaimValidationRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4336,7 +4344,7 @@ func schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref common.ReferenceCallb
 					"claimMappings": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimMappings"),
+							Ref:     ref(tenancyv1alpha1.ClaimMappings{}.OpenAPIModelName()),
 						},
 					},
 					"userValidationRules": {
@@ -4346,7 +4354,7 @@ func schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.UserValidationRule"),
+										Ref:     ref(tenancyv1alpha1.UserValidationRule{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4357,7 +4365,7 @@ func schema_sdk_apis_tenancy_v1alpha1_JWTAuthenticator(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimMappings", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ClaimValidationRule", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Issuer", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.UserValidationRule"},
+			tenancyv1alpha1.ClaimMappings{}.OpenAPIModelName(), tenancyv1alpha1.ClaimValidationRule{}.OpenAPIModelName(), tenancyv1alpha1.Issuer{}.OpenAPIModelName(), tenancyv1alpha1.UserValidationRule{}.OpenAPIModelName()},
 	}
 }
 
@@ -4372,7 +4380,7 @@ func schema_sdk_apis_tenancy_v1alpha1_Mount(ref common.ReferenceCallback) common
 						SchemaProps: spec.SchemaProps{
 							Description: "Reference is an ObjectReference to the object that is mounted.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ObjectReference"),
+							Ref:         ref(tenancyv1alpha1.ObjectReference{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -4380,7 +4388,7 @@ func schema_sdk_apis_tenancy_v1alpha1_Mount(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.ObjectReference"},
+			tenancyv1alpha1.ObjectReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -4545,13 +4553,13 @@ func schema_sdk_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceSpec"),
+							Ref:     ref(tenancyv1alpha1.WorkspaceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceStatus"),
+							Ref:     ref(tenancyv1alpha1.WorkspaceStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -4559,7 +4567,7 @@ func schema_sdk_apis_tenancy_v1alpha1_Workspace(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceSpec", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			tenancyv1alpha1.WorkspaceSpec{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4593,7 +4601,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfiguration(ref c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationSpec"),
+							Ref:     ref(tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -4601,7 +4609,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfiguration(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfigurationSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4639,7 +4647,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationList(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfiguration"),
+										Ref:     ref(tenancyv1alpha1.WorkspaceAuthenticationConfiguration{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4650,7 +4658,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationList(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceAuthenticationConfiguration", v1.ListMeta{}.OpenAPIModelName()},
+			tenancyv1alpha1.WorkspaceAuthenticationConfiguration{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4667,7 +4675,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationSpec(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.JWTAuthenticator"),
+										Ref:     ref(tenancyv1alpha1.JWTAuthenticator{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4678,7 +4686,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceAuthenticationConfigurationSpec(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.JWTAuthenticator"},
+			tenancyv1alpha1.JWTAuthenticator{}.OpenAPIModelName()},
 	}
 }
 
@@ -4716,7 +4724,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref common.ReferenceCallback
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Workspace"),
+										Ref:     ref(tenancyv1alpha1.Workspace{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4727,7 +4735,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceList(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Workspace", v1.ListMeta{}.OpenAPIModelName()},
+			tenancyv1alpha1.Workspace{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4761,13 +4769,13 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 					"type": {
 						SchemaProps: spec.SchemaProps{
 							Description: "type defines properties of the workspace both on creation (e.g. initial resources and initially installed APIs) and during runtime (e.g. permissions). If no type is provided, the default type for the workspace in which this workspace is nesting will be used.\n\nThe type is a reference to a WorkspaceType in the listed workspace, but lower-cased. The WorkspaceType existence is validated at admission during creation. The type is immutable after creation. The use of a type is gated via the RBAC workspacetypes/use resource permission.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+							Ref:         ref(tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()),
 						},
 					},
 					"location": {
 						SchemaProps: spec.SchemaProps{
 							Description: "location constraints where this workspace can be scheduled to.\n\nIf the no location is specified, an arbitrary location is chosen.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceLocation"),
+							Ref:         ref(tenancyv1alpha1.WorkspaceLocation{}.OpenAPIModelName()),
 						},
 					},
 					"cluster": {
@@ -4787,14 +4795,14 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceSpec(ref common.ReferenceCallback
 					"mount": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Mount is a reference to an object implementing a mounting feature. It is used to orchestrate where the traffic, intended for the workspace, is sent. If specified, logicalcluster will not be created and the workspace will be mounted using reference mount object.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Mount"),
+							Ref:         ref(tenancyv1alpha1.Mount{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.Mount", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceLocation", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			tenancyv1alpha1.Mount{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceLocation{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -4820,7 +4828,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4860,7 +4868,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceStatus(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -4894,20 +4902,20 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceType(ref common.ReferenceCallback
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSpec"),
+							Ref:     ref(tenancyv1alpha1.WorkspaceTypeSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeStatus"),
+							Ref:     ref(tenancyv1alpha1.WorkspaceTypeStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSpec", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			tenancyv1alpha1.WorkspaceTypeSpec{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -4926,7 +4934,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.Referenc
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+										Ref:     ref(tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4936,7 +4944,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -4974,7 +4982,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceType"),
+										Ref:     ref(tenancyv1alpha1.WorkspaceType{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -4985,7 +4993,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeList(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceType", v1.ListMeta{}.OpenAPIModelName()},
+			tenancyv1alpha1.WorkspaceType{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5040,7 +5048,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.Reference
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+										Ref:     ref(tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5050,7 +5058,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSelector(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"},
+			tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -5078,7 +5086,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 						SchemaProps: spec.SchemaProps{
 							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension"),
+							Ref:         ref(tenancyv1alpha1.WorkspaceTypeExtension{}.OpenAPIModelName()),
 						},
 					},
 					"additionalWorkspaceLabels": {
@@ -5100,19 +5108,19 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 					"defaultChildWorkspaceType": {
 						SchemaProps: spec.SchemaProps{
 							Description: "defaultChildWorkspaceType is the WorkspaceType that will be used by default if another, nested Workspace is created in a workspace of this type. When this field is unset, the user must specify a type when creating nested workspaces. Extending another WorkspaceType does not inherit its defaultChildWorkspaceType.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference"),
+							Ref:         ref(tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName()),
 						},
 					},
 					"limitAllowedChildren": {
 						SchemaProps: spec.SchemaProps{
 							Description: "limitAllowedChildren specifies constraints for sub-workspaces created in workspaces of this type. These are in addition to child constraints of types this one extends.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
+							Ref:         ref(tenancyv1alpha1.WorkspaceTypeSelector{}.OpenAPIModelName()),
 						},
 					},
 					"limitAllowedParents": {
 						SchemaProps: spec.SchemaProps{
 							Description: "limitAllowedParents specifies constraints for the parent workspace that workspaces of this type are created in. These are in addition to parent constraints of types this one extends.",
-							Ref:         ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"),
+							Ref:         ref(tenancyv1alpha1.WorkspaceTypeSelector{}.OpenAPIModelName()),
 						},
 					},
 					"defaultAPIBindings": {
@@ -5123,7 +5131,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.APIExportReference"),
+										Ref:     ref(tenancyv1alpha1.APIExportReference{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5144,7 +5152,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.AuthenticationConfigurationReference"),
+										Ref:     ref(tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5154,7 +5162,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.APIExportReference", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.AuthenticationConfigurationReference", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeExtension", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeReference", "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.WorkspaceTypeSelector"},
+			tenancyv1alpha1.APIExportReference{}.OpenAPIModelName(), tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeExtension{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeSelector{}.OpenAPIModelName()},
 	}
 }
 
@@ -5173,7 +5181,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5187,7 +5195,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.VirtualWorkspace"),
+										Ref:     ref(tenancyv1alpha1.VirtualWorkspace{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5197,7 +5205,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeStatus(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1.VirtualWorkspace", "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			tenancyv1alpha1.VirtualWorkspace{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -5291,14 +5299,14 @@ func schema_sdk_apis_topology_v1alpha1_Partition(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSpec"),
+							Ref:         ref(topologyv1alpha1.PartitionSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSpec", v1.ObjectMeta{}.OpenAPIModelName()},
+			topologyv1alpha1.PartitionSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5336,7 +5344,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallbac
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/topology/v1alpha1.Partition"),
+										Ref:     ref(topologyv1alpha1.Partition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5347,7 +5355,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionList(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/topology/v1alpha1.Partition", v1.ListMeta{}.OpenAPIModelName()},
+			topologyv1alpha1.Partition{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5382,21 +5390,21 @@ func schema_sdk_apis_topology_v1alpha1_PartitionSet(ref common.ReferenceCallback
 						SchemaProps: spec.SchemaProps{
 							Description: "spec holds the desired state.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetSpec"),
+							Ref:         ref(topologyv1alpha1.PartitionSetSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "status holds information about the current status",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetStatus"),
+							Ref:         ref(topologyv1alpha1.PartitionSetStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetSpec", "github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSetStatus", v1.ObjectMeta{}.OpenAPIModelName()},
+			topologyv1alpha1.PartitionSetSpec{}.OpenAPIModelName(), topologyv1alpha1.PartitionSetStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5434,7 +5442,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCall
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSet"),
+										Ref:     ref(topologyv1alpha1.PartitionSet{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5445,7 +5453,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionSetList(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/topology/v1alpha1.PartitionSet", v1.ListMeta{}.OpenAPIModelName()},
+			topologyv1alpha1.PartitionSet{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
@@ -5507,7 +5515,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"),
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -5517,7 +5525,7 @@ func schema_sdk_apis_topology_v1alpha1_PartitionSetStatus(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1.Condition"},
+			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 

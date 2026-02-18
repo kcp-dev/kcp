@@ -18,4 +18,5 @@ limitations under the License.
 // +groupName=apis.kcp.io
 // +k8s:conversion-gen=github.com/kcp-dev/sdk/apis/apis/v1alpha1
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=true
 package v1alpha2
