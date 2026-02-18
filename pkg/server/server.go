@@ -475,7 +475,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 			exportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced()
-			cacheExportsSynced := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced()
+			cacheExportsSynced := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced()
 			logicalClusterSynced := s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced()
 			return exportsSynced && cacheExportsSynced && logicalClusterSynced, nil
 		}); err != nil {
