@@ -20,6 +20,8 @@ package v1alpha1
 
 // SheriffStatusApplyConfiguration represents a declarative configuration of the SheriffStatus type for use
 // with apply.
+//
+// SheriffStatus communicates the observed state of the Sheriff.
 type SheriffStatusApplyConfiguration struct {
 	Result *string `json:"result,omitempty"`
 }

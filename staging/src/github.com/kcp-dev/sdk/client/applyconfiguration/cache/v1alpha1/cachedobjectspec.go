@@ -24,6 +24,8 @@ import (
 
 // CachedObjectSpecApplyConfiguration represents a declarative configuration of the CachedObjectSpec type for use
 // with apply.
+//
+// CachedObjectSpec defines the desired state of CachedObject.
 type CachedObjectSpecApplyConfiguration struct {
 	Raw *runtime.RawExtension `json:"raw,omitempty"`
 }

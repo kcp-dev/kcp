@@ -27,11 +27,17 @@ import (
 
 // CachedResourceEndpointSliceApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSlice type for use
 // with apply.
+//
+// CachedResourceEndpointSlice is a sink for the endpoints of CachedResource virtual workspaces.
 type CachedResourceEndpointSliceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *CachedResourceEndpointSliceSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *CachedResourceEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
+	// spec holds the desired state:
+	// - the targeted CachedResource
+	Spec *CachedResourceEndpointSliceSpecApplyConfiguration `json:"spec,omitempty"`
+	// status communicates the observed state:
+	// the filtered list of endpoints for the Replication service.
+	Status *CachedResourceEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // CachedResourceEndpointSlice constructs a declarative configuration of the CachedResourceEndpointSlice type for use with
@@ -43,6 +49,7 @@ func CachedResourceEndpointSlice(name string) *CachedResourceEndpointSliceApplyC
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
 }
+
 func (b CachedResourceEndpointSliceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -27,10 +27,16 @@ import (
 
 // APIResourceSchemaApplyConfiguration represents a declarative configuration of the APIResourceSchema type for use
 // with apply.
+//
+// APIResourceSchema describes a resource, identified by (group, version, resource, schema).
+//
+// An APIResourceSchema is immutable and cannot be deleted if they are referenced by
+// an APIExport in the same workspace.
 type APIResourceSchemaApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIResourceSchemaSpecApplyConfiguration `json:"spec,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIResourceSchemaSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // APIResourceSchema constructs a declarative configuration of the APIResourceSchema type for use with
@@ -42,6 +48,7 @@ func APIResourceSchema(name string) *APIResourceSchemaApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
 func (b APIResourceSchemaApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

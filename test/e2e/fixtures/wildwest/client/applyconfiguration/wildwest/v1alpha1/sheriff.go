@@ -27,6 +27,8 @@ import (
 
 // SheriffApplyConfiguration represents a declarative configuration of the Sheriff type for use
 // with apply.
+//
+// Sheriff is part of the wild west
 type SheriffApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +45,7 @@ func Sheriff(name string) *SheriffApplyConfiguration {
 	b.WithAPIVersion("wildwest.dev/v1alpha1")
 	return b
 }
+
 func (b SheriffApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

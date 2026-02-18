@@ -24,8 +24,17 @@ import (
 
 // ResourceSchemaStorageApplyConfiguration represents a declarative configuration of the ResourceSchemaStorage type for use
 // with apply.
+//
+// ResourceSchemaStorage defines how the resource is stored.
 type ResourceSchemaStorageApplyConfiguration struct {
-	CRD     *apisv1alpha2.ResourceSchemaStorageCRD          `json:"crd,omitempty"`
+	// CRD storage defines that this APIResourceSchema is exposed as
+	// CustomResourceDefinitions inside the workspaces that bind to the APIExport.
+	// Like in vanilla Kubernetes, users can then create, update and delete
+	// custom resources.
+	CRD *apisv1alpha2.ResourceSchemaStorageCRD `json:"crd,omitempty"`
+	// Virtual storage defines that this APIResourceSchema is exposed as
+	// a projection of the referenced resource inside the workspaces that
+	// bind to the APIExport.
 	Virtual *ResourceSchemaStorageVirtualApplyConfiguration `json:"virtual,omitempty"`
 }
 

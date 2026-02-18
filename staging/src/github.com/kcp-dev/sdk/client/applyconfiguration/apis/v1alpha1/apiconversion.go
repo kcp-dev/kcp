@@ -27,10 +27,14 @@ import (
 
 // APIConversionApplyConfiguration represents a declarative configuration of the APIConversion type for use
 // with apply.
+//
+// APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
+// the name of the APIResourceSchema for the conversions to take effect.
 type APIConversionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // APIConversion constructs a declarative configuration of the APIConversion type for use with
@@ -42,6 +46,7 @@ func APIConversion(name string) *APIConversionApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
 func (b APIConversionApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -21,6 +21,7 @@ package v1alpha1
 // VirtualWorkspaceApplyConfiguration represents a declarative configuration of the VirtualWorkspace type for use
 // with apply.
 type VirtualWorkspaceApplyConfiguration struct {
+	// url is an APIExport virtual workspace URL.
 	URL *string `json:"url,omitempty"`
 }
 

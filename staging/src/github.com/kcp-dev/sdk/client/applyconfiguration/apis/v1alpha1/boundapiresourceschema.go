@@ -20,9 +20,18 @@ package v1alpha1
 
 // BoundAPIResourceSchemaApplyConfiguration represents a declarative configuration of the BoundAPIResourceSchema type for use
 // with apply.
+//
+// BoundAPIResourceSchema is a reference to an APIResourceSchema.
 type BoundAPIResourceSchemaApplyConfiguration struct {
-	Name         *string `json:"name,omitempty"`
-	UID          *string `json:"UID,omitempty"`
+	// name is the bound APIResourceSchema name.
+	Name *string `json:"name,omitempty"`
+	// UID is the UID of the APIResourceSchema that is bound to this API.
+	UID *string `json:"UID,omitempty"`
+	// identityHash is the hash of the API identity that this schema is bound to.
+	// The API identity determines the etcd prefix used to persist the object.
+	// Different identity means that the objects are effectively served and stored
+	// under a distinct resource. A CRD of the same GroupVersionResource uses a
+	// different identity and hence a separate etcd prefix.
 	IdentityHash *string `json:"identityHash,omitempty"`
 }
 

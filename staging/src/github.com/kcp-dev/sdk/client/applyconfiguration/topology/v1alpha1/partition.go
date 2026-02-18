@@ -27,10 +27,14 @@ import (
 
 // PartitionApplyConfiguration represents a declarative configuration of the Partition type for use
 // with apply.
+//
+// Partition defines the selection of a set of shards along multiple dimensions.
+// Partitions can get automatically generated through a partitioner or manually crafted.
 type PartitionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *PartitionSpecApplyConfiguration `json:"spec,omitempty"`
+	// spec holds the desired state.
+	Spec *PartitionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // Partition constructs a declarative configuration of the Partition type for use with
@@ -42,6 +46,7 @@ func Partition(name string) *PartitionApplyConfiguration {
 	b.WithAPIVersion("topology.kcp.io/v1alpha1")
 	return b
 }
+
 func (b PartitionApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

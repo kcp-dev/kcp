@@ -20,8 +20,13 @@ package v1alpha1
 
 // CachedResourceReferenceApplyConfiguration represents a declarative configuration of the CachedResourceReference type for use
 // with apply.
+//
+// CachedResourceReference is a reference to a CachedResource.
 type CachedResourceReferenceApplyConfiguration struct {
+	// path is a logical cluster path where the CachedResource is defined. If empty,
+	// the CachedResource is assumed to be co-located with the referencing resource.
 	Path *string `json:"path,omitempty"`
+	// name is the name of the CachedResource the reference points to.
 	Name *string `json:"name,omitempty"`
 }
 

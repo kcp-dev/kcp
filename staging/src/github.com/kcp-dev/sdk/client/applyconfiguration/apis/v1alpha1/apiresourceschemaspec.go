@@ -24,13 +24,34 @@ import (
 
 // APIResourceSchemaSpecApplyConfiguration represents a declarative configuration of the APIResourceSchemaSpec type for use
 // with apply.
+//
+// APIResourceSchemaSpec defines the desired state of APIResourceSchema.
 type APIResourceSchemaSpecApplyConfiguration struct {
-	Group          *string                                     `json:"group,omitempty"`
-	Names          *v1.CustomResourceDefinitionNames           `json:"names,omitempty"`
-	Scope          *v1.ResourceScope                           `json:"scope,omitempty"`
-	Versions       []APIResourceVersionApplyConfiguration      `json:"versions,omitempty"`
-	NameValidation *string                                     `json:"nameValidation,omitempty"`
-	Conversion     *CustomResourceConversionApplyConfiguration `json:"conversion,omitempty"`
+	// group is the API group of the defined custom resource. Empty string means the
+	// core API group. 	The resources are served under `/apis/<group>/...` or `/api` for the core group.
+	Group *string `json:"group,omitempty"`
+	// names specify the resource and kind names for the custom resource.
+	Names *v1.CustomResourceDefinitionNames `json:"names,omitempty"`
+	// scope indicates whether the defined custom resource is cluster- or namespace-scoped.
+	// Allowed values are `Cluster` and `Namespaced`.
+	Scope *v1.ResourceScope `json:"scope,omitempty"`
+	// versions is the API version of the defined custom resource.
+	//
+	// Note: the OpenAPI v3 schemas must be equal for all versions until CEL
+	// version migration is supported.
+	Versions []APIResourceVersionApplyConfiguration `json:"versions,omitempty"`
+	// nameValidation can be used to configure name validation for bound APIs.
+	// Allowed values are `DNS1123Subdomain` and `PathSegmentName`.
+	// - DNS1123Subdomain: a lowercase RFC 1123 subdomain must consist of lower case
+	// alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character.
+	// Regex used is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'
+	// - PathSegmentName: validates the name can be safely encoded as a path segment.
+	// The name may not be '.' or '..' and the name may not contain '/' or '%'.
+	//
+	// Defaults to `DNS1123Subdomain`, matching the behaviour of CRDs.
+	NameValidation *string `json:"nameValidation,omitempty"`
+	// conversion defines conversion settings for the defined custom resource.
+	Conversion *CustomResourceConversionApplyConfiguration `json:"conversion,omitempty"`
 }
 
 // APIResourceSchemaSpecApplyConfiguration constructs a declarative configuration of the APIResourceSchemaSpec type for use with

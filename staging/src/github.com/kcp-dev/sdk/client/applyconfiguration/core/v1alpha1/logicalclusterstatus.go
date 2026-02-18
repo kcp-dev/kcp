@@ -25,12 +25,25 @@ import (
 
 // LogicalClusterStatusApplyConfiguration represents a declarative configuration of the LogicalClusterStatus type for use
 // with apply.
+//
+// LogicalClusterStatus communicates the observed state of the Workspace.
 type LogicalClusterStatusApplyConfiguration struct {
-	URL          *string                                  `json:"URL,omitempty"`
-	Phase        *corev1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
-	Conditions   *conditionsv1alpha1.Conditions           `json:"conditions,omitempty"`
+	// url is the address under which the Kubernetes-cluster-like endpoint
+	// can be found. This URL can be used to access the logical cluster with standard Kubernetes
+	// client libraries and command line tools.
+	URL *string `json:"URL,omitempty"`
+	// Phase of the logical cluster (Initializing, Ready).
+	Phase *corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
+	// Current processing state of the LogicalCluster.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	// initializers are set on creation by the system and must be cleared
+	// by a controller before the logical cluster can be used. The LogicalCluster object
+	// will stay in the phase "Initializing" state until all initializers are cleared.
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
-	Terminators  []corev1alpha1.LogicalClusterTerminator  `json:"terminators,omitempty"`
+	// Terminators are set on creation by the system and must be cleared
+	// by a controller before the logical cluster can be deleted. The LogicalCluster object
+	// will stay in the phase "Deleting" until all terminator are cleared.
+	Terminators []corev1alpha1.LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 
 // LogicalClusterStatusApplyConfiguration constructs a declarative configuration of the LogicalClusterStatus type for use with

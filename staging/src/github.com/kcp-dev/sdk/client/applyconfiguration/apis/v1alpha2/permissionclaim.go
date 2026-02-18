@@ -20,10 +20,21 @@ package v1alpha2
 
 // PermissionClaimApplyConfiguration represents a declarative configuration of the PermissionClaim type for use
 // with apply.
+//
+// PermissionClaim identifies an object by GR and identity hash.
+// Its purpose is to determine the added permissions that a service provider may
+// request and that a consumer may accept and allow the service provider access to.
 type PermissionClaimApplyConfiguration struct {
 	GroupResourceApplyConfiguration `json:",inline"`
-	Verbs                           []string `json:"verbs,omitempty"`
-	IdentityHash                    *string  `json:"identityHash,omitempty"`
+	// verbs is a list of supported API operation types (this includes
+	// but is not limited to get, list, watch, create, update, patch,
+	// delete, deletecollection, and proxy).
+	Verbs []string `json:"verbs,omitempty"`
+	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
+	// The hash can be found on APIExport and APIResourceSchema's status.
+	// It will be empty for core types.
+	// Note that one must look this up for a particular KCP instance.
+	IdentityHash *string `json:"identityHash,omitempty"`
 }
 
 // PermissionClaimApplyConfiguration constructs a declarative configuration of the PermissionClaim type for use with

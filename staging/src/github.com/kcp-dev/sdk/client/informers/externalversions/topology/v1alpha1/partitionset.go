@@ -149,7 +149,7 @@ func NewPartitionSetInformer(client kcpversioned.Interface, resyncPeriod time.Du
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredPartitionSetInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredPartitionSetInformer(client kcpversioned.Interface, resyncPeriod
 				}
 				return client.TopologyV1alpha1().PartitionSets().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcptopologyv1alpha1.PartitionSet{},
 		resyncPeriod,
 		indexers,

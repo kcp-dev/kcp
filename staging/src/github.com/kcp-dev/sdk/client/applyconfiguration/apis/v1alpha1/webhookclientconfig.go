@@ -20,9 +20,33 @@ package v1alpha1
 
 // WebhookClientConfigApplyConfiguration represents a declarative configuration of the WebhookClientConfig type for use
 // with apply.
+//
+// WebhookClientConfig contains the information to make a TLS connection with the webhook.
 type WebhookClientConfigApplyConfiguration struct {
-	URL      *string `json:"url,omitempty"`
-	CABundle []byte  `json:"caBundle,omitempty"`
+	// url gives the location of the webhook, in standard URL form
+	// (`scheme://host:port/path`).
+	//
+	// Please note that using `localhost` or `127.0.0.1` as a `host` is
+	// risky unless you take great care to run this webhook on all hosts
+	// which run an apiserver which might need to make calls to this
+	// webhook. Such installs are likely to be non-portable, i.e., not easy
+	// to turn up in a new cluster.
+	//
+	// The scheme must be "https"; the URL must begin with "https://".
+	//
+	// A path is optional, and if present may be any string permissible in
+	// a URL. You may use the path to pass an arbitrary string to the
+	// webhook, for example, a cluster identifier.
+	//
+	// Attempting to use a user or basic auth e.g. "user:password@" is not
+	// allowed. Fragments ("#...") and query parameters ("?...") are not
+	// allowed, either.
+	//
+	// Note: kcp does not support provided service names like Kubernetes does.
+	URL *string `json:"url,omitempty"`
+	// caBundle is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.
+	// If unspecified, system trust roots on the apiserver are used.
+	CABundle []byte `json:"caBundle,omitempty"`
 }
 
 // WebhookClientConfigApplyConfiguration constructs a declarative configuration of the WebhookClientConfig type for use with

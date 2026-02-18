@@ -149,7 +149,7 @@ func NewCachedObjectInformer(client kcpversioned.Interface, resyncPeriod time.Du
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCachedObjectInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredCachedObjectInformer(client kcpversioned.Interface, resyncPeriod
 				}
 				return client.CacheV1alpha1().CachedObjects().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcachev1alpha1.CachedObject{},
 		resyncPeriod,
 		indexers,

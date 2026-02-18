@@ -27,6 +27,11 @@ import (
 
 // LogicalClusterApplyConfiguration represents a declarative configuration of the LogicalCluster type for use
 // with apply.
+//
+// LogicalCluster describes the current logical cluster. It is used to authorize
+// requests to the logical cluster and to track state.
+//
+// A LogicalCluster is always named "cluster".
 type LogicalClusterApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +48,7 @@ func LogicalCluster(name string) *LogicalClusterApplyConfiguration {
 	b.WithAPIVersion("core.kcp.io/v1alpha1")
 	return b
 }
+
 func (b LogicalClusterApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

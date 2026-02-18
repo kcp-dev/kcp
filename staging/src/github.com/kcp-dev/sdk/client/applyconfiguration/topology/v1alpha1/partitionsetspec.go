@@ -24,8 +24,12 @@ import (
 
 // PartitionSetSpecApplyConfiguration represents a declarative configuration of the PartitionSetSpec type for use
 // with apply.
+//
+// PartitionSetSpec records dimensions and a target domain for the partitioning.
 type PartitionSetSpecApplyConfiguration struct {
-	Dimensions    []string                            `json:"dimensions,omitempty"`
+	// dimensions (optional) are used to group shards into partitions
+	Dimensions []string `json:"dimensions,omitempty"`
+	// shardSelector (optional) specifies filtering for shard targets.
 	ShardSelector *v1.LabelSelectorApplyConfiguration `json:"shardSelector,omitempty"`
 }
 

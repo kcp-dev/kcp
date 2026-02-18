@@ -27,11 +27,15 @@ import (
 
 // PartitionSetApplyConfiguration represents a declarative configuration of the PartitionSet type for use
 // with apply.
+//
+// PartitionSet defines a target domain and dimensions to divide a set of shards into 1 or more partitions.
 type PartitionSetApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *PartitionSetSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *PartitionSetStatusApplyConfiguration `json:"status,omitempty"`
+	// spec holds the desired state.
+	Spec *PartitionSetSpecApplyConfiguration `json:"spec,omitempty"`
+	// status holds information about the current status
+	Status *PartitionSetStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // PartitionSet constructs a declarative configuration of the PartitionSet type for use with
@@ -43,6 +47,7 @@ func PartitionSet(name string) *PartitionSetApplyConfiguration {
 	b.WithAPIVersion("topology.kcp.io/v1alpha1")
 	return b
 }
+
 func (b PartitionSetApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

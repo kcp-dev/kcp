@@ -24,8 +24,12 @@ import (
 
 // PartitionSetStatusApplyConfiguration represents a declarative configuration of the PartitionSetStatus type for use
 // with apply.
+//
+// PartitionSetStatus records the status of the PartitionSet.
 type PartitionSetStatusApplyConfiguration struct {
-	Count      *uint                          `json:"count,omitempty"`
+	// count is the total number of partitions.
+	Count *uint `json:"count,omitempty"`
+	// conditions is a list of conditions that apply to the APIExportEndpointSlice.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 

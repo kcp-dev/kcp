@@ -20,6 +20,8 @@ package v1alpha1
 
 // ExtraMappingApplyConfiguration represents a declarative configuration of the ExtraMapping type for use
 // with apply.
+//
+// ExtraMapping provides the configuration for a single extra mapping.
 type ExtraMappingApplyConfiguration struct {
 	Key             *string `json:"key,omitempty"`
 	ValueExpression *string `json:"valueExpression,omitempty"`

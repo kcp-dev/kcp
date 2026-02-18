@@ -20,9 +20,31 @@ package v1alpha1
 
 // ShardSpecApplyConfiguration represents a declarative configuration of the ShardSpec type for use
 // with apply.
+//
+// ShardSpec holds the desired state of the Shard.
 type ShardSpecApplyConfiguration struct {
-	BaseURL             *string `json:"baseURL,omitempty"`
-	ExternalURL         *string `json:"externalURL,omitempty"`
+	// baseURL is the address of the KCP shard for direct connections, e.g. by some
+	// front-proxy doing the fan-out to the shards.
+	BaseURL *string `json:"baseURL,omitempty"`
+	// externalURL is the externally visible address presented to users in Workspace URLs.
+	// Changing this will break all existing logical clusters on that shard, i.e. existing
+	// kubeconfigs of clients will be invalid. Hence, when changing this value, the old
+	// URL used by clients must keep working.
+	//
+	// The external address will not be unique if a front-proxy does a fan-out to
+	// shards, but all logical cluster clients will talk to the front-proxy. In that case,
+	// put the address of the front-proxy here.
+	//
+	// Note that movement of shards is only possible (in the future) between shards
+	// that share a common external URL.
+	//
+	// This will be defaulted to the value of the baseURL.
+	ExternalURL *string `json:"externalURL,omitempty"`
+	// virtualWorkspaceURL is the address of the virtual workspace apiserver associated with this shard.
+	// It can be a direct address, an address of a front-proxy or even an address of an LB.
+	// As of today this address is assigned to APIExports.
+	//
+	// This will be defaulted to the value of the baseURL.
 	VirtualWorkspaceURL *string `json:"virtualWorkspaceURL,omitempty"`
 }
 

@@ -24,7 +24,11 @@ import (
 
 // IdentityApplyConfiguration represents a declarative configuration of the Identity type for use
 // with apply.
+//
+// Identity defines the identity of an APIExport, i.e. determines the etcd prefix
+// data of this APIExport are stored under.
 type IdentityApplyConfiguration struct {
+	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
 	SecretRef *v1.SecretReference `json:"secretRef,omitempty"`
 }
 

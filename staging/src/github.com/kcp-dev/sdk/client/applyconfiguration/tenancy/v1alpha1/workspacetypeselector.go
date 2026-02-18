@@ -20,8 +20,16 @@ package v1alpha1
 
 // WorkspaceTypeSelectorApplyConfiguration represents a declarative configuration of the WorkspaceTypeSelector type for use
 // with apply.
+//
+// WorkspaceTypeSelector describes a set of types.
 type WorkspaceTypeSelectorApplyConfiguration struct {
-	None  *bool                                      `json:"none,omitempty"`
+	// none means that no type matches.
+	None *bool `json:"none,omitempty"`
+	// types is a list of WorkspaceTypes that match. A workspace type extending
+	// another workspace type automatically is considered as that extended type as well
+	// (even transitively).
+	//
+	// An empty list matches all types.
 	Types []WorkspaceTypeReferenceApplyConfiguration `json:"types,omitempty"`
 }
 

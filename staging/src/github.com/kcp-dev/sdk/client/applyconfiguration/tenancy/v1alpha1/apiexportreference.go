@@ -20,8 +20,13 @@ package v1alpha1
 
 // APIExportReferenceApplyConfiguration represents a declarative configuration of the APIExportReference type for use
 // with apply.
+//
+// APIExportReference provides the fields necessary to resolve an APIExport.
 type APIExportReferenceApplyConfiguration struct {
-	Path   *string `json:"path,omitempty"`
+	// path is the fully-qualified path to the workspace containing the APIExport. If it is
+	// empty, the current workspace is assumed.
+	Path *string `json:"path,omitempty"`
+	// export is the name of the APIExport.
 	Export *string `json:"export,omitempty"`
 }
 

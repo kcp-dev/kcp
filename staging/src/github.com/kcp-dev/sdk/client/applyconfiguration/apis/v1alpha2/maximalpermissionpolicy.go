@@ -24,7 +24,10 @@ import (
 
 // MaximalPermissionPolicyApplyConfiguration represents a declarative configuration of the MaximalPermissionPolicy type for use
 // with apply.
+//
+// MaximalPermissionPolicy is a wrapper type around the multiple options that would be allowed.
 type MaximalPermissionPolicyApplyConfiguration struct {
+	// local is the policy that is defined in same workspace as the API Export.
 	Local *apisv1alpha2.LocalAPIExportPolicy `json:"local,omitempty"`
 }
 

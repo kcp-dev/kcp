@@ -20,6 +20,8 @@ package v1alpha1
 
 // ClaimOrExpressionApplyConfiguration represents a declarative configuration of the ClaimOrExpression type for use
 // with apply.
+//
+// ClaimOrExpression provides the configuration for a single claim or expression.
 type ClaimOrExpressionApplyConfiguration struct {
 	Claim      *string `json:"claim,omitempty"`
 	Expression *string `json:"expression,omitempty"`

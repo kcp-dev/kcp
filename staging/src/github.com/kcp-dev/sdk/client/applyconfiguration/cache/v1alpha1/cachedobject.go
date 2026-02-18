@@ -27,6 +27,8 @@ import (
 
 // CachedObjectApplyConfiguration represents a declarative configuration of the CachedObject type for use
 // with apply.
+//
+// CachedObject defines a resource that is cached in the cache.
 type CachedObjectApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -42,6 +44,7 @@ func CachedObject(name string) *CachedObjectApplyConfiguration {
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
 }
+
 func (b CachedObjectApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

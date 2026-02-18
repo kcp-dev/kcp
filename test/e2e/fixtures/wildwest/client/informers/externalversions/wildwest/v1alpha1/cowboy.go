@@ -151,7 +151,7 @@ func NewCowboyInformer(client kcpversioned.Interface, resyncPeriod time.Duration
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCowboyInformer(client kcpversioned.Interface, resyncPeriod time.Duration, namespace string, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -164,7 +164,7 @@ func NewFilteredCowboyInformer(client kcpversioned.Interface, resyncPeriod time.
 				}
 				return client.WildwestV1alpha1().Cowboys(namespace).Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpwildwestv1alpha1.Cowboy{},
 		resyncPeriod,
 		indexers,

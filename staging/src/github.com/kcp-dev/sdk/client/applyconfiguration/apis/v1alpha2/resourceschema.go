@@ -20,10 +20,17 @@ package v1alpha2
 
 // ResourceSchemaApplyConfiguration represents a declarative configuration of the ResourceSchema type for use
 // with apply.
+//
+// ResourceSchema defines the resource schemas that are exposed with this APIExport.
 type ResourceSchemaApplyConfiguration struct {
-	Name    *string                                  `json:"name,omitempty"`
-	Group   *string                                  `json:"group,omitempty"`
-	Schema  *string                                  `json:"schema,omitempty"`
+	// Name is the name of the resource.
+	Name *string `json:"name,omitempty"`
+	// Group is the API group of the resource. Empty string represents the core group.
+	Group *string `json:"group,omitempty"`
+	// Schema is the name of the referenced APIResourceSchema. This must be of the format
+	// "<version>.<name>.<group>".
+	Schema *string `json:"schema,omitempty"`
+	// Storage defines how the resource is stored.
 	Storage *ResourceSchemaStorageApplyConfiguration `json:"storage,omitempty"`
 }
 

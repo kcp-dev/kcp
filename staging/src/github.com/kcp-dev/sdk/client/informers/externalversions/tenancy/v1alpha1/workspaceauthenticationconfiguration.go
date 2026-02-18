@@ -149,7 +149,7 @@ func NewWorkspaceAuthenticationConfigurationInformer(client kcpversioned.Interfa
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredWorkspaceAuthenticationConfigurationInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredWorkspaceAuthenticationConfigurationInformer(client kcpversioned
 				}
 				return client.TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcptenancyv1alpha1.WorkspaceAuthenticationConfiguration{},
 		resyncPeriod,
 		indexers,

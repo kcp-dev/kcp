@@ -149,7 +149,7 @@ func NewAPIExportEndpointSliceInformer(client kcpversioned.Interface, resyncPeri
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredAPIExportEndpointSliceInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredAPIExportEndpointSliceInformer(client kcpversioned.Interface, re
 				}
 				return client.ApisV1alpha1().APIExportEndpointSlices().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpapisv1alpha1.APIExportEndpointSlice{},
 		resyncPeriod,
 		indexers,

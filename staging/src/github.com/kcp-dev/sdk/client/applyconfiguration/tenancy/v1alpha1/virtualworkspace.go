@@ -25,7 +25,9 @@ import (
 // VirtualWorkspaceApplyConfiguration represents a declarative configuration of the VirtualWorkspace type for use
 // with apply.
 type VirtualWorkspaceApplyConfiguration struct {
-	URL  *string                               `json:"url,omitempty"`
+	// url is a WorkspaceType initialization virtual workspace URL.
+	URL *string `json:"url,omitempty"`
+	// type indicates the type of virtual workspace this URL represents.
 	Type *tenancyv1alpha1.VirtualWorkspaceType `json:"type,omitempty"`
 }
 

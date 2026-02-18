@@ -20,11 +20,25 @@ package v1alpha2
 
 // BoundAPIResourceApplyConfiguration represents a declarative configuration of the BoundAPIResource type for use
 // with apply.
+//
+// BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..
 type BoundAPIResourceApplyConfiguration struct {
-	Group           *string                                   `json:"group,omitempty"`
-	Resource        *string                                   `json:"resource,omitempty"`
-	Schema          *BoundAPIResourceSchemaApplyConfiguration `json:"schema,omitempty"`
-	StorageVersions []string                                  `json:"storageVersions,omitempty"`
+	// group is the group of the bound API. Empty string for the core API group.
+	Group *string `json:"group,omitempty"`
+	// resource is the resource of the bound API.
+	//
+	// kubebuilder:validation:MinLength=1
+	Resource *string `json:"resource,omitempty"`
+	// Schema references the APIResourceSchema that is bound to this API.
+	Schema *BoundAPIResourceSchemaApplyConfiguration `json:"schema,omitempty"`
+	// storageVersions lists all versions of a resource that were ever persisted. Tracking these
+	// versions allows a migration path for stored versions in etcd. The field is mutable
+	// so a migration controller can finish a migration to another version (ensuring
+	// no old objects are left in storage), and then remove the rest of the
+	// versions from this list.
+	//
+	// Versions may not be removed while they exist in this list.
+	StorageVersions []string `json:"storageVersions,omitempty"`
 }
 
 // BoundAPIResourceApplyConfiguration constructs a declarative configuration of the BoundAPIResource type for use with
