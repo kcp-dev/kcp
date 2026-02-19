@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -106,14 +107,25 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 		return err
 	}
 
-	var errs []error
+	wg := sync.WaitGroup{}
+	errsChan := make(chan error, len(files))
 	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if err := CreateResourceFromFS(ctx, client, mapper, batteriesIncluded, f.Name(), fs, transformers...); err != nil {
-			errs = append(errs, err)
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if f.IsDir() {
+				return
+			}
+			if err := CreateResourceFromFS(ctx, client, mapper, batteriesIncluded, f.Name(), fs, transformers...); err != nil {
+				errsChan <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errsChan)
+	errs := make([]error, 0, len(files))
+	for err := range errsChan {
+		errs = append(errs, err)
 	}
 	return utilerrors.NewAggregate(errs)
 }
@@ -130,28 +142,45 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	}
 
 	d := kubeyaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(raw)))
-	var errs []error
+	docs := [][]byte{}
 	for i := 1; ; i++ {
 		doc, err := d.Read()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return err
+			return fmt.Errorf("could not read document %d in %s: %w", i, filename, err)
 		}
 		if len(bytes.TrimSpace(doc)) == 0 {
 			continue
 		}
+		docs = append(docs, doc)
+	}
 
-		for _, transformer := range transformers {
-			doc, err = transformer(doc)
-			if err != nil {
-				return err
+	errsChan := make(chan error, len(docs))
+	wg := sync.WaitGroup{}
+	for i, doc := range docs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for _, transformer := range transformers {
+				doc, err = transformer(doc)
+				if err != nil {
+					errsChan <- fmt.Errorf("failed to transform document %d in %s: %w", i, filename, err)
+					return
+				}
 			}
-		}
 
-		if err := createResourceFromFS(ctx, client, mapper, doc, batteriesIncluded); err != nil {
-			errs = append(errs, fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err))
-		}
+			if err := createResourceFromFS(ctx, client, mapper, doc, batteriesIncluded); err != nil {
+				errsChan <- fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err)
+			}
+		}()
+	}
+	wg.Wait()
+	close(errsChan)
+	errs := make([]error, 0, len(docs))
+	for err := range errsChan {
+		errs = append(errs, err)
 	}
 	return utilerrors.NewAggregate(errs)
 }
@@ -240,62 +269,77 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 }
 
 func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
+	wg := &sync.WaitGroup{}
+	errsChan := make(chan error, len(exportNames))
+	for _, exportName := range exportNames {
+		wg.Add(1)
+		go func(exportName string) {
+			defer wg.Done()
+			if err := BindRootAPI(ctx, kcpClient, exportName); err != nil {
+				errsChan <- fmt.Errorf("failed to bind root API %s: %w", exportName, err)
+			}
+		}(exportName)
+	}
+	wg.Wait()
+	close(errsChan)
+	errs := make([]error, 0, len(exportNames))
+	for err := range errsChan {
+		errs = append(errs, err)
+	}
+	return utilerrors.NewAggregate(errs)
+}
+
+func BindRootAPI(ctx context.Context, kcpClient kcpclient.Interface, exportName string) error {
 	logger := klog.FromContext(ctx)
 
-	for _, exportName := range exportNames {
-		binding := &apisv1alpha2.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: exportName,
-			},
-			Spec: apisv1alpha2.APIBindingSpec{
-				Reference: apisv1alpha2.BindingReference{
-					Export: &apisv1alpha2.ExportBindingReference{
-						Path: core.RootCluster.Path().String(),
-						Name: exportName,
-					},
+	binding := &apisv1alpha2.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: exportName,
+		},
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
+					Path: core.RootCluster.Path().String(),
+					Name: exportName,
 				},
 			},
-		}
-
-		created, err := kcpClient.ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-		if err == nil {
-			logger := logging.WithObject(logger, created)
-			logger.V(2).Info("Created API binding")
-			continue
-		}
-		if !apierrors.IsAlreadyExists(err) {
-			return err
-		}
-
-		if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-			existing, err := kcpClient.ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-			if err != nil {
-				logger.Error(err, "error getting APIBinding", "name", exportName)
-				// Always keep trying. Don't ever return an error out of this function.
-				return false, nil
-			}
-
-			logger := logging.WithObject(logger, existing)
-			logger.V(2).Info("Updating API binding")
-
-			existing.Spec = binding.Spec
-
-			_, err = kcpClient.ApisV1alpha2().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
-			if err == nil {
-				return true, nil
-			}
-			if apierrors.IsConflict(err) {
-				logger.V(2).Info("API binding update conflict, retrying")
-				return false, nil
-			}
-
-			logger.Error(err, "error updating APIBinding")
-			// Always keep trying. Don't ever return an error out of this function.
-			return false, nil
-		}); err != nil {
-			return err
-		}
+		},
 	}
 
-	return nil
+	created, err := kcpClient.ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	if err == nil {
+		logger := logging.WithObject(logger, created)
+		logger.V(2).Info("Created API binding")
+		return nil
+	}
+	if !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		existing, err := kcpClient.ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+		if err != nil {
+			logger.Error(err, "error getting APIBinding", "name", exportName)
+			// Always keep trying. Don't ever return an error out of this function.
+			return false, nil
+		}
+
+		logger := logging.WithObject(logger, existing)
+		logger.V(2).Info("Updating API binding")
+
+		existing.Spec = binding.Spec
+
+		_, err = kcpClient.ApisV1alpha2().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
+		if err == nil {
+			return true, nil
+		}
+		if apierrors.IsConflict(err) {
+			logger.V(2).Info("API binding update conflict, retrying")
+			return false, nil
+		}
+
+		logger.Error(err, "error updating APIBinding")
+		// Always keep trying. Don't ever return an error out of this function.
+		return false, nil
+	})
 }
