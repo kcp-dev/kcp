@@ -273,7 +273,7 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 
 			node.children = append(node.children, childNode)
 
-			if !loadAllChildren {
+			if !loadAllChildren || currentWorkspace.HasPrefix(childPath) || childPath == currentWorkspace {
 				if err := o.populateInteractiveNodeBubble(ctx, childNode, childPath, childName, currentWorkspace, currentNode); err != nil {
 					return err
 				}
