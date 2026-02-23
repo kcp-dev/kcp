@@ -175,6 +175,10 @@ func (c *FakeMetadataClient) Resource(resource schema.GroupVersionResource) meta
 	return &metadataResourceClient{client: c, resource: resource}
 }
 
+func (c *FakeMetadataClient) IsWatchListSemanticsUnSupported() bool {
+	return true
+}
+
 type metadataResourceClient struct {
 	client    *FakeMetadataClient
 	namespace string
