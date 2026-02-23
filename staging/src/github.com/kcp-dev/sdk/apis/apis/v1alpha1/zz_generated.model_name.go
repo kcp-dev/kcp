@@ -23,185 +23,185 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIBinding) OpenAPIModelName() string {
-	return "true.APIBinding"
+	return "io.kcp.apis.v1alpha1.APIBinding"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIBindingList) OpenAPIModelName() string {
-	return "true.APIBindingList"
+	return "io.kcp.apis.v1alpha1.APIBindingList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIBindingSpec) OpenAPIModelName() string {
-	return "true.APIBindingSpec"
+	return "io.kcp.apis.v1alpha1.APIBindingSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIBindingStatus) OpenAPIModelName() string {
-	return "true.APIBindingStatus"
+	return "io.kcp.apis.v1alpha1.APIBindingStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIConversion) OpenAPIModelName() string {
-	return "true.APIConversion"
+	return "io.kcp.apis.v1alpha1.APIConversion"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIConversionList) OpenAPIModelName() string {
-	return "true.APIConversionList"
+	return "io.kcp.apis.v1alpha1.APIConversionList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIConversionRule) OpenAPIModelName() string {
-	return "true.APIConversionRule"
+	return "io.kcp.apis.v1alpha1.APIConversionRule"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIConversionSpec) OpenAPIModelName() string {
-	return "true.APIConversionSpec"
+	return "io.kcp.apis.v1alpha1.APIConversionSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExport) OpenAPIModelName() string {
-	return "true.APIExport"
+	return "io.kcp.apis.v1alpha1.APIExport"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportEndpoint) OpenAPIModelName() string {
-	return "true.APIExportEndpoint"
+	return "io.kcp.apis.v1alpha1.APIExportEndpoint"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportEndpointSlice) OpenAPIModelName() string {
-	return "true.APIExportEndpointSlice"
+	return "io.kcp.apis.v1alpha1.APIExportEndpointSlice"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportEndpointSliceList) OpenAPIModelName() string {
-	return "true.APIExportEndpointSliceList"
+	return "io.kcp.apis.v1alpha1.APIExportEndpointSliceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportEndpointSliceSpec) OpenAPIModelName() string {
-	return "true.APIExportEndpointSliceSpec"
+	return "io.kcp.apis.v1alpha1.APIExportEndpointSliceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportEndpointSliceStatus) OpenAPIModelName() string {
-	return "true.APIExportEndpointSliceStatus"
+	return "io.kcp.apis.v1alpha1.APIExportEndpointSliceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportList) OpenAPIModelName() string {
-	return "true.APIExportList"
+	return "io.kcp.apis.v1alpha1.APIExportList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportSpec) OpenAPIModelName() string {
-	return "true.APIExportSpec"
+	return "io.kcp.apis.v1alpha1.APIExportSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportStatus) OpenAPIModelName() string {
-	return "true.APIExportStatus"
+	return "io.kcp.apis.v1alpha1.APIExportStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIResourceSchema) OpenAPIModelName() string {
-	return "true.APIResourceSchema"
+	return "io.kcp.apis.v1alpha1.APIResourceSchema"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIResourceSchemaList) OpenAPIModelName() string {
-	return "true.APIResourceSchemaList"
+	return "io.kcp.apis.v1alpha1.APIResourceSchemaList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIResourceSchemaSpec) OpenAPIModelName() string {
-	return "true.APIResourceSchemaSpec"
+	return "io.kcp.apis.v1alpha1.APIResourceSchemaSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIResourceVersion) OpenAPIModelName() string {
-	return "true.APIResourceVersion"
+	return "io.kcp.apis.v1alpha1.APIResourceVersion"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIVersionConversion) OpenAPIModelName() string {
-	return "true.APIVersionConversion"
+	return "io.kcp.apis.v1alpha1.APIVersionConversion"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AcceptablePermissionClaim) OpenAPIModelName() string {
-	return "true.AcceptablePermissionClaim"
+	return "io.kcp.apis.v1alpha1.AcceptablePermissionClaim"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in BindingReference) OpenAPIModelName() string {
-	return "true.BindingReference"
+	return "io.kcp.apis.v1alpha1.BindingReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in BoundAPIResource) OpenAPIModelName() string {
-	return "true.BoundAPIResource"
+	return "io.kcp.apis.v1alpha1.BoundAPIResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in BoundAPIResourceSchema) OpenAPIModelName() string {
-	return "true.BoundAPIResourceSchema"
+	return "io.kcp.apis.v1alpha1.BoundAPIResourceSchema"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CustomResourceConversion) OpenAPIModelName() string {
-	return "true.CustomResourceConversion"
+	return "io.kcp.apis.v1alpha1.CustomResourceConversion"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ExportBindingReference) OpenAPIModelName() string {
-	return "true.ExportBindingReference"
+	return "io.kcp.apis.v1alpha1.ExportBindingReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GroupResource) OpenAPIModelName() string {
-	return "true.GroupResource"
+	return "io.kcp.apis.v1alpha1.GroupResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Identity) OpenAPIModelName() string {
-	return "true.Identity"
+	return "io.kcp.apis.v1alpha1.Identity"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LocalAPIExportPolicy) OpenAPIModelName() string {
-	return "true.LocalAPIExportPolicy"
+	return "io.kcp.apis.v1alpha1.LocalAPIExportPolicy"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MaximalPermissionPolicy) OpenAPIModelName() string {
-	return "true.MaximalPermissionPolicy"
+	return "io.kcp.apis.v1alpha1.MaximalPermissionPolicy"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PermissionClaim) OpenAPIModelName() string {
-	return "true.PermissionClaim"
+	return "io.kcp.apis.v1alpha1.PermissionClaim"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ResourceSelector) OpenAPIModelName() string {
-	return "true.ResourceSelector"
+	return "io.kcp.apis.v1alpha1.ResourceSelector"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualWorkspace) OpenAPIModelName() string {
-	return "true.VirtualWorkspace"
+	return "io.kcp.apis.v1alpha1.VirtualWorkspace"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WebhookClientConfig) OpenAPIModelName() string {
-	return "true.WebhookClientConfig"
+	return "io.kcp.apis.v1alpha1.WebhookClientConfig"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WebhookConversion) OpenAPIModelName() string {
-	return "true.WebhookConversion"
+	return "io.kcp.apis.v1alpha1.WebhookConversion"
 }

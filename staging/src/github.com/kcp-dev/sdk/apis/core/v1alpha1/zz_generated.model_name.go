@@ -23,45 +23,45 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalCluster) OpenAPIModelName() string {
-	return "true.LogicalCluster"
+	return "io.kcp.core.v1alpha1.LogicalCluster"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterList) OpenAPIModelName() string {
-	return "true.LogicalClusterList"
+	return "io.kcp.core.v1alpha1.LogicalClusterList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterOwner) OpenAPIModelName() string {
-	return "true.LogicalClusterOwner"
+	return "io.kcp.core.v1alpha1.LogicalClusterOwner"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterSpec) OpenAPIModelName() string {
-	return "true.LogicalClusterSpec"
+	return "io.kcp.core.v1alpha1.LogicalClusterSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterStatus) OpenAPIModelName() string {
-	return "true.LogicalClusterStatus"
+	return "io.kcp.core.v1alpha1.LogicalClusterStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Shard) OpenAPIModelName() string {
-	return "true.Shard"
+	return "io.kcp.core.v1alpha1.Shard"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ShardList) OpenAPIModelName() string {
-	return "true.ShardList"
+	return "io.kcp.core.v1alpha1.ShardList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ShardSpec) OpenAPIModelName() string {
-	return "true.ShardSpec"
+	return "io.kcp.core.v1alpha1.ShardSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ShardStatus) OpenAPIModelName() string {
-	return "true.ShardStatus"
+	return "io.kcp.core.v1alpha1.ShardStatus"
 }

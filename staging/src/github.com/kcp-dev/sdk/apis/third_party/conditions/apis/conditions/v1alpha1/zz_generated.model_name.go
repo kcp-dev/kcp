@@ -23,5 +23,5 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Condition) OpenAPIModelName() string {
-	return "true.Condition"
+	return "io.kcp.apis.conditions.v1alpha1.Condition"
 }

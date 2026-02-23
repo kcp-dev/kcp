@@ -23,80 +23,80 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedObject) OpenAPIModelName() string {
-	return "true.CachedObject"
+	return "io.kcp.cache.v1alpha1.CachedObject"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedObjectList) OpenAPIModelName() string {
-	return "true.CachedObjectList"
+	return "io.kcp.cache.v1alpha1.CachedObjectList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedObjectSpec) OpenAPIModelName() string {
-	return "true.CachedObjectSpec"
+	return "io.kcp.cache.v1alpha1.CachedObjectSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResource) OpenAPIModelName() string {
-	return "true.CachedResource"
+	return "io.kcp.cache.v1alpha1.CachedResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpoint) OpenAPIModelName() string {
-	return "true.CachedResourceEndpoint"
+	return "io.kcp.cache.v1alpha1.CachedResourceEndpoint"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSlice) OpenAPIModelName() string {
-	return "true.CachedResourceEndpointSlice"
+	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSlice"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSliceList) OpenAPIModelName() string {
-	return "true.CachedResourceEndpointSliceList"
+	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSliceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSliceSpec) OpenAPIModelName() string {
-	return "true.CachedResourceEndpointSliceSpec"
+	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSliceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSliceStatus) OpenAPIModelName() string {
-	return "true.CachedResourceEndpointSliceStatus"
+	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSliceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceList) OpenAPIModelName() string {
-	return "true.CachedResourceList"
+	return "io.kcp.cache.v1alpha1.CachedResourceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceReference) OpenAPIModelName() string {
-	return "true.CachedResourceReference"
+	return "io.kcp.cache.v1alpha1.CachedResourceReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceSpec) OpenAPIModelName() string {
-	return "true.CachedResourceSpec"
+	return "io.kcp.cache.v1alpha1.CachedResourceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceStatus) OpenAPIModelName() string {
-	return "true.CachedResourceStatus"
+	return "io.kcp.cache.v1alpha1.CachedResourceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GroupVersionResource) OpenAPIModelName() string {
-	return "true.GroupVersionResource"
+	return "io.kcp.cache.v1alpha1.GroupVersionResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Identity) OpenAPIModelName() string {
-	return "true.Identity"
+	return "io.kcp.cache.v1alpha1.Identity"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ResourceCount) OpenAPIModelName() string {
-	return "true.ResourceCount"
+	return "io.kcp.cache.v1alpha1.ResourceCount"
 }
