@@ -228,7 +228,8 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
 
 			localKubeClient := kcpfakeclient.NewSimpleClientset(
 				&v1.ClusterRole{
