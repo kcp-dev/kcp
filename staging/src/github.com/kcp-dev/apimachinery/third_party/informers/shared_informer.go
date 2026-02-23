@@ -317,7 +317,12 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 
 		var fifo cache.Queue
 		if clientgofeaturegate.FeatureGates().Enabled(clientgofeaturegate.InOrderInformers) {
-			fifo = cache.NewRealFIFO(kcpcache.MetaClusterNamespaceKeyFunc, s.indexer, s.transform)
+			fifo = cache.NewRealFIFOWithOptions(cache.RealFIFOOptions{
+				// KCP modification: We changed the keyfunction passed to NewDeltaFIFOWithOptions
+				KeyFunction:  kcpcache.MetaClusterNamespaceKeyFunc,
+				KnownObjects: s.indexer,
+				Transformer:  s.transform,
+			})
 		} else {
 			fifo = cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{
 				KnownObjects:          s.indexer,
@@ -340,6 +345,7 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 			ShouldResync:      s.processor.shouldResync,
 
 			Process:                      s.HandleDeltas,
+			ProcessBatch:                 s.HandleBatchDeltas,
 			WatchErrorHandlerWithContext: s.watchErrorHandler,
 			KeyFunction:                  kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc,
 		}
@@ -508,6 +514,12 @@ func (s *sharedIndexInformer) HandleDeltas(obj interface{}, isInInitialList bool
 		return processDeltas(s, s.indexer, deltas, isInInitialList)
 	}
 	return errors.New("object given as Process argument is not Deltas")
+}
+
+func (s *sharedIndexInformer) HandleBatchDeltas(deltas []cache.Delta, isInInitialList bool) error {
+	s.blockDeltas.Lock()
+	defer s.blockDeltas.Unlock()
+	return processDeltasInBatch(s, s.indexer, deltas, isInInitialList)
 }
 
 // Conforms to cache.ResourceEventHandler
@@ -927,6 +939,91 @@ func processDeltas(
 			}
 			handler.OnDelete(obj)
 		}
+	}
+	return nil
+}
+
+// processDeltasInBatch applies a batch of Delta objects to the given Store and
+// notifies the ResourceEventHandler of add, update, or delete events.
+//
+// If the Store supports transactions (TransactionStore), all Deltas are applied
+// atomically in a single transaction and corresponding handler callbacks are
+// executed afterward. Otherwise, each Delta is processed individually.
+//
+// Returns an error if any Delta or transaction fails. For TransactionError,
+// only successful operations trigger callbacks.
+func processDeltasInBatch(
+	handler cache.ResourceEventHandler,
+	clientState cache.Store,
+	deltas []cache.Delta,
+	isInInitialList bool,
+) error {
+	// from oldest to newest
+	txns := make([]cache.Transaction, 0)
+	callbacks := make([]func(), 0)
+	txnStore, txnSupported := clientState.(cache.TransactionStore)
+	if !txnSupported {
+		var errs []error
+		for _, delta := range deltas {
+			if err := processDeltas(handler, clientState, cache.Deltas{delta}, isInInitialList); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("unexpected error when handling deltas: %v", errs)
+		}
+		return nil
+	}
+	// deltasList is a list of unique objects
+	for _, d := range deltas {
+		obj := d.Object
+		switch d.Type {
+		case cache.Sync, cache.Replaced, cache.Added, cache.Updated:
+			// it will only return one old object for each because items are unique
+			if old, exists, err := clientState.Get(obj); err == nil && exists {
+				txn := cache.Transaction{
+					Type:   cache.TransactionTypeUpdate,
+					Object: obj,
+				}
+				txns = append(txns, txn)
+				callbacks = append(callbacks, func() {
+					handler.OnUpdate(old, obj)
+				})
+			} else {
+				txn := cache.Transaction{
+					Type:   cache.TransactionTypeAdd,
+					Object: obj,
+				}
+				txns = append(txns, txn)
+				callbacks = append(callbacks, func() {
+					handler.OnAdd(obj, isInInitialList)
+				})
+			}
+		case cache.Deleted:
+			txn := cache.Transaction{
+				Type:   cache.TransactionTypeDelete,
+				Object: obj,
+			}
+			txns = append(txns, txn)
+			callbacks = append(callbacks, func() {
+				handler.OnDelete(obj)
+			})
+		}
+	}
+
+	err := txnStore.Transaction(txns...)
+	if err != nil {
+		// if txn had error, only execute the callbacks for the successful ones
+		for _, i := range err.SuccessfulIndices {
+			if i < len(callbacks) {
+				callbacks[i]()
+			}
+		}
+		// formatting the error so txns doesn't escape and keeps allocated in the stack.
+		return fmt.Errorf("not all items in the batch successfully processed: %s", err.Error())
+	}
+	for _, callback := range callbacks {
+		callback()
 	}
 	return nil
 }
