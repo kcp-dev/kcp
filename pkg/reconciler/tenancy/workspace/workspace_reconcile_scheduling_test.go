@@ -283,8 +283,8 @@ func TestReconcileScheduling(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			fakeKubeClient := kcpfakekubeclient.NewSimpleClientset(scenario.initialKubeClientObjects...)
-			fakeKcpClient := kcpfakeclient.NewSimpleClientset(scenario.initialKcpClientObjects...)
+			fakeKubeClient := kcpfakekubeclient.NewClientset(scenario.initialKubeClientObjects...)
+			fakeKcpClient := kcpfakeclient.NewClientset(scenario.initialKcpClientObjects...)
 
 			workspaceTypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			indexers.AddIfNotPresentOrDie(workspaceTypeIndexer, cache.Indexers{

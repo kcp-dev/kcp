@@ -176,6 +176,7 @@ var (
 		"feature-gates",                  // A set of key=value pairs that describe feature gates for alpha/experimental features. Options are:
 		"max-mutating-requests-inflight", // This and --max-requests-inflight are summed to determine the server's total concurrency limit (which must be positive) if --enable-priority-and-fairness is true. Otherwise, this flag limits the maximum number of mutating requests in flight, or a zero value disables the limit completely.
 		"max-requests-inflight",          // This and --max-mutating-requests-inflight are summed to determine the server's total concurrency limit (which must be positive) if --enable-priority-and-fairness is true. Otherwise, this flag limits the maximum number of non-mutating requests in flight, or a zero value disables the limit completely.
+		"min-compatibility-version",      // The min version of control plane components the server should be compatible with.
 		"min-request-timeout",            // An optional field indicating the minimum number of seconds a handler must keep a request open before timing it out. Currently only honored by the watch request handler, which picks a randomized value above this number as the connection timeout, to spread out load.
 		"request-timeout",                // An optional field indicating the duration a handler must keep a request open before timing it out. This is the default request timeout for requests but may be overridden by flags such as --min-request-timeout for specific types of requests.
 

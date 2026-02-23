@@ -285,7 +285,7 @@ func TestCreate(t *testing.T) {
 					},
 				})
 			}
-			client := kcpfakeclient.NewSimpleClientset(objects...)
+			client := kcpfakeclient.NewClientset(objects...)
 
 			// Fill up the resources map for the discovery client
 			for _, name := range append(tt.existingWorkspaces, tt.newWorkspaceName) {

@@ -231,7 +231,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
 
-			localKubeClient := kcpfakeclient.NewSimpleClientset(
+			localKubeClient := kcpfakeclient.NewClientset(
 				&v1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
@@ -327,7 +327,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 					},
 				},
 			)
-			globalKubeClient := kcpfakeclient.NewSimpleClientset() // TODO(sttts): add some global fixtures
+			globalKubeClient := kcpfakeclient.NewClientset() // TODO(sttts): add some global fixtures
 			local := kcpkubernetesinformers.NewSharedInformerFactory(localKubeClient, controller.NoResyncPeriodFunc())
 			global := kcpkubernetesinformers.NewSharedInformerFactory(globalKubeClient, controller.NoResyncPeriodFunc())
 			var syncs []cache.InformerSynced
