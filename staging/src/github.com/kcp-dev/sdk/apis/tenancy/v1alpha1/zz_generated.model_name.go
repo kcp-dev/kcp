@@ -23,140 +23,140 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportReference) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.APIExportReference"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.APIExportReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuthenticationConfigurationReference) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.AuthenticationConfigurationReference"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.AuthenticationConfigurationReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ClaimMappings) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.ClaimMappings"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimMappings"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ClaimOrExpression) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.ClaimOrExpression"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimOrExpression"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ClaimValidationRule) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.ClaimValidationRule"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimValidationRule"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ExtraMapping) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.ExtraMapping"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ExtraMapping"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Issuer) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.Issuer"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Issuer"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in JWTAuthenticator) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.JWTAuthenticator"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.JWTAuthenticator"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Mount) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.Mount"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Mount"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ObjectReference) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.ObjectReference"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ObjectReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PrefixedClaimOrExpression) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.PrefixedClaimOrExpression"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.PrefixedClaimOrExpression"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in UserValidationRule) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.UserValidationRule"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.UserValidationRule"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualWorkspace) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.VirtualWorkspace"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.VirtualWorkspace"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Workspace) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.Workspace"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Workspace"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceAuthenticationConfiguration) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceAuthenticationConfiguration"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfiguration"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceAuthenticationConfigurationList) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceAuthenticationConfigurationList"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfigurationList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceAuthenticationConfigurationSpec) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceAuthenticationConfigurationSpec"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfigurationSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceList) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceList"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceLocation) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceLocation"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceLocation"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceSpec) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceSpec"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceStatus) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceStatus"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceType) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceType"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceType"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceTypeExtension) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceTypeExtension"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeExtension"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceTypeList) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceTypeList"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceTypeReference) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceTypeReference"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceTypeSelector) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceTypeSelector"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSelector"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceTypeSpec) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceTypeSpec"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in WorkspaceTypeStatus) OpenAPIModelName() string {
-	return "io.kcp.tenancy.v1alpha1.WorkspaceTypeStatus"
+	return "com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeStatus"
 }

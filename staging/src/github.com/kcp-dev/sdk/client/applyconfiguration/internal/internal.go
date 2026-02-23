@@ -39,6 +39,1893 @@ func Parser() *typed.Parser {
 var parserOnce sync.Once
 var parser *typed.Parser
 var schemaYAML = typed.YAMLObject(`types:
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIBinding
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIBindingSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIBindingStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIBindingSpec
+  map:
+    fields:
+    - name: permissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.AcceptablePermissionClaim
+          elementRelationship: atomic
+    - name: reference
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.BindingReference
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIBindingStatus
+  map:
+    fields:
+    - name: apiExportClusterName
+      type:
+        scalar: string
+    - name: appliedPermissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.PermissionClaim
+          elementRelationship: atomic
+    - name: boundResources
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.BoundAPIResource
+          elementRelationship: associative
+          keys:
+          - group
+          - resource
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: exportPermissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.PermissionClaim
+          elementRelationship: atomic
+    - name: phase
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIConversion
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIConversionSpec
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIConversionRule
+  map:
+    fields:
+    - name: destination
+      type:
+        scalar: string
+      default: ""
+    - name: field
+      type:
+        scalar: string
+      default: ""
+    - name: transformation
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIConversionSpec
+  map:
+    fields:
+    - name: conversions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIVersionConversion
+          elementRelationship: associative
+          keys:
+          - from
+          - to
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExport
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpoint
+  map:
+    fields:
+    - name: url
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSlice
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSliceSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSliceStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSliceSpec
+  map:
+    fields:
+    - name: export
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.ExportBindingReference
+      default: {}
+    - name: partition
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSliceStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: endpoints
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpoint
+          elementRelationship: associative
+          keys:
+          - url
+    - name: shardSelector
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportSpec
+  map:
+    fields:
+    - name: identity
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.Identity
+    - name: latestResourceSchemas
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+    - name: maximalPermissionPolicy
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.MaximalPermissionPolicy
+    - name: permissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.PermissionClaim
+          elementRelationship: associative
+          keys:
+          - group
+          - resource
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: identityHash
+      type:
+        scalar: string
+    - name: virtualWorkspaces
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.VirtualWorkspace
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIResourceSchema
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIResourceSchemaSpec
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIResourceSchemaSpec
+  map:
+    fields:
+    - name: conversion
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.CustomResourceConversion
+    - name: group
+      type:
+        scalar: string
+      default: ""
+    - name: nameValidation
+      type:
+        scalar: string
+    - name: names
+      type:
+        namedType: io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinitionNames
+      default: {}
+    - name: scope
+      type:
+        scalar: string
+      default: ""
+    - name: versions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIResourceVersion
+          elementRelationship: associative
+          keys:
+          - name
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIResourceVersion
+  map:
+    fields:
+    - name: additionalPrinterColumns
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceColumnDefinition
+          elementRelationship: associative
+          keys:
+          - name
+    - name: deprecated
+      type:
+        scalar: boolean
+    - name: deprecationWarning
+      type:
+        scalar: string
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: schema
+      type:
+        namedType: __untyped_atomic_
+    - name: served
+      type:
+        scalar: boolean
+      default: false
+    - name: storage
+      type:
+        scalar: boolean
+      default: false
+    - name: subresources
+      type:
+        namedType: io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceSubresources
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIVersionConversion
+  map:
+    fields:
+    - name: from
+      type:
+        scalar: string
+      default: ""
+    - name: preserve
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: rules
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIConversionRule
+          elementRelationship: associative
+          keys:
+          - destination
+    - name: to
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.AcceptablePermissionClaim
+  map:
+    fields:
+    - name: all
+      type:
+        scalar: boolean
+    - name: group
+      type:
+        scalar: string
+    - name: identityHash
+      type:
+        scalar: string
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: resourceSelector
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.ResourceSelector
+          elementRelationship: atomic
+    - name: state
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.BindingReference
+  map:
+    fields:
+    - name: export
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.ExportBindingReference
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.BoundAPIResource
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+      default: ""
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: schema
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.BoundAPIResourceSchema
+      default: {}
+    - name: storageVersions
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.BoundAPIResourceSchema
+  map:
+    fields:
+    - name: UID
+      type:
+        scalar: string
+      default: ""
+    - name: identityHash
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.CustomResourceConversion
+  map:
+    fields:
+    - name: strategy
+      type:
+        scalar: string
+      default: ""
+    - name: webhook
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.WebhookConversion
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.ExportBindingReference
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: path
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.Identity
+  map:
+    fields:
+    - name: secretRef
+      type:
+        namedType: io.k8s.api.core.v1.SecretReference
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.LocalAPIExportPolicy
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.MaximalPermissionPolicy
+  map:
+    fields:
+    - name: local
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.LocalAPIExportPolicy
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.PermissionClaim
+  map:
+    fields:
+    - name: all
+      type:
+        scalar: boolean
+    - name: group
+      type:
+        scalar: string
+    - name: identityHash
+      type:
+        scalar: string
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: resourceSelector
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.ResourceSelector
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.ResourceSelector
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: namespace
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.VirtualWorkspace
+  map:
+    fields:
+    - name: url
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.WebhookClientConfig
+  map:
+    fields:
+    - name: caBundle
+      type:
+        scalar: string
+    - name: url
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha1.WebhookConversion
+  map:
+    fields:
+    - name: clientConfig
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha1.WebhookClientConfig
+    - name: conversionReviewVersions
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIBinding
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIBindingSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIBindingStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIBindingSpec
+  map:
+    fields:
+    - name: permissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.AcceptablePermissionClaim
+          elementRelationship: associative
+          keys:
+          - group
+          - resource
+          - identityHash
+    - name: reference
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.BindingReference
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIBindingStatus
+  map:
+    fields:
+    - name: apiExportClusterName
+      type:
+        scalar: string
+    - name: appliedPermissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ScopedPermissionClaim
+          elementRelationship: associative
+          keys:
+          - group
+          - resource
+          - identityHash
+    - name: boundResources
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.BoundAPIResource
+          elementRelationship: associative
+          keys:
+          - group
+          - resource
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: exportPermissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaim
+          elementRelationship: atomic
+    - name: phase
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExport
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportSpec
+  map:
+    fields:
+    - name: identity
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.Identity
+    - name: maximalPermissionPolicy
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.MaximalPermissionPolicy
+    - name: permissionClaims
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaim
+          elementRelationship: associative
+          keys:
+          - group
+          - resource
+    - name: resources
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchema
+          elementRelationship: associative
+          keys:
+          - name
+          - group
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: identityHash
+      type:
+        scalar: string
+    - name: virtualWorkspaces
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.VirtualWorkspace
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.AcceptablePermissionClaim
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+    - name: identityHash
+      type:
+        scalar: string
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: selector
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaimSelector
+      default: {}
+    - name: state
+      type:
+        scalar: string
+      default: ""
+    - name: verbs
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.BindingReference
+  map:
+    fields:
+    - name: export
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ExportBindingReference
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.BoundAPIResource
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+      default: ""
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: schema
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.BoundAPIResourceSchema
+      default: {}
+    - name: storageVersions
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.BoundAPIResourceSchema
+  map:
+    fields:
+    - name: UID
+      type:
+        scalar: string
+      default: ""
+    - name: identityHash
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ExportBindingReference
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: path
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.Identity
+  map:
+    fields:
+    - name: secretRef
+      type:
+        namedType: io.k8s.api.core.v1.SecretReference
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.LocalAPIExportPolicy
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.MaximalPermissionPolicy
+  map:
+    fields:
+    - name: local
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.LocalAPIExportPolicy
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaim
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+    - name: identityHash
+      type:
+        scalar: string
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: verbs
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaimSelector
+  map:
+    fields:
+    - name: matchAll
+      type:
+        scalar: boolean
+    - name: matchExpressions
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement
+          elementRelationship: atomic
+    - name: matchLabels
+      type:
+        map:
+          elementType:
+            scalar: string
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchema
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: schema
+      type:
+        scalar: string
+      default: ""
+    - name: storage
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchemaStorage
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchemaStorage
+  map:
+    fields:
+    - name: crd
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchemaStorageCRD
+    - name: virtual
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchemaStorageVirtual
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchemaStorageCRD
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceSchemaStorageVirtual
+  map:
+    fields:
+    - name: identityHash
+      type:
+        scalar: string
+      default: ""
+    - name: reference
+      type:
+        namedType: io.k8s.api.core.v1.TypedLocalObjectReference
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.ScopedPermissionClaim
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+    - name: identityHash
+      type:
+        scalar: string
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: selector
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaimSelector
+      default: {}
+    - name: verbs
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: com.github.kcp-dev.sdk.apis.apis.v1alpha2.VirtualWorkspace
+  map:
+    fields:
+    - name: url
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObject
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObjectSpec
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObjectSpec
+  map:
+    fields:
+    - name: raw
+      type:
+        namedType: __untyped_atomic_
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResource
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpoint
+  map:
+    fields:
+    - name: url
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSlice
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceSpec
+  map:
+    fields:
+    - name: cachedResource
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceReference
+      default: {}
+    - name: partition
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: endpoints
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpoint
+          elementRelationship: associative
+          keys:
+          - url
+    - name: shardSelector
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceReference
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: path
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceSpec
+  map:
+    fields:
+    - name: group
+      type:
+        scalar: string
+    - name: identity
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.Identity
+    - name: labelSelector
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: version
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: identityHash
+      type:
+        scalar: string
+    - name: phase
+      type:
+        scalar: string
+    - name: resourceCounts
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.cache.v1alpha1.ResourceCount
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.Identity
+  map:
+    fields:
+    - name: secretRef
+      type:
+        namedType: io.k8s.api.core.v1.SecretReference
+- name: com.github.kcp-dev.sdk.apis.cache.v1alpha1.ResourceCount
+  map:
+    fields:
+    - name: cache
+      type:
+        scalar: numeric
+      default: 0
+    - name: local
+      type:
+        scalar: numeric
+      default: 0
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalCluster
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterOwner
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+      default: ""
+    - name: cluster
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: namespace
+      type:
+        scalar: string
+    - name: resource
+      type:
+        scalar: string
+      default: ""
+    - name: uid
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterSpec
+  map:
+    fields:
+    - name: directlyDeletable
+      type:
+        scalar: boolean
+    - name: initializers
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: owner
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterOwner
+    - name: terminators
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterStatus
+  map:
+    fields:
+    - name: URL
+      type:
+        scalar: string
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: initializers
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: phase
+      type:
+        scalar: string
+    - name: terminators
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.Shard
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.core.v1alpha1.ShardSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.core.v1alpha1.ShardStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.ShardSpec
+  map:
+    fields:
+    - name: baseURL
+      type:
+        scalar: string
+      default: ""
+    - name: externalURL
+      type:
+        scalar: string
+    - name: virtualWorkspaceURL
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.core.v1alpha1.ShardStatus
+  map:
+    fields:
+    - name: capacity
+      type:
+        map:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.api.resource.Quantity
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.APIExportReference
+  map:
+    fields:
+    - name: export
+      type:
+        scalar: string
+      default: ""
+    - name: path
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.AuthenticationConfigurationReference
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimMappings
+  map:
+    fields:
+    - name: extra
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ExtraMapping
+          elementRelationship: atomic
+    - name: groups
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.PrefixedClaimOrExpression
+      default: {}
+    - name: uid
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimOrExpression
+      default: {}
+    - name: username
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.PrefixedClaimOrExpression
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimOrExpression
+  map:
+    fields:
+    - name: claim
+      type:
+        scalar: string
+    - name: expression
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimValidationRule
+  map:
+    fields:
+    - name: claim
+      type:
+        scalar: string
+    - name: expression
+      type:
+        scalar: string
+    - name: message
+      type:
+        scalar: string
+    - name: requiredValue
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ExtraMapping
+  map:
+    fields:
+    - name: key
+      type:
+        scalar: string
+      default: ""
+    - name: valueExpression
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Issuer
+  map:
+    fields:
+    - name: audienceMatchPolicy
+      type:
+        scalar: string
+    - name: audiences
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: certificateAuthority
+      type:
+        scalar: string
+    - name: discoveryURL
+      type:
+        scalar: string
+    - name: url
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.JWTAuthenticator
+  map:
+    fields:
+    - name: claimMappings
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimMappings
+      default: {}
+    - name: claimValidationRules
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ClaimValidationRule
+          elementRelationship: atomic
+    - name: issuer
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Issuer
+      default: {}
+    - name: userValidationRules
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.UserValidationRule
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Mount
+  map:
+    fields:
+    - name: ref
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ObjectReference
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.ObjectReference
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+      default: ""
+    - name: kind
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: namespace
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.PrefixedClaimOrExpression
+  map:
+    fields:
+    - name: claim
+      type:
+        scalar: string
+    - name: expression
+      type:
+        scalar: string
+    - name: prefix
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.UserValidationRule
+  map:
+    fields:
+    - name: expression
+      type:
+        scalar: string
+      default: ""
+    - name: message
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.VirtualWorkspace
+  map:
+    fields:
+    - name: type
+      type:
+        scalar: string
+    - name: url
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Workspace
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfiguration
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfigurationSpec
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfigurationSpec
+  map:
+    fields:
+    - name: jwt
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.JWTAuthenticator
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceLocation
+  map:
+    fields:
+    - name: selector
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceSpec
+  map:
+    fields:
+    - name: URL
+      type:
+        scalar: string
+    - name: cluster
+      type:
+        scalar: string
+    - name: location
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceLocation
+    - name: mount
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Mount
+    - name: type
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeReference
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: initializers
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: phase
+      type:
+        scalar: string
+    - name: terminators
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceType
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeExtension
+  map:
+    fields:
+    - name: with
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeReference
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeReference
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: path
+      type:
+        scalar: string
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSelector
+  map:
+    fields:
+    - name: none
+      type:
+        scalar: boolean
+    - name: types
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeReference
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSpec
+  map:
+    fields:
+    - name: additionalWorkspaceLabels
+      type:
+        map:
+          elementType:
+            scalar: string
+    - name: authenticationConfigurations
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.AuthenticationConfigurationReference
+          elementRelationship: atomic
+    - name: defaultAPIBindingLifecycle
+      type:
+        scalar: string
+    - name: defaultAPIBindings
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.APIExportReference
+          elementRelationship: atomic
+    - name: defaultChildWorkspaceType
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeReference
+    - name: extend
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeExtension
+      default: {}
+    - name: initializer
+      type:
+        scalar: boolean
+    - name: limitAllowedChildren
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSelector
+    - name: limitAllowedParents
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeSelector
+    - name: terminator
+      type:
+        scalar: boolean
+- name: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceTypeStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: virtualWorkspaces
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.VirtualWorkspace
+          elementRelationship: atomic
+- name: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+  map:
+    fields:
+    - name: lastTransitionTime
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+    - name: message
+      type:
+        scalar: string
+    - name: reason
+      type:
+        scalar: string
+    - name: severity
+      type:
+        scalar: string
+    - name: status
+      type:
+        scalar: string
+      default: ""
+    - name: type
+      type:
+        scalar: string
+      default: ""
+- name: com.github.kcp-dev.sdk.apis.topology.v1alpha1.Partition
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSpec
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSet
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetSpec
+      default: {}
+    - name: status
+      type:
+        namedType: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetStatus
+      default: {}
+- name: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetSpec
+  map:
+    fields:
+    - name: dimensions
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: shardSelector
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
+- name: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetStatus
+  map:
+    fields:
+    - name: conditions
+      type:
+        list:
+          elementType:
+            namedType: com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1.Condition
+          elementRelationship: atomic
+    - name: count
+      type:
+        scalar: numeric
+- name: com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSpec
+  map:
+    fields:
+    - name: selector
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
+- name: io.k8s.api.core.v1.SecretReference
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+- name: io.k8s.api.core.v1.TypedLocalObjectReference
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+- name: io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceColumnDefinition
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+- name: io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinitionNames
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+- name: io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceSubresources
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+- name: io.k8s.apimachinery.pkg.api.resource.Quantity
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.FieldsV1
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
+  map:
+    fields:
+    - name: matchExpressions
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement
+          elementRelationship: atomic
+    - name: matchLabels
+      type:
+        map:
+          elementType:
+            scalar: string
+    elementRelationship: atomic
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelectorRequirement
+  map:
+    fields:
+    - name: key
+      type:
+        scalar: string
+      default: ""
+    - name: operator
+      type:
+        scalar: string
+      default: ""
+    - name: values
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.ManagedFieldsEntry
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: fieldsType
+      type:
+        scalar: string
+    - name: fieldsV1
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.FieldsV1
+    - name: manager
+      type:
+        scalar: string
+    - name: operation
+      type:
+        scalar: string
+    - name: subresource
+      type:
+        scalar: string
+    - name: time
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+  map:
+    fields:
+    - name: annotations
+      type:
+        map:
+          elementType:
+            scalar: string
+    - name: creationTimestamp
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+    - name: deletionGracePeriodSeconds
+      type:
+        scalar: numeric
+    - name: deletionTimestamp
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+    - name: finalizers
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+    - name: generateName
+      type:
+        scalar: string
+    - name: generation
+      type:
+        scalar: numeric
+    - name: labels
+      type:
+        map:
+          elementType:
+            scalar: string
+    - name: managedFields
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ManagedFieldsEntry
+          elementRelationship: atomic
+    - name: name
+      type:
+        scalar: string
+    - name: namespace
+      type:
+        scalar: string
+    - name: ownerReferences
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.apimachinery.pkg.apis.meta.v1.OwnerReference
+          elementRelationship: associative
+          keys:
+          - uid
+    - name: resourceVersion
+      type:
+        scalar: string
+    - name: selfLink
+      type:
+        scalar: string
+    - name: uid
+      type:
+        scalar: string
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.OwnerReference
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+      default: ""
+    - name: blockOwnerDeletion
+      type:
+        scalar: boolean
+    - name: controller
+      type:
+        scalar: boolean
+    - name: kind
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: uid
+      type:
+        scalar: string
+      default: ""
+    elementRelationship: atomic
+- name: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+  scalar: untyped
+- name: io.k8s.apimachinery.pkg.runtime.RawExtension
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
 - name: __untyped_atomic_
   scalar: untyped
   list:

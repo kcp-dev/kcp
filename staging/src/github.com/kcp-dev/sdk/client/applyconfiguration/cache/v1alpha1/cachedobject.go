@@ -21,7 +21,10 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
@@ -43,6 +46,40 @@ func CachedObject(name string) *CachedObjectApplyConfiguration {
 	b.WithKind("CachedObject")
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
+}
+
+// ExtractCachedObjectFrom extracts the applied configuration owned by fieldManager from
+// cachedObject for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// cachedObject must be a unmodified CachedObject API object that was retrieved from the Kubernetes API.
+// ExtractCachedObjectFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractCachedObjectFrom(cachedObject *cachev1alpha1.CachedObject, fieldManager string, subresource string) (*CachedObjectApplyConfiguration, error) {
+	b := &CachedObjectApplyConfiguration{}
+	err := managedfields.ExtractInto(cachedObject, internal.Parser().Type("com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObject"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(cachedObject.Name)
+
+	b.WithKind("CachedObject")
+	b.WithAPIVersion("cache.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractCachedObject extracts the applied configuration owned by fieldManager from
+// cachedObject. If no managedFields are found in cachedObject for fieldManager, a
+// CachedObjectApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// cachedObject must be a unmodified CachedObject API object that was retrieved from the Kubernetes API.
+// ExtractCachedObject provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractCachedObject(cachedObject *cachev1alpha1.CachedObject, fieldManager string) (*CachedObjectApplyConfiguration, error) {
+	return ExtractCachedObjectFrom(cachedObject, fieldManager, "")
 }
 
 func (b CachedObjectApplyConfiguration) IsApplyConfiguration() {}

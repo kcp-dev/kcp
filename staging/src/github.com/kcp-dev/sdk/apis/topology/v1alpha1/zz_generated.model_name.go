@@ -23,35 +23,35 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Partition) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.Partition"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.Partition"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PartitionList) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.PartitionList"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PartitionSet) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.PartitionSet"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSet"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PartitionSetList) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.PartitionSetList"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PartitionSetSpec) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.PartitionSetSpec"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PartitionSetStatus) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.PartitionSetStatus"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSetStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PartitionSpec) OpenAPIModelName() string {
-	return "io.kcp.topology.v1alpha1.PartitionSpec"
+	return "com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSpec"
 }

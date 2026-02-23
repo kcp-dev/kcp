@@ -21,7 +21,10 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
@@ -48,6 +51,46 @@ func CachedResourceEndpointSlice(name string) *CachedResourceEndpointSliceApplyC
 	b.WithKind("CachedResourceEndpointSlice")
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
+}
+
+// ExtractCachedResourceEndpointSliceFrom extracts the applied configuration owned by fieldManager from
+// cachedResourceEndpointSlice for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// cachedResourceEndpointSlice must be a unmodified CachedResourceEndpointSlice API object that was retrieved from the Kubernetes API.
+// ExtractCachedResourceEndpointSliceFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractCachedResourceEndpointSliceFrom(cachedResourceEndpointSlice *cachev1alpha1.CachedResourceEndpointSlice, fieldManager string, subresource string) (*CachedResourceEndpointSliceApplyConfiguration, error) {
+	b := &CachedResourceEndpointSliceApplyConfiguration{}
+	err := managedfields.ExtractInto(cachedResourceEndpointSlice, internal.Parser().Type("com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSlice"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(cachedResourceEndpointSlice.Name)
+
+	b.WithKind("CachedResourceEndpointSlice")
+	b.WithAPIVersion("cache.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractCachedResourceEndpointSlice extracts the applied configuration owned by fieldManager from
+// cachedResourceEndpointSlice. If no managedFields are found in cachedResourceEndpointSlice for fieldManager, a
+// CachedResourceEndpointSliceApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// cachedResourceEndpointSlice must be a unmodified CachedResourceEndpointSlice API object that was retrieved from the Kubernetes API.
+// ExtractCachedResourceEndpointSlice provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractCachedResourceEndpointSlice(cachedResourceEndpointSlice *cachev1alpha1.CachedResourceEndpointSlice, fieldManager string) (*CachedResourceEndpointSliceApplyConfiguration, error) {
+	return ExtractCachedResourceEndpointSliceFrom(cachedResourceEndpointSlice, fieldManager, "")
+}
+
+// ExtractCachedResourceEndpointSliceStatus extracts the applied configuration owned by fieldManager from
+// cachedResourceEndpointSlice for the status subresource.
+func ExtractCachedResourceEndpointSliceStatus(cachedResourceEndpointSlice *cachev1alpha1.CachedResourceEndpointSlice, fieldManager string) (*CachedResourceEndpointSliceApplyConfiguration, error) {
+	return ExtractCachedResourceEndpointSliceFrom(cachedResourceEndpointSlice, fieldManager, "status")
 }
 
 func (b CachedResourceEndpointSliceApplyConfiguration) IsApplyConfiguration() {}

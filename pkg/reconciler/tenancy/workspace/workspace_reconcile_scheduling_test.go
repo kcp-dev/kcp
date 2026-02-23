@@ -479,6 +479,13 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 			// since it is assigned by the kcp server
 			delete(actualObj.Annotations, "kcp.io/cluster")
 
+			// Clear fields populated by the fake client's enhanced
+			// server-side apply handling (TypeMeta populated by the
+			// scheme, ManagedFields from SSA tracking). These are not
+			// set by the reconciler itself.
+			actualObj.TypeMeta = metav1.TypeMeta{}
+			actualObj.ManagedFields = nil
+
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
 				t.Error(cmp.Diff(actualObj, expectedObjCopy))
 			}

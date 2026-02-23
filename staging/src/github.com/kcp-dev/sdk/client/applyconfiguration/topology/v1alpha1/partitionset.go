@@ -21,7 +21,10 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
@@ -46,6 +49,46 @@ func PartitionSet(name string) *PartitionSetApplyConfiguration {
 	b.WithKind("PartitionSet")
 	b.WithAPIVersion("topology.kcp.io/v1alpha1")
 	return b
+}
+
+// ExtractPartitionSetFrom extracts the applied configuration owned by fieldManager from
+// partitionSet for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// partitionSet must be a unmodified PartitionSet API object that was retrieved from the Kubernetes API.
+// ExtractPartitionSetFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractPartitionSetFrom(partitionSet *topologyv1alpha1.PartitionSet, fieldManager string, subresource string) (*PartitionSetApplyConfiguration, error) {
+	b := &PartitionSetApplyConfiguration{}
+	err := managedfields.ExtractInto(partitionSet, internal.Parser().Type("com.github.kcp-dev.sdk.apis.topology.v1alpha1.PartitionSet"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(partitionSet.Name)
+
+	b.WithKind("PartitionSet")
+	b.WithAPIVersion("topology.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractPartitionSet extracts the applied configuration owned by fieldManager from
+// partitionSet. If no managedFields are found in partitionSet for fieldManager, a
+// PartitionSetApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// partitionSet must be a unmodified PartitionSet API object that was retrieved from the Kubernetes API.
+// ExtractPartitionSet provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractPartitionSet(partitionSet *topologyv1alpha1.PartitionSet, fieldManager string) (*PartitionSetApplyConfiguration, error) {
+	return ExtractPartitionSetFrom(partitionSet, fieldManager, "")
+}
+
+// ExtractPartitionSetStatus extracts the applied configuration owned by fieldManager from
+// partitionSet for the status subresource.
+func ExtractPartitionSetStatus(partitionSet *topologyv1alpha1.PartitionSet, fieldManager string) (*PartitionSetApplyConfiguration, error) {
+	return ExtractPartitionSetFrom(partitionSet, fieldManager, "status")
 }
 
 func (b PartitionSetApplyConfiguration) IsApplyConfiguration() {}

@@ -21,7 +21,10 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
@@ -44,6 +47,40 @@ func WorkspaceAuthenticationConfiguration(name string) *WorkspaceAuthenticationC
 	b.WithKind("WorkspaceAuthenticationConfiguration")
 	b.WithAPIVersion("tenancy.kcp.io/v1alpha1")
 	return b
+}
+
+// ExtractWorkspaceAuthenticationConfigurationFrom extracts the applied configuration owned by fieldManager from
+// workspaceAuthenticationConfiguration for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// workspaceAuthenticationConfiguration must be a unmodified WorkspaceAuthenticationConfiguration API object that was retrieved from the Kubernetes API.
+// ExtractWorkspaceAuthenticationConfigurationFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractWorkspaceAuthenticationConfigurationFrom(workspaceAuthenticationConfiguration *tenancyv1alpha1.WorkspaceAuthenticationConfiguration, fieldManager string, subresource string) (*WorkspaceAuthenticationConfigurationApplyConfiguration, error) {
+	b := &WorkspaceAuthenticationConfigurationApplyConfiguration{}
+	err := managedfields.ExtractInto(workspaceAuthenticationConfiguration, internal.Parser().Type("com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.WorkspaceAuthenticationConfiguration"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(workspaceAuthenticationConfiguration.Name)
+
+	b.WithKind("WorkspaceAuthenticationConfiguration")
+	b.WithAPIVersion("tenancy.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractWorkspaceAuthenticationConfiguration extracts the applied configuration owned by fieldManager from
+// workspaceAuthenticationConfiguration. If no managedFields are found in workspaceAuthenticationConfiguration for fieldManager, a
+// WorkspaceAuthenticationConfigurationApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// workspaceAuthenticationConfiguration must be a unmodified WorkspaceAuthenticationConfiguration API object that was retrieved from the Kubernetes API.
+// ExtractWorkspaceAuthenticationConfiguration provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractWorkspaceAuthenticationConfiguration(workspaceAuthenticationConfiguration *tenancyv1alpha1.WorkspaceAuthenticationConfiguration, fieldManager string) (*WorkspaceAuthenticationConfigurationApplyConfiguration, error) {
+	return ExtractWorkspaceAuthenticationConfigurationFrom(workspaceAuthenticationConfiguration, fieldManager, "")
 }
 
 func (b WorkspaceAuthenticationConfigurationApplyConfiguration) IsApplyConfiguration() {}

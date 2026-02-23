@@ -21,7 +21,10 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
@@ -47,6 +50,46 @@ func LogicalCluster(name string) *LogicalClusterApplyConfiguration {
 	b.WithKind("LogicalCluster")
 	b.WithAPIVersion("core.kcp.io/v1alpha1")
 	return b
+}
+
+// ExtractLogicalClusterFrom extracts the applied configuration owned by fieldManager from
+// logicalCluster for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// logicalCluster must be a unmodified LogicalCluster API object that was retrieved from the Kubernetes API.
+// ExtractLogicalClusterFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractLogicalClusterFrom(logicalCluster *corev1alpha1.LogicalCluster, fieldManager string, subresource string) (*LogicalClusterApplyConfiguration, error) {
+	b := &LogicalClusterApplyConfiguration{}
+	err := managedfields.ExtractInto(logicalCluster, internal.Parser().Type("com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalCluster"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(logicalCluster.Name)
+
+	b.WithKind("LogicalCluster")
+	b.WithAPIVersion("core.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractLogicalCluster extracts the applied configuration owned by fieldManager from
+// logicalCluster. If no managedFields are found in logicalCluster for fieldManager, a
+// LogicalClusterApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// logicalCluster must be a unmodified LogicalCluster API object that was retrieved from the Kubernetes API.
+// ExtractLogicalCluster provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractLogicalCluster(logicalCluster *corev1alpha1.LogicalCluster, fieldManager string) (*LogicalClusterApplyConfiguration, error) {
+	return ExtractLogicalClusterFrom(logicalCluster, fieldManager, "")
+}
+
+// ExtractLogicalClusterStatus extracts the applied configuration owned by fieldManager from
+// logicalCluster for the status subresource.
+func ExtractLogicalClusterStatus(logicalCluster *corev1alpha1.LogicalCluster, fieldManager string) (*LogicalClusterApplyConfiguration, error) {
+	return ExtractLogicalClusterFrom(logicalCluster, fieldManager, "status")
 }
 
 func (b LogicalClusterApplyConfiguration) IsApplyConfiguration() {}

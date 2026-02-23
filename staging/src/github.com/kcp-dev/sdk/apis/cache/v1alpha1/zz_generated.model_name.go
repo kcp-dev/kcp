@@ -23,80 +23,80 @@ package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedObject) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedObject"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObject"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedObjectList) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedObjectList"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObjectList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedObjectSpec) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedObjectSpec"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObjectSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResource) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResource"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpoint) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceEndpoint"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpoint"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSlice) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSlice"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSlice"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSliceList) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSliceList"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSliceSpec) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSliceSpec"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSliceStatus) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceEndpointSliceStatus"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceList) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceList"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceReference) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceReference"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceSpec) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceSpec"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceStatus) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.CachedResourceStatus"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GroupVersionResource) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.GroupVersionResource"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.GroupVersionResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Identity) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.Identity"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.Identity"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ResourceCount) OpenAPIModelName() string {
-	return "io.kcp.cache.v1alpha1.ResourceCount"
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ResourceCount"
 }

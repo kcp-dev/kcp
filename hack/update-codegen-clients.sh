@@ -42,10 +42,18 @@ source "${CLUSTER_CODEGEN_PKG}/cluster_codegen.sh"
 rm -rf ${SDK_PKG}/client/{clientset,applyconfiguration,listers,informers}
 mkdir -p ${SDK_PKG}/client/{clientset,applyconfiguration,listers,informers}
 
+# Generate a swagger.json from the OpenAPI definitions so that
+# applyconfiguration-gen can produce typed SMD schemas in internal.go
+# (used by the fake client for field management).
+SWAGGER_SCHEMA=$(mktemp /tmp/swagger-schema-XXXXXX.json)
+trap "rm -f ${SWAGGER_SCHEMA}" EXIT
+go run "${SCRIPT_ROOT}/cmd/swagger-schema-gen" "${SWAGGER_SCHEMA}"
+
 "$GOPATH"/bin/applyconfiguration-gen \
   --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/sdk/client/applyconfiguration \
   --output-dir "${SDK_PKG}/client/applyconfiguration" \
+  --openapi-schema "${SWAGGER_SCHEMA}" \
   github.com/kcp-dev/sdk/apis/core/v1alpha1 \
   github.com/kcp-dev/sdk/apis/tenancy/v1alpha1 \
   github.com/kcp-dev/sdk/apis/apis/v1alpha1 \
