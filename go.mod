@@ -19,8 +19,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/kcp-dev/apimachinery/v2 v2.29.1-0.20260212210446-9e71bed72902
-	github.com/kcp-dev/client-go v0.28.1-0.20260213131112-b2214014096a
+	github.com/kcp-dev/apimachinery/v2 v2.29.1-0.20260223112726-38863b7c2c8e
+	github.com/kcp-dev/client-go v0.28.1-0.20260223113551-9948318ac6d7
 	github.com/kcp-dev/code-generator/v3 v3.0.0-00010101000000-000000000000
 	github.com/kcp-dev/embeddedetcd v1.1.0
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
@@ -77,7 +77,7 @@ replace (
 	k8s.io/kube-scheduler => github.com/xmudrii/kubernetes/staging/src/k8s.io/kube-scheduler v0.0.0-20260218120632-fd048e7f8d6c
 	k8s.io/kubectl => github.com/xmudrii/kubernetes/staging/src/k8s.io/kubectl v0.0.0-20260218120632-fd048e7f8d6c
 	k8s.io/kubelet => github.com/xmudrii/kubernetes/staging/src/k8s.io/kubelet v0.0.0-20260218120632-fd048e7f8d6c
-	k8s.io/kubernetes => github.com/xmudrii/kubernetes v1.11.0-alpha.0.0.20260218120632-fd048e7f8d6c
+	k8s.io/kubernetes => github.com/xmudrii/kubernetes v1.11.0-alpha.0.0.20260223114248-48cbfe163b99
 	k8s.io/metrics => github.com/xmudrii/kubernetes/staging/src/k8s.io/metrics v0.0.0-20260218120632-fd048e7f8d6c
 	k8s.io/mount-utils => github.com/xmudrii/kubernetes/staging/src/k8s.io/mount-utils v0.0.0-20260218120632-fd048e7f8d6c
 	k8s.io/pod-security-admission => github.com/xmudrii/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20260218120632-fd048e7f8d6c
