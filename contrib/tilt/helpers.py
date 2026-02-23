@@ -15,7 +15,7 @@
 def kcp_build(exe):
     local_resource(
         'build '+exe,
-        cmd='go build -o ./bin/{exe} ../../cmd/{exe}'.format(exe = exe),
+        cmd='CGO_ENABLED=0 go build -o ./bin/{exe} ../../cmd/{exe}'.format(exe = exe),
         deps = [
             '../../cmd',
             '../../pkg',
