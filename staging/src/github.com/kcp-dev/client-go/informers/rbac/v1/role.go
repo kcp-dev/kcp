@@ -64,7 +64,7 @@ func NewRoleClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod 
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredRoleClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredRoleClusterInformer(client kcpkubernetes.ClusterInterface, resyn
 				}
 				return client.RbacV1().Roles().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apirbacv1.Role{},
 		resyncPeriod,
 		indexers,

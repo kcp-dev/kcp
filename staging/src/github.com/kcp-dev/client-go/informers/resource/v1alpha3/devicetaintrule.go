@@ -64,7 +64,7 @@ func NewDeviceTaintRuleClusterInformer(client kcpkubernetes.ClusterInterface, re
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredDeviceTaintRuleClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredDeviceTaintRuleClusterInformer(client kcpkubernetes.ClusterInter
 				}
 				return client.ResourceV1alpha3().DeviceTaintRules().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apiresourcev1alpha3.DeviceTaintRule{},
 		resyncPeriod,
 		indexers,

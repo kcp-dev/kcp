@@ -64,7 +64,7 @@ func NewSecretClusterInformer(client kcpkubernetes.ClusterInterface, resyncPerio
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredSecretClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredSecretClusterInformer(client kcpkubernetes.ClusterInterface, res
 				}
 				return client.CoreV1().Secrets().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apicorev1.Secret{},
 		resyncPeriod,
 		indexers,

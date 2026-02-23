@@ -64,7 +64,7 @@ func NewValidatingWebhookConfigurationClusterInformer(client kcpkubernetes.Clust
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredValidatingWebhookConfigurationClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredValidatingWebhookConfigurationClusterInformer(client kcpkubernet
 				}
 				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apiadmissionregistrationv1.ValidatingWebhookConfiguration{},
 		resyncPeriod,
 		indexers,

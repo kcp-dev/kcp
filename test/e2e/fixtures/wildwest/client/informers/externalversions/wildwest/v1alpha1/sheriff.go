@@ -64,7 +64,7 @@ func NewSheriffClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod 
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredSheriffClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredSheriffClusterInformer(client kcpcluster.ClusterInterface, resyn
 				}
 				return client.WildwestV1alpha1().Sherifves().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpwildwestv1alpha1.Sheriff{},
 		resyncPeriod,
 		indexers,

@@ -64,7 +64,7 @@ func NewPodCertificateRequestClusterInformer(client kcpkubernetes.ClusterInterfa
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredPodCertificateRequestClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredPodCertificateRequestClusterInformer(client kcpkubernetes.Cluste
 				}
 				return client.CertificatesV1beta1().PodCertificateRequests().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apicertificatesv1beta1.PodCertificateRequest{},
 		resyncPeriod,
 		indexers,

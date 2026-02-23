@@ -63,7 +63,7 @@ func NewWorkspaceClusterInformer(client kcpcluster.ClusterInterface, resyncPerio
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredWorkspaceClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -76,7 +76,7 @@ func NewFilteredWorkspaceClusterInformer(client kcpcluster.ClusterInterface, res
 				}
 				return client.TenancyV1alpha1().Workspaces().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcptenancyv1alpha1.Workspace{},
 		resyncPeriod,
 		indexers,

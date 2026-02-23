@@ -64,7 +64,7 @@ func NewRuntimeClassClusterInformer(client kcpkubernetes.ClusterInterface, resyn
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredRuntimeClassClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredRuntimeClassClusterInformer(client kcpkubernetes.ClusterInterfac
 				}
 				return client.NodeV1beta1().RuntimeClasses().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apinodev1beta1.RuntimeClass{},
 		resyncPeriod,
 		indexers,
