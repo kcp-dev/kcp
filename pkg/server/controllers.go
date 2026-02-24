@@ -931,6 +931,7 @@ func (s *Server) installDefaultAPIBindingController(ctx context.Context, config 
 	c, err := defaultapibindinglifecycle.NewDefaultAPIBindingController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
@@ -963,6 +964,13 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	// Client used to create APIBindings within the initializing workspace
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, initialization.ControllerName)
+
+	// globalKcpClusterClient uses the unmodified config (before vw URL is appended) so it
+	// can route to any workspace cross-shard for parent workspace APIBinding lookups.
+	globalKcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
 	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 
 	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
@@ -1003,7 +1011,10 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 	c, err := initialization.NewAPIBinder(
 		initializingWorkspacesKcpClusterClient,
+		globalKcpClusterClient,
 		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
@@ -1908,12 +1919,16 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 	)
 	initialization.InstallIndexers(
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
 	crdcleanup.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 	)
 	defaultapibindinglifecycle.InstallIndexers(
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
