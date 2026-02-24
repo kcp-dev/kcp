@@ -34,6 +34,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 )
@@ -96,7 +97,12 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	}
 	_, current, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
-		return fmt.Errorf("current config context URL %q does not point to workspace", config.Host)
+		// The current context URL may point to a mount workspace, which uses a
+		// non-standard URL that does not contain the /clusters/ path segment.
+		// In this case we cannot derive the logical workspace path from the URL,
+		// so fall back to showing the tree from the root workspace.
+		fmt.Fprintf(o.ErrOut, "Warning: current context URL %q does not point directly to a kcp workspace (may be a mount). Showing tree from root.\n", config.Host)
+		current = core.RootCluster.Path()
 	}
 
 	if o.Interactive {
@@ -242,6 +248,35 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 			}
 			_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
 			if err != nil {
+				if ws.Spec.Mount != nil {
+					// Mounted workspaces use a provider-specific URL that does not
+					// follow the /clusters/ pattern. Represent them as non-selectable
+					// leaf nodes; their content is served by the mount provider.
+					childName := ws.Name
+					if o.Full {
+						childName = workspaceName + ":" + childName
+					}
+					// Use the logical parent path + workspace name as an approximation.
+					mountPath := workspace.Join(ws.Name)
+					childWorkspaceInfo := &workspaceInfo{
+						Path:    mountPath,
+						Type:    ws.Spec.Type,
+						Cluster: ws.Spec.Cluster,
+					}
+					childNode := &treeNode{
+						name:           childName + " [mount]",
+						path:           mountPath,
+						info:           childWorkspaceInfo,
+						selectable:     false,
+						parent:         node,
+						childrenLoaded: true,
+						apiInfoLoaded:  false,
+						hasChildren:    false,
+					}
+					node.children = append(node.children, childNode)
+					node.hasChildren = true
+					continue
+				}
 				return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
 			}
 
@@ -327,6 +362,17 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 		}
 		_, current, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
 		if err != nil {
+			if workspace.Spec.Mount != nil {
+				// Mounted workspaces use a provider-specific URL that does not follow
+				// the /clusters/ pattern. Add them as leaf nodes since their children
+				// (if any) are served by the mount provider, not by the kcp API.
+				name := workspace.Name
+				if o.Full {
+					name = parentName + ":" + name
+				}
+				tree.AddBranch(name + " [mount]")
+				continue
+			}
 			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)
 		}
 		// NOTE(hasheddan): the cluster URL from the Workspace does not use the
