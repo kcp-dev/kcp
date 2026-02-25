@@ -20,7 +20,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"sync"
 	"time"
 
 	"sigs.k8s.io/yaml"
@@ -33,7 +32,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -102,6 +100,18 @@ func CRD(fs embed.FS, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceD
 	}
 
 	return crd, nil
+}
+
+func CreateMultiple(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRDs []*apiextensionsv1.CustomResourceDefinition) error {
+	g := errgroup.WithContext(ctx)
+	for _, rawCRD := range rawCRDs {
+		g.Go(func(ctx context.Context) error {
+			return retryRetryableErrors(func() error {
+				return CreateSingle(ctx, client, rawCRD)
+			})
+		})
+	}
+	return g.Wait()
 }
 
 func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRD *apiextensionsv1.CustomResourceDefinition) error {
