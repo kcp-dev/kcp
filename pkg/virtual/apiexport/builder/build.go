@@ -21,10 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
+	apiuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -138,18 +140,9 @@ func BuildVirtualWorkspace(
 					return nil, fmt.Errorf("error marshaling warrant: %w", err)
 				}
 
-				// Impersonate the request user and add the warrant as an extra
+				// Impersonate the request user and add the warrant as an extra.
 				impersonationConfig := rest.CopyConfig(cfg)
-				impersonationConfig.Impersonate = rest.ImpersonationConfig{
-					UserName: user.GetName(),
-					Groups:   user.GetGroups(),
-					UID:      user.GetUID(),
-					Extra:    user.GetExtra(),
-				}
-				if impersonationConfig.Impersonate.Extra == nil {
-					impersonationConfig.Impersonate.Extra = map[string][]string{}
-				}
-				impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey] = append(impersonationConfig.Impersonate.Extra[validation.WarrantExtraKey], string(bs))
+				impersonationConfig.Impersonate = newImpersonationConfig(user, string(bs))
 				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
 				if err != nil {
 					return nil, fmt.Errorf("error generating dynamic client: %w", err)
@@ -319,4 +312,21 @@ type apiDefinitionWithCancel struct {
 func (d *apiDefinitionWithCancel) TearDown() {
 	d.cancelFn()
 	d.APIDefinition.TearDown()
+}
+
+// newImpersonationConfig builds a rest.ImpersonationConfig for the given user,
+// deep-copying the Extra map to avoid concurrent map writes when multiple
+// requests share the same user.Info reference.
+func newImpersonationConfig(u apiuser.Info, warrants ...string) rest.ImpersonationConfig {
+	extra := make(map[string][]string, len(u.GetExtra()))
+	for k, v := range u.GetExtra() {
+		extra[k] = slices.Clone(v)
+	}
+	extra[validation.WarrantExtraKey] = append(extra[validation.WarrantExtraKey], warrants...)
+	return rest.ImpersonationConfig{
+		UserName: u.GetName(),
+		Groups:   u.GetGroups(),
+		UID:      u.GetUID(),
+		Extra:    extra,
+	}
 }
