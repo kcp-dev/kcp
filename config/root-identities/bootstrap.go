@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	confighelpers "github.com/kcp-dev/kcp/config/helpers"
+	"github.com/kcp-dev/kcp/pkg/errgroup"
 )
 
 //go:embed *.yaml
@@ -57,15 +58,18 @@ func Bootstrap(
 		return fmt.Errorf("failed to parse bootstrap identities: %v", err)
 	}
 
+	g := errgroup.WithContext(ctx)
 	for _, identity := range identities.Identities {
-		err := confighelpers.Bootstrap(ctx, kubeClient.Discovery(), rootDynamicClient, nil, fs, confighelpers.ReplaceOption(
-			"IDENTITY_APIEXPORT", identity.Export,
-			"IDENTITY_KEY", identity.Identity,
-		))
-		if err != nil {
-			return fmt.Errorf("failed to bootstrap identity secret for %s: %v", identity.Export, err)
-		}
+		g.Go(func(ctx context.Context) error {
+			if err := confighelpers.Bootstrap(ctx, kubeClient.Discovery(), rootDynamicClient, nil, fs, confighelpers.ReplaceOption(
+				"IDENTITY_APIEXPORT", identity.Export,
+				"IDENTITY_KEY", identity.Identity,
+			)); err != nil {
+				return fmt.Errorf("failed to bootstrap identity secret for %s: %v", identity.Export, err)
+			}
+			return nil
+		})
 	}
 
-	return nil
+	return g.Wait()
 }
