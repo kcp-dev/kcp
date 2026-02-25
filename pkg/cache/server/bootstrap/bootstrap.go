@@ -19,11 +19,8 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
@@ -31,7 +28,6 @@ import (
 
 	configcrds "github.com/kcp-dev/kcp/config/crds"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
-	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 // SystemCRDLogicalCluster holds a logical cluster name under which we store system-related CRDs.
@@ -81,16 +77,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 		crds = append(crds, crd)
 	}
 
-	logger := klog.FromContext(ctx)
 	ctx = cacheclient.WithShardInContext(ctx, SystemCacheServerShard)
-	return wait.PollUntilContextCancel(ctx, time.Second, false, func(ctx context.Context) (bool, error) {
-		for _, crd := range crds {
-			err := configcrds.CreateSingle(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster.Path()).ApiextensionsV1().CustomResourceDefinitions(), crd)
-			if err != nil {
-				logging.WithObject(logger, crd).Error(err, "failed to create CustomResourceDefinition")
-				return false, nil
-			}
-		}
-		return true, nil
-	})
+
+	return configcrds.CreateMultiple(ctx, apiExtensionsClusterClient.Cluster(SystemCRDLogicalCluster.Path()).ApiextensionsV1().CustomResourceDefinitions(), crds)
 }
