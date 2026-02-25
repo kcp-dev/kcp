@@ -69,6 +69,7 @@ func SortObjectsByHierarchy(objects []*unstructured.Unstructured) {
 
 var weights = []string{
 	"customresourcedefinition.apiextensions.k8s.io",
+	"logicalcluster.core.kcp.io",
 	"apiexport.apis.kcp.io",
 	"apibinding.apis.kcp.io",
 	"namespace",
