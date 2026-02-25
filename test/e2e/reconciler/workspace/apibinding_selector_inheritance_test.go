@@ -85,6 +85,11 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 	}
 	workspaceType, err = kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().WorkspaceTypes().Create(ctx, workspaceType, metav1.CreateOptions{})
 	require.NoError(t, err, "failed to create workspace type")
+	t.Cleanup(func() {
+		if err := kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().WorkspaceTypes().Delete(ctx, workspaceType.Name, metav1.DeleteOptions{}); err != nil {
+			t.Logf("failed to clean up workspace type %q: %v", workspaceType.Name, err)
+		}
+	})
 
 	orgsPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"), kcptesting.WithName("orgs"))
 	platformPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithName("platform"))
