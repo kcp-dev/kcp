@@ -19,9 +19,9 @@ package helpers
 import (
 	"cmp"
 	"slices"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // ChunkObjectsByHierarchy returns the given objects chunked by their
@@ -67,23 +67,24 @@ func SortObjectsByHierarchy(objects []*unstructured.Unstructured) {
 	})
 }
 
-var weights = []string{
-	"customresourcedefinition.apiextensions.k8s.io",
-	"logicalcluster.core.kcp.io",
-	"apiexport.apis.kcp.io",
-	"apibinding.apis.kcp.io",
-	"namespace",
-}
-
-func groupKind(obj *unstructured.Unstructured) string {
-	return strings.ToLower(obj.GroupVersionKind().GroupKind().String())
+var weights = []schema.GroupVersionKind{
+	schema.GroupVersionKind{Group: "apiextensions.k8s.io"},
+	schema.GroupVersionKind{Group: "core.kcp.io"},
+	schema.GroupVersionKind{Group: "tenancy.kcp.io"},
+	schema.GroupVersionKind{Group: "apis.kcp.io"},
+	schema.GroupVersionKind{Group: "topology.kcp.io"},
+	schema.GroupVersionKind{Group: "rbac.authorization.k8s.io"},
+	schema.GroupVersionKind{Kind: "Namespace"},
 }
 
 func objectWeight(obj *unstructured.Unstructured) int {
-	weight := slices.Index(weights, groupKind(obj))
-	if weight == -1 {
-		weight = len(weights)
+	for weight, gvk := range weights {
+		if gvk.Kind == "" && gvk.Group == obj.GroupVersionKind().Group && gvk.Version == "" {
+			return weight
+		}
+		if gvk.Kind == obj.GetKind() && gvk.Group == "" && gvk.Version == "" {
+			return weight
+		}
 	}
-
-	return weight
+	return len(weights)
 }
