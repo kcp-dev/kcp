@@ -745,7 +745,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			c.KubeSharedInformerFactory,
 			c.KcpSharedInformerFactory,
 			c.CacheKcpSharedInformerFactory,
-			c.ShardExternalURL,
 		)
 		if err != nil {
 			return nil, err

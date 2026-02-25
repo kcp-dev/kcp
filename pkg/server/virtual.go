@@ -57,7 +57,6 @@ func newVirtualConfig(
 	config *rest.Config,
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory, cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory,
-	shardExternalURL func() string,
 ) (*VirtualConfig, error) {
 	scheme := runtime.NewScheme()
 	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Group: "", Version: "v1"})
@@ -95,7 +94,6 @@ func newVirtualConfig(
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
 		virtualcommandoptions.DefaultRootPathPrefix,
-		shardExternalURL,
 		kubeSharedInformerFactory,
 		kcpSharedInformerFactory,
 		cacheKcpSharedInformerFactory,
