@@ -2745,11 +2745,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Rebasing Kubernetes
+    Replicating New Resources in the Cache Server
   </span>
   
 
@@ -2765,16 +2765,54 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
+              
   
   <span class="md-ellipsis">
-    Replicating New Resources in the Cache Server
+    Rebasing kubernetes
   </span>
   
 
-      </a>
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            Rebasing kubernetes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3898,11 +3936,11 @@
         <li class="md-nav__item">
   <a href="#kcp-front-proxy-authentication" class="md-nav__link">
     <span class="md-ellipsis">
-      KCP Front Proxy Authentication
+      kcp Front Proxy Authentication
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="KCP Front Proxy Authentication">
+    <nav class="md-nav" aria-label="kcp Front Proxy Authentication">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3931,11 +3969,11 @@
         <li class="md-nav__item">
   <a href="#kcp-server-admin-authentication" class="md-nav__link">
     <span class="md-ellipsis">
-      KCP Server Admin Authentication
+      kcp Server Admin Authentication
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="KCP Server Admin Authentication">
+    <nav class="md-nav" aria-label="kcp Server Admin Authentication">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -4019,7 +4057,7 @@
 <ul>
 <li><a href="oidc/">OIDC</a></li>
 </ul>
-<h2 id="kcp-front-proxy-authentication">KCP Front Proxy Authentication<a class="headerlink" href="#kcp-front-proxy-authentication" title="Permanent link">&para;</a></h2>
+<h2 id="kcp-front-proxy-authentication">kcp Front Proxy Authentication<a class="headerlink" href="#kcp-front-proxy-authentication" title="Permanent link">&para;</a></h2>
 <p>kcp-front-proxy is a reverse proxy that accepts client certificates and forwards Common Name (as username) and Organizations (as groups) to the backend API servers in HTTP headers. The proxy terminates TLS and communicates with API servers via mTLS. Traffic is routed based on paths.</p>
 <p>Four authentication strategies are enabled in union.</p>
 <ul>
@@ -4046,7 +4084,7 @@
 These can be passed by setting <code>--authentication-pass-on-groups</code> and <code>--authentication-drop-groups</code> flags. They accept a comma-separated list of group names. Groups specified via drop-groups take precedence over ones specified via pass-on.</p>
 <p>By default, kcp-front-proxy is configured to drop <code>system:masters</code> and <code>system:kcp:logical-cluster-admin</code>.
 This ensures that highly privileged users do not receive elevated access when passing through the proxy.</p>
-<h2 id="kcp-server-admin-authentication">KCP Server Admin Authentication<a class="headerlink" href="#kcp-server-admin-authentication" title="Permanent link">&para;</a></h2>
+<h2 id="kcp-server-admin-authentication">kcp Server Admin Authentication<a class="headerlink" href="#kcp-server-admin-authentication" title="Permanent link">&para;</a></h2>
 <p>Admin Authenticator sets up user roles and groups and generates authentication tokens and <code>admin.kubeconfig</code> file. The authentication process relies on Kubernetes authenticated group authenticator.
 To enable admin authentication in the kcp server, you need run it in the development mode with the <code>--batteries-included=admin</code> flag set.
 This setting is currently enabled by default when running the <code>kcp</code> binary, but is disabled in the Helm chart.</p>

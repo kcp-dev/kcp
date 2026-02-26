@@ -229,16 +229,16 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/publishing-a-new-kcp-release/"/>
     </url>
     <url>
-        <loc>https://docs.kcp.io/kcp/main/contributing/guides/rebasing-kubernetes/</loc>
-        <lastmod>2026-02-26</lastmod>
-        <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/rebasing-kubernetes/"/>
-    </url>
-    <url>
         <loc>https://docs.kcp.io/kcp/main/contributing/guides/replicate-new-resource/</loc>
         <lastmod>2026-02-26</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/replicate-new-resource/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/contributing/guides/rebasing-kubernetes/</loc>
+        <lastmod>2026-02-26</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/contributing/guides/rebasing-kubernetes/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/</loc>

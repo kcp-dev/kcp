@@ -1014,7 +1014,7 @@
           <li class="md-nav__item">
   <a href="#4-deploy-kcp-components" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Deploy KCP Components
+      4. Deploy kcp Components
     </span>
   </a>
   
@@ -2899,11 +2899,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Rebasing Kubernetes
+    Replicating New Resources in the Cache Server
   </span>
   
 
@@ -2919,16 +2919,54 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
+              
   
   <span class="md-ellipsis">
-    Replicating New Resources in the Cache Server
+    Rebasing kubernetes
   </span>
   
 
-      </a>
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            Rebasing kubernetes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -4107,7 +4145,7 @@
           <li class="md-nav__item">
   <a href="#4-deploy-kcp-components" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Deploy KCP Components
+      4. Deploy kcp Components
     </span>
   </a>
   
@@ -4177,7 +4215,7 @@
 <h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Certificate approach</strong>: All certificates are self-signed using an internal CA</li>
-<li><strong>Access pattern</strong>: Only front-proxy is publicly accessible, shards are private  </li>
+<li><strong>Access pattern</strong>: Only front-proxy is publicly accessible, shards are private</li>
 <li><strong>Network</strong>: Simple single-cluster deployment with cluster-internal shard communication</li>
 <li><strong>DNS requirements</strong>: Single public DNS record for the front-proxy endpoint</li>
 </ul>
@@ -4210,15 +4248,15 @@
 <p><strong>Verify certificate issuance</strong>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>certificate<span class="w"> </span>-n<span class="w"> </span>kcp-dekker
 </code></pre></div></p>
-<h3 id="4-deploy-kcp-components">4. Deploy KCP Components<a class="headerlink" href="#4-deploy-kcp-components" title="Permanent link">&para;</a></h3>
+<h3 id="4-deploy-kcp-components">4. Deploy kcp Components<a class="headerlink" href="#4-deploy-kcp-components" title="Permanent link">&para;</a></h3>
 <p>Deploy the kcp shards and front-proxy:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># NOTE: These files needs to be customized with your domain names before applying</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-dekker/kcp-root-shard.yaml
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-dekker/kcp-alpha-shard.yaml<span class="w">  </span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-dekker/kcp-alpha-shard.yaml
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-dekker/kcp-front-proxy.yaml
 </code></pre></div>
 <p><strong>Verify kcp deployment</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kcp-dekker<span class="w"> </span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kcp-dekker
 </code></pre></div></p>
 <h3 id="5-configure-dns-for-front-proxy">5. Configure DNS for Front-Proxy<a class="headerlink" href="#5-configure-dns-for-front-proxy" title="Permanent link">&para;</a></h3>
 <p>5.1. Get the LoadBalancer IP:

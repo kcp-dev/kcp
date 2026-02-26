@@ -2745,11 +2745,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link">
+      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Rebasing Kubernetes
+    Replicating New Resources in the Cache Server
   </span>
   
 
@@ -2765,16 +2765,54 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7_4" >
+        
+          
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
+              
   
   <span class="md-ellipsis">
-    Replicating New Resources in the Cache Server
+    Rebasing kubernetes
   </span>
   
 
-      </a>
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            Rebasing kubernetes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3959,7 +3997,7 @@
           <li class="md-nav__item">
   <a href="#4-configure-kcp-system-certificates" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Configure KCP System Certificates
+      4. Configure kcp System Certificates
     </span>
   </a>
   
@@ -3968,7 +4006,7 @@
           <li class="md-nav__item">
   <a href="#5-deploy-kcp-components" class="md-nav__link">
     <span class="md-ellipsis">
-      5. Deploy KCP Components
+      5. Deploy kcp Components
     </span>
   </a>
   
@@ -4317,7 +4355,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>etcd<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>--all<span class="w"> </span>--timeout<span class="o">=</span>300s
 </code></pre></div></p>
-<h3 id="4-configure-kcp-system-certificates">4. Configure KCP System Certificates<a class="headerlink" href="#4-configure-kcp-system-certificates" title="Permanent link">&para;</a></h3>
+<h3 id="4-configure-kcp-system-certificates">4. Configure kcp System Certificates<a class="headerlink" href="#4-configure-kcp-system-certificates" title="Permanent link">&para;</a></h3>
 <p>Set up certificates for kcp components using the internal CA:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/certificate-kcp.yaml
 </code></pre></div>
@@ -4328,7 +4366,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>isrgrootx1.pem<span class="w"> </span>https://letsencrypt.org/certs/isrgrootx1.pem
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>letsencrypt-ca<span class="w"> </span>--from-file<span class="o">=</span>tls.crt<span class="o">=</span>isrgrootx1.pem<span class="w"> </span>-n<span class="w"> </span>kcp-zheng
 </code></pre></div>
-<h3 id="5-deploy-kcp-components">5. Deploy KCP Components<a class="headerlink" href="#5-deploy-kcp-components" title="Permanent link">&para;</a></h3>
+<h3 id="5-deploy-kcp-components">5. Deploy kcp Components<a class="headerlink" href="#5-deploy-kcp-components" title="Permanent link">&para;</a></h3>
 <p>Deploy kcp components:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># NOTE: These files need to be customized with your domain name before applying</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kcp-root-shard.yaml
