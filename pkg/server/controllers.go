@@ -1646,16 +1646,38 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		workersPerLogicalCluster = 1
 	)
 
-	c, err := garbagecollector.NewController(
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
-		kubeClusterClient,
-		metadataClient,
-		s.DiscoveringDynamicSharedInformerFactory,
-		workersPerLogicalCluster,
-		s.syncedCh,
-	)
-	if err != nil {
-		return err
+	var runner RunFunc
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.KcpNativeGarbageCollector) {
+		gc := garbagecollector.NewGarbageCollector(garbagecollector.Options{
+			LogicalClusterInformer: s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			CRDInformer:            s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+			DynRESTMapper:          s.DynamicRESTMapper,
+			Logger:                 klog.FromContext(ctx),
+			KubeClusterClient:      kubeClusterClient,
+			MetadataClusterClient:  metadataClient,
+			SharedInformerFactory:  s.DiscoveringDynamicSharedInformerFactory,
+			InformersSynced:        s.syncedCh,
+		})
+
+		runner = func(ctx context.Context) {
+			gc.Start(ctx)
+		}
+	} else {
+		c, err := garbagecollector.NewController(
+			s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+			kubeClusterClient,
+			metadataClient,
+			s.DiscoveringDynamicSharedInformerFactory,
+			workersPerLogicalCluster,
+			s.syncedCh,
+		)
+		if err != nil {
+			return err
+		}
+		runner = func(ctx context.Context) {
+			c.Start(ctx, 2)
+		}
 	}
 
 	return s.registerController(&controllerWrapper{
@@ -1669,9 +1691,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
 			})
 		},
-		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
-		},
+		Runner: runner,
 	})
 }
 

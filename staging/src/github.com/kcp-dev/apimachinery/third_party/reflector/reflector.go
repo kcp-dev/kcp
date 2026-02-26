@@ -49,6 +49,7 @@ import (
 	"k8s.io/utils/trace"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/ntnn/go-ntnn"
 )
 
 // WatchErrorHandlerWithContext is called whenever ListAndWatch drops the
@@ -69,6 +70,7 @@ func DefaultWatchErrorHandler(ctx context.Context, r *Reflector, err error) {
 	case err == io.ErrUnexpectedEOF:
 		klog.FromContext(ctx).V(1).Info("Watch closed with unexpected EOF", "reflector", r.name, "type", r.typeDescription, "err", err)
 	default:
+		ntnn.DumpStackToFile(ntnn.LogToFile, "", "")
 		utilruntime.HandleErrorWithContext(ctx, err, "Failed to watch", "reflector", r.name, "type", r.typeDescription)
 	}
 }
@@ -304,6 +306,7 @@ var internalPackages = []string{"client-go/tools/cache/", "apimachinery/third_pa
 //
 // Contextual logging: RunWithContext should be used instead of Run in code which supports contextual logging.
 func (r *Reflector) Run(stopCh <-chan struct{}) {
+	ntnn.DumpStackToFile(ntnn.LogToFile, "", "")
 	r.RunWithContext(wait.ContextForChannel(stopCh))
 }
 
@@ -313,7 +316,9 @@ func (r *Reflector) Run(stopCh <-chan struct{}) {
 func (r *Reflector) RunWithContext(ctx context.Context) {
 	logger := klog.FromContext(ctx)
 	logger.V(3).Info("Starting reflector", "type", r.typeDescription, "resyncPeriod", r.resyncPeriod, "reflector", r.name)
+	preStack := ntnn.Stack()
 	wait.BackoffUntil(func() {
+		ntnn.DumpStackToFile(ntnn.LogToFile, preStack, "")
 		if err := r.ListAndWatchWithContext(ctx); err != nil {
 			r.watchErrorHandler(ctx, r, err)
 		}
@@ -357,6 +362,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 func (r *Reflector) ListAndWatchWithContext(ctx context.Context) error {
 	logger := klog.FromContext(ctx)
 	logger.V(3).Info("Listing and watching", "type", r.typeDescription, "reflector", r.name)
+	ntnn.DumpStackToFile(ntnn.LogToFile, "", "listing and watching")
 	var err error
 	var w watch.Interface
 	fallbackToList := !r.useWatchList
