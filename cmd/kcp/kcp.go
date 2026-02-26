@@ -48,7 +48,7 @@ import (
 func main() {
 	cmd := &cobra.Command{
 		Use:   "kcp",
-		Short: "Kube for Control Plane (kcp)",
+		Short: "Kubernetes-like Control Planes (kcp)",
 		Long: help.Doc(`
 			kcp is a Kubernetes-like control plane focusing on
 

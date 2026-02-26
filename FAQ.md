@@ -70,4 +70,4 @@ You're in the right place. Clone this repo and run `make install WHAT=./staging/
 
 ## What does kcp stand for / how to spell it?
 
-`kcp` stands for "Kube for Control Plane" and should always be written in lowercase letters.
+`kcp` stands for "Kubernetes-like control planes" and should always be written in lowercase letters.
