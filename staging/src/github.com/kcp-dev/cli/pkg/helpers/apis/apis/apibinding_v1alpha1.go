@@ -102,6 +102,58 @@ func (b *apiBindingV1alpha1) SetPermissionClaims(claims []apisv1alpha2.Acceptabl
 	return nil
 }
 
+func (b *apiBindingV1alpha1) Update(ctx context.Context, client kcpclientset.Interface) error {
+	updated, err := client.ApisV1alpha1().APIBindings().Update(ctx, b.binding, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	b.binding = updated
+
+	return nil
+}
+
+func (b *apiBindingV1alpha1) GetPermissionClaims() []apisv1alpha2.AcceptablePermissionClaim {
+	alpha2Claims := []apisv1alpha2.AcceptablePermissionClaim{}
+
+	for _, claim := range b.binding.Spec.PermissionClaims {
+		alpha2Claims = append(alpha2Claims, apisv1alpha2.AcceptablePermissionClaim{
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{
+						Group:    claim.Group,
+						Resource: claim.Resource,
+					},
+					IdentityHash: claim.IdentityHash,
+					Verbs:        []string{"*"},
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{
+					MatchAll: true,
+				},
+			},
+			State: apisv1alpha2.AcceptablePermissionClaimState(claim.State),
+		})
+	}
+
+	return alpha2Claims
+}
+
+func (b *apiBindingV1alpha1) GetExportPermissionClaims() []apisv1alpha2.PermissionClaim {
+	alpha2Claims := []apisv1alpha2.PermissionClaim{}
+
+	for _, claim := range b.binding.Status.ExportPermissionClaims {
+		alpha2Claims = append(alpha2Claims, apisv1alpha2.PermissionClaim{
+			GroupResource: apisv1alpha2.GroupResource{
+				Group:    claim.Group,
+				Resource: claim.Resource,
+			},
+			IdentityHash: claim.IdentityHash,
+			Verbs:        []string{"*"},
+		})
+	}
+
+	return alpha2Claims
+}
+
 type apiBindingListV1alpha1 struct {
 	bindings []*apisv1alpha1.APIBinding
 }
