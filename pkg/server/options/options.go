@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -174,6 +175,9 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
 
+	fs.String("external-hostname", "", "DEPRECATED: This flag is deprecated and will be removed in a future release.")
+	fs.MarkHidden("external-hostname") //nolint:errcheck
+
 	fs.DurationVar(&o.Extra.ConversionCELTransformationTimeout, "conversion-cel-transformation-timeout", o.Extra.ConversionCELTransformationTimeout, "Maximum amount of time that CEL transformations may take per object conversion.")
 
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
@@ -290,18 +294,21 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 	}
 
 	// ExternalAddress is the address used e.g. when generating
-	// kubeconfigs. It defaults to the default interface, usually the
-	// first non-loopback interface, e.g. 192.168.0.1.
-	// BindAddress is the address the server binds to, it defaults to
-	// 0.0.0.0 or ::.
-	//
-	// If BindAddress is set to a specific address, e.g. the loopback
-	// 127.0.0.1 the ExternalAddress is invalid and all URLs generated
-	// from it will not work.
-	//
-	// To prevent this ExternalAddress is set to the value of
-	// BindAddress if it wasn't set to a specific address.
-	if o.GenericControlPlane.GenericServerRunOptions.ExternalHost == "" && !o.GenericControlPlane.SecureServing.BindAddress.IsUnspecified() {
+	// kubeconfigs. This is the address clients should use to talk to
+	// this server, i.e. the shard url.
+	switch {
+	case o.Extra.ShardBaseURL != "":
+		// If the shard base URL is set, use it as the external host.
+		parsedShardBaseURL, err := url.Parse(o.Extra.ShardBaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --shard-base-url: %w", err)
+		}
+		o.GenericControlPlane.GenericServerRunOptions.ExternalHost = parsedShardBaseURL.Host
+	case !o.GenericControlPlane.SecureServing.BindAddress.IsUnspecified():
+		// If the shard base URL is not set but the bind-address was
+		// specified it is defaulted to the bind address. This is needed
+		// for the case where the server binds on a specific IP, e.g.
+		// when running kcp locally.
 		o.GenericControlPlane.GenericServerRunOptions.ExternalHost = o.GenericControlPlane.SecureServing.BindAddress.String()
 	}
 
