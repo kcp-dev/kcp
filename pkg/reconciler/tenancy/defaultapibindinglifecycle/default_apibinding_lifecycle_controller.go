@@ -59,6 +59,7 @@ const (
 // in new Workspaces.
 func NewDefaultAPIBindingController(
 	kcpClusterClient kcpclientset.ClusterInterface,
+	globalAPIBindingsInformer apisv1alpha2informers.APIBindingClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	globalLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
@@ -104,16 +105,12 @@ func NewDefaultAPIBindingController(
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
-		listAPIBindingsByPath: func(ctx context.Context, clusterPath logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error) {
-			bindingList, err := kcpClusterClient.Cluster(clusterPath).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
-			if err != nil {
-				return nil, err
-			}
-			result := make([]*apisv1alpha2.APIBinding, len(bindingList.Items))
-			for i := range bindingList.Items {
-				result[i] = &bindingList.Items[i]
-			}
-			return result, nil
+		listAPIBindingsByPath: func(_ context.Context, clusterPath logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error) {
+			return indexers.ByIndex[*apisv1alpha2.APIBinding](
+				globalAPIBindingsInformer.Informer().GetIndexer(),
+				indexers.ByLogicalClusterPath,
+				clusterPath.String(),
+			)
 		},
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).Get(name)
@@ -332,7 +329,7 @@ func (c *DefaultAPIBindingController) process(ctx context.Context, key string) e
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(logicalClusterInformer, globalLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer, apiExportInformer, globalApiExportInformer apisv1alpha2informers.APIExportClusterInformer) {
+func InstallIndexers(logicalClusterInformer, globalLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer, apiExportInformer, globalApiExportInformer apisv1alpha2informers.APIExportClusterInformer, globalAPIBindingsInformer apisv1alpha2informers.APIBindingClusterInformer) {
 	indexers.AddIfNotPresentOrDie(logicalClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
 	})
@@ -344,5 +341,8 @@ func InstallIndexers(logicalClusterInformer, globalLogicalClusterInformer corev1
 	})
 	indexers.AddIfNotPresentOrDie(globalApiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+	indexers.AddIfNotPresentOrDie(globalAPIBindingsInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
 	})
 }

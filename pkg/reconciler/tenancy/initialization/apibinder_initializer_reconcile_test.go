@@ -102,6 +102,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 		listBindingsError error
 		expectedSelector  *apisv1alpha2.PermissionClaimSelector
 		expectedFound     bool
+		expectedError     bool
 	}{
 		"returns matchLabels selector when workspace has matching APIBinding with label selector": {
 			workspacePath: logicalcluster.NewPath("root:parent"),
@@ -296,7 +297,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 			},
 			expectedFound: false,
 		},
-		"returns nil when listAPIBindings fails for workspace": {
+		"returns error when listAPIBindings fails for workspace": {
 			workspacePath: logicalcluster.NewPath("root:parent"),
 			exportRef: tenancyv1alpha1.APIExportReference{
 				Path:   "root:export-ws",
@@ -311,7 +312,7 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 				Verbs:        []string{"get", "list"},
 			},
 			listBindingsError: fmt.Errorf("workspace not found"),
-			expectedFound:     false,
+			expectedError:     true,
 		},
 	}
 
@@ -331,7 +332,12 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 
 			ctx := klog.NewContext(context.Background(), klog.Background())
 
-			result := b.findSelectorInWorkspace(ctx, tc.workspacePath, tc.exportRef, tc.exportClaim)
+			result, err := b.findSelectorInWorkspace(ctx, tc.workspacePath, tc.exportRef, tc.exportClaim)
+			if tc.expectedError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 
 			if !tc.expectedFound {
 				require.Nil(t, result, "expected no selector to be found")
