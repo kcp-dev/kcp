@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 	"k8s.io/utils/keymutex"
 	"k8s.io/utils/lru"
 
@@ -305,10 +307,14 @@ func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) 
 		},
 	}
 
-	for _, ver := range versions {
+	for i, ver := range versions {
 		spec, err := builder.BuildOpenAPIV3(crd, ver.Name, builder.Options{V2: false})
 		if err != nil {
 			return nil, err
+		}
+
+		if isCRDResource(crd) {
+			patchCRDSchemaForOpenAPI(spec, &apiResourceSchema.Spec.Versions[i])
 		}
 
 		gv := schema.GroupVersion{Group: crd.Spec.Group, Version: ver.Name}
@@ -317,6 +323,93 @@ func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) 
 	}
 
 	return specs, nil
+}
+
+func patchCRDSchemaForOpenAPI(spec *spec3.OpenAPI, ver *apisv1alpha1.APIResourceVersion) {
+	if spec.Components == nil || spec.Components.Schemas == nil {
+		return
+	}
+
+	for name, s := range spec.Components.Schemas {
+		if !strings.HasSuffix(name, "CustomResourceDefinition") {
+			continue
+		}
+		if _, hasSpec := s.Properties["spec"]; hasSpec {
+			continue
+		}
+
+		sourceSchema, err := ver.GetSchema()
+		if err != nil || sourceSchema == nil {
+			continue
+		}
+
+		patchedSchema, err := convertToOpenAPISchema(sourceSchema)
+		if err != nil {
+			continue
+		}
+
+		patchedSchema.VendorExtensible.Extensions = s.VendorExtensible.Extensions
+		enhanceOpenAPIV3SchemaProperty(&patchedSchema)
+		spec.Components.Schemas[name] = &patchedSchema
+	}
+}
+
+func convertToOpenAPISchema(source *apiextensionsv1.JSONSchemaProps) (spec.Schema, error) {
+	bs, err := json.Marshal(source)
+	if err != nil {
+		return spec.Schema{}, err
+	}
+
+	var result spec.Schema
+	if err := json.Unmarshal(bs, &result); err != nil {
+		return spec.Schema{}, err
+	}
+
+	return result, nil
+}
+
+func enhanceOpenAPIV3SchemaProperty(schema *spec.Schema) {
+	specProp, ok := schema.Properties["spec"]
+	if !ok {
+		return
+	}
+
+	versionsProp, ok := specProp.Properties["versions"]
+	if !ok {
+		return
+	}
+
+	if versionsProp.Items == nil || versionsProp.Items.Schema == nil {
+		return
+	}
+
+	itemSchema := versionsProp.Items.Schema
+	schemaProp, ok := itemSchema.Properties["schema"]
+	if !ok {
+		return
+	}
+
+	oaProp, ok := schemaProp.Properties["openAPIV3Schema"]
+	if !ok {
+		return
+	}
+
+	// We apply x-kubernetes-preserve-unknown-fields so OpenAPI consumers (like kubectl)
+	// know that openAPIV3Schema can contain arbitrary objects, without requiring us to
+	// recursively unroll the massively nested JSONSchemaProps type which exhausts the API server.
+	if oaProp.VendorExtensible.Extensions == nil {
+		oaProp.VendorExtensible.Extensions = spec.Extensions{}
+	}
+	oaProp.VendorExtensible.Extensions["x-kubernetes-preserve-unknown-fields"] = true
+
+	oaProp.Properties = nil
+	oaProp.Type = []string{"object"}
+
+	schemaProp.Properties["openAPIV3Schema"] = oaProp
+	itemSchema.Properties["schema"] = schemaProp
+	versionsProp.Items.Schema = itemSchema
+	specProp.Properties["versions"] = versionsProp
+	schema.Properties["spec"] = specProp
 }
 
 func groupVersionToOpenAPIV3Path(gv schema.GroupVersion) string {

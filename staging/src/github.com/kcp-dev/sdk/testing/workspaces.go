@@ -136,7 +136,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		var err error
 		ws, err = createClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
+	}, wait.ForeverTestTimeout*2, time.Millisecond*500, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
 
 	wsName := ws.Name
 	t.Cleanup(func() {

@@ -73,6 +73,11 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 	if err := apiextensionsv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(openapiSchema, internalSchema, nil); err != nil {
 		return nil, fmt.Errorf("failed converting CRD validation to internal version: %w", err)
 	}
+
+	if isCRDAPIResourceSchema(apiResourceSchema) {
+		patchCRDValidationSchema(internalSchema)
+	}
+
 	structuralSchema, err := structuralschema.NewStructural(internalSchema)
 	if err != nil {
 		// This should never happen. If it does, it is a programming error.
@@ -403,4 +408,37 @@ func (c unstructuredCreator) New(kind schema.GroupVersionKind) (runtime.Object, 
 	ret := &unstructured.Unstructured{}
 	ret.SetGroupVersionKind(kind)
 	return ret, nil
+}
+
+func patchCRDValidationSchema(schema *apiextensionsinternal.JSONSchemaProps) {
+	trueVal := true
+
+	specProp, ok := schema.Properties["spec"]
+	if !ok {
+		return
+	}
+
+	versionsProp, ok := specProp.Properties["versions"]
+	if !ok {
+		return
+	}
+
+	if versionsProp.Items == nil || versionsProp.Items.Schema == nil {
+		return
+	}
+
+	itemSchema := versionsProp.Items.Schema
+	schemaProp, ok := itemSchema.Properties["schema"]
+	if !ok {
+		return
+	}
+
+	oaProp, ok := schemaProp.Properties["openAPIV3Schema"]
+	if !ok {
+		return
+	}
+
+	oaProp.XPreserveUnknownFields = &trueVal
+	schemaProp.Properties["openAPIV3Schema"] = oaProp
+	itemSchema.Properties["schema"] = schemaProp
 }
