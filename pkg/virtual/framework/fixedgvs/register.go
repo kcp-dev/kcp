@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2021 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ func (vw *FixedGroupVersionsVirtualWorkspace) Register(vwName string, rootAPISer
 
 		if groupVersionAPISet.OpenAPIDefinitions != nil {
 			cfg.GenericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(groupVersionAPISet.OpenAPIDefinitions, openapi.NewDefinitionNamer(scheme))
-			cfg.GenericConfig.OpenAPIConfig.Info.Title = "KCP Virtual Workspace for " + vwName
+			cfg.GenericConfig.OpenAPIConfig.Info.Title = "kcp Virtual Workspace for " + vwName
 			cfg.GenericConfig.SkipOpenAPIInstallation = true
 		}
 

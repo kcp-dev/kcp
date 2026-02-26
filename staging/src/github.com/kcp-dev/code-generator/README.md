@@ -7,7 +7,7 @@
 > This repository is read-only for importing, and not used for direct contributions.  
 > See the [monorepo structure document](https://docs.kcp.io/kcp/main/contributing/monorepo/) for more details.
 
-## Code Generators for KCP-aware clients, informers and listers
+## Code Generators for kcp-aware clients, informers and listers
 
 This repository contains code generation tools analogous to the Kubernetes
 code-generator. It contains:

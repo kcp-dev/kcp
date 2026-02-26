@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KCP Authors.
+Copyright 2025 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ func createAndDeleteWs(ctx context.Context, t *testing.T, kcpClient kcpclientset
 }
 
 var (
-	// These are goroutines that can pop up randomly during KCP
+	// These are goroutines that can pop up randomly during kcp
 	// operations and aren't indicative of a leak when deleting
 	// a workspace.
 	randomGoroutineSources = []goleak.Option{

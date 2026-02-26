@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2021 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ func (c completedConfig) New(virtualWorkspaceName string, groupManager discovery
 			return
 		}
 		if vwName == virtualWorkspaceName {
-			// In the current KCP Kubernetes feature branch, some components (e.g.Discovery index)
+			// In the current kcp Kubernetes feature branch, some components (e.g.Discovery index)
 			// don't support calls without a cluster set in the request context.
 			// That's why we add a dummy cluster name here.
 			// However we don't add it for the OpenAPI v2 endpoint since, on the contrary,

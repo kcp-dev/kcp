@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2022 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ func init() {
 	_ = tenancyv1alpha1.AddToScheme(homeWorkspaceScheme)
 }
 
-// WithHomeWorkspaces implements an HTTP handler, in the KCP server, which:
+// WithHomeWorkspaces implements an HTTP handler, in the kcp server, which:
 //
 //   - supports a special 'kubectl get workspace ~' request which returns either
 //     the old bucket-style workspace if it exists (= a LogicalCluster can be found)

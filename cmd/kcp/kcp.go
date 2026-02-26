@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2021 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -48,18 +48,22 @@ import (
 func main() {
 	cmd := &cobra.Command{
 		Use:   "kcp",
-		Short: "Kube for Control Plane (KCP)",
+		Short: "Kubernetes-like Control Planes (kcp)",
 		Long: help.Doc(`
-			KCP is the easiest way to manage Kubernetes applications against one or
-			more clusters, by giving you a personal control plane that schedules your
-			workloads onto one or many clusters, and making it simple to pick up and
-			move. It supports advanced use cases such as spreading your apps across
-			clusters for resiliency, scheduling batch workloads onto clusters with
-			free capacity, and enabling collaboration for individual teams without
-			having access to the underlying clusters.
+			kcp is a Kubernetes-like control plane focusing on
 
-			To get started, launch a new cluster with 'kcp start', which will
-			initialize your personal control plane and write an admin kubeconfig file
+			* being a control plane for many independent, isolated "clusters"
+			  known as workspaces,
+			* enabling API service providers to offer APIs centrally
+			  using multi-tenant operators and
+			* easy API consumption for users in their workspaces.
+
+			kcp can be a building block for SaaS service providers who need a
+			massively multi-tenant platform to offer services to a large number of
+			fully isolated tenants using Kubernetes-native APIs.
+
+			To get started, launch a new instance with 'kcp start', which will
+			initialize your personal shard and write an admin kubeconfig file
 			to disk.
 		`),
 		SilenceUsage:  true,

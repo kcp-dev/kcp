@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KCP Authors.
+Copyright 2023 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,12 +29,12 @@ var (
 		"misc",
 		"secure serving",
 		"traces",
-		"KCP Authentication",
-		"KCP Authorization",
-		"KCP Virtual Workspaces",
-		"KCP Controllers",
-		"KCP Home Workspaces",
-		"KCP Cache Server",
-		"KCP",
+		"kcp Authentication",
+		"kcp Authorization",
+		"kcp Virtual Workspaces",
+		"kcp Controllers",
+		"kcp Home Workspaces",
+		"kcp Cache Server",
+		"kcp",
 	}
 )

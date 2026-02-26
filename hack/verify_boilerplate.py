@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Copyright 2015 The Kubernetes Authors.
-# Modifications Copyright 2025 The KCP Authors.
+# Modifications Copyright 2025 The kcp Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ def get_args():
     # skip-files-list and skip are AND-ed
     parser.add_argument("--skip-files-list", default=[], action='append',
                         help="path(s) to file(s) that contain list(s) of files to skip")
-    
+
     parser.add_argument(
         '--skip',
         default=[

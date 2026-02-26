@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2021 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package framework provides a the required interfaces, structs and generic implementation
-// that allow creating KCP virtual workspaces with a minimal amount of work.
+// that allow creating kcp virtual workspaces with a minimal amount of work.
 //
 // To create virtual workspaces you have to:
 //

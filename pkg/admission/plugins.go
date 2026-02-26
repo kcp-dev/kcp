@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2022 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	certsigning.PluginName,                 // CertificateSigning
 	certsubjectrestriction.PluginName,      // CertificateSubjectRestriction
 
-	// KCP
+	// kcp
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,

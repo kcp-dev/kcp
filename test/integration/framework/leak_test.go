@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KCP Authors.
+Copyright 2025 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	// knownGoroutineLeaks are leaks from just running and stopping KCP
+	// knownGoroutineLeaks are leaks from just running and stopping kcp
 	// collected and run through:
 	//	grep 'on top of the stack' output.log | cut -d, -f2- | cut -d' ' -f3 | sort | uniq
 	knownGoroutineLeaks = []goleak.Option{

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2022 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package forwardingregistry provides a CRD-like REST storage implementation that can dynamically serve resources based
-// on a given OpenAPI schema, and forward the requests to a KCP workspace-aware delegate client.
+// on a given OpenAPI schema, and forward the requests to a kcp workspace-aware delegate client.
 //
 // It reuses as much as possible from k8s.io/apiextensions-apiserver/pkg/registry/customresource, but
 // replaces the underlying Store, using forwarding rather than access to etcd via genericregistry.Store.

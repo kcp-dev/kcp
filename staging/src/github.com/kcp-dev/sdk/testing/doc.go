@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KCP Authors.
+Copyright 2025 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package testing provides utilities for testing of and against KCP. This code
-// to be used outside of the KCP repository is experimental and subject to change.
+// Package testing provides utilities for testing of and against kcp. This code
+// to be used outside of the kcp repository is experimental and subject to change.
 package testing

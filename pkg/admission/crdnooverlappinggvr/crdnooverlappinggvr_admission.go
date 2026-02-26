@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2022 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ func (p *crdNoOverlappingGVRAdmission) ValidateInitialization() error {
 		return fmt.Errorf(PluginName + " plugin needs an LogicalCluster lister")
 	}
 	if p.updateLogicalCluster == nil {
-		return fmt.Errorf(PluginName + " plugin needs a KCP cluster client")
+		return fmt.Errorf(PluginName + " plugin needs a kcp cluster client")
 	}
 	return nil
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2022 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -89,14 +90,14 @@ func New(streams genericclioptions.IOStreams) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Aliases:          []string{"ws", "workspaces"},
 		Use:              "workspace [create|create-context|use|current|<workspace>|..|.|-|~|<root:absolute:workspace>] [-i|--interactive]",
-		Short:            "Manages KCP workspaces",
+		Short:            "Manages kcp workspaces",
 		Example:          fmt.Sprintf(workspaceExample, cliName),
 		SilenceUsage:     true,
 		TraverseChildren: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if interactive {
 				if len(args) != 0 {
-					return fmt.Errorf("interactive mode does not accept arguments")
+					return errors.New("interactive mode does not accept arguments")
 				}
 				treeOpts.Interactive = true
 				if err := treeOpts.Validate(); err != nil {

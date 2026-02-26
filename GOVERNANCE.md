@@ -1,4 +1,4 @@
-# KCP Project Governance
+# kcp Project Governance
 
 The kcp project is dedicated to democratizing Control Planes beyond container
 orchestration. This governance explains how the project is run.
@@ -177,7 +177,7 @@ mailing list and put on hold until the necessary majority has been reached.
 
 Any Maintainer may submit a [vote](#voting) to create a new subproject under the
 kcp-dev GitHub organization. Subprojects are governed by all Maintainers, but may
-take on additional Subproject Maintainers that are only responsible for the 
+take on additional Subproject Maintainers that are only responsible for the
 specific subproject.
 
 It is the combined responsibility of Maintainers and Subproject Maintainers

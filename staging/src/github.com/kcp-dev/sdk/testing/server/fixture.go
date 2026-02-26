@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KCP Authors.
+Copyright 2025 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -303,7 +303,7 @@ func runExternal(ctx context.Context, t TestingT, cfg Config) (<-chan struct{}, 
 		return nil, fmt.Errorf("failed to build kcp args: %w", err)
 	}
 
-	workdir, commandLine := StartKcpCommand("KCP")
+	workdir, commandLine := StartKcpCommand("kcp")
 	commandLine = append(commandLine, args...)
 
 	t.Logf("running: %v", strings.Join(commandLine, " "))

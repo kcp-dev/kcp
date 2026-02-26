@@ -1,7 +1,7 @@
 //go:build !linux
 
 /*
-Copyright 2024 The KCP Authors.
+Copyright 2024 The kcp Authors.
 Copyright 2020 Red Hat Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");

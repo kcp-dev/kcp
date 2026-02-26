@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KCP Authors.
+Copyright 2021 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,9 +37,9 @@ import (
 func KubectlKcpCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "kcp",
-		Short: "kubectl plugin for KCP",
+		Short: "kubectl plugin for kcp",
 		Long: help.Doc(`
-			KCP is the easiest way to manage Kubernetes applications against one or
+			kcp is the easiest way to manage Kubernetes applications against one or
 			more clusters, by giving you a personal control plane that schedules your
 			workloads onto one or many clusters, and making it simple to pick up and
 			move. Advanced use cases including spreading your apps across clusters for
@@ -47,7 +47,7 @@ func KubectlKcpCommand() *cobra.Command {
 			and enabling collaboration for individual teams without having access to
 			the underlying clusters.
 
-			This command provides KCP specific sub-command for kubectl.
+			This command provides kcp-specific sub-command for kubectl.
 		`),
 		SilenceUsage:  true,
 		SilenceErrors: true,

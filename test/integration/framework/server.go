@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KCP Authors.
+Copyright 2025 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -275,7 +275,7 @@ func (s *InProcessServer) CADirectory() string {
 	return s.Config.DataDir
 }
 
-// StartTestServer starts a KCP server for testing purposes.
+// StartTestServer starts a kcp server for testing purposes.
 func StartTestServer(t kcptestingserver.TestingT, opts ...kcptestingserver.Option) (*InProcessServer, kcpclientset.ClusterInterface, kcpkubernetesclientset.ClusterInterface) {
 	t.Helper()
 

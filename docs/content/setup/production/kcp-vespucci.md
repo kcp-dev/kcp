@@ -11,7 +11,7 @@ The kcp-vespucci deployment pattern uses external certificates (Let's Encrypt) a
 
 - **Certificate approach**: Let's Encrypt for automatic certificate management
 - **Access pattern**: Both front-proxy and shards are publicly accessible
-- **Network**: Multi-zone deployment with external certificate validation  
+- **Network**: Multi-zone deployment with external certificate validation
 - **DNS requirements**: Multiple public DNS records for front-proxy and each shard
 
 ## Prerequisites
@@ -32,7 +32,7 @@ Create public DNS records for all endpoints:
 ```bash
 # Required DNS records
 api.vespucci.example.com     → Front-proxy LoadBalancer IP
-root.vespucci.example.com    → Root shard LoadBalancer IP  
+root.vespucci.example.com    → Root shard LoadBalancer IP
 alpha.vespucci.example.com   → Alpha shard LoadBalancer IP
 ```
 
@@ -69,7 +69,7 @@ kubectl get etcd -n kcp-vespucci
 kubectl wait --for=condition=Ready etcd -n kcp-vespucci --all --timeout=300s
 ```
 
-### 4. Configure KCP System Certificates
+### 4. Configure kcp System Certificates
 
 Set up certificates for kcp components using the internal CA:
 
@@ -82,7 +82,7 @@ kubectl apply -f contrib/production/kcp-vespucci/certificate-kcp.yaml
 kubectl get certificate -n kcp-vespucci
 ```
 
-### 5. Deploy KCP Components with External Access
+### 5. Deploy kcp Components with External Access
 
 Because we use Let's Encrypt, and since kubectl needs explisit CA configuration, we need to deploy kcp components with extended CA bundle trust. This mighgt be different in your environment.
 
@@ -117,7 +117,7 @@ kubectl get svc -n kcp-vespucci -o wide
 ```
 NAME                           TYPE           EXTERNAL-IP     PORT(S)          AGE
 frontproxy-front-proxy        LoadBalancer   203.0.113.10    6443:30001/TCP   5m
-root-kcp                      LoadBalancer   203.0.113.11    6443:30002/TCP   5m  
+root-kcp                      LoadBalancer   203.0.113.11    6443:30002/TCP   5m
 alpha-shard-kcp               LoadBalancer   203.0.113.12    6443:30003/TCP   5m
 ```
 
@@ -128,7 +128,7 @@ Update your DNS records with the actual LoadBalancer IP addresses:
 ```bash
 # Get LoadBalancer IPs (or CNAMEs if using DNS-based LoadBalancers)
 kubectl get svc -n kcp-vespucci frontproxy-front-proxy -o jsonpath='{.status.loadBalancer}'
-kubectl get svc -n kcp-vespucci root-kcp -o jsonpath='{.status.loadBalancer'  
+kubectl get svc -n kcp-vespucci root-kcp -o jsonpath='{.status.loadBalancer'
 kubectl get svc -n kcp-vespucci alpha-shard-kcp -o jsonpath='{.status.loadBalancer}'
 ```
 
@@ -157,7 +157,7 @@ KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards
 
 **Expected output**:
 ```
-KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards                                                                                                                   
+KUBECONFIG=kcp-admin-kubeconfig-vespucci.yaml kubectl get shards
 NAME    REGION   URL                                                  EXTERNAL URL                                       AGE
 alpha            https://alpha.vespucci.example.com:6443   https://api.vespucci.example.com:6443   7m46s
 root             https://root.vespucci.example.com:6443    https://api.vespucci.example.com:6443   9m23s

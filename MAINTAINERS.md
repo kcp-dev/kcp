@@ -11,7 +11,7 @@ The table below lists all current maintainers for the kcp project as defined by 
 | Sebastian Scheele     | [@scheeles](https://github.com/scheeles)         | Governance                                                     | Kubermatic                  |
 | Dr. Stefan Schimanski | [@sttts](https://github.com/sttts)               | Governance, kcp core                                           | NVIDIA                      |
 | Marko Mudrinić        | [@xmudrii](https://github.com/xmudrii)           | kcp core                                                       | Kubermatic                  |
-| Christoph Mewes       | [@xrstf](https://github.com/xrstf)               | kcp core, API Syncagent kcp-operator, infrastructure           | Kubermatic                  |
+| Christoph Mewes       | [@xrstf](https://github.com/xrstf)               | kcp core, API Syncagent, kcp-operator, infrastructure           | Kubermatic                  |
 
 ## Emeritus Maintainers
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KCP Authors.
+Copyright 2022 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ type PermissionClaim struct {
 	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
 	// The hash can be found on APIExport and APIResourceSchema's status.
 	// It will be empty for core types.
-	// Note that one must look this up for a particular KCP instance.
+	// Note that one must look this up for a particular kcp instance.
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
 }

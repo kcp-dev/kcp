@@ -80,7 +80,7 @@ kubectl get etcd -n kcp-zheng
 kubectl wait --for=condition=Ready etcd -n kcp-zheng --all --timeout=300s
 ```
 
-### 4. Configure KCP System Certificates
+### 4. Configure kcp System Certificates
 
 Set up certificates for kcp components using the internal CA:
 
@@ -100,7 +100,7 @@ curl -L -o isrgrootx1.pem https://letsencrypt.org/certs/isrgrootx1.pem
 kubectl create secret generic letsencrypt-ca --from-file=tls.crt=isrgrootx1.pem -n kcp-zheng
 ```
 
-### 5. Deploy KCP Components
+### 5. Deploy kcp Components
 
 Deploy kcp components:
 
