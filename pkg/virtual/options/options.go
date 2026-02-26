@@ -67,7 +67,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
 	rootPathPrefix string,
-	shardExternalURL func() string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {

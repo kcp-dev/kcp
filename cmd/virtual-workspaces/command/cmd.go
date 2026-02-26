@@ -187,11 +187,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	sharedExternalURLGetter := func() string {
-		return o.ShardExternalURL
-	}
-
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, sharedExternalURLGetter, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
 	if err != nil {
 		return err
 	}

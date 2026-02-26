@@ -42,10 +42,9 @@ const DefaultRootPathPrefix string = "/services"
 type Options struct {
 	Output io.Writer
 
-	KubeconfigFile   string
-	Context          string
-	RootPathPrefix   string
-	ShardExternalURL string
+	KubeconfigFile string
+	Context        string
+	RootPathPrefix string
 
 	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
@@ -65,8 +64,7 @@ func NewOptions() *Options {
 	opts := &Options{
 		Output: nil,
 
-		RootPathPrefix:   DefaultRootPathPrefix,
-		ShardExternalURL: "",
+		RootPathPrefix: DefaultRootPathPrefix,
 
 		Cache:          *cacheoptions.NewCache(),
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
@@ -95,7 +93,8 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	logsapiv1.AddFlags(o.Logs, flags)
 	o.CoreVirtualWorkspaces.AddFlags(flags)
 
-	flags.StringVar(&o.ShardExternalURL, "shard-external-url", o.ShardExternalURL, "URL used by outside clients to talk to the kcp shard this virtual workspace is related to")
+	flags.String("shard-external-url", "", "DEPRECATED: URL used by outside clients to talk to the kcp shard this virtual workspace is related to")
+	flags.MarkHidden("shard-external-url") //nolint:errcheck
 
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
 		"The kubeconfig file of the KCP instance that hosts workspaces.")
@@ -111,10 +110,6 @@ func (o *Options) Validate() error {
 	errs = append(errs, o.SecureServing.Validate()...)
 	errs = append(errs, o.Authentication.Validate()...)
 	errs = append(errs, o.CoreVirtualWorkspaces.Validate()...)
-
-	if len(o.ShardExternalURL) == 0 {
-		errs = append(errs, fmt.Errorf(("--shard-external-url is required")))
-	}
 
 	if len(o.KubeconfigFile) == 0 {
 		errs = append(errs, fmt.Errorf("--kubeconfig is required for this command"))
