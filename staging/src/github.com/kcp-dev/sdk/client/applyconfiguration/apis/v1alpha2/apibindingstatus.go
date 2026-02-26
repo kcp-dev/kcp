@@ -25,13 +25,27 @@ import (
 
 // APIBindingStatusApplyConfiguration represents a declarative configuration of the APIBindingStatus type for use
 // with apply.
+//
+// APIBindingStatus records which schemas are bound.
 type APIBindingStatusApplyConfiguration struct {
-	APIExportClusterName    *string                                   `json:"apiExportClusterName,omitempty"`
-	BoundResources          []BoundAPIResourceApplyConfiguration      `json:"boundResources,omitempty"`
-	Phase                   *apisv1alpha2.APIBindingPhaseType         `json:"phase,omitempty"`
-	Conditions              *v1alpha1.Conditions                      `json:"conditions,omitempty"`
+	// APIExportClusterName records the name (not path) of the logical cluster that contains the APIExport.
+	APIExportClusterName *string `json:"apiExportClusterName,omitempty"`
+	// boundResources records the state of bound APIs.
+	BoundResources []BoundAPIResourceApplyConfiguration `json:"boundResources,omitempty"`
+	// phase is the current phase of the APIBinding:
+	// - "": the APIBinding has just been created, waiting to be bound.
+	// - Binding: the APIBinding is being bound.
+	// - Bound: the APIBinding is bound and the referenced APIs are available in the workspace.
+	Phase *apisv1alpha2.APIBindingPhaseType `json:"phase,omitempty"`
+	// conditions is a list of conditions that apply to the APIBinding.
+	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
+	// appliedPermissionClaims is a list of the permission claims the system has seen and applied,
+	// according to the requests of the API service provider in the APIExport and the acceptance
+	// state in spec.permissionClaims.
 	AppliedPermissionClaims []ScopedPermissionClaimApplyConfiguration `json:"appliedPermissionClaims,omitempty"`
-	ExportPermissionClaims  []PermissionClaimApplyConfiguration       `json:"exportPermissionClaims,omitempty"`
+	// exportPermissionClaims records the permissions that the export provider is asking for
+	// the binding to grant.
+	ExportPermissionClaims []PermissionClaimApplyConfiguration `json:"exportPermissionClaims,omitempty"`
 }
 
 // APIBindingStatusApplyConfiguration constructs a declarative configuration of the APIBindingStatus type for use with

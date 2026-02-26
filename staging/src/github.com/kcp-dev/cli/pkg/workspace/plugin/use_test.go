@@ -764,7 +764,7 @@ func TestUse(t *testing.T) {
 					objs = append(objs, obj)
 				}
 			}
-			client := kcpfakeclient.NewSimpleClientset(objs...)
+			client := kcpfakeclient.NewClientset(objs...)
 			client.PrependReactor("get", "workspaces", func(action kcptesting.Action) (handled bool, ret runtime.Object, err error) {
 				getAction := action.(kcptesting.GetAction)
 				if getAction.GetCluster() != core.RootCluster.Path() {

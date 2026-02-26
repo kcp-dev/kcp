@@ -21,12 +21,17 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // ShardApplyConfiguration represents a declarative configuration of the Shard type for use
 // with apply.
+//
+// Shard describes a kcp instance on which a number of logical clusters will live
 type ShardApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +48,47 @@ func Shard(name string) *ShardApplyConfiguration {
 	b.WithAPIVersion("core.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractShardFrom extracts the applied configuration owned by fieldManager from
+// shard for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// shard must be a unmodified Shard API object that was retrieved from the Kubernetes API.
+// ExtractShardFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractShardFrom(shard *corev1alpha1.Shard, fieldManager string, subresource string) (*ShardApplyConfiguration, error) {
+	b := &ShardApplyConfiguration{}
+	err := managedfields.ExtractInto(shard, internal.Parser().Type("com.github.kcp-dev.sdk.apis.core.v1alpha1.Shard"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(shard.Name)
+
+	b.WithKind("Shard")
+	b.WithAPIVersion("core.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractShard extracts the applied configuration owned by fieldManager from
+// shard. If no managedFields are found in shard for fieldManager, a
+// ShardApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// shard must be a unmodified Shard API object that was retrieved from the Kubernetes API.
+// ExtractShard provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractShard(shard *corev1alpha1.Shard, fieldManager string) (*ShardApplyConfiguration, error) {
+	return ExtractShardFrom(shard, fieldManager, "")
+}
+
+// ExtractShardStatus extracts the applied configuration owned by fieldManager from
+// shard for the status subresource.
+func ExtractShardStatus(shard *corev1alpha1.Shard, fieldManager string) (*ShardApplyConfiguration, error) {
+	return ExtractShardFrom(shard, fieldManager, "status")
+}
+
 func (b ShardApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

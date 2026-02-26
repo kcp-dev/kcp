@@ -24,10 +24,17 @@ import (
 
 // CachedResourceEndpointSliceStatusApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSliceStatus type for use
 // with apply.
+//
+// CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.
 type CachedResourceEndpointSliceStatusApplyConfiguration struct {
-	Conditions              *conditionsv1alpha1.Conditions             `json:"conditions,omitempty"`
+	// conditions is a list of conditions that apply to the CachedResourceEndpointSlice.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	// endpoints contains all the URLs of the Replication service.
 	CachedResourceEndpoints []CachedResourceEndpointApplyConfiguration `json:"endpoints,omitempty"`
-	ShardSelector           *string                                    `json:"shardSelector,omitempty"`
+	// shardSelector is the selector used to filter the shards. It is used to filter the shards
+	// when determining partition scope when deriving the endpoints. This is set by owning shard,
+	// and is used by follower shards to determine if its inscope or not.
+	ShardSelector *string `json:"shardSelector,omitempty"`
 }
 
 // CachedResourceEndpointSliceStatusApplyConfiguration constructs a declarative configuration of the CachedResourceEndpointSliceStatus type for use with

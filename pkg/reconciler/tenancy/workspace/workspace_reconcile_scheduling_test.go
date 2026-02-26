@@ -283,8 +283,8 @@ func TestReconcileScheduling(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			fakeKubeClient := kcpfakekubeclient.NewSimpleClientset(scenario.initialKubeClientObjects...)
-			fakeKcpClient := kcpfakeclient.NewSimpleClientset(scenario.initialKcpClientObjects...)
+			fakeKubeClient := kcpfakekubeclient.NewClientset(scenario.initialKubeClientObjects...)
+			fakeKcpClient := kcpfakeclient.NewClientset(scenario.initialKcpClientObjects...)
 
 			workspaceTypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 			indexers.AddIfNotPresentOrDie(workspaceTypeIndexer, cache.Indexers{
@@ -478,6 +478,13 @@ func validateWellKnownLogicalClusterActions(t *testing.T, actions []kcpclientgot
 			// in real world we wouldn't be seeing this annotation
 			// since it is assigned by the kcp server
 			delete(actualObj.Annotations, "kcp.io/cluster")
+
+			// Clear fields populated by the fake client's enhanced
+			// server-side apply handling (TypeMeta populated by the
+			// scheme, ManagedFields from SSA tracking). These are not
+			// set by the reconciler itself.
+			actualObj.TypeMeta = metav1.TypeMeta{}
+			actualObj.ManagedFields = nil
 
 			if !equality.Semantic.DeepEqual(actualObj, expectedObjCopy) {
 				t.Error(cmp.Diff(actualObj, expectedObjCopy))

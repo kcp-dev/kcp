@@ -64,7 +64,7 @@ func NewVolumeAttachmentClusterInformer(client kcpkubernetes.ClusterInterface, r
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredVolumeAttachmentClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredVolumeAttachmentClusterInformer(client kcpkubernetes.ClusterInte
 				}
 				return client.StorageV1alpha1().VolumeAttachments().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apistoragev1alpha1.VolumeAttachment{},
 		resyncPeriod,
 		indexers,

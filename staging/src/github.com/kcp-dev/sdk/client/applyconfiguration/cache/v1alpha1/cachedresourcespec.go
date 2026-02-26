@@ -24,10 +24,23 @@ import (
 
 // CachedResourceSpecApplyConfiguration represents a declarative configuration of the CachedResourceSpec type for use
 // with apply.
+//
+// CachedResourceSpec defines the desired state of CachedResource.
 type CachedResourceSpecApplyConfiguration struct {
+	// GroupVersionResource is the fully qualified name of the resource to be published.
 	GroupVersionResourceApplyConfiguration `json:",inline"`
-	Identity                               *IdentityApplyConfiguration         `json:"identity,omitempty"`
-	LabelSelector                          *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
+	// identity points to a secret that contains the API identity in the 'key' file.
+	// The API identity allows access to CachedResource's resources via the APIExport.
+	//
+	// Different  CachedResource in a workspace can share a common identity, or have different
+	// ones. The identity (the secret) can also be transferred to another workspace
+	// when the  ublishedResource is moved.
+	//
+	// The identity is defaulted. A secret with the name of the CachedResource is automatically
+	// created.
+	Identity *IdentityApplyConfiguration `json:"identity,omitempty"`
+	// LabelSelector is used to filter which resources should be published
+	LabelSelector *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
 }
 
 // CachedResourceSpecApplyConfiguration constructs a declarative configuration of the CachedResourceSpec type for use with

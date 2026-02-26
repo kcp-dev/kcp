@@ -63,7 +63,7 @@ func NewCachedResourceEndpointSliceClusterInformer(client kcpcluster.ClusterInte
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCachedResourceEndpointSliceClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -76,7 +76,7 @@ func NewFilteredCachedResourceEndpointSliceClusterInformer(client kcpcluster.Clu
 				}
 				return client.CacheV1alpha1().CachedResourceEndpointSlices().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcachev1alpha1.CachedResourceEndpointSlice{},
 		resyncPeriod,
 		indexers,
@@ -149,7 +149,7 @@ func NewCachedResourceEndpointSliceInformer(client kcpversioned.Interface, resyn
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCachedResourceEndpointSliceInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredCachedResourceEndpointSliceInformer(client kcpversioned.Interfac
 				}
 				return client.CacheV1alpha1().CachedResourceEndpointSlices().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcachev1alpha1.CachedResourceEndpointSlice{},
 		resyncPeriod,
 		indexers,

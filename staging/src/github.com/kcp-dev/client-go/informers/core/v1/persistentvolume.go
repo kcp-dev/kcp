@@ -64,7 +64,7 @@ func NewPersistentVolumeClusterInformer(client kcpkubernetes.ClusterInterface, r
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredPersistentVolumeClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredPersistentVolumeClusterInformer(client kcpkubernetes.ClusterInte
 				}
 				return client.CoreV1().PersistentVolumes().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apicorev1.PersistentVolume{},
 		resyncPeriod,
 		indexers,

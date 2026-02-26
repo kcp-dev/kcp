@@ -17,4 +17,5 @@ limitations under the License.
 // +k8s:deepcopy-gen=package,register
 // +groupName=tenancy.kcp.io
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=com.github.kcp-dev.sdk.apis.tenancy.v1alpha1
 package v1alpha1

@@ -21,17 +21,28 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIExportEndpointSliceApplyConfiguration represents a declarative configuration of the APIExportEndpointSlice type for use
 // with apply.
+//
+// APIExportEndpointSlice is a sink for the endpoints of an APIExport. These endpoints can be filtered by a Partition.
+// They get consumed by the managers to start controllers and informers for the respective APIExport services.
 type APIExportEndpointSliceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIExportEndpointSliceSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *APIExportEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
+	// spec holds the desired state:
+	// - the targeted APIExport
+	// - an optional partition for filtering
+	Spec *APIExportEndpointSliceSpecApplyConfiguration `json:"spec,omitempty"`
+	// status communicates the observed state:
+	// the filtered list of endpoints for the APIExport service.
+	Status *APIExportEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // APIExportEndpointSlice constructs a declarative configuration of the APIExportEndpointSlice type for use with
@@ -43,6 +54,47 @@ func APIExportEndpointSlice(name string) *APIExportEndpointSliceApplyConfigurati
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractAPIExportEndpointSliceFrom extracts the applied configuration owned by fieldManager from
+// aPIExportEndpointSlice for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// aPIExportEndpointSlice must be a unmodified APIExportEndpointSlice API object that was retrieved from the Kubernetes API.
+// ExtractAPIExportEndpointSliceFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIExportEndpointSliceFrom(aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, fieldManager string, subresource string) (*APIExportEndpointSliceApplyConfiguration, error) {
+	b := &APIExportEndpointSliceApplyConfiguration{}
+	err := managedfields.ExtractInto(aPIExportEndpointSlice, internal.Parser().Type("com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSlice"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(aPIExportEndpointSlice.Name)
+
+	b.WithKind("APIExportEndpointSlice")
+	b.WithAPIVersion("apis.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractAPIExportEndpointSlice extracts the applied configuration owned by fieldManager from
+// aPIExportEndpointSlice. If no managedFields are found in aPIExportEndpointSlice for fieldManager, a
+// APIExportEndpointSliceApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// aPIExportEndpointSlice must be a unmodified APIExportEndpointSlice API object that was retrieved from the Kubernetes API.
+// ExtractAPIExportEndpointSlice provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIExportEndpointSlice(aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, fieldManager string) (*APIExportEndpointSliceApplyConfiguration, error) {
+	return ExtractAPIExportEndpointSliceFrom(aPIExportEndpointSlice, fieldManager, "")
+}
+
+// ExtractAPIExportEndpointSliceStatus extracts the applied configuration owned by fieldManager from
+// aPIExportEndpointSlice for the status subresource.
+func ExtractAPIExportEndpointSliceStatus(aPIExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice, fieldManager string) (*APIExportEndpointSliceApplyConfiguration, error) {
+	return ExtractAPIExportEndpointSliceFrom(aPIExportEndpointSlice, fieldManager, "status")
+}
+
 func (b APIExportEndpointSliceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

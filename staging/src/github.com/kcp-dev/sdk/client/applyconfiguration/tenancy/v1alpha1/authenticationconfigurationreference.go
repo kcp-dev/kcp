@@ -20,7 +20,10 @@ package v1alpha1
 
 // AuthenticationConfigurationReferenceApplyConfiguration represents a declarative configuration of the AuthenticationConfigurationReference type for use
 // with apply.
+//
+// AuthenticationConfigurationReference provides the fields necessary to resolve a WorkspaceAuthenticationConfiguration.
 type AuthenticationConfigurationReferenceApplyConfiguration struct {
+	// name is the name of the WorkspaceAuthenticationConfiguration.
 	Name *string `json:"name,omitempty"`
 }
 

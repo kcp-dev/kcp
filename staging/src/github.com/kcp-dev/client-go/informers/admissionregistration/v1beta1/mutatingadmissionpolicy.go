@@ -64,7 +64,7 @@ func NewMutatingAdmissionPolicyClusterInformer(client kcpkubernetes.ClusterInter
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredMutatingAdmissionPolicyClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredMutatingAdmissionPolicyClusterInformer(client kcpkubernetes.Clus
 				}
 				return client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apiadmissionregistrationv1beta1.MutatingAdmissionPolicy{},
 		resyncPeriod,
 		indexers,

@@ -24,7 +24,11 @@ import (
 
 // IdentityApplyConfiguration represents a declarative configuration of the Identity type for use
 // with apply.
+//
+// Identity defines the identity of an CachedResource, i.e. determines the cached resource access
+// of the resources, that are published by this CachedResource.
 type IdentityApplyConfiguration struct {
+	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
 	SecretRef *v1.SecretReference `json:"secretRef,omitempty"`
 }
 

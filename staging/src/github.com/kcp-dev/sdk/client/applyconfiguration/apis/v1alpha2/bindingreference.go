@@ -20,7 +20,13 @@ package v1alpha2
 
 // BindingReferenceApplyConfiguration represents a declarative configuration of the BindingReference type for use
 // with apply.
+//
+// BindingReference describes a reference to an APIExport. Exactly one of the
+// fields must be set.
 type BindingReferenceApplyConfiguration struct {
+	// export is a reference to an APIExport by cluster name and export name.
+	// The creator of the APIBinding needs to have access to the APIExport with the
+	// verb `bind` in order to bind to it.
 	Export *ExportBindingReferenceApplyConfiguration `json:"export,omitempty"`
 }
 

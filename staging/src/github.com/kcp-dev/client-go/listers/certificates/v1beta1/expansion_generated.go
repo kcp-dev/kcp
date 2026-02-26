@@ -25,3 +25,7 @@ type CertificateSigningRequestClusterListerExpansion interface{}
 // ClusterTrustBundleClusterListerExpansion allows custom methods to be added to
 // ClusterTrustBundleClusterLister.
 type ClusterTrustBundleClusterListerExpansion interface{}
+
+// PodCertificateRequestClusterListerExpansion allows custom methods to be added to
+// PodCertificateRequestClusterLister.
+type PodCertificateRequestClusterListerExpansion interface{}

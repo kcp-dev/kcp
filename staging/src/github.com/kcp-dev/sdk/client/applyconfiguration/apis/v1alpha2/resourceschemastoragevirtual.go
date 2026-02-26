@@ -24,9 +24,15 @@ import (
 
 // ResourceSchemaStorageVirtualApplyConfiguration represents a declarative configuration of the ResourceSchemaStorageVirtual type for use
 // with apply.
+//
+// ResourceSchemaStorageVirtual refers to an endpoint slice object
+// from which the virtual resource is served.
 type ResourceSchemaStorageVirtualApplyConfiguration struct {
-	Reference    *v1.TypedLocalObjectReference `json:"reference,omitempty"`
-	IdentityHash *string                       `json:"identityHash,omitempty"`
+	// Reference points to another object that has a URL to a virtual workspace
+	// in a "url" field in its status. The object can be of any kind.
+	Reference *v1.TypedLocalObjectReference `json:"reference,omitempty"`
+	// IdentityHash is the identity of the virtual resource.
+	IdentityHash *string `json:"identityHash,omitempty"`
 }
 
 // ResourceSchemaStorageVirtualApplyConfiguration constructs a declarative configuration of the ResourceSchemaStorageVirtual type for use with

@@ -21,16 +21,23 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // PartitionApplyConfiguration represents a declarative configuration of the Partition type for use
 // with apply.
+//
+// Partition defines the selection of a set of shards along multiple dimensions.
+// Partitions can get automatically generated through a partitioner or manually crafted.
 type PartitionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *PartitionSpecApplyConfiguration `json:"spec,omitempty"`
+	// spec holds the desired state.
+	Spec *PartitionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // Partition constructs a declarative configuration of the Partition type for use with
@@ -42,6 +49,41 @@ func Partition(name string) *PartitionApplyConfiguration {
 	b.WithAPIVersion("topology.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractPartitionFrom extracts the applied configuration owned by fieldManager from
+// partition for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// partition must be a unmodified Partition API object that was retrieved from the Kubernetes API.
+// ExtractPartitionFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractPartitionFrom(partition *topologyv1alpha1.Partition, fieldManager string, subresource string) (*PartitionApplyConfiguration, error) {
+	b := &PartitionApplyConfiguration{}
+	err := managedfields.ExtractInto(partition, internal.Parser().Type("com.github.kcp-dev.sdk.apis.topology.v1alpha1.Partition"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(partition.Name)
+
+	b.WithKind("Partition")
+	b.WithAPIVersion("topology.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractPartition extracts the applied configuration owned by fieldManager from
+// partition. If no managedFields are found in partition for fieldManager, a
+// PartitionApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// partition must be a unmodified Partition API object that was retrieved from the Kubernetes API.
+// ExtractPartition provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractPartition(partition *topologyv1alpha1.Partition, fieldManager string) (*PartitionApplyConfiguration, error) {
+	return ExtractPartitionFrom(partition, fieldManager, "")
+}
+
 func (b PartitionApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

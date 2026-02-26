@@ -64,7 +64,7 @@ func NewIngressClassClusterInformer(client kcpkubernetes.ClusterInterface, resyn
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredIngressClassClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredIngressClassClusterInformer(client kcpkubernetes.ClusterInterfac
 				}
 				return client.NetworkingV1beta1().IngressClasses().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apinetworkingv1beta1.IngressClass{},
 		resyncPeriod,
 		indexers,

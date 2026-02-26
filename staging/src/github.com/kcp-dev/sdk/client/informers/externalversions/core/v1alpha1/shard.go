@@ -63,7 +63,7 @@ func NewShardClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod ti
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredShardClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -76,7 +76,7 @@ func NewFilteredShardClusterInformer(client kcpcluster.ClusterInterface, resyncP
 				}
 				return client.CoreV1alpha1().Shards().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcorev1alpha1.Shard{},
 		resyncPeriod,
 		indexers,
@@ -149,7 +149,7 @@ func NewShardInformer(client kcpversioned.Interface, resyncPeriod time.Duration,
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredShardInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredShardInformer(client kcpversioned.Interface, resyncPeriod time.D
 				}
 				return client.CoreV1alpha1().Shards().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcorev1alpha1.Shard{},
 		resyncPeriod,
 		indexers,

@@ -21,12 +21,27 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // WorkspaceApplyConfiguration represents a declarative configuration of the Workspace type for use
 // with apply.
+//
+// Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
+// discovery APIs, OpenAPI and resource API endpoints.
+//
+// A workspace can be backed by different concrete types of workspace implementation,
+// depending on access pattern. All workspace implementations share the characteristic
+// that the URL that serves a given workspace can be used with standard Kubernetes
+// API machinery and client libraries and command line tools.
+//
+// Workspaces supports mounting, by specifying an Mount object in the spec.
+// If a Mount is specified, the workspace will be mounted to the specified mount object and
+// LogicalCluster will not be created.
 type WorkspaceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +58,47 @@ func Workspace(name string) *WorkspaceApplyConfiguration {
 	b.WithAPIVersion("tenancy.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractWorkspaceFrom extracts the applied configuration owned by fieldManager from
+// workspace for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// workspace must be a unmodified Workspace API object that was retrieved from the Kubernetes API.
+// ExtractWorkspaceFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractWorkspaceFrom(workspace *tenancyv1alpha1.Workspace, fieldManager string, subresource string) (*WorkspaceApplyConfiguration, error) {
+	b := &WorkspaceApplyConfiguration{}
+	err := managedfields.ExtractInto(workspace, internal.Parser().Type("com.github.kcp-dev.sdk.apis.tenancy.v1alpha1.Workspace"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(workspace.Name)
+
+	b.WithKind("Workspace")
+	b.WithAPIVersion("tenancy.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractWorkspace extracts the applied configuration owned by fieldManager from
+// workspace. If no managedFields are found in workspace for fieldManager, a
+// WorkspaceApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// workspace must be a unmodified Workspace API object that was retrieved from the Kubernetes API.
+// ExtractWorkspace provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractWorkspace(workspace *tenancyv1alpha1.Workspace, fieldManager string) (*WorkspaceApplyConfiguration, error) {
+	return ExtractWorkspaceFrom(workspace, fieldManager, "")
+}
+
+// ExtractWorkspaceStatus extracts the applied configuration owned by fieldManager from
+// workspace for the status subresource.
+func ExtractWorkspaceStatus(workspace *tenancyv1alpha1.Workspace, fieldManager string) (*WorkspaceApplyConfiguration, error) {
+	return ExtractWorkspaceFrom(workspace, fieldManager, "status")
+}
+
 func (b WorkspaceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

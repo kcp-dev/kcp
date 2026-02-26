@@ -193,6 +193,7 @@ func NewSharedInformerFactory(client {{.clusterClientSetInterface|raw}}, default
 // NewFilteredSharedInformerFactory constructs a new instance of sharedInformerFactory.
 // Listers obtained via this SharedInformerFactory will be subject to the same filters
 // as specified here.
+//
 // Deprecated: Please use NewSharedInformerFactoryWithOptions instead
 func NewFilteredSharedInformerFactory(client {{.clusterClientSetInterface|raw}}, defaultResync {{.timeDuration|raw}}, tweakListOptions {{.interfacesTweakListOptionsFunc|raw}}) SharedInformerFactory {
 	return NewSharedInformerFactoryWithOptions(client, defaultResync, WithTweakListOptions(tweakListOptions))
@@ -319,7 +320,7 @@ type ScopedDynamicSharedInformerFactory interface {
 //
 // It is typically used like this:
 //
-//   ctx, cancel := context.Background()
+//   ctx, cancel := context.WithCancel(context.Background())
 //   defer cancel()
 //   factory := NewSharedInformerFactory(client, resyncPeriod)
 //   defer factory.WaitForStop()    // Returns immediately if nothing was started.

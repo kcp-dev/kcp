@@ -64,7 +64,7 @@ func NewClusterTrustBundleClusterInformer(client kcpkubernetes.ClusterInterface,
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterTrustBundleClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredClusterTrustBundleClusterInformer(client kcpkubernetes.ClusterIn
 				}
 				return client.CertificatesV1alpha1().ClusterTrustBundles().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apicertificatesv1alpha1.ClusterTrustBundle{},
 		resyncPeriod,
 		indexers,

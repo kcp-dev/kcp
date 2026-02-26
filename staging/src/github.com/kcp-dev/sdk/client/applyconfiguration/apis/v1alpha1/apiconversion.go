@@ -21,16 +21,23 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIConversionApplyConfiguration represents a declarative configuration of the APIConversion type for use
 // with apply.
+//
+// APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
+// the name of the APIResourceSchema for the conversions to take effect.
 type APIConversionApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // APIConversion constructs a declarative configuration of the APIConversion type for use with
@@ -42,6 +49,41 @@ func APIConversion(name string) *APIConversionApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractAPIConversionFrom extracts the applied configuration owned by fieldManager from
+// aPIConversion for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// aPIConversion must be a unmodified APIConversion API object that was retrieved from the Kubernetes API.
+// ExtractAPIConversionFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIConversionFrom(aPIConversion *apisv1alpha1.APIConversion, fieldManager string, subresource string) (*APIConversionApplyConfiguration, error) {
+	b := &APIConversionApplyConfiguration{}
+	err := managedfields.ExtractInto(aPIConversion, internal.Parser().Type("com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIConversion"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(aPIConversion.Name)
+
+	b.WithKind("APIConversion")
+	b.WithAPIVersion("apis.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractAPIConversion extracts the applied configuration owned by fieldManager from
+// aPIConversion. If no managedFields are found in aPIConversion for fieldManager, a
+// APIConversionApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// aPIConversion must be a unmodified APIConversion API object that was retrieved from the Kubernetes API.
+// ExtractAPIConversion provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIConversion(aPIConversion *apisv1alpha1.APIConversion, fieldManager string) (*APIConversionApplyConfiguration, error) {
+	return ExtractAPIConversionFrom(aPIConversion, fieldManager, "")
+}
+
 func (b APIConversionApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

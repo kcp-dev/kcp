@@ -24,9 +24,17 @@ import (
 
 // APIExportStatusApplyConfiguration represents a declarative configuration of the APIExportStatus type for use
 // with apply.
+//
+// APIExportStatus defines the observed state of APIExport.
 type APIExportStatusApplyConfiguration struct {
-	IdentityHash      *string                              `json:"identityHash,omitempty"`
-	Conditions        *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
+	// identityHash is the hash of the API identity key of this APIExport. This value
+	// is immutable as soon as it is set.
+	IdentityHash *string `json:"identityHash,omitempty"`
+	// conditions is a list of conditions that apply to the APIExport.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	// virtualWorkspaces contains all APIExport virtual workspace URLs.
+	//
+	// Deprecated: use APIExportEndpointSlice.status.endpoints instead
 	VirtualWorkspaces []VirtualWorkspaceApplyConfiguration `json:"virtualWorkspaces,omitempty"`
 }
 

@@ -20,7 +20,11 @@ package v1alpha1
 
 // APIExportEndpointApplyConfiguration represents a declarative configuration of the APIExportEndpoint type for use
 // with apply.
+//
+// Using a struct provides an extension point
+// APIExportEndpoint contains the endpoint information of an APIExport service for a specific shard.
 type APIExportEndpointApplyConfiguration struct {
+	// url is an APIExport virtual workspace URL.
 	URL *string `json:"url,omitempty"`
 }
 

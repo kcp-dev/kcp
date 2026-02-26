@@ -21,17 +21,27 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIBindingApplyConfiguration represents a declarative configuration of the APIBinding type for use
 // with apply.
+//
+// APIBinding enables a set of resources and their behaviour through an external
+// service provider in this workspace.
+//
+// The service provider uses an APIExport to expose the API.
 type APIBindingApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIBindingSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *APIBindingStatusApplyConfiguration `json:"status,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIBindingSpecApplyConfiguration `json:"spec,omitempty"`
+	// Status communicates the observed state.
+	Status *APIBindingStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // APIBinding constructs a declarative configuration of the APIBinding type for use with
@@ -43,6 +53,47 @@ func APIBinding(name string) *APIBindingApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractAPIBindingFrom extracts the applied configuration owned by fieldManager from
+// aPIBinding for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// aPIBinding must be a unmodified APIBinding API object that was retrieved from the Kubernetes API.
+// ExtractAPIBindingFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIBindingFrom(aPIBinding *apisv1alpha1.APIBinding, fieldManager string, subresource string) (*APIBindingApplyConfiguration, error) {
+	b := &APIBindingApplyConfiguration{}
+	err := managedfields.ExtractInto(aPIBinding, internal.Parser().Type("com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIBinding"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(aPIBinding.Name)
+
+	b.WithKind("APIBinding")
+	b.WithAPIVersion("apis.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractAPIBinding extracts the applied configuration owned by fieldManager from
+// aPIBinding. If no managedFields are found in aPIBinding for fieldManager, a
+// APIBindingApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// aPIBinding must be a unmodified APIBinding API object that was retrieved from the Kubernetes API.
+// ExtractAPIBinding provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIBinding(aPIBinding *apisv1alpha1.APIBinding, fieldManager string) (*APIBindingApplyConfiguration, error) {
+	return ExtractAPIBindingFrom(aPIBinding, fieldManager, "")
+}
+
+// ExtractAPIBindingStatus extracts the applied configuration owned by fieldManager from
+// aPIBinding for the status subresource.
+func ExtractAPIBindingStatus(aPIBinding *apisv1alpha1.APIBinding, fieldManager string) (*APIBindingApplyConfiguration, error) {
+	return ExtractAPIBindingFrom(aPIBinding, fieldManager, "status")
+}
+
 func (b APIBindingApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

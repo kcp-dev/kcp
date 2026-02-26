@@ -20,8 +20,13 @@ package v1alpha2
 
 // ExportBindingReferenceApplyConfiguration represents a declarative configuration of the ExportBindingReference type for use
 // with apply.
+//
+// ExportBindingReference is a reference to an APIExport by cluster and name.
 type ExportBindingReferenceApplyConfiguration struct {
+	// path is a logical cluster path where the APIExport is defined.
+	// If the path is unset, the logical cluster of the APIBinding is used.
 	Path *string `json:"path,omitempty"`
+	// name is the name of the APIExport that describes the API.
 	Name *string `json:"name,omitempty"`
 }
 

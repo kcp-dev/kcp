@@ -21,16 +21,25 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIResourceSchemaApplyConfiguration represents a declarative configuration of the APIResourceSchema type for use
 // with apply.
+//
+// APIResourceSchema describes a resource, identified by (group, version, resource, schema).
+//
+// An APIResourceSchema is immutable and cannot be deleted if they are referenced by
+// an APIExport in the same workspace.
 type APIResourceSchemaApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIResourceSchemaSpecApplyConfiguration `json:"spec,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIResourceSchemaSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // APIResourceSchema constructs a declarative configuration of the APIResourceSchema type for use with
@@ -42,6 +51,41 @@ func APIResourceSchema(name string) *APIResourceSchemaApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractAPIResourceSchemaFrom extracts the applied configuration owned by fieldManager from
+// aPIResourceSchema for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// aPIResourceSchema must be a unmodified APIResourceSchema API object that was retrieved from the Kubernetes API.
+// ExtractAPIResourceSchemaFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIResourceSchemaFrom(aPIResourceSchema *apisv1alpha1.APIResourceSchema, fieldManager string, subresource string) (*APIResourceSchemaApplyConfiguration, error) {
+	b := &APIResourceSchemaApplyConfiguration{}
+	err := managedfields.ExtractInto(aPIResourceSchema, internal.Parser().Type("com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIResourceSchema"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(aPIResourceSchema.Name)
+
+	b.WithKind("APIResourceSchema")
+	b.WithAPIVersion("apis.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractAPIResourceSchema extracts the applied configuration owned by fieldManager from
+// aPIResourceSchema. If no managedFields are found in aPIResourceSchema for fieldManager, a
+// APIResourceSchemaApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// aPIResourceSchema must be a unmodified APIResourceSchema API object that was retrieved from the Kubernetes API.
+// ExtractAPIResourceSchema provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIResourceSchema(aPIResourceSchema *apisv1alpha1.APIResourceSchema, fieldManager string) (*APIResourceSchemaApplyConfiguration, error) {
+	return ExtractAPIResourceSchemaFrom(aPIResourceSchema, fieldManager, "")
+}
+
 func (b APIResourceSchemaApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

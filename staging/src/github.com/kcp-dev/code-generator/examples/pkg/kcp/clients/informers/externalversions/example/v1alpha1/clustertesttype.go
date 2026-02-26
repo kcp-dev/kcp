@@ -64,7 +64,7 @@ func NewClusterTestTypeClusterInformer(client versioned.ClusterInterface, resync
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterTestTypeClusterInformer(client versioned.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredClusterTestTypeClusterInformer(client versioned.ClusterInterface
 				}
 				return client.ExampleV1alpha1().ClusterTestTypes().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apisexamplev1alpha1.ClusterTestType{},
 		resyncPeriod,
 		indexers,
@@ -150,7 +150,7 @@ func NewClusterTestTypeInformer(client clientsetversioned.Interface, resyncPerio
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterTestTypeInformer(client clientsetversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -163,7 +163,7 @@ func NewFilteredClusterTestTypeInformer(client clientsetversioned.Interface, res
 				}
 				return client.ExampleV1alpha1().ClusterTestTypes().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apisexamplev1alpha1.ClusterTestType{},
 		resyncPeriod,
 		indexers,

@@ -21,12 +21,17 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // CachedResourceApplyConfiguration represents a declarative configuration of the CachedResource type for use
 // with apply.
+//
+// CachedResource defines a resource that should be published to other workspaces
 type CachedResourceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +48,47 @@ func CachedResource(name string) *CachedResourceApplyConfiguration {
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractCachedResourceFrom extracts the applied configuration owned by fieldManager from
+// cachedResource for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// cachedResource must be a unmodified CachedResource API object that was retrieved from the Kubernetes API.
+// ExtractCachedResourceFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractCachedResourceFrom(cachedResource *cachev1alpha1.CachedResource, fieldManager string, subresource string) (*CachedResourceApplyConfiguration, error) {
+	b := &CachedResourceApplyConfiguration{}
+	err := managedfields.ExtractInto(cachedResource, internal.Parser().Type("com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResource"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(cachedResource.Name)
+
+	b.WithKind("CachedResource")
+	b.WithAPIVersion("cache.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractCachedResource extracts the applied configuration owned by fieldManager from
+// cachedResource. If no managedFields are found in cachedResource for fieldManager, a
+// CachedResourceApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// cachedResource must be a unmodified CachedResource API object that was retrieved from the Kubernetes API.
+// ExtractCachedResource provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractCachedResource(cachedResource *cachev1alpha1.CachedResource, fieldManager string) (*CachedResourceApplyConfiguration, error) {
+	return ExtractCachedResourceFrom(cachedResource, fieldManager, "")
+}
+
+// ExtractCachedResourceStatus extracts the applied configuration owned by fieldManager from
+// cachedResource for the status subresource.
+func ExtractCachedResourceStatus(cachedResource *cachev1alpha1.CachedResource, fieldManager string) (*CachedResourceApplyConfiguration, error) {
+	return ExtractCachedResourceFrom(cachedResource, fieldManager, "status")
+}
+
 func (b CachedResourceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

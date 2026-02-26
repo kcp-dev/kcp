@@ -25,11 +25,17 @@ import (
 
 // CachedResourceStatusApplyConfiguration represents a declarative configuration of the CachedResourceStatus type for use
 // with apply.
+//
+// CachedResourceStatus defines the observed state of CachedResource.
 type CachedResourceStatusApplyConfiguration struct {
-	IdentityHash   *string                                `json:"identityHash,omitempty"`
-	ResourceCounts *ResourceCountApplyConfiguration       `json:"resourceCounts,omitempty"`
-	Phase          *cachev1alpha1.CachedResourcePhaseType `json:"phase,omitempty"`
-	Conditions     *conditionsv1alpha1.Conditions         `json:"conditions,omitempty"`
+	// IdentityHash is a hash of the identity configuration
+	IdentityHash *string `json:"identityHash,omitempty"`
+	// ResourceCount is the number of resources that match the label selector
+	ResourceCounts *ResourceCountApplyConfiguration `json:"resourceCounts,omitempty"`
+	// Phase of the workspace (Initializing, Ready, Unavailable).
+	Phase *cachev1alpha1.CachedResourcePhaseType `json:"phase,omitempty"`
+	// Current processing state of the Workspace.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
 // CachedResourceStatusApplyConfiguration constructs a declarative configuration of the CachedResourceStatus type for use with

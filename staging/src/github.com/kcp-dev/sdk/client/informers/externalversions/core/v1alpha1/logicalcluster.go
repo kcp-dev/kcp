@@ -63,7 +63,7 @@ func NewLogicalClusterClusterInformer(client kcpcluster.ClusterInterface, resync
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredLogicalClusterClusterInformer(client kcpcluster.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -76,7 +76,7 @@ func NewFilteredLogicalClusterClusterInformer(client kcpcluster.ClusterInterface
 				}
 				return client.CoreV1alpha1().LogicalClusters().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcorev1alpha1.LogicalCluster{},
 		resyncPeriod,
 		indexers,
@@ -149,7 +149,7 @@ func NewLogicalClusterInformer(client kcpversioned.Interface, resyncPeriod time.
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredLogicalClusterInformer(client kcpversioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -162,7 +162,7 @@ func NewFilteredLogicalClusterInformer(client kcpversioned.Interface, resyncPeri
 				}
 				return client.CoreV1alpha1().LogicalClusters().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&kcpcorev1alpha1.LogicalCluster{},
 		resyncPeriod,
 		indexers,

@@ -20,9 +20,14 @@ package v1alpha1
 
 // CachedResourceEndpointSliceSpecApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSliceSpec type for use
 // with apply.
+//
+// CachedResourceEndpointSliceSpec defines the desired state of the CachedResourceEndpointSlice.
 type CachedResourceEndpointSliceSpecApplyConfiguration struct {
+	// CachedResource points to the real CachedResource the slice is created for.
 	CachedResource *CachedResourceReferenceApplyConfiguration `json:"cachedResource,omitempty"`
-	Partition      *string                                    `json:"partition,omitempty"`
+	// partition points to a partition that is used for filtering the endpoints
+	// of the CachedResource part of the slice.
+	Partition *string `json:"partition,omitempty"`
 }
 
 // CachedResourceEndpointSliceSpecApplyConfiguration constructs a declarative configuration of the CachedResourceEndpointSliceSpec type for use with

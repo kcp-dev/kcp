@@ -24,10 +24,17 @@ import (
 
 // APIExportEndpointSliceStatusApplyConfiguration represents a declarative configuration of the APIExportEndpointSliceStatus type for use
 // with apply.
+//
+// APIExportEndpointSliceStatus defines the observed state of APIExportEndpointSlice.
 type APIExportEndpointSliceStatusApplyConfiguration struct {
-	Conditions         *conditionsv1alpha1.Conditions        `json:"conditions,omitempty"`
+	// conditions is a list of conditions that apply to the APIExportEndpointSlice.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	// endpoints contains all the URLs of the APIExport service.
 	APIExportEndpoints []APIExportEndpointApplyConfiguration `json:"endpoints,omitempty"`
-	ShardSelector      *string                               `json:"shardSelector,omitempty"`
+	// shardSelector is the selector used to filter the shards. It is used to filter the shards
+	// when determining partition scope when deriving the endpoints. This is set by owning shard,
+	// and is used by follower shards to determine if its inscope or not.
+	ShardSelector *string `json:"shardSelector,omitempty"`
 }
 
 // APIExportEndpointSliceStatusApplyConfiguration constructs a declarative configuration of the APIExportEndpointSliceStatus type for use with

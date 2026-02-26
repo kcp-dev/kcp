@@ -44,10 +44,6 @@ func (c *CertificatesV1alpha1ClusterClient) ClusterTrustBundles() kcpcertificate
 	return newFakeClusterTrustBundleClusterClient(c)
 }
 
-func (c *CertificatesV1alpha1ClusterClient) PodCertificateRequests() kcpcertificatesv1alpha1.PodCertificateRequestClusterInterface {
-	return newFakePodCertificateRequestClusterClient(c)
-}
-
 type CertificatesV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -55,10 +51,6 @@ type CertificatesV1alpha1Client struct {
 
 func (c *CertificatesV1alpha1Client) ClusterTrustBundles() certificatesv1alpha1.ClusterTrustBundleInterface {
 	return newFakeClusterTrustBundleClient(c.Fake, c.ClusterPath)
-}
-
-func (c *CertificatesV1alpha1Client) PodCertificateRequests(namespace string) certificatesv1alpha1.PodCertificateRequestInterface {
-	return newFakePodCertificateRequestClient(c.Fake, namespace, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

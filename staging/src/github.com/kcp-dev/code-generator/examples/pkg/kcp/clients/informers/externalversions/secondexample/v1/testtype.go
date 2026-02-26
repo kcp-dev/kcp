@@ -64,7 +64,7 @@ func NewTestTypeClusterInformer(client versioned.ClusterInterface, resyncPeriod 
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredTestTypeClusterInformer(client versioned.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredTestTypeClusterInformer(client versioned.ClusterInterface, resyn
 				}
 				return client.SecondexampleV1().TestTypes().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apissecondexamplev1.TestType{},
 		resyncPeriod,
 		indexers,
@@ -151,7 +151,7 @@ func NewTestTypeInformer(client clientsetversioned.Interface, resyncPeriod time.
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredTestTypeInformer(client clientsetversioned.Interface, resyncPeriod time.Duration, namespace string, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -164,7 +164,7 @@ func NewFilteredTestTypeInformer(client clientsetversioned.Interface, resyncPeri
 				}
 				return client.SecondexampleV1().TestTypes(namespace).Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apissecondexamplev1.TestType{},
 		resyncPeriod,
 		indexers,

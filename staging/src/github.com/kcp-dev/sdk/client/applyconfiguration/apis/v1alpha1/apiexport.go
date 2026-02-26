@@ -21,17 +21,25 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIExportApplyConfiguration represents a declarative configuration of the APIExport type for use
 // with apply.
+//
+// APIExport registers an API and implementation to allow consumption by others
+// through APIBindings.
 type APIExportApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIExportSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *APIExportStatusApplyConfiguration `json:"status,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIExportSpecApplyConfiguration `json:"spec,omitempty"`
+	// Status communicates the observed state.
+	Status *APIExportStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // APIExport constructs a declarative configuration of the APIExport type for use with
@@ -43,6 +51,47 @@ func APIExport(name string) *APIExportApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
+// ExtractAPIExportFrom extracts the applied configuration owned by fieldManager from
+// aPIExport for the specified subresource. Pass an empty string for subresource to extract
+// the main resource. Common subresources include "status", "scale", etc.
+// aPIExport must be a unmodified APIExport API object that was retrieved from the Kubernetes API.
+// ExtractAPIExportFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIExportFrom(aPIExport *apisv1alpha1.APIExport, fieldManager string, subresource string) (*APIExportApplyConfiguration, error) {
+	b := &APIExportApplyConfiguration{}
+	err := managedfields.ExtractInto(aPIExport, internal.Parser().Type("com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExport"), fieldManager, b, subresource)
+	if err != nil {
+		return nil, err
+	}
+	b.WithName(aPIExport.Name)
+
+	b.WithKind("APIExport")
+	b.WithAPIVersion("apis.kcp.io/v1alpha1")
+	return b, nil
+}
+
+// ExtractAPIExport extracts the applied configuration owned by fieldManager from
+// aPIExport. If no managedFields are found in aPIExport for fieldManager, a
+// APIExportApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
+// aPIExport must be a unmodified APIExport API object that was retrieved from the Kubernetes API.
+// ExtractAPIExport provides a way to perform a extract/modify-in-place/apply workflow.
+// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
+// applied if another fieldManager has updated or force applied any of the previously applied fields.
+func ExtractAPIExport(aPIExport *apisv1alpha1.APIExport, fieldManager string) (*APIExportApplyConfiguration, error) {
+	return ExtractAPIExportFrom(aPIExport, fieldManager, "")
+}
+
+// ExtractAPIExportStatus extracts the applied configuration owned by fieldManager from
+// aPIExport for the status subresource.
+func ExtractAPIExportStatus(aPIExport *apisv1alpha1.APIExport, fieldManager string) (*APIExportApplyConfiguration, error) {
+	return ExtractAPIExportFrom(aPIExport, fieldManager, "status")
+}
+
 func (b APIExportApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
