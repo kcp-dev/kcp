@@ -59,7 +59,7 @@ const (
 // in new Workspaces.
 func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	globalKcpClusterClient kcpclientset.ClusterInterface,
+	localKcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	logicalClustersInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	globalLogicalClustersInformer corev1alpha1informers.LogicalClusterClusterInformer,
@@ -103,7 +103,7 @@ func NewAPIBinder(
 			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		listAPIBindingsByPath: func(ctx context.Context, clusterPath logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error) {
-			bindingList, err := globalKcpClusterClient.Cluster(clusterPath).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
+			bindingList, err := kcpClusterClient.Cluster(clusterPath).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -119,12 +119,15 @@ func NewAPIBinder(
 		createAPIBinding: func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error) {
 			return kcpClusterClient.Cluster(clusterName).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		},
+		updateAPIBinding: func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error) {
+			return kcpClusterClient.Cluster(clusterName).ApisV1alpha2().APIBindings().Update(ctx, binding, metav1.UpdateOptions{})
+		},
 
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportsInformer.Informer().GetIndexer(), globalAPIExportsInformer.Informer().GetIndexer(), path, name)
 		},
 
-		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
+		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](localKcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceType)
@@ -186,6 +189,7 @@ type APIBinder struct {
 	listAPIBindingsByPath func(ctx context.Context, clusterPath logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error)
 	getAPIBinding         func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 	createAPIBinding      func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error)
+	updateAPIBinding      func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error)
 
 	getAPIExport func(clusterName logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 

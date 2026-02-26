@@ -59,6 +59,7 @@ const (
 // in new Workspaces.
 func NewDefaultAPIBindingController(
 	kcpClusterClient kcpclientset.ClusterInterface,
+	localKcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	globalLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
@@ -127,7 +128,7 @@ func NewDefaultAPIBindingController(
 		},
 
 		commitApiBinding:     committer.NewCommitter[*apisv1alpha2.APIBinding, apisv1alpha2client.APIBindingInterface, *apisv1alpha2.APIBindingSpec, *apisv1alpha2.APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
-		commitLogicalCluster: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
+		commitLogicalCluster: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](localKcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceType)

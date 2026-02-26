@@ -107,7 +107,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("update", "patch", "get").Groups(apis.GroupName).Resources("apiexportendpointslices/status").RuleOrDie(),
-				rbacv1helpers.NewRule("get", "list", "watch").Groups(apis.GroupName).Resources("apiexportendpointslices").RuleOrDie(),
+				rbacv1helpers.NewRule("get", "list", "watch").Groups(apis.GroupName).Resources("apiexportendpointslices", "apibindings").RuleOrDie(),
 			},
 		},
 		{

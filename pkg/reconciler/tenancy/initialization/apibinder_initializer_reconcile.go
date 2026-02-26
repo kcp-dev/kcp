@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/big"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -74,7 +75,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			wtCluster.String(), wtName, err,
 		)
 
-		return nil
+		return err
 	}
 
 	// Get all the transitive WorkspaceTypes
@@ -91,7 +92,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			err,
 		)
 
-		return nil
+		return err
 	}
 
 	// Get current bindings
@@ -144,8 +145,9 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			apiBindingName := generateAPIBindingName(clusterName, exportRef.Path, exportRef.Export)
 			logger = logger.WithValues("apiBindingName", apiBindingName)
 
-			if _, err = b.getAPIBinding(clusterName, apiBindingName); err == nil {
-				logger.V(4).Info("APIBinding already exists - skipping creation")
+			existingBinding, err := b.getAPIBinding(clusterName, apiBindingName)
+			if err != nil && !apierrors.IsNotFound(err) {
+				errors = append(errors, err)
 				continue
 			}
 
@@ -163,6 +165,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				},
 			}
 
+			apiBindingClaimsFailed := false
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
 				var selector apisv1alpha2.PermissionClaimSelector
 				selector = apisv1alpha2.PermissionClaimSelector{
@@ -173,11 +176,28 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				if annPath, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found {
 					currentPath := logicalcluster.NewPath(annPath)
 					parentPath, _ = currentPath.Parent()
+					logger.V(3).Info("determined parent path from annotation", "currentPath", currentPath, "parentPath", parentPath)
+				} else if logicalcluster.From(logicalCluster) != core.RootCluster {
+					err := fmt.Errorf("LogicalCluster %s is missing %q annotation, cannot determine parent path for selector inheritance", logicalCluster.Name, core.LogicalClusterPathAnnotationKey)
+					logger.V(2).Info(err.Error())
+					errors = append(errors, err)
+					apiBindingClaimsFailed = true
+					break
+				} else {
+					logger.V(3).Info("Root cluster detected, no parent path to inherit from")
 				}
 
-				if parentSelector := b.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim); parentSelector != nil {
-					selector = *parentSelector
-					logger.V(3).Info("inheriting selector from parent workspace binding", "parentPath", parentPath, "selector", selector)
+				if !parentPath.Empty() {
+					parentSelector, err := b.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim)
+					if err != nil {
+						errors = append(errors, err)
+						apiBindingClaimsFailed = true
+						break
+					}
+					if parentSelector != nil {
+						selector = *parentSelector
+						logger.V(3).Info("inheriting selector from parent workspace binding", "parentPath", parentPath, "selector", selector)
+					}
 				}
 
 				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
@@ -191,20 +211,36 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				apiBinding.Spec.PermissionClaims = append(apiBinding.Spec.PermissionClaims, acceptedClaim)
 			}
 
-			logger = logging.WithObject(logger, apiBinding)
-
-			logger.V(2).Info("trying to create APIBinding")
-			if _, err := b.createAPIBinding(ctx, clusterName.Path(), apiBinding); err != nil {
-				if apierrors.IsAlreadyExists(err) {
-					logger.V(2).Info("APIBinding already exists")
-					continue
-				}
-
-				errors = append(errors, err)
+			if apiBindingClaimsFailed {
 				continue
 			}
 
-			logger.V(2).Info("created APIBinding")
+			if existingBinding != nil {
+				if reflect.DeepEqual(existingBinding.Spec.PermissionClaims, apiBinding.Spec.PermissionClaims) {
+					logger.V(4).Info("APIBinding already exists and is up-to-date - skipping")
+					continue
+				}
+
+				apiBinding.ObjectMeta = existingBinding.ObjectMeta
+				logger.V(2).Info("updating existing APIBinding")
+				if _, err := b.updateAPIBinding(ctx, clusterName.Path(), apiBinding); err != nil {
+					errors = append(errors, err)
+					continue
+				}
+				logger.V(2).Info("updated APIBinding")
+			} else {
+				logger.V(2).Info("trying to create APIBinding")
+				if _, err := b.createAPIBinding(ctx, clusterName.Path(), apiBinding); err != nil {
+					if apierrors.IsAlreadyExists(err) {
+						logger.V(2).Info("APIBinding already exists")
+						continue
+					}
+
+					errors = append(errors, err)
+					continue
+				}
+				logger.V(2).Info("created APIBinding")
+			}
 		}
 	}
 
@@ -220,13 +256,7 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 			utilerrors.NewAggregate(errors),
 		)
 
-		if someExportsMissing {
-			// Retry if any APIExports are missing, as it's possible they'll show up (cache server slow to catch up,
-			// arrive via replication)
-			return utilerrors.NewAggregate(errors)
-		}
-
-		return nil
+		return utilerrors.NewAggregate(errors)
 	}
 
 	// Make sure all the expected bindings are there & ready to use
@@ -267,17 +297,19 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	return nil
 }
 
-func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim) *apisv1alpha2.PermissionClaimSelector {
+func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim) (*apisv1alpha2.PermissionClaimSelector, error) {
 	logger := klog.FromContext(ctx)
 
 	if workspacePath.Empty() {
-		return nil
+		logger.V(4).Info("workspacePath is empty, skipping selector lookup")
+		return nil, nil
 	}
 
+	logger.V(4).Info("looking up selector in workspace", "workspacePath", workspacePath, "exportReference", exportRef.Path+"|"+exportRef.Export)
 	workspaceBindings, err := b.listAPIBindingsByPath(ctx, workspacePath)
 	if err != nil {
 		logger.V(4).Info("error listing workspace APIBindings by path", "error", err, "path", workspacePath)
-		return nil
+		return nil, fmt.Errorf("error listing parent workspace %q APIBindings: %w", workspacePath, err)
 	}
 
 	exportRefPath := logicalcluster.NewPath(exportRef.Path)
@@ -303,10 +335,10 @@ func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath l
 	}
 
 	if len(matchingBindings) == 0 {
-		return nil
+		return nil, fmt.Errorf("no APIBindings found in parent workspace %q for APIExport %s|%s", workspacePath, exportRef.Path, exportRef.Export)
 	}
 
-	var matchedSeclector *apisv1alpha2.PermissionClaimSelector
+	var matchedSelector *apisv1alpha2.PermissionClaimSelector
 	for _, binding := range matchingBindings {
 		for _, claim := range binding.Spec.PermissionClaims {
 			if claim.Group == exportClaim.Group &&
@@ -315,22 +347,22 @@ func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath l
 				claim.State == apisv1alpha2.ClaimAccepted {
 				if !claim.Selector.MatchAll {
 					logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", claim.Selector)
-					return &claim.Selector
+					return &claim.Selector, nil
 				}
 
-				if matchedSeclector == nil {
-					matchedSeclector = &claim.Selector
+				if matchedSelector == nil {
+					matchedSelector = &claim.Selector
 				}
 			}
 		}
 	}
 
-	if matchedSeclector != nil {
-		logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", matchedSeclector)
-		return matchedSeclector
+	if matchedSelector != nil {
+		logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", matchedSelector)
+		return matchedSelector, nil
 	}
 
-	return nil
+	return nil, fmt.Errorf("no matching permission claim found in parent workspace %q APIBindings for APIExport %s|%s", workspacePath, exportRef.Path, exportRef.Export)
 }
 
 // maxExportNamePrefixLength is the maximum allowed length for the export name portion of the generated API binding

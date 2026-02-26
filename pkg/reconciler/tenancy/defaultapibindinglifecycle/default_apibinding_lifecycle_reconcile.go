@@ -40,15 +40,15 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
 )
 
-func (c *DefaultAPIBindingController) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim, logger klog.Logger) *apisv1alpha2.PermissionClaimSelector {
+func (c *DefaultAPIBindingController) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim, logger klog.Logger) (*apisv1alpha2.PermissionClaimSelector, error) {
 	if workspacePath.Empty() {
-		return nil
+		return nil, nil
 	}
 
 	workspaceBindings, err := c.listAPIBindingsByPath(ctx, workspacePath)
 	if err != nil {
 		logger.V(4).Info("error listing workspace APIBindings by path", "error", err, "path", workspacePath)
-		return nil
+		return nil, fmt.Errorf("error listing parent workspace %q APIBindings: %w", workspacePath, err)
 	}
 
 	exportRefPath := logicalcluster.NewPath(exportRef.Path)
@@ -74,7 +74,7 @@ func (c *DefaultAPIBindingController) findSelectorInWorkspace(ctx context.Contex
 	}
 
 	if len(matchingBindings) == 0 {
-		return nil
+		return nil, fmt.Errorf("no APIBindings found in parent workspace %q for APIExport %s|%s", workspacePath, exportRef.Path, exportRef.Export)
 	}
 
 	var matchedSelector *apisv1alpha2.PermissionClaimSelector
@@ -86,7 +86,7 @@ func (c *DefaultAPIBindingController) findSelectorInWorkspace(ctx context.Contex
 				claim.State == apisv1alpha2.ClaimAccepted {
 				if !claim.Selector.MatchAll {
 					logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", claim.Selector)
-					return &claim.Selector
+					return &claim.Selector, nil
 				}
 
 				if matchedSelector == nil {
@@ -98,10 +98,10 @@ func (c *DefaultAPIBindingController) findSelectorInWorkspace(ctx context.Contex
 
 	if matchedSelector != nil {
 		logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", matchedSelector)
-		return matchedSelector
+		return matchedSelector, nil
 	}
 
-	return nil
+	return nil, fmt.Errorf("no matching permission claim found in parent workspace %q APIBindings for APIExport %s|%s", workspacePath, exportRef.Path, exportRef.Export)
 }
 
 func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error {
@@ -122,15 +122,13 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 	// Start with the WorkspaceType specified by the Workspace
 	leafWT, err := c.getWorkspaceType(wtCluster, wtName)
 	if err != nil {
-		logger.Error(err, "error getting WorkspaceType")
-		return nil
+		return err
 	}
 
 	// Get all the transitive WorkspaceTypes
 	wts, err := c.transitiveTypeResolver.Resolve(leafWT)
 	if err != nil {
-		logger.Error(err, "error resolving transitive types")
-		return nil
+		return err
 	}
 
 	// Get current bindings
@@ -196,6 +194,7 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 				},
 			}
 
+			apiBindingClaimsFailed := false
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
 				var selector apisv1alpha2.PermissionClaimSelector
 				selector = apisv1alpha2.PermissionClaimSelector{
@@ -206,11 +205,25 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 				if annPath, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found {
 					currentPath := logicalcluster.NewPath(annPath)
 					parentPath, _ = currentPath.Parent()
+				} else if logicalcluster.From(logicalCluster) != core.RootCluster {
+					err := fmt.Errorf("LogicalCluster %s is missing %q annotation, cannot determine parent path for selector inheritance", logicalCluster.Name, core.LogicalClusterPathAnnotationKey)
+					logger.V(2).Info(err.Error())
+					errors = append(errors, err)
+					apiBindingClaimsFailed = true
+					break
 				}
 
-				if parentSelector := c.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim, logger); parentSelector != nil {
-					selector = *parentSelector
-					logger.V(3).Info("inheriting selector from parent workspace binding", "parentPath", parentPath, "selector", selector)
+				if !parentPath.Empty() {
+					parentSelector, err := c.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim, logger)
+					if err != nil {
+						errors = append(errors, err)
+						apiBindingClaimsFailed = true
+						break
+					}
+					if parentSelector != nil {
+						selector = *parentSelector
+						logger.V(3).Info("inheriting selector from parent workspace binding", "parentPath", parentPath, "selector", selector)
+					}
 				}
 
 				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
@@ -222,6 +235,10 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 				}
 
 				apiBindingSpec.PermissionClaims = append(apiBindingSpec.PermissionClaims, acceptedClaim)
+			}
+
+			if apiBindingClaimsFailed {
+				continue
 			}
 
 			existingBinding, err := c.getAPIBinding(clusterName, apiBindingName)
@@ -256,14 +273,7 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 
 	if len(errors) > 0 {
 		logger.Error(utilerrors.NewAggregate(errors), "error reconciling APIBindings")
-
-		if someExportsMissing {
-			// Retry if any APIExports are missing, as it's possible they'll show up (cache server slow to catch up,
-			// arrive via replication)
-			return utilerrors.NewAggregate(errors)
-		}
-
-		return nil
+		return utilerrors.NewAggregate(errors)
 	}
 
 	// Make sure all the expected bindings are there & ready to use

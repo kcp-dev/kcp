@@ -901,10 +901,9 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 }
 
 func (s *Server) installDefaultAPIBindingController(ctx context.Context, config *rest.Config) error {
-	// Client used to maintain APIBindings within the workspaces
-	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, defaultapibindinglifecycle.ControllerName)
-
+	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
+	controllerConfig := rest.CopyConfig(config)
+	controllerConfig = rest.AddUserAgent(controllerConfig, defaultapibindinglifecycle.ControllerName)
 	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
 		if s.Options.Extra.ShardVirtualWorkspaceCAFile == "" {
 			// TODO move verification up
@@ -918,18 +917,19 @@ func (s *Server) installDefaultAPIBindingController(ctx context.Context, config 
 			// TODO move verification up
 			return fmt.Errorf("s.Options.Extra.ShardClientKeyFile is required")
 		}
-		config.TLSClientConfig.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
-		config.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
-		config.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
+		controllerConfig.TLSClientConfig.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
+		controllerConfig.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
+		controllerConfig.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
 	}
 
-	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	kcpClusterClient, err := kcpclientset.NewForConfig(controllerConfig)
 	if err != nil {
 		return err
 	}
 
 	c, err := defaultapibindinglifecycle.NewDefaultAPIBindingController(
 		kcpClusterClient,
+		s.KcpClusterClient,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
@@ -961,18 +961,8 @@ func (s *Server) installDefaultAPIBindingController(ctx context.Context, config 
 }
 
 func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Config) error {
-	// Client used to create APIBindings within the initializing workspace
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, initialization.ControllerName)
-
-	// globalKcpClusterClient uses the unmodified config (before vw URL is appended) so it
-	// can route to any workspace cross-shard for parent workspace APIBinding lookups.
-	globalKcpClusterClient, err := kcpclientset.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
-
 	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
 		vwURL := fmt.Sprintf("https://%s", s.GenericConfig.ExternalAddress)
 		if s.Options.Extra.ShardVirtualWorkspaceCAFile == "" {
@@ -991,6 +981,8 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 		config.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
 		config.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
 		config.Host = fmt.Sprintf("%v%v", vwURL, initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer))
+	} else {
+		config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 	}
 
 	initializingWorkspacesKcpClusterClient, err := kcpclientset.NewForConfig(config)
@@ -1011,7 +1003,7 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 	c, err := initialization.NewAPIBinder(
 		initializingWorkspacesKcpClusterClient,
-		globalKcpClusterClient,
+		s.KcpClusterClient,
 		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),

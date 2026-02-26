@@ -331,13 +331,19 @@ func TestFindSelectorInWorkspace(t *testing.T) {
 
 			ctx := klog.NewContext(context.Background(), klog.Background())
 
-			result := b.findSelectorInWorkspace(ctx, tc.workspacePath, tc.exportRef, tc.exportClaim)
+			result, err := b.findSelectorInWorkspace(ctx, tc.workspacePath, tc.exportRef, tc.exportClaim)
 
 			if !tc.expectedFound {
+				if !tc.workspacePath.Empty() {
+					require.Error(t, err, "expected error on failing lookup for non-empty path")
+				} else {
+					require.NoError(t, err, "expected no error for empty path")
+				}
 				require.Nil(t, result, "expected no selector to be found")
 				return
 			}
 
+			require.NoError(t, err, "expected no error on successful lookup")
 			require.NotNil(t, result, "expected to find a selector")
 			if tc.expectedSelector != nil {
 				require.Equal(t, tc.expectedSelector.MatchAll, result.MatchAll, "MatchAll should match")
