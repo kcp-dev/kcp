@@ -1,0 +1,145 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: RootShard
+metadata:
+  name: root
+  namespace: kcp
+spec:
+  external:
+    hostname: frontproxy.$GATEWAY_BASE_URL
+    port: 6443
+  certificates:
+    issuerRef:
+      group: cert-manager.io
+      kind: Issuer
+      name: selfsigned
+  cache:
+    embedded:
+      enabled: true
+  etcd:
+    endpoints:
+      - http://kcp-etcd-shard-1-client.etcd-system.svc.cluster.local:2379
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: $NODEPOOL_SELECTOR
+                        operator: In
+                        values:
+                          - "kcp-server"
+          # TODO once https://github.com/kcp-dev/kcp-operator/issues/163 is implemented
+          # topologySpreadConstraints:
+          #   - maxSkew: 1
+          #     topologyKey: "kubernetes.io/hostname"
+          #     whenUnsatisfiable: DoNotSchedule
+          #     labelSelector:
+          #       matchLabels:
+          #         app.kubernetes.io/name: kcp
+---
+apiVersion: operator.kcp.io/v1alpha1
+kind: FrontProxy
+metadata:
+  name: frontproxy
+  namespace: kcp
+spec:
+  rootShard:
+    ref:
+      name: root
+  external:
+    hostname: frontproxy.$GATEWAY_BASE_URL
+    port: 443
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: $NODEPOOL_SELECTOR
+                        operator: In
+                        values:
+                          - "kcp-frontproxy"
+          # TODO once https://github.com/kcp-dev/kcp-operator/issues/163 is implemented
+          # topologySpreadConstraints:
+          #   - maxSkew: 1
+          #     topologyKey: "kubernetes.io/hostname"
+          #     whenUnsatisfiable: DoNotSchedule
+          #     labelSelector:
+          #       matchLabels:
+          #         app.kubernetes.io/component: front-proxy
+---
+apiVersion: operator.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: shard2
+  namespace: kcp
+spec:
+  shardBaseURL: "https://shard2.$GATEWAY_BASE_URL:6443"
+  etcd:
+    endpoints:
+      - http://kcp-etcd-shard-2-client.etcd-system.svc.cluster.local:2379
+  rootShard:
+    ref:
+      name: root
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: $NODEPOOL_SELECTOR
+                        operator: In
+                        values:
+                          - "kcp-server"
+          # TODO once https://github.com/kcp-dev/kcp-operator/issues/163 is implemented
+          # topologySpreadConstraints:
+          #   - maxSkew: 1
+          #     topologyKey: "kubernetes.io/hostname"
+          #     whenUnsatisfiable: DoNotSchedule
+          #     labelSelector:
+          #       matchLabels:
+          #         app.kubernetes.io/name: kcp
+---
+apiVersion: operator.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: shard3
+  namespace: kcp
+spec:
+  shardBaseURL: "https://shard3.$GATEWAY_BASE_URL:6443"
+  etcd:
+    endpoints:
+      - http://kcp-etcd-shard-3-client.etcd-system.svc.cluster.local:2379
+  rootShard:
+    ref:
+      name: root
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: $NODEPOOL_SELECTOR
+                        operator: In
+                        values:
+                          - "kcp-server"
+          # TODO once https://github.com/kcp-dev/kcp-operator/issues/163 is implemented
+          # topologySpreadConstraints:
+          #   - maxSkew: 1
+          #     topologyKey: "kubernetes.io/hostname"
+          #     whenUnsatisfiable: DoNotSchedule
+          #     labelSelector:
+          #       matchLabels:
+          #         app.kubernetes.io/name: kcp
