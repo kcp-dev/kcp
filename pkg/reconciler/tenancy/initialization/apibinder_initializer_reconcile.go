@@ -163,19 +163,19 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				},
 			}
 
+			var parentPath logicalcluster.Path
+			if annPath, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found {
+				currentPath := logicalcluster.NewPath(annPath)
+				parentPath, _ = currentPath.Parent()
+			}
+
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
-				var selector apisv1alpha2.PermissionClaimSelector
-				selector = apisv1alpha2.PermissionClaimSelector{
-					MatchAll: true,
-				}
+				selector := apisv1alpha2.PermissionClaimSelector{MatchAll: true}
 
-				var parentPath logicalcluster.Path
-				if annPath, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found {
-					currentPath := logicalcluster.NewPath(annPath)
-					parentPath, _ = currentPath.Parent()
-				}
-
-				if parentSelector := b.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim); parentSelector != nil {
+				parentSelector, err := b.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim)
+				if err != nil {
+					logger.V(2).Info("error looking up parent workspace selector, falling back to MatchAll", "parentPath", parentPath, "error", err)
+				} else if parentSelector != nil {
 					selector = *parentSelector
 					logger.V(3).Info("inheriting selector from parent workspace binding", "parentPath", parentPath, "selector", selector)
 				}
@@ -267,17 +267,17 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	return nil
 }
 
-func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim) *apisv1alpha2.PermissionClaimSelector {
+func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim) (*apisv1alpha2.PermissionClaimSelector, error) {
 	logger := klog.FromContext(ctx)
 
 	if workspacePath.Empty() {
-		return nil
+		return nil, nil
 	}
 
 	workspaceBindings, err := b.listAPIBindingsByPath(ctx, workspacePath)
 	if err != nil {
 		logger.V(4).Info("error listing workspace APIBindings by path", "error", err, "path", workspacePath)
-		return nil
+		return nil, err
 	}
 
 	exportRefPath := logicalcluster.NewPath(exportRef.Path)
@@ -303,7 +303,7 @@ func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath l
 	}
 
 	if len(matchingBindings) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	var matchedSeclector *apisv1alpha2.PermissionClaimSelector
@@ -315,7 +315,7 @@ func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath l
 				claim.State == apisv1alpha2.ClaimAccepted {
 				if !claim.Selector.MatchAll {
 					logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", claim.Selector)
-					return &claim.Selector
+					return &claim.Selector, nil
 				}
 
 				if matchedSeclector == nil {
@@ -327,10 +327,10 @@ func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath l
 
 	if matchedSeclector != nil {
 		logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", matchedSeclector)
-		return matchedSeclector
+		return matchedSeclector, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 // maxExportNamePrefixLength is the maximum allowed length for the export name portion of the generated API binding

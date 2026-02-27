@@ -202,6 +202,11 @@ func InstallIndexers(
 	localKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	globalKubeInformers kcpkubernetesinformers.SharedInformerFactory) map[schema.GroupVersionResource]ReplicatedGVR {
 	gvrs := map[schema.GroupVersionResource]ReplicatedGVR{
+		apisv1alpha2.SchemeGroupVersion.WithResource("apibindings"): {
+			Kind:   "APIBinding",
+			Local:  localKcpInformers.Apis().V1alpha2().APIBindings().Informer(),
+			Global: globalKcpInformers.Apis().V1alpha2().APIBindings().Informer(),
+		},
 		apisv1alpha2.SchemeGroupVersion.WithResource("apiexports"): {
 			Kind:   "APIExport",
 			Local:  localKcpInformers.Apis().V1alpha2().APIExports().Informer(),
