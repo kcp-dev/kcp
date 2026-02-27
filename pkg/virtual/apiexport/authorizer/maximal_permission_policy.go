@@ -24,6 +24,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -151,18 +152,23 @@ func getClaimedIdentity(apiExport *apisv1alpha2.APIExport, attr authorizer.Attri
 }
 
 func prefixAttributes(attr authorizer.Attributes) *authorizer.AttributesRecord {
-	prefixedUser := &user.DefaultInfo{
-		Name:  apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix + attr.GetUser().GetName(),
-		UID:   attr.GetUser().GetUID(),
-		Extra: attr.GetUser().GetExtra(),
+	// Use rbacregistryvalidation.PrefixUser to properly handle ServiceAccount
+	// rewriting. For SAs with a cluster scope, this rewrites the user name from
+	// "system:serviceaccount:<ns>:<name>" to
+	// "apis.kcp.io:binding:system:kcp:serviceaccount:<cluster>:<ns>:<name>"
+	// which allows RBAC to be set up for cross-cluster SA access.
+	prefixedUser := rbacregistryvalidation.PrefixUser(attr.GetUser(), apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix)
+
+	// Strip scope-related Extra keys from ServiceAccounts only. The maximal permission
+	// policy check runs in the workspace where the claimed APIExport lives (e.g., root
+	// for tenancy.kcp.io), but ServiceAccount tokens are scoped to their originating workspace.
+	// Without stripping scopes, the deep SAR would be denied due to scope mismatch.
+	// Regular users don't have this scoping issue, so we preserve their Extra fields.
+	if rbacregistryvalidation.IsServiceAccount(attr.GetUser()) {
+		prefixedUser = stripScopesFromUser(prefixedUser)
 	}
 
-	prefixedUser.Groups = make([]string, 0, len(attr.GetUser().GetGroups()))
-	for _, g := range attr.GetUser().GetGroups() {
-		prefixedUser.Groups = append(prefixedUser.Groups, apisv1alpha1.MaximalPermissionPolicyRBACUserGroupPrefix+g)
-	}
-
-	return &authorizer.AttributesRecord{
+	attr = &authorizer.AttributesRecord{
 		User:            prefixedUser,
 		Verb:            attr.GetVerb(),
 		Namespace:       attr.GetNamespace(),
@@ -173,5 +179,38 @@ func prefixAttributes(attr authorizer.Attributes) *authorizer.AttributesRecord {
 		Name:            attr.GetName(),
 		ResourceRequest: attr.IsResourceRequest(),
 		Path:            attr.GetPath(),
+	}
+
+	return attr.(*authorizer.AttributesRecord)
+}
+
+// stripScopesFromUser returns a copy of the user with scope-related Extra keys removed.
+func stripScopesFromUser(u user.Info) user.Info {
+	extra := u.GetExtra()
+	if extra == nil {
+		return u
+	}
+
+	// Check if we need to strip anything
+	_, hasScopes := extra[rbacregistryvalidation.ScopeExtraKey]
+	_, hasClusterName := extra["authentication.kcp.io/cluster-name"]
+	if !hasScopes && !hasClusterName {
+		return u
+	}
+
+	// Create new Extra map without scope keys
+	newExtra := make(map[string][]string, len(extra))
+	for k, v := range extra {
+		if k == rbacregistryvalidation.ScopeExtraKey || k == "authentication.kcp.io/cluster-name" {
+			continue
+		}
+		newExtra[k] = v
+	}
+
+	return &user.DefaultInfo{
+		Name:   u.GetName(),
+		UID:    u.GetUID(),
+		Groups: u.GetGroups(),
+		Extra:  newExtra,
 	}
 }
