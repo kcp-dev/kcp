@@ -1,0 +1,4 @@
+crds:
+  enabled: true
+nodeSelector:
+  $NODEPOOL_SELECTOR: auxiliary
