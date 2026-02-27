@@ -17,14 +17,13 @@ limitations under the License.
 package helpers
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"embed"
-	"errors"
 	"fmt"
-	"io"
+	"io/fs"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -36,7 +35,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -78,7 +76,7 @@ func ReplaceOption(pairs ...string) Option {
 // Bootstrap creates resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string], fs embed.FS, opts ...Option) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string], embedFS embed.FS, opts ...Option) error {
 	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
@@ -87,73 +85,161 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	for _, opt := range opts {
 		transformers = append(transformers, opt.TransformFile)
 	}
-	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, batteriesIncluded, fs, transformers...); err != nil {
+
+	resources, err := ReadResourcesFromFS(ctx, embedFS, nil, transformers...)
+	if err != nil {
+		return fmt.Errorf("could not read resources from FS: %w", err)
+	}
+
+	chunks := ChunkObjectsByHierarchy(resources)
+	// invalidate cache if resources not found
+	// xref: https://github.com/kcp-dev/kcp/issues/655
+	if err := CreateResourcesFromChunks(ctx, dynamicClient, mapper, batteriesIncluded, chunks, cache.Invalidate); err != nil {
+		return fmt.Errorf("could not create resources from chunks: %w", err)
+	}
+	return nil
+}
+
+// CreateResourcesFromFS creates all resources from a filesystem.
+func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], embedFS embed.FS, transformers ...TransformFileFunc) error {
+	resources, err := ReadResourcesFromFS(ctx, embedFS, nil, transformers...)
+	if err != nil {
+		return fmt.Errorf("could not read resources from FS: %w", err)
+	}
+
+	chunks := ChunkObjectsByHierarchy(resources)
+	if err := CreateResourcesFromChunks(ctx, client, mapper, batteriesIncluded, chunks, nil); err != nil {
+		return fmt.Errorf("could not create resources from chunks: %w", err)
+	}
+
+	return nil
+}
+
+// CreateResourceFromFS creates given resource file.
+func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, embedFS embed.FS, transformers ...TransformFileFunc) error {
+	resources, err := ReadResourcesFromFS(ctx, embedFS, func(d fs.DirEntry) (bool, error) {
+		return d.Name() == filename, nil
+	}, transformers...)
+	if err != nil {
+		return fmt.Errorf("could not read resources from FS: %w", err)
+	}
+
+	chunks := ChunkObjectsByHierarchy(resources)
+	if err := CreateResourcesFromChunks(ctx, client, mapper, batteriesIncluded, chunks, nil); err != nil {
+		return fmt.Errorf("could not create resources from chunks: %w", err)
+	}
+
+	return nil
+}
+
+type DirEntryFilterFunc func(fs.DirEntry) (bool, error)
+
+// ReadResourcesFromFS reads all resources from a filesystem and returns
+// them as unstructured.Unstructured objects.
+// If the filter function is not nil if is called for each file. If the
+// filter function returns true the file is parsed, otherwise it is ignored.
+func ReadResourcesFromFS(
+	ctx context.Context,
+	embedFS embed.FS,
+	filter DirEntryFilterFunc,
+	transformers ...TransformFileFunc,
+) ([]*unstructured.Unstructured, error) {
+	ret := []*unstructured.Unstructured{}
+
+	if err := fs.WalkDir(embedFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		if filter != nil {
+			parse, err := filter(d)
+			if err != nil {
+				return fmt.Errorf("could not filter %s: %w", path, err)
+			}
+			if !parse {
+				return nil
+			}
+		}
+
+		raw, err := embedFS.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("could not read %s: %w", path, err)
+		}
+		for _, transformer := range transformers {
+			if raw, err = transformer(raw); err != nil {
+				return fmt.Errorf("could not transform %s: %w", path, err)
+			}
+		}
+
+		resources, err := ParseYAML(raw)
+		if err != nil {
+			return fmt.Errorf("could not parse %s: %w", path, err)
+		}
+		ret = append(ret, resources...)
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("could not walk embed FS: %w", err)
+	}
+
+	return ret, nil
+}
+
+// CreateResourcesFromChunks sequentially runs CreateResourcesFromChunk
+// for each chunk of resources.
+func CreateResourcesFromChunks(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], chunks [][]*unstructured.Unstructured, reset func()) error {
+	for i, chunk := range chunks {
+		if err := CreateResourcesFromChunk(ctx, client, mapper, batteriesIncluded, chunk, reset); err != nil {
+			return fmt.Errorf("failed to create resources from chunk %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// CreateResourcesFromChunk creates all resources from a chunk of resources.
+// If reset is not nil it is called after each failed attempt, allowing to reset e.g. a cache.
+func CreateResourcesFromChunk(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], chunk []*unstructured.Unstructured, reset func()) error {
+	errsChan := make(chan error, len(chunk))
+
+	wg := sync.WaitGroup{}
+	for _, obj := range chunk {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := retryCreateResourceFromFS(ctx, client, mapper, obj, batteriesIncluded, reset); err != nil {
+				errsChan <- fmt.Errorf("failed to create resource %s: %w", obj.GetName(), err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	close(errsChan)
+	errs := make([]error, 0, len(chunk))
+	for err := range errsChan {
+		errs = append(errs, err)
+	}
+	return utilerrors.NewAggregate(errs)
+}
+
+func retryCreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, obj *unstructured.Unstructured, batteriesIncluded sets.Set[string], reset func()) error {
+	raw, err := obj.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("could not marshal object %s: %w", obj.GetName(), err)
+	}
+
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
+		if err := createResourceFromFS(ctx, client, mapper, raw, batteriesIncluded); err != nil {
 			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
-			// invalidate cache if resources not found
-			// xref: https://github.com/kcp-dev/kcp/issues/655
-			cache.Invalidate()
+			if reset != nil {
+				reset()
+			}
 			return false, nil
 		}
 		return true, nil
 	})
-}
-
-// CreateResourcesFromFS creates all resources from a filesystem.
-func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], fs embed.FS, transformers ...TransformFileFunc) error {
-	files, err := fs.ReadDir(".")
-	if err != nil {
-		return err
-	}
-
-	var errs []error
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if err := CreateResourceFromFS(ctx, client, mapper, batteriesIncluded, f.Name(), fs, transformers...); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return utilerrors.NewAggregate(errs)
-}
-
-// CreateResourceFromFS creates given resource file.
-func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, fs embed.FS, transformers ...TransformFileFunc) error {
-	raw, err := fs.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("could not read %s: %w", filename, err)
-	}
-
-	if len(raw) == 0 {
-		return nil // ignore empty files
-	}
-
-	d := kubeyaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(raw)))
-	var errs []error
-	for i := 1; ; i++ {
-		doc, err := d.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		if len(bytes.TrimSpace(doc)) == 0 {
-			continue
-		}
-
-		for _, transformer := range transformers {
-			doc, err = transformer(doc)
-			if err != nil {
-				return err
-			}
-		}
-
-		if err := createResourceFromFS(ctx, client, mapper, doc, batteriesIncluded); err != nil {
-			errs = append(errs, fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err))
-		}
-	}
-	return utilerrors.NewAggregate(errs)
 }
 
 const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
@@ -240,62 +326,77 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 }
 
 func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
+	wg := &sync.WaitGroup{}
+	errsChan := make(chan error, len(exportNames))
+	for _, exportName := range exportNames {
+		wg.Add(1)
+		go func(exportName string) {
+			defer wg.Done()
+			if err := BindRootAPI(ctx, kcpClient, exportName); err != nil {
+				errsChan <- fmt.Errorf("failed to bind root API %s: %w", exportName, err)
+			}
+		}(exportName)
+	}
+	wg.Wait()
+	close(errsChan)
+	errs := make([]error, 0, len(exportNames))
+	for err := range errsChan {
+		errs = append(errs, err)
+	}
+	return utilerrors.NewAggregate(errs)
+}
+
+func BindRootAPI(ctx context.Context, kcpClient kcpclient.Interface, exportName string) error {
 	logger := klog.FromContext(ctx)
 
-	for _, exportName := range exportNames {
-		binding := &apisv1alpha2.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: exportName,
-			},
-			Spec: apisv1alpha2.APIBindingSpec{
-				Reference: apisv1alpha2.BindingReference{
-					Export: &apisv1alpha2.ExportBindingReference{
-						Path: core.RootCluster.Path().String(),
-						Name: exportName,
-					},
+	binding := &apisv1alpha2.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: exportName,
+		},
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
+					Path: core.RootCluster.Path().String(),
+					Name: exportName,
 				},
 			},
-		}
-
-		created, err := kcpClient.ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
-		if err == nil {
-			logger := logging.WithObject(logger, created)
-			logger.V(2).Info("Created API binding")
-			continue
-		}
-		if !apierrors.IsAlreadyExists(err) {
-			return err
-		}
-
-		if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-			existing, err := kcpClient.ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
-			if err != nil {
-				logger.Error(err, "error getting APIBinding", "name", exportName)
-				// Always keep trying. Don't ever return an error out of this function.
-				return false, nil
-			}
-
-			logger := logging.WithObject(logger, existing)
-			logger.V(2).Info("Updating API binding")
-
-			existing.Spec = binding.Spec
-
-			_, err = kcpClient.ApisV1alpha2().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
-			if err == nil {
-				return true, nil
-			}
-			if apierrors.IsConflict(err) {
-				logger.V(2).Info("API binding update conflict, retrying")
-				return false, nil
-			}
-
-			logger.Error(err, "error updating APIBinding")
-			// Always keep trying. Don't ever return an error out of this function.
-			return false, nil
-		}); err != nil {
-			return err
-		}
+		},
 	}
 
-	return nil
+	created, err := kcpClient.ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
+	if err == nil {
+		logger := logging.WithObject(logger, created)
+		logger.V(2).Info("Created API binding")
+		return nil
+	}
+	if !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		existing, err := kcpClient.ApisV1alpha2().APIBindings().Get(ctx, exportName, metav1.GetOptions{})
+		if err != nil {
+			logger.Error(err, "error getting APIBinding", "name", exportName)
+			// Always keep trying. Don't ever return an error out of this function.
+			return false, nil
+		}
+
+		logger := logging.WithObject(logger, existing)
+		logger.V(2).Info("Updating API binding")
+
+		existing.Spec = binding.Spec
+
+		_, err = kcpClient.ApisV1alpha2().APIBindings().Update(ctx, existing, metav1.UpdateOptions{})
+		if err == nil {
+			return true, nil
+		}
+		if apierrors.IsConflict(err) {
+			logger.V(2).Info("API binding update conflict, retrying")
+			return false, nil
+		}
+
+		logger.Error(err, "error updating APIBinding")
+		// Always keep trying. Don't ever return an error out of this function.
+		return false, nil
+	})
 }

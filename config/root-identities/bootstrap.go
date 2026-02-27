@@ -20,9 +20,11 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"sync"
 
 	"sigs.k8s.io/yaml"
 
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -57,15 +59,29 @@ func Bootstrap(
 		return fmt.Errorf("failed to parse bootstrap identities: %v", err)
 	}
 
+	errsChan := make(chan error, len(identities.Identities))
+	wg := &sync.WaitGroup{}
 	for _, identity := range identities.Identities {
-		err := confighelpers.Bootstrap(ctx, kubeClient.Discovery(), rootDynamicClient, nil, fs, confighelpers.ReplaceOption(
-			"IDENTITY_APIEXPORT", identity.Export,
-			"IDENTITY_KEY", identity.Identity,
-		))
-		if err != nil {
-			return fmt.Errorf("failed to bootstrap identity secret for %s: %v", identity.Export, err)
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := confighelpers.Bootstrap(ctx, kubeClient.Discovery(), rootDynamicClient, nil, fs, confighelpers.ReplaceOption(
+				"IDENTITY_APIEXPORT", identity.Export,
+				"IDENTITY_KEY", identity.Identity,
+			))
+			if err != nil {
+				errsChan <- fmt.Errorf("failed to bootstrap identity secret for %s: %v", identity.Export, err)
+			}
+		}()
 	}
 
-	return nil
+	wg.Wait()
+	close(errsChan)
+
+	errs := make([]error, 0, len(identities.Identities))
+	for err := range errsChan {
+		errs = append(errs, err)
+	}
+
+	return utilerrors.NewAggregate(errs)
 }
