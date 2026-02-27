@@ -231,7 +231,26 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		shards[i] = shard
 	}
 
-	// Start virtual-workspace servers
+	// Wait for shards to be ready before starting virtual workspaces.
+	// Virtual workspaces depend on shards for token authentication (TokenReview),
+	// so shards must be fully ready before VWs can accept authenticated requests.
+	shardsErrCh := make(chan indexErrTuple)
+	for i, s := range shards {
+		terminatedCh, err := s.WaitForReady(ctx)
+		if err != nil {
+			return err
+		}
+		err = testshard.ScrapeMetrics(ctx, s, workDirPath)
+		if err != nil {
+			return err
+		}
+		go func(i int, terminatedCh <-chan error) {
+			err := <-terminatedCh
+			shardsErrCh <- indexErrTuple{i, err}
+		}(i, terminatedCh)
+	}
+
+	// Start virtual-workspace servers after shards are ready
 	vwPort := "6444"
 	var virtualWorkspaces []*VirtualWorkspace
 	if standaloneVW {
@@ -248,23 +267,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 			}
 			virtualWorkspaces = append(virtualWorkspaces, vw)
 		}
-	}
-
-	// Wait for shards to be ready
-	shardsErrCh := make(chan indexErrTuple)
-	for i, s := range shards {
-		terminatedCh, err := s.WaitForReady(ctx)
-		if err != nil {
-			return err
-		}
-		err = testshard.ScrapeMetrics(ctx, s, workDirPath)
-		if err != nil {
-			return err
-		}
-		go func(i int, terminatedCh <-chan error) {
-			err := <-terminatedCh
-			shardsErrCh <- indexErrTuple{i, err}
-		}(i, terminatedCh)
 	}
 
 	// Wait for virtual workspaces to be ready

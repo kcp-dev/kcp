@@ -25,6 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +35,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/utils/ptr"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -40,6 +43,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
@@ -511,4 +515,384 @@ func toYAML(t *testing.T, binding interface{}) string {
 	bs, err := yaml.Marshal(binding)
 	require.NoError(t, err)
 	return string(bs)
+}
+
+// TestMaximalPermissionPolicyServiceAccountClaimedTenancyResources tests that a ServiceAccount
+// in a provider workspace can access claimed tenancy.kcp.io resources via the APIExport virtual
+// workspace. This is a regression test for https://github.com/kcp-dev/kcp/issues/3840.
+//
+// The issue was that SA tokens are scoped to their originating workspace, but the maximal
+// permission policy check runs in a different workspace (root for tenancy.kcp.io). Without
+// stripping scope-related Extra fields from the user, the deep SAR would fail due to scope mismatch.
+func TestMaximalPermissionPolicyServiceAccountClaimedTenancyResources(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	cfg := server.BaseConfig(t)
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	// Create workspaces under root for this test
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider"))
+	consumerPath, consumerWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer"))
+
+	t.Logf("Get the tenancy.kcp.io APIExport identity hash from root")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(t.Context(), "tenancy.kcp.io", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid))
+
+	tenancyAPIExport, err := kcpClusterClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(t.Context(), "tenancy.kcp.io", metav1.GetOptions{})
+	require.NoError(t, err)
+	tenancyIdentityHash := tenancyAPIExport.Status.IdentityHash
+	require.NotEmpty(t, tenancyIdentityHash, "tenancy.kcp.io identity hash should not be empty")
+	t.Logf("Found tenancy.kcp.io identity hash: %s", tenancyIdentityHash)
+
+	t.Logf("Install cowboys APIResourceSchema in provider workspace %q", providerPath)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClusterClient.Cluster(providerPath).Discovery()))
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	t.Logf("Create an APIExport with permissionClaim on tenancy.kcp.io/workspaces in provider workspace %q", providerPath)
+	apiExport := &apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "wildwest.dev",
+		},
+		Spec: apisv1alpha2.APIExportSpec{
+			Resources: []apisv1alpha2.ResourceSchema{
+				{
+					Name:   "cowboys",
+					Group:  "wildwest.dev",
+					Schema: "today.cowboys.wildwest.dev",
+					Storage: apisv1alpha2.ResourceSchemaStorage{
+						CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+					},
+				},
+			},
+			PermissionClaims: []apisv1alpha2.PermissionClaim{
+				{
+					GroupResource: apisv1alpha2.GroupResource{
+						Group:    "tenancy.kcp.io",
+						Resource: "workspaces",
+					},
+					IdentityHash: tenancyIdentityHash,
+					Verbs:        []string{"get", "list", "watch"},
+				},
+			},
+		},
+	}
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(t.Context(), apiExport, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Wait for APIExport to be ready with identity hash")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(t.Context(), "wildwest.dev", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid))
+
+	t.Logf("Create namespace and ServiceAccount in provider workspace %q", providerPath)
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "provider-ns",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).CoreV1().Namespaces().Create(t.Context(), ns, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "provider-sa",
+			Namespace: "provider-ns",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).CoreV1().ServiceAccounts("provider-ns").Create(t.Context(), sa, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Grant ServiceAccount apiexports/content access in provider workspace %q", providerPath)
+	contentRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "provider-sa-apiexport-content",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{"apis.kcp.io"},
+				Resources:     []string{"apiexports/content"},
+				ResourceNames: []string{"wildwest.dev"},
+				Verbs:         []string{"*"},
+			},
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoles().Create(t.Context(), contentRole, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	contentRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "provider-sa-apiexport-content",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "provider-sa",
+				Namespace: "provider-ns",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     "ClusterRole",
+			Name:     "provider-sa-apiexport-content",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoleBindings().Create(t.Context(), contentRoleBinding, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Grant bind permission on APIExport for consumer binding")
+	bindRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "apiexport-bind",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{"apis.kcp.io"},
+				Resources:     []string{"apiexports"},
+				ResourceNames: []string{"wildwest.dev"},
+				Verbs:         []string{"bind"},
+			},
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoles().Create(t.Context(), bindRole, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	bindRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "apiexport-bind-authenticated",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "Group",
+				Name:     "system:authenticated",
+				APIGroup: rbacv1.SchemeGroupVersion.Group,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     "ClusterRole",
+			Name:     "apiexport-bind",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoleBindings().Create(t.Context(), bindRoleBinding, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Create APIBinding in consumer workspace %q accepting the workspaces claim", consumerPath)
+	apiBinding := &apisv1alpha2.APIBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "wildwest",
+		},
+		Spec: apisv1alpha2.APIBindingSpec{
+			Reference: apisv1alpha2.BindingReference{
+				Export: &apisv1alpha2.ExportBindingReference{
+					Path: providerPath.String(),
+					Name: "wildwest.dev",
+				},
+			},
+			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
+				{
+					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+						PermissionClaim: apisv1alpha2.PermissionClaim{
+							GroupResource: apisv1alpha2.GroupResource{
+								Group:    "tenancy.kcp.io",
+								Resource: "workspaces",
+							},
+							IdentityHash: tenancyIdentityHash,
+							Verbs:        []string{"get", "list", "watch"},
+						},
+						Selector: apisv1alpha2.PermissionClaimSelector{
+							MatchAll: true,
+						},
+					},
+					State: apisv1alpha2.ClaimAccepted,
+				},
+			},
+		},
+	}
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error creating APIBinding: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Wait for APIBinding to be ready")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), "wildwest", metav1.GetOptions{})
+	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
+
+	t.Logf("Create a token for the ServiceAccount")
+	tokenReq := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: ptr.To(int64(3600)),
+		},
+	}
+	tokenResp, err := kubeClusterClient.Cluster(providerPath).CoreV1().ServiceAccounts("provider-ns").CreateToken(t.Context(), "provider-sa", tokenReq, metav1.CreateOptions{})
+	require.NoError(t, err)
+	saToken := tokenResp.Status.Token
+	require.NotEmpty(t, saToken)
+	t.Logf("Got SA token")
+
+	t.Logf("Get the APIExport virtual workspace URL")
+	var apiExportVWURL string
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "wildwest.dev", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error getting APIExportEndpointSlice: %v", err)
+		}
+		urls := framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice)
+		var found bool
+		apiExportVWURL, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, urls)
+		if err != nil {
+			return false, fmt.Sprintf("error getting virtual workspace URL: %v", err)
+		}
+		return found, fmt.Sprintf("waiting for virtual workspace URL to be available: %v", urls)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	t.Logf("Got APIExport virtual workspace URL: %s", apiExportVWURL)
+
+	t.Logf("Create a client using the ServiceAccount token to access the virtual workspace")
+	saConfig := rest.CopyConfig(cfg)
+	saConfig.Host = apiExportVWURL
+	saConfig.BearerToken = saToken
+	// Clear cert-based auth since we're using token
+	saConfig.CertData = nil
+	saConfig.KeyData = nil
+	saConfig.CertFile = ""
+	saConfig.KeyFile = ""
+
+	saDynamicClient, err := kcpdynamic.NewForConfig(saConfig)
+	require.NoError(t, err)
+
+	t.Logf("Verify that the ServiceAccount can list workspaces via the virtual workspace (claimed tenancy.kcp.io resource)")
+	// This is the key test - before the fix, this would return 403 because the SA token
+	// is scoped to the provider workspace, but the maximal permission policy check runs
+	// in the root workspace where tenancy.kcp.io lives.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := saDynamicClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces")).List(t.Context(), metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error listing workspaces: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "ServiceAccount should be able to list claimed workspaces resource")
+
+	t.Logf("Test passed - ServiceAccount can access claimed tenancy.kcp.io resources via virtual workspace")
+
+	// Now test the negative case: create another ServiceAccount WITHOUT apiexports/content permission
+	// and verify it cannot access the claimed resources
+	t.Logf("Create another ServiceAccount WITHOUT apiexports/content access")
+	unauthorizedSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "unauthorized-sa",
+			Namespace: "provider-ns",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).CoreV1().ServiceAccounts("provider-ns").Create(t.Context(), unauthorizedSA, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Create a token for the unauthorized ServiceAccount")
+	unauthorizedTokenReq := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: ptr.To(int64(3600)),
+		},
+	}
+	unauthorizedTokenResp, err := kubeClusterClient.Cluster(providerPath).CoreV1().ServiceAccounts("provider-ns").CreateToken(t.Context(), "unauthorized-sa", unauthorizedTokenReq, metav1.CreateOptions{})
+	require.NoError(t, err)
+	unauthorizedToken := unauthorizedTokenResp.Status.Token
+	require.NotEmpty(t, unauthorizedToken)
+
+	t.Logf("Create a client using the unauthorized ServiceAccount token")
+	unauthorizedConfig := rest.CopyConfig(cfg)
+	unauthorizedConfig.Host = apiExportVWURL
+	unauthorizedConfig.BearerToken = unauthorizedToken
+	unauthorizedConfig.CertData = nil
+	unauthorizedConfig.KeyData = nil
+	unauthorizedConfig.CertFile = ""
+	unauthorizedConfig.KeyFile = ""
+
+	unauthorizedDynamicClient, err := kcpdynamic.NewForConfig(unauthorizedConfig)
+	require.NoError(t, err)
+
+	t.Logf("Verify that the unauthorized ServiceAccount CANNOT list workspaces via the virtual workspace")
+	// Without apiexports/content permission, the SA should get a 403 Forbidden
+	_, err = unauthorizedDynamicClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces")).List(t.Context(), metav1.ListOptions{})
+	require.Error(t, err, "unauthorized ServiceAccount should not be able to list workspaces")
+	require.True(t, apierrors.IsForbidden(err), "expected Forbidden error, got: %v", err)
+
+	t.Logf("Negative test passed - unauthorized ServiceAccount correctly denied access to claimed resources")
+
+	// IMPORTANT: This behaviour is intentional. We might want to change this in the future, but now - no.
+	// Test with a real user (not a ServiceAccount) to verify they CANNOT access claimed resources
+	// because real users also have scopes attached when accessing via virtual workspace, and we
+	// only strip scopes for ServiceAccounts (not regular users).
+	// This is the expected behavior - regular users should not be able to bypass scope restrictions.
+	t.Logf("Test with a real user (not ServiceAccount) accessing claimed resources")
+
+	t.Logf("Grant user-1 apiexports/content access in provider workspace %q", providerPath)
+	userContentRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "user-1-apiexport-content",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{"apis.kcp.io"},
+				Resources:     []string{"apiexports/content"},
+				ResourceNames: []string{"wildwest.dev"},
+				Verbs:         []string{"*"},
+			},
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoles().Create(t.Context(), userContentRole, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	userContentRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "user-1-apiexport-content",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "User",
+				Name:     "user-1",
+				APIGroup: rbacv1.SchemeGroupVersion.Group,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     "ClusterRole",
+			Name:     "user-1-apiexport-content",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoleBindings().Create(t.Context(), userContentRoleBinding, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Create a client for user-1 to access the virtual workspace")
+	user1Config := framework.StaticTokenUserConfig("user-1", rest.CopyConfig(cfg))
+	user1Config.Host = apiExportVWURL
+
+	user1DynamicClient, err := kcpdynamic.NewForConfig(user1Config)
+	require.NoError(t, err)
+
+	t.Logf("Verify that user-1 CANNOT list workspaces via the virtual workspace (claimed tenancy.kcp.io resource)")
+	// Real users also have scope restrictions when accessing via the virtual workspace.
+	// Unlike ServiceAccounts, we do NOT strip scopes from regular users, so they cannot
+	// access claimed resources from APIExports in workspaces they don't have scope on.
+	// This is the expected and secure behavior.
+	_, err = user1DynamicClient.Resource(tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces")).List(t.Context(), metav1.ListOptions{})
+	require.Error(t, err, "user-1 should not be able to list workspaces due to scope restrictions")
+	require.True(t, apierrors.IsForbidden(err), "expected Forbidden error for user-1 due to scope restrictions, got: %v", err)
+
+	t.Logf("Real user test passed - user-1 correctly denied access due to scope restrictions (scopes not stripped for regular users)")
 }
