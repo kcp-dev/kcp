@@ -55,7 +55,7 @@ type CompletedOptions struct {
 }
 
 func (o *CompletedOptions) Validate() []error {
-	errors := []error{}
+	errors := []error{} //nolint:prealloc
 	errors = append(errors, o.ServerRunOptions.Validate()...)
 	errors = append(errors, o.Etcd.Validate()...)
 	errors = append(errors, o.SecureServing.Validate()...)

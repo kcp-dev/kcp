@@ -85,7 +85,7 @@ func (o *Options) Complete(ctx context.Context) (*CompletedOptions, error) {
 }
 
 func (o *CompletedOptions) Validate() []error {
-	errs := []error{}
+	errs := []error{} //nolint:prealloc
 
 	errs = append(errs, o.Generic.Validate()...)
 	errs = append(errs, o.Server.Validate()...)

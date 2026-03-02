@@ -37,7 +37,7 @@ import (
 func main() {
 	rootDir := flag.String("root-directory", ".kcp-cache", "Path to the root directory where all files required by this server will be stored")
 
-	var cacheServerFlags, remainingFlags []string //nolint:prealloc
+	var cacheServerFlags, remainingFlags []string
 	for _, arg := range os.Args[1:] {
 		if strings.HasPrefix(arg, "--root-directory") {
 			cacheServerFlags = append(cacheServerFlags, arg)

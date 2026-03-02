@@ -566,7 +566,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
 	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
 
-	admissionPluginInitializers := []admission.PluginInitializer{
+	admissionPluginInitializers := []admission.PluginInitializer{ //nolint:prealloc
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeInformersInitializer(c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),

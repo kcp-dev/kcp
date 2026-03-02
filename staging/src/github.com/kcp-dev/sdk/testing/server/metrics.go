@@ -113,7 +113,7 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 	type scrapeConfig struct {
 		JobName        string          `yaml:"job_name,omitempty"`
 		ScrapeInterval string          `yaml:"scrape_interval,omitempty"`
-		BearerToken    string          `yaml:"bearer_token,omitempty"`
+		BearerToken    string          `yaml:"bearer_token,omitempty"` //nolint:gosec // Field has to be exported for the decoder.
 		TlsConfig      tlsConfig       `yaml:"tls_config,omitempty"`
 		Scheme         string          `yaml:"scheme,omitempty"`
 		StaticConfigs  []staticConfigs `yaml:"static_configs,omitempty"`
@@ -196,7 +196,7 @@ func CleanupScrapeMetrics(ctx context.Context, promUrl, promCfgDir, jobNamePrefi
 	type scrapeConfig struct {
 		JobName        string          `yaml:"job_name,omitempty"`
 		ScrapeInterval string          `yaml:"scrape_interval,omitempty"`
-		BearerToken    string          `yaml:"bearer_token,omitempty"`
+		BearerToken    string          `yaml:"bearer_token,omitempty"` //nolint:gosec // Field has to be exported for the decoder.
 		TlsConfig      tlsConfig       `yaml:"tls_config,omitempty"`
 		Scheme         string          `yaml:"scheme,omitempty"`
 		StaticConfigs  []staticConfigs `yaml:"static_configs,omitempty"`

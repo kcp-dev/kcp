@@ -51,7 +51,7 @@ func wrapDialContext(dc DialContext) DialContext {
 			if err != nil {
 				return conn, err
 			}
-			if err := setDefaultSocketOptions(int(tcpFD.Fd())); err != nil {
+			if err := setDefaultSocketOptions(int(tcpFD.Fd())); err != nil { //nolint:gosec // Not much we can do here. The syscalls only accept ints.
 				return conn, err
 			}
 		}

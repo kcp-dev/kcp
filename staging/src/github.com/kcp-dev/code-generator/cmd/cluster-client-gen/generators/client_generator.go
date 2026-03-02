@@ -144,7 +144,7 @@ func targetForGroup(gv clientgentypes.GroupVersion, typeList []*types.Type, clie
 		// GeneratorsFunc returns a list of generators. Each generator makes a
 		// single file.
 		GeneratorsFunc: func(c *generator.Context) (generators []generator.Generator) {
-			generators = []generator.Generator{
+			generators = []generator.Generator{ //nolint:prealloc
 				// Always generate a "doc.go" file.
 				generator.GoGenerator{OutputFilename: "doc.go"},
 			}
