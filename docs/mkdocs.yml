@@ -52,7 +52,11 @@ theme:
         name: Switch to system preference
 
 extra_css:
+  - stylesheets/version_banner.css
   - stylesheets/crd.css
+
+extra_javascript:
+  - scripts/version_banner.js
 
 extra:
   version:
