@@ -51,6 +51,8 @@
       
     
     
+      <link rel="stylesheet" href="../../../stylesheets/version_banner.css">
+    
       <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -59,161 +61,7 @@
 
     
     
-     
-<style>
-  #version-banner {
-    display: none;
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background-color: #00bcd4;
-    color: white;
-    padding: 8px 16px;
-    text-align: center;
-    font-size: 14px;
-    line-height: 1.5;
-    z-index: 10000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  #version-banner a {
-    color: white;
-    text-decoration: underline;
-    margin-left: 8px;
-  }
-
-  #version-banner a:hover {
-    text-decoration: none;
-  }
-
-  .md-header {
-    transition: top 0.2s ease;
-  }
-</style>
-
-<script>
-  (function () {
-    "use strict";
-
-    const CONFIG = {
-      UNRELEASED_VERSION: "main",
-      RETRY_DELAY: 500,
-      HEADER_ADJUST_DELAY: 100,
-    };
-
-    function getCurrentVersion() {
-      const path = window.location.pathname;
-      const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
-      return versionMatch ? versionMatch[1] : null;
-    }
-
-    function getAvailableVersions() {
-      const versionList = document.querySelector("ul.md-version__list");
-      if (!versionList) return [];
-
-      const links = Array.from(
-        versionList.querySelectorAll("a.md-version__link")
-      );
-
-      return links
-        .map((link) => {
-          const href = link.href || link.getAttribute("href");
-          const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
-          return match ? match[1] : null;
-        })
-        .filter((v) => v && /^v\d+\.\d+/.test(v))
-        .filter((v, i, arr) => arr.indexOf(v) === i);
-    }
-
-    function getLatestVersionPath() {
-      const versions = getAvailableVersions();
-
-      const latestVersion = versions[0];
-      const currentPath = window.location.pathname;
-
-      return (
-        currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
-        `/${latestVersion}/`
-      );
-    }
-
-    function createBanner() {
-      const banner = document.createElement("div");
-      banner.id = "version-banner";
-      banner.innerHTML = `
-    <strong>You are viewing the docs for an unreleased version.</strong>
-    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
-  `;
-
-      document.body.insertBefore(banner, document.body.firstChild);
-      banner.style.display = "block";
-
-      return banner;
-    }
-
-    function updateBannerLink(banner) {
-      const link = banner.querySelector("#latest-version-link");
-      if (!link) return;
-
-      const latestPath = getLatestVersionPath();
-      link.href = latestPath;
-    }
-
-    function adjustHeader(banner) {
-      setTimeout(() => {
-        const header = document.querySelector(".md-header");
-        if (!header) return;
-
-        const bannerHeight = banner.offsetHeight;
-        const headerHeight = header.offsetHeight;
-
-        header.style.top = `${bannerHeight}px`;
-        document.documentElement.style.setProperty(
-          "--md-header-height",
-          `${bannerHeight + headerHeight}px`
-        );
-        document.documentElement.style.setProperty(
-          "--md-scroll-margin",
-          `${bannerHeight + headerHeight}px`
-        );
-      }, CONFIG.HEADER_ADJUST_DELAY);
-    }
-
-    function init() {
-      const currentVersion = getCurrentVersion();
-
-      if (currentVersion !== CONFIG.UNRELEASED_VERSION) {
-        return;
-      }
-
-      const banner = createBanner();
-      updateBannerLink(banner);
-
-      setTimeout(() => updateBannerLink(banner), CONFIG.RETRY_DELAY);
-
-      adjustHeader(banner);
-    }
-
-    function waitForDOM() {
-      if (
-        document.readyState === "complete" ||
-        document.readyState === "interactive"
-      ) {
-        console.log("DOM is ready, initializing...");
-        init();
-        return;
-      }
-
-      console.log("DOM not ready yet, checking again...");
-      setTimeout(waitForDOM, 1000);
-    }
-
-    waitForDOM();
-  })();
-</script>
-
+    
   </head>
   
   
@@ -812,6 +660,8 @@
       
         
       
+        
+      
     
     
       
@@ -1172,6 +1022,27 @@
   
   <span class="md-ellipsis">
     kcp-comer: Dual Front-Proxy with Edge re-encryption
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../audit-logging/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Audit Logging
   </span>
   
 
@@ -4352,7 +4223,7 @@
 <p>Before deploying any kcp production variant, you must install shared components that all deployments depend on. This guide covers the installation and configuration of these foundational components.</p>
 <ul>
 <li>A Kubernetes cluster with sufficient resources</li>
-<li><code>kubectl</code> configured to access your cluster  </li>
+<li><code>kubectl</code> configured to access your cluster</li>
 <li><code>helm</code> CLI tool installed</li>
 <li>DNS management capability (manual or automated)</li>
 <li>(Optional) CloudFlare account for DNS01 challenges</li>
@@ -4361,7 +4232,7 @@
 <p>All kcp production deployments require:</p>
 <ol>
 <li><strong>etcd-druid operator</strong> - Database storage management</li>
-<li><strong>cert-manager</strong> - Certificate lifecycle management  </li>
+<li><strong>cert-manager</strong> - Certificate lifecycle management</li>
 <li><strong>kcp-operator</strong> - kcp resource lifecycle management</li>
 <li><strong>OIDC provider (dex)</strong> - Authentication services</li>
 <li><strong>DNS configuration</strong> - Domain name resolution</li>
@@ -4399,7 +4270,7 @@ Once #1185 is released, this step can be skipped.</p>
 </code></pre></div>
 <p>Optional:</p>
 <p>We gonna use the CloudFlare DNS01 challenge solver for Let's Encrypt certificates in some deployment variants. If you plan to use CloudFlare, install the cert-manager CloudFlare DNS01 solver:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml.template<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml<span class="w">        </span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml.template<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># Edit contrib/production/cert-manager/cluster-issuer.yaml to add your Email.</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
@@ -4456,7 +4327,7 @@ Once #1185 is released, this step can be skipped.</p>
 </code></pre></div>
 <h4 id="kcp-vespucci-external-certs">kcp-vespucci (External Certs)<a class="headerlink" href="#kcp-vespucci-external-certs" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>api.vespucci.example.com → LoadBalancer IP
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>root.vespucci.example.com → LoadBalancer IP  
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>root.vespucci.example.com → LoadBalancer IP
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>alpha.vespucci.example.com → LoadBalancer IP
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>beta.vespucci.example.com → LoadBalancer IP - remote
 </code></pre></div>
@@ -4634,6 +4505,8 @@ Once #1185 is released, this step can be skipped.</p>
     
     
       <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../../scripts/version_banner.js"></script>
       
     
   </body>

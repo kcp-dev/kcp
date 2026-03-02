@@ -48,6 +48,8 @@
       
     
     
+      <link rel="stylesheet" href="../stylesheets/version_banner.css">
+    
       <link rel="stylesheet" href="../stylesheets/crd.css">
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -56,161 +58,7 @@
 
     
     
-     
-<style>
-  #version-banner {
-    display: none;
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background-color: #00bcd4;
-    color: white;
-    padding: 8px 16px;
-    text-align: center;
-    font-size: 14px;
-    line-height: 1.5;
-    z-index: 10000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  #version-banner a {
-    color: white;
-    text-decoration: underline;
-    margin-left: 8px;
-  }
-
-  #version-banner a:hover {
-    text-decoration: none;
-  }
-
-  .md-header {
-    transition: top 0.2s ease;
-  }
-</style>
-
-<script>
-  (function () {
-    "use strict";
-
-    const CONFIG = {
-      UNRELEASED_VERSION: "main",
-      RETRY_DELAY: 500,
-      HEADER_ADJUST_DELAY: 100,
-    };
-
-    function getCurrentVersion() {
-      const path = window.location.pathname;
-      const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
-      return versionMatch ? versionMatch[1] : null;
-    }
-
-    function getAvailableVersions() {
-      const versionList = document.querySelector("ul.md-version__list");
-      if (!versionList) return [];
-
-      const links = Array.from(
-        versionList.querySelectorAll("a.md-version__link")
-      );
-
-      return links
-        .map((link) => {
-          const href = link.href || link.getAttribute("href");
-          const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
-          return match ? match[1] : null;
-        })
-        .filter((v) => v && /^v\d+\.\d+/.test(v))
-        .filter((v, i, arr) => arr.indexOf(v) === i);
-    }
-
-    function getLatestVersionPath() {
-      const versions = getAvailableVersions();
-
-      const latestVersion = versions[0];
-      const currentPath = window.location.pathname;
-
-      return (
-        currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
-        `/${latestVersion}/`
-      );
-    }
-
-    function createBanner() {
-      const banner = document.createElement("div");
-      banner.id = "version-banner";
-      banner.innerHTML = `
-    <strong>You are viewing the docs for an unreleased version.</strong>
-    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
-  `;
-
-      document.body.insertBefore(banner, document.body.firstChild);
-      banner.style.display = "block";
-
-      return banner;
-    }
-
-    function updateBannerLink(banner) {
-      const link = banner.querySelector("#latest-version-link");
-      if (!link) return;
-
-      const latestPath = getLatestVersionPath();
-      link.href = latestPath;
-    }
-
-    function adjustHeader(banner) {
-      setTimeout(() => {
-        const header = document.querySelector(".md-header");
-        if (!header) return;
-
-        const bannerHeight = banner.offsetHeight;
-        const headerHeight = header.offsetHeight;
-
-        header.style.top = `${bannerHeight}px`;
-        document.documentElement.style.setProperty(
-          "--md-header-height",
-          `${bannerHeight + headerHeight}px`
-        );
-        document.documentElement.style.setProperty(
-          "--md-scroll-margin",
-          `${bannerHeight + headerHeight}px`
-        );
-      }, CONFIG.HEADER_ADJUST_DELAY);
-    }
-
-    function init() {
-      const currentVersion = getCurrentVersion();
-
-      if (currentVersion !== CONFIG.UNRELEASED_VERSION) {
-        return;
-      }
-
-      const banner = createBanner();
-      updateBannerLink(banner);
-
-      setTimeout(() => updateBannerLink(banner), CONFIG.RETRY_DELAY);
-
-      adjustHeader(banner);
-    }
-
-    function waitForDOM() {
-      if (
-        document.readyState === "complete" ||
-        document.readyState === "interactive"
-      ) {
-        console.log("DOM is ready, initializing...");
-        init();
-        return;
-      }
-
-      console.log("DOM not ready yet, checking again...");
-      setTimeout(waitForDOM, 1000);
-    }
-
-    waitForDOM();
-  })();
-</script>
-
+    
   </head>
   
   
@@ -889,6 +737,8 @@
       
         
       
+        
+      
     
     
       
@@ -1028,6 +878,27 @@
   
   <span class="md-ellipsis">
     kcp-comer: Dual Front-Proxy with Edge re-encryption
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/production/audit-logging/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Audit Logging
   </span>
   
 
@@ -4096,7 +3967,7 @@
 <p>Subdividing one cluster into hundreds makes integrations harder - a controller would need to be able to access resources across all of those clusters (whether logical, virtual, or physical). For this model to work, we need to explore improvements to the Kubernetes API that would make multi-cluster controllers secure and easy. That involves ideas like watching multiple resources at the same time, listing or watching in bulk across lots of logical clusters, filtering server side, and better client tooling. Many of these improvements could also benefit single-cluster use cases and scalability.</p>
 <p>To go further, standardizing some of the multi-cluster concepts (whether scheduling, location, or resiliency) into widely used APIs could benefit everyone in the Kubernetes ecosystem, as we often end up building and rebuilding custom platform tooling. The best outcome would be small incremental improvements across the entire Kube ecosystem leading to increased reuse and a reduced need to invest in specific solutions, regardless of the level of the project.</p>
 <p>Finally, the bar is still high to writing controllers. Lowering the friction of automation and integration is in everyone's benefit - whether that's a bash script, a Terraform configuration, or custom SRE services.  If we can reduce the cost of both infrastructure as code and new infrastructure APIs we can potentially make operational investments more composable.</p>
-<p>See the <a href="../developers/investigations/minimal-api-server/">investigations doc for minimal API server</a> for more on 
+<p>See the <a href="../developers/investigations/minimal-api-server/">investigations doc for minimal API server</a> for more on
   improving the composability of the Kube API server.</p>
 <h3 id="process">Process<a class="headerlink" href="#process" title="Permanent link">&para;</a></h3>
 <p>Right now we are interested in assessing how these goals fit within the larger ecosystem.</p>
@@ -4221,6 +4092,8 @@
     
     
       <script src="../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../scripts/version_banner.js"></script>
       
     
   </body>

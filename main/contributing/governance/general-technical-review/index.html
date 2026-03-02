@@ -48,6 +48,8 @@
       
     
     
+      <link rel="stylesheet" href="../../../stylesheets/version_banner.css">
+    
       <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -56,161 +58,7 @@
 
     
     
-     
-<style>
-  #version-banner {
-    display: none;
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background-color: #00bcd4;
-    color: white;
-    padding: 8px 16px;
-    text-align: center;
-    font-size: 14px;
-    line-height: 1.5;
-    z-index: 10000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  #version-banner a {
-    color: white;
-    text-decoration: underline;
-    margin-left: 8px;
-  }
-
-  #version-banner a:hover {
-    text-decoration: none;
-  }
-
-  .md-header {
-    transition: top 0.2s ease;
-  }
-</style>
-
-<script>
-  (function () {
-    "use strict";
-
-    const CONFIG = {
-      UNRELEASED_VERSION: "main",
-      RETRY_DELAY: 500,
-      HEADER_ADJUST_DELAY: 100,
-    };
-
-    function getCurrentVersion() {
-      const path = window.location.pathname;
-      const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
-      return versionMatch ? versionMatch[1] : null;
-    }
-
-    function getAvailableVersions() {
-      const versionList = document.querySelector("ul.md-version__list");
-      if (!versionList) return [];
-
-      const links = Array.from(
-        versionList.querySelectorAll("a.md-version__link")
-      );
-
-      return links
-        .map((link) => {
-          const href = link.href || link.getAttribute("href");
-          const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
-          return match ? match[1] : null;
-        })
-        .filter((v) => v && /^v\d+\.\d+/.test(v))
-        .filter((v, i, arr) => arr.indexOf(v) === i);
-    }
-
-    function getLatestVersionPath() {
-      const versions = getAvailableVersions();
-
-      const latestVersion = versions[0];
-      const currentPath = window.location.pathname;
-
-      return (
-        currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
-        `/${latestVersion}/`
-      );
-    }
-
-    function createBanner() {
-      const banner = document.createElement("div");
-      banner.id = "version-banner";
-      banner.innerHTML = `
-    <strong>You are viewing the docs for an unreleased version.</strong>
-    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
-  `;
-
-      document.body.insertBefore(banner, document.body.firstChild);
-      banner.style.display = "block";
-
-      return banner;
-    }
-
-    function updateBannerLink(banner) {
-      const link = banner.querySelector("#latest-version-link");
-      if (!link) return;
-
-      const latestPath = getLatestVersionPath();
-      link.href = latestPath;
-    }
-
-    function adjustHeader(banner) {
-      setTimeout(() => {
-        const header = document.querySelector(".md-header");
-        if (!header) return;
-
-        const bannerHeight = banner.offsetHeight;
-        const headerHeight = header.offsetHeight;
-
-        header.style.top = `${bannerHeight}px`;
-        document.documentElement.style.setProperty(
-          "--md-header-height",
-          `${bannerHeight + headerHeight}px`
-        );
-        document.documentElement.style.setProperty(
-          "--md-scroll-margin",
-          `${bannerHeight + headerHeight}px`
-        );
-      }, CONFIG.HEADER_ADJUST_DELAY);
-    }
-
-    function init() {
-      const currentVersion = getCurrentVersion();
-
-      if (currentVersion !== CONFIG.UNRELEASED_VERSION) {
-        return;
-      }
-
-      const banner = createBanner();
-      updateBannerLink(banner);
-
-      setTimeout(() => updateBannerLink(banner), CONFIG.RETRY_DELAY);
-
-      adjustHeader(banner);
-    }
-
-    function waitForDOM() {
-      if (
-        document.readyState === "complete" ||
-        document.readyState === "interactive"
-      ) {
-        console.log("DOM is ready, initializing...");
-        init();
-        return;
-      }
-
-      console.log("DOM not ready yet, checking again...");
-      setTimeout(waitForDOM, 1000);
-    }
-
-    waitForDOM();
-  })();
-</script>
-
+    
   </head>
   
   
@@ -804,6 +652,8 @@
       
         
       
+        
+      
     
     
       
@@ -943,6 +793,27 @@
   
   <span class="md-ellipsis">
     kcp-comer: Dual Front-Proxy with Edge re-encryption
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../setup/production/audit-logging/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Audit Logging
   </span>
   
 
@@ -4459,13 +4330,13 @@ Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a 
 <p><strong>Please describe the frameworks, practices and procedures the project uses to maintain the basic health and security of the project.</strong></p>
 <ul>
 <li>
-<p>Vulnerability Management: kcp has a defined security policy and a private process for reporting vulnerabilities, either through GitHub's security advisory feature or a dedicated private email address (kcp-dev-private@googlegroups.com). This allows for coordinated disclosure.   </p>
+<p>Vulnerability Management: kcp has a defined security policy and a private process for reporting vulnerabilities, either through GitHub's security advisory feature or a dedicated private email address (kcp-dev-private@googlegroups.com). This allows for coordinated disclosure.  </p>
 </li>
 <li>
-<p>Security Response Committee: A formal committee of project maintainers is responsible for triaging and responding to security reports in a timely manner.   </p>
+<p>Security Response Committee: A formal committee of project maintainers is responsible for triaging and responding to security reports in a timely manner.  </p>
 </li>
 <li>
-<p>Public Advisories: Once a vulnerability is addressed, kcp publishes public security advisories on GitHub to inform users. Past advisories for both "Critical" and "Moderate" severity issues are available, demonstrating the process is active.   </p>
+<p>Public Advisories: Once a vulnerability is addressed, kcp publishes public security advisories on GitHub to inform users. Past advisories for both "Critical" and "Moderate" severity issues are available, demonstrating the process is active.  </p>
 </li>
 <li>
 <p>Dependency Scanning: as shown in release notes, dependencies are regularly updated to address known CVEs, showing that dependency scanning is part of the release process. kcp uses GitHub's Dependabot feature to be informed about known dependency vulnerabilities.</p>
@@ -4673,44 +4544,44 @@ TODO: Uncomment and fill this part of the document when applying for Graduated.
 ### Scalability/Reliability
 
   * Describe how the project increases the size or count of existing API objects.
-  * Describe how the project defines Service Level Objectives (SLOs) and Service Level Indicators (SLIs).  
-  * Describe any operations that will increase in time covered by existing SLIs/SLOs.  
-  * Describe the increase in resource usage in any components as a result of enabling this project, to include CPU, Memory, Storage, Throughput.  
-  * Describe which conditions enabling / using this project would result in resource exhaustion of some node resources (PIDs, sockets, inodes, etc.)  
-  * Describe the load testing that has been performed on the project and the results.  
-  * Describe the recommended limits of users, requests, system resources, etc. and how they were obtained.  
+  * Describe how the project defines Service Level Objectives (SLOs) and Service Level Indicators (SLIs).
+  * Describe any operations that will increase in time covered by existing SLIs/SLOs.
+  * Describe the increase in resource usage in any components as a result of enabling this project, to include CPU, Memory, Storage, Throughput.
+  * Describe which conditions enabling / using this project would result in resource exhaustion of some node resources (PIDs, sockets, inodes, etc.)
+  * Describe the load testing that has been performed on the project and the results.
+  * Describe the recommended limits of users, requests, system resources, etc. and how they were obtained.
   * Describe which resilience pattern the project uses and how, including the circuit breaker pattern.
 
 ### Observability Requirements
 
-  * Describe the signals the project is using or producing, including logs, metrics, profiles and traces. Please include supported formats, recommended configurations and data storage.  
-  * Describe how the project captures audit logging.  
-  * Describe any dashboards the project uses or implements as well as any dashboard requirements.  
-  * Describe how the project surfaces project resource requirements for adopters to monitor cloud and infrastructure costs, e.g. FinOps  
-  * Which parameters is the project covering to ensure the health of the application/service and its workloads?  
-  * How can an operator determine if the project is in use by workloads?  
-  * How can someone using this project know that it is working for their instance?  
+  * Describe the signals the project is using or producing, including logs, metrics, profiles and traces. Please include supported formats, recommended configurations and data storage.
+  * Describe how the project captures audit logging.
+  * Describe any dashboards the project uses or implements as well as any dashboard requirements.
+  * Describe how the project surfaces project resource requirements for adopters to monitor cloud and infrastructure costs, e.g. FinOps
+  * Which parameters is the project covering to ensure the health of the application/service and its workloads?
+  * How can an operator determine if the project is in use by workloads?
+  * How can someone using this project know that it is working for their instance?
   * Describe the SLOs (Service Level Objectives) for this project.
   * What are the SLIs (Service Level Indicators) an operator can use to determine the health of the service?
 
 ### Dependencies
 
-  * Describe the specific running services the project depends on in the cluster.  
-  * Describe the project’s dependency lifecycle policy.  
+  * Describe the specific running services the project depends on in the cluster.
+  * Describe the project’s dependency lifecycle policy.
   * How does the project incorporate and consider source composition analysis as part of its development and security hygiene? Describe how this source composition analysis (SCA) is tracked.
   * Describe how the project implements changes based on source composition analysis (SCA) and the timescale.
 
 ### Troubleshooting
 
-  * How does this project recover if a key component or feature becomes unavailable? e.g Kubernetes API server, etcd, database, leader node, etc.  
+  * How does this project recover if a key component or feature becomes unavailable? e.g Kubernetes API server, etcd, database, leader node, etc.
   * Describe the known failure modes.
 
 ### Security
 
-  * Security Hygiene  
-    * How is the project executing access control?  
-  * Cloud Native Threat Modeling  
-    * How does the project ensure its security reporting and response team is representative of its community diversity (organizational and individual)?  
+  * Security Hygiene
+    * How is the project executing access control?
+  * Cloud Native Threat Modeling
+    * How does the project ensure its security reporting and response team is representative of its community diversity (organizational and individual)?
     * How does the project invite and rotate security reporting team members?
 
 -->
@@ -4810,6 +4681,8 @@ TODO: Uncomment and fill this part of the document when applying for Graduated.
     
     
       <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../../scripts/version_banner.js"></script>
       
     
   </body>

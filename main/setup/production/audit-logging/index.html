@@ -14,10 +14,10 @@
         <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/production/audit-logging/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../kcp-comer/">
       
       
-        <link rel="next" href="../kcp-comer/">
+        <link rel="next" href="../../../concepts/">
       
       
       <link rel="icon" href="../../../favicons/favicon.ico">
@@ -51,6 +51,8 @@
       
     
     
+      <link rel="stylesheet" href="../../../stylesheets/version_banner.css">
+    
       <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -59,161 +61,7 @@
 
     
     
-     
-<style>
-  #version-banner {
-    display: none;
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background-color: #00bcd4;
-    color: white;
-    padding: 8px 16px;
-    text-align: center;
-    font-size: 14px;
-    line-height: 1.5;
-    z-index: 10000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  #version-banner a {
-    color: white;
-    text-decoration: underline;
-    margin-left: 8px;
-  }
-
-  #version-banner a:hover {
-    text-decoration: none;
-  }
-
-  .md-header {
-    transition: top 0.2s ease;
-  }
-</style>
-
-<script>
-  (function () {
-    "use strict";
-
-    const CONFIG = {
-      UNRELEASED_VERSION: "main",
-      RETRY_DELAY: 500,
-      HEADER_ADJUST_DELAY: 100,
-    };
-
-    function getCurrentVersion() {
-      const path = window.location.pathname;
-      const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
-      return versionMatch ? versionMatch[1] : null;
-    }
-
-    function getAvailableVersions() {
-      const versionList = document.querySelector("ul.md-version__list");
-      if (!versionList) return [];
-
-      const links = Array.from(
-        versionList.querySelectorAll("a.md-version__link")
-      );
-
-      return links
-        .map((link) => {
-          const href = link.href || link.getAttribute("href");
-          const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
-          return match ? match[1] : null;
-        })
-        .filter((v) => v && /^v\d+\.\d+/.test(v))
-        .filter((v, i, arr) => arr.indexOf(v) === i);
-    }
-
-    function getLatestVersionPath() {
-      const versions = getAvailableVersions();
-
-      const latestVersion = versions[0];
-      const currentPath = window.location.pathname;
-
-      return (
-        currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
-        `/${latestVersion}/`
-      );
-    }
-
-    function createBanner() {
-      const banner = document.createElement("div");
-      banner.id = "version-banner";
-      banner.innerHTML = `
-    <strong>You are viewing the docs for an unreleased version.</strong>
-    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
-  `;
-
-      document.body.insertBefore(banner, document.body.firstChild);
-      banner.style.display = "block";
-
-      return banner;
-    }
-
-    function updateBannerLink(banner) {
-      const link = banner.querySelector("#latest-version-link");
-      if (!link) return;
-
-      const latestPath = getLatestVersionPath();
-      link.href = latestPath;
-    }
-
-    function adjustHeader(banner) {
-      setTimeout(() => {
-        const header = document.querySelector(".md-header");
-        if (!header) return;
-
-        const bannerHeight = banner.offsetHeight;
-        const headerHeight = header.offsetHeight;
-
-        header.style.top = `${bannerHeight}px`;
-        document.documentElement.style.setProperty(
-          "--md-header-height",
-          `${bannerHeight + headerHeight}px`
-        );
-        document.documentElement.style.setProperty(
-          "--md-scroll-margin",
-          `${bannerHeight + headerHeight}px`
-        );
-      }, CONFIG.HEADER_ADJUST_DELAY);
-    }
-
-    function init() {
-      const currentVersion = getCurrentVersion();
-
-      if (currentVersion !== CONFIG.UNRELEASED_VERSION) {
-        return;
-      }
-
-      const banner = createBanner();
-      updateBannerLink(banner);
-
-      setTimeout(() => updateBannerLink(banner), CONFIG.RETRY_DELAY);
-
-      adjustHeader(banner);
-    }
-
-    function waitForDOM() {
-      if (
-        document.readyState === "complete" ||
-        document.readyState === "interactive"
-      ) {
-        console.log("DOM is ready, initializing...");
-        init();
-        return;
-      }
-
-      console.log("DOM not ready yet, checking again...");
-      setTimeout(waitForDOM, 1000);
-    }
-
-    waitForDOM();
-  })();
-</script>
-
+    
   </head>
   
   
@@ -812,6 +660,8 @@
       
         
       
+        
+      
     
     
       
@@ -953,6 +803,271 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Audit Logging
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Audit Logging
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#audit-event-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Audit Event Annotations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Audit Event Annotations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#kcpiopath" class="md-nav__link">
+    <span class="md-ellipsis">
+      kcp.io/path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tenancykcpioworkspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      tenancy.kcp.io/workspace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kcpiocluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      kcp.io/cluster
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-audit-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Audit Event
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-workspace-audit-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-Workspace Audit Logging
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-Workspace Audit Logging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setting-up-cross-workspace-event-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting Up Cross-Workspace Event Logging
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Up Cross-Workspace Event Logging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-create-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Create Workspaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-create-apiresourceschema-and-apiexport" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Create APIResourceSchema and APIExport
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-create-apibinding-in-consumer-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Create APIBinding in Consumer Workspace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-configure-audit-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Configure Audit Policy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-access-resources-via-virtual-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Access Resources via Virtual Workspace
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-6-verify-audit-logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 6: Verify Audit Logs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#enabling-audit-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enabling Audit Logging
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Enabling Audit Logging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Setup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Required Flags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-audit-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Audit Policy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete Example
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -4196,7 +4311,7 @@
 </code></pre></div>
 <p>This command lists configmaps in the <code>default</code> namespace within the <code>root:consumer:production</code> workspace, which triggers the audit event with the workspace annotations shown in the example.</p>
 <h2 id="cross-workspace-audit-logging">Cross-Workspace Audit Logging<a class="headerlink" href="#cross-workspace-audit-logging" title="Permanent link">&para;</a></h2>
-<p>The workspace path annotations (<code>kcp.io/path</code>, <code>tenancy.kcp.io/workspace</code>) are especially important when accessing resources across workspaces via <a href="/docs/concepts/apis/">APIExport and APIBinding</a>. When you claim resources from another workspace through an APIBinding, audit events are generated for the consumer workspace, allowing you to track which workspace is accessing which resources.</p>
+<p>The workspace path annotations (<code>kcp.io/path</code>, <code>tenancy.kcp.io/workspace</code>) are especially important when accessing resources across workspaces via <a href="../../../concepts/apis/">APIExport and APIBinding</a>. When you claim resources from another workspace through an APIBinding, audit events are generated for the consumer workspace, allowing you to track which workspace is accessing which resources.</p>
 <h3 id="setting-up-cross-workspace-event-logging">Setting Up Cross-Workspace Event Logging<a class="headerlink" href="#setting-up-cross-workspace-event-logging" title="Permanent link">&para;</a></h3>
 <p>This example demonstrates how to set up cross-workspace access and verify that audit logs include workspace path annotations.</p>
 <h4 id="step-1-create-workspaces">Step 1: Create Workspaces<a class="headerlink" href="#step-1-create-workspaces" title="Permanent link">&para;</a></h4>
@@ -4507,6 +4622,8 @@
     
     
       <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../../scripts/version_banner.js"></script>
       
     
   </body>

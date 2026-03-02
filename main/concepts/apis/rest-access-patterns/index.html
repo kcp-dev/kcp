@@ -51,6 +51,8 @@
       
     
     
+      <link rel="stylesheet" href="../../../stylesheets/version_banner.css">
+    
       <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
     <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -59,161 +61,7 @@
 
     
     
-     
-<style>
-  #version-banner {
-    display: none;
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    background-color: #00bcd4;
-    color: white;
-    padding: 8px 16px;
-    text-align: center;
-    font-size: 14px;
-    line-height: 1.5;
-    z-index: 10000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  #version-banner a {
-    color: white;
-    text-decoration: underline;
-    margin-left: 8px;
-  }
-
-  #version-banner a:hover {
-    text-decoration: none;
-  }
-
-  .md-header {
-    transition: top 0.2s ease;
-  }
-</style>
-
-<script>
-  (function () {
-    "use strict";
-
-    const CONFIG = {
-      UNRELEASED_VERSION: "main",
-      RETRY_DELAY: 500,
-      HEADER_ADJUST_DELAY: 100,
-    };
-
-    function getCurrentVersion() {
-      const path = window.location.pathname;
-      const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
-      return versionMatch ? versionMatch[1] : null;
-    }
-
-    function getAvailableVersions() {
-      const versionList = document.querySelector("ul.md-version__list");
-      if (!versionList) return [];
-
-      const links = Array.from(
-        versionList.querySelectorAll("a.md-version__link")
-      );
-
-      return links
-        .map((link) => {
-          const href = link.href || link.getAttribute("href");
-          const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
-          return match ? match[1] : null;
-        })
-        .filter((v) => v && /^v\d+\.\d+/.test(v))
-        .filter((v, i, arr) => arr.indexOf(v) === i);
-    }
-
-    function getLatestVersionPath() {
-      const versions = getAvailableVersions();
-
-      const latestVersion = versions[0];
-      const currentPath = window.location.pathname;
-
-      return (
-        currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
-        `/${latestVersion}/`
-      );
-    }
-
-    function createBanner() {
-      const banner = document.createElement("div");
-      banner.id = "version-banner";
-      banner.innerHTML = `
-    <strong>You are viewing the docs for an unreleased version.</strong>
-    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
-  `;
-
-      document.body.insertBefore(banner, document.body.firstChild);
-      banner.style.display = "block";
-
-      return banner;
-    }
-
-    function updateBannerLink(banner) {
-      const link = banner.querySelector("#latest-version-link");
-      if (!link) return;
-
-      const latestPath = getLatestVersionPath();
-      link.href = latestPath;
-    }
-
-    function adjustHeader(banner) {
-      setTimeout(() => {
-        const header = document.querySelector(".md-header");
-        if (!header) return;
-
-        const bannerHeight = banner.offsetHeight;
-        const headerHeight = header.offsetHeight;
-
-        header.style.top = `${bannerHeight}px`;
-        document.documentElement.style.setProperty(
-          "--md-header-height",
-          `${bannerHeight + headerHeight}px`
-        );
-        document.documentElement.style.setProperty(
-          "--md-scroll-margin",
-          `${bannerHeight + headerHeight}px`
-        );
-      }, CONFIG.HEADER_ADJUST_DELAY);
-    }
-
-    function init() {
-      const currentVersion = getCurrentVersion();
-
-      if (currentVersion !== CONFIG.UNRELEASED_VERSION) {
-        return;
-      }
-
-      const banner = createBanner();
-      updateBannerLink(banner);
-
-      setTimeout(() => updateBannerLink(banner), CONFIG.RETRY_DELAY);
-
-      adjustHeader(banner);
-    }
-
-    function waitForDOM() {
-      if (
-        document.readyState === "complete" ||
-        document.readyState === "interactive"
-      ) {
-        console.log("DOM is ready, initializing...");
-        init();
-        return;
-      }
-
-      console.log("DOM not ready yet, checking again...");
-      setTimeout(waitForDOM, 1000);
-    }
-
-    waitForDOM();
-  })();
-</script>
-
+    
   </head>
   
   
@@ -807,6 +655,8 @@
       
         
       
+        
+      
     
     
       
@@ -946,6 +796,27 @@
   
   <span class="md-ellipsis">
     kcp-comer: Dual Front-Proxy with Edge re-encryption
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../setup/production/audit-logging/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Audit Logging
   </span>
   
 
@@ -4041,15 +3912,15 @@
 <h2 id="typical-requests-for-resources-in-a-workspace">Typical requests for resources in a workspace<a class="headerlink" href="#typical-requests-for-resources-in-a-workspace" title="Permanent link">&para;</a></h2>
 <p>These requests are all prefixed with <code>/clusters/&lt;workspace path | logical cluster name&gt;</code>. Here are some example URLs:</p>
 <ul>
-<li><code>GET /clusters/root/apis/tenancy.kcp.io/v1alpha1/workspaces</code> - lists all kcp Workspaces in the 
+<li><code>GET /clusters/root/apis/tenancy.kcp.io/v1alpha1/workspaces</code> - lists all kcp Workspaces in the
   <code>root</code> workspace.</li>
 <li><code>GET /clusters/root:compute/api/v1/namespaces/test</code> - gets the namespace <code>test</code> from the <code>root:compute</code> workspace</li>
-<li><code>GET /clusters/yqzkjxmzl9turgsf/api/v1/namespaces/test</code> - same as above, using the logical cluster name for 
+<li><code>GET /clusters/yqzkjxmzl9turgsf/api/v1/namespaces/test</code> - same as above, using the logical cluster name for
   <code>root:compute</code></li>
 </ul>
 <h2 id="typical-requests-for-resources-through-the-apiexport-virtual-workspace">Typical requests for resources through the APIExport virtual workspace<a class="headerlink" href="#typical-requests-for-resources-through-the-apiexport-virtual-workspace" title="Permanent link">&para;</a></h2>
-<p>An APIExport provides a view into workspaces that contain APIBindings that are bound to the APIExport. This allows 
-the service provider - the owner of the APIExport - to access data in its consumers' workspaces. Here is an example 
+<p>An APIExport provides a view into workspaces that contain APIBindings that are bound to the APIExport. This allows
+the service provider - the owner of the APIExport - to access data in its consumers' workspaces. Here is an example
 APIExport virtual workspace URL:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/services/apiexport/root:my-ws/my-service/clusters/root:consumer-1/apis/example.kcp.io/v1/widgets
 </code></pre></div>
@@ -4085,12 +3956,12 @@ APIExport virtual workspace URL:</p>
 </tbody>
 </table>
 <h2 id="setting-up-shared-informers-for-a-virtual-workspace">Setting up shared informers for a virtual workspace<a class="headerlink" href="#setting-up-shared-informers-for-a-virtual-workspace" title="Permanent link">&para;</a></h2>
-<p>A virtual workspace typically allows the service provider to set up shared informers that can list and watch 
-resources across all the consumer workspaces bound to or supported by the virtual workspace. For example, the 
-APIExport virtual workspace lets you inform across all workspaces that have an APIBinding to your APIExport. The 
-syncer virtual workspace lets a syncer inform across all workspaces that have a Placement on the syncer's associated 
+<p>A virtual workspace typically allows the service provider to set up shared informers that can list and watch
+resources across all the consumer workspaces bound to or supported by the virtual workspace. For example, the
+APIExport virtual workspace lets you inform across all workspaces that have an APIBinding to your APIExport. The
+syncer virtual workspace lets a syncer inform across all workspaces that have a Placement on the syncer's associated
 SyncTarget.</p>
-<p>To set up shared informers to span multiple workspaces, you use a special cluster called the <strong>wildcard cluster</strong>, 
+<p>To set up shared informers to span multiple workspaces, you use a special cluster called the <strong>wildcard cluster</strong>,
 denoted by <code>*</code>. An example URL you would use when constructing a shared informer in this manner might be:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>/services/apiexport/root:my-ws/my-service/clusters/*/api/v1/configmaps
 </code></pre></div>
@@ -4193,6 +4064,8 @@ denoted by <code>*</code>. An example URL you would use when constructing a shar
     
     
       <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+        <script src="../../../scripts/version_banner.js"></script>
       
     
   </body>
