@@ -1712,7 +1712,7 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha1().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
