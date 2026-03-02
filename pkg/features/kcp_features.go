@@ -106,7 +106,7 @@ func featureSpecAtEmulationVersion(v featuregate.VersionedSpecs, emulationVersio
 }
 
 func (f *kcpFeatureGate) String() string {
-	pairs := []string{}
+	pairs := make([]string, 0, len(defaultVersionedGenericControlPlaneFeatureGates))
 	emulatedVersion := utilfeature.DefaultMutableFeatureGate.EmulationVersion()
 
 	for featureName, versionedSpecs := range defaultVersionedGenericControlPlaneFeatureGates {

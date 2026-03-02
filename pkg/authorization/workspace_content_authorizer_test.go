@@ -329,13 +329,14 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			globalKubeClient := kcpfakeclient.NewSimpleClientset() // TODO(sttts): add some global fixtures
 			local := kcpkubernetesinformers.NewSharedInformerFactory(localKubeClient, controller.NoResyncPeriodFunc())
 			global := kcpkubernetesinformers.NewSharedInformerFactory(globalKubeClient, controller.NoResyncPeriodFunc())
-			var syncs []cache.InformerSynced
-			for _, inf := range []cache.SharedIndexInformer{
+			informers := []cache.SharedIndexInformer{
 				local.Rbac().V1().ClusterRoles().Informer(),
 				local.Rbac().V1().ClusterRoleBindings().Informer(),
 				global.Rbac().V1().ClusterRoles().Informer(),
 				global.Rbac().V1().ClusterRoleBindings().Informer(),
-			} {
+			}
+			syncs := make([]cache.InformerSynced, 0, len(informers))
+			for _, inf := range informers {
 				go inf.Run(ctx.Done())
 				syncs = append(syncs, inf.HasSynced)
 			}

@@ -58,9 +58,5 @@ func (o *Options) Complete() error {
 }
 
 func (o *Options) Validate() []error {
-	var errs []error
-
-	errs = append(errs, o.Proxy.Validate()...)
-
-	return errs
+	return o.Proxy.Validate()
 }

@@ -355,7 +355,7 @@ func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.O
 }
 
 func apiConfigurationKey(apiDefs apidefinition.APIDefinitionSet) (string, error) {
-	var buf bytes.Buffer
+	buf := &bytes.Buffer{}
 
 	keys := make([]schema.GroupVersionResource, 0, len(apiDefs))
 	for k := range apiDefs {
@@ -375,12 +375,12 @@ func apiConfigurationKey(apiDefs apidefinition.APIDefinitionSet) (string, error)
 		}
 
 		if !firstAPIDef {
-			buf.WriteRune(';')
+			buf.WriteByte(';')
 		}
 
 		buf.WriteString(apiDefSchema.Name)
-		buf.WriteRune(':')
-		buf.WriteString(fmt.Sprintf("%X", sha512.Sum512(bs)))
+		buf.WriteByte(':')
+		fmt.Fprintf(buf, "%X", sha512.Sum512(bs))
 
 		firstAPIDef = false
 	}

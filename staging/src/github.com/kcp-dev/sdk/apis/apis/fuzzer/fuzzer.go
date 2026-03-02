@@ -76,8 +76,8 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				group := nonEmptyString(c.String)
 				resource := nonEmptyString(c.String)
 				identityHash := nonEmptyString(c.String)
-				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
+				verbs := make([]string, 0, numVerbs)
 				for range numVerbs {
 					verbs = append(verbs, nonEmptyString(c.String))
 				}
@@ -190,8 +190,8 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				group := nonEmptyString(c.String)
 				resource := nonEmptyString(c.String)
 				identityHash := nonEmptyString(c.String)
-				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
+				verbs := make([]string, 0, numVerbs)
 				for range numVerbs {
 					verbs = append(verbs, nonEmptyString(c.String))
 				}
@@ -210,7 +210,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 					selector.MatchLabels = labels
 				default:
 					numExpressions := c.Intn(5) + 1
-					expressions := make([]metav1.LabelSelectorRequirement, numExpressions)
+					expressions := make([]metav1.LabelSelectorRequirement, 0, numExpressions)
 					for range numExpressions {
 						expressions = append(expressions, metav1.LabelSelectorRequirement{
 							Key:      nonEmptyString(c.String),
@@ -246,8 +246,8 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				group := nonEmptyString(c.String)
 				resource := nonEmptyString(c.String)
 				identityHash := nonEmptyString(c.String)
-				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
+				verbs := make([]string, 0, numVerbs)
 				for range numVerbs {
 					verbs = append(verbs, nonEmptyString(c.String))
 				}
@@ -266,7 +266,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 					selector.MatchLabels = labels
 				default:
 					numExpressions := c.Intn(5) + 1
-					expressions := make([]metav1.LabelSelectorRequirement, numExpressions)
+					expressions := make([]metav1.LabelSelectorRequirement, 0, numExpressions)
 					for range numExpressions {
 						expressions = append(expressions, metav1.LabelSelectorRequirement{
 							Key:      nonEmptyString(c.String),
@@ -296,8 +296,8 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 				group := nonEmptyString(c.String)
 				resource := nonEmptyString(c.String)
 				identityHash := nonEmptyString(c.String)
-				verbs := []string{}
 				numVerbs := c.Intn(5) + 1 // the lower bound is 0, but 0 verbs is not a valid combination
+				verbs := make([]string, 0, numVerbs)
 				for range numVerbs {
 					verbs = append(verbs, nonEmptyString(c.String))
 				}

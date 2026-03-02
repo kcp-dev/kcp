@@ -168,7 +168,7 @@ func TestValidateAPIBindingPermissionClaims(t *testing.T) {
 			got := ValidateAPIBindingPermissionClaims(tc.permissionClaims, field.NewPath("spec", "permissionClaims"))
 
 			// Convert FieldErrors into a string slice
-			errs := []string{}
+			errs := make([]string, 0, len(got))
 			for _, err := range got {
 				errs = append(errs, err.Error())
 			}

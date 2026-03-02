@@ -128,8 +128,9 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 			return err
 		}
 		defer f.Close()
+		fd := int(f.Fd()) //nolint:gosec // the conversion uintpr -> int is fine here
 		// lock config file exclusively, blocks all other producers until unlocked or process (test) exits
-		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+		err = syscall.Flock(fd, syscall.LOCK_EX)
 		if err != nil {
 			return err
 		}
@@ -165,7 +166,7 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 		if err != nil {
 			return err
 		}
-		return syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		return syscall.Flock(fd, syscall.LOCK_UN)
 	}()
 	if err != nil {
 		return err
@@ -217,12 +218,13 @@ func CleanupScrapeMetrics(ctx context.Context, promUrl, promCfgDir, jobNamePrefi
 		defer f.Close()
 
 		// lock config file exclusively
-		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+		fd := int(f.Fd()) //nolint:gosec // the conversion uintpr -> int is fine here
+		err = syscall.Flock(fd, syscall.LOCK_EX)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+			_ = syscall.Flock(fd, syscall.LOCK_UN)
 		}()
 
 		promCfg := config{}

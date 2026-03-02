@@ -293,7 +293,7 @@ func TestCachedResources(t *testing.T) {
 	resourceCounters := map[string]*int32{
 		"sheriffs": ptr.To[int32](0),
 	}
-	var watchStopFuncs []func()
+	watchStopFuncs := make([]func(), 0, len(apiExportVWClientConfigs)*len(resourceCounters))
 	defer func() {
 		for _, stop := range watchStopFuncs {
 			stop()

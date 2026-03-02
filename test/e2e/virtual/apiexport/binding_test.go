@@ -1059,7 +1059,7 @@ func testSecretMapWithLabels(num int, labels map[string]string) *corev1.Secret {
 }
 
 func permissionClaimsToAcceptable(permissionClaims []apisv1alpha2.PermissionClaim, modifiers ...func([]apisv1alpha2.AcceptablePermissionClaim)) []apisv1alpha2.AcceptablePermissionClaim {
-	acceptablePermissionClaims := []apisv1alpha2.AcceptablePermissionClaim{}
+	acceptablePermissionClaims := make([]apisv1alpha2.AcceptablePermissionClaim, 0, len(permissionClaims))
 	for _, pc := range permissionClaims {
 		acceptablePermissionClaims = append(acceptablePermissionClaims, apisv1alpha2.AcceptablePermissionClaim{
 			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
