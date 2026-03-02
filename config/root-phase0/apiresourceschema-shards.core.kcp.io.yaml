@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v240903-d6797056a.shards.core.kcp.io
+  name: v260302-ae9fdd9c1.shards.core.kcp.io
 spec:
   group: core.kcp.io
   names:
