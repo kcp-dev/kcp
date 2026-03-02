@@ -29,7 +29,7 @@ description: >
     1. If your git remote for kcp-dev/kcp is named something other than `upstream`, change `REF` accordingly
     2. If you are creating a release from a release branch, change `main` in `REF` accordingly, or you can
        make `REF` a commit hash.
-       
+
        ```shell
        REF=upstream/main
        TAG=<tag> # e.g. v1.2.3
@@ -114,7 +114,7 @@ release-notes \
   --branch main \
   --start-rev $PREV_TAG \
   --end-rev $TAG \
-  --output CHANGELOG.md 
+  --output CHANGELOG.md
 ```
 
 Don't commit the `CHANGELOG.md` to the repository, just keep it around to update the release on GitHub (next step).

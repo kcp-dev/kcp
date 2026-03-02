@@ -56,4 +56,3 @@ Then, to have your test use that shared kcp server, you add `-args --use-default
 ```shell
 go test ./test/e2e/apibinding -count 20 -failfast -args --use-default-kcp-server
 ```
-

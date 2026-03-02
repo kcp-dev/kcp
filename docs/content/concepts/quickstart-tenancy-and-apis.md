@@ -108,7 +108,7 @@ NAME   TYPE        PHASE   URL
 b      universal   Ready   https://myhost:6443/clusters/root:a:b
 ```
 
-Here is a quick collection of commands showing the navigation between the workspaces you've just created. 
+Here is a quick collection of commands showing the navigation between the workspaces you've just created.
 Note the usage of `..` to switch to the parent workspace and `-` to the previously selected workspace.
 
 ```console

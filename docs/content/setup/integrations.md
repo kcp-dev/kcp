@@ -174,4 +174,3 @@ workspaces             ws   tenancy.kcp.io/v1alpha1   false   Workspace
 logicalclusters             core.kcp.io/v1alpha1     false   LogicalCluster
 ...
 ```
-

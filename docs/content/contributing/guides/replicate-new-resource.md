@@ -7,7 +7,7 @@ description: >
 
 As of today adding a new resource for replication is a manual process that consists of the following steps:
 
-1. You need to register a new CRD in the cache server. 
+1. You need to register a new CRD in the cache server.
    Registration is required otherwise the cache server won’t be able to serve the new resource.
    It boils down to adding a new entry into [an array](https://github.com/kcp-dev/kcp/blob/53fdaf580d46686686871f77e4a629bc3c234051/pkg/cache/server/bootstrap/bootstrap.go#L46).
    If you don’t have a CRD definition file for your type, you can use [the crdpuller](https://github.com/kcp-dev/kcp/tree/53fdaf580d46686686871f77e4a629bc3c234051/cmd/crd-puller) against any kube-apiserver to create the required manifest.

@@ -8,7 +8,7 @@ description: >
 Before deploying any kcp production variant, you must install shared components that all deployments depend on. This guide covers the installation and configuration of these foundational components.
 
 - A Kubernetes cluster with sufficient resources
-- `kubectl` configured to access your cluster  
+- `kubectl` configured to access your cluster
 - `helm` CLI tool installed
 - DNS management capability (manual or automated)
 - (Optional) CloudFlare account for DNS01 challenges
@@ -18,7 +18,7 @@ Before deploying any kcp production variant, you must install shared components 
 All kcp production deployments require:
 
 1. **etcd-druid operator** - Database storage management
-2. **cert-manager** - Certificate lifecycle management  
+2. **cert-manager** - Certificate lifecycle management
 3. **kcp-operator** - kcp resource lifecycle management
 4. **OIDC provider (dex)** - Authentication services
 5. **DNS configuration** - Domain name resolution
@@ -72,7 +72,7 @@ Optional:
 We gonna use the CloudFlare DNS01 challenge solver for Let's Encrypt certificates in some deployment variants. If you plan to use CloudFlare, install the cert-manager CloudFlare DNS01 solver:
 
 ```bash
-cp contrib/production/cert-manager/cluster-issuer.yaml.template contrib/production/cert-manager/cluster-issuer.yaml        
+cp contrib/production/cert-manager/cluster-issuer.yaml.template contrib/production/cert-manager/cluster-issuer.yaml
 # Edit contrib/production/cert-manager/cluster-issuer.yaml to add your Email.
 kubectl apply -f contrib/production/cert-manager/cluster-issuer.yaml
 
@@ -142,7 +142,7 @@ helm upgrade -i dex dex/dex \
   --create-namespace \
   --namespace oidc \
   -f contrib/production/oidc-dex/values.yaml
-``` 
+```
 
 ### 5. DNS Configuration
 
@@ -156,7 +156,7 @@ api.dekker.example.com → LoadBalancer IP
 #### kcp-vespucci (External Certs)
 ```
 api.vespucci.example.com → LoadBalancer IP
-root.vespucci.example.com → LoadBalancer IP  
+root.vespucci.example.com → LoadBalancer IP
 alpha.vespucci.example.com → LoadBalancer IP
 beta.vespucci.example.com → LoadBalancer IP - remote
 ```
@@ -187,7 +187,7 @@ Minimum recommended resources for shared components:
 | Component | CPU | Memory | Storage |
 |-----------|-----|--------|---------|
 | etcd-druid | 100m | 128Mi | - |
-| cert-manager | 100m | 128Mi | - |  
+| cert-manager | 100m | 128Mi | - |
 | kcp-operator | 100m | 128Mi | - |
 | dex | 100m | 64Mi | - |
 | **Total** | **400m** | **448Mi** | - |

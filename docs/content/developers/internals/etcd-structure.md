@@ -4,7 +4,7 @@ description: Changes kcp has made to etcd storage paths.
 
 # etcd structure
 
-kcp has made some changes to etcd storage paths to support logical clusters and APIExport identities. Please see 
+kcp has made some changes to etcd storage paths to support logical clusters and APIExport identities. Please see
 below for details.
 
 ## Built-in APIs
@@ -55,7 +55,7 @@ Let's break down the segments in the etcd path for this example APIBinding insta
 
 ## "Bound" custom resource instances
 
-Custom resource instances for an API provided by an APIExport, bound by an APIBinding, use the following storage 
+Custom resource instances for an API provided by an APIExport, bound by an APIBinding, use the following storage
 path structure:
 
 ```

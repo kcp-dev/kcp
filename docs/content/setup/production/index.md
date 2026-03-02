@@ -8,7 +8,7 @@ description: >
 This document provides comprehensive guidance for deploying kcp in production environments with enterprise-grade reliability, security, and scalability. If you are looking "hands on" deployment instructions, please refer to the specific deployment variant guides linked below [#deployment-variants](#deployment-variants).
 
 !!! note
-    We are working on extending this documentation further, to include multiple site deployment, where indivudual shards are deployed in the different regions. 
+    We are working on extending this documentation further, to include multiple site deployment, where indivudual shards are deployed in the different regions.
     This would allow for geo-distributed deployments to mimic real-world usage scenarios.
 
 ## Overview
@@ -144,7 +144,7 @@ See [Audit Logging](audit-logging.md) for details on the annotations (`kcp.io/pa
 For specific deployment instructions, kcp production deployments require careful consideration of:
 
 - **Certificate Management**: Self-signed, Let's Encrypt, or enterprise CA integration
-- **High Availability**: Multi-shard deployment with proper load distribution  
+- **High Availability**: Multi-shard deployment with proper load distribution
 - **Network Architecture**: Front-proxy configuration and shard accessibility patterns
 - **Security**: TLS encryption, RBAC, and authentication integration
 - **Observability**: Monitoring, logging, and alerting
@@ -159,7 +159,7 @@ We provide three reference deployment patterns:
 - **Access pattern**: Only front-proxy is publicly accessible, shards are private
 - **Network**: Simple single-cluster deployment
 
-### [kcp-vespucci](kcp-vespucci.md) - External Certificates  
+### [kcp-vespucci](kcp-vespucci.md) - External Certificates
 - **Best for**: Production environments requiring trusted certificates
 - **Certificate approach**: Let's Encrypt for front-proxy, self-signed certificates for shards
 - **Access pattern**: Both front-proxy and shards are publicly accessible
@@ -180,7 +180,7 @@ We provide three reference deployment patterns:
 ## Getting Started
 
 1. **[Prerequisites](prerequisites.md)**: Install shared components (etcd-druid, cert-manager, kcp-operator, OIDC)
-2. **[Architecture Overview](overview.md)**: Understand kcp component communication patterns  
+2. **[Architecture Overview](overview.md)**: Understand kcp component communication patterns
 3. **Choose Deployment**: Select the appropriate variant for your environment
 
 ## Support Matrix

@@ -71,7 +71,7 @@ This command lists configmaps in the `default` namespace within the `root:consum
 
 ## Cross-Workspace Audit Logging
 
-The workspace path annotations (`kcp.io/path`, `tenancy.kcp.io/workspace`) are especially important when accessing resources across workspaces via [APIExport and APIBinding](/docs/concepts/apis/). When you claim resources from another workspace through an APIBinding, audit events are generated for the consumer workspace, allowing you to track which workspace is accessing which resources.
+The workspace path annotations (`kcp.io/path`, `tenancy.kcp.io/workspace`) are especially important when accessing resources across workspaces via [APIExport and APIBinding](../../concepts/apis/index.md). When you claim resources from another workspace through an APIBinding, audit events are generated for the consumer workspace, allowing you to track which workspace is accessing which resources.
 
 ### Setting Up Cross-Workspace Event Logging
 

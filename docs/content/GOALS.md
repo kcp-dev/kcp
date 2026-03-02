@@ -44,7 +44,7 @@ Not every idea below may bear fruit, but it's never the wrong time to look for n
 
   Finally, the bar is still high to writing controllers. Lowering the friction of automation and integration is in everyone's benefit - whether that's a bash script, a Terraform configuration, or custom SRE services.  If we can reduce the cost of both infrastructure as code and new infrastructure APIs we can potentially make operational investments more composable.
 
-  See the [investigations doc for minimal API server](./developers/investigations/minimal-api-server.md) for more on 
+  See the [investigations doc for minimal API server](./developers/investigations/minimal-api-server.md) for more on
   improving the composability of the Kube API server.
 
 
@@ -79,4 +79,3 @@ Principles are the high level guiding rules we'd like to frame designs around. T
 6. Consolidate efforts in the ecosystem into a more focused effort
 
     Kubernetes is mature and changes to the core happen slowly. By concentrating use cases among a number of participants we can better articulate common needs, focus the design time spent in the core project into a smaller set of efforts, and bring new investment into common shared problems strategically. We should make fast progress and be able to suggest high-impact changes without derailing other important Kubernetes initiatives.
-
