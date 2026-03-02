@@ -11,16 +11,16 @@ This describes the various REST access patterns the kcp apiserver supports.
 
 These requests are all prefixed with `/clusters/<workspace path | logical cluster name>`. Here are some example URLs:
 
-- `GET /clusters/root/apis/tenancy.kcp.io/v1alpha1/workspaces` - lists all kcp Workspaces in the 
+- `GET /clusters/root/apis/tenancy.kcp.io/v1alpha1/workspaces` - lists all kcp Workspaces in the
   `root` workspace.
 - `GET /clusters/root:compute/api/v1/namespaces/test` - gets the namespace `test` from the `root:compute` workspace
-- `GET /clusters/yqzkjxmzl9turgsf/api/v1/namespaces/test` - same as above, using the logical cluster name for 
+- `GET /clusters/yqzkjxmzl9turgsf/api/v1/namespaces/test` - same as above, using the logical cluster name for
   `root:compute`
 
 ## Typical requests for resources through the APIExport virtual workspace
 
-An APIExport provides a view into workspaces that contain APIBindings that are bound to the APIExport. This allows 
-the service provider - the owner of the APIExport - to access data in its consumers' workspaces. Here is an example 
+An APIExport provides a view into workspaces that contain APIBindings that are bound to the APIExport. This allows
+the service provider - the owner of the APIExport - to access data in its consumers' workspaces. Here is an example
 APIExport virtual workspace URL:
 
 ```
@@ -39,13 +39,13 @@ Let's break down the segments in the URL path:
 
 ## Setting up shared informers for a virtual workspace
 
-A virtual workspace typically allows the service provider to set up shared informers that can list and watch 
-resources across all the consumer workspaces bound to or supported by the virtual workspace. For example, the 
-APIExport virtual workspace lets you inform across all workspaces that have an APIBinding to your APIExport. The 
-syncer virtual workspace lets a syncer inform across all workspaces that have a Placement on the syncer's associated 
+A virtual workspace typically allows the service provider to set up shared informers that can list and watch
+resources across all the consumer workspaces bound to or supported by the virtual workspace. For example, the
+APIExport virtual workspace lets you inform across all workspaces that have an APIBinding to your APIExport. The
+syncer virtual workspace lets a syncer inform across all workspaces that have a Placement on the syncer's associated
 SyncTarget.
 
-To set up shared informers to span multiple workspaces, you use a special cluster called the **wildcard cluster**, 
+To set up shared informers to span multiple workspaces, you use a special cluster called the **wildcard cluster**,
 denoted by `*`. An example URL you would use when constructing a shared informer in this manner might be:
 
 ```

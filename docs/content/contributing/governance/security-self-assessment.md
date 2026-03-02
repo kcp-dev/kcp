@@ -80,7 +80,7 @@ kcp provides a set of plugins for `kubectl`, the Kubernetes command line client.
 kcp provides resources dedicated to managing available APIs in a Workspace.
 
 * **APIExport**: Allows a service provider in one workspace to publish an API for consumption by other workspaces.
- 
+
 * **APIBinding**: Allows a service consumer in one workspace to bind to an APIExport from another workspace, making the published API available in the local workspace.
 
  The ability to bind APIs across workspaces (a security boundary) is guarded by RBAC checks.
@@ -260,7 +260,7 @@ There is a template for incident response for reference [here](https://github.co
 
 ### Known Issues over Time
 
-* [GHSA-c7xh-gjv4-4jgv](https://github.com/kcp-dev/kcp/security/advisories/GHSA-c7xh-gjv4-4jgv):  Impersonation allows access to global administrative groups 
+* [GHSA-c7xh-gjv4-4jgv](https://github.com/kcp-dev/kcp/security/advisories/GHSA-c7xh-gjv4-4jgv):  Impersonation allows access to global administrative groups
 * [GHSA-w2rr-38wv-8rrp](https://github.com/kcp-dev/kcp/security/advisories/GHSA-w2rr-38wv-8rrp):  Unauthorized creation and deletion of objects in arbitrary workspaces through APIExport Virtual Workspace
 
 ### OpenSSF Best Practices

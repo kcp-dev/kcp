@@ -17,11 +17,11 @@ title: General Technical Review
 ### Scope
 
   * **Describe the roadmap process, how scope is determined for mid to long term features, as well as how the roadmap maps back to current contributions and maintainer ladder?**
-    
+
     Our public roadmap is tracked in [GitHub milestones](https://github.com/kcp-dev/kcp/milestones). Scope is usually determined in the bi-weekly community calls, i.e. ideas with a larger impact on kcp as a project are brought there to be discussed and scheduled into the overall development roadmap for the next few releases.
-    
+
     Roadmap disputes are at worst solved by a maintainer vote on the public mailing list. If maintainers couldn't agree, they would seek an outside arbiter.
-    
+
     An enhancement proposal process has been decided upon but not yet implemented.
 
   * **Describe the target persona or user(s) for the project?**
@@ -37,9 +37,9 @@ title: General Technical Review
     The project directly supports the use case of publishing Kubernetes CRDs from multiple Kubernetes clusters into a central kcp instance as a global control plane through the [api-syncagent](https://github.com/kcp-dev/api-syncagent) project. *Service Consumers* can then create objects in kcp that get synchronized back to the target Kubernetes cluster.
 
   * **Explain which use cases have been identified as unsupported by the project.**
-    
+
     In the past, kcp included a "transparent multi-cluster" (TMC) component in the project core. Since then, it has been identified as out-of-scope for the "core" kcp project, but it is feasible to be implemented as an application on top of kcp.
-    
+
     In general, adding application-specific logic into kcp itself is considered out of scope for the project. Specifically, container orchestration is out-of-scope for kcp.
 
   * **Describe the intended types of organizations who would benefit from adopting this project. (i.e. financial services, any software manufacturer, organizations providing platform engineering services)?**
@@ -58,9 +58,9 @@ title: General Technical Review
 ### Usability
 
   * **How should the target personas interact with your project?**
-    
+
     All personas primarily interact with kcp via `kubectl`, the Kubernetes command line client. kcp provides several [kubectl plugins](https://docs.kcp.io/kcp/latest/setup/kubectl-plugin/) for navigating multi-tenancy concepts not known to `kubectl`.
-    
+
     Navigation between workspaces happens with the `kubectl-ws` plugin, which allows changing workspaces similar to changing directories:
 
     ```bash
@@ -83,7 +83,7 @@ title: General Technical Review
     * **User Interface**: kcp doesn't provide its own user interface and instead relies on users using `kubectl` or other user interfaces to interact with kcp through the Kubernetes Resource Model.
 
   * **Describe how this project integrates with other projects in a production environment.**
-    
+
     kcp integrates with a variety of other projects when used in a production environment. Production setups are recommended to be installed on Kubernetes. Same as Kubernetes, it provides several interfaces that allow plugging in different projects. For example:
 
       * [Admission Webhooks](https://docs.kcp.io/kcp/latest/concepts/apis/admission-webhooks/) to integrate with any project that supports Kubernetes admission webhooks like [OPA Gatekeeper](https://open-policy-agent.github.io/gatekeeper/website/).
@@ -94,7 +94,7 @@ title: General Technical Review
 ### Design
 
   * **Explain the design principles and best practices the project is following.**
-    
+
     Design principles are documented [here](https://docs.kcp.io/kcp/latest/GOALS/#principles). Below is a list of them:
 
       * Convention over configuration / optimize for the user's benefit.
@@ -105,7 +105,7 @@ title: General Technical Review
       * Consolidate efforts in the ecosystem into a more focused effort.
 
   * **Outline or link to the project’s architecture requirements? Describe how they differ for Proof of Concept, Development, Test and Production environments, as applicable.**
-    
+
     kcp can be installed on top of a Kubernetes cluster and primarily requires a mean to expose its API endpoint (e.g. load balancer support in the Kubernetes cluster). The requirements for that don't significantly change between environments. Specifically for development, the `kcp` binary has a "all-in-one" mode that makes local development against kcp possible.
 
     For test and production environments it is strongly encouraged to run a sharded setup to validate that integrations correctly work with multiple shards.
@@ -121,7 +121,7 @@ title: General Technical Review
     kcp builds on top of Kubernetes' kube-apiserver code and as such, implements similar authentication and authorization methods. Specifically, kcp supports Kubernetes' Role-Based Access Control (RBAC) to assign permissions to user identities. kcp adds a few verbs and subresources to "stock" Kubernetes RBAC, which are documented [here](https://docs.kcp.io/kcp/latest/concepts/authorization/authorizers/).
 
   * **Describe how the project has addressed sovereignty.**
-    
+
     kcp can be entirely self-hosted on a Kubernetes cluster. All data is stored in an etcd instance, which can be fully managed by the installation owner. Except for container images, no access to internet resources is required, and thus a kcp setup can be run fully air-gapped to address any data sovereignty concerns.
 
   * **Describe any compliance requirements addressed by the project.**
@@ -135,7 +135,7 @@ title: General Technical Review
   * **Describe the project’s resource requirements, including CPU, Network and Memory.**
 
     A default installation from the Helm chart requires at least:
-    
+
       * 1.5 cpu + 6GB RAM for three-node etcd cluster
       * 0.1 cpu + 512MB RAM for kcp server
       * 0.1 cpu + 128MB RAM for kcp-front-proxy
@@ -160,9 +160,9 @@ title: General Technical Review
     * **Outline any additional configurations from default to make reasonable use of the project**
 
         kcp provides a multitude of command line options to configure its behaviour. A complete list can be accessed by running `kcp start options`, with most of the options derived from kube-apiserver.
-        
+
         A few configuration options that would be useful are:
-        
+
          * `--authorization-webhook-config-file` allows referencing a [webhook configuration file](https://docs.kcp.io/kcp/latest/concepts/authorization/authorizers/#webhook-authorizer) for authorization via a webhook.
          * Several `--oidc-*` flags exist to enable and configure OIDC authentication. Alternatively, `--authentication-config` can be used to reference a [structured authentication configuration file](https://docs.kcp.io/kcp/main/concepts/authentication/oidc/#configure-kcp-oidc-authentication-using-structured-authentication-configuration).
          * `--audit-webhook-config-file` allows referencing a configuration file for an audit webhook endpoint. An audit policy can be configured via `--audit-policy-file`.
@@ -176,7 +176,7 @@ title: General Technical Review
     * **Describe compatibility of any new or changed APIs with API servers, including the Kubernetes API server**
 
         Since kcp implements the Kubernetes Resource Model and is in fact based on the kube-apiserver code, it is compatible with with most tools and clients meant for Kubernetes.
-        
+
         The main addition of kcp to a Kubernetes-style API is the concept of logical clusters, kcp's multi-tenancy unit. A kcp instance doesn't provide Kubernetes API resources under one unified endpoint, instead it provides access to multiple endpoints that each act as fully independent Kubernetes API endpoints. This means that e.g. `/clusters/a` and `/clusters/b` are both Kubernetes-compatible API endpoints, but they return different API resources and objects.
 
         As such, each logical cluster can be accessed with a Kubernetes client (e.g. `kubectl`) and switching between them is possible via a `kubectl` plugin provided by the kcp project. It can also be done manually by updating server URLs (see the `/clusters/` schema above). Logical clusters have dedicated resources, objects and RBAC.
@@ -189,13 +189,13 @@ title: General Technical Review
 
     kcp has its [release process publicly documented](https://docs.kcp.io/kcp/main/contributing/guides/publishing-a-new-kcp-release/).
     Releases are published by the CI/CD pipelines (Prow and GitHub Actions) after a git tag has been pushed. As such, automation handles the majority of the release process.
-    
+
     Minor and patch releases are relatively uniform in their release process, the major difference is which branch the new release is cut from. New major releases have not been cut so far and would require bumping Go modules to include the version name, which would require changes across the codebase.
 
 ### Installation
 
   * **Describe how the project is installed and initialized, e.g. a minimal install with a few lines of code or does it require more complex integration and configuration?**
-    
+
     * A Helm chart is available for installation on Kubernetes. A full installation walkthrough is available [here](https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp), but generally speaking, installation is as easy as `helm install`.
 
         The main consideration is how to make the kcp API endpoint accessible. Several expose strategies are documented, the primary task outside of configuring the Helm chart is setting up the proper DNS records for the chosen external DNS name.
@@ -238,9 +238,9 @@ title: General Technical Review
     * **Describe how each of the cloud native principles apply to your project.**
 
         * kcp is **secure** by default by encrypting (with TLS), authenticating (with mTLS or OIDC) and authorizing (with Kubernetes RBAC) requests made to it.
-    
+
         * kcp is **resilient** by supporting a High Availability setup, in which individual kcp processes can crash or restart without the kcp instance having reduced availability.
-    
+
         * kcp **manageable** by being KRM driven and exposing its main configuration primitives via its Kubernetes-like API, i.e. `Workspaces` allow creating new units of its multitenancy boundary.
 
         * kcp is **sustainable** by avoiding a vendor lock-in and instead building on top of the Kubernetes Resource Model, which subsequently allows the project to build on top of Kubernetes technology both on the server and the client side (i.e. to interact with kcp, you can use known client tools or client libraries with some extensions that the kcp project develops).
@@ -254,11 +254,11 @@ title: General Technical Review
   * **Security Hygiene**
     * **Please describe the frameworks, practices and procedures the project uses to maintain the basic health and security of the project.**
 
-        * Vulnerability Management: kcp has a defined security policy and a private process for reporting vulnerabilities, either through GitHub's security advisory feature or a dedicated private email address (kcp-dev-private@googlegroups.com). This allows for coordinated disclosure.   
+        * Vulnerability Management: kcp has a defined security policy and a private process for reporting vulnerabilities, either through GitHub's security advisory feature or a dedicated private email address (kcp-dev-private@googlegroups.com). This allows for coordinated disclosure.  
 
-        * Security Response Committee: A formal committee of project maintainers is responsible for triaging and responding to security reports in a timely manner.   
+        * Security Response Committee: A formal committee of project maintainers is responsible for triaging and responding to security reports in a timely manner.  
 
-        * Public Advisories: Once a vulnerability is addressed, kcp publishes public security advisories on GitHub to inform users. Past advisories for both "Critical" and "Moderate" severity issues are available, demonstrating the process is active.   
+        * Public Advisories: Once a vulnerability is addressed, kcp publishes public security advisories on GitHub to inform users. Past advisories for both "Critical" and "Moderate" severity issues are available, demonstrating the process is active.  
 
         * Dependency Scanning: as shown in release notes, dependencies are regularly updated to address known CVEs, showing that dependency scanning is part of the release process. kcp uses GitHub's Dependabot feature to be informed about known dependency vulnerabilities.
 
@@ -278,9 +278,9 @@ title: General Technical Review
     * **Describe how the project is following and implementing [secure software supply chain best practices](https://project.linuxfoundation.org/hubfs/CNCF\_SSCP\_v1.pdf)**
 
         kcp secures the source code by ensuring minimal permissions of contributors on the GitHub repositories. Instead, PR merge automation in form of Prow is enabled. Through Prow configuration, it is not possible for the PR author to approve their own PR, enforcing a four-eyes principle. Branch protection is automated via configuration in the [kcp-dev/infra](https://github.com/kcp-dev/infra) repository. kcp uses GitHub features to track dependencies and vulnerabilities in them and ensure no secrets are pushed.
-        
+
         The kcp build infrastructure is deployed with OpenTofu, with deployment to it automated via the same kcp-dev/infra repository and minimal direct access (i.e. only a small subset of maintainers have access to troubleshoot issues in automation). Since Prow is based on containers, it is easy to reproduce build environments by using the same container image referenced in a Prow job definition. Job / pipeline definition is stored in code and is subject to the same review process as application code changes.
-        
+
         The kcp project uses GitHub to define teams and associate those teams with specific permissions. As such, only maintainers have elevated permissions on the GitHub organization, and most members have read-only access to the repositories and settings of [github.com/kcp-dev](https://github.com/kcp-dev).
 
 ## Day 1 – Installation and Deployment Phase
@@ -290,7 +290,7 @@ title: General Technical Review
   * **Describe what project installation and configuration look like.**
 
     Installation depends on the exact method chosen: Currently, kcp supports a [Helm chart](https://github.com/kcp-dev/helm-charts) and an [operator](https://github.com/kcp-dev/kcp-operator).
-    
+
       * The Helm chart is configured via a Helm values file. This file configures a variety of behavior for the deployed kcp installation, most importantly the external hostname under which the kcp instance will be accessible.
 
         A minimal Helm values file would look like this:
@@ -311,7 +311,7 @@ title: General Technical Review
         ```
 
         kcp would then start and look similar to this:
-    
+
         ```bash
         $ kubectl get pods
         NAME                                      READY   STATUS    RESTARTS      AGE
@@ -323,7 +323,7 @@ title: General Technical Review
         kcp-front-proxy-7f6b7dfdbf-7fr4d          1/1     Running   0             1d
         kcp-front-proxy-7f6b7dfdbf-7thwx          1/1     Running   0             1d
         ```
-        
+
         To generate credentials to access it, [a client certificate needs to be generated](https://github.com/kcp-dev/helm-charts/tree/main/charts/kcp#initial-access).
 
         Eventually, accessing kcp is possible via `kubectl`:
@@ -430,7 +430,7 @@ title: General Technical Review
     kcp is run like any service within a cluster, hence there isn't a way to enable or disable it beyond installing or removing its resources. In specific, it is its own control plane and therefore doesn't directly integrate with the Kubernetes API in any critical capacity.
 
   * **Describe how enabling the project changes any default behavior of the cluster or running workloads.**
-    
+
     As a standalone control plane, kcp does not change behavior of the underlying cluster or workloads running alongside it.
 
   * **Describe how the project tests enablement and disablement.**
@@ -438,13 +438,13 @@ title: General Technical Review
     Since no enablement/disablement exists for kcp, this is also not tested.
 
   * **How does the project clean up any resources created, including CRDs?**
-    
+
     The two installation methods (Helm chart or operator) both include cleanup logic (Helm cleans up resources created by it, the operator uses owner references) when uninstalling a kcp instance.
 
 ### Rollout, Upgrade and Rollback Planning
 
   * **How does the project intend to provide and maintain compatibility with infrastructure and orchestration management tools like Kubernetes and with what frequency?**
-    
+
     kcp intends to maintain compatibility with all upstream supported Kubernetes minor versions at the time of a kcp release. kcp minor releases happen every 3-4 months, which is the frequency at which compatibility with Kubernetes is evaluated.
 
   * **Describe how the project handles rollback procedures.**
@@ -456,7 +456,7 @@ title: General Technical Review
     A rollout/rollback could fail if the new/old version of kcp cannot read the data format in etcd written by the other version (e.g. if a new API version has been used already). This would cause the control plane to become unavailable. However, this would not impact already running workloads on any physical clusters orchestrated by additional components such as api-syncagent, as they run independently. The impact would be an inability to schedule new service instances, update existing ones, or otherwise interact with the Kubernetes-like API of kcp until the control plane is restored.
 
   * **Describe any specific metrics that should inform a rollback.**
-    
+
     Request level metrics derived from the kube-apiserver codebase that kcp is based on, in particular a high amount of 5xx HTTP errors reported.
 
   * **Explain how upgrades and rollbacks were tested and how the upgrade-\>downgrade-\>upgrade path was tested.**
@@ -466,11 +466,11 @@ title: General Technical Review
   * **Explain how the project informs users of deprecations and removals of features and APIs.**
 
     APIs are marked as deprecated in API field descriptions and release notes. As this follows the same patterns that Kubernetes (and CRDs) use, tooling (like linters) will inform integrators that import the kcp API SDK about API field deprecations.
-    
+
     API removal happens after a grace period following deprecation and is communicated in the release notes.
 
   * **Explain how the project permits utilization of alpha and beta capabilities as part of a rollout.**
-    
+
     kcp provides access to Kubernetes feature gates and adds its own feature gates to make sure such capabilities are only used with intention. Feature gates are configured via the flag `--feature-gates` on the kcp binary.
 
 <!--
@@ -482,44 +482,44 @@ TODO: Uncomment and fill this part of the document when applying for Graduated.
 ### Scalability/Reliability
 
   * Describe how the project increases the size or count of existing API objects.
-  * Describe how the project defines Service Level Objectives (SLOs) and Service Level Indicators (SLIs).  
-  * Describe any operations that will increase in time covered by existing SLIs/SLOs.  
-  * Describe the increase in resource usage in any components as a result of enabling this project, to include CPU, Memory, Storage, Throughput.  
-  * Describe which conditions enabling / using this project would result in resource exhaustion of some node resources (PIDs, sockets, inodes, etc.)  
-  * Describe the load testing that has been performed on the project and the results.  
-  * Describe the recommended limits of users, requests, system resources, etc. and how they were obtained.  
+  * Describe how the project defines Service Level Objectives (SLOs) and Service Level Indicators (SLIs).
+  * Describe any operations that will increase in time covered by existing SLIs/SLOs.
+  * Describe the increase in resource usage in any components as a result of enabling this project, to include CPU, Memory, Storage, Throughput.
+  * Describe which conditions enabling / using this project would result in resource exhaustion of some node resources (PIDs, sockets, inodes, etc.)
+  * Describe the load testing that has been performed on the project and the results.
+  * Describe the recommended limits of users, requests, system resources, etc. and how they were obtained.
   * Describe which resilience pattern the project uses and how, including the circuit breaker pattern.
 
 ### Observability Requirements
 
-  * Describe the signals the project is using or producing, including logs, metrics, profiles and traces. Please include supported formats, recommended configurations and data storage.  
-  * Describe how the project captures audit logging.  
-  * Describe any dashboards the project uses or implements as well as any dashboard requirements.  
-  * Describe how the project surfaces project resource requirements for adopters to monitor cloud and infrastructure costs, e.g. FinOps  
-  * Which parameters is the project covering to ensure the health of the application/service and its workloads?  
-  * How can an operator determine if the project is in use by workloads?  
-  * How can someone using this project know that it is working for their instance?  
+  * Describe the signals the project is using or producing, including logs, metrics, profiles and traces. Please include supported formats, recommended configurations and data storage.
+  * Describe how the project captures audit logging.
+  * Describe any dashboards the project uses or implements as well as any dashboard requirements.
+  * Describe how the project surfaces project resource requirements for adopters to monitor cloud and infrastructure costs, e.g. FinOps
+  * Which parameters is the project covering to ensure the health of the application/service and its workloads?
+  * How can an operator determine if the project is in use by workloads?
+  * How can someone using this project know that it is working for their instance?
   * Describe the SLOs (Service Level Objectives) for this project.
   * What are the SLIs (Service Level Indicators) an operator can use to determine the health of the service?
 
 ### Dependencies
 
-  * Describe the specific running services the project depends on in the cluster.  
-  * Describe the project’s dependency lifecycle policy.  
+  * Describe the specific running services the project depends on in the cluster.
+  * Describe the project’s dependency lifecycle policy.
   * How does the project incorporate and consider source composition analysis as part of its development and security hygiene? Describe how this source composition analysis (SCA) is tracked.
   * Describe how the project implements changes based on source composition analysis (SCA) and the timescale.
 
 ### Troubleshooting
 
-  * How does this project recover if a key component or feature becomes unavailable? e.g Kubernetes API server, etcd, database, leader node, etc.  
+  * How does this project recover if a key component or feature becomes unavailable? e.g Kubernetes API server, etcd, database, leader node, etc.
   * Describe the known failure modes.
 
 ### Security
 
-  * Security Hygiene  
-    * How is the project executing access control?  
-  * Cloud Native Threat Modeling  
-    * How does the project ensure its security reporting and response team is representative of its community diversity (organizational and individual)?  
+  * Security Hygiene
+    * How is the project executing access control?
+  * Cloud Native Threat Modeling
+    * How does the project ensure its security reporting and response team is representative of its community diversity (organizational and individual)?
     * How does the project invite and rotate security reporting team members?
 
 -->

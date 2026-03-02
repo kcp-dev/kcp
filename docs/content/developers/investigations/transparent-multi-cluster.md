@@ -7,7 +7,7 @@ description: >
 
 
 !!! warning
-    This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project. 
+    This was a prototype that was not continued. The ideas here are still valid and could be picked up by a future project.
 
 A key tenet of Kubernetes is that workload placement is node-agnostic until the user needs it to be - Kube offers a homogeneous compute surface that admins or app devs can "break-glass" and set constraints all the way down to writing software that deeply integrates with nodes. But for the majority of workloads a cluster is no more important than a node - it's a detail determined by some human or automated process.
 
@@ -15,7 +15,7 @@ A key area of investigation for `kcp` is exploring transparency of workloads to 
 
 ## Goal: The majority of applications and teams should have workflows where cluster is a detail
 
-A number of projects have explored this since the beginning of Kubernetes - this prototype should explore in detail 
+A number of projects have explored this since the beginning of Kubernetes - this prototype should explore in detail
 how we can make a normal Kubernetes flow for most users be cluster-independent but still "break-glass" and describe placement in detail. Since this is a broad topic, and we want to benefit the majority of users, we need to also add constraints that maximize the chance of these approaches being adopted.
 
 ### Constraint: The workflows and practices teams use today should be minimally disrupted

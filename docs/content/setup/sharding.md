@@ -96,8 +96,8 @@ Each shard has its own provider workspace. Consumers bind to their local shard's
 
 ### Strategy 3: Partitioned APIExportEndpointSlices
 
-Partitions combined with `APIExportEndpointSlice` resources provide a mechanism to distribute API access across shards, 
-enabling continued operation even when the provider's home shard is unavailable. 
+Partitions combined with `APIExportEndpointSlice` resources provide a mechanism to distribute API access across shards,
+enabling continued operation even when the provider's home shard is unavailable.
 
 In this scenarion "home shard" refers to the shard where the provider workspace (and its APIExport) is located and hosted.
 

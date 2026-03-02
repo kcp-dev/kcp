@@ -14,7 +14,7 @@ flowchart TD
         schema["Widgets APIResourceSchema<br/>(widgets.v1.example.org)"]
         webhook["Mutating/ValidatingWebhookConfiguration<br/>ValidatingAdmissionPolicy<br/>for widgets.v1.example.org<br/><br/>Handle a from ws2 (APIResourceSchema)<br/>Handle b from ws3 (APIResourceSchema)<br/>Handle a from ws1 (CRD)"]
         crd["Widgets CustomResourceDefinition<br/>(widgets.v1.example.org)"]
-        
+
         export --> schema
         schema --> webhook
         webhook --> crd
@@ -64,7 +64,7 @@ Consider a scenario where:
   - An `APIExport` for `cowboys.wildwest.dev`
   - A `ValidatingAdmissionPolicy` that rejects cowboys with `intent: "bad"`
   - A `ValidatingAdmissionPolicyBinding` that binds the policy
-  
+
 - **Consumer workspace** (`root:consumer`) has:
   - An `APIBinding` that binds to the provider's `APIExport`
   - A user trying to create a cowboy with `intent: "bad"`

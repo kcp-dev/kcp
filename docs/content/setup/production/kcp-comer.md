@@ -78,7 +78,7 @@ kubectl apply -f contrib/production/kcp-comer/kcp-front-proxy-internal.yaml
 
 4.1. Get the LoadBalancer IP:
 ```bash
-kubectl get svc -n kcp-comer 
+kubectl get svc -n kcp-comer
 ```
 
 Configure DNS records in CloudFlare (or your chosen CDN).
@@ -90,10 +90,10 @@ nslookup api.comer.example.com
 
 4.3 Verify deployment:
 ```bash
-kubectl get pods -n kcp-comer 
+kubectl get pods -n kcp-comer
 ```
 
-### CloudFlare Configuration: 
+### CloudFlare Configuration:
 
 Configure your CloudFlare dashboard:
 

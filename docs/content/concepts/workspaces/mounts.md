@@ -56,7 +56,7 @@ root/
 └── org1/
     ├── project-a/                    # Traditional LogicalCluster workspace
     │   ├── LogicalCluster object     # ✓ Has backing logical cluster
-    │   ├── /api/v1/configmaps       # ✓ Served by kcp directly  
+    │   ├── /api/v1/configmaps       # ✓ Served by kcp directly
     │   └── /api/v1/secrets          # ✓ Standard Kubernetes APIs
     │
     └── project-b/                    # Mounted workspace
@@ -119,7 +119,7 @@ While the mount object can be any Custom Resource, you still need a controller t
 - Implement and run the actual API server/proxy that serves requests at the `status.URL`
 - Handle authentication, authorization, and any request filtering if needed
 
-The kcp mounting machinery handles the workspace-to-mount routing, but the actual API implementation is entirely up to you. 
+The kcp mounting machinery handles the workspace-to-mount routing, but the actual API implementation is entirely up to you.
 
 ### Creating a Mounted Workspace
 
@@ -141,7 +141,7 @@ spec:
 #### Mount Field Requirements
 
 - `ref.apiVersion`: The API version of the mount object
-- `ref.kind`: The kind of the mount object  
+- `ref.kind`: The kind of the mount object
 - `ref.name`: The name of the mount object
 - `ref.namespace`: (Optional) The namespace of the mount object if it's namespaced
 
