@@ -106,5 +106,5 @@ You can use this url to construct a kubeconfig for your controller. To do so, us
 
 When writing a custom terminator controller, the following needs to be taken into account:
 
-* We strongly recommend to use [multicluster-runtime](github.com/kcp-dev/multicluster-runtime) to build your controller in order to properly handle which `LogicalCluster` originates from which workspace
+* We strongly recommend to use [multicluster-runtime](https://github.com/kcp-dev/multicluster-runtime) to build your controller in order to properly handle which `LogicalCluster` originates from which workspace
 * You need to update `LogicalClusters` using patches; They cannot be updated using the update api
