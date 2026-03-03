@@ -39,6 +39,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	storageerrors "k8s.io/apiserver/pkg/storage/errors"
 	clientgocache "k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
@@ -444,7 +445,7 @@ func newUnwrappingWatch(
 	// existing items. Clients using WatchList (sendInitialEvents=true) expect a
 	// BOOKMARK with the k8s.io/initial-events-end annotation to signal that the
 	// initial state has been fully delivered.
-	if innerListOpts != nil && innerListOpts.SendInitialEvents != nil && *innerListOpts.SendInitialEvents && innerListOpts.AllowWatchBookmarks {
+	if innerListOpts != nil && ptr.Deref(innerListOpts.SendInitialEvents, false) && innerListOpts.AllowWatchBookmarks {
 		go func() {
 			if !clientgocache.WaitForCacheSync(ctx.Done(), handler.HasSynced) {
 				return
