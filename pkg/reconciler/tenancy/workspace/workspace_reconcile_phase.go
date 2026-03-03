@@ -34,6 +34,7 @@ import (
 
 type phaseReconciler struct {
 	getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
+	getShardByHash    func(hash string) (*corev1alpha1.Shard, error)
 
 	requeueAfter func(workspace *tenancyv1alpha1.Workspace, after time.Duration)
 }
@@ -54,8 +55,24 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			if err != nil && !apierrors.IsNotFound(err) {
 				return reconcileStatusStopAndRequeue, err
 			} else if apierrors.IsNotFound(err) {
-				logger.Info("LogicalCluster disappeared")
-				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared, conditionsv1alpha1.ConditionSeverityError, "LogicalCluster disappeared")
+				// The LogicalCluster may not be visible through the front-proxy yet
+				// because the shard index hasn't caught up.
+				shardHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+				if hasShard {
+					shard, shardErr := r.getShardByHash(shardHash)
+					if shardErr == nil && shard.DeletionTimestamp.IsZero() {
+						if workspace.CreationTimestamp.IsZero() || time.Since(workspace.CreationTimestamp.Time) < 10*time.Second {
+							logger.V(3).Info("LogicalCluster not found but shard is alive, requeueing", "shard", shard.Name)
+							r.requeueAfter(workspace, 1*time.Second)
+							return reconcileStatusContinue, nil
+						}
+					}
+				}
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized,
+					tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared,
+					conditionsv1alpha1.ConditionSeverityError,
+					"LogicalCluster %s not found", workspace.Spec.Cluster,
+				)
 				return reconcileStatusContinue, nil
 			}
 
