@@ -19,6 +19,7 @@ package informer
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -427,9 +428,7 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 
 	handlers := d.handlers.Load().([]GVREventHandler)
 
-	newHandlers := make([]GVREventHandler, len(handlers))
-	copy(newHandlers, handlers)
-
+	newHandlers := slices.Clone(handlers)
 	newHandlers = append(newHandlers, handler)
 
 	d.handlers.Store(newHandlers)
@@ -616,7 +615,7 @@ func gvrsToDiscoveryData(gvrs map[schema.GroupVersionResource]GVRPartialMetadata
 	}
 
 	for group, resources := range gvResources {
-		var versions []metav1.GroupVersionForDiscovery
+		versions := make([]metav1.GroupVersionForDiscovery, 0, len(resources))
 		versionedResources := make(map[string][]metav1.APIResource)
 
 		for version, apiResource := range resources {

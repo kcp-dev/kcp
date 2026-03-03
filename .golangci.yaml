@@ -71,6 +71,10 @@ linters:
         - G404 # Use of weak random number generator (use crypto/rand)
         - G101 # Potential hardcoded credentials (returns false positives)
         - G306 # Expect WriteFile permissions to be 0600 or less
+        # gosec is currently producing a lot of false-positives on taint analysis.
+        # see https://github.com/securego/gosec/issues/1500
+        - G704
+        - G705
     misspell:
       ignore-rules:
         - creater

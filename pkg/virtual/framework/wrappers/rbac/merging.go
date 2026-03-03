@@ -130,7 +130,7 @@ func (l *mergedRoleLister) List(selector labels.Selector) (ret []*rbacv1.Role, e
 }
 
 func (l *mergedRoleLister) Roles(namespace string) rbaclisters.RoleNamespaceLister {
-	aggregatedListers := make([]rbaclisters.RoleNamespaceLister, 0)
+	aggregatedListers := make([]rbaclisters.RoleNamespaceLister, 0, len(l.listers))
 	for _, inf := range l.listers {
 		aggregatedListers = append(aggregatedListers, inf.Roles(namespace))
 	}
@@ -207,7 +207,7 @@ func (l *mergedRoleBindingLister) Get(name string) (*rbacv1.RoleBinding, error) 
 }
 
 func (l *mergedRoleBindingLister) RoleBindings(namespace string) rbaclisters.RoleBindingNamespaceLister {
-	aggregatedListers := make([]rbaclisters.RoleBindingNamespaceLister, 0)
+	aggregatedListers := make([]rbaclisters.RoleBindingNamespaceLister, 0, len(l.listers))
 	for _, inf := range l.listers {
 		aggregatedListers = append(aggregatedListers, inf.RoleBindings(namespace))
 	}

@@ -164,8 +164,11 @@ func (b *bindingBuilder) WithName(name string) *bindingBuilder {
 }
 
 func (b *bindingBuilder) WithBoundResources(boundResources ...string) *bindingBuilder {
+	if len(boundResources)%2 != 0 {
+		panic("bound resources slice of unexpected length")
+	}
 	for i := 0; i < len(boundResources); i += 2 {
-		group, resource := boundResources[i], boundResources[i+1]
+		group, resource := boundResources[i], boundResources[i+1] //nolint:gosec // Bounds is checked with the modulo above
 		b.Status.BoundResources = append(b.Status.BoundResources, apisv1alpha2.BoundAPIResource{
 			Group:    group,
 			Resource: resource,

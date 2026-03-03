@@ -33,7 +33,7 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 	name := prefix + "." + crd.Name
 
 	if msgs := validation.IsDNS1123Subdomain(name); len(msgs) > 0 {
-		var errs []error
+		errs := make([]error, 0, len(msgs))
 
 		for _, msg := range msgs {
 			errs = append(errs, field.Invalid(field.NewPath("metadata", "name"), name, msg))

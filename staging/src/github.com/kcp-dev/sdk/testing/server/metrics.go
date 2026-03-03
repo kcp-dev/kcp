@@ -113,7 +113,7 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 	type scrapeConfig struct {
 		JobName        string          `yaml:"job_name,omitempty"`
 		ScrapeInterval string          `yaml:"scrape_interval,omitempty"`
-		BearerToken    string          `yaml:"bearer_token,omitempty"`
+		BearerToken    string          `yaml:"bearer_token,omitempty"` //nolint:gosec // Field has to be exported for the decoder.
 		TlsConfig      tlsConfig       `yaml:"tls_config,omitempty"`
 		Scheme         string          `yaml:"scheme,omitempty"`
 		StaticConfigs  []staticConfigs `yaml:"static_configs,omitempty"`
@@ -128,8 +128,9 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 			return err
 		}
 		defer f.Close()
+		fd := int(f.Fd()) //nolint:gosec // the conversion uintpr -> int is fine here
 		// lock config file exclusively, blocks all other producers until unlocked or process (test) exits
-		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+		err = syscall.Flock(fd, syscall.LOCK_EX)
 		if err != nil {
 			return err
 		}
@@ -165,7 +166,7 @@ func ScrapeMetrics(ctx context.Context, cfg *rest.Config, promUrl, promCfgDir, j
 		if err != nil {
 			return err
 		}
-		return syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		return syscall.Flock(fd, syscall.LOCK_UN)
 	}()
 	if err != nil {
 		return err
@@ -196,7 +197,7 @@ func CleanupScrapeMetrics(ctx context.Context, promUrl, promCfgDir, jobNamePrefi
 	type scrapeConfig struct {
 		JobName        string          `yaml:"job_name,omitempty"`
 		ScrapeInterval string          `yaml:"scrape_interval,omitempty"`
-		BearerToken    string          `yaml:"bearer_token,omitempty"`
+		BearerToken    string          `yaml:"bearer_token,omitempty"` //nolint:gosec // Field has to be exported for the decoder.
 		TlsConfig      tlsConfig       `yaml:"tls_config,omitempty"`
 		Scheme         string          `yaml:"scheme,omitempty"`
 		StaticConfigs  []staticConfigs `yaml:"static_configs,omitempty"`
@@ -217,12 +218,13 @@ func CleanupScrapeMetrics(ctx context.Context, promUrl, promCfgDir, jobNamePrefi
 		defer f.Close()
 
 		// lock config file exclusively
-		err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+		fd := int(f.Fd()) //nolint:gosec // the conversion uintpr -> int is fine here
+		err = syscall.Flock(fd, syscall.LOCK_EX)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+			_ = syscall.Flock(fd, syscall.LOCK_UN)
 		}()
 
 		promCfg := config{}

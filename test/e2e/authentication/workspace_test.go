@@ -289,7 +289,7 @@ func TestUserScope(t *testing.T) {
 		userName       = "peter"
 		userEmail      = "peter@example.com"
 		userGroups     = []string{"developers", "admins"}
-		expectedGroups = []string{"system:authenticated"}
+		expectedGroups = []string{"system:authenticated"} //nolint:prealloc
 		expectedExtras = map[string]authenticationv1.ExtraValue{
 			// authentication.kcp.io/scopes from the extra mapping has
 			// been scrubbed and only the expected cluster:<id> is set
@@ -591,7 +591,7 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 		userName       = "peter"
 		userEmail      = "peter@example.com"
 		userGroups     = []string{"developers", "admins"}
-		expectedGroups = []string{"system:authenticated"}
+		expectedGroups = []string{"system:authenticated"} //nolint:prealloc
 	)
 
 	for _, group := range userGroups {

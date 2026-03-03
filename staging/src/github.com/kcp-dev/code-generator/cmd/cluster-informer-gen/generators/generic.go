@@ -90,7 +90,7 @@ func (v *version) Compare(other *version) int {
 func (g *genericGenerator) GenerateType(c *generator.Context, t *types.Type, w io.Writer) error {
 	sw := generator.NewSnippetWriter(w, c, "{{", "}}")
 
-	groups := []group{}
+	groups := make([]group, 0, len(g.groupVersions))
 	schemeGVs := make(map[*version]*types.Type)
 
 	orderer := namer.Orderer{Namer: namer.NewPrivateNamer(0)}

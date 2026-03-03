@@ -243,7 +243,7 @@ func (b *BindOptions) newAPIBinding(preferredAPIBindingVersion string) (apishelp
 		return nil, fmt.Errorf("%s is not supported by this plugin", preferredAPIBindingVersion)
 	}
 
-	claims := []apisv1alpha2.AcceptablePermissionClaim{}
+	claims := make([]apisv1alpha2.AcceptablePermissionClaim, 0, len(b.acceptedPermissionClaims)+len(b.rejectedPermissionClaims))
 	claims = append(claims, b.acceptedPermissionClaims...)
 	claims = append(claims, b.rejectedPermissionClaims...)
 

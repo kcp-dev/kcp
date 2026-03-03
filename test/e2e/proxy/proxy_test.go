@@ -121,7 +121,7 @@ func TestMappingWithClusterContext(t *testing.T) {
 		expectedScope       = "cluster:" + teamCluster
 		expectedClusterName = teamCluster
 		expectedUsername    = "oidc:" + email
-		expectedGroups      = []string{"system:authenticated"}
+		expectedGroups      = []string{"system:authenticated"} //nolint:prealloc
 	)
 
 	for _, group := range groups {

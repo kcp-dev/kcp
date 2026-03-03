@@ -50,7 +50,7 @@ func NewOptions() *Options {
 }
 
 func (o *Options) Validate() []error {
-	var errs []error
+	var errs []error //nolint:prealloc
 
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)

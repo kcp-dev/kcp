@@ -377,7 +377,7 @@ func TestAPIBinding(t *testing.T) {
 	}
 
 	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name) {
-		var expectedURLs []string
+		expectedURLs := make([]string, 0, len(shardVirtualWorkspaceURLs))
 		for _, urlString := range sets.List[string](shardVirtualWorkspaceURLs) {
 			u, err := url.Parse(urlString)
 			require.NoError(t, err, "error parsing %q", urlString)
@@ -392,7 +392,7 @@ func TestAPIBinding(t *testing.T) {
 				t.Logf("Unexpected error getting APIExportEndpointSlice %s|%s: %v", serviceProviderClusterName.Path(), exportName, err)
 			}
 
-			var actualURLs []string
+			actualURLs := make([]string, 0, len(apiExportEndpointSlice.Status.APIExportEndpoints))
 			for _, u := range apiExportEndpointSlice.Status.APIExportEndpoints {
 				actualURLs = append(actualURLs, u.URL)
 			}
