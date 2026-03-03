@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/errgroup"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -48,36 +49,15 @@ var raw embed.FS
 // CreateFromFS creates the given CRDs using the target client from the
 // provided filesystem and waits for it to become established. This call is blocking.
 func CreateFromFS(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, fs embed.FS, grs ...metav1.GroupResource) error {
-	wg := sync.WaitGroup{}
-	bootstrapErrChan := make(chan error, len(grs))
-	for _, gk := range grs {
-		wg.Add(1)
-		go func(gr metav1.GroupResource) {
-			defer wg.Done()
-			err := retryRetryableErrors(func() error {
+	g := errgroup.WithContext(ctx)
+	for _, gr := range grs {
+		g.Go(func(ctx context.Context) error {
+			return retryRetryableErrors(func() error {
 				return createSingleFromFS(ctx, client, gr, fs)
 			})
-			// wait.Poll functions return ErrWaitTimeout instead the context cancellation error, for backward compatibility reasons, see:
-			// https://github.com/kubernetes/kubernetes/blob/b5f8cca701575678819b5e9e6372df989ab6799f/staging/src/k8s.io/apimachinery/pkg/util/wait/wait.go
-			// however, retryOnError swallows that error and replaces it for the last one, that is nil if it is still retrying, see:
-			// https://github.com/kubernetes/kubernetes/blob/ee81e5ebfad1b3f3c1112e7b83b0a5113286a3d3/pkg/client/unversioned/util.go
-			// if the context is cancelled, we have to inform the upper layers about that, so context error takes precedence.
-			if ctx.Err() != nil {
-				err = ctx.Err()
-			}
-			bootstrapErrChan <- err
-		}(gk)
+		})
 	}
-	wg.Wait()
-	close(bootstrapErrChan)
-	bootstrapErrors := make([]error, 0, len(grs))
-	for err := range bootstrapErrChan {
-		bootstrapErrors = append(bootstrapErrors, err)
-	}
-	if err := utilerrors.NewAggregate(bootstrapErrors); err != nil {
-		return fmt.Errorf("could not bootstrap CRDs: %w", err)
-	}
-	return nil
+	return g.Wait()
 }
 
 // Create creates the given CRDs using the target client and waits
