@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -315,24 +313,16 @@ func createResource(ctx context.Context, client dynamic.Interface, mapper meta.R
 }
 
 func BindRootAPIs(ctx context.Context, kcpClient kcpclient.Interface, exportNames ...string) error {
-	wg := &sync.WaitGroup{}
-	errsChan := make(chan error, len(exportNames))
+	g := errgroup.WithContext(ctx)
 	for _, exportName := range exportNames {
-		wg.Add(1)
-		go func(exportName string) {
-			defer wg.Done()
+		g.Go(func(ctx context.Context) error {
 			if err := BindRootAPI(ctx, kcpClient, exportName); err != nil {
-				errsChan <- fmt.Errorf("failed to bind root API %s: %w", exportName, err)
+				return fmt.Errorf("failed to bind root API %s: %w", exportName, err)
 			}
-		}(exportName)
+			return nil
+		})
 	}
-	wg.Wait()
-	close(errsChan)
-	errs := make([]error, 0, len(exportNames))
-	for err := range errsChan {
-		errs = append(errs, err)
-	}
-	return utilerrors.NewAggregate(errs)
+	return g.Wait()
 }
 
 func BindRootAPI(ctx context.Context, kcpClient kcpclient.Interface, exportName string) error {
