@@ -117,3 +117,24 @@ func (g *Group) Wait() error {
 
 	return utilerrors.NewAggregate(g.errs)
 }
+
+// ForEach runs fn concurrently for each item in items, passing a
+// context derived from ctx.
+//
+// If exitEarly is true, the context passed to fn is cancelled as soon
+// as any fn invocation returns a non-nil error, mirroring the
+// [Group.FailFast] behaviour.
+//
+// All errors are collected and returned as an aggregate; a cancelled
+// context error is only included when fn explicitly returns it.
+func ForEach[T any](ctx context.Context, items []T, exitEarly bool, fn func(context.Context, T) error) error {
+	g := WithContext(ctx)
+	g.FailFast = exitEarly
+	for _, item := range items {
+		item := item
+		g.Go(func(ctx context.Context) error {
+			return fn(ctx, item)
+		})
+	}
+	return g.Wait()
+}

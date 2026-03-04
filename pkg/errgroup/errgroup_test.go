@@ -19,6 +19,7 @@ package errgroup
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -389,4 +390,130 @@ func TestGroup_WithContext_WaitCancelsContext(t *testing.T) {
 
 	storedCtx := runnerCtx.Load().(context.Context)
 	assert.Error(t, storedCtx.Err(), "context should be cancelled after Wait returns")
+}
+
+func TestForEach_EmptySlice(t *testing.T) {
+	err := ForEach(context.Background(), []string{}, false, func(_ context.Context, _ string) error {
+		return errors.New("should not be called")
+	})
+	require.NoError(t, err)
+}
+
+func TestForEach_AllSucceed(t *testing.T) {
+	items := []int{1, 2, 3, 4, 5}
+	var count atomic.Int32
+
+	err := ForEach(context.Background(), items, false, func(_ context.Context, _ int) error {
+		count.Add(1)
+		return nil
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(5), count.Load())
+}
+
+func TestForEach_SingleError(t *testing.T) {
+	expected := errors.New("item failed")
+	items := []int{1, 2, 3}
+
+	err := ForEach(context.Background(), items, false, func(_ context.Context, i int) error {
+		if i == 2 {
+			return expected
+		}
+		return nil
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), expected.Error())
+}
+
+func TestForEach_MultipleErrors(t *testing.T) {
+	err1 := errors.New("error one")
+	err2 := errors.New("error two")
+	items := []int{1, 2}
+
+	err := ForEach(context.Background(), items, false, func(_ context.Context, i int) error {
+		if i == 1 {
+			return err1
+		}
+		return err2
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), err1.Error())
+	assert.Contains(t, err.Error(), err2.Error())
+}
+
+func TestForEach_ExitEarly_CancelsOnError(t *testing.T) {
+	started := make(chan struct{})
+	cancelled := make(chan struct{})
+
+	items := []int{1, 2}
+	err := ForEach(context.Background(), items, true, func(ctx context.Context, i int) error {
+		if i == 1 {
+			// Signal that we're running, then fail.
+			close(started)
+			return errors.New("trigger exit early")
+		}
+		// Wait for item 1 to start, then block until context is cancelled.
+		<-started
+		<-ctx.Done()
+		close(cancelled)
+		return ctx.Err()
+	})
+
+	require.Error(t, err)
+
+	select {
+	case <-cancelled:
+		// expected — context was cancelled by exitEarly
+	case <-time.After(time.Second):
+		t.Fatal("expected context to be cancelled by exitEarly")
+	}
+}
+
+func TestForEach_ExitEarlyFalse_AllItemsRun(t *testing.T) {
+	items := []int{1, 2, 3}
+	var completed atomic.Int32
+
+	err := ForEach(context.Background(), items, false, func(ctx context.Context, i int) error {
+		if i == 1 {
+			return errors.New("error")
+		}
+		// Small sleep so item 1 errors first.
+		time.Sleep(20 * time.Millisecond)
+		completed.Add(1)
+		return nil
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, int32(2), completed.Load(), "all non-erroring items should complete when exitEarly is false")
+}
+
+func TestForEach_ItemsPassedCorrectly(t *testing.T) {
+	items := []string{"a", "b", "c"}
+	var mu sync.Mutex
+	seen := make(map[string]bool)
+
+	err := ForEach(context.Background(), items, false, func(_ context.Context, s string) error {
+		mu.Lock()
+		seen[s] = true
+		mu.Unlock()
+		return nil
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]bool{"a": true, "b": true, "c": true}, seen)
+}
+
+func TestForEach_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := ForEach(ctx, []int{1, 2, 3}, false, func(ctx context.Context, _ int) error {
+		<-ctx.Done()
+		return ctx.Err()
+	})
+
+	require.Error(t, err)
 }
