@@ -20,6 +20,9 @@ package v1alpha1
 
 // ResourceCountApplyConfiguration represents a declarative configuration of the ResourceCount type for use
 // with apply.
+//
+// ResourceCount is the number of resources that match the label selector
+// and are cached in the cache.
 type ResourceCountApplyConfiguration struct {
 	Cache *int `json:"cache,omitempty"`
 	Local *int `json:"local,omitempty"`

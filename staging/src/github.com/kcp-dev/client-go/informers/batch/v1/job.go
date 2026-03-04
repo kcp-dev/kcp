@@ -64,7 +64,7 @@ func NewJobClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod t
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredJobClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredJobClusterInformer(client kcpkubernetes.ClusterInterface, resync
 				}
 				return client.BatchV1().Jobs().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apibatchv1.Job{},
 		resyncPeriod,
 		indexers,

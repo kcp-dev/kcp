@@ -20,11 +20,30 @@ package v1alpha2
 
 // PermissionClaimApplyConfiguration represents a declarative configuration of the PermissionClaim type for use
 // with apply.
+//
+// PermissionClaim identifies an object by GR and identity hash.
+// Its purpose is to determine the added permissions that a service provider may
+// request and that a consumer may accept and allow the service provider access to.
 type PermissionClaimApplyConfiguration struct {
 	GroupResourceApplyConfiguration `json:",inline"`
-	Verbs                           []string                                   `json:"verbs,omitempty"`
-	IdentityHash                    *string                                    `json:"identityHash,omitempty"`
-	DefaultSelector                 *PermissionClaimSelectorApplyConfiguration `json:"defaultSelector,omitempty"`
+	// verbs is a list of supported API operation types (this includes
+	// but is not limited to get, list, watch, create, update, patch,
+	// delete, deletecollection, and proxy).
+	Verbs []string `json:"verbs,omitempty"`
+	// This is the identity for a given APIExport that the APIResourceSchema belongs to.
+	// The hash can be found on APIExport and APIResourceSchema's status.
+	// It will be empty for core types.
+	// Note that one must look this up for a particular kcp instance.
+	IdentityHash *string `json:"identityHash,omitempty"`
+	// defaultSelector is the default selector to use when creating APIBindings
+	// via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will
+	// default to matchAll: true.
+	//
+	// This allows API providers to suggest a default scope for permission claims
+	// that will be used when workspaces are automatically created with default
+	// APIBindings. Users can always override the default selector by accepting the
+	// claim with a different selector or by manually creating APIBindings with a custom selector.
+	DefaultSelector *PermissionClaimSelectorApplyConfiguration `json:"defaultSelector,omitempty"`
 }
 
 // PermissionClaimApplyConfiguration constructs a declarative configuration of the PermissionClaim type for use with

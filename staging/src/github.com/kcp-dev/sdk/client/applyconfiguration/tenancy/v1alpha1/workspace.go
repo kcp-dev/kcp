@@ -27,6 +27,18 @@ import (
 
 // WorkspaceApplyConfiguration represents a declarative configuration of the Workspace type for use
 // with apply.
+//
+// Workspace defines a generic Kubernetes-cluster-like endpoint, with standard Kubernetes
+// discovery APIs, OpenAPI and resource API endpoints.
+//
+// A workspace can be backed by different concrete types of workspace implementation,
+// depending on access pattern. All workspace implementations share the characteristic
+// that the URL that serves a given workspace can be used with standard Kubernetes
+// API machinery and client libraries and command line tools.
+//
+// Workspaces supports mounting, by specifying an Mount object in the spec.
+// If a Mount is specified, the workspace will be mounted to the specified mount object and
+// LogicalCluster will not be created.
 type WorkspaceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +55,7 @@ func Workspace(name string) *WorkspaceApplyConfiguration {
 	b.WithAPIVersion("tenancy.kcp.io/v1alpha1")
 	return b
 }
+
 func (b WorkspaceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

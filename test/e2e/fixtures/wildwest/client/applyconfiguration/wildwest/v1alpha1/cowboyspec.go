@@ -20,6 +20,8 @@ package v1alpha1
 
 // CowboySpecApplyConfiguration represents a declarative configuration of the CowboySpec type for use
 // with apply.
+//
+// CowboySpec holds the desired state of the Cowboy.
 type CowboySpecApplyConfiguration struct {
 	Intent *string `json:"intent,omitempty"`
 }

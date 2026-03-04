@@ -20,7 +20,10 @@ package v1alpha1
 
 // APIConversionSpecApplyConfiguration represents a declarative configuration of the APIConversionSpec type for use
 // with apply.
+//
+// APIConversionSpec contains rules to convert between different API versions in an APIResourceSchema.
 type APIConversionSpecApplyConfiguration struct {
+	// conversions specify rules to convert between different API versions in an APIResourceSchema.
 	Conversions []APIVersionConversionApplyConfiguration `json:"conversions,omitempty"`
 }
 

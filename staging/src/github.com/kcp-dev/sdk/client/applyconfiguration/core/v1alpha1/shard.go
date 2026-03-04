@@ -27,6 +27,8 @@ import (
 
 // ShardApplyConfiguration represents a declarative configuration of the Shard type for use
 // with apply.
+//
+// Shard describes a kcp instance on which a number of logical clusters will live
 type ShardApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +45,7 @@ func Shard(name string) *ShardApplyConfiguration {
 	b.WithAPIVersion("core.kcp.io/v1alpha1")
 	return b
 }
+
 func (b ShardApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

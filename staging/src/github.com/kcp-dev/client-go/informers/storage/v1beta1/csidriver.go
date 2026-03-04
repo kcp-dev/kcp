@@ -64,7 +64,7 @@ func NewCSIDriverClusterInformer(client kcpkubernetes.ClusterInterface, resyncPe
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCSIDriverClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredCSIDriverClusterInformer(client kcpkubernetes.ClusterInterface, 
 				}
 				return client.StorageV1beta1().CSIDrivers().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apistoragev1beta1.CSIDriver{},
 		resyncPeriod,
 		indexers,

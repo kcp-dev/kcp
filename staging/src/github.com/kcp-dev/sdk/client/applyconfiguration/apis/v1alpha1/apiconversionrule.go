@@ -20,9 +20,17 @@ package v1alpha1
 
 // APIConversionRuleApplyConfiguration represents a declarative configuration of the APIConversionRule type for use
 // with apply.
+//
+// APIConversionRule specifies how to convert a single field.
 type APIConversionRuleApplyConfiguration struct {
-	Field          *string `json:"field,omitempty"`
-	Destination    *string `json:"destination,omitempty"`
+	// field is a JSONPath expression to the field in the originating version of the object, relative to its root, such
+	// as '.spec.name.first'.
+	Field *string `json:"field,omitempty"`
+	// destination is a JSONPath expression to the field in the target version of the object, relative to
+	// its root, such as '.spec.name.first'.
+	Destination *string `json:"destination,omitempty"`
+	// transformation is an optional CEL expression used to execute user-specified rules to transform the
+	// originating field -- identified by 'self' -- to the destination field.
 	Transformation *string `json:"transformation,omitempty"`
 }
 

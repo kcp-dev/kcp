@@ -29,9 +29,11 @@ import (
 type ClusterTestTypeApplyConfiguration struct {
 	metav1.TypeMetaApplyConfiguration    `json:",inline"`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	ObjectKind                           *string                                  `json:"kind,omitempty"`
-	ObjectName                           *string                                  `json:"name,omitempty"`
-	Status                               *ClusterTestTypeStatusApplyConfiguration `json:"status,omitempty"`
+	// ObjectKind is the type of resource being referenced
+	ObjectKind *string `json:"kind,omitempty"`
+	// ObjectName is the name of resource being referenced
+	ObjectName *string                                  `json:"name,omitempty"`
+	Status     *ClusterTestTypeStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // ClusterTestType constructs a declarative configuration of the ClusterTestType type for use with
@@ -43,6 +45,7 @@ func ClusterTestType(name string) *ClusterTestTypeApplyConfiguration {
 	b.WithAPIVersion("example3.some.corp/v1")
 	return b
 }
+
 func (b ClusterTestTypeApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

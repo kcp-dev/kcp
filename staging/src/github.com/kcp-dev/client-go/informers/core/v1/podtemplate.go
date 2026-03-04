@@ -64,7 +64,7 @@ func NewPodTemplateClusterInformer(client kcpkubernetes.ClusterInterface, resync
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredPodTemplateClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredPodTemplateClusterInformer(client kcpkubernetes.ClusterInterface
 				}
 				return client.CoreV1().PodTemplates().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apicorev1.PodTemplate{},
 		resyncPeriod,
 		indexers,

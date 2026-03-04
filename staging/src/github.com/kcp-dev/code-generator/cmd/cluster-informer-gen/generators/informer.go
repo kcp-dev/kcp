@@ -181,7 +181,7 @@ var typeFilteredInformerPublicConstructor = `
 // one. This reduces memory footprint and number of connections to the server.
 func NewFiltered$.type|public$ClusterInformer(client $.clientSetClusterInterface|raw$, resyncPeriod $.timeDuration|raw$, indexers $.cacheIndexers|raw$, tweakListOptions $.interfacesTweakListOptionsFunc|raw$) $.scopeableCacheSharedIndexInformer|raw$ {
 	return $.kcpinformersNewSharedIndexInformer|raw$(
-		&$.cacheListWatch|raw${
+		$.cacheToListWatcherWithWatchListSemantics|raw$(&$.cacheListWatch|raw${
 			ListFunc: func(options $.metav1ListOptions|raw$) ($.runtimeObject|raw$, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -194,7 +194,7 @@ func NewFiltered$.type|public$ClusterInformer(client $.clientSetClusterInterface
 				}
 				return client.$.group$$.version$().$.type|publicPlural$().Watch($.contextBackground|raw$(), options)
 			},
-		},
+		}, client),
 		&$.type|raw${},
 		resyncPeriod,
 		indexers,

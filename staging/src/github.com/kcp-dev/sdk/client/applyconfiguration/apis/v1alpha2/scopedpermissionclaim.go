@@ -20,6 +20,9 @@ package v1alpha2
 
 // ScopedPermissionClaimApplyConfiguration represents a declarative configuration of the ScopedPermissionClaim type for use
 // with apply.
+//
+// ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
+// scope down access to objects of the claimed resource.
 type ScopedPermissionClaimApplyConfiguration struct {
 	PermissionClaimApplyConfiguration `json:",inline"`
 	Selector                          *PermissionClaimSelectorApplyConfiguration `json:"selector,omitempty"`

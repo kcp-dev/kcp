@@ -25,6 +25,7 @@ import (
 // WorkspaceLocationApplyConfiguration represents a declarative configuration of the WorkspaceLocation type for use
 // with apply.
 type WorkspaceLocationApplyConfiguration struct {
+	// selector is a label selector that filters workspace scheduling targets.
 	Selector *v1.LabelSelectorApplyConfiguration `json:"selector,omitempty"`
 }
 

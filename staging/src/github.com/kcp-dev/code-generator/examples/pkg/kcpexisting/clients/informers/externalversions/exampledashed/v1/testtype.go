@@ -65,7 +65,7 @@ func NewTestTypeClusterInformer(client versioned.ClusterInterface, resyncPeriod 
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredTestTypeClusterInformer(client versioned.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -78,7 +78,7 @@ func NewFilteredTestTypeClusterInformer(client versioned.ClusterInterface, resyn
 				}
 				return client.ExampleDashedV1().TestTypes().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apisexampledashedv1.TestType{},
 		resyncPeriod,
 		indexers,

@@ -20,9 +20,17 @@ package v1alpha1
 
 // GroupVersionResourceApplyConfiguration represents a declarative configuration of the GroupVersionResource type for use
 // with apply.
+//
+// GroupVersionResource identifies a resource.
 type GroupVersionResourceApplyConfiguration struct {
-	Group    *string `json:"group,omitempty"`
-	Version  *string `json:"version,omitempty"`
+	// group is the name of an API group.
+	// For core groups this is the empty string '""'.
+	Group *string `json:"group,omitempty"`
+	// version is the version of the resource.
+	Version *string `json:"version,omitempty"`
+	// resource is the name of the resource.
+	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+	// not provided by an api export.
 	Resource *string `json:"resource,omitempty"`
 }
 
