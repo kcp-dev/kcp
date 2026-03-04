@@ -20,6 +20,8 @@ package v1alpha1
 
 // PrefixedClaimOrExpressionApplyConfiguration represents a declarative configuration of the PrefixedClaimOrExpression type for use
 // with apply.
+//
+// PrefixedClaimOrExpression provides the configuration for a single prefixed claim or expression.
 type PrefixedClaimOrExpressionApplyConfiguration struct {
 	Claim      *string `json:"claim,omitempty"`
 	Prefix     *string `json:"prefix,omitempty"`

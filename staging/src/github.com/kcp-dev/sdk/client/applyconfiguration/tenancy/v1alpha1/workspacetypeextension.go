@@ -20,7 +20,13 @@ package v1alpha1
 
 // WorkspaceTypeExtensionApplyConfiguration represents a declarative configuration of the WorkspaceTypeExtension type for use
 // with apply.
+//
+// WorkspaceTypeExtension defines how other WorkspaceTypes are
+// composed together to add functionality to the owning WorkspaceType.
 type WorkspaceTypeExtensionApplyConfiguration struct {
+	// with are WorkspaceTypes whose initializers are added to the list
+	// for the owning type, and for whom the owning type becomes an alias, as long
+	// as all of their required types are not mentioned in without.
 	With []WorkspaceTypeReferenceApplyConfiguration `json:"with,omitempty"`
 }
 

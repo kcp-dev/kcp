@@ -41,6 +41,7 @@ func WithoutVerbType(name, namespace string) *WithoutVerbTypeApplyConfiguration 
 	b.WithAPIVersion("example.dev/v1")
 	return b
 }
+
 func (b WithoutVerbTypeApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

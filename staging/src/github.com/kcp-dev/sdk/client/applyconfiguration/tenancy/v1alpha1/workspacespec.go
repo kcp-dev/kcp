@@ -20,12 +20,38 @@ package v1alpha1
 
 // WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
 // with apply.
+//
+// WorkspaceSpec holds the desired state of the Workspace.
 type WorkspaceSpecApplyConfiguration struct {
-	Type     *WorkspaceTypeReferenceApplyConfiguration `json:"type,omitempty"`
-	Location *WorkspaceLocationApplyConfiguration      `json:"location,omitempty"`
-	Cluster  *string                                   `json:"cluster,omitempty"`
-	URL      *string                                   `json:"URL,omitempty"`
-	Mount    *MountApplyConfiguration                  `json:"mount,omitempty"`
+	// type defines properties of the workspace both on creation (e.g. initial
+	// resources and initially installed APIs) and during runtime (e.g. permissions).
+	// If no type is provided, the default type for the workspace in which this workspace
+	// is nesting will be used.
+	//
+	// The type is a reference to a WorkspaceType in the listed workspace, but
+	// lower-cased. The WorkspaceType existence is validated at admission during
+	// creation. The type is immutable after creation. The use of a type is gated via
+	// the RBAC workspacetypes/use resource permission.
+	Type *WorkspaceTypeReferenceApplyConfiguration `json:"type,omitempty"`
+	// location constraints where this workspace can be scheduled to.
+	//
+	// If the no location is specified, an arbitrary location is chosen.
+	Location *WorkspaceLocationApplyConfiguration `json:"location,omitempty"`
+	// cluster is the name of the logical cluster this workspace is stored under.
+	//
+	// Set by the system.
+	Cluster *string `json:"cluster,omitempty"`
+	// URL is the address under which the Kubernetes-cluster-like endpoint
+	// can be found. This URL can be used to access the workspace with standard Kubernetes
+	// client libraries and command line tools.
+	//
+	// Set by the system.
+	URL *string `json:"URL,omitempty"`
+	// Mount is a reference to an object implementing a mounting feature. It is used to orchestrate
+	// where the traffic, intended for the workspace, is sent.
+	// If specified, logicalcluster will not be created and the workspace will be mounted
+	// using reference mount object.
+	Mount *MountApplyConfiguration `json:"mount,omitempty"`
 }
 
 // WorkspaceSpecApplyConfiguration constructs a declarative configuration of the WorkspaceSpec type for use with

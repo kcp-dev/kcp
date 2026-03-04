@@ -27,11 +27,19 @@ import (
 
 // APIExportEndpointSliceApplyConfiguration represents a declarative configuration of the APIExportEndpointSlice type for use
 // with apply.
+//
+// APIExportEndpointSlice is a sink for the endpoints of an APIExport. These endpoints can be filtered by a Partition.
+// They get consumed by the managers to start controllers and informers for the respective APIExport services.
 type APIExportEndpointSliceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIExportEndpointSliceSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *APIExportEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
+	// spec holds the desired state:
+	// - the targeted APIExport
+	// - an optional partition for filtering
+	Spec *APIExportEndpointSliceSpecApplyConfiguration `json:"spec,omitempty"`
+	// status communicates the observed state:
+	// the filtered list of endpoints for the APIExport service.
+	Status *APIExportEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // APIExportEndpointSlice constructs a declarative configuration of the APIExportEndpointSlice type for use with
@@ -43,6 +51,7 @@ func APIExportEndpointSlice(name string) *APIExportEndpointSliceApplyConfigurati
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
 func (b APIExportEndpointSliceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

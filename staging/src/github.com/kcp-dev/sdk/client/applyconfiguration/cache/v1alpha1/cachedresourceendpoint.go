@@ -20,7 +20,11 @@ package v1alpha1
 
 // CachedResourceEndpointApplyConfiguration represents a declarative configuration of the CachedResourceEndpoint type for use
 // with apply.
+//
+// Using a struct provides an extension point
+// CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
 type CachedResourceEndpointApplyConfiguration struct {
+	// url is an CachedResource virtual workspace URL.
 	URL *string `json:"url,omitempty"`
 }
 

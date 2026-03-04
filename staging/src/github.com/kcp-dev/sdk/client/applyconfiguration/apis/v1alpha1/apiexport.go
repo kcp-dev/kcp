@@ -27,11 +27,16 @@ import (
 
 // APIExportApplyConfiguration represents a declarative configuration of the APIExport type for use
 // with apply.
+//
+// APIExport registers an API and implementation to allow consumption by others
+// through APIBindings.
 type APIExportApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIExportSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *APIExportStatusApplyConfiguration `json:"status,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIExportSpecApplyConfiguration `json:"spec,omitempty"`
+	// Status communicates the observed state.
+	Status *APIExportStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // APIExport constructs a declarative configuration of the APIExport type for use with
@@ -43,6 +48,7 @@ func APIExport(name string) *APIExportApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha1")
 	return b
 }
+
 func (b APIExportApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

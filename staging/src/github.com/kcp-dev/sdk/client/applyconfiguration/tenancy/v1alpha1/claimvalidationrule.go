@@ -20,6 +20,8 @@ package v1alpha1
 
 // ClaimValidationRuleApplyConfiguration represents a declarative configuration of the ClaimValidationRule type for use
 // with apply.
+//
+// ClaimValidationRule provides the configuration for a single claim validation rule.
 type ClaimValidationRuleApplyConfiguration struct {
 	Claim         *string `json:"claim,omitempty"`
 	RequiredValue *string `json:"requiredValue,omitempty"`

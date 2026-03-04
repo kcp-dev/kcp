@@ -27,6 +27,8 @@ import (
 
 // CachedResourceApplyConfiguration represents a declarative configuration of the CachedResource type for use
 // with apply.
+//
+// CachedResource defines a resource that should be published to other workspaces
 type CachedResourceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -43,6 +45,7 @@ func CachedResource(name string) *CachedResourceApplyConfiguration {
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
 }
+
 func (b CachedResourceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
