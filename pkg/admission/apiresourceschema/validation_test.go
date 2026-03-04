@@ -23,6 +23,7 @@ import (
 
 func TestValidationOptionDrift(t *testing.T) {
 	expectedNonBool := map[string]reflect.Kind{
+		"AllowTooManySelectableFields": reflect.Map,
 		"DisallowDefaultsReason":       reflect.String,
 		"CELEnvironmentSet":            reflect.Ptr,
 		"PreexistingExpressions":       reflect.Struct,
