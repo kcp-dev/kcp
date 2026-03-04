@@ -16,4 +16,5 @@ limitations under the License.
 
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=package,register
+// +k8s:openapi-model-package=com.github.kcp-dev.sdk.apis.third_party.conditions.apis.conditions.v1alpha1
 package v1alpha1

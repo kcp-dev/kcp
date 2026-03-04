@@ -131,6 +131,26 @@ cd -
 
 go install "${OPENAPI_PKG}"/cmd/openapi-gen
 
+# Run openapi-gen in two passes:
+# 1) First pass (only kcp APIs) generates zz_generated.model_name.go.
+# 2) Second pass (kcp APIs + upstream k8s.io types) generates the full zz_generated.openapi.go.
+#
+# We cannot do this in a single pass because when model_name generation includes k8s.io inputs,
+# openapi-gen tries to rewrite license headers in k8s.io packages, which fails with permission errors.
+"$GOPATH"/bin/openapi-gen \
+  --go-header-file "${BOILERPLATE_HEADER}" \
+  --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
+  --output-file zz_generated.openapi.go \
+  --output-model-name-file zz_generated.model_name.go \
+  --output-dir "${SCRIPT_ROOT}/pkg/openapi" \
+  github.com/kcp-dev/sdk/apis/core/v1alpha1 \
+  github.com/kcp-dev/sdk/apis/tenancy/v1alpha1 \
+  github.com/kcp-dev/sdk/apis/apis/v1alpha1 \
+  github.com/kcp-dev/sdk/apis/apis/v1alpha2 \
+  github.com/kcp-dev/sdk/apis/topology/v1alpha1 \
+  github.com/kcp-dev/sdk/apis/cache/v1alpha1 \
+  github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1
+
 "$GOPATH"/bin/openapi-gen \
   --go-header-file "${BOILERPLATE_HEADER}" \
   --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
