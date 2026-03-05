@@ -191,41 +191,6 @@ limitations under the License.
 //	│                         │           │        >:default:       │
 //	│                         │           │        provider-operator│
 //	└─────────────────────────┘           └─────────────────────────┘
-//
-//
-//	                         Test Coverage
-//	---------------------------------------------------------------------------
-//
-//	Test 1: Discovery
-//	  - Verifies apis.kcp.io/v1alpha1/apiresourceschemas is exposed
-//	  - Confirms only read verbs: get, list, watch
-//	  - No create, update, delete verbs
-//
-//	Test 2: Access
-//	  - Multiple providers, multiple bindings
-//	  - All bound schemas accessible via LIST
-//	  - Individual schemas accessible via GET
-//	  - Non-bound schemas return NotFound
-//
-//	Test 3: Read-Only Enforcement
-//	  - CREATE  ──────────► Forbidden/MethodNotSupported
-//	  - UPDATE  ──────────► Forbidden/MethodNotSupported
-//	  - DELETE  ──────────► Forbidden/MethodNotSupported
-//
-//	Test 4: Authorization (Cross-Workspace)
-//	  - Provider SA without RBAC ──────────► Forbidden
-//	  - Grant RBAC in consumer workspace
-//	  - Provider SA with RBAC ──────────────► Access granted
-//
-//
-//	                         Key Constraints
-//	---------------------------------------------------------------------------
-//
-//	- READ-ONLY: Only get, list, watch operations are supported
-//	- SCOPE: Only schemas from bound APIBindings are visible
-//	- DYNAMIC: Schema list updates as bindings change
-//	- CROSS-CLUSTER: Schemas aggregated from multiple provider workspaces
-//	- CLUSTER-SCOPED: APIResourceSchemas are not namespaced
 package apiresourceschema
 
 const (

@@ -181,8 +181,15 @@ func digestURL(urlPath, rootPathPrefix string) (
 	if strings.HasPrefix(realPath, "/clusters/") {
 		withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
 		clusterParts := strings.SplitN(withoutClustersPrefix, "/", 2)
-		// Accept any cluster path (including wildcard *) since we're using
-		// the consumer cluster from the URL prefix to determine bindings
+
+		// Enforce that the cluster path in /clusters/<path>/ matches the consumer cluster
+		// from the URL prefix, or is a wildcard. This prevents confusion where a client
+		// specifies one cluster but gets routed to another.
+		requestedCluster := clusterParts[0]
+		if requestedCluster != "*" && requestedCluster != consumerClusterName {
+			return genericapirequest.Cluster{}, "", false
+		}
+
 		realPath = "/"
 		if len(clusterParts) > 1 {
 			realPath += clusterParts[1]
