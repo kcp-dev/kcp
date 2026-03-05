@@ -31,20 +31,19 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/kcp-dev/cli/pkg/base"
 	"github.com/kcp-dev/logicalcluster/v3"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpfakeclient "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/fake"
-
-	"github.com/kcp-dev/cli/pkg/base"
 )
 
 // newTreeClientConfig creates a minimal clientcmd.ClientConfig pointing at the given server URL.
 func newTreeClientConfig(serverURL string) clientcmd.ClientConfig {
 	cfg := clientcmdapi.Config{
 		CurrentContext: "test",
-		Contexts:  map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
-		Clusters:  map[string]*clientcmdapi.Cluster{"test": {Server: serverURL}},
-		AuthInfos: map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
+		Contexts:       map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"test": {Server: serverURL}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"test": {Token: "test"}},
 	}
 	return clientcmd.NewDefaultClientConfig(cfg, &clientcmd.ConfigOverrides{})
 }
