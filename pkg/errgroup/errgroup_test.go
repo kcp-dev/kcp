@@ -390,3 +390,84 @@ func TestGroup_WithContext_WaitCancelsContext(t *testing.T) {
 	storedCtx := runnerCtx.Load().(context.Context)
 	assert.Error(t, storedCtx.Err(), "context should be cancelled after Wait returns")
 }
+
+func TestNew_ExitEarlyFalse_RunsAll(t *testing.T) {
+	// New with exitEarly=false should behave identically to WithContext — all
+	// goroutines run to completion even when a sibling returns an error.
+	g := New(context.Background(), false)
+
+	var completed atomic.Bool
+	g.Go(func(ctx context.Context) error {
+		time.Sleep(20 * time.Millisecond)
+		completed.Store(true)
+		return nil
+	})
+	g.Go(func(_ context.Context) error {
+		return errors.New("first error")
+	})
+
+	err := g.Wait()
+	require.Error(t, err)
+	assert.True(t, completed.Load(), "all goroutines should run to completion when exitEarly=false")
+}
+
+func TestNew_ExitEarlyTrue_CancelsContext(t *testing.T) {
+	// New with exitEarly=true should cancel the context of all running goroutines
+	// as soon as one returns an error.
+	g := New(context.Background(), true)
+
+	cancelled := make(chan struct{})
+	g.Go(func(ctx context.Context) error {
+		<-ctx.Done()
+		close(cancelled)
+		return nil
+	})
+	g.Go(func(_ context.Context) error {
+		return errors.New("trigger exit-early")
+	})
+
+	err := g.Wait()
+	require.Error(t, err)
+
+	select {
+	case <-cancelled:
+		// expected — context was cancelled by exit-early
+	case <-time.After(time.Second):
+		t.Fatal("expected context to be cancelled when exitEarly=true")
+	}
+}
+
+func TestNew_ExitEarlyTrue_MatchesFailFast(t *testing.T) {
+	// New(ctx, true) must behave identically to WithContext(ctx) + FailFast=true.
+	// Both groups should cancel siblings and surface the error.
+	for _, tc := range []struct {
+		name  string
+		group func() *Group
+	}{
+		{"New-exitEarly", func() *Group { return New(context.Background(), true) }},
+		{"WithContext-FailFast", func() *Group {
+			g := WithContext(context.Background())
+			g.FailFast = true
+			return g
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := tc.group()
+
+			started := make(chan struct{})
+			g.Go(func(ctx context.Context) error {
+				close(started)
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			<-started
+
+			g.Go(func(_ context.Context) error {
+				return errors.New("fail")
+			})
+
+			err := g.Wait()
+			require.Error(t, err)
+		})
+	}
+}

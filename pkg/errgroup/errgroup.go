@@ -54,6 +54,22 @@ func WithContext(ctx context.Context) *Group {
 	return g
 }
 
+// New returns a new Group with a derived context and configurable exit-early
+// behaviour.
+//
+// When exitEarly is true, the first error returned by any [Runner] immediately
+// cancels the context that is passed to all other goroutines, causing them to
+// stop as soon as they observe the cancellation. This is equivalent to setting
+// [Group.FailFast] on a Group returned by [WithContext].
+//
+// When exitEarly is false, all goroutines run to completion regardless of
+// errors from sibling goroutines (the default behaviour).
+func New(ctx context.Context, exitEarly bool) *Group {
+	g := WithContext(ctx)
+	g.FailFast = exitEarly
+	return g
+}
+
 func (g *Group) context(ctx context.Context) (context.Context, context.CancelFunc) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
