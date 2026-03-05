@@ -88,10 +88,10 @@ func TestAPIResourceSchemaVirtualWorkspaceDiscovery(t *testing.T) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), group, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 
-	// Set up the VW URL
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-	vwURL := fmt.Sprintf("%s/services/%s/%s", rootShardCfg.Host, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
-	vwCfg := rest.CopyConfig(rootShardCfg)
+	// Set up the VW URL - must use the consumer's shard VW URL since APIBindings are shard-local
+	consumerShard := kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, consumerWorkspace)
+	vwURL := fmt.Sprintf("%s/services/%s/%s", consumerShard.Spec.VirtualWorkspaceURL, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
+	vwCfg := rest.CopyConfig(server.ShardSystemMasterBaseConfig(t, consumerShard.Name))
 	vwCfg.Host = vwURL
 
 	virtualWorkspaceDiscoveryClient, err := kcpdiscovery.NewForConfig(vwCfg)
@@ -188,10 +188,10 @@ func TestAPIResourceSchemaVirtualWorkspaceAccess(t *testing.T) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), group2, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 
-	// Set up the VW client
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-	vwURL := fmt.Sprintf("%s/services/%s/%s", rootShardCfg.Host, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
-	vwCfg := rest.CopyConfig(rootShardCfg)
+	// Set up the VW client - must use the consumer's shard VW URL since APIBindings are shard-local
+	consumerShard := kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, consumerWorkspace)
+	vwURL := fmt.Sprintf("%s/services/%s/%s", consumerShard.Spec.VirtualWorkspaceURL, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
+	vwCfg := rest.CopyConfig(server.ShardSystemMasterBaseConfig(t, consumerShard.Name))
 	vwCfg.Host = vwURL
 
 	vwKcpClient, err := kcpclientset.NewForConfig(vwCfg)
@@ -295,10 +295,10 @@ func TestAPIResourceSchemaVirtualWorkspaceReadOnly(t *testing.T) {
 		return kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), group, metav1.GetOptions{})
 	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 
-	// Set up the VW client
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-	vwURL := fmt.Sprintf("%s/services/%s/%s", rootShardCfg.Host, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
-	vwCfg := rest.CopyConfig(rootShardCfg)
+	// Set up the VW client - must use the consumer's shard VW URL since APIBindings are shard-local
+	consumerShard := kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, consumerWorkspace)
+	vwURL := fmt.Sprintf("%s/services/%s/%s", consumerShard.Spec.VirtualWorkspaceURL, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
+	vwCfg := rest.CopyConfig(server.ShardSystemMasterBaseConfig(t, consumerShard.Name))
 	vwCfg.Host = vwURL
 
 	vwKcpClient, err := kcpclientset.NewForConfig(vwCfg)
@@ -412,10 +412,10 @@ func TestAPIResourceSchemaVirtualWorkspaceMultipleBindings(t *testing.T) {
 		}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted))
 	}
 
-	// Set up the VW client
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-	vwURL := fmt.Sprintf("%s/services/%s/%s", rootShardCfg.Host, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
-	vwCfg := rest.CopyConfig(rootShardCfg)
+	// Set up the VW client - must use the consumer's shard VW URL since APIBindings are shard-local
+	consumerShard := kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, consumerWorkspace)
+	vwURL := fmt.Sprintf("%s/services/%s/%s", consumerShard.Spec.VirtualWorkspaceURL, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
+	vwCfg := rest.CopyConfig(server.ShardSystemMasterBaseConfig(t, consumerShard.Name))
 	vwCfg.Host = vwURL
 
 	vwKcpClient, err := kcpclientset.NewForConfig(vwCfg)
@@ -516,11 +516,12 @@ func TestAPIResourceSchemaVirtualWorkspaceAuthorization(t *testing.T) {
 
 	// Set up the VW URL and client using the ServiceAccount token
 	// The SA from provider workspace accesses the VW scoped to the consumer cluster
-	rootShardCfg := server.RootShardSystemMasterBaseConfig(t)
-	vwURL := fmt.Sprintf("%s/services/%s/%s", rootShardCfg.Host, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
+	// Must use the consumer's shard VW URL since APIBindings are shard-local
+	consumerShard := kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, consumerWorkspace)
+	vwURL := fmt.Sprintf("%s/services/%s/%s", consumerShard.Spec.VirtualWorkspaceURL, apiresourceschema.VirtualWorkspaceName, consumerClusterName)
 
 	// Create a config using the ServiceAccount token
-	saConfig := framework.ConfigWithToken(string(tokenSecret.Data["token"]), cfg)
+	saConfig := framework.ConfigWithToken(string(tokenSecret.Data["token"]), server.ShardSystemMasterBaseConfig(t, consumerShard.Name))
 	saConfig.Host = vwURL
 
 	saVwKcpClient, err := kcpclientset.NewForConfig(saConfig)
