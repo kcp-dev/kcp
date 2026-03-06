@@ -20,9 +20,14 @@ package v1alpha1
 
 // APIExportEndpointSliceSpecApplyConfiguration represents a declarative configuration of the APIExportEndpointSliceSpec type for use
 // with apply.
+//
+// APIExportEndpointSliceSpec defines the desired state of the APIExportEndpointSlice.
 type APIExportEndpointSliceSpecApplyConfiguration struct {
+	// export points to the API export.
 	APIExport *ExportBindingReferenceApplyConfiguration `json:"export,omitempty"`
-	Partition *string                                   `json:"partition,omitempty"`
+	// partition (optional) points to a partition that is used for filtering the endpoints
+	// of the APIExport part of the slice.
+	Partition *string `json:"partition,omitempty"`
 }
 
 // APIExportEndpointSliceSpecApplyConfiguration constructs a declarative configuration of the APIExportEndpointSliceSpec type for use with

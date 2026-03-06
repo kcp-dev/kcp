@@ -77,7 +77,7 @@ import (
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
-	storagemigrationv1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	storagemigrationv1beta1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1beta1"
 
 	kcpclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpclientscheme "github.com/kcp-dev/client-go/kubernetes/scheme"
@@ -189,8 +189,8 @@ import (
 	kcpfakestoragev1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1alpha1/fake"
 	kcpstoragev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1beta1"
 	kcpfakestoragev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1beta1/fake"
-	kcpstoragemigrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1"
-	kcpfakestoragemigrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1/fake"
+	kcpstoragemigrationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1beta1"
+	kcpfakestoragemigrationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1beta1/fake"
 	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -201,7 +201,7 @@ import (
 // without applying any field management, validations and/or defaults. It shouldn't be considered a replacement
 // for a real clientset and is mostly useful in simple unit tests.
 //
-// DEPRECATED: NewClientset replaces this with support for field management, which significantly improves
+// Deprecated: NewClientset replaces this with support for field management, which significantly improves
 // server side apply testing. NewClientset is only available when apply configurations are generated (e.g.
 // via --with-applyconfig).
 func NewSimpleClientset(objects ...runtime.Object) *ClusterClientset {
@@ -232,6 +232,28 @@ func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
 
 func (c *ClusterClientset) Tracker() kcptesting.ObjectTracker {
 	return c.tracker
+}
+
+// IsWatchListSemanticsUnSupported informs the reflector that this client
+// doesn't support WatchList semantics.
+//
+// This is a synthetic method whose sole purpose is to satisfy the optional
+// interface check performed by the reflector.
+// Returning true signals that WatchList can NOT be used.
+// No additional logic is implemented here.
+func (c *ClusterClientset) IsWatchListSemanticsUnSupported() bool {
+	return true
+}
+
+// IsWatchListSemanticsSupported informs the reflector that this client
+// doesn't support WatchList semantics.
+//
+// This is a synthetic method whose sole purpose is to satisfy the optional
+// interface check performed by the reflector.
+// Returning true signals that WatchList can NOT be used.
+// No additional logic is implemented here.
+func (c *Clientset) IsWatchListSemanticsUnSupported() bool {
+	return true
 }
 
 // Cluster scopes this clientset to one cluster.
@@ -517,9 +539,9 @@ func (c *ClusterClientset) StorageV1beta1() kcpstoragev1beta1.StorageV1beta1Clus
 	return &kcpfakestoragev1beta1.StorageV1beta1ClusterClient{Fake: &c.Fake}
 }
 
-// StoragemigrationV1alpha1 retrieves the StoragemigrationV1alpha1ClusterClient
-func (c *ClusterClientset) StoragemigrationV1alpha1() kcpstoragemigrationv1alpha1.StoragemigrationV1alpha1ClusterInterface {
-	return &kcpfakestoragemigrationv1alpha1.StoragemigrationV1alpha1ClusterClient{Fake: &c.Fake}
+// StoragemigrationV1beta1 retrieves the StoragemigrationV1beta1ClusterClient
+func (c *ClusterClientset) StoragemigrationV1beta1() kcpstoragemigrationv1beta1.StoragemigrationV1beta1ClusterInterface {
+	return &kcpfakestoragemigrationv1beta1.StoragemigrationV1beta1ClusterClient{Fake: &c.Fake}
 }
 
 // Clientset implements clientset.Interface. Meant to be embedded into a
@@ -835,7 +857,7 @@ func (c *Clientset) StorageV1beta1() storagev1beta1.StorageV1beta1Interface {
 	return &kcpfakestoragev1beta1.StorageV1beta1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
-// StoragemigrationV1alpha1 retrieves the StoragemigrationV1alpha1Client
-func (c *Clientset) StoragemigrationV1alpha1() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
-	return &kcpfakestoragemigrationv1alpha1.StoragemigrationV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+// StoragemigrationV1beta1 retrieves the StoragemigrationV1beta1Client
+func (c *Clientset) StoragemigrationV1beta1() storagemigrationv1beta1.StoragemigrationV1beta1Interface {
+	return &kcpfakestoragemigrationv1beta1.StoragemigrationV1beta1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }

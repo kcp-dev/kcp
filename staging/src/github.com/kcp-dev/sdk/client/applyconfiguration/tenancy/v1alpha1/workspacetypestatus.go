@@ -24,8 +24,12 @@ import (
 
 // WorkspaceTypeStatusApplyConfiguration represents a declarative configuration of the WorkspaceTypeStatus type for use
 // with apply.
+//
+// WorkspaceTypeStatus defines the observed state of WorkspaceType.
 type WorkspaceTypeStatusApplyConfiguration struct {
-	Conditions        *conditionsv1alpha1.Conditions       `json:"conditions,omitempty"`
+	// conditions is a list of conditions that apply to the APIExport.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	// virtualWorkspaces contains all APIExport virtual workspace URLs.
 	VirtualWorkspaces []VirtualWorkspaceApplyConfiguration `json:"virtualWorkspaces,omitempty"`
 }
 

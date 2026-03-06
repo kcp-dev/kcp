@@ -26,8 +26,12 @@ import (
 
 // ShardStatusApplyConfiguration represents a declarative configuration of the ShardStatus type for use
 // with apply.
+//
+// ShardStatus communicates the observed state of the Shard.
 type ShardStatusApplyConfiguration struct {
-	Capacity   *v1.ResourceList               `json:"capacity,omitempty"`
+	// Set of integer resources that logical clusters can be scheduled into
+	Capacity *v1.ResourceList `json:"capacity,omitempty"`
+	// Current processing state of the Shard.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 

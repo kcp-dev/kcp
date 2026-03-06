@@ -64,7 +64,7 @@ func NewComponentStatusClusterInformer(client kcpkubernetes.ClusterInterface, re
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredComponentStatusClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredComponentStatusClusterInformer(client kcpkubernetes.ClusterInter
 				}
 				return client.CoreV1().ComponentStatuses().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apicorev1.ComponentStatus{},
 		resyncPeriod,
 		indexers,

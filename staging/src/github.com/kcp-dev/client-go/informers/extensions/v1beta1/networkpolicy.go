@@ -64,7 +64,7 @@ func NewNetworkPolicyClusterInformer(client kcpkubernetes.ClusterInterface, resy
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredNetworkPolicyClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredNetworkPolicyClusterInformer(client kcpkubernetes.ClusterInterfa
 				}
 				return client.ExtensionsV1beta1().NetworkPolicies().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apiextensionsv1beta1.NetworkPolicy{},
 		resyncPeriod,
 		indexers,

@@ -64,7 +64,7 @@ func NewCSIStorageCapacityClusterInformer(client kcpkubernetes.ClusterInterface,
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCSIStorageCapacityClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredCSIStorageCapacityClusterInformer(client kcpkubernetes.ClusterIn
 				}
 				return client.StorageV1alpha1().CSIStorageCapacities().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apistoragev1alpha1.CSIStorageCapacity{},
 		resyncPeriod,
 		indexers,

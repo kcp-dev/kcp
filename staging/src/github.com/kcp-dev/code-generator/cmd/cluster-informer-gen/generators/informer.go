@@ -95,39 +95,40 @@ func (g *informerGenerator) GenerateType(c *generator.Context, t *types.Type, w 
 	}
 
 	m := map[string]interface{}{
-		"type":                                  t,
-		"namespaced":                            !tags.NonNamespaced,
-		"cacheIndexers":                         c.Universe.Type(cacheIndexers),
-		"cacheListWatch":                        c.Universe.Type(cacheListWatch),
-		"cacheMetaNamespaceIndexFunc":           c.Universe.Function(cacheMetaNamespaceIndexFunc),
-		"cacheNamespaceIndex":                   c.Universe.Variable(cacheNamespaceIndex),
-		"cacheNewSharedIndexInformer":           c.Universe.Function(cacheNewSharedIndexInformer),
-		"cacheSharedIndexInformer":              c.Universe.Type(cacheSharedIndexInformer),
-		"scopeableCacheSharedIndexInformer":     c.Universe.Type(scopeableCacheSharedIndexInformer),
-		"clientSetInterface":                    clientSetInterface,
-		"clientSetClusterInterface":             clientSetClusterInterface,
-		"contextBackground":                     c.Universe.Function(contextBackgroundFunc),
-		"contextContext":                        c.Universe.Type(contextContext),
-		"group":                                 namer.IC(g.groupGoName),
-		"interfacesTweakListOptionsFunc":        c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "TweakListOptionsFunc"}),
-		"interfacesSharedInformerFactory":       c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "SharedInformerFactory"}),
-		"interfacesSharedScopedInformerFactory": c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "SharedScopedInformerFactory"}),
-		"lister":                                c.Universe.Type(types.Name{Package: listersPkg, Name: t.Name.Name + "Lister"}),
-		"clusterLister":                         c.Universe.Type(types.Name{Package: clusterListersPkg, Name: t.Name.Name + "ClusterLister"}),
-		"informerInterface":                     c.Universe.Type(types.Name{Package: informerPkg, Name: t.Name.Name + "Informer"}),
-		"newLister":                             c.Universe.Function(types.Name{Package: listersPkg, Name: "New" + t.Name.Name + "Lister"}),
-		"newClusterLister":                      c.Universe.Function(types.Name{Package: clusterListersPkg, Name: "New" + t.Name.Name + "ClusterLister"}),
-		"kcpcacheClusterIndexName":              c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterIndexName"}),
-		"kcpcacheClusterIndexFunc":              c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterIndexFunc"}),
-		"kcpcacheClusterAndNamespaceIndexName":  c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterAndNamespaceIndexName"}),
-		"kcpcacheClusterAndNamespaceIndexFunc":  c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterAndNamespaceIndexFunc"}),
-		"runtimeObject":                         c.Universe.Type(runtimeObject),
-		"timeDuration":                          c.Universe.Type(timeDuration),
-		"metav1ListOptions":                     c.Universe.Type(metav1ListOptions),
-		"version":                               namer.IC(g.groupVersion.Version.String()),
-		"watchInterface":                        c.Universe.Type(watchInterface),
-		"logicalclusterName":                    c.Universe.Type(logicalclusterName),
-		"kcpinformersNewSharedIndexInformer":    c.Universe.Type(kcpinformersNewSharedIndexInformer),
+		"type":                                     t,
+		"namespaced":                               !tags.NonNamespaced,
+		"cacheIndexers":                            c.Universe.Type(cacheIndexers),
+		"cacheListWatch":                           c.Universe.Type(cacheListWatch),
+		"cacheMetaNamespaceIndexFunc":              c.Universe.Function(cacheMetaNamespaceIndexFunc),
+		"cacheNamespaceIndex":                      c.Universe.Variable(cacheNamespaceIndex),
+		"cacheNewSharedIndexInformer":              c.Universe.Function(cacheNewSharedIndexInformer),
+		"cacheSharedIndexInformer":                 c.Universe.Type(cacheSharedIndexInformer),
+		"cacheToListWatcherWithWatchListSemantics": c.Universe.Function(cacheToListWatcherWithWatchListSemanticsFunc),
+		"scopeableCacheSharedIndexInformer":        c.Universe.Type(scopeableCacheSharedIndexInformer),
+		"clientSetInterface":                       clientSetInterface,
+		"clientSetClusterInterface":                clientSetClusterInterface,
+		"contextBackground":                        c.Universe.Function(contextBackgroundFunc),
+		"contextContext":                           c.Universe.Type(contextContext),
+		"group":                                    namer.IC(g.groupGoName),
+		"interfacesTweakListOptionsFunc":           c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "TweakListOptionsFunc"}),
+		"interfacesSharedInformerFactory":          c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "SharedInformerFactory"}),
+		"interfacesSharedScopedInformerFactory":    c.Universe.Type(types.Name{Package: g.internalInterfacesPackage, Name: "SharedScopedInformerFactory"}),
+		"lister":                                   c.Universe.Type(types.Name{Package: listersPkg, Name: t.Name.Name + "Lister"}),
+		"clusterLister":                            c.Universe.Type(types.Name{Package: clusterListersPkg, Name: t.Name.Name + "ClusterLister"}),
+		"informerInterface":                        c.Universe.Type(types.Name{Package: informerPkg, Name: t.Name.Name + "Informer"}),
+		"newLister":                                c.Universe.Function(types.Name{Package: listersPkg, Name: "New" + t.Name.Name + "Lister"}),
+		"newClusterLister":                         c.Universe.Function(types.Name{Package: clusterListersPkg, Name: "New" + t.Name.Name + "ClusterLister"}),
+		"kcpcacheClusterIndexName":                 c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterIndexName"}),
+		"kcpcacheClusterIndexFunc":                 c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterIndexFunc"}),
+		"kcpcacheClusterAndNamespaceIndexName":     c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterAndNamespaceIndexName"}),
+		"kcpcacheClusterAndNamespaceIndexFunc":     c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/cache", Name: "ClusterAndNamespaceIndexFunc"}),
+		"runtimeObject":                            c.Universe.Type(runtimeObject),
+		"timeDuration":                             c.Universe.Type(timeDuration),
+		"metav1ListOptions":                        c.Universe.Type(metav1ListOptions),
+		"version":                                  namer.IC(g.groupVersion.Version.String()),
+		"watchInterface":                           c.Universe.Type(watchInterface),
+		"logicalclusterName":                       c.Universe.Type(logicalclusterName),
+		"kcpinformersNewSharedIndexInformer":       c.Universe.Type(kcpinformersNewSharedIndexInformer),
 	}
 
 	sw.Do(typeClusterInformerInterface, m)
@@ -180,7 +181,7 @@ var typeFilteredInformerPublicConstructor = `
 // one. This reduces memory footprint and number of connections to the server.
 func NewFiltered$.type|public$ClusterInformer(client $.clientSetClusterInterface|raw$, resyncPeriod $.timeDuration|raw$, indexers $.cacheIndexers|raw$, tweakListOptions $.interfacesTweakListOptionsFunc|raw$) $.scopeableCacheSharedIndexInformer|raw$ {
 	return $.kcpinformersNewSharedIndexInformer|raw$(
-		&$.cacheListWatch|raw${
+		$.cacheToListWatcherWithWatchListSemantics|raw$(&$.cacheListWatch|raw${
 			ListFunc: func(options $.metav1ListOptions|raw$) ($.runtimeObject|raw$, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -193,7 +194,7 @@ func NewFiltered$.type|public$ClusterInformer(client $.clientSetClusterInterface
 				}
 				return client.$.group$$.version$().$.type|publicPlural$().Watch($.contextBackground|raw$(), options)
 			},
-		},
+		}, client),
 		&$.type|raw${},
 		resyncPeriod,
 		indexers,
@@ -281,7 +282,7 @@ func New$.type|public$Informer(client $.clientSetInterface|raw$, resyncPeriod $.
 // one. This reduces memory footprint and number of connections to the server.
 func NewFiltered$.type|public$Informer(client $.clientSetInterface|raw$, resyncPeriod $.timeDuration|raw$$if .namespaced$, namespace string$end$, indexers $.cacheIndexers|raw$, tweakListOptions $.interfacesTweakListOptionsFunc|raw$) $.cacheSharedIndexInformer|raw$ {
 	return $.cacheNewSharedIndexInformer|raw$(
-		&$.cacheListWatch|raw${
+		$.cacheToListWatcherWithWatchListSemantics|raw$(&$.cacheListWatch|raw${
 			ListFunc: func(options $.metav1ListOptions|raw$) ($.runtimeObject|raw$, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -294,7 +295,7 @@ func NewFiltered$.type|public$Informer(client $.clientSetInterface|raw$, resyncP
 				}
 				return client.$.group$$.version$().$.type|publicPlural$($if .namespaced$namespace$end$).Watch($.contextBackground|raw$(), options)
 			},
-		},
+		}, client),
 		&$.type|raw${},
 		resyncPeriod,
 		indexers,

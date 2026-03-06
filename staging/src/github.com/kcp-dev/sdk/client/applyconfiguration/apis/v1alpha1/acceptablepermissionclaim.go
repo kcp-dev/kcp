@@ -24,6 +24,8 @@ import (
 
 // AcceptablePermissionClaimApplyConfiguration represents a declarative configuration of the AcceptablePermissionClaim type for use
 // with apply.
+//
+// AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.
 type AcceptablePermissionClaimApplyConfiguration struct {
 	PermissionClaimApplyConfiguration `json:",inline"`
 	State                             *apisv1alpha1.AcceptablePermissionClaimState `json:"state,omitempty"`

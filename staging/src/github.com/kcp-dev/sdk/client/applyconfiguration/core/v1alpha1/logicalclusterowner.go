@@ -24,13 +24,21 @@ import (
 
 // LogicalClusterOwnerApplyConfiguration represents a declarative configuration of the LogicalClusterOwner type for use
 // with apply.
+//
+// LogicalClusterOwner is a reference to a resource controlling the life-cycle of a LogicalCluster.
 type LogicalClusterOwnerApplyConfiguration struct {
-	APIVersion *string    `json:"apiVersion,omitempty"`
-	Resource   *string    `json:"resource,omitempty"`
-	Name       *string    `json:"name,omitempty"`
-	Namespace  *string    `json:"namespace,omitempty"`
-	Cluster    *string    `json:"cluster,omitempty"`
-	UID        *types.UID `json:"uid,omitempty"`
+	// apiVersion is the group and API version of the owner.
+	APIVersion *string `json:"apiVersion,omitempty"`
+	// resource is API resource to access the owner.
+	Resource *string `json:"resource,omitempty"`
+	// name is the name of the owner.
+	Name *string `json:"name,omitempty"`
+	// namespace is the optional namespace of the owner.
+	Namespace *string `json:"namespace,omitempty"`
+	// cluster is the logical cluster in which the owner is located.
+	Cluster *string `json:"cluster,omitempty"`
+	// UID is the UID of the owner.
+	UID *types.UID `json:"uid,omitempty"`
 }
 
 // LogicalClusterOwnerApplyConfiguration constructs a declarative configuration of the LogicalClusterOwner type for use with

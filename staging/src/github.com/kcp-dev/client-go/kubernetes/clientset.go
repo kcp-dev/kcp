@@ -82,7 +82,7 @@ import (
 	storagev1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1"
 	storagev1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1beta1"
-	storagemigrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	storagemigrationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1beta1"
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
@@ -143,7 +143,7 @@ type ClusterInterface interface {
 	StorageV1() storagev1.StorageV1ClusterInterface
 	StorageV1alpha1() storagev1alpha1.StorageV1alpha1ClusterInterface
 	StorageV1beta1() storagev1beta1.StorageV1beta1ClusterInterface
-	StoragemigrationV1alpha1() storagemigrationv1alpha1.StoragemigrationV1alpha1ClusterInterface
+	StoragemigrationV1beta1() storagemigrationv1beta1.StoragemigrationV1beta1ClusterInterface
 }
 
 // ClusterClientset contains the cluster clients for groups.
@@ -204,7 +204,7 @@ type ClusterClientset struct {
 	storageV1                     *storagev1.StorageV1ClusterClient
 	storageV1alpha1               *storagev1alpha1.StorageV1alpha1ClusterClient
 	storageV1beta1                *storagev1beta1.StorageV1beta1ClusterClient
-	storagemigrationV1alpha1      *storagemigrationv1alpha1.StoragemigrationV1alpha1ClusterClient
+	storagemigrationV1beta1       *storagemigrationv1beta1.StoragemigrationV1beta1ClusterClient
 }
 
 // Discovery retrieves the DiscoveryClient.
@@ -485,9 +485,9 @@ func (c *ClusterClientset) StorageV1beta1() storagev1beta1.StorageV1beta1Cluster
 	return c.storageV1beta1
 }
 
-// StoragemigrationV1alpha1 retrieves the StoragemigrationV1alpha1ClusterClient.
-func (c *ClusterClientset) StoragemigrationV1alpha1() storagemigrationv1alpha1.StoragemigrationV1alpha1ClusterInterface {
-	return c.storagemigrationV1alpha1
+// StoragemigrationV1beta1 retrieves the StoragemigrationV1beta1ClusterClient.
+func (c *ClusterClientset) StoragemigrationV1beta1() storagemigrationv1beta1.StoragemigrationV1beta1ClusterInterface {
+	return c.storagemigrationV1beta1
 }
 
 // Cluster scopes this clientset to one cluster.
@@ -758,7 +758,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	if err != nil {
 		return nil, err
 	}
-	cs.storagemigrationV1alpha1, err = storagemigrationv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.storagemigrationV1beta1, err = storagemigrationv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -837,7 +837,7 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.storageV1 = storagev1.NewForConfigOrDie(c)
 	cs.storageV1alpha1 = storagev1alpha1.NewForConfigOrDie(c)
 	cs.storageV1beta1 = storagev1beta1.NewForConfigOrDie(c)
-	cs.storagemigrationV1alpha1 = storagemigrationv1alpha1.NewForConfigOrDie(c)
+	cs.storagemigrationV1beta1 = storagemigrationv1beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs

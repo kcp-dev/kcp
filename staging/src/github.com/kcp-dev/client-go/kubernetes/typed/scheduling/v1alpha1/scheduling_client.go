@@ -33,6 +33,7 @@ import (
 type SchedulingV1alpha1ClusterInterface interface {
 	SchedulingV1alpha1ClusterScoper
 	PriorityClassesClusterGetter
+	WorkloadsClusterGetter
 }
 
 type SchedulingV1alpha1ClusterScoper interface {
@@ -53,6 +54,10 @@ func (c *SchedulingV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Pat
 
 func (c *SchedulingV1alpha1ClusterClient) PriorityClasses() PriorityClassClusterInterface {
 	return &priorityClassesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *SchedulingV1alpha1ClusterClient) Workloads() WorkloadClusterInterface {
+	return &workloadsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new SchedulingV1alpha1ClusterClient for the given config.

@@ -20,7 +20,11 @@ package v1alpha1
 
 // MountApplyConfiguration represents a declarative configuration of the Mount type for use
 // with apply.
+//
+// Mount is a reference to an object implementing a mounting feature. It is used to orchestrate
+// where the traffic, intended for the workspace, is sent.
 type MountApplyConfiguration struct {
+	// Reference is an ObjectReference to the object that is mounted.
 	Reference *ObjectReferenceApplyConfiguration `json:"ref,omitempty"`
 }
 

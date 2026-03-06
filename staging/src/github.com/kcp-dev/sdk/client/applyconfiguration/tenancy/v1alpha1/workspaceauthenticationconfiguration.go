@@ -27,6 +27,9 @@ import (
 
 // WorkspaceAuthenticationConfigurationApplyConfiguration represents a declarative configuration of the WorkspaceAuthenticationConfiguration type for use
 // with apply.
+//
+// WorkspaceAuthenticationConfiguration specifies additional authentication options
+// for workspaces.
 type WorkspaceAuthenticationConfigurationApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -42,6 +45,7 @@ func WorkspaceAuthenticationConfiguration(name string) *WorkspaceAuthenticationC
 	b.WithAPIVersion("tenancy.kcp.io/v1alpha1")
 	return b
 }
+
 func (b WorkspaceAuthenticationConfigurationApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

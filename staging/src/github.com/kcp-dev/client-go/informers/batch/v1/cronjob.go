@@ -64,7 +64,7 @@ func NewCronJobClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeri
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCronJobClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredCronJobClusterInformer(client kcpkubernetes.ClusterInterface, re
 				}
 				return client.BatchV1().CronJobs().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apibatchv1.CronJob{},
 		resyncPeriod,
 		indexers,

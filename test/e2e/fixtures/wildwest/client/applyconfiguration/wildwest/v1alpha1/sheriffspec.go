@@ -20,6 +20,8 @@ package v1alpha1
 
 // SheriffSpecApplyConfiguration represents a declarative configuration of the SheriffSpec type for use
 // with apply.
+//
+// Sheriff holds the desired state of the Sheriff.
 type SheriffSpecApplyConfiguration struct {
 	Intent *string `json:"intent,omitempty"`
 }
