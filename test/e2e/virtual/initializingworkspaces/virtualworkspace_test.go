@@ -377,6 +377,9 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 		actual := &corev1alpha1.LogicalClusterList{}
 		for _, initializer := range strings.Split(initializers, ",") {
+			// This loop needs longer timeout because SAR deny cache is refreshed every 30 seconds,
+			// so it might take up to 30 seconds for the above RBAC changes to be reflected in authorization decisions.
+			// Because of that, we can't use exactly 30 seconds as timeout, instead we use 1 minute to be on the safe side.
 			require.Eventually(t, func() bool {
 				clusters, err := user1VwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
 				if err != nil {
@@ -387,7 +390,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				}
 				actual.Items = append(actual.Items, clusters.Items...)
 				return true
-			}, wait.ForeverTestTimeout, 100*time.Millisecond)
+			}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 		}
 
 		lclusters, expectedClusters := sets.New[string](), sets.New[string]()
