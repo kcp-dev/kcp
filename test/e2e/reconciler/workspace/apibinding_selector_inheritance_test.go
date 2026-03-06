@@ -91,7 +91,7 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 		}
 	})
 
-	orgsPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"), kcptesting.WithName("orgs"))
+	consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"), kcptesting.WithName("consumer"))
 	platformPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithName("platform"))
 
 	t.Logf("Install cowboys APIResourceSchema into platform workspace %q", platformPath)
@@ -105,7 +105,7 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 	err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(platformPath), mapper, nil, "clusterrolebinding_cowboys.yaml", testFiles)
 	require.NoError(t, err)
 
-	t.Logf("Create an APIExport with permission claims")
+	t.Logf("Create an APIExport with permission claims including defaultSelector")
 	apiExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "today-cowboys",
@@ -128,6 +128,15 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 						Resource: "configmaps",
 					},
 					Verbs: []string{"get", "list"},
+					// Set the default selector that will be used when creating APIBindings
+					// via WorkspaceType's defaultAPIBindings
+					DefaultSelector: &apisv1alpha2.PermissionClaimSelector{
+						LabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"platform-mesh.io/enabled": "true",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -144,51 +153,7 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 	identityHash := apiExport.Status.IdentityHash
 	require.NotEmpty(t, identityHash, "APIExport should have identity hash")
 
-	t.Logf("Create APIBinding in orgs workspace %q with label selector", orgsPath)
-	orgsBinding := &apisv1alpha2.APIBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "today-cowboys",
-		},
-		Spec: apisv1alpha2.APIBindingSpec{
-			Reference: apisv1alpha2.BindingReference{
-				Export: &apisv1alpha2.ExportBindingReference{
-					Path: platformPath.String(),
-					Name: apiExport.Name,
-				},
-			},
-			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
-				{
-					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
-						PermissionClaim: apisv1alpha2.PermissionClaim{
-							GroupResource: apisv1alpha2.GroupResource{
-								Group:    "",
-								Resource: "configmaps",
-							},
-							Verbs: []string{"get", "list"},
-						},
-						Selector: apisv1alpha2.PermissionClaimSelector{
-							LabelSelector: metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"platform-mesh.io/enabled": "true",
-								},
-							},
-						},
-					},
-					State: apisv1alpha2.ClaimAccepted,
-				},
-			},
-		},
-	}
-
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err := kcpClusterClient.Cluster(orgsPath).ApisV1alpha2().APIBindings().Create(ctx, orgsBinding, metav1.CreateOptions{})
-		return err == nil, fmt.Sprintf("Error creating orgs APIBinding: %v", err)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create orgs APIBinding")
-
-	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		return kcpClusterClient.Cluster(orgsPath).ApisV1alpha2().APIBindings().Get(ctx, orgsBinding.Name, metav1.GetOptions{})
-	}, kcptestinghelpers.Is(apisv1alpha2.InitialBindingCompleted), "orgs APIBinding should be completed")
-
+	t.Logf("Update WorkspaceType with platform path")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		wt, err := kcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().WorkspaceTypes().Get(ctx, workspaceType.Name, metav1.GetOptions{})
 		if err != nil {
@@ -202,10 +167,10 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to update workspace type with platform path")
 
-	t.Logf("Create child workspace in orgs with WorkspaceType - APIBinding should inherit selector from orgs")
-	childPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgsPath, kcptesting.WithType(core.RootCluster.Path(), tenancyv1alpha1.WorkspaceTypeName(workspaceType.Name)), kcptesting.WithName("child"))
+	t.Logf("Create child workspace with WorkspaceType - APIBinding should use defaultSelector from APIExport")
+	childPath, _ := kcptesting.NewWorkspaceFixture(t, server, consumerPath, kcptesting.WithType(core.RootCluster.Path(), tenancyv1alpha1.WorkspaceTypeName(workspaceType.Name)), kcptesting.WithName("child"))
 
-	t.Logf("Verify that child workspace APIBinding inherited selector from parent")
+	t.Logf("Verify that child workspace APIBinding uses defaultSelector from APIExport")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		bindings, err := kcpClusterClient.Cluster(childPath).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -222,25 +187,25 @@ func TestAPIBindingSelectorInheritance(t *testing.T) {
 					if claim.Group == "" && claim.Resource == "configmaps" &&
 						claim.State == apisv1alpha2.ClaimAccepted {
 						if claim.Selector.MatchAll {
-							return false, fmt.Sprintf("APIBinding has MatchAll selector instead of inherited label selector. Full binding: %+v", binding)
+							return false, fmt.Sprintf("APIBinding has MatchAll selector instead of defaultSelector from APIExport. Full binding: %+v", binding)
 						}
 						if claim.Selector.LabelSelector.MatchLabels == nil {
-							return false, fmt.Sprintf("APIBinding should have MatchLabels selector inherited from parent. Selector: %+v", claim.Selector)
+							return false, fmt.Sprintf("APIBinding should have MatchLabels selector from APIExport defaultSelector. Selector: %+v", claim.Selector)
 						}
 						expectedLabel := "platform-mesh.io/enabled"
 						expectedValue := "true"
 						if claim.Selector.LabelSelector.MatchLabels[expectedLabel] != expectedValue {
-							return false, fmt.Sprintf("APIBinding should have inherited selector with label %s=%s, got %v. Full selector: %+v",
+							return false, fmt.Sprintf("APIBinding should have selector with label %s=%s from APIExport defaultSelector, got %v. Full selector: %+v",
 								expectedLabel, expectedValue, claim.Selector.LabelSelector.MatchLabels, claim.Selector)
 						}
-						return true, "APIBinding correctly inherited selector from parent"
+						return true, "APIBinding correctly uses defaultSelector from APIExport"
 					}
 				}
 				return false, fmt.Sprintf("APIBinding found but permission claim not found or not accepted. Claims: %+v", binding.Spec.PermissionClaims)
 			}
 		}
 		return false, fmt.Sprintf("APIBinding not found yet. Found bindings: %d", len(bindings.Items))
-	}, wait.ForeverTestTimeout, time.Second*2, "failed to verify selector inheritance")
+	}, wait.ForeverTestTimeout, time.Second*2, "failed to verify defaultSelector usage")
 
-	t.Logf("Successfully verified that child workspace APIBinding inherited selector from orgs workspace")
+	t.Logf("Successfully verified that child workspace APIBinding uses defaultSelector from APIExport")
 }

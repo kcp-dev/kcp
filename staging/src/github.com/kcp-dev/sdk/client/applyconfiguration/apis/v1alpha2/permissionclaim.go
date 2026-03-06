@@ -22,8 +22,9 @@ package v1alpha2
 // with apply.
 type PermissionClaimApplyConfiguration struct {
 	GroupResourceApplyConfiguration `json:",inline"`
-	Verbs                           []string `json:"verbs,omitempty"`
-	IdentityHash                    *string  `json:"identityHash,omitempty"`
+	Verbs                           []string                                   `json:"verbs,omitempty"`
+	IdentityHash                    *string                                    `json:"identityHash,omitempty"`
+	DefaultSelector                 *PermissionClaimSelectorApplyConfiguration `json:"defaultSelector,omitempty"`
 }
 
 // PermissionClaimApplyConfiguration constructs a declarative configuration of the PermissionClaim type for use with
@@ -63,5 +64,13 @@ func (b *PermissionClaimApplyConfiguration) WithVerbs(values ...string) *Permiss
 // If called multiple times, the IdentityHash field is set to the value of the last call.
 func (b *PermissionClaimApplyConfiguration) WithIdentityHash(value string) *PermissionClaimApplyConfiguration {
 	b.IdentityHash = &value
+	return b
+}
+
+// WithDefaultSelector sets the DefaultSelector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DefaultSelector field is set to the value of the last call.
+func (b *PermissionClaimApplyConfiguration) WithDefaultSelector(value *PermissionClaimSelectorApplyConfiguration) *PermissionClaimApplyConfiguration {
+	b.DefaultSelector = value
 	return b
 }

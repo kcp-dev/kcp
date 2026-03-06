@@ -2381,6 +2381,12 @@ func schema_sdk_apis_apis_v1alpha2_AcceptablePermissionClaim(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"defaultSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "defaultSelector is the default selector to use when creating APIBindings via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will default to matchAll: true.\n\nThis allows API providers to suggest a default scope for permission claims that will be used when workspaces are automatically created with default APIBindings. Users can always override the default selector by accepting the claim with a different selector or by manually creating APIBindings with a custom selector.",
+							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"),
+						},
+					},
 					"selector": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2681,10 +2687,18 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"defaultSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "defaultSelector is the default selector to use when creating APIBindings via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will default to matchAll: true.\n\nThis allows API providers to suggest a default scope for permission claims that will be used when workspaces are automatically created with default APIBindings. Users can always override the default selector by accepting the claim with a different selector or by manually creating APIBindings with a custom selector.",
+							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"),
+						},
+					},
 				},
 				Required: []string{"resource", "verbs"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"},
 	}
 }
 
@@ -2933,6 +2947,12 @@ func schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref common.ReferenceCal
 							Description: "This is the identity for a given APIExport that the APIResourceSchema belongs to. The hash can be found on APIExport and APIResourceSchema's status. It will be empty for core types. Note that one must look this up for a particular kcp instance.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"defaultSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "defaultSelector is the default selector to use when creating APIBindings via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will default to matchAll: true.\n\nThis allows API providers to suggest a default scope for permission claims that will be used when workspaces are automatically created with default APIBindings. Users can always override the default selector by accepting the claim with a different selector or by manually creating APIBindings with a custom selector.",
+							Ref:         ref("github.com/kcp-dev/sdk/apis/apis/v1alpha2.PermissionClaimSelector"),
 						},
 					},
 					"selector": {

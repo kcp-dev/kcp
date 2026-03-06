@@ -750,6 +750,7 @@ func autoConvert_v1alpha2_PermissionClaim_To_v1alpha1_PermissionClaim(in *Permis
 	}
 	// WARNING: in.Verbs requires manual conversion: does not exist in peer-type
 	out.IdentityHash = in.IdentityHash
+	// WARNING: in.DefaultSelector requires manual conversion: does not exist in peer-type
 	return nil
 }
 
