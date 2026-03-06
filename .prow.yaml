@@ -210,8 +210,8 @@ presubmits:
               value: "3"
           resources:
             requests:
-              memory: 6Gi
-              cpu: 4
+              memory: 8Gi
+              cpu: 6
 
   - name: pull-kcp-test-e2e-sharded
     decorate: true
@@ -239,5 +239,5 @@ presubmits:
               value: "3"
           resources:
             requests:
-              memory: 6Gi
-              cpu: 4
+              memory: 8Gi
+              cpu: 6
