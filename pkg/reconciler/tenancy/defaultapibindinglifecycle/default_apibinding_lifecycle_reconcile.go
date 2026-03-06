@@ -140,9 +140,18 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 					logger.V(3).Info("using default selector from APIExport", "selector", selector)
 				}
 
+				// Create a copy of the permission claim without DefaultSelector,
+				// as DefaultSelector is only used to determine the selector for
+				// auto-created APIBindings, not to be stored in the APIBinding.
+				claim := apisv1alpha2.PermissionClaim{
+					GroupResource: exportClaim.GroupResource,
+					Verbs:         exportClaim.Verbs,
+					IdentityHash:  exportClaim.IdentityHash,
+				}
+
 				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
 					ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
-						PermissionClaim: exportClaim,
+						PermissionClaim: claim,
 						Selector:        selector,
 					},
 					State: apisv1alpha2.ClaimAccepted,
