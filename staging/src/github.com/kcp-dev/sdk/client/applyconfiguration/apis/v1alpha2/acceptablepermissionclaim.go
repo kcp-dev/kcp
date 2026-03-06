@@ -69,6 +69,14 @@ func (b *AcceptablePermissionClaimApplyConfiguration) WithIdentityHash(value str
 	return b
 }
 
+// WithDefaultSelector sets the DefaultSelector field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DefaultSelector field is set to the value of the last call.
+func (b *AcceptablePermissionClaimApplyConfiguration) WithDefaultSelector(value *PermissionClaimSelectorApplyConfiguration) *AcceptablePermissionClaimApplyConfiguration {
+	b.PermissionClaimApplyConfiguration.DefaultSelector = value
+	return b
+}
+
 // WithSelector sets the Selector field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Selector field is set to the value of the last call.

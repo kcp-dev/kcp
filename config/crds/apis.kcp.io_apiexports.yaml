@@ -396,6 +396,64 @@ spec:
                     Its purpose is to determine the added permissions that a service provider may
                     request and that a consumer may accept and allow the service provider access to.
                   properties:
+                    defaultSelector:
+                      description: |-
+                        defaultSelector is the default selector to use when creating APIBindings
+                        via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will
+                        default to matchAll: true.
+
+                        This allows API providers to suggest a default scope for permission claims
+                        that will be used when workspaces are automatically created with default
+                        APIBindings. Users can always override the default selector by accepting the
+                        claim with a different selector or by manually creating APIBindings with a custom selector.
+                      properties:
+                        matchAll:
+                          description: matchAll grants access to all objects of the
+                            claimed resource.
+                          type: boolean
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     group:
                       default: ""
                       description: |-

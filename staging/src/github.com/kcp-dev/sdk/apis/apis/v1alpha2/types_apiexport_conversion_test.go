@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
@@ -116,6 +117,32 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 						Resource: "configmaps",
 					},
 					Verbs: []string{"get"},
+				}},
+			},
+		},
+		// Test case with DefaultSelector on PermissionClaim
+		{
+			Spec: APIExportSpec{
+				Resources: []ResourceSchema{{
+					Group:  "bar",
+					Name:   "foo",
+					Schema: "v1.foo.bar",
+					Storage: ResourceSchemaStorage{
+						CRD: &ResourceSchemaStorageCRD{},
+					},
+				}},
+				PermissionClaims: []PermissionClaim{{
+					GroupResource: GroupResource{
+						Resource: "configmaps",
+					},
+					Verbs: []string{"get", "list"},
+					DefaultSelector: &PermissionClaimSelector{
+						LabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"platform-mesh.io/enabled": "true",
+							},
+						},
+					},
 				}},
 			},
 		},
