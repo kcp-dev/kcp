@@ -359,12 +359,15 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		})
 	}
 
+	// This loop needs longer timeout because SAR deny cache is refreshed every 30 seconds,
+	// so it might take up to 30 seconds for the above RBAC changes to be reflected in authorization decisions.
+	// Because of that, we can't use exactly 30 seconds as timeout, instead we use 1 minute to be on the safe side.
 	t.Log("Ensure that LIST calls through the virtual workspace eventually show the correct values")
 	for _, wsName := range wsNames {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			_, err := sourceKcpClusterClient.CoreV1alpha1().Cluster(wsPath.Join(wsName)).LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 			require.NoError(c, err, "got %#v error getting logicalcluster %q, expected success", err, wsPath.Join(wsName))
-		}, wait.ForeverTestTimeout, 100*time.Millisecond)
+		}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
 	for initializers, expected := range map[string][]tenancyv1alpha1.Workspace{
