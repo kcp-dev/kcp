@@ -94,9 +94,15 @@ var (
 	// operations and aren't indicative of a leak when deleting
 	// a workspace.
 	randomGoroutineSources = []goleak.Option{
+		// HTTP/HTTP2 goroutines - these are connection pool goroutines
+		// that may persist briefly after operations complete
 		goleak.IgnoreCreatedBy("net/http.(*Server).Serve"),
 		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*Transport).newClientConn"),
 		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*serverConn).serve"),
+		// gRPC transport goroutines from etcd client - these are connection
+		// management goroutines that may briefly outlive operations
+		goleak.IgnoreTopFunction("google.golang.org/grpc.(*addrConn).resetTransportAndUnlock"),
+		goleak.IgnoreCreatedBy("google.golang.org/grpc.(*acBalancerWrapper).Connect"),
 	}
 )
 
