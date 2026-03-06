@@ -32,7 +32,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -163,21 +162,13 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 				},
 			}
 
-			var parentPath logicalcluster.Path
-			if annPath, found := logicalCluster.Annotations[core.LogicalClusterPathAnnotationKey]; found {
-				currentPath := logicalcluster.NewPath(annPath)
-				parentPath, _ = currentPath.Parent()
-			}
-
 			for _, exportClaim := range apiExport.Spec.PermissionClaims {
 				selector := apisv1alpha2.PermissionClaimSelector{MatchAll: true}
 
-				parentSelector, err := b.findSelectorInWorkspace(ctx, parentPath, exportRef, exportClaim)
-				if err != nil {
-					logger.V(2).Info("error looking up parent workspace selector, falling back to MatchAll", "parentPath", parentPath, "error", err)
-				} else if parentSelector != nil {
-					selector = *parentSelector
-					logger.V(3).Info("inheriting selector from parent workspace binding", "parentPath", parentPath, "selector", selector)
+				// Use the default selector from the APIExport if specified
+				if exportClaim.DefaultSelector != nil {
+					selector = *exportClaim.DefaultSelector
+					logger.V(3).Info("using default selector from APIExport", "selector", selector)
 				}
 
 				acceptedClaim := apisv1alpha2.AcceptablePermissionClaim{
@@ -265,72 +256,6 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 	logicalCluster.Status.Initializers = initialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, logicalCluster.Status.Initializers)
 
 	return nil
-}
-
-func (b *APIBinder) findSelectorInWorkspace(ctx context.Context, workspacePath logicalcluster.Path, exportRef tenancyv1alpha1.APIExportReference, exportClaim apisv1alpha2.PermissionClaim) (*apisv1alpha2.PermissionClaimSelector, error) {
-	logger := klog.FromContext(ctx)
-
-	if workspacePath.Empty() {
-		return nil, nil
-	}
-
-	workspaceBindings, err := b.listAPIBindingsByPath(ctx, workspacePath)
-	if err != nil {
-		logger.V(4).Info("error listing workspace APIBindings by path", "error", err, "path", workspacePath)
-		return nil, err
-	}
-
-	exportRefPath := logicalcluster.NewPath(exportRef.Path)
-	if exportRefPath.Empty() {
-		exportRefPath = workspacePath
-	}
-
-	var matchingBindings []*apisv1alpha2.APIBinding
-	for _, binding := range workspaceBindings {
-		if binding.Spec.Reference.Export == nil {
-			continue
-		}
-
-		bindingExportPath := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
-		if bindingExportPath.Empty() {
-			bindingExportPath = workspacePath
-		}
-
-		if binding.Spec.Reference.Export.Name == exportRef.Export &&
-			bindingExportPath.String() == exportRefPath.String() {
-			matchingBindings = append(matchingBindings, binding)
-		}
-	}
-
-	if len(matchingBindings) == 0 {
-		return nil, nil
-	}
-
-	var matchedSeclector *apisv1alpha2.PermissionClaimSelector
-	for _, binding := range matchingBindings {
-		for _, claim := range binding.Spec.PermissionClaims {
-			if claim.Group == exportClaim.Group &&
-				claim.Resource == exportClaim.Resource &&
-				claim.IdentityHash == exportClaim.IdentityHash &&
-				claim.State == apisv1alpha2.ClaimAccepted {
-				if !claim.Selector.MatchAll {
-					logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", claim.Selector)
-					return &claim.Selector, nil
-				}
-
-				if matchedSeclector == nil {
-					matchedSeclector = &claim.Selector
-				}
-			}
-		}
-	}
-
-	if matchedSeclector != nil {
-		logger.V(4).Info("found matching selector in workspace binding", "workspacePath", workspacePath, "selector", matchedSeclector)
-		return matchedSeclector, nil
-	}
-
-	return nil, nil
 }
 
 // maxExportNamePrefixLength is the maximum allowed length for the export name portion of the generated API binding

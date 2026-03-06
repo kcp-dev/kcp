@@ -248,6 +248,8 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 				for i, opc := range out.Spec.PermissionClaims {
 					if pc.EqualGRI(opc) {
 						out.Spec.PermissionClaims[i].Verbs = pc.Verbs
+						// Also restore DefaultSelector from the annotation
+						out.Spec.PermissionClaims[i].DefaultSelector = pc.DefaultSelector
 					}
 				}
 			}

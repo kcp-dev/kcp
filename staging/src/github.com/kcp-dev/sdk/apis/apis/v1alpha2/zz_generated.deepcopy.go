@@ -461,6 +461,11 @@ func (in *PermissionClaim) DeepCopyInto(out *PermissionClaim) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.DefaultSelector != nil {
+		in, out := &in.DefaultSelector, &out.DefaultSelector
+		*out = new(PermissionClaimSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
