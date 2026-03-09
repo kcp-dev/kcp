@@ -27,6 +27,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
+	apiresourceschemaoptions "github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema/options"
 	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
 	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
@@ -37,6 +38,7 @@ const virtualWorkspacesFlagPrefix = "virtual-workspaces-"
 
 type Options struct {
 	APIExport              *apiexportoptions.APIExport
+	APIResourceSchema      *apiresourceschemaoptions.APIResourceSchema
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
 	TerminatingWorkspaces  *terminatingworkspaceoptions.TerminatingWorkspaces
 }
@@ -44,6 +46,7 @@ type Options struct {
 func NewOptions() *Options {
 	return &Options{
 		APIExport:              apiexportoptions.New(),
+		APIResourceSchema:      apiresourceschemaoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
 		TerminatingWorkspaces:  terminatingworkspaceoptions.New(),
 	}
@@ -53,6 +56,7 @@ func (o *Options) Validate() []error {
 	var errs []error //nolint:prealloc
 
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.APIResourceSchema.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.TerminatingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
@@ -62,6 +66,8 @@ func (o *Options) Validate() []error {
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 	o.TerminatingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.APIExport.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.APIResourceSchema.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
 func (o *Options) NewVirtualWorkspaces(
@@ -71,6 +77,11 @@ func (o *Options) NewVirtualWorkspaces(
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	apiexports, err := o.APIExport.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers, wildcardKcpInformers)
+	if err != nil {
+		return nil, err
+	}
+
+	apiresourceschemas, err := o.APIResourceSchema.NewVirtualWorkspaces(rootPathPrefix, config, cachedKcpInformers, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +106,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, initializingworkspaces, replications, terminatingworkspaces)
+	all, err := Merge(apiexports, apiresourceschemas, initializingworkspaces, replications, terminatingworkspaces)
 	if err != nil {
 		return nil, err
 	}

@@ -75,6 +75,7 @@ func NewInProcessServer(t kcptestingserver.TestingT, opts ...kcptestingserver.Op
 			kcptestingserver.WithDefaultsFrom(t),
 			kcptestingserver.WithRunInProcess(),
 			kcptestingserver.WithBindAddress("127.0.0.1"),
+			kcptestingserver.WithCustomArguments("--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,GlobalServiceAccount=true"),
 		},
 		opts...,
 	)
