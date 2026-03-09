@@ -114,11 +114,19 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 	return nil
 }
 
+func cleanPath(s string) string {
+	s = filepath.Clean(s)
+	s = strings.TrimPrefix(s, "/")
+	return s
+}
+
 // CreateResourceFromFS creates given resource file.
-// filename should be the absolute path within the filesystem.
+// filename should be the absolute path within the filesystem. The leading slash is optional.
 func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, embedFS embed.FS, transformers ...TransformFileFunc) error {
+	cleanFilename := cleanPath(filename)
+
 	resources, err := ReadResourcesFromFS(ctx, embedFS, func(p string, d fs.DirEntry) (bool, error) {
-		return filepath.Clean(p) == filepath.Clean(filename), nil
+		return cleanPath(p) == cleanFilename, nil
 	}, batteriesIncluded, transformers...)
 	if err != nil {
 		return fmt.Errorf("could not read resources from FS: %w", err)
