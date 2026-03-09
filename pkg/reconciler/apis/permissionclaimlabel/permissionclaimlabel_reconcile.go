@@ -201,9 +201,6 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 		unexpectedOrInvalidErrors = append(unexpectedOrInvalidErrors, fmt.Errorf("unexpected/invalid claim for %s.%s (identity %q)", claim.Resource, claim.Group, claim.IdentityHash))
 	}
 
-	// Detect verb and selector mismatches between accepted and exported claims
-	claimMismatches := detectClaimMismatches(expectedClaims, acceptedClaimsMap, exportedClaimsMap, logger)
-
 	if len(unexpectedOrInvalidErrors) > 0 {
 		i := len(unexpectedOrInvalidErrors)
 		if i > 10 {
@@ -221,7 +218,11 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 			len(errsToDisplay.Errors()),
 			errsToDisplay,
 		)
-	} else if len(claimMismatches) > 0 {
+	}
+
+	// Detect verb and selector mismatches between accepted and exported claims
+	claimMismatches := detectClaimMismatches(expectedClaims, acceptedClaimsMap, exportedClaimsMap, logger)
+	if len(claimMismatches) > 0 {
 		// Build mismatch messages
 		mismatchMsgs := make([]string, 0, len(claimMismatches))
 		for _, m := range claimMismatches {
@@ -251,7 +252,9 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 			i,
 			strings.Join(mismatchMsgs[:i], ", "),
 		)
-	} else {
+	}
+
+	if len(unexpectedOrInvalidErrors) == 0 && len(claimMismatches) == 0 {
 		conditions.MarkTrue(apiBinding, apisv1alpha2.PermissionClaimsValid)
 	}
 
