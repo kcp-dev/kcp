@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -143,9 +144,13 @@ func main() {
 				return err
 			}
 
-			// the etcd server must be up before NewServer because storage decorators access it right away
+			// the etcd server must be up before NewServer because storage decorators access it right away.
+			// Use a separate context for etcd so it outlives the apiserver during graceful shutdown.
+			// This prevents CRD watch cache lazy initialization from blocking on a dead etcd.
+			etcdCtx, etcdCancel := context.WithCancel(context.Background())
+			defer etcdCancel()
 			if completedConfig.EmbeddedEtcd.Config != nil {
-				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(ctx); err != nil {
+				if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(etcdCtx); err != nil {
 					return err
 				}
 			}
