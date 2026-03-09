@@ -22,6 +22,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -114,9 +115,10 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 }
 
 // CreateResourceFromFS creates given resource file.
+// filename should be the absolute path within the filesystem.
 func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, embedFS embed.FS, transformers ...TransformFileFunc) error {
-	resources, err := ReadResourcesFromFS(ctx, embedFS, func(d fs.DirEntry) (bool, error) {
-		return d.Name() == filename, nil
+	resources, err := ReadResourcesFromFS(ctx, embedFS, func(p string, d fs.DirEntry) (bool, error) {
+		return filepath.Clean(p) == filepath.Clean(filename), nil
 	}, batteriesIncluded, transformers...)
 	if err != nil {
 		return fmt.Errorf("could not read resources from FS: %w", err)
@@ -130,7 +132,8 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	return nil
 }
 
-type DirEntryFilterFunc func(fs.DirEntry) (bool, error)
+// DirEntryFilterFunc is used to filter which resources from a filesystem to read.
+type DirEntryFilterFunc func(absPath string, dirEntry fs.DirEntry) (bool, error)
 
 // ReadResourcesFromFS reads all resources from a filesystem and returns
 // them as unstructured.Unstructured objects.
@@ -165,7 +168,7 @@ func ReadResourcesFromFS(
 		}
 
 		if filter != nil {
-			parse, err := filter(d)
+			parse, err := filter(path, d)
 			if err != nil {
 				return fmt.Errorf("could not filter %s: %w", path, err)
 			}
