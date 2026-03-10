@@ -5151,6 +5151,177 @@ GroupResource, identity, and other properties.</p>
 
 <div class="property depth-3">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector">.spec.permissionClaims[*].defaultSelector</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>defaultSelector is the default selector to use when creating APIBindings
+via WorkspaceType&rsquo;s defaultAPIBindings. If not set, the APIBinding will
+default to matchAll: true.</p>
+
+<p>This allows API providers to suggest a default scope for permission claims
+that will be used when workspaces are automatically created with default
+APIBindings. Users can always override the default selector by accepting the
+claim with a different selector or by manually creating APIBindings with a custom selector.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchAll">.spec.permissionClaims[*].defaultSelector.matchAll</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>matchAll grants access to all objects of the claimed resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchExpressions">.spec.permissionClaims[*].defaultSelector.matchExpressions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchExpressions[*]">.spec.permissionClaims[*].defaultSelector.matchExpressions[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchExpressions[*].key">.spec.permissionClaims[*].defaultSelector.matchExpressions[*].key</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>key is the label key that the selector applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchExpressions[*].operator">.spec.permissionClaims[*].defaultSelector.matchExpressions[*].operator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>operator represents a key&rsquo;s relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchExpressions[*].values">.spec.permissionClaims[*].defaultSelector.matchExpressions[*].values</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchExpressions[*].values[*]">.spec.permissionClaims[*].defaultSelector.matchExpressions[*].values[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].defaultSelector.matchLabels">.spec.permissionClaims[*].defaultSelector.matchLabels</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha2-.spec.permissionClaims[*].group">.spec.permissionClaims[*].group</h3>
 </div>
 <div class="property-body">
@@ -5564,6 +5735,177 @@ state in spec.permissionClaims.</p>
 <div class="property-description">
 <p>ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
 scope down access to objects of the claimed resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector">.status.appliedPermissionClaims[*].defaultSelector</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>defaultSelector is the default selector to use when creating APIBindings
+via WorkspaceType&rsquo;s defaultAPIBindings. If not set, the APIBinding will
+default to matchAll: true.</p>
+
+<p>This allows API providers to suggest a default scope for permission claims
+that will be used when workspaces are automatically created with default
+APIBindings. Users can always override the default selector by accepting the
+claim with a different selector or by manually creating APIBindings with a custom selector.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchAll">.status.appliedPermissionClaims[*].defaultSelector.matchAll</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>matchAll grants access to all objects of the claimed resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchExpressions">.status.appliedPermissionClaims[*].defaultSelector.matchExpressions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*]">.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].key">.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].key</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>key is the label key that the selector applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].operator">.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].operator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>operator represents a key&rsquo;s relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].values">.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].values</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].values[*]">.status.appliedPermissionClaims[*].defaultSelector.matchExpressions[*].values[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.appliedPermissionClaims[*].defaultSelector.matchLabels">.status.appliedPermissionClaims[*].defaultSelector.matchLabels</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
 
 </div>
 
@@ -6201,6 +6543,177 @@ the binding to grant.</p>
 <p>PermissionClaim identifies an object by GR and identity hash.
 Its purpose is to determine the added permissions that a service provider may
 request and that a consumer may accept and allow the service provider access to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector">.status.exportPermissionClaims[*].defaultSelector</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>defaultSelector is the default selector to use when creating APIBindings
+via WorkspaceType&rsquo;s defaultAPIBindings. If not set, the APIBinding will
+default to matchAll: true.</p>
+
+<p>This allows API providers to suggest a default scope for permission claims
+that will be used when workspaces are automatically created with default
+APIBindings. Users can always override the default selector by accepting the
+claim with a different selector or by manually creating APIBindings with a custom selector.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchAll">.status.exportPermissionClaims[*].defaultSelector.matchAll</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>matchAll grants access to all objects of the claimed resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchExpressions">.status.exportPermissionClaims[*].defaultSelector.matchExpressions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*]">.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].key">.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].key</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>key is the label key that the selector applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].operator">.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].operator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>operator represents a key&rsquo;s relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].values">.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].values</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].values[*]">.status.exportPermissionClaims[*].defaultSelector.matchExpressions[*].values[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.exportPermissionClaims[*].defaultSelector.matchLabels">.status.exportPermissionClaims[*].defaultSelector.matchLabels</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
 
 </div>
 
