@@ -102,6 +102,18 @@ func CRD(fs embed.FS, gr metav1.GroupResource) (*apiextensionsv1.CustomResourceD
 	return crd, nil
 }
 
+func CreateMultiple(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRDs []*apiextensionsv1.CustomResourceDefinition) error {
+	g := errgroup.WithContext(ctx)
+	for _, rawCRD := range rawCRDs {
+		g.Go(func(ctx context.Context) error {
+			return retryRetryableErrors(func() error {
+				return CreateSingle(ctx, client, rawCRD)
+			})
+		})
+	}
+	return g.Wait()
+}
+
 func CreateSingle(ctx context.Context, client apiextensionsv1client.CustomResourceDefinitionInterface, rawCRD *apiextensionsv1.CustomResourceDefinition) error {
 	logger := klog.FromContext(ctx).WithValues("crd", rawCRD.Name)
 	start := time.Now()
