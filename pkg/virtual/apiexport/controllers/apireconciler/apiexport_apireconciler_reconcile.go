@@ -322,7 +322,7 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 // claimedBuiltInGroupResources returns all built-in group/resources to register for a claim.
 // For events, we intentionally register both API groups so both API paths are served:
 // - core/v1 events    (group "")
-// - events.k8s.io/v1  (group "events.k8s.io")
+// - events.k8s.io/v1  (group "events.k8s.io").
 func claimedBuiltInGroupResources(pc apisv1alpha2.PermissionClaim) []schema.GroupResource {
 	primary := schema.GroupResource{Group: pc.Group, Resource: pc.Resource}
 	if pc.Resource != "events" || (pc.Group != "" && pc.Group != "events.k8s.io") {
