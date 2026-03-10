@@ -112,6 +112,10 @@ var (
 		goleak.IgnoreTopFunction("k8s.io/apiserver/pkg/storage/cacher.(*cacheWatcher).process"),
 		goleak.IgnoreTopFunction("k8s.io/apiserver/pkg/endpoints/handlers.(*WatchServer).HandleHTTP"),
 
+		// StreamWatcher goroutines - these read from watch connections
+		// and may briefly persist after workspace deletion
+		goleak.IgnoreCreatedBy("k8s.io/apimachinery/pkg/watch.NewStreamWatcherWithLogger"),
+
 		// Reflector resync goroutines
 		goleak.IgnoreTopFunction("github.com/kcp-dev/apimachinery/v2/third_party/reflector.(*Reflector).startResync"),
 
