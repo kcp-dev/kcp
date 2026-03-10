@@ -77,9 +77,9 @@ func NewLabeler(
 	}
 }
 
-// normalizeEventGroupResource normalizes event resources to use the core/v1 version consistently
+// NormalizeEventGroupResource normalizes event resources to use the core/v1 version consistently.
 // This prevents race conditions between core/v1 events and events.k8s.io/v1 events.
-func normalizeEventGroupResource(gr schema.GroupResource) schema.GroupResource {
+func NormalizeEventGroupResource(gr schema.GroupResource) schema.GroupResource {
 	if gr.Resource == "events" && (gr.Group == "" || gr.Group == "events.k8s.io") {
 		// Always normalize to core/v1 events for consistent labeling
 		return schema.GroupResource{Group: "", Resource: "events"}
@@ -97,7 +97,7 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	}
 
 	// Normalize event resources to prevent race conditions between API versions
-	normalizedGR := normalizeEventGroupResource(groupResource)
+	normalizedGR := NormalizeEventGroupResource(groupResource)
 
 	bindings, err := l.listAPIBindingsAcceptingClaimedGroupResource(cluster, normalizedGR)
 	if err != nil {
