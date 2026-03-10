@@ -159,3 +159,136 @@ func TestSelectorChangeDetection(t *testing.T) {
 		})
 	}
 }
+
+func TestDetectClaimMismatches(t *testing.T) {
+	baseClaim := apisv1alpha2.PermissionClaim{
+		GroupResource: apisv1alpha2.GroupResource{
+			Group:    "",
+			Resource: "secrets",
+		},
+		IdentityHash: "test-hash",
+		Verbs:        []string{"get", "list", "watch"},
+	}
+	key := setKeyForClaim(baseClaim)
+
+	tests := map[string]struct {
+		acceptedVerbs          []string
+		exportedVerbs          []string
+		acceptedSelector       apisv1alpha2.PermissionClaimSelector
+		defaultSelector        *apisv1alpha2.PermissionClaimSelector
+		expectVerbMismatch     bool
+		expectSelectorMismatch bool
+	}{
+		"same verbs, no default selector - no mismatch": {
+			acceptedVerbs:          []string{"get", "list", "watch"},
+			exportedVerbs:          []string{"get", "list", "watch"},
+			acceptedSelector:       apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+			defaultSelector:        nil,
+			expectVerbMismatch:     false,
+			expectSelectorMismatch: false,
+		},
+		"different verbs - verb mismatch": {
+			acceptedVerbs:          []string{"get", "list"},
+			exportedVerbs:          []string{"get", "list", "watch"},
+			acceptedSelector:       apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+			defaultSelector:        nil,
+			expectVerbMismatch:     true,
+			expectSelectorMismatch: false,
+		},
+		"wildcard accepted - no verb mismatch": {
+			acceptedVerbs:          []string{"*"},
+			exportedVerbs:          []string{"get", "list", "watch"},
+			acceptedSelector:       apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+			defaultSelector:        nil,
+			expectVerbMismatch:     false,
+			expectSelectorMismatch: false,
+		},
+		"wildcard exported - no verb mismatch": {
+			acceptedVerbs:          []string{"get", "list"},
+			exportedVerbs:          []string{"*"},
+			acceptedSelector:       apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+			defaultSelector:        nil,
+			expectVerbMismatch:     false,
+			expectSelectorMismatch: false,
+		},
+		"selector differs from defaultSelector - selector mismatch": {
+			acceptedVerbs: []string{"get", "list", "watch"},
+			exportedVerbs: []string{"get", "list", "watch"},
+			acceptedSelector: apisv1alpha2.PermissionClaimSelector{
+				MatchAll: false,
+				LabelSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"foo": "bar"},
+				},
+			},
+			defaultSelector: &apisv1alpha2.PermissionClaimSelector{
+				MatchAll: true,
+			},
+			expectVerbMismatch:     false,
+			expectSelectorMismatch: true,
+		},
+		"selector matches defaultSelector - no mismatch": {
+			acceptedVerbs: []string{"get", "list", "watch"},
+			exportedVerbs: []string{"get", "list", "watch"},
+			acceptedSelector: apisv1alpha2.PermissionClaimSelector{
+				MatchAll: true,
+			},
+			defaultSelector: &apisv1alpha2.PermissionClaimSelector{
+				MatchAll: true,
+			},
+			expectVerbMismatch:     false,
+			expectSelectorMismatch: false,
+		},
+		"both verb and selector mismatch": {
+			acceptedVerbs: []string{"get"},
+			exportedVerbs: []string{"get", "list", "watch"},
+			acceptedSelector: apisv1alpha2.PermissionClaimSelector{
+				MatchAll: false,
+				LabelSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{"foo": "bar"},
+				},
+			},
+			defaultSelector: &apisv1alpha2.PermissionClaimSelector{
+				MatchAll: true,
+			},
+			expectVerbMismatch:     true,
+			expectSelectorMismatch: true,
+		},
+	}
+
+	for testName, tc := range tests {
+		t.Run(testName, func(t *testing.T) {
+			expectedClaims := sets.New(key)
+
+			acceptedClaim := baseClaim
+			acceptedClaim.Verbs = tc.acceptedVerbs
+			acceptedClaimsMap := map[string]apisv1alpha2.ScopedPermissionClaim{
+				key: {
+					PermissionClaim: acceptedClaim,
+					Selector:        tc.acceptedSelector,
+				},
+			}
+
+			exportedClaim := baseClaim
+			exportedClaim.Verbs = tc.exportedVerbs
+			exportedClaim.DefaultSelector = tc.defaultSelector
+			exportedClaimsMap := map[string]apisv1alpha2.PermissionClaim{
+				key: exportedClaim,
+			}
+
+			mismatches := detectClaimMismatches(
+				expectedClaims,
+				acceptedClaimsMap,
+				exportedClaimsMap,
+				klog.Background(),
+			)
+
+			if tc.expectVerbMismatch || tc.expectSelectorMismatch {
+				require.Len(t, mismatches, 1, "Expected exactly one mismatch")
+				require.Equal(t, tc.expectVerbMismatch, mismatches[0].verbMismatch, "Verb mismatch expectation mismatch")
+				require.Equal(t, tc.expectSelectorMismatch, mismatches[0].selectorMismatch, "Selector mismatch expectation mismatch")
+			} else {
+				require.Empty(t, mismatches, "Expected no mismatches")
+			}
+		})
+	}
+}

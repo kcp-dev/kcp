@@ -253,6 +253,18 @@ type PermissionClaim struct {
 	// +kubebuilder:default:=""
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// defaultSelector is the default selector to use when creating APIBindings
+	// via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will
+	// default to matchAll: true.
+	//
+	// This allows API providers to suggest a default scope for permission claims
+	// that will be used when workspaces are automatically created with default
+	// APIBindings. Users can always override the default selector by accepting the
+	// claim with a different selector or by manually creating APIBindings with a custom selector.
+	//
+	// +optional
+	DefaultSelector *PermissionClaimSelector `json:"defaultSelector,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="has(self.__namespace__) || has(self.name)",message="at least one field must be set"

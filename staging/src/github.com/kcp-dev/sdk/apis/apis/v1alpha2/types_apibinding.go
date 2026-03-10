@@ -253,6 +253,10 @@ const (
 	// identity mismatch).
 	InvalidPermissionClaimsReason = "InvalidPermissionClaims"
 
+	// PermissionClaimsMismatchReason indicates the accepted permission claims have different verbs or selectors
+	// than what the APIExport requested. This is a warning - the binding still works but with reduced permissions.
+	PermissionClaimsMismatchReason = "PermissionClaimsMismatch"
+
 	// PermissionClaimsApplied is a condition for APIBinding that indicates that all the accepted permission claims
 	// have been applied.
 	PermissionClaimsApplied conditionsv1alpha1.ConditionType = "PermissionClaimsApplied"

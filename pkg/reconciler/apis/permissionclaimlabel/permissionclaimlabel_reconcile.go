@@ -70,8 +70,11 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 	logger = logging.WithObject(logger, apiExport)
 
 	exportedClaims := sets.New[string]()
+	exportedClaimsMap := make(map[string]apisv1alpha2.PermissionClaim)
 	for _, claim := range apiExport.Spec.PermissionClaims {
-		exportedClaims.Insert(setKeyForClaim(claim))
+		key := setKeyForClaim(claim)
+		exportedClaims.Insert(key)
+		exportedClaimsMap[key] = claim
 	}
 
 	acceptedClaims := sets.New[string]()
@@ -197,6 +200,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 		claim := claimFromSetKey(s)
 		unexpectedOrInvalidErrors = append(unexpectedOrInvalidErrors, fmt.Errorf("unexpected/invalid claim for %s.%s (identity %q)", claim.Resource, claim.Group, claim.IdentityHash))
 	}
+
 	if len(unexpectedOrInvalidErrors) > 0 {
 		i := len(unexpectedOrInvalidErrors)
 		if i > 10 {
@@ -214,7 +218,43 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 			len(errsToDisplay.Errors()),
 			errsToDisplay,
 		)
-	} else {
+	}
+
+	// Detect verb and selector mismatches between accepted and exported claims
+	claimMismatches := detectClaimMismatches(expectedClaims, acceptedClaimsMap, exportedClaimsMap, logger)
+	if len(claimMismatches) > 0 {
+		// Build mismatch messages
+		mismatchMsgs := make([]string, 0, len(claimMismatches))
+		for _, m := range claimMismatches {
+			claim := claimFromSetKey(m.claim)
+			var parts []string
+			if m.verbMismatch {
+				parts = append(parts, fmt.Sprintf("verbs: accepted %v, exported %v", m.acceptedVerbs, m.exportedVerbs))
+			}
+			if m.selectorMismatch {
+				parts = append(parts, "selector differs from defaultSelector")
+			}
+			mismatchMsgs = append(mismatchMsgs, fmt.Sprintf("%s.%s (%s)", claim.Resource, claim.Group, strings.Join(parts, "; ")))
+		}
+
+		i := len(mismatchMsgs)
+		if i > 5 {
+			i = 5
+		}
+
+		conditions.MarkFalse(
+			apiBinding,
+			apisv1alpha2.PermissionClaimsValid,
+			apisv1alpha2.PermissionClaimsMismatchReason,
+			conditionsv1alpha1.ConditionSeverityWarning,
+			"%d permission claim(s) have mismatched verbs or selectors (showing first %d): %s",
+			len(claimMismatches),
+			i,
+			strings.Join(mismatchMsgs[:i], ", "),
+		)
+	}
+
+	if len(unexpectedOrInvalidErrors) == 0 && len(claimMismatches) == 0 {
 		conditions.MarkTrue(apiBinding, apisv1alpha2.PermissionClaimsValid)
 	}
 
@@ -316,4 +356,66 @@ func detectSelectorChanges(
 		}
 	}
 	return selectorChanges
+}
+
+// claimMismatch represents a mismatch between accepted and exported permission claims.
+type claimMismatch struct {
+	claim            string
+	verbMismatch     bool
+	acceptedVerbs    []string
+	exportedVerbs    []string
+	selectorMismatch bool
+}
+
+// detectClaimMismatches compares accepted claims against exported claims to find
+// verb and selector mismatches. A mismatch occurs when:
+// - Verbs: accepted verbs differ from exported verbs (wildcard "*" is excluded from comparison)
+// - Selector: accepted selector differs from the export's defaultSelector.
+func detectClaimMismatches(
+	expectedClaims sets.Set[string],
+	acceptedClaimsMap map[string]apisv1alpha2.ScopedPermissionClaim,
+	exportedClaimsMap map[string]apisv1alpha2.PermissionClaim,
+	logger klog.Logger,
+) []claimMismatch {
+	var mismatches []claimMismatch
+
+	for key := range expectedClaims {
+		acceptedClaim, hasAccepted := acceptedClaimsMap[key]
+		exportedClaim, hasExported := exportedClaimsMap[key]
+		if !hasAccepted || !hasExported {
+			continue
+		}
+
+		mismatch := claimMismatch{claim: key}
+
+		// Check verb mismatch (ignoring wildcard)
+		acceptedVerbs := sets.New(acceptedClaim.Verbs...)
+		exportedVerbs := sets.New(exportedClaim.Verbs...)
+
+		// If either side has wildcard, consider verbs as matching
+		if !acceptedVerbs.Has("*") && !exportedVerbs.Has("*") {
+			if !acceptedVerbs.Equal(exportedVerbs) {
+				mismatch.verbMismatch = true
+				mismatch.acceptedVerbs = acceptedClaim.Verbs
+				mismatch.exportedVerbs = exportedClaim.Verbs
+			}
+		}
+
+		// Check selector mismatch against defaultSelector
+		if exportedClaim.DefaultSelector != nil {
+			if !reflect.DeepEqual(acceptedClaim.Selector, *exportedClaim.DefaultSelector) {
+				mismatch.selectorMismatch = true
+			}
+		}
+
+		if mismatch.verbMismatch || mismatch.selectorMismatch {
+			logger.V(4).Info("detected claim mismatch",
+				"claim", key,
+				"verbMismatch", mismatch.verbMismatch,
+				"selectorMismatch", mismatch.selectorMismatch)
+			mismatches = append(mismatches, mismatch)
+		}
+	}
+
+	return mismatches
 }

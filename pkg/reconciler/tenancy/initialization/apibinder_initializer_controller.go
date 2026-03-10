@@ -59,7 +59,6 @@ const (
 // in new Workspaces.
 func NewAPIBinder(
 	kcpClusterClient kcpclientset.ClusterInterface,
-	globalAPIBindingsInformer apisv1alpha2informers.APIBindingClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	logicalClustersInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	globalLogicalClustersInformer corev1alpha1informers.LogicalClusterClusterInformer,
@@ -101,13 +100,6 @@ func NewAPIBinder(
 		},
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).List(labels.Everything())
-		},
-		listAPIBindingsByPath: func(_ context.Context, clusterPath logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error) {
-			return indexers.ByIndex[*apisv1alpha2.APIBinding](
-				globalAPIBindingsInformer.Informer().GetIndexer(),
-				indexers.ByLogicalClusterPath,
-				clusterPath.String(),
-			)
 		},
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingsInformer.Lister().Cluster(clusterName).Get(name)
@@ -178,10 +170,9 @@ type APIBinder struct {
 	getWorkspaceType        func(clusterName logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error)
 	listLogicalClusters     func() ([]*corev1alpha1.LogicalCluster, error)
 
-	listAPIBindings       func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
-	listAPIBindingsByPath func(ctx context.Context, clusterPath logicalcluster.Path) ([]*apisv1alpha2.APIBinding, error)
-	getAPIBinding         func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
-	createAPIBinding      func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error)
+	listAPIBindings  func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	getAPIBinding    func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error)
 
 	getAPIExport func(clusterName logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
@@ -347,7 +338,7 @@ func (b *APIBinder) process(ctx context.Context, key string) error {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(logicalClusterInformer, globalLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer, workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer, globalAPIBindingsInformer apisv1alpha2informers.APIBindingClusterInformer) {
+func InstallIndexers(logicalClusterInformer, globalLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer, workspaceTypeInformer, globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer) {
 	indexers.AddIfNotPresentOrDie(logicalClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
 	})
@@ -360,8 +351,5 @@ func InstallIndexers(logicalClusterInformer, globalLogicalClusterInformer corev1
 
 	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-	})
-	indexers.AddIfNotPresentOrDie(globalAPIBindingsInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPath: indexers.IndexByLogicalClusterPath,
 	})
 }

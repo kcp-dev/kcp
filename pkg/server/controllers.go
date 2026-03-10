@@ -930,7 +930,6 @@ func (s *Server) installDefaultAPIBindingController(ctx context.Context, config 
 
 	c, err := defaultapibindinglifecycle.NewDefaultAPIBindingController(
 		kcpClusterClient,
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
@@ -951,7 +950,6 @@ func (s *Server) installDefaultAPIBindingController(ctx context.Context, config 
 					s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
-					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced(), nil
 			})
@@ -1007,7 +1005,6 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 
 	c, err := initialization.NewAPIBinder(
 		initializingWorkspacesKcpClusterClient,
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 		initializingWorkspacesKcpInformers.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
@@ -1028,7 +1025,6 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
-					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced(), nil
 			})
@@ -1919,8 +1915,7 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIBindings())
+		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
 	crdcleanup.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 	)
@@ -1929,7 +1924,6 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 	)
 	cachedresourceendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
