@@ -99,10 +99,24 @@ var (
 		goleak.IgnoreCreatedBy("net/http.(*Server).Serve"),
 		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*Transport).newClientConn"),
 		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*serverConn).serve"),
+		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*ClientConn).roundTrip"),
+		goleak.IgnoreCreatedBy("golang.org/x/net/http2.(*serverConn).scheduleHandler"),
+
 		// gRPC transport goroutines from etcd client - these are connection
 		// management goroutines that may briefly outlive operations
 		goleak.IgnoreTopFunction("google.golang.org/grpc.(*addrConn).resetTransportAndUnlock"),
 		goleak.IgnoreCreatedBy("google.golang.org/grpc.(*acBalancerWrapper).Connect"),
+
+		// API server cacher goroutines - these handle watch connections
+		// and may briefly persist after workspace deletion
+		goleak.IgnoreTopFunction("k8s.io/apiserver/pkg/storage/cacher.(*cacheWatcher).process"),
+		goleak.IgnoreTopFunction("k8s.io/apiserver/pkg/endpoints/handlers.(*WatchServer).HandleHTTP"),
+
+		// Reflector resync goroutines
+		goleak.IgnoreTopFunction("github.com/kcp-dev/apimachinery/v2/third_party/reflector.(*Reflector).startResync"),
+
+		// Context cancellation propagation goroutines
+		goleak.IgnoreTopFunction("context.(*cancelCtx).propagateCancel.func2"),
 	}
 )
 
