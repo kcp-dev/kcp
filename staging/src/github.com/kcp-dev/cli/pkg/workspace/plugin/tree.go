@@ -34,7 +34,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 )
@@ -97,12 +96,11 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	}
 	_, current, err := pluginhelpers.ParseClusterURL(config.Host)
 	if err != nil {
-		// The current context URL may point to a mount workspace, which uses a
-		// non-standard URL that does not contain the /clusters/ path segment.
-		// In this case we cannot derive the logical workspace path from the URL,
-		// so fall back to showing the tree from the root workspace.
-		fmt.Fprintf(o.ErrOut, "Warning: current context URL %q does not point directly to a kcp workspace (may be a mount). Showing tree from root.\n", config.Host)
-		current = core.RootCluster.Path()
+		// The current context URL does not follow the /clusters/ pattern — the
+		// user may be pointing at a mount, a rootless cluster, or a workspace
+		// they do not have access to. Do not assume root exists or is accessible.
+		fmt.Fprintf(o.ErrOut, "current context URL %q does not point to a kcp workspace\n", config.Host)
+		return nil
 	}
 
 	if o.Interactive {
@@ -264,7 +262,7 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 						Cluster: ws.Spec.Cluster,
 					}
 					childNode := &treeNode{
-						name:           childName + " [mount]",
+						name:           childName + " [m]",
 						path:           mountPath,
 						info:           childWorkspaceInfo,
 						selectable:     false,
@@ -370,7 +368,7 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 				if o.Full {
 					name = parentName + ":" + name
 				}
-				tree.AddBranch(name + " [mount]")
+				tree.AddBranch(name + " [m]")
 				continue
 			}
 			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)

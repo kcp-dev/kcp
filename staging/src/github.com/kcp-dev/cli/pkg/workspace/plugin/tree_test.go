@@ -60,7 +60,7 @@ func newTreeOptions(streams genericclioptions.IOStreams, serverURL string, objs 
 
 // TestPopulateBranch_MountWorkspace verifies that a workspace whose URL cannot
 // be parsed as a /clusters/ path AND whose Spec.Mount is non-nil is rendered
-// as a "<name> [mount]" leaf instead of causing an error.
+// as a "<name> [m]" leaf instead of causing an error.
 func TestPopulateBranch_MountWorkspace(t *testing.T) {
 	nonStandardURL := "https://proxy.example.com/services/site-proxy/foo"
 
@@ -91,8 +91,8 @@ func TestPopulateBranch_MountWorkspace(t *testing.T) {
 	require.NoError(t, err, "populateBranch should not error for a mount workspace")
 
 	treeStr := tree.String()
-	require.Contains(t, treeStr, "mounted-ws [mount]",
-		"expected mount workspace to appear as '<name> [mount]' leaf in tree output")
+	require.Contains(t, treeStr, "mounted-ws [m]",
+		"expected mount workspace to appear as '<name> [m]' leaf in tree output")
 }
 
 // TestPopulateBranch_NonMountURLError verifies that a workspace with a
@@ -157,13 +157,13 @@ func TestPopulateBranch_NormalWorkspace(t *testing.T) {
 	treeStr := tree.String()
 	require.Contains(t, treeStr, "child",
 		"expected normal workspace to appear in tree output")
-	require.NotContains(t, treeStr, "[mount]",
-		"expected normal workspace NOT to be marked as [mount]")
+	require.NotContains(t, treeStr, "[m]",
+		"expected normal workspace NOT to be marked as [m]")
 }
 
 // TestRun_MountContextURL verifies that when the kubeconfig host points to a
-// non-standard (mount) URL, Run does not return an error; instead it emits a
-// warning to ErrOut and falls back to showing the tree from root.
+// non-standard (mount) URL, Run does not return an error; instead it prints a
+// message to Out and returns immediately (no fallback to root).
 func TestRun_MountContextURL(t *testing.T) {
 	mountHostURL := "https://proxy.example.com/services/site-proxy/foo"
 
@@ -175,11 +175,11 @@ func TestRun_MountContextURL(t *testing.T) {
 		ErrOut: errOut,
 	}
 
-	// No workspaces — we only care about the URL fallback behaviour.
+	// No workspaces — we only care about the URL handling behaviour.
 	o := newTreeOptions(streams, mountHostURL)
 
 	err := o.Run(context.Background())
 	require.NoError(t, err, "Run should not error when context URL is a mount URL")
-	require.Contains(t, errOut.String(), "does not point directly to a kcp workspace",
-		"expected warning about mount URL on ErrOut")
+	require.Contains(t, out.String(), "does not point directly to a kcp workspace",
+		"expected informational message about non-kcp URL on Out")
 }
