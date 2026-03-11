@@ -99,8 +99,10 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 		// The current context URL does not follow the /clusters/ pattern — the
 		// user may be pointing at a mount, a rootless cluster, or a workspace
 		// they do not have access to. Do not assume root exists or is accessible.
-		fmt.Fprintf(o.ErrOut, "current context URL %q does not point to a kcp workspace\n", config.Host)
-		return nil
+		// Intentionally returning nil: a non-kcp URL is not an error for the tree
+		// command; we surface an informational message and exit cleanly.
+		fmt.Fprintf(o.Out, "current context URL %q does not point directly to a kcp workspace\n", config.Host)
+		return nil //nolint:nilerr
 	}
 
 	if o.Interactive {
