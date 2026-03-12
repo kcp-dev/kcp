@@ -24,9 +24,13 @@ import (
 
 // PermissionClaimSelectorApplyConfiguration represents a declarative configuration of the PermissionClaimSelector type for use
 // with apply.
+//
+// PermissionClaimSelector configures scoped access to objects
+// of a claimed resource.
 type PermissionClaimSelectorApplyConfiguration struct {
 	v1.LabelSelectorApplyConfiguration `json:",inline"`
-	MatchAll                           *bool `json:"matchAll,omitempty"`
+	// matchAll grants access to all objects of the claimed resource.
+	MatchAll *bool `json:"matchAll,omitempty"`
 }
 
 // PermissionClaimSelectorApplyConfiguration constructs a declarative configuration of the PermissionClaimSelector type for use with

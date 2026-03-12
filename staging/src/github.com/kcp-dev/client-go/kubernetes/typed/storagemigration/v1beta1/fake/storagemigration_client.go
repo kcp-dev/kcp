@@ -19,43 +19,43 @@ limitations under the License.
 package fake
 
 import (
-	storagemigrationv1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	storagemigrationv1beta1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1beta1"
 	rest "k8s.io/client-go/rest"
 
-	kcpstoragemigrationv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	kcpstoragemigrationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/storagemigration/v1beta1"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-var _ kcpstoragemigrationv1alpha1.StoragemigrationV1alpha1ClusterInterface = (*StoragemigrationV1alpha1ClusterClient)(nil)
+var _ kcpstoragemigrationv1beta1.StoragemigrationV1beta1ClusterInterface = (*StoragemigrationV1beta1ClusterClient)(nil)
 
-type StoragemigrationV1alpha1ClusterClient struct {
+type StoragemigrationV1beta1ClusterClient struct {
 	*kcptesting.Fake
 }
 
-func (c *StoragemigrationV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
+func (c *StoragemigrationV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Path) storagemigrationv1beta1.StoragemigrationV1beta1Interface {
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return &StoragemigrationV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
+	return &StoragemigrationV1beta1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
-func (c *StoragemigrationV1alpha1ClusterClient) StorageVersionMigrations() kcpstoragemigrationv1alpha1.StorageVersionMigrationClusterInterface {
+func (c *StoragemigrationV1beta1ClusterClient) StorageVersionMigrations() kcpstoragemigrationv1beta1.StorageVersionMigrationClusterInterface {
 	return newFakeStorageVersionMigrationClusterClient(c)
 }
 
-type StoragemigrationV1alpha1Client struct {
+type StoragemigrationV1beta1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
 }
 
-func (c *StoragemigrationV1alpha1Client) StorageVersionMigrations() storagemigrationv1alpha1.StorageVersionMigrationInterface {
+func (c *StoragemigrationV1beta1Client) StorageVersionMigrations() storagemigrationv1beta1.StorageVersionMigrationInterface {
 	return newFakeStorageVersionMigrationClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *StoragemigrationV1alpha1Client) RESTClient() rest.Interface {
+func (c *StoragemigrationV1beta1Client) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

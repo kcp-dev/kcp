@@ -61,7 +61,7 @@ import (
 // without applying any field management, validations and/or defaults. It shouldn't be considered a replacement
 // for a real clientset and is mostly useful in simple unit tests.
 //
-// DEPRECATED: NewClientset replaces this with support for field management, which significantly improves
+// Deprecated: NewClientset replaces this with support for field management, which significantly improves
 // server side apply testing. NewClientset is only available when apply configurations are generated (e.g.
 // via --with-applyconfig).
 func NewSimpleClientset(objects ...runtime.Object) *ClusterClientset {
@@ -92,6 +92,28 @@ func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
 
 func (c *ClusterClientset) Tracker() kcptesting.ObjectTracker {
 	return c.tracker
+}
+
+// IsWatchListSemanticsUnSupported informs the reflector that this client
+// doesn't support WatchList semantics.
+//
+// This is a synthetic method whose sole purpose is to satisfy the optional
+// interface check performed by the reflector.
+// Returning true signals that WatchList can NOT be used.
+// No additional logic is implemented here.
+func (c *ClusterClientset) IsWatchListSemanticsUnSupported() bool {
+	return true
+}
+
+// IsWatchListSemanticsSupported informs the reflector that this client
+// doesn't support WatchList semantics.
+//
+// This is a synthetic method whose sole purpose is to satisfy the optional
+// interface check performed by the reflector.
+// Returning true signals that WatchList can NOT be used.
+// No additional logic is implemented here.
+func (c *Clientset) IsWatchListSemanticsUnSupported() bool {
+	return true
 }
 
 // Cluster scopes this clientset to one cluster.

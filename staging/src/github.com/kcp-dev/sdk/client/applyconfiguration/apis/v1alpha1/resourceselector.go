@@ -21,7 +21,12 @@ package v1alpha1
 // ResourceSelectorApplyConfiguration represents a declarative configuration of the ResourceSelector type for use
 // with apply.
 type ResourceSelectorApplyConfiguration struct {
-	Name      *string `json:"name,omitempty"`
+	// name of an object within a claimed group/resource.
+	// It matches the metadata.name field of the underlying object.
+	// If namespace is unset, all objects matching that name will be claimed.
+	Name *string `json:"name,omitempty"`
+	// namespace containing the named object. Matches metadata.namespace field.
+	// If "name" is unset, all objects from the namespace are being claimed.
 	Namespace *string `json:"namespace,omitempty"`
 }
 

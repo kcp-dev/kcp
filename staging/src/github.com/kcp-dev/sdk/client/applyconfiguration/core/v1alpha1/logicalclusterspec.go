@@ -24,11 +24,25 @@ import (
 
 // LogicalClusterSpecApplyConfiguration represents a declarative configuration of the LogicalClusterSpec type for use
 // with apply.
+//
+// LogicalClusterSpec is the specification of the LogicalCluster resource.
 type LogicalClusterSpecApplyConfiguration struct {
-	DirectlyDeletable *bool                                    `json:"directlyDeletable,omitempty"`
-	Owner             *LogicalClusterOwnerApplyConfiguration   `json:"owner,omitempty"`
-	Initializers      []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
-	Terminators       []corev1alpha1.LogicalClusterTerminator  `json:"terminators,omitempty"`
+	// DirectlyDeletable indicates that this logical cluster can be directly deleted by the user
+	// from within by deleting the LogicalCluster object.
+	DirectlyDeletable *bool `json:"directlyDeletable,omitempty"`
+	// owner is a reference to a resource controlling the life-cycle of this logical cluster.
+	// On deletion of the LogicalCluster, the finalizer core.kcp.io/logicalcluster is
+	// removed from the owner.
+	//
+	// When this object is deleted, but the owner is not deleted, the owner is deleted
+	// too.
+	Owner *LogicalClusterOwnerApplyConfiguration `json:"owner,omitempty"`
+	// initializers are set on creation by the system and copied to status when
+	// initialization starts.
+	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
+	// Terminators are set on creation by the system and copied to status when
+	// termination starts.
+	Terminators []corev1alpha1.LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 
 // LogicalClusterSpecApplyConfiguration constructs a declarative configuration of the LogicalClusterSpec type for use with

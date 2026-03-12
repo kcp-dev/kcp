@@ -25,11 +25,19 @@ import (
 
 // WorkspaceStatusApplyConfiguration represents a declarative configuration of the WorkspaceStatus type for use
 // with apply.
+//
+// WorkspaceStatus communicates the observed state of the Workspace.
 type WorkspaceStatusApplyConfiguration struct {
-	Phase        *corev1alpha1.LogicalClusterPhaseType    `json:"phase,omitempty"`
-	Conditions   *conditionsv1alpha1.Conditions           `json:"conditions,omitempty"`
+	// Phase of the workspace (Scheduling, Initializing, Ready).
+	Phase *corev1alpha1.LogicalClusterPhaseType `json:"phase,omitempty"`
+	// Current processing state of the Workspace.
+	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+	// initializers must be cleared by a controller before the workspace is ready
+	// and can be used.
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
-	Terminators  []corev1alpha1.LogicalClusterTerminator  `json:"terminators,omitempty"`
+	// terminators must be cleared by a controller before the workspace is being
+	// deleted.
+	Terminators []corev1alpha1.LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 
 // WorkspaceStatusApplyConfiguration constructs a declarative configuration of the WorkspaceStatus type for use with

@@ -20,11 +20,61 @@ package v1alpha2
 
 // APIExportSpecApplyConfiguration represents a declarative configuration of the APIExportSpec type for use
 // with apply.
+//
+// APIExportSpec defines the desired state of APIExport.
 type APIExportSpecApplyConfiguration struct {
-	Resources               []ResourceSchemaApplyConfiguration         `json:"resources,omitempty"`
-	Identity                *IdentityApplyConfiguration                `json:"identity,omitempty"`
+	// Resources records the APIResourceSchemas that are exposed with this
+	// APIExport.
+	//
+	// The schemas can be changed in the life-cycle of the APIExport. These changes
+	// have no effect on existing APIBindings, but only on newly bound ones.
+	//
+	// For updating existing APIBindings, use an APIDeployment keeping bound
+	// workspaces up-to-date.
+	Resources []ResourceSchemaApplyConfiguration `json:"resources,omitempty"`
+	// identity points to a secret that contains the API identity in the 'key' file.
+	// The API identity determines an unique etcd prefix for objects stored via this
+	// APIExport.
+	//
+	// Different APIExport in a workspace can share a common identity, or have different
+	// ones. The identity (the secret) can also be transferred to another workspace
+	// when the APIExport is moved.
+	//
+	// The identity is a secret of the API provider. The APIBindings referencing this APIExport
+	// will store a derived, non-sensitive value of this identity.
+	//
+	// The identity of an APIExport cannot be changed. A derived, non-sensitive value of
+	// the identity key is stored in the APIExport status and this value is immutable.
+	//
+	// The identity is defaulted. A secret with the name of the APIExport is automatically
+	// created.
+	Identity *IdentityApplyConfiguration `json:"identity,omitempty"`
+	// maximalPermissionPolicy will allow for a service provider to set an upper bound on what is allowed
+	// for a consumer of this API. If the policy is not set, no upper bound is applied,
+	// i.e the consuming users can do whatever the user workspace allows the user to do.
+	//
+	// The policy consists of RBAC (Cluster)Roles and (Cluster)Bindings. A request of a user in
+	// a workspace that binds to this APIExport via an APIBinding is additionally checked against
+	// these rules, with the user name and the groups prefixed with `apis.kcp.io:binding:`.
+	//
+	// For example: assume a user `adam` with groups `system:authenticated` and `a-team` binds to
+	// this APIExport in another workspace root:org:ws. Then a request in that workspace
+	// against a resource of this APIExport is authorized as every other request in that workspace,
+	// but in addition the RBAC policy here in the APIExport workspace has to grant access to the
+	// user `apis.kcp.io:binding:adam` with the groups `apis.kcp.io:binding:system:authenticated`
+	// and `apis.kcp.io:binding:a-team`.
 	MaximalPermissionPolicy *MaximalPermissionPolicyApplyConfiguration `json:"maximalPermissionPolicy,omitempty"`
-	PermissionClaims        []PermissionClaimApplyConfiguration        `json:"permissionClaims,omitempty"`
+	// permissionClaims make resources available in APIExport's virtual workspace that are not part
+	// of the actual APIExport resources.
+	//
+	// PermissionClaims are optional and should be the least access necessary to complete the functions
+	// that the service provider needs. Access is asked for on a GroupResource + identity basis.
+	//
+	// PermissionClaims must be accepted by the user's explicit acknowledgement. Hence, when claims
+	// change, the respecting objects are not visible immediately.
+	//
+	// PermissionClaims overlapping with the APIExport resources are ignored.
+	PermissionClaims []PermissionClaimApplyConfiguration `json:"permissionClaims,omitempty"`
 }
 
 // APIExportSpecApplyConfiguration constructs a declarative configuration of the APIExportSpec type for use with

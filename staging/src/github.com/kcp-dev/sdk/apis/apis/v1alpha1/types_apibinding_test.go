@@ -60,7 +60,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 					"name": "CHANGE",
 				},
 			},
-			wantErrs: []string{"openAPIV3Schema.properties.spec.properties.reference: Invalid value: \"object\": APIExport reference must not be changed"},
+			wantErrs: []string{"openAPIV3Schema.properties.spec.properties.reference: Invalid value: APIExport reference must not be changed"},
 		},
 		{
 			name: "change path",
@@ -76,7 +76,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 					"name": "bar",
 				},
 			},
-			wantErrs: []string{"openAPIV3Schema.properties.spec.properties.reference: Invalid value: \"object\": APIExport reference must not be changed"},
+			wantErrs: []string{"openAPIV3Schema.properties.spec.properties.reference: Invalid value: APIExport reference must not be changed"},
 		},
 	}
 

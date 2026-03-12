@@ -27,11 +27,18 @@ import (
 
 // APIBindingApplyConfiguration represents a declarative configuration of the APIBinding type for use
 // with apply.
+//
+// APIBinding enables a set of resources and their behaviour through an external
+// service provider in this workspace.
+//
+// The service provider uses an APIExport to expose the API.
 type APIBindingApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *APIBindingSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *APIBindingStatusApplyConfiguration `json:"status,omitempty"`
+	// Spec holds the desired state.
+	Spec *APIBindingSpecApplyConfiguration `json:"spec,omitempty"`
+	// Status communicates the observed state.
+	Status *APIBindingStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // APIBinding constructs a declarative configuration of the APIBinding type for use with
@@ -43,6 +50,7 @@ func APIBinding(name string) *APIBindingApplyConfiguration {
 	b.WithAPIVersion("apis.kcp.io/v1alpha2")
 	return b
 }
+
 func (b APIBindingApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -356,6 +356,9 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
+	// This loop needs longer timeout because SAR deny cache is refreshed every 30 seconds,
+	// so it might take up to 30 seconds for the above RBAC changes to be reflected in authorization decisions.
+	// Because of that, we can't use exactly 30 seconds as timeout, instead we use 1 minute to be on the safe side.
 	t.Log("Ensure that LIST calls through the virtual workspace eventually show the correct values")
 	for name := range workspaces {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -363,7 +366,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				_, err := client.CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
 				require.NoError(c, err)
 			}
-		}, wait.ForeverTestTimeout, 100*time.Millisecond)
+		}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 	}
 
 	alphaTerminator := string(termination.TerminatorForType(workspaceTypes["alpha"]))

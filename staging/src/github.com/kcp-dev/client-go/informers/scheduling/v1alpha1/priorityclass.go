@@ -64,7 +64,7 @@ func NewPriorityClassClusterInformer(client kcpkubernetes.ClusterInterface, resy
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredPriorityClassClusterInformer(client kcpkubernetes.ClusterInterface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) kcpcache.ScopeableSharedIndexInformer {
 	return kcpinformers.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -77,7 +77,7 @@ func NewFilteredPriorityClassClusterInformer(client kcpkubernetes.ClusterInterfa
 				}
 				return client.SchedulingV1alpha1().PriorityClasses().Watch(context.Background(), options)
 			},
-		},
+		}, client),
 		&apischedulingv1alpha1.PriorityClass{},
 		resyncPeriod,
 		indexers,

@@ -20,11 +20,21 @@ package v1alpha1
 
 // APIVersionConversionApplyConfiguration represents a declarative configuration of the APIVersionConversion type for use
 // with apply.
+//
+// APIVersionConversion contains rules to convert between two specific API versions in an
+// APIResourceSchema. Additionally, to avoid data loss when round-tripping from a version that
+// contains a new field to one that doesn't and back again, you can specify a list of fields to
+// preserve (these are stored in annotations).
 type APIVersionConversionApplyConfiguration struct {
-	From     *string                               `json:"from,omitempty"`
-	To       *string                               `json:"to,omitempty"`
-	Rules    []APIConversionRuleApplyConfiguration `json:"rules,omitempty"`
-	Preserve []string                              `json:"preserve,omitempty"`
+	// from is the source version.
+	From *string `json:"from,omitempty"`
+	// to is the target version.
+	To *string `json:"to,omitempty"`
+	// rules contains field-specific conversion expressions.
+	Rules []APIConversionRuleApplyConfiguration `json:"rules,omitempty"`
+	// preserve contains a list of JSONPath expressions to fields to preserve in the originating version
+	// of the object, relative to its root, such as '.spec.name.first'.
+	Preserve []string `json:"preserve,omitempty"`
 }
 
 // APIVersionConversionApplyConfiguration constructs a declarative configuration of the APIVersionConversion type for use with

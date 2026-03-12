@@ -27,6 +27,8 @@ import (
 
 // CowboyApplyConfiguration represents a declarative configuration of the Cowboy type for use
 // with apply.
+//
+// Cowboy is part of the wild west
 type CowboyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
@@ -44,6 +46,7 @@ func Cowboy(name, namespace string) *CowboyApplyConfiguration {
 	b.WithAPIVersion("wildwest.dev/v1alpha1")
 	return b
 }
+
 func (b CowboyApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
