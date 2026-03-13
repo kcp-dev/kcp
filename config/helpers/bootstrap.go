@@ -17,26 +17,22 @@ limitations under the License.
 package helpers
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"embed"
-	"errors"
 	"fmt"
-	"io"
+	"io/fs"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
 
-	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -79,7 +75,7 @@ func ReplaceOption(pairs ...string) Option {
 // Bootstrap creates resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
-func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string], fs embed.FS, opts ...Option) error {
+func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface, dynamicClient dynamic.Interface, batteriesIncluded sets.Set[string], embedFS embed.FS, opts ...Option) error {
 	cache := memory.NewMemCacheClient(discoveryClient)
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(cache)
 
@@ -88,80 +84,79 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	for _, opt := range opts {
 		transformers = append(transformers, opt.TransformFile)
 	}
-	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := CreateResourcesFromFS(ctx, dynamicClient, mapper, batteriesIncluded, fs, transformers...); err != nil {
-			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
-			// invalidate cache if resources not found
-			// xref: https://github.com/kcp-dev/kcp/issues/655
-			cache.Invalidate()
-			return false, nil
-		}
-		return true, nil
-	})
+
+	resources, err := ReadResourcesFromFS(ctx, embedFS, nil, batteriesIncluded, transformers...)
+	if err != nil {
+		return fmt.Errorf("could not read resources from FS: %w", err)
+	}
+
+	chunks := ChunkObjectsByHierarchy(resources)
+	// invalidate cache if resources not found
+	// xref: https://github.com/kcp-dev/kcp/issues/655
+	if err := CreateResourcesFromChunks(ctx, dynamicClient, mapper, chunks, cache.Invalidate); err != nil {
+		return fmt.Errorf("could not create resources from chunks: %w", err)
+	}
+	return nil
 }
 
 // CreateResourcesFromFS creates all resources from a filesystem.
-func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], fs embed.FS, transformers ...TransformFileFunc) error {
-	files, err := fs.ReadDir(".")
+func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], embedFS embed.FS, transformers ...TransformFileFunc) error {
+	resources, err := ReadResourcesFromFS(ctx, embedFS, nil, batteriesIncluded, transformers...)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not read resources from FS: %w", err)
 	}
 
-	var errs []error
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if err := CreateResourceFromFS(ctx, client, mapper, batteriesIncluded, f.Name(), fs, transformers...); err != nil {
-			errs = append(errs, err)
-		}
+	chunks := ChunkObjectsByHierarchy(resources)
+	if err := CreateResourcesFromChunks(ctx, client, mapper, chunks, nil); err != nil {
+		return fmt.Errorf("could not create resources from chunks: %w", err)
 	}
-	return utilerrors.NewAggregate(errs)
+
+	return nil
+}
+
+func cleanPath(s string) string {
+	s = filepath.Clean(s)
+	s = strings.TrimPrefix(s, "/")
+	return s
 }
 
 // CreateResourceFromFS creates given resource file.
-func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, fs embed.FS, transformers ...TransformFileFunc) error {
-	raw, err := fs.ReadFile(filename)
+// filename should be the absolute path within the filesystem. The leading slash is optional.
+func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, batteriesIncluded sets.Set[string], filename string, embedFS embed.FS, transformers ...TransformFileFunc) error {
+	cleanFilename := cleanPath(filename)
+
+	resources, err := ReadResourcesFromFS(ctx, embedFS, func(p string, d fs.DirEntry) (bool, error) {
+		return cleanPath(p) == cleanFilename, nil
+	}, batteriesIncluded, transformers...)
 	if err != nil {
-		return fmt.Errorf("could not read %s: %w", filename, err)
+		return fmt.Errorf("could not read resources from FS: %w", err)
 	}
 
-	if len(raw) == 0 {
-		return nil // ignore empty files
+	chunks := ChunkObjectsByHierarchy(resources)
+	if err := CreateResourcesFromChunks(ctx, client, mapper, chunks, nil); err != nil {
+		return fmt.Errorf("could not create resources from chunks: %w", err)
 	}
 
-	d := kubeyaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(raw)))
-	var errs []error
-	for i := 1; ; i++ {
-		doc, err := d.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		if len(bytes.TrimSpace(doc)) == 0 {
-			continue
-		}
-
-		for _, transformer := range transformers {
-			doc, err = transformer(doc)
-			if err != nil {
-				return err
-			}
-		}
-
-		if err := createResourceFromFS(ctx, client, mapper, doc, batteriesIncluded); err != nil {
-			errs = append(errs, fmt.Errorf("failed to create resource %s doc %d: %w", filename, i, err))
-		}
-	}
-	return utilerrors.NewAggregate(errs)
+	return nil
 }
 
-const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
-const annotationBattery = "bootstrap.kcp.io/battery"
+// DirEntryFilterFunc is used to filter which resources from a filesystem to read.
+type DirEntryFilterFunc func(absPath string, dirEntry fs.DirEntry) (bool, error)
 
-func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.Set[string]) error {
-	logger := klog.FromContext(ctx)
+// ReadResourcesFromFS reads all resources from a filesystem and returns
+// them as unstructured.Unstructured objects.
+// If the filter function is not nil if is called for each file. If the
+// filter function returns true the file is parsed, otherwise it is ignored.
+func ReadResourcesFromFS(
+	ctx context.Context,
+	embedFS embed.FS,
+	filter DirEntryFilterFunc,
+	batteriesIncluded sets.Set[string],
+	transformers ...TransformFileFunc,
+) ([]*unstructured.Unstructured, error) {
+	ret := []*unstructured.Unstructured{}
+
+	// build the input for templating
 	type Input struct {
 		Batteries map[string]bool
 	}
@@ -171,38 +166,126 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	for _, b := range sets.List[string](batteriesIncluded) {
 		input.Batteries[b] = true
 	}
-	tmpl, err := template.New("manifest").Parse(string(raw))
-	if err != nil {
-		return fmt.Errorf("failed to parse manifest: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, input); err != nil {
-		return fmt.Errorf("failed to execute manifest: %w", err)
-	}
 
-	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, &unstructured.Unstructured{})
-	if err != nil {
-		return fmt.Errorf("could not decode raw: %w", err)
-	}
-	u, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		return fmt.Errorf("decoded into incorrect type, got %T, wanted %T", obj, &unstructured.Unstructured{})
-	}
-
-	if v, found := u.GetAnnotations()[annotationBattery]; found {
-		partOf := strings.Split(v, ",")
-		included := false
-		for _, p := range partOf {
-			if batteriesIncluded.Has(strings.TrimSpace(p)) {
-				included = true
-				break
-			}
+	if err := fs.WalkDir(embedFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		if !included {
-			logger.V(4).WithValues("resource", u.GetName(), "batteriesRequired", v, "batteriesIncluded", batteriesIncluded).Info("skipping resource because required batteries are not among included batteries")
+		if d.IsDir() {
 			return nil
 		}
+
+		if filter != nil {
+			parse, err := filter(path, d)
+			if err != nil {
+				return fmt.Errorf("could not filter %s: %w", path, err)
+			}
+			if !parse {
+				return nil
+			}
+		}
+
+		raw, err := embedFS.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("could not read %s: %w", path, err)
+		}
+		for _, transformer := range transformers {
+			if raw, err = transformer(raw); err != nil {
+				return fmt.Errorf("could not transform %s: %w", path, err)
+			}
+		}
+
+		// some yaml docs are templates
+		tmpl, err := template.New("manifest").Parse(string(raw))
+		if err != nil {
+			return fmt.Errorf("failed to parse manifest: %w", err)
+		}
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, input); err != nil {
+			return fmt.Errorf("failed to execute manifest: %w", err)
+		}
+
+		resources, err := ParseYAML(buf.Bytes())
+		if err != nil {
+			return fmt.Errorf("could not parse %s: %w", path, err)
+		}
+
+		for _, resource := range resources {
+			v, found := resource.GetAnnotations()[annotationBattery]
+			if !found {
+				// resource is not relevant to batteries-included, just
+				// add it to be installed
+				ret = append(ret, resource)
+				continue
+			}
+
+			partOf := strings.Split(v, ",")
+			included := false
+			for _, p := range partOf {
+				if batteriesIncluded.Has(strings.TrimSpace(p)) {
+					included = true
+					break
+				}
+			}
+			if !included {
+				continue
+			}
+			ret = append(ret, resource)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("could not walk embed FS: %w", err)
 	}
+
+	return ret, nil
+}
+
+// CreateResourcesFromChunks sequentially runs CreateResourcesFromChunk
+// for each chunk of resources.
+func CreateResourcesFromChunks(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, chunks [][]*unstructured.Unstructured, reset func()) error {
+	for i, chunk := range chunks {
+		if err := CreateResourcesFromChunk(ctx, client, mapper, chunk, reset); err != nil {
+			return fmt.Errorf("failed to create resources from chunk %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// CreateResourcesFromChunk creates all resources from a chunk of resources.
+// If reset is not nil it is called after each failed attempt, allowing to reset e.g. a cache.
+func CreateResourcesFromChunk(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, chunk []*unstructured.Unstructured, reset func()) error {
+	g := errgroup.WithContext(ctx)
+
+	for _, obj := range chunk {
+		g.Go(func(ctx context.Context) error {
+			return retryCreateResource(ctx, client, mapper, obj, reset)
+		})
+	}
+
+	return g.Wait()
+}
+
+func retryCreateResource(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, obj *unstructured.Unstructured, reset func()) error {
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
+		if err := createResource(ctx, client, mapper, obj); err != nil {
+			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
+			if reset != nil {
+				reset()
+			}
+			return false, nil
+		}
+		return true, nil
+	})
+}
+
+const annotationCreateOnlyKey = "bootstrap.kcp.io/create-only"
+const annotationBattery = "bootstrap.kcp.io/battery"
+
+func createResource(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, u *unstructured.Unstructured) error {
+	logger := klog.FromContext(ctx)
+
+	gvk := u.GetObjectKind().GroupVersionKind()
 
 	m, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
