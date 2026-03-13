@@ -56,7 +56,7 @@ ARG TARGETARCH
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    make OS=${TARGETOS} ARCH=${TARGETARCH}
+    make OS=${TARGETOS} ARCH=${TARGETARCH} EXTRA_LDFLAGS="-s -w"
 
 # distroless doesn't have coreutils, so we need to create a directory
 # for kcp here and copy it over. Any directory would do.
