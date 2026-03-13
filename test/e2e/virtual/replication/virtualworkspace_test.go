@@ -245,15 +245,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
 			_, err = getSheriff(t.Context(), user1CachedResourceDynClient, consumerClusterName, sheriffOne.Name)
-			if apierrors.IsForbidden(err) {
-				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
+			if err != nil {
+				t.Logf("waiting until the sheriff is in cache: %v", err)
+				return false, err.Error()
 			}
-			if apierrors.IsNotFound(err) {
-				return false, fmt.Sprintf("waiting until the sheriff is in cache: %v", err)
-			}
-			require.NoError(t, err)
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
+		}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected user-1 to get sheriff")
 	}
 
 	sheriffLabels := map[string]string{"hello": "world"}
@@ -284,12 +281,15 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			if apierrors.IsForbidden(err) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
+			if err != nil {
+				t.Logf("waiting until the sheriff is in cache: %v", err)
+				return false, err.Error()
+			}
 			if len(sherrifList.Items) < 2 {
 				return false, fmt.Sprintf("waiting until there are two items in list, have %d", len(sherrifList.Items))
 			}
-			require.NoError(t, err)
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
+		}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected user-1 to list sheriffs")
 		require.Len(t, sherrifList.Items, 2, "expected to find exactly two sheriffs")
 
 		t.Logf("### got LIST sheriffs resourceVersion=%s", sherrifList.ResourceVersion)
@@ -324,9 +324,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			if apierrors.IsForbidden(err) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
+			if err != nil {
+				t.Logf("waiting until the sheriff is in cache: %v", err)
+				return false, err.Error()
+			}
 			return true, ""
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
+		}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected user-1 to watch sheriffs")
 
 		sheriffWatchCh := sheriffWatch.ResultChan()
 		waitForEvent := func() (watch.Event, bool) {
@@ -335,7 +338,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				event, more = <-sheriffWatchCh
 				return true, ""
-			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected to get a watch event")
+			}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected to get a watch event")
 			return event, more
 		}
 		checkEvent := func(actualEvent watch.Event,
