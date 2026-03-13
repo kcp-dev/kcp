@@ -24,6 +24,7 @@ import (
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -33,6 +34,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
@@ -67,7 +69,17 @@ func NewBoundAPIAuthorizer(delegate authorizer.Authorizer, apiBindingInformer ap
 					continue
 				}
 
-				if binding.Spec.Reference.Export != nil && binding.Spec.Reference.Export.Name == apiExportName && binding.Status.APIExportClusterName == apiExportCluster {
+				if binding.Spec.Reference.Export == nil || binding.Spec.Reference.Export.Name != apiExportName {
+					continue
+				}
+
+				if binding.Status.APIExportClusterName == apiExportCluster {
+					return binding, nil
+				}
+
+				// During binding initialization, Status.APIExportClusterName may not be set yet.
+				// Fall back to matching via the spec path.
+				if binding.Status.APIExportClusterName == "" && binding.Spec.Reference.Export.Path == apiExportCluster {
 					return binding, nil
 				}
 			}
@@ -117,13 +129,15 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 	}
 
 	// check if a resource claim for this resource has been accepted and has correct verbs.
+	// normalize the requested group/resource to handle the events.k8s.io ↔ core/v1 equivalence.
+	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: attr.GetAPIGroup(), Resource: attr.GetResource()})
 	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
 		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
 			continue
 		}
 
-		if permissionClaim.Group == attr.GetAPIGroup() && permissionClaim.Resource == attr.GetResource() {
+		if permissionClaim.Group == normalizedGR.Group && permissionClaim.Resource == normalizedGR.Resource {
 			apiBindingVerbs := sets.New(permissionClaim.Verbs...)
 			apiExportVerbs := sets.New[string]()
 

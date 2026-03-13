@@ -235,6 +235,11 @@ func (b *APIBinder) reconcile(ctx context.Context, logicalCluster *corev1alpha1.
 
 		if !conditions.IsTrue(binding, apisv1alpha2.InitialBindingCompleted) {
 			incomplete = append(incomplete, binding.Name)
+			continue
+		}
+
+		if hasAcceptedPermissionClaims(binding) && !conditions.IsTrue(binding, apisv1alpha2.PermissionClaimsApplied) {
+			incomplete = append(incomplete, fmt.Sprintf("%s waiting for permission claims to be applied", binding.Name))
 		}
 	}
 
@@ -294,4 +299,13 @@ func toBase36(hash [28]byte) string {
 
 func toBase36Sha224(s string) string {
 	return toBase36(sha256.Sum224([]byte(s)))
+}
+
+func hasAcceptedPermissionClaims(binding *apisv1alpha2.APIBinding) bool {
+	for _, claim := range binding.Spec.PermissionClaims {
+		if claim.State == apisv1alpha2.ClaimAccepted {
+			return true
+		}
+	}
+	return false
 }

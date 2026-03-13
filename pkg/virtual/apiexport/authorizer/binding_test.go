@@ -18,6 +18,7 @@ package authorizer
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -558,6 +559,135 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 									Resource: "bar",
 								},
 								Verbs: []string{"connect", "proxy"},
+							},
+						},
+					},
+				}, nil
+			},
+			expectedDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "create events.k8s.io event via permission claim for core/v1 events",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "events.k8s.io",
+				Resource: "events",
+				Verb:     "create",
+			},
+			apidomainKey: apidomainKey,
+			getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error) {
+				return &apisv1alpha2.APIBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIBindingSpec{
+						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
+							{
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "",
+											Resource: "events",
+										},
+										Verbs: []string{"create"},
+									},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
+								},
+								State: apisv1alpha2.ClaimAccepted,
+							},
+						},
+					},
+				}, nil
+			},
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
+							{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "",
+									Resource: "events",
+								},
+								Verbs: []string{"create"},
+							},
+						},
+					},
+				}, nil
+			},
+			expectedDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "create events.k8s.io event via permission claim when Status.APIExportClusterName is not yet set (path fallback)",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "events.k8s.io",
+				Resource: "events",
+				Verb:     "create",
+			},
+			apidomainKey: apidomainKey,
+			getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error) {
+				bindings := []*apisv1alpha2.APIBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "bar",
+						},
+						Spec: apisv1alpha2.APIBindingSpec{
+							Reference: apisv1alpha2.BindingReference{
+								Export: &apisv1alpha2.ExportBindingReference{
+									Path: apiExportCluster,
+									Name: apiExportName,
+								},
+							},
+							PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
+								{
+									ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+										PermissionClaim: apisv1alpha2.PermissionClaim{
+											GroupResource: apisv1alpha2.GroupResource{
+												Group:    "",
+												Resource: "events",
+											},
+											Verbs: []string{"create"},
+										},
+										Selector: apisv1alpha2.PermissionClaimSelector{
+											MatchAll: true,
+										},
+									},
+									State: apisv1alpha2.ClaimAccepted,
+								},
+							},
+						},
+					},
+				}
+				for _, b := range bindings {
+					if b.Spec.Reference.Export != nil && b.Spec.Reference.Export.Name == apiExportName {
+						if b.Status.APIExportClusterName == apiExportCluster {
+							return b, nil
+						}
+						if b.Status.APIExportClusterName == "" && b.Spec.Reference.Export.Path == apiExportCluster {
+							return b, nil
+						}
+					}
+				}
+				return nil, fmt.Errorf("no suitable binding found")
+			},
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
+							{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "",
+									Resource: "events",
+								},
+								Verbs: []string{"create"},
 							},
 						},
 					},
