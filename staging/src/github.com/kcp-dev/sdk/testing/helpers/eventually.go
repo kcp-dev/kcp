@@ -120,7 +120,9 @@ func EventuallyCondition(t TestingT, getter func() (conditions.Getter, error), e
 	t.Helper()
 	Eventually(t, func() (bool, string) {
 		obj, err := getter()
-		require.NoError(t, err, "Error fetching object")
+		if err != nil {
+			return false, fmt.Sprintf("Error in condition getter: %v", err)
+		}
 		condition, descriptor, done := evaluator.matches(obj)
 		var reason string
 		if !done {
