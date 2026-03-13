@@ -43,7 +43,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server"
 
-	_ "k8s.io/component-base/logs/json/register"
+	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 )
 
 func main() {
