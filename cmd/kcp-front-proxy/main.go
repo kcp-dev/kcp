@@ -38,9 +38,8 @@ import (
 
 	frontproxyoptions "github.com/kcp-dev/kcp/cmd/kcp-front-proxy/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 	"github.com/kcp-dev/kcp/pkg/proxy"
-
-	_ "k8s.io/component-base/logs/json/register"
 )
 
 func main() {

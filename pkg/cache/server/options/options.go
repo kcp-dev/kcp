@@ -23,6 +23,8 @@ import (
 
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	"k8s.io/apiserver/pkg/storage/storagebackend"
+	"k8s.io/component-base/logs"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
@@ -36,6 +38,7 @@ type Options struct {
 	Authorization    *genericoptions.DelegatingAuthorizationOptions
 	APIEnablement    *genericoptions.APIEnablementOptions
 	EmbeddedEtcd     etcdoptions.Options
+	Logs             *logs.Options
 	SyntheticDelay   time.Duration
 }
 
@@ -47,6 +50,7 @@ type completedOptions struct {
 	Authorization    *genericoptions.DelegatingAuthorizationOptions
 	APIEnablement    *genericoptions.APIEnablementOptions
 	EmbeddedEtcd     etcdoptions.CompletedOptions
+	Logs             *logs.Options
 	SyntheticDelay   time.Duration
 }
 
@@ -76,6 +80,7 @@ func NewOptions(rootDir string) *Options {
 		Authorization:    genericoptions.NewDelegatingAuthorizationOptions(),
 		APIEnablement:    genericoptions.NewAPIEnablementOptions(),
 		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
+		Logs:             logs.NewOptions(),
 	}
 
 	o.SecureServing.ServerCert.CertDirectory = rootDir
@@ -110,6 +115,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		Authorization:    o.Authorization,
 		APIEnablement:    o.APIEnablement,
 		EmbeddedEtcd:     o.EmbeddedEtcd.Complete(o.Etcd),
+		Logs:             o.Logs,
 	}}, nil
 }
 
@@ -117,5 +123,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.Etcd.AddFlags(fs)
 	o.EmbeddedEtcd.AddFlags(fs)
 	o.SecureServing.AddFlags(fs)
+	logsapiv1.AddFlags(o.Logs, fs)
 	fs.DurationVar(&o.SyntheticDelay, "synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests. Useful for testing.")
 }

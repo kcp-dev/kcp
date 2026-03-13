@@ -41,9 +41,8 @@ import (
 
 	"github.com/kcp-dev/kcp/cmd/kcp/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 	"github.com/kcp-dev/kcp/pkg/server"
-
-	_ "k8s.io/component-base/logs/json/register"
 )
 
 func main() {
