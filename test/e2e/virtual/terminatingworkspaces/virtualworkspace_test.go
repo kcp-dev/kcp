@@ -689,6 +689,91 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 	}
 }
 
+func TestTerminatingWorkspacesVirtualWorkspaceWatchBookmark(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	source := kcptesting.SharedKcpServer(t)
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	sourceConfig := source.BaseConfig(t)
+
+	sourceKcpClusterClient, err := kcpclientset.NewForConfig(sourceConfig)
+	require.NoError(t, err)
+
+	t.Log("Create workspacetypes with terminators")
+	wst := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "bookmark-" + randSuffix(),
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Terminator: true,
+		},
+	}
+
+	// create workspacetypes
+	_, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+	require.NoError(t, err)
+	source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+	})
+
+	t.Log("Wait for WorkspaceTypes and their virtual workspace URLs to be ready")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		var err error
+		wst, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.NotEmpty(c, wst.Status.VirtualWorkspaces)
+		require.True(c, conditions.IsTrue(wst, tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady))
+		require.True(c, conditions.IsTrue(wst, conditionsv1alpha1.ReadyCondition))
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Start watch on terminating VW")
+	vwURLs := []string{}
+	for _, vwURL := range wst.Status.VirtualWorkspaces {
+		// filter out any URLs not belonging to terminating virtual workspace
+		if strings.Contains(vwURL.URL, terminatingworkspaces.VirtualWorkspaceName) {
+			vwURLs = append(vwURLs, vwURL.URL)
+		}
+	}
+	require.GreaterOrEqual(t, len(vwURLs), 1, "at least one terminating virtual workspace URL expected")
+
+	config := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-virtual")
+	// The specific URL is not relevant. We only want to check the VWs
+	// of this type are actually sending a bookmark.
+	config.Host = vwURLs[0]
+
+	clientset, err := kcpclientset.NewForConfig(config)
+	require.NoError(t, err)
+
+	var watcher watch.Interface
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		var err error
+		watcher, err = clientset.CoreV1alpha1().LogicalClusters().Watch(ctx, metav1.ListOptions{
+			AllowWatchBookmarks: true,
+		})
+		require.NoError(c, err)
+		require.NotNil(c, watcher) // if we are too fast, it is possible for .Watch to return no error but a nil watcher
+	}, wait.ForeverTestTimeout*2, 100*time.Millisecond)
+
+	t.Log("Wait for bookmark event")
+	receivedBookmark := false
+	timeout := time.After(wait.ForeverTestTimeout)
+	for !receivedBookmark {
+		select {
+		case evt, ok := <-watcher.ResultChan():
+			require.True(t, ok, "watch channel closed before receiving a bookmark event")
+			if evt.Type == watch.Bookmark {
+				receivedBookmark = true
+			}
+		case <-timeout:
+			require.Fail(t, "timed out waiting for a bookmark event from the terminating workspaces virtual workspace")
+		}
+	}
+}
+
 func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSelector map[string]string) *tenancyv1alpha1.Workspace {
 	return &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{

@@ -136,6 +136,9 @@ func WithDeletionTimestamp() StorageWrapper {
 			}
 
 			filtered := watch.Filter(wi, func(in watch.Event) (out watch.Event, keep bool) {
+				if in.Type == watch.Bookmark {
+					return in, true
+				}
 				return in, hasDeletionTimestamp(ctx, in.Object)
 			})
 
