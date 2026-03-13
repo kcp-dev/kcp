@@ -35,6 +35,7 @@ import (
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	"github.com/kcp-dev/kcp/pkg/cache/server/options"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+
 	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 )
 
