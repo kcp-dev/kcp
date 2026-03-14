@@ -47,30 +47,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-// TransformFileFunc transforms a resource file before being applied to the cluster.
-type TransformFileFunc func(bs []byte) ([]byte, error)
-
-// Option allows to customize the bootstrap process.
-type Option struct {
-	// TransformFileFunc is a function that transforms a resource file before being applied to the cluster.
-	TransformFile TransformFileFunc
-}
-
-// ReplaceOption allows to customize the bootstrap process.
-func ReplaceOption(pairs ...string) Option {
-	return Option{
-		TransformFile: func(bs []byte) ([]byte, error) {
-			if len(pairs)%2 != 0 {
-				return nil, fmt.Errorf("odd number of arguments: %v", pairs)
-			}
-			for i := 0; i < len(pairs); i += 2 {
-				bs = bytes.ReplaceAll(bs, []byte(pairs[i]), []byte(pairs[i+1]))
-			}
-			return bs, nil
-		},
-	}
-}
-
 // Bootstrap creates resources in a package's fs by
 // continuously retrying the list. This is blocking, i.e. it only returns (with error)
 // when the context is closed or with nil when the bootstrapping is successfully completed.
@@ -138,11 +114,9 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			continue
 		}
 
-		for _, transformer := range transformers {
-			doc, err = transformer(doc)
-			if err != nil {
-				return err
-			}
+		doc, err = applyTransformers(doc, transformers...)
+		if err != nil {
+			return err
 		}
 
 		if err := createResourceFromFS(ctx, client, mapper, doc, batteriesIncluded); err != nil {
