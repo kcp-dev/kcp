@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"text/template"
 	"time"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -162,25 +161,14 @@ const annotationBattery = "bootstrap.kcp.io/battery"
 
 func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, raw []byte, batteriesIncluded sets.Set[string]) error {
 	logger := klog.FromContext(ctx)
-	type Input struct {
-		Batteries map[string]bool
-	}
-	input := Input{
-		Batteries: map[string]bool{},
-	}
-	for _, b := range sets.List[string](batteriesIncluded) {
-		input.Batteries[b] = true
-	}
-	tmpl, err := template.New("manifest").Parse(string(raw))
+
+	ti := NewTemplateInput(batteriesIncluded)
+	out, err := Template(ctx, raw, ti)
 	if err != nil {
-		return fmt.Errorf("failed to parse manifest: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, input); err != nil {
-		return fmt.Errorf("failed to execute manifest: %w", err)
+		return fmt.Errorf("error templating manifest: %w", err)
 	}
 
-	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(buf.Bytes(), nil, &unstructured.Unstructured{})
+	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(out, nil, &unstructured.Unstructured{})
 	if err != nil {
 		return fmt.Errorf("could not decode raw: %w", err)
 	}
