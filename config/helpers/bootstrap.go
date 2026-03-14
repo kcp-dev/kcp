@@ -164,7 +164,7 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return fmt.Errorf("error templating manifest: %w", err)
 	}
 
-	obj, gvk, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(out, nil, &unstructured.Unstructured{})
+	obj, _, err := extensionsapiserver.Codecs.UniversalDeserializer().Decode(out, nil, &unstructured.Unstructured{})
 	if err != nil {
 		return fmt.Errorf("could not decode raw: %w", err)
 	}
@@ -187,6 +187,14 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 			return nil
 		}
 	}
+
+	return createResource(ctx, client, mapper, u)
+}
+
+func createResource(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, u *unstructured.Unstructured) error {
+	logger := klog.FromContext(ctx)
+
+	gvk := u.GetObjectKind().GroupVersionKind()
 
 	m, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
