@@ -458,9 +458,9 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// done earlier in the setup pipeline (e.g. genericConfig.BuildHandlerChainFunc =
 	// genericapiserver.BuildHandlerChainWithStorageVersionPrecondition in CreateAggregatorConfig when
 	// StorageVersionAPI + APIServerIdentity feature gates are enabled) is overwritten and never applied.
-	// WithStorageVersionPrecondition is therefore applied explicitly below, always enabled, so that kcp
-	// blocks writes to resources whose storage versions have not yet converged across all shards during
-	// rolling upgrades. See: https://github.com/kcp-dev/kubernetes/pull/185
+	// WithStorageVersionPrecondition is therefore applied explicitly below, gated behind the
+	// StorageVersionAPI feature gate (alpha, off by default) to match upstream k8s behaviour.
+	// See: https://github.com/kcp-dev/kubernetes/pull/185
 	c.preHandlerChainMux = &handlerChainMuxes{}
 	c.GenericConfig.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
 		apiHandler = openapiv3.WithOpenAPIv3(apiHandler, c.openAPIv3ServiceCache) // will be initialized further down after apiextensions-apiserver
@@ -470,10 +470,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = authorization.WithDeepSubjectAccessReview(apiHandler)
 
 		// WithStorageVersionPrecondition blocks write requests to resources whose storage versions
-		// have not yet converged across all kcp shards. It must wrap the API handler before the authz
-		// chain runs, and relies on WithRequestInfo (in DefaultBuildHandlerChainFromStartToBeforeImpersonation
-		// below) to be present in the outer chain at request time.
-		apiHandler = filters.WithStorageVersionPrecondition(apiHandler, genericConfig.StorageVersionManager, genericConfig.Serializer)
+		// have not yet converged across all kcp shards during a rolling upgrade. It must wrap the
+		// API handler before the authz chain runs, and relies on WithRequestInfo
+		// (in DefaultBuildHandlerChainFromStartToBeforeImpersonation below) being present in the
+		// outer chain at request time.
+		// Gated behind StorageVersionAPI (alpha, off by default) to match upstream k8s behaviour.
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.StorageVersionAPI) {
+			apiHandler = filters.WithStorageVersionPrecondition(apiHandler, genericConfig.StorageVersionManager, genericConfig.Serializer)
+		}
 
 		// The following ensures that only the default main api handler chain executes authorizers which log audit messages.
 		// All other invocations of the same authorizer chain still work but do not produce audit log entries.
