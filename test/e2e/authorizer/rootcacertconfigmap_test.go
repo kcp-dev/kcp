@@ -31,6 +31,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/sdk/apis/core"
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -63,10 +64,9 @@ func TestRootCACertConfigmap(t *testing.T) {
 	t.Log("Waiting for default configmap to be created")
 	require.Eventually(t, func() bool {
 		configmap, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps(namespace.Name).Get(ctx, DefaultRootCACertConfigmap, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
+		if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsNotFound) {
 			return false
 		}
-		require.NoError(t, err, "failed to get configmap")
 
 		if v, ok := configmap.Data["ca.crt"]; ok {
 			if len(v) > 0 {

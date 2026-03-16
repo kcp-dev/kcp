@@ -281,13 +281,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
 			sherrifList, err = listSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName)
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
 			if len(sherrifList.Items) < 2 {
 				return false, fmt.Sprintf("waiting until there are two items in list, have %d", len(sherrifList.Items))
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
 		require.Len(t, sherrifList.Items, 2, "expected to find exactly two sheriffs")
@@ -321,10 +320,9 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 				LabelSelector:   labels.SelectorFromSet(labels.Set(sheriffLabels)).String(),
 				ResourceVersion: sherrifList.ResourceVersion, // We want to see only changes to existing sheriffs.
 			})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
 
