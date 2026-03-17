@@ -18,6 +18,7 @@ package features
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -168,6 +169,14 @@ func disableFeatures() error {
 		// We disable SizeBasedListCostEstimate by default in kcp as stats collector does not have cluster awarness yet.
 		// We add this here to track changes in future k8s releases.
 		genericfeatures.SizeBasedListCostEstimate: false,
+
+		// At the moment WatchList breaks kcp when restarting an instance.
+		// The precise problem is that the already bootstrapped
+		// resources (e.g. the bound tenancy API) are not being seen by
+		// the informers when starting with an initialized etcd, which
+		// in turn leads to the APIs missing and the bootstrap never
+		// completing.
+		genericfeatures.WatchList: false,
 	}
 	for f, v := range toDisable {
 		err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=%v", f, v))
@@ -175,5 +184,12 @@ func disableFeatures() error {
 			return err
 		}
 	}
+
+	// Additionaly disable WatchList in clients, otherwise things like
+	// bookmarks break.
+	if err := os.Setenv("KUBE_FEATURE_WatchListClient", "false"); err != nil {
+		return err
+	}
+
 	return nil
 }

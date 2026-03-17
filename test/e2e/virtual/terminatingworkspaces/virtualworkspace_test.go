@@ -40,6 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
+	genericfeatures "k8s.io/apiserver/pkg/features"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
@@ -55,6 +57,7 @@ import (
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	_ "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -692,6 +695,10 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 func TestTerminatingWorkspacesVirtualWorkspaceWatchBookmark(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
+
+	if !utilfeature.DefaultFeatureGate.Enabled(genericfeatures.WatchList) {
+		t.Skip("Skipping because the WatchList feature gate is disabled")
+	}
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
