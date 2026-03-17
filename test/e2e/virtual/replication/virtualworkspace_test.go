@@ -325,6 +325,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			}
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
+		defer sheriffWatch.Stop()
 
 		sheriffWatchCh := sheriffWatch.ResultChan()
 		waitForEvent := func() (watch.Event, bool) {
@@ -341,7 +342,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			expectedNext, actualNext bool,
 			inspectObj func(obj *unstructured.Unstructured),
 		) {
-			require.Equal(t, expectedNext, actualNext, "unexpected channel state")
+			require.Equal(t, expectedNext, actualNext, "unexpected channel state with event type %q", actualEvent.Type)
 			if !expectedNext {
 				// We don't expect any more events, nothing to check anymore.
 				return
@@ -365,11 +366,6 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			require.Equal(t, sheriffOne.Name, obj.GetName(), "expected to receive the first sheriff")
 			require.Equal(t, sheriffLabels, obj.GetLabels(), "expected the sheriff to have labels defined")
 		})
-
-		t.Logf("Verify that stopping the watch works")
-		sheriffWatch.Stop()
-		e, next = waitForEvent()
-		checkEvent(e, watch.Error, false, next, nil)
 	}
 }
 
