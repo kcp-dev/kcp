@@ -4,4 +4,6 @@ metadata:
   name: cluster
   annotations:
     internal.tenancy.kcp.io/type: root:root
+    # The initializing VW requires an owner to be set, otherwise the lc/workspace never goes into ready.
+    experimental.tenancy.kcp.io/owner: '{"username":"system:kcp-bootstrapper"}'
 spec: {}
