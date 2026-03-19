@@ -179,26 +179,16 @@ func TestAPIBinding(t *testing.T) {
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	var provider1Path, provider2Path logicalcluster.Path
 	var provider1, provider2 *tenancyv1alpha1.Workspace
-	if len(shards.Items) == 1 {
-		provider1Path, provider1 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"), kcptesting.WithShard(shards.Items[0].Name))
-		provider2Path, provider2 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"), kcptesting.WithShard(shards.Items[0].Name))
-	} else {
-		provider1Path, provider1 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"), kcptesting.WithShard(shards.Items[0].Name))
-		provider2Path, provider2 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"), kcptesting.WithShard(shards.Items[1].Name))
-	}
+	provider1Path, provider1 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-1"))
+	provider2Path, provider2 = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider-2"))
 	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
 	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
 
-	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"), kcptesting.WithShard(shards.Items[0].Name))
+	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
 	var consumer2Path, consumer3Path logicalcluster.Path
 	var consumer3Workspace *tenancyv1alpha1.Workspace
-	if len(shards.Items) == 1 {
-		consumer2Path, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"), kcptesting.WithShard(shards.Items[0].Name))
-		consumer3Path, consumer3Workspace = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"), kcptesting.WithShard(shards.Items[0].Name))
-	} else {
-		consumer2Path, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"), kcptesting.WithShard(shards.Items[1].Name))
-		consumer3Path, consumer3Workspace = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"), kcptesting.WithShard(shards.Items[1].Name))
-	}
+	consumer2Path, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"))
+	consumer3Path, consumer3Workspace = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"))
 	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
