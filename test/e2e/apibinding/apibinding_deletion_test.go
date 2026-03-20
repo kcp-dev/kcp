@@ -220,7 +220,7 @@ func TestAPIBindingDeletion(t *testing.T) {
 		},
 	}
 	_, err = cowboyClient.Create(t.Context(), cowboyDenied, metav1.CreateOptions{})
-	require.Equal(t, apierrors.IsForbidden(err), true)
+	require.True(t, apierrors.IsForbidden(err))
 
 	t.Logf("Clean finalizer to remove the cowboy")
 	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {

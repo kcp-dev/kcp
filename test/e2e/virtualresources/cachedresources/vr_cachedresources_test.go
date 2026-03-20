@@ -435,17 +435,15 @@ func TestCachedResources(t *testing.T) {
 					Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
 					List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
-				require.Equal(t, 1, len(list.Items), "Unexpected number of items in %s list in %q when listing through %q", resourceName, consumerPath, host)
-
-				require.NoError(t, err)
-				require.EqualValues(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(list.Items[0].Object))
+				require.Len(t, list.Items, 1, "Unexpected number of items in %s list in %q when listing through %q", resourceName, consumerPath, host)
+				require.Equal(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(list.Items[0].Object))
 
 				t.Logf("Getting a %s resource named %s in %q via %q should return that object", resourceName, objName, consumerPath, host)
 				obj, err := dynClient.Cluster(logicalcluster.NewPath(consumerWS.Spec.Cluster)).
 					Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
 					Get(ctx, objName, metav1.GetOptions{})
 				require.NoError(t, err)
-				require.EqualValues(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(obj.Object))
+				require.Equal(t, wildwestObjsNormalizedUnstructured[objName], normalizeUnstructuredMap(obj.Object))
 			}
 		}
 	}

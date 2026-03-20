@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +72,6 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log("Verify that normal requests succeed again")
-	assert.NoError(t, err, "expected no error when accessing an active logical cluster")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := kubeClient.Cluster(orgPath).CoreV1().Namespaces().List(t.Context(), v1.ListOptions{})
 		if err != nil {

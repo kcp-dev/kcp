@@ -118,19 +118,19 @@ func TestPartition(t *testing.T) {
 	}
 
 	matchLabelsMap := partition(shards, []string{}, nil)
-	require.Equal(t, 0, len(matchLabelsMap), "No label selector expected when no dimension is provided, got: %v", matchLabelsMap)
+	require.Empty(t, matchLabelsMap, "No label selector expected when no dimension is provided, got: %v", matchLabelsMap)
 
 	matchLabelsMap = partition(shards, []string{"doesnotexist"}, nil)
-	require.Equal(t, 0, len(matchLabelsMap), "No label selector expected when no shard with the dimension, got: %v", matchLabelsMap)
+	require.Empty(t, matchLabelsMap, "No label selector expected when no shard with the dimension, got: %v", matchLabelsMap)
 
 	matchLabelsMap = partition(shards, []string{"region"}, nil)
-	require.Equal(t, 2, len(matchLabelsMap), "2 label selectors for region: Europe and Asia expected, got: %v", matchLabelsMap)
+	require.Len(t, matchLabelsMap, 2, "2 label selectors for region: Europe and Asia expected, got: %v", matchLabelsMap)
 
 	matchLabelsMap = partition(shards, []string{"region", "cloud"}, nil)
-	require.Equal(t, 3, len(matchLabelsMap), "3 label selectors for: Asia/Azure, Europe/AWS and Europe/Azure expected, got: %v", matchLabelsMap)
+	require.Len(t, matchLabelsMap, 3, "3 label selectors for: Asia/Azure, Europe/AWS and Europe/Azure expected, got: %v", matchLabelsMap)
 
 	matchLabelsMap = partition(shards, []string{"region", "cloud"}, map[string]string{"environment": "prod"})
-	require.Equal(t, 3, len(matchLabelsMap), "3 label selectors for: Asia/Azure, Europe/AWS, Europe/Azure expected, got: %v", matchLabelsMap)
+	require.Len(t, matchLabelsMap, 3, "3 label selectors for: Asia/Azure, Europe/AWS, Europe/Azure expected, got: %v", matchLabelsMap)
 	for _, v := range matchLabelsMap {
 		require.Equal(t, "prod", v["environment"], "Expected that all partitions have a label selector for environment = prod")
 	}

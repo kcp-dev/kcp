@@ -107,7 +107,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	require.True(t, apierrors.IsForbidden(err), "no error creating APIExportEndpointSlice (admission should have declined it)")
 	sliceList, err := sliceClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error listing APIExportEndpointSlice")
-	require.True(t, len(sliceList.Items) == 0, "not expecting any APIExportEndpointSlice")
+	require.Empty(t, sliceList.Items, "not expecting any APIExportEndpointSlice")
 
 	t.Logf("Creating the missing APIExport")
 	exportClient := kcpClusterClient.ApisV1alpha2().APIExports()
@@ -155,7 +155,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 
 		return false, spew.Sdump(slice.Status.Conditions)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected missing Partition")
-	require.True(t, len(slice.Status.APIExportEndpoints) == 0, "not expecting any endpoint")
+	require.Empty(t, slice.Status.APIExportEndpoints, "not expecting any endpoint")
 	t.Logf("Creating the missing Partition")
 	partitionClient := kcpClusterClient.TopologyV1alpha1().Partitions()
 	_, err = partitionClient.Cluster(partitionClusterPath).Create(ctx, partition, metav1.CreateOptions{})
@@ -172,7 +172,7 @@ func TestAPIExportEndpointSliceWithPartition(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid Partition")
 
 	t.Logf("Checking that no endpoint has been populated")
-	require.True(t, len(slice.Status.APIExportEndpoints) == 0, "not expecting any endpoint")
+	require.Empty(t, slice.Status.APIExportEndpoints, "not expecting any endpoint")
 }
 
 func TestAPIBindingEndpointSlicesSharded(t *testing.T) {

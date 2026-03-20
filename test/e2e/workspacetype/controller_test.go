@@ -82,10 +82,10 @@ func TestWorkspaceTypes(t *testing.T) {
 				t.Logf("Expect workspace to be of universal type, and no initializers")
 				workspace, err = server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(server.orgPath).Get(ctx, workspace.Name, metav1.GetOptions{})
 				require.NoError(t, err, "failed to get workspace")
-				require.Equalf(t, workspace.Spec.Type, &tenancyv1alpha1.WorkspaceTypeReference{
+				require.Equalf(t, &tenancyv1alpha1.WorkspaceTypeReference{
 					Name: "universal",
 					Path: "root",
-				}, "workspace type is not universal")
+				}, workspace.Spec.Type, "workspace type is not universal")
 				require.Emptyf(t, workspace.Status.Initializers, "workspace has initializers")
 			},
 		},
@@ -139,10 +139,10 @@ func TestWorkspaceTypes(t *testing.T) {
 				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.TenancyV1alpha1().Workspaces().Cluster(universalPath).Get(ctx, "myapp", metav1.GetOptions{})
 				})
-				require.Equal(t, workspace.Spec.Type, &tenancyv1alpha1.WorkspaceTypeReference{
+				require.Equal(t, &tenancyv1alpha1.WorkspaceTypeReference{
 					Name: "foo",
 					Path: logicalcluster.From(wt).String(),
-				})
+				}, workspace.Spec.Type)
 
 				t.Logf("Expect workspace to become ready because there are no initializers")
 				require.Eventually(t, func() bool {
@@ -233,11 +233,10 @@ func TestWorkspaceTypes(t *testing.T) {
 				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().Workspaces().Get(ctx, "myapp", metav1.GetOptions{})
 				})
-				require.Equal(t, workspace.Spec.Type,
-					&tenancyv1alpha1.WorkspaceTypeReference{
-						Name: "bar",
-						Path: logicalcluster.From(wt).String(),
-					})
+				require.Equal(t, &tenancyv1alpha1.WorkspaceTypeReference{
+					Name: "bar",
+					Path: logicalcluster.From(wt).String(),
+				}, workspace.Spec.Type)
 
 				t.Logf("Expect workspace %q of type \"foo\" to become ready because there are no initializers", workspace.Name)
 				require.Eventually(t, func() bool {

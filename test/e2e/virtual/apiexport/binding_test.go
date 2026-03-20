@@ -347,7 +347,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	t.Logf("Make sure secrets list shows nothing to start")
 	secrets, err := kubeClusterClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err, "error listing secrets inside %q", consumerPath)
-	require.Zero(t, len(secrets.Items), "expected 0 secrets inside %q", consumerPath)
+	require.Empty(t, secrets.Items, "expected 0 secrets inside %q", consumerPath)
 
 	t.Logf("Create a secret in consumer workspace %q before allowing create", consumerPath)
 	secretName := fmt.Sprintf("secret-%s", consumerPath.Base())

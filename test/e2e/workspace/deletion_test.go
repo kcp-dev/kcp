@@ -85,7 +85,7 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		lc, err := clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, v1.GetOptions{})
 		require.NoError(c, err, "error getting logicalcluster")
-		require.NotEqual(c, nil, lc.DeletionTimestamp)
+		require.NotNil(c, lc.DeletionTimestamp)
 		require.Contains(c, lc.Finalizers, customFinalizer)
 		require.NotContains(c, lc.Finalizers, logicalclusterdeletion.LogicalClusterDeletionFinalizer)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for logicalcluster to be marked for deletion")
@@ -95,7 +95,7 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		ws, err := clientset.Cluster(fixtureRoot).TenancyV1alpha1().Workspaces().Get(ctx, wsName, v1.GetOptions{})
 		require.NoError(c, err, "error getting workspace")
-		require.NotEqual(c, nil, ws.DeletionTimestamp)
+		require.NotNil(c, ws.DeletionTimestamp)
 		require.Contains(c, ws.Finalizers, corev1alpha1.LogicalClusterFinalizerName)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace to be marked for deletion")
 

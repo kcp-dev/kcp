@@ -331,7 +331,7 @@ func TestAPIBinding(t *testing.T) {
 		cowboyClient := wildwestClusterClient.Cluster(consumerWorkspace).WildwestV1alpha1().Cowboys("default")
 		cowboys, err := cowboyClient.List(t.Context(), metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys inside %q", consumerWorkspace)
-		require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside %q", consumerWorkspace)
+		require.Empty(t, cowboys.Items, "expected 0 cowboys inside %q", consumerWorkspace)
 
 		t.Logf("Create a cowboy CR in consumer workspace %q", consumerWorkspace)
 		cowboyName := fmt.Sprintf("cowboy-%s", consumerWorkspace.Base())
@@ -347,7 +347,7 @@ func TestAPIBinding(t *testing.T) {
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumerWorkspace)
 		cowboys, err = cowboyClient.List(t.Context(), metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in %q", consumerWorkspace)
-		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in %q", consumerWorkspace)
+		require.Len(t, cowboys.Items, 1, "expected 1 cowboy in %q", consumerWorkspace)
 		require.Equal(t, cowboyName, cowboys.Items[0].Name, "unexpected name for cowboy in %q", consumerWorkspace)
 
 		t.Logf("Create an APIBinding in consumer workspace %q that points to the today-cowboys export from serviceProvider2 (which should conflict)", consumerWorkspace)
@@ -479,13 +479,13 @@ func TestAPIBinding(t *testing.T) {
 				listErrs = append(listErrs, err)
 				continue
 			}
-			require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with explicit workspace")
+			require.Len(t, list.Items, 1, "unexpected # of cowboys through virtual workspace with explicit workspace")
 			foundOnShards++
 
 			t.Logf("Listing %s|%s cowboys via virtual workspace wildcard list", provider2Path, exportName)
 			list, err = vw2ClusterClient.Resource(gvr).List(t.Context(), metav1.ListOptions{})
 			require.NoError(t, err, "error listing through virtual workspace wildcard")
-			require.Equal(t, 1, len(list.Items), "unexpected # of cowboys through virtual workspace with wildcard")
+			require.Len(t, list.Items, 1, "unexpected # of cowboys through virtual workspace with wildcard")
 		}
 
 		if foundOnShards == 0 {

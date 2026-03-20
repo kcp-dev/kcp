@@ -119,7 +119,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	cowboysProjected, err := wildwestVCClusterClient.WildwestV1alpha1().Cowboys().List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(cowboysProjected.Items))
+	require.Len(t, cowboysProjected.Items, 1)
 
 	t.Logf("Verify that the virtual workspace includes apibindings")
 	discoveryVCClusterClient, err := kcpdiscovery.NewForConfig(apiExportVWCfg)
@@ -310,7 +310,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that deleted cowboy is gone")
 		cowboys, err := wwUser1VC.WildwestV1alpha1().Cowboys().List(t.Context(), metav1.ListOptions{})
 		require.NoError(t, err)
-		require.Equal(t, 2, len(cowboys.Items))
+		require.Len(t, cowboys.Items, 2)
 		names := make([]string, 0, len(cowboys.Items))
 		for _, c := range cowboys.Items {
 			names = append(names, c.Name)
@@ -324,7 +324,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that all cowboys are gone")
 		cowboys, err = wwUser1VC.WildwestV1alpha1().Cowboys().List(t.Context(), metav1.ListOptions{})
 		require.NoError(t, err)
-		require.Equal(t, 0, len(cowboys.Items))
+		require.Empty(t, cowboys.Items)
 	}
 }
 
@@ -636,7 +636,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	require.NoError(t, err)
 	cowboys, err := wildwestVCClients.WildwestV1alpha1().Cowboys().List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(cowboys.Items))
+	require.Len(t, cowboys.Items, 1)
 
 	t.Logf("Verify that we get empty lists for all claimed resources (other than apibindings) because the claims have not been accepted yet")
 	dynamicVWClusterClient, err := kcpdynamic.NewForConfig(consumer1VWCfg)
@@ -666,7 +666,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		require.NoError(t, err, "error listing %q", gvr)
 		if gvr == apisv1alpha2.SchemeGroupVersion.WithResource("apibindings") {
 			// for this one we always see the reflexive objects
-			require.Equal(t, 1, len(list.Items), "expected to find 1 apibinding, got %#v", list.Items)
+			require.Len(t, list.Items, 1, "expected to find 1 apibinding, got %#v", list.Items)
 			for _, binding := range list.Items {
 				require.Equal(t, "cowboys", binding.GetName(), "expected binding name to be \"cowboys\"")
 			}
@@ -1107,7 +1107,7 @@ func createCowboyInConsumer(t *testing.T, consumer1Workspace logicalcluster.Path
 		cowboys, err = cowboyClusterClient.List(t.Context(), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
-	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
+	require.Empty(t, cowboys.Items, "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
 
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumer1Workspace)
 	cowboyName := fmt.Sprintf("cowboy-%s", consumer1Workspace.Base())

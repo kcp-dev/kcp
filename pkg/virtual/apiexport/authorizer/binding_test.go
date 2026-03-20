@@ -712,7 +712,7 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 			if err != nil {
 				errString = err.Error()
 			}
-			require.Equal(t, errString, tc.expectedErr)
+			require.Equal(t, tc.expectedErr, errString)
 			require.Equal(t, tc.expectedDecision, dec)
 			require.Equal(t, tc.expectedReason, reason)
 		})
