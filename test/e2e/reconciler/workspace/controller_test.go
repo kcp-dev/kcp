@@ -21,12 +21,15 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -73,8 +76,12 @@ func TestWorkspaceController(t *testing.T) {
 				// note that the root shard always exists if not deleted
 
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
+				var workspace *tenancyv1alpha1.Workspace
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					var err error
+					workspace, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+					require.NoError(c, err, "failed to create workspace")
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
@@ -102,8 +109,12 @@ func TestWorkspaceController(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("Create a workspace without shards")
-				workspace, err := server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
+				var workspace *tenancyv1alpha1.Workspace
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					var err error
+					workspace, err = server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: "steve"}}, metav1.CreateOptions{})
+					require.NoError(c, err, "failed to create workspace")
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				})
