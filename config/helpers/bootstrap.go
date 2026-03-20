@@ -103,7 +103,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 	}
 
 	groups := GroupObjectsByDefaultHierarchy(resources)
-	if err := CreateResourcesFromGroups(ctx, client, mapper, groups); err != nil {
+	if err := CreateGroupedResources(ctx, client, mapper, groups); err != nil {
 		return fmt.Errorf("could not create resources from groups: %w", err)
 	}
 	return nil
@@ -123,14 +123,14 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	}
 
 	groups := GroupObjectsByDefaultHierarchy(resources)
-	if err := CreateResourcesFromGroups(ctx, client, mapper, groups); err != nil {
+	if err := CreateGroupedResources(ctx, client, mapper, groups); err != nil {
 		return fmt.Errorf("could not create resources from groups: %w", err)
 	}
 	return nil
 }
 
-// CreateResourcesFromGroups sequentially runs CreateResources for each group of resources.
-func CreateResourcesFromGroups(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, groups [][]*unstructured.Unstructured) error {
+// CreateGroupedResources sequentially runs CreateResources for each group of resources.
+func CreateGroupedResources(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, groups [][]*unstructured.Unstructured) error {
 	for i, resources := range groups {
 		if err := CreateResources(ctx, client, mapper, resources); err != nil {
 			return fmt.Errorf("failed to create resources from group %d: %w", i, err)
