@@ -150,8 +150,10 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 	// create workspacetypes
 	for _, wst := range workspaceTypes {
-		_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
-		require.NoError(t, err)
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+			require.NoError(c, err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		source.Artifact(t, func() (runtime.Object, error) {
 			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
 		})
@@ -545,8 +547,10 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 
 	// create workspacetypes
 	for _, wst := range workspaceTypes {
-		_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
-		require.NoError(t, err)
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+			require.NoError(c, err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		source.Artifact(t, func() (runtime.Object, error) {
 			return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
 		})
@@ -714,8 +718,10 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatchBookmark(t *testing.T) {
 	}
 
 	// create workspacetypes
-	_, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
-	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	source.Artifact(t, func() (runtime.Object, error) {
 		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
 	})
