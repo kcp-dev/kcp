@@ -24,26 +24,26 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// ChunkObjectsByHierarchy returns the given objects chunked by their
+// GroupObjectsByHierarchy returns the given objects grouped by their
 // hierarchy as noted in SortObjectsByHierarchy.
 // The objects slice is modified in-place.
-func ChunkObjectsByHierarchy(objects []*unstructured.Unstructured) [][]*unstructured.Unstructured {
+func GroupObjectsByHierarchy(objects []*unstructured.Unstructured) [][]*unstructured.Unstructured {
 	SortObjectsByHierarchy(objects)
 	// maximum capacity is everything in weights + catchall
-	chunks := make([][]*unstructured.Unstructured, 0, len(weights)+1)
+	groups := make([][]*unstructured.Unstructured, 0, len(weights)+1)
 
 	curWeight := -1
 	for _, obj := range objects {
 		weight := objectWeight(obj)
 		if weight != curWeight {
 			curWeight = weight
-			chunks = append(chunks, []*unstructured.Unstructured{})
+			groups = append(groups, []*unstructured.Unstructured{})
 		}
 
-		chunks[len(chunks)-1] = append(chunks[len(chunks)-1], obj)
+		groups[len(groups)-1] = append(groups[len(groups)-1], obj)
 	}
 
-	return chunks
+	return groups
 }
 
 // SortObjectsByHierarchy ensures that objects are (hopefully) sorted in

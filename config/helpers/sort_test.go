@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func TestChunkObjectsByHierarchy(t *testing.T) {
+func TestGroupObjectsByHierarchy(t *testing.T) {
 	crd := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "test-crd")
 	crd2 := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "test-crd2")
 	apiExport := newUnstructured("apis.kcp.io/v1alpha1", "APIExport", "test-export")
@@ -138,12 +138,12 @@ func TestChunkObjectsByHierarchy(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			chunks := ChunkObjectsByHierarchy(tt.input)
+			groups := GroupObjectsByHierarchy(tt.input)
 
-			assert.Len(t, chunks, len(tt.expected), "Expected %d chunks, got %d", len(tt.expected), len(chunks))
-			for i, chunk := range chunks {
-				assert.Len(t, chunk, len(tt.expected[i]), "Chunk %d: expected %d objects, got %d", i, len(tt.expected[i]), len(chunk))
-				assert.ElementsMatch(t, tt.expected[i], chunk, "Chunk %d: unexpected objects in chunk", i)
+			assert.Len(t, groups, len(tt.expected), "Expected %d groups, got %d", len(tt.expected), len(groups))
+			for i, group := range groups {
+				assert.Len(t, group, len(tt.expected[i]), "Group %d: expected %d objects, got %d", i, len(tt.expected[i]), len(group))
+				assert.ElementsMatch(t, tt.expected[i], group, "Group %d: unexpected objects in group", i)
 			}
 		})
 	}

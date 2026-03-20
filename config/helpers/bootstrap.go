@@ -64,17 +64,17 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 		return err
 	}
 
-	for _, chunk := range ChunkObjectsByHierarchy(resources) {
-		if err := bootstrapChunk(ctx, dynamicClient, mapper, chunk, cache.Invalidate); err != nil {
+	for _, group := range GroupObjectsByHierarchy(resources) {
+		if err := bootstrapGroup(ctx, dynamicClient, mapper, group, cache.Invalidate); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func bootstrapChunk(ctx context.Context, dynamicClient dynamic.Interface, mapper meta.RESTMapper, chunk []*unstructured.Unstructured, reset func()) error {
+func bootstrapGroup(ctx context.Context, dynamicClient dynamic.Interface, mapper meta.RESTMapper, group []*unstructured.Unstructured, reset func()) error {
 	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := CreateResourcesFromChunk(ctx, dynamicClient, mapper, chunk); err != nil {
+		if err := CreateResourcesFromGroup(ctx, dynamicClient, mapper, group); err != nil {
 			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
 			// invalidate cache if resources not found
 			// xref: https://github.com/kcp-dev/kcp/issues/655
@@ -102,9 +102,9 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 		return err
 	}
 
-	chunks := ChunkObjectsByHierarchy(resources)
-	if err := CreateResourcesFromChunks(ctx, client, mapper, chunks); err != nil {
-		return fmt.Errorf("could not create resources from chunks: %w", err)
+	groups := GroupObjectsByHierarchy(resources)
+	if err := CreateResourcesFromGroups(ctx, client, mapper, groups); err != nil {
+		return fmt.Errorf("could not create resources from groups: %w", err)
 	}
 	return nil
 }
@@ -122,28 +122,28 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return err
 	}
 
-	chunks := ChunkObjectsByHierarchy(resources)
-	if err := CreateResourcesFromChunks(ctx, client, mapper, chunks); err != nil {
-		return fmt.Errorf("could not create resources from chunks: %w", err)
+	groups := GroupObjectsByHierarchy(resources)
+	if err := CreateResourcesFromGroups(ctx, client, mapper, groups); err != nil {
+		return fmt.Errorf("could not create resources from groups: %w", err)
 	}
 	return nil
 }
 
-// CreateResourcesFromChunks sequentially runs CreateResourcesFromChunk for each chunk of resources.
-func CreateResourcesFromChunks(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, chunks [][]*unstructured.Unstructured) error {
-	for i, chunk := range chunks {
-		if err := CreateResourcesFromChunk(ctx, client, mapper, chunk); err != nil {
-			return fmt.Errorf("failed to create resources from chunk %d: %w", i, err)
+// CreateResourcesFromGroups sequentially runs CreateResourcesFromGroup for each group of resources.
+func CreateResourcesFromGroups(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, groups [][]*unstructured.Unstructured) error {
+	for i, group := range groups {
+		if err := CreateResourcesFromGroup(ctx, client, mapper, group); err != nil {
+			return fmt.Errorf("failed to create resources from group %d: %w", i, err)
 		}
 	}
 	return nil
 }
 
-// CreateResourcesFromChunk creates all resources from a chunk of resources.
-func CreateResourcesFromChunk(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, chunk []*unstructured.Unstructured) error {
+// CreateResourcesFromGroup creates all resources from a group of resources.
+func CreateResourcesFromGroup(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, group []*unstructured.Unstructured) error {
 	g := errgroup.WithContext(ctx)
 
-	for _, obj := range chunk {
+	for _, obj := range group {
 		g.Go(func(ctx context.Context) error {
 			return createResource(ctx, client, mapper, obj)
 		})
