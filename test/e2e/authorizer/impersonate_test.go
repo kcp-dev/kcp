@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -62,13 +63,13 @@ func TestImpersonation(t *testing.T) {
 
 	t.Logf("User-1 should not be able to edit workspace status")
 	var ws *tenancyv1alpha1.Workspace
-	require.Eventually(t, func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		var err error
 		ws, err = user1Client.TenancyV1alpha1().Workspaces().Cluster(org).Get(ctx, wsObj.Name, metav1.GetOptions{})
-		require.NoError(t, err)
+		require.NoError(c, err)
 		ws.Status.Phase = "Scheduling"
 		_, err = user1Client.TenancyV1alpha1().Workspaces().Cluster(org).UpdateStatus(ctx, ws, metav1.UpdateOptions{})
-		return apierrors.IsForbidden(err)
+		require.True(c, apierrors.IsForbidden(err))
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "user-1 should not be able to edit its own workspace status")
 
 	user1Cfg.Impersonate = rest.ImpersonationConfig{
@@ -79,10 +80,10 @@ func TestImpersonation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("User-1 should NOT be able to edit workspace status with system:masters impersonation")
-	require.Eventually(t, func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		ws.Status.Phase = "Scheduling"
 		_, err = user1Client.TenancyV1alpha1().Workspaces().Cluster(org).UpdateStatus(ctx, ws, metav1.UpdateOptions{})
-		return apierrors.IsForbidden(err)
+		require.True(c, apierrors.IsForbidden(err))
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "user-1 should NOT be able to edit its own workspace status with impersonation")
 }
 
