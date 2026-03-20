@@ -62,7 +62,12 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "create and clean workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
+				// The kcptesting.WithRootShard was added due to the
+				// test flaking in CI, it is not actually required for
+				// the test execution. However we observed that this
+				// subtest was flaking while the next subtest - which is
+				// pinning the workspaces to the root shard - was not.
+				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Create a workspace with a shard")
 				workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
@@ -194,6 +199,12 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "nested workspace cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				// On the - kcptesting.WithRootShard the test doesn't
+				// need the root shard explicitly, it just needs to know
+				// the shard to get the client for the shard.
+				// In a future refactor the placement on the root shard
+				// could be removed and the client for the correct
+				// shards be build dynamically.
 				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Should have finalizer in org workspace")
