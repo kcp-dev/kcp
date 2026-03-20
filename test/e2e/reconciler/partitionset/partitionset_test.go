@@ -89,7 +89,7 @@ func TestPartitionSet(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid partitionSet")
 	partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})
 	require.NoError(t, err, "error retrieving partitions")
-	require.Equal(t, 0, len(partitions.Items), "no partition expected, got: %d", len(partitions.Items))
+	require.Empty(t, partitions.Items, "no partition expected, got: %d", len(partitions.Items))
 
 	// Newly added shards are annotated to avoid side effects on other e2e tests.
 	t.Logf("Creating a shard matching the partitionSet")
@@ -395,6 +395,6 @@ func TestPartitionSetAdmission(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 1 partition")
 	expectedName := partitionSet.Name + "-" + strings.Join(labelValues, "-")
 	expectedName = expectedName[:validation.DNS1123LabelMaxLength-5]
-	require.EqualValues(t, expectedName, partitions.Items[0].Name[:len(partitions.Items[0].Name)-5],
+	require.Equal(t, expectedName, partitions.Items[0].Name[:len(partitions.Items[0].Name)-5],
 		"partition name not as expected, got: %s", partitions.Items[0].Name)
 }

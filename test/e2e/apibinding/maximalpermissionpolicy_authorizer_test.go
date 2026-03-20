@@ -236,7 +236,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		t.Logf("Make sure there is 1 cowboy in consumer workspace %q", consumer)
 		cowboys, err := cowboyclient.List(t.Context(), metav1.ListOptions{})
 		require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumer)
-		require.Equal(t, 1, len(cowboys.Items), "expected 1 cowboy in consumer workspace %q", consumer)
+		require.Len(t, cowboys.Items, 1, "expected 1 cowboy in consumer workspace %q", consumer)
 		if serviceProvider == rbacServiceProviderPath {
 			t.Logf("Make sure that the status of cowboy can not be updated in workspace %q", consumer)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -294,7 +294,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			t.Logf("User 2 can list cowboys in consumer workspace %q before deleting APIExport", consumer)
 			user2Cowboys, err := user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(t.Context(), metav1.ListOptions{})
 			require.NoError(t, err)
-			require.Equal(t, 3, len(user2Cowboys.Items), "expected 3 cowboys in consumer")
+			require.Len(t, user2Cowboys.Items, 3, "expected 3 cowboys in consumer")
 
 			t.Logf("User 2 gets errors trying to delete an existing cowboy in consumer workspace %q", consumer)
 			err = user2Client.Cluster(consumer).WildwestV1alpha1().Cowboys(cowboy2.ObjectMeta.Namespace).Delete(t.Context(), cowboy2.ObjectMeta.Name, metav1.DeleteOptions{})
@@ -328,7 +328,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			t.Logf("Admin can list the cowboys in consumer workspace %q", consumer)
 			cowboysAfterDelete, err := wildwestClusterClient.Cluster(consumer).WildwestV1alpha1().Cowboys("default").List(t.Context(), metav1.ListOptions{})
 			require.NoError(t, err, "error listing cowboys in consumer workspace %q", consumer)
-			require.Equal(t, 3, len(cowboysAfterDelete.Items), "expected 3 cowboy in consumer")
+			require.Len(t, cowboysAfterDelete.Items, 3, "expected 3 cowboy in consumer")
 
 			t.Logf("Admin can delete an existing cowboy in consumer workspace %q", consumer)
 			err = wildwestClusterClient.Cluster(consumer).WildwestV1alpha1().Cowboys(cowboy2.ObjectMeta.Namespace).Delete(t.Context(), cowboy2.ObjectMeta.Name, metav1.DeleteOptions{})
@@ -490,7 +490,7 @@ func testCRUDOperations(t *testing.T, consumer1Workspace logicalcluster.Path, wi
 		cowboys, err = cowboyClient.List(t.Context(), metav1.ListOptions{})
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected to be able to list ")
-	require.Zero(t, len(cowboys.Items), "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
+	require.Empty(t, cowboys.Items, "expected 0 cowboys inside consumer workspace %q", consumer1Workspace)
 
 	t.Logf("Create a cowboy CR in consumer workspace %q", consumer1Workspace)
 	cowboyName := fmt.Sprintf("cowboy-%s", consumer1Workspace.Base())

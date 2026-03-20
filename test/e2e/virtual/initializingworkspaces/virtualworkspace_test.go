@@ -450,7 +450,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				if logicalcluster.From(evt.Object.(metav1.Object)).String() != ws.Spec.Cluster {
 					continue
 				}
-				require.Equal(t, evt.Type, watch.Added)
+				require.Equal(t, watch.Added, evt.Type)
 			case <-time.Tick(wait.ForeverTestTimeout):
 				t.Fatalf("never saw a watche event for the %s initializer", initializer)
 			}
@@ -552,7 +552,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				if logicalcluster.From(evt.Object.(metav1.Object)).String() != ws.Spec.Cluster {
 					continue
 				}
-				require.Equal(t, evt.Type, watch.Deleted)
+				require.Equal(t, watch.Deleted, evt.Type)
 			case <-time.Tick(wait.ForeverTestTimeout):
 				t.Fatalf("never saw a watch event for the %s initializer", initializer)
 			}

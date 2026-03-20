@@ -198,7 +198,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			w, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			require.NoError(c, err)
 			require.Contains(c, w.Annotations, "internal.tenancy.kcp.io/shard")
-			require.Equal(c, w.Status.Phase, corev1alpha1.LogicalClusterPhaseReady)
+			require.Equal(c, corev1alpha1.LogicalClusterPhaseReady, w.Status.Phase)
 			require.NotEmpty(c, w.Status.Terminators)
 		}, wait.ForeverTestTimeout, time.Millisecond*100)
 		workspaces[name] = w
@@ -403,7 +403,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 		// check that the number of logical clusters matches
-		require.Equal(t, len(expLogicalClusters[name]), len(clusters))
+		require.Len(t, clusters, len(expLogicalClusters[name]))
 
 		for _, cluster := range clusters {
 			// check that spec terminators are set correctly
@@ -644,7 +644,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 			ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 			require.NoError(c, err)
 			require.Contains(c, ws.Annotations, "internal.tenancy.kcp.io/shard")
-			require.Equal(c, ws.Status.Phase, corev1alpha1.LogicalClusterPhaseReady)
+			require.Equal(c, corev1alpha1.LogicalClusterPhaseReady, ws.Status.Phase)
 			require.NotEmpty(c, ws.Status.Terminators)
 		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		require.EventuallyWithT(t, func(c *assert.CollectT) {

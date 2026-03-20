@@ -67,7 +67,7 @@ func TestEnqueueAPIResourceSchema(t *testing.T) {
 	logger, _ := ktesting.NewTestContext(t)
 	c.enqueueAPIResourceSchema(schema, logger)
 
-	require.Equal(t, c.queue.Len(), 2)
+	require.Equal(t, 2, c.queue.Len())
 
 	// get the queue keys
 	actual := sets.New[string]()

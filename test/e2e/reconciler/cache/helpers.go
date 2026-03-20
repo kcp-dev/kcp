@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -85,7 +86,7 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	start := time.Now()
 	t.Logf("Starting the cache server")
 	go func() {
-		require.NoError(t, preparedCachedServer.Run(ctx))
+		assert.NoError(t, preparedCachedServer.Run(ctx))
 	}()
 
 	cacheServerCertificatePath := path.Join(dataDir, "cache", "apiserver.crt")

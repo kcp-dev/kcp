@@ -184,11 +184,11 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list namespaces in workspace %s", workspace.Name)
-				require.Equal(t, 0, len(nslist.Items))
+				require.Empty(t, nslist.Items)
 
 				cmlist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list configmaps in workspace %s", workspace.Name)
-				require.Equal(t, 0, len(cmlist.Items))
+				require.Empty(t, cmlist.Items)
 			},
 		},
 		{
