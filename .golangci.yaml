@@ -35,6 +35,7 @@ linters:
     - unused
     - usestdlibvars
     - whitespace
+    - testifylint
   # TODO(vincepri): Figure out if we want to enable or remove the following linters:
   # - predeclared
   # - goconst
