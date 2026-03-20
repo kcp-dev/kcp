@@ -72,9 +72,9 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 	return nil
 }
 
-func bootstrapGroup(ctx context.Context, dynamicClient dynamic.Interface, mapper meta.RESTMapper, group []*unstructured.Unstructured, reset func()) error {
+func bootstrapGroup(ctx context.Context, dynamicClient dynamic.Interface, mapper meta.RESTMapper, resources []*unstructured.Unstructured, reset func()) error {
 	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := CreateResourcesFromGroup(ctx, dynamicClient, mapper, group); err != nil {
+		if err := CreateResources(ctx, dynamicClient, mapper, resources); err != nil {
 			klog.FromContext(ctx).WithValues("err", err).Info("failed to bootstrap resources, retrying")
 			// invalidate cache if resources not found
 			// xref: https://github.com/kcp-dev/kcp/issues/655
@@ -129,21 +129,21 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 	return nil
 }
 
-// CreateResourcesFromGroups sequentially runs CreateResourcesFromGroup for each group of resources.
+// CreateResourcesFromGroups sequentially runs CreateResources for each group of resources.
 func CreateResourcesFromGroups(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, groups [][]*unstructured.Unstructured) error {
-	for i, group := range groups {
-		if err := CreateResourcesFromGroup(ctx, client, mapper, group); err != nil {
+	for i, resources := range groups {
+		if err := CreateResources(ctx, client, mapper, resources); err != nil {
 			return fmt.Errorf("failed to create resources from group %d: %w", i, err)
 		}
 	}
 	return nil
 }
 
-// CreateResourcesFromGroup creates all resources from a group of resources.
-func CreateResourcesFromGroup(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, group []*unstructured.Unstructured) error {
+// CreateResources creates all resources from a group of resources.
+func CreateResources(ctx context.Context, client dynamic.Interface, mapper meta.RESTMapper, resources []*unstructured.Unstructured) error {
 	g := errgroup.WithContext(ctx)
 
-	for _, obj := range group {
+	for _, obj := range resources {
 		g.Go(func(ctx context.Context) error {
 			return createResource(ctx, client, mapper, obj)
 		})
