@@ -24,17 +24,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// GroupObjectsByHierarchy returns the given objects grouped by their
-// hierarchy as noted in SortObjectsByHierarchy.
-// The objects slice is modified in-place.
-func GroupObjectsByHierarchy(objects []*unstructured.Unstructured) [][]*unstructured.Unstructured {
-	SortObjectsByHierarchy(objects)
+// GroupObjectsByDefaultHierarchy returns the given objects grouped by their hierarchy using DefaultWeights.
+func GroupObjectsByDefaultHierarchy(objects []*unstructured.Unstructured) [][]*unstructured.Unstructured {
+	return GroupObjectsByHierarchy(objects, DefaultWeights)
+}
+
+// GroupObjectsByHierarchy returns the given objects grouped by their hierarchy as determined by weights.
+func GroupObjectsByHierarchy(objects []*unstructured.Unstructured, weights []schema.GroupVersionKind) [][]*unstructured.Unstructured {
+	copied := slices.Clone(objects)
+	SortObjectsByHierarchy(copied, weights)
 	// maximum capacity is everything in weights + catchall
 	groups := make([][]*unstructured.Unstructured, 0, len(weights)+1)
 
 	curWeight := -1
-	for _, obj := range objects {
-		weight := objectWeight(obj)
+	for _, obj := range copied {
+		weight := ObjectWeight(obj, weights)
 		if weight != curWeight {
 			curWeight = weight
 			groups = append(groups, []*unstructured.Unstructured{})
@@ -46,22 +50,29 @@ func GroupObjectsByHierarchy(objects []*unstructured.Unstructured) [][]*unstruct
 	return groups
 }
 
+// SortObjectsByDefaultHierarchy sorts the given objects using DefaultWeights.
+func SortObjectsByDefaultHierarchy(objects []*unstructured.Unstructured) {
+	SortObjectsByHierarchy(objects, DefaultWeights)
+}
+
 // SortObjectsByHierarchy ensures that objects are (hopefully) sorted in
 // an order that guarantees that they apply without errors and retrying
 // for kcp relevant APIs.
 //
 // Taken from init-agent:
 // https://github.com/kcp-dev/init-agent/blob/1e747d414a1bd2417b77bef845f8c68487428890/internal/manifest/sort.go#L27-L60
-func SortObjectsByHierarchy(objects []*unstructured.Unstructured) {
+func SortObjectsByHierarchy(objects []*unstructured.Unstructured, weights []schema.GroupVersionKind) {
 	slices.SortFunc(objects, func(objA, objB *unstructured.Unstructured) int {
-		weightA := objectWeight(objA)
-		weightB := objectWeight(objB)
+		weightA := ObjectWeight(objA, weights)
+		weightB := ObjectWeight(objB, weights)
 
 		return cmp.Compare(weightA, weightB)
 	})
 }
 
-var weights = []schema.GroupVersionKind{
+// DefaultWeights is the default hierarchy for kcp related APIs to apply
+// in order without errors or retrying.
+var DefaultWeights = []schema.GroupVersionKind{
 	{Group: "apiextensions.k8s.io"},
 
 	{Group: "core.kcp.io"},
@@ -77,7 +88,8 @@ var weights = []schema.GroupVersionKind{
 	{Kind: "Namespace"},
 }
 
-func objectWeight(obj *unstructured.Unstructured) int {
+// ObjectWeight returns the weight of the object based on the given weights.
+func ObjectWeight(obj *unstructured.Unstructured, weights []schema.GroupVersionKind) int {
 	for weight, gvk := range weights {
 		// Ignoring versions entirely.
 		objGvk := obj.GroupVersionKind()

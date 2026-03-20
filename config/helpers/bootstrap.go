@@ -64,7 +64,7 @@ func Bootstrap(ctx context.Context, discoveryClient discovery.DiscoveryInterface
 		return err
 	}
 
-	for _, group := range GroupObjectsByHierarchy(resources) {
+	for _, group := range GroupObjectsByDefaultHierarchy(resources) {
 		if err := bootstrapGroup(ctx, dynamicClient, mapper, group, cache.Invalidate); err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ func CreateResourcesFromFS(ctx context.Context, client dynamic.Interface, mapper
 		return err
 	}
 
-	groups := GroupObjectsByHierarchy(resources)
+	groups := GroupObjectsByDefaultHierarchy(resources)
 	if err := CreateResourcesFromGroups(ctx, client, mapper, groups); err != nil {
 		return fmt.Errorf("could not create resources from groups: %w", err)
 	}
@@ -122,7 +122,7 @@ func CreateResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return err
 	}
 
-	groups := GroupObjectsByHierarchy(resources)
+	groups := GroupObjectsByDefaultHierarchy(resources)
 	if err := CreateResourcesFromGroups(ctx, client, mapper, groups); err != nil {
 		return fmt.Errorf("could not create resources from groups: %w", err)
 	}

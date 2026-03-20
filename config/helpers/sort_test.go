@@ -138,7 +138,7 @@ func TestGroupObjectsByHierarchy(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			groups := GroupObjectsByHierarchy(tt.input)
+			groups := GroupObjectsByDefaultHierarchy(tt.input)
 
 			assert.Len(t, groups, len(tt.expected), "Expected %d groups, got %d", len(tt.expected), len(groups))
 			for i, group := range groups {
@@ -149,7 +149,7 @@ func TestGroupObjectsByHierarchy(t *testing.T) {
 	}
 }
 
-func TestSortObjectsByHierarchy(t *testing.T) {
+func TestSortObjectsByDefaultHierarchy(t *testing.T) {
 	crd := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "test-crd")
 	apiExport := newUnstructured("apis.kcp.io/v1alpha1", "APIExport", "test-export")
 	apiBinding := newUnstructured("apis.kcp.io/v1alpha1", "APIBinding", "test-binding")
@@ -202,7 +202,7 @@ func TestSortObjectsByHierarchy(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			SortObjectsByHierarchy(tt.input)
+			SortObjectsByDefaultHierarchy(tt.input)
 			assert.ElementsMatch(t, tt.expected, tt.input)
 		})
 	}
