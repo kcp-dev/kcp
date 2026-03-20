@@ -107,7 +107,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExportEndpointSlice, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
+		if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsNotFound) {
+			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
+		}
 		var found bool
 		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
@@ -153,10 +155,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that user-1 can now wildcard list cowboys")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			cbs, err := wwUser1VC.WildwestV1alpha1().Cowboys().List(t.Context(), metav1.ListOptions{})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			require.Len(t, cbs.Items, 1, "expected to find exactly one cowboy")
 			cowboy = &cbs.Items[0]
 			return true, ""
@@ -202,10 +203,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 				_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys(cowboy.Namespace).Update(t.Context(), cowboy, metav1.UpdateOptions{})
 				return err
 			})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to update cowboys")
 
@@ -218,10 +218,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 				_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys(cowboy.Namespace).UpdateStatus(t.Context(), cowboy, metav1.UpdateOptions{})
 				return err
 			})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to update status of cowboys")
 	}
@@ -238,10 +237,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that user-1 can now create cowboys")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Create(t.Context(), newCowboy("default", "another"), metav1.CreateOptions{})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to create a cowboy")
 	}
@@ -263,10 +261,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			patch := `{"spec":{"intent":"3"}}`
 			_, err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys(cowboy.Namespace).Patch(t.Context(), cowboy.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to patch a cowboy")
 
@@ -300,10 +297,9 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 		t.Logf("Verify that user-1 can now delete cowboys")
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			err = wwUser1VC.Cluster(consumerClusterName.Path()).WildwestV1alpha1().Cowboys("default").Delete(t.Context(), "another", metav1.DeleteOptions{})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to delete a cowboy")
 

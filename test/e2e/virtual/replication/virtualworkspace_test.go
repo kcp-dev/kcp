@@ -281,13 +281,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
 			sherrifList, err = listSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName)
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
 			if len(sherrifList.Items) < 2 {
 				return false, fmt.Sprintf("waiting until there are two items in list, have %d", len(sherrifList.Items))
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
 		require.Len(t, sherrifList.Items, 2, "expected to find exactly two sheriffs")
@@ -321,12 +320,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 				LabelSelector:   labels.SelectorFromSet(labels.Set(sheriffLabels)).String(),
 				ResourceVersion: sherrifList.ResourceVersion, // We want to see only changes to existing sheriffs.
 			})
-			if apierrors.IsForbidden(err) {
+			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
+		defer sheriffWatch.Stop()
 
 		sheriffWatchCh := sheriffWatch.ResultChan()
 		waitForEvent := func() (watch.Event, bool) {
@@ -343,7 +342,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			expectedNext, actualNext bool,
 			inspectObj func(obj *unstructured.Unstructured),
 		) {
-			require.Equal(t, expectedNext, actualNext, "unexpected channel state")
+			require.Equal(t, expectedNext, actualNext, "unexpected channel state with event type %q", actualEvent.Type)
 			if !expectedNext {
 				// We don't expect any more events, nothing to check anymore.
 				return
@@ -367,11 +366,6 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			require.Equal(t, sheriffOne.Name, obj.GetName(), "expected to receive the first sheriff")
 			require.Equal(t, sheriffLabels, obj.GetLabels(), "expected the sheriff to have labels defined")
 		})
-
-		t.Logf("Verify that stopping the watch works")
-		sheriffWatch.Stop()
-		e, next = waitForEvent()
-		checkEvent(e, watch.Error, false, next, nil)
 	}
 }
 

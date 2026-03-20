@@ -382,11 +382,8 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			// Because of that, we can't use exactly 30 seconds as timeout, instead we use 1 minute to be on the safe side.
 			require.Eventually(t, func() bool {
 				clusters, err := user1VwKcpClusterClients[initializer].CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{}) // no list options, all filtering is implicit
-				if err != nil {
-					if !errors.IsForbidden(err) {
-						require.NoError(t, err)
-					}
-					return false // wait until cr, crb are replicated
+				if kcptestinghelpers.TolerateOrFail(t, err, errors.IsForbidden) {
+					return false
 				}
 				actual.Items = append(actual.Items, clusters.Items...)
 				return true
