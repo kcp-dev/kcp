@@ -34,6 +34,7 @@ require (
 	github.com/xrstf/mockoidc v0.0.0-20250721141841-711cc4e835f6
 	go.uber.org/goleak v1.3.1-0.20251210191316-2b7fd8a0d244
 	go.uber.org/multierr v1.11.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/sys v0.39.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	k8s.io/api v0.35.1
@@ -180,7 +181,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.46.0 // indirect

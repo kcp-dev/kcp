@@ -32,6 +32,8 @@ import (
 
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
 	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+
+	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 )
 
 // DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The
