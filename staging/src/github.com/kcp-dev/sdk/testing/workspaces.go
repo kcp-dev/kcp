@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -218,6 +219,20 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible", ws.Spec.Type, parent.Join(ws.Name))
+
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		apibindings, err := clusterClient.Cluster(logicalcluster.NewPath(ws.Spec.Cluster)).ApisV1alpha2().APIBindings().List(t.Context(), metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error getting APIBindings from workspace %s", parent.Join(ws.Name))
+		}
+
+		for _, apibinding := range apibindings.Items {
+			if apibinding.Status.Phase != apisv1alpha2.APIBindingPhaseBound {
+				return false, fmt.Sprintf("APIBinding %s is in phase %s", apibinding.Name, apibinding.Status.Phase)
+			}
+		}
+		return true, ""
+	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s APIBindings to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
 	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, WorkspaceShardOrDie(t, clusterClient, ws).Name)
 	return ws
