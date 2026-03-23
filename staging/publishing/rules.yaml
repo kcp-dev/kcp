@@ -7,13 +7,13 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/apimachinery
       - name: release-0.29
-        go: 1.24.11
+        go: 1.24.13
         source:
           branch: release-0.29
           dirs:
             - staging/src/github.com/kcp-dev/apimachinery
       - name: release-0.30
-        go: 1.24.11
+        go: 1.24.13
         source:
           branch: release-0.30
           dirs:
@@ -28,13 +28,13 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/code-generator
       - name: release-0.29
-        go: 1.24.11
+        go: 1.24.13
         source:
           branch: release-0.29
           dirs:
             - staging/src/github.com/kcp-dev/code-generator
       - name: release-0.30
-        go: 1.24.11
+        go: 1.24.13
         source:
           branch: release-0.30
           dirs:
@@ -54,7 +54,7 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/client-go
       - name: release-0.29
-        go: 1.24.11
+        go: 1.24.13
         dependencies:
           - repository: apimachinery
             branch: release-0.29
@@ -65,7 +65,7 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/client-go
       - name: release-0.30
-        go: 1.24.11
+        go: 1.24.13
         dependencies:
           - repository: apimachinery
             branch: release-0.30
@@ -92,7 +92,7 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/sdk
       - name: release-0.29
-        go: 1.24.11
+        go: 1.24.13
         dependencies:
           - repository: apimachinery
             branch: release-0.29
@@ -105,7 +105,7 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/sdk
       - name: release-0.30
-        go: 1.24.11
+        go: 1.24.13
         dependencies:
           - repository: apimachinery
             branch: release-0.30
@@ -136,7 +136,7 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/cli
       - name: release-0.29
-        go: 1.24.11
+        go: 1.24.13
         dependencies:
           - repository: apimachinery
             branch: release-0.29
@@ -151,7 +151,7 @@ rules:
           dirs:
             - staging/src/github.com/kcp-dev/cli
       - name: release-0.30
-        go: 1.24.11
+        go: 1.24.13
         dependencies:
           - repository: apimachinery
             branch: release-0.30
@@ -169,6 +169,6 @@ rules:
     library: true
 recursive-delete-patterns:
   - '*/.gitattributes'
-default-go-version: 1.24.11
+default-go-version: 1.25.7
 skip-tags: false
 skip-non-semver-tags: true
