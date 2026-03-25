@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The kcp Authors.
+Copyright 2026 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apiexport
+package identity
 
 import (
 	"context"
@@ -31,28 +31,38 @@ import (
 	"github.com/kcp-dev/kcp/pkg/crypto"
 )
 
-func GenerateIdentitySecret(ctx context.Context, ns string, apiExportName string) (*corev1.Secret, error) {
+// GenerateIdentitySecret creates a Kubernetes Secret containing a randomly generated
+// identity key used for APIExport identity.
+//
+// The secret will be created in the given namespace with the provided name.
+// The identity key is stored in StringData under apisv1alpha1.SecretKeyAPIExportIdentity.
+//
+// A warning is logged if key generation takes longer than 100ms.
+func GenerateIdentitySecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
 	logger := klog.FromContext(ctx)
+
 	start := time.Now()
 	key := crypto.Random256BitsString()
 	if dur := time.Since(start); dur > time.Millisecond*100 {
 		logger.Info("identity key generation took a long time", "duration", dur)
 	}
 
-	secret := &corev1.Secret{
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   ns,
-			Name:        apiExportName,
+			Namespace:   namespace,
+			Name:        name,
 			Annotations: map[string]string{},
 		},
 		StringData: map[string]string{
 			apisv1alpha1.SecretKeyAPIExportIdentity: key,
 		},
-	}
-
-	return secret, nil
+	}, nil
 }
 
+// IdentityHash computes a SHA-256 hash of the identity key stored in the given Secret.
+//
+// The identity key is expected to be present in secret.Data under
+// apisv1alpha1.SecretKeyAPIExportIdentity.
 func IdentityHash(secret *corev1.Secret) (string, error) {
 	key := secret.Data[apisv1alpha1.SecretKeyAPIExportIdentity]
 	if len(key) == 0 {

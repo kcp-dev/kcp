@@ -18,7 +18,6 @@ package cachedresources
 
 import (
 	"context"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,12 +30,11 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/crypto"
+	"github.com/kcp-dev/kcp/pkg/identity"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
 )
@@ -73,7 +71,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 				return mapping.Scope, nil
 			},
 		},
-		&identity{
+		&identityReconciler{
 			ensureSecretNamespaceExists: c.ensureSecretNamespaceExists,
 			getSecret:                   c.getSecret,
 			createIdentitySecret:        c.createIdentitySecret,
@@ -223,7 +221,7 @@ func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 }
 
 func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, cachedResourceName string) error {
-	secret, err := GenerateIdentitySecret(ctx, defaultSecretNamespace, cachedResourceName)
+	secret, err := identity.GenerateIdentitySecret(ctx, defaultSecretNamespace, cachedResourceName)
 	if err != nil {
 		return err
 	}
@@ -233,27 +231,4 @@ func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logic
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(2).Info("creating identity secret")
 	return c.createSecret(ctx, clusterName, secret)
-}
-
-// TODO: This is copy from apiexport controller. We should move it to a shared location.
-func GenerateIdentitySecret(ctx context.Context, ns string, name string) (*corev1.Secret, error) {
-	logger := klog.FromContext(ctx)
-	start := time.Now()
-	key := crypto.Random256BitsString()
-	if dur := time.Since(start); dur > time.Millisecond*100 {
-		logger.Info("identity key generation took a long time", "duration", dur)
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   ns,
-			Name:        name,
-			Annotations: map[string]string{},
-		},
-		StringData: map[string]string{
-			apisv1alpha1.SecretKeyAPIExportIdentity: key,
-		},
-	}
-
-	return secret, nil
 }

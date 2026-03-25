@@ -18,21 +18,21 @@ package cachedresources
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+
+	"github.com/kcp-dev/kcp/pkg/identity"
 )
 
-// identity creates identity secret for the published resource and computes hash of the secret.
-type identity struct {
+// identityReconciler creates identity secret for the published resource and computes hash of the secret.
+type identityReconciler struct {
 	ensureSecretNamespaceExists func(ctx context.Context, clusterName logicalcluster.Name, defaultSecretNamespace string)
 	getSecret                   func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error)
 	createIdentitySecret        func(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, name string) error
@@ -40,7 +40,7 @@ type identity struct {
 	secretNamespace string
 }
 
-func (r *identity) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
+func (r *identityReconciler) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
 	if !cachedResource.DeletionTimestamp.IsZero() {
 		return reconcileStatusContinue, nil
 	}
@@ -108,13 +108,13 @@ func (r *identity) reconcile(ctx context.Context, cachedResource *cachev1alpha1.
 	return reconcileStatusContinue, nil
 }
 
-func (r *identity) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource, defaultSecretNamespace string) error {
+func (r *identityReconciler) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource, defaultSecretNamespace string) error {
 	secret, err := r.getSecret(ctx, clusterName, cachedResource.Spec.Identity.SecretRef.Namespace, cachedResource.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err
 	}
 
-	hash, err := IdentityHash(secret)
+	hash, err := identity.IdentityHash(secret)
 	if err != nil {
 		return err
 	}
@@ -128,16 +128,4 @@ func (r *identity) updateOrVerifyIdentitySecretHash(ctx context.Context, cluster
 	}
 
 	return nil
-}
-
-// TODO: This is copy from apiexport controller. We should move it to a shared location.
-func IdentityHash(secret *corev1.Secret) (string, error) {
-	key := secret.Data[apisv1alpha1.SecretKeyAPIExportIdentity]
-	if len(key) == 0 {
-		return "", fmt.Errorf("secret is missing data.%s", apisv1alpha1.SecretKeyAPIExportIdentity)
-	}
-
-	hashBytes := sha256.Sum256(key)
-	hash := fmt.Sprintf("%x", hashBytes)
-	return hash, nil
 }
