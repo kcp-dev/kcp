@@ -92,7 +92,7 @@ Flags:
 	}
 }
 
-// resolveVersion returns the CRD version matching the given name or the first version if name is empty
+// resolveVersion returns the CRD version matching the given name or the first version if name is empty.
 func resolveVersion(crd *apiextensionsv1.CustomResourceDefinition, name string) (*apiextensionsv1.CustomResourceDefinitionVersion, error) {
 	if len(crd.Spec.Versions) == 0 {
 		return nil, fmt.Errorf("CRD %q has no versions", crd.Name)
