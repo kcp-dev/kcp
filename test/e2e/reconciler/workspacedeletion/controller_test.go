@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
@@ -65,23 +66,27 @@ func TestWorkspaceDeletion(t *testing.T) {
 				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
-					Spec: tenancyv1alpha1.WorkspaceSpec{
-						Type: &tenancyv1alpha1.WorkspaceTypeReference{
-							Name: "universal",
-							Path: "root",
-						},
-						Location: &tenancyv1alpha1.WorkspaceLocation{
-							Selector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"name": corev1alpha1.RootShard,
+				var workspace *tenancyv1alpha1.Workspace
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					var err error
+					workspace, err = server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
+						ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
+						Spec: tenancyv1alpha1.WorkspaceSpec{
+							Type: &tenancyv1alpha1.WorkspaceTypeReference{
+								Name: "universal",
+								Path: "root",
+							},
+							Location: &tenancyv1alpha1.WorkspaceLocation{
+								Selector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"name": corev1alpha1.RootShard,
+									},
 								},
 							},
 						},
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
+					}, metav1.CreateOptions{})
+					require.NoError(c, err, "failed to create workspace")
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Workspace should be scheduled")
 				kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
@@ -122,7 +127,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
 
 				t.Logf("Delete default ns should be forbidden")
-				err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
+				err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
 				if !apierrors.IsForbidden(err) {
 					t.Fatalf("expect default namespace deletion to be forbidden")
 				}
