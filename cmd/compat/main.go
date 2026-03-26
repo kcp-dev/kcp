@@ -37,13 +37,15 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), `Determine schema compatibility of two CRD YAMLs
 
 Usage:
-	compat old-crd.yaml new-crd.yaml
+	compat [-old-version <version>] [-new-version <version>] old-crd.yaml new-crd.yaml
 
 Flags:
 `)
 		flag.PrintDefaults()
 	}
 	var lcd = flag.Bool("lcd", false, "If true, print LCD YAML to stdout")
+	var oldVersion = flag.String("old-version", "", "Version name to use from the old CRD (e.g. v1, v1alpha1). Defaults to the first version.")
+	var newVersion = flag.String("new-version", "", "Version name to use from the new CRD (e.g. v1, v1alpha1). Defaults to the first version.")
 
 	flag.Parse()
 	if len(flag.Args()) != 2 {
@@ -60,18 +62,26 @@ Flags:
 		log.Fatal(err)
 	}
 
+	oldVer, err := resolveVersion(oldFileContent, *oldVersion)
+	if err != nil {
+		log.Fatalf("old CRD: %v", err)
+	}
+	newVer, err := resolveVersion(newFileContent, *newVersion)
+	if err != nil {
+		log.Fatalf("new CRD: %v", err)
+	}
+
 	out, err := schemacompat.EnsureStructuralSchemaCompatibility(
 		field.NewPath(""),
-		// TODO: take flags for desired versions, instead of just assuming the first.
-		oldFileContent.Spec.Versions[0].Schema.OpenAPIV3Schema,
-		newFileContent.Spec.Versions[0].Schema.OpenAPIV3Schema,
+		oldVer.Schema.OpenAPIV3Schema,
+		newVer.Schema.OpenAPIV3Schema,
 		*lcd)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if *lcd {
-		oldFileContent.Spec.Versions[0].Schema.OpenAPIV3Schema = out
+		oldVer.Schema.OpenAPIV3Schema = out
 		b, err := yaml.Marshal(oldFileContent)
 		if err != nil {
 			log.Fatal(err)
@@ -80,6 +90,25 @@ Flags:
 			log.Fatal(err)
 		}
 	}
+}
+
+// resolveVersion returns the CRD version matching the given name or the first version if name is empty
+func resolveVersion(crd *apiextensionsv1.CustomResourceDefinition, name string) (*apiextensionsv1.CustomResourceDefinitionVersion, error) {
+	if len(crd.Spec.Versions) == 0 {
+		return nil, fmt.Errorf("CRD %q has no versions", crd.Name)
+	}
+
+	if name == "" {
+		return &crd.Spec.Versions[0], nil
+	}
+
+	for i := range crd.Spec.Versions {
+		if crd.Spec.Versions[i].Name == name {
+			return &crd.Spec.Versions[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("version %q not found in CRD %q", name, crd.Name)
 }
 
 func parse(fn string) (*apiextensionsv1.CustomResourceDefinition, error) {
