@@ -92,23 +92,24 @@ func TestWorkspaceController(t *testing.T) {
 			},
 		},
 		{
-			name:        "add a shard after a workspace is unschedulable, expect it to be scheduled",
+			name:        "mark shard unschedulable then schedulable again, expect workspace to be scheduled",
 			destructive: true,
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
-				var previouslyValidShard corev1alpha1.Shard
-				t.Logf("Get a list of current shards so that we can schedule onto a valid shard later")
-				shards, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
-				require.NoError(t, err)
-				if len(shards.Items) == 0 {
-					t.Fatalf("expected to get some shards but got none")
-				}
-				previouslyValidShard = shards.Items[0]
-				t.Logf("Delete all pre-configured shards, we have to control the creation of the workspace shards in this test")
-				err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+
+				t.Logf("Get the root shard")
+				shard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err)
 
-				t.Logf("Create a workspace without shards")
+				t.Logf("Mark the root shard as unschedulable")
+				if shard.Annotations == nil {
+					shard.Annotations = map[string]string{}
+				}
+				shard.Annotations["experimental.core.kcp.io/unschedulable"] = "true"
+				_, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
+				require.NoError(t, err)
+
+				t.Logf("Create a workspace while the shard is unschedulable")
 				var workspace *tenancyv1alpha1.Workspace
 				require.EventuallyWithT(t, func(c *assert.CollectT) {
 					var err error
@@ -124,21 +125,12 @@ func TestWorkspaceController(t *testing.T) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
 				}, kcptestinghelpers.IsNot(tenancyv1alpha1.WorkspaceScheduled).WithReason(tenancyv1alpha1.WorkspaceReasonUnschedulable))
 
-				t.Logf("Add previously removed shard %q", previouslyValidShard.Name)
-				newShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Create(ctx, &corev1alpha1.Shard{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   previouslyValidShard.Name,
-						Labels: previouslyValidShard.Labels,
-					},
-					Spec: corev1alpha1.ShardSpec{
-						BaseURL:     previouslyValidShard.Spec.BaseURL,
-						ExternalURL: previouslyValidShard.Spec.ExternalURL,
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace shard")
-				server.RunningServer.Artifact(t, func() (runtime.Object, error) {
-					return server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, newShard.Name, metav1.GetOptions{})
-				})
+				t.Logf("Remove unschedulable annotation from the root shard")
+				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+				require.NoError(t, err)
+				delete(shard.Annotations, "experimental.core.kcp.io/unschedulable")
+				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
+				require.NoError(t, err)
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				kcptestinghelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
@@ -150,7 +142,7 @@ func TestWorkspaceController(t *testing.T) {
 				orgLogicalCluster, err := server.orgWorkspaceKcpClient.CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 				require.NoError(t, err)
 				path := fmt.Sprintf("%s:%s", orgLogicalCluster.Annotations[core.LogicalClusterPathAnnotationKey], workspace.Name)
-				require.Emptyf(t, cmp.Diff(previouslyValidShard.Spec.BaseURL+"/clusters/"+path, workspace.Spec.URL), "incorrect URL")
+				require.Emptyf(t, cmp.Diff(shard.Spec.BaseURL+"/clusters/"+path, workspace.Spec.URL), "incorrect URL")
 			},
 		},
 	}
@@ -166,9 +158,6 @@ func TestWorkspaceController(t *testing.T) {
 
 			server := sharedServer
 			if testCase.destructive {
-				// Destructive tests require their own server
-				//
-				// TODO(marun) Could the testing currently requiring destructive e2e be performed with less cost?
 				server = kcptesting.PrivateKcpServer(t)
 			}
 
