@@ -54,6 +54,11 @@ func complete() {
 
 func init() {
 	klog.InitFlags(flag.CommandLine)
+
+	// Opt into fixed stderrthreshold behavior (kubernetes/klog#212).
+	_ = flag.Set("legacy_stderr_threshold_behavior", "false")
+	_ = flag.Set("stderrthreshold", "INFO")
+
 	if err := flag.Lookup("v").Value.Set("4"); err != nil {
 		panic(err)
 	}
