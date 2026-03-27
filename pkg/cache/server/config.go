@@ -125,10 +125,10 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		}
 		serverConfig.LoopbackClientConfig = rest.CopyConfig(optionalLocalShardRestConfig)
 	}
-	if err := opts.Authentication.ApplyTo(&serverConfig.Config.Authentication, serverConfig.SecureServing, serverConfig.OpenAPIConfig); err != nil {
+	if err := opts.Authentication.ApplyTo(&serverConfig.Config.Authentication, serverConfig.Config.SecureServing); err != nil {
 		return nil, err
 	}
-	if err := opts.Authorization.ApplyTo(&serverConfig.Config.Authorization); err != nil {
+	if err := opts.Authorization.ApplyTo(&serverConfig.Config); err != nil {
 		return nil, err
 	}
 

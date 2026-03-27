@@ -198,7 +198,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	cacheServerConfigPath := ""
-	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay)
+	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"))
 	if err != nil {
 		return fmt.Errorf("error starting the cache server: %w", err)
 	}
