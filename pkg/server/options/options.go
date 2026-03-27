@@ -403,6 +403,9 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
 	o.Cache.Server.Etcd.EnableWatchCache = false
 	o.Cache.Server.SecureServing = completedGenericOptions.SecureServing
+	// Pass the client ca configured on the shard to the embedded cache server.
+	// The cache server will still only allow access to identities with the system:master group.
+	o.Cache.Server.Authentication.ClientCAFile = o.GenericControlPlane.Authentication.ClientCert.ClientCA
 	cacheCompletedOptions, err := o.Cache.Complete()
 	if err != nil {
 		return nil, err

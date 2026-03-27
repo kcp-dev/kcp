@@ -33,6 +33,7 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -41,6 +42,7 @@ import (
 	"github.com/kcp-dev/embeddedetcd"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
@@ -65,6 +67,22 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	require.NoError(t, err)
 	cacheServerOptions.EmbeddedEtcd.ClientPort = cacheServerEmbeddedEtcdClientPort
 	cacheServerOptions.EmbeddedEtcd.PeerPort = cacheServerEmbeddedEtcdPeerPort
+
+	clientCA, _, err := crypto.EnsureCA(
+		path.Join(dataDir, "cache", "client-ca.crt"),
+		path.Join(dataDir, "cache", "client-ca.key"),
+		path.Join(dataDir, "cache", "client-ca-serial.txt"),
+		"cache-test-client-ca", 365,
+	)
+	require.NoError(t, err)
+	_, _, err = clientCA.EnsureClientCertificate(
+		path.Join(dataDir, "cache", "test-client.crt"),
+		path.Join(dataDir, "cache", "test-client.key"),
+		&user.DefaultInfo{Name: "cache-test-client", Groups: []string{"system:masters"}},
+		365,
+	)
+	require.NoError(t, err)
+	cacheServerOptions.Authentication.ClientCAFile = path.Join(dataDir, "cache", "client-ca.crt")
 	cacheServerCompletedOptions, err := cacheServerOptions.Complete()
 	require.NoError(t, err)
 	if errs := cacheServerCompletedOptions.Validate(); len(errs) > 0 {
@@ -107,9 +125,16 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 				CertificateAuthorityData: cacheServerCert,
 			},
 		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"cache": {
+				ClientCertificate: path.Join(dataDir, "cache", "test-client.crt"),
+				ClientKey:         path.Join(dataDir, "cache", "test-client.key"),
+			},
+		},
 		Contexts: map[string]*clientcmdapi.Context{
 			"cache": {
-				Cluster: "cache",
+				Cluster:  "cache",
+				AuthInfo: "cache",
 			},
 		},
 		CurrentContext: "cache",
