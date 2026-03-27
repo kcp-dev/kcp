@@ -33,6 +33,7 @@ import (
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -211,6 +212,10 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.Virtual.Validate()...)
 	errs = append(errs, o.HomeWorkspaces.Validate()...)
 	errs = append(errs, o.Cache.Validate()...)
+
+	if o.Extra.ShardName != corev1alpha1.RootShard && len(o.Cache.Client.KubeconfigFile) == 0 {
+		errs = append(errs, fmt.Errorf("--cache-kubeconfig is required for non-root shards"))
+	}
 
 	differential := false
 	for i, b := range o.Extra.BatteriesIncluded {
