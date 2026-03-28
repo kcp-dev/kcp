@@ -36,7 +36,7 @@ import (
 func TestReconcileIdentity(t *testing.T) {
 	tests := map[string]struct {
 		CachedResource            *cachev1alpha1.CachedResource
-		reconciler                *identity
+		reconciler                *identityReconciler
 		expectedErr               error
 		expectedStatus            reconcileStatus
 		expectedConditions        conditionsv1alpha1.Conditions
@@ -51,7 +51,7 @@ func TestReconcileIdentity(t *testing.T) {
 					},
 				},
 			},
-			reconciler: &identity{
+			reconciler: &identityReconciler{
 				ensureSecretNamespaceExists: func(ctx context.Context, clusterName logicalcluster.Name, defaultSecretNamespace string) {},
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 					return nil, apierrors.NewNotFound(corev1.Resource("resources"), name)
@@ -81,7 +81,7 @@ func TestReconcileIdentity(t *testing.T) {
 					Name: "cr-name",
 				},
 			},
-			reconciler: &identity{
+			reconciler: &identityReconciler{
 				ensureSecretNamespaceExists: func(ctx context.Context, clusterName logicalcluster.Name, defaultSecretNamespace string) {},
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 					return nil, apierrors.NewNotFound(corev1.Resource("resources"), name)
@@ -118,7 +118,7 @@ func TestReconcileIdentity(t *testing.T) {
 					},
 				},
 			},
-			reconciler: &identity{
+			reconciler: &identityReconciler{
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 					return &corev1.Secret{}, nil
 				},
@@ -160,7 +160,7 @@ func TestReconcileIdentity(t *testing.T) {
 					IdentityHash: "some-sha256-digest-for-xxx",
 				},
 			},
-			reconciler: &identity{
+			reconciler: &identityReconciler{
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 					return &corev1.Secret{
 						Data: map[string][]byte{
@@ -204,7 +204,7 @@ func TestReconcileIdentity(t *testing.T) {
 					},
 				},
 			},
-			reconciler: &identity{
+			reconciler: &identityReconciler{
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 					return &corev1.Secret{
 						Data: map[string][]byte{
@@ -246,7 +246,7 @@ func TestReconcileIdentity(t *testing.T) {
 					IdentityHash: "cd2eb0837c9b4c962c22d2ff8b5441b7b45805887f051d39bf133b583baf6860",
 				},
 			},
-			reconciler: &identity{
+			reconciler: &identityReconciler{
 				getSecret: func(ctx context.Context, clusterName logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 					return &corev1.Secret{
 						Data: map[string][]byte{
