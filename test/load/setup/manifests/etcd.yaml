@@ -1,0 +1,107 @@
+apiVersion: druid.gardener.cloud/v1alpha1
+kind: Etcd
+metadata:
+  name: kcp-etcd-shard-1
+  namespace: etcd-system
+spec:
+  replicas: 3
+  etcd:
+    image: europe-docker.pkg.dev/gardener-project/public/gardener/etcd-wrapper:v0.6.1
+  labels:
+    app: etcd
+  backup:
+    # we don't want backup to interfere with tests
+    # still we need to set something so that validation
+    # is satisfied :|
+    port: 8080
+  storageCapacity: 10Gi
+  schedulingConstraints:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: $NODEPOOL_SELECTOR
+                  operator: In
+                  values:
+                    - "kcp-etcd"
+    # force etcd to be spread across all nodes
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: etcd
+---
+apiVersion: druid.gardener.cloud/v1alpha1
+kind: Etcd
+metadata:
+  name: kcp-etcd-shard-2
+  namespace: etcd-system
+spec:
+  replicas: 3
+  etcd:
+    image: europe-docker.pkg.dev/gardener-project/public/gardener/etcd-wrapper:v0.6.1
+  labels:
+    app: etcd
+  backup:
+    # we don't want backup to interfere with tests
+    # still we need to set something so that validation
+    # is satisfied :|
+    port: 8080
+  storageCapacity: 10Gi
+  schedulingConstraints:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: $NODEPOOL_SELECTOR
+                  operator: In
+                  values:
+                    - "kcp-etcd"
+    # force etcd to be spread across all nodes
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: etcd
+---
+apiVersion: druid.gardener.cloud/v1alpha1
+kind: Etcd
+metadata:
+  name: kcp-etcd-shard-3
+  namespace: etcd-system
+spec:
+  replicas: 3
+  etcd:
+    image: europe-docker.pkg.dev/gardener-project/public/gardener/etcd-wrapper:v0.6.1
+  labels:
+    app: etcd
+  backup:
+    # we don't want backup to interfere with tests
+    # still we need to set something so that validation
+    # is satisfied :|
+    port: 8080
+  storageCapacity: 10Gi
+  schedulingConstraints:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: $NODEPOOL_SELECTOR
+                  operator: In
+                  values:
+                    - "kcp-etcd"
+    # force etcd to be spread across all nodes
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: etcd
