@@ -35,6 +35,24 @@ var (
 
 # List permission claims and their respective status for all APIBindings in current workspace.
 %[1]s claims get apibinding
+
+# Accept specific permission claim of a specific APIBinding
+%[1]s claims accept cert-manager --resource=secrets
+
+# Accept specific permission claim from non-core group of a specific APIBinding
+%[1]s claims accept cert-manager --resource=gateways.networking.istio.io
+
+# Accept specific permission claim of a specific APIBinding using identity hash
+%[1]s claims accept cert-manager --identity-hash=5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
+
+# Reject specific permission claim of a specific APIBinding
+%[1]s claims reject cert-manager --resource=secrets
+
+# Reject specific permission claim from non-core group of a specific APIBinding
+%[1]s claims reject cert-manager --resource=gateways.networking.istio.io
+
+# Reject specific permission claim of a specific APIBinding using identity hash
+%[1]s claims reject cert-manager --identity-hash=5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
 `
 )
 
@@ -62,6 +80,7 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 		SilenceUsage:     true,
 		TraverseChildren: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("test")
 			return cmd.Help()
 		},
 	}
@@ -84,5 +103,43 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 	apibindingGetOpts.BindFlags(apibindingGetCmd)
 	getcmd.AddCommand(apibindingGetCmd)
 	claimsCmd.AddCommand(getcmd)
+
+	acceptCmdOpts := plugin.NewClaimsAcceptOptions(streams)
+	acceptCmd := &cobra.Command{
+		Use:              "accept",
+		Short:            "Accept permission claims of an APIBinding",
+		SilenceUsage:     true,
+		TraverseChildren: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := acceptCmdOpts.Complete(args); err != nil {
+				return err
+			}
+			if err := acceptCmdOpts.Validate(); err != nil {
+				return err
+			}
+			return acceptCmdOpts.Run(cmd.Context())
+		},
+	}
+	acceptCmdOpts.BindFlags(acceptCmd)
+	claimsCmd.AddCommand(acceptCmd)
+
+	rejectCmdOpts := plugin.NewClaimsRejectOptions(streams)
+	rejectCmd := &cobra.Command{
+		Use:              "reject",
+		Short:            "Reject permission claims of an APIBinding",
+		SilenceUsage:     true,
+		TraverseChildren: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := rejectCmdOpts.Complete(args); err != nil {
+				return err
+			}
+			if err := rejectCmdOpts.Validate(); err != nil {
+				return err
+			}
+			return rejectCmdOpts.Run(cmd.Context())
+		},
+	}
+	rejectCmdOpts.BindFlags(rejectCmd)
+	claimsCmd.AddCommand(rejectCmd)
 	return claimsCmd
 }

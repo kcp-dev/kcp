@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -30,12 +31,32 @@ type APIBinding interface {
 	Name() string
 	Refresh(ctx context.Context, client kcpclientset.Interface) error
 	Create(ctx context.Context, client kcpclientset.Interface) error
+	Update(ctx context.Context, client kcpclientset.Interface) error
 	SetPermissionClaims(claims []apisv1alpha2.AcceptablePermissionClaim) error
 	IsBound() bool
 }
 
 type APIBindingList interface {
 	PrintPermissionClaims(out io.Writer) error
+}
+
+type PermissionClaimsOptions struct {
+	IdentityHash  string
+	ResourceGroup string
+}
+
+// NOTE to move somewhere appropriate (ie. helpers)
+func parseResourceGroup(resourceGroupOption string) (*apisv1alpha2.GroupResource, error) {
+	s := strings.SplitN(resourceGroupOption, ".", 2)
+	resource := s[0]
+	group := ""
+	if len(s) == 2 {
+		group = s[1]
+	}
+	if group == "core" {
+		group = ""
+	}
+	return &apisv1alpha2.GroupResource{Group: group, Resource: resource}, nil
 }
 
 func GetAPIBinding(ctx context.Context, client kcpclientset.Interface, preferredVersion string, name string) (APIBinding, error) {
@@ -62,6 +83,36 @@ func ListAPIBindings(ctx context.Context, client kcpclientset.Interface, preferr
 	default:
 		return nil, fmt.Errorf("version %q is not supported by this plugin", preferredVersion)
 	}
+}
+
+func AcceptAPIBindingPermissionClaims(ctx context.Context, client kcpclientset.Interface, preferredVersion string, name string, options PermissionClaimsOptions) (APIBinding, error) {
+	var binding APIBinding
+	var err error
+	switch preferredVersion {
+	case "v1alpha2":
+		binding, err = updatePermissionClaimsStateV1alpha2(ctx, client, name, apisv1alpha2.ClaimAccepted, options)
+	case "v1alpha1":
+		binding, err = updatePermissionClaimsStateV1alpha1(ctx, client, name, apisv1alpha1.ClaimAccepted, options)
+	default:
+		return nil, fmt.Errorf("version %q is not supported by this plugin", preferredVersion)
+	}
+	binding.Update(ctx, client)
+	return binding, err
+}
+
+func RejectAPIBindingPermissionClaims(ctx context.Context, client kcpclientset.Interface, preferredVersion string, name string, options PermissionClaimsOptions) (APIBinding, error) {
+	var binding APIBinding
+	var err error
+	switch preferredVersion {
+	case "v1alpha2":
+		binding, err = updatePermissionClaimsStateV1alpha2(ctx, client, name, apisv1alpha2.ClaimRejected, options)
+	case "v1alpha1":
+		binding, err = updatePermissionClaimsStateV1alpha1(ctx, client, name, apisv1alpha1.ClaimRejected, options)
+	default:
+		return nil, fmt.Errorf("version %q is not supported by this plugin", preferredVersion)
+	}
+	binding.Update(ctx, client)
+	return binding, err
 }
 
 func NewAPIBinding(nativeBinding any) APIBinding {

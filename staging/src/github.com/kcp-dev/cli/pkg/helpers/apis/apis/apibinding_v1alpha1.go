@@ -45,6 +45,28 @@ func getAPIBindingV1alpha1(ctx context.Context, client kcpclientset.Interface, n
 	return &apiBindingV1alpha1{binding: binding}, nil
 }
 
+// updatePermissionClaimsState changes state to Accepted or Rejected of claims
+func updatePermissionClaimsStateV1alpha1(ctx context.Context, client kcpclientset.Interface, name string, state apisv1alpha1.AcceptablePermissionClaimState, options PermissionClaimsOptions) (*apiBindingV1alpha1, error) {
+	binding, err := getAPIBindingV1alpha1(ctx, client, name)
+	if err != nil {
+		return nil, err
+	}
+	resourceGroup, err := parseResourceGroup(options.ResourceGroup)
+	if err != nil {
+		return binding, fmt.Errorf("invalid option group resource '%s'", resourceGroup)
+	}
+	claims := binding.binding.Spec.PermissionClaims
+	for i, claim := range claims {
+		if options.IdentityHash != "" && claim.IdentityHash == options.IdentityHash {
+			claims[i].State = state
+			break
+		} else if claim.Group == resourceGroup.Group && claim.Resource == resourceGroup.Resource {
+			claims[i].State = state
+		}
+	}
+	return binding, nil
+}
+
 func (b *apiBindingV1alpha1) Refresh(ctx context.Context, client kcpclientset.Interface) error {
 	current, err := client.ApisV1alpha1().APIBindings().Get(ctx, b.binding.Name, metav1.GetOptions{})
 	if err != nil {
@@ -62,6 +84,15 @@ func (b *apiBindingV1alpha1) Create(ctx context.Context, client kcpclientset.Int
 	}
 	b.binding = created
 
+	return nil
+}
+
+func (b *apiBindingV1alpha1) Update(ctx context.Context, client kcpclientset.Interface) error {
+	updated, err := client.ApisV1alpha1().APIBindings().Update(ctx, b.binding, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	b.binding = updated
 	return nil
 }
 
