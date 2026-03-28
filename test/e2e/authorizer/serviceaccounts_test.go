@@ -281,8 +281,6 @@ func TestServiceAccounts(t *testing.T) {
 			})
 
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
-				// See https://github.com/kcp-dev/kcp/issues/3397
-				t.Skip()
 				t.Log("Create namespace with the same name")
 				otherOrgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, otherOrgPath)
