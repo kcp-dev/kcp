@@ -16,12 +16,6 @@ limitations under the License.
 
 package identity
 
-// Tests included:
-// 1. TestGenerateIdentitySecret	- verifies that GenerateIdentitySecret creates a Secret
-// with the expected metadata and a non-empty identity key.
-// 2. TestIdentityHash 						- verifies that IdentityHash correctly computes the SHA-256
-// hash of the identity key stored in a Secret, and returns an error when the key is missing.
-
 import (
 	"context"
 	"testing"
