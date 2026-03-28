@@ -29,10 +29,10 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -53,6 +53,7 @@ type schemaPuller struct {
 	resourceFor              func(groupResource schema.GroupResource) (schema.GroupResource, error)
 	getCRD                   func(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	models                   openapi.ModelsByGKV
+	ignoredScheme            *runtime.Scheme
 }
 
 // NewSchemaPuller allows creating a SchemaPuller from the `Config` of
@@ -61,7 +62,12 @@ type schemaPuller struct {
 func NewSchemaPuller(
 	discoveryClient discovery.DiscoveryInterface,
 	crdClient apiextensionsv1client.ApiextensionsV1Interface,
+	ignoredScheme *runtime.Scheme,
 ) (*schemaPuller, error) {
+	if ignoredScheme == nil {
+		ignoredScheme = runtime.NewScheme()
+	}
+
 	openapiSchema, err := discoveryClient.OpenAPISchema()
 	if err != nil {
 		return nil, err
@@ -91,7 +97,8 @@ func NewSchemaPuller(
 		getCRD: func(ctx context.Context, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdClient.CustomResourceDefinitions().Get(ctx, name, metav1.GetOptions{})
 		},
-		models: modelsByGKV,
+		models:        modelsByGKV,
+		ignoredScheme: ignoredScheme,
 	}, nil
 }
 
@@ -162,7 +169,8 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 
 			gvk := gv.WithKind(apiResource.Kind)
 			logger = logger.WithValues("kind", apiResource.Kind)
-			if (kcpscheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
+			// ignore the resource unles we're asked to explicitly pull it
+			if sp.ignoredScheme.Recognizes(gvk) && !resourcesToPull.Has(groupResource.String()) {
 				logger.Info("ignoring a resource since it is part of the core kcp resources")
 				continue
 			}

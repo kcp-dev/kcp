@@ -31,6 +31,7 @@ import (
 	"github.com/kcp-dev/sdk/cmd/help"
 
 	"github.com/kcp-dev/kcp/pkg/crdpuller"
+	"github.com/kcp-dev/kcp/pkg/crdpuller/scheme"
 )
 
 func main() {
@@ -73,7 +74,7 @@ func main() {
 				return err
 			}
 
-			puller, err := crdpuller.NewSchemaPuller(discoveryClient, crdClient)
+			puller, err := crdpuller.NewSchemaPuller(discoveryClient, crdClient, scheme.DefaultIgnores())
 			if err != nil {
 				return err
 			}
