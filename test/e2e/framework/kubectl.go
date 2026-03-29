@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	"github.com/kcp-dev/sdk/testing/env"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 )
 
@@ -37,6 +38,11 @@ func KcpCliPluginCommand(plugin string) (string, []string, error) {
 	if err != nil {
 		return "", nil, err
 	}
+
+	if env.NoGoRunEnvSet() {
+		return repo, []string{filepath.Join("bin", "kubectl-"+plugin)}, nil
+	}
+
 	workdir := filepath.Join(repo, "staging", "src", "github.com", "kcp-dev", "cli")
 	// go run requires `./`, but filepath.Join just omits it
 	cmdPath := "./" + filepath.Join("cmd", "kubectl-"+plugin)
