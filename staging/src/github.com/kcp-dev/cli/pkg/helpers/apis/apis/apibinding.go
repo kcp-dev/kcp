@@ -77,11 +77,10 @@ func NewAPIBinding(nativeBinding any) APIBinding {
 
 func NewAPIBindingList(nativeBinding any) APIBindingList {
 	switch asserted := nativeBinding.(type) {
-	case *apisv1alpha1.APIBinding:
-		return &apiBindingListV1alpha1{bindings: []*apisv1alpha1.APIBinding{asserted}}
-	case *apisv1alpha2.APIBinding:
-		return &apiBindingListV1alpha2{bindings: []*apisv1alpha2.APIBinding{asserted}}
+	case *apiBindingV1alpha2:
+		return &apiBindingListV1alpha2{bindings: []*apisv1alpha2.APIBinding{asserted.binding}}
+	case *apiBindingV1alpha1:
+		return &apiBindingListV1alpha1{bindings: []*apisv1alpha1.APIBinding{asserted.binding}}
 	}
-
 	panic("Unsupported APIBinding version provided.")
 }
