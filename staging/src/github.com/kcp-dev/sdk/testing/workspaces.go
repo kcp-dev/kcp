@@ -31,7 +31,9 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -234,6 +236,19 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		return true, ""
 	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s APIBindings to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
+	wsClusterPath := logicalcluster.NewPath(ws.Spec.Cluster)
+	discoveryClient := clusterClient.Cluster(wsClusterPath).Discovery()
+	apibindings, err := clusterClient.Cluster(wsClusterPath).ApisV1alpha2().APIBindings().List(t.Context(), metav1.ListOptions{})
+	require.NoError(t, err, "failed to list APIBindings from workspace %s", parent.Join(ws.Name))
+
+	for _, apibinding := range apibindings.Items {
+		for _, br := range apibinding.Status.BoundResources {
+			for _, v := range br.StorageVersions {
+				WaitForAPIReady(t, discoveryClient, schema.GroupVersion{Group: br.Group, Version: v})
+			}
+		}
+	}
+
 	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, WorkspaceShardOrDie(t, clusterClient, ws).Name)
 	return ws
 }
@@ -291,4 +306,16 @@ func base36Sha224NameValue(name string) string {
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 
 	return base36hash[:8]
+}
+
+// WaitForAPIReady waits until the given GroupVersion is served.
+func WaitForAPIReady(t TestingT, discoveryClient discovery.DiscoveryInterface, gv schema.GroupVersion) {
+	t.Helper()
+	t.Logf("Waiting for %s to be served", gv)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := discoveryClient.ServerResourcesForGroupVersion(gv.String()); err != nil {
+			return false, fmt.Sprintf("waiting for %s to be served: %v", gv, err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "%s is not served", gv)
 }

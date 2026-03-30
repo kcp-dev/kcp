@@ -103,6 +103,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Creating Sheriff CRD in %q", serviceProviderPath)
 	wildwest.Create(t, serviceProviderPath, kcpCRDClusterClient, metav1.GroupResource(gvr.GroupResource()))
+	kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(serviceProviderPath).Discovery(), gvr.GroupVersion())
 	t.Logf("Creating a Sheriff in %q", serviceProviderPath)
 	sheriffOne, err := createSheriff(t.Context(), kcpDynClusterClient, serviceProviderClusterName, &wildwestv1alpha1.Sheriff{
 		ObjectMeta: metav1.ObjectMeta{
