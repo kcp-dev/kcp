@@ -236,6 +236,19 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		return true, ""
 	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s APIBindings to become ready", ws.Spec.Type, parent.Join(ws.Name))
 
+	wsClusterPath := logicalcluster.NewPath(ws.Spec.Cluster)
+	discoveryClient := clusterClient.Cluster(wsClusterPath).Discovery()
+	apibindings, err := clusterClient.Cluster(wsClusterPath).ApisV1alpha2().APIBindings().List(t.Context(), metav1.ListOptions{})
+	require.NoError(t, err, "failed to list APIBindings from workspace %s", parent.Join(ws.Name))
+
+	for _, apibinding := range apibindings.Items {
+		for _, br := range apibinding.Status.BoundResources {
+			for _, v := range br.StorageVersions {
+				WaitForAPIReady(t, discoveryClient, schema.GroupVersion{Group: br.Group, Version: v})
+			}
+		}
+	}
+
 	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, WorkspaceShardOrDie(t, clusterClient, ws).Name)
 	return ws
 }
