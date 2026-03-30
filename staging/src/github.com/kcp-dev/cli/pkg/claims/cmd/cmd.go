@@ -80,7 +80,6 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 		SilenceUsage:     true,
 		TraverseChildren: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("test")
 			return cmd.Help()
 		},
 	}

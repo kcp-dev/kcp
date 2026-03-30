@@ -124,9 +124,9 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 	return bindingsList.PrintPermissionClaims(out)
 }
 
-// ClaimsAcceptOrRejectOptions contains options for fetching claims
-// and their status corresponding to a specific APIBinding
-// to update their state based on filters
+// ClaimsAcceptOrRejectOptions contains options for fetching claims.
+// and their status corresponding to a specific APIBinding.
+// to update their state based on filters.
 type ClaimsAcceptOrRejectOptions struct {
 	*base.Options
 
@@ -139,7 +139,7 @@ type ClaimsAcceptOrRejectOptions struct {
 	// IdentityHash to filter a unique claim.
 	IdentityHash string
 
-	// Action is either "accept" or "reject"
+	// Action is either "accept" or "reject".
 	Action string
 }
 
@@ -187,10 +187,10 @@ func (c *ClaimsAcceptOrRejectOptions) BindFlags(cmd *cobra.Command) {
 	c.Options.BindFlags(cmd)
 	flagset := cmd.Flags()
 	flagset.StringVar(&c.ResourceGroup, "resource", "", "Resource group of permission claim. Format: --resource resource.group")
-	flagset.StringVar(&c.IdentityHash, "identity-hash", "", "Identity hash of the resource. Format: --identity-hash {SHA256}")
+	flagset.StringVar(&c.IdentityHash, "identity-hash", "", "Identity hash of the resource. Format: --identity-hash id")
 }
 
-// Run claims accept or claims reject
+// Run claims accept or claims reject.
 func (c *ClaimsAcceptOrRejectOptions) Run(ctx context.Context) error {
 	cfg, err := c.ClientConfig.ClientConfig()
 	if err != nil {
