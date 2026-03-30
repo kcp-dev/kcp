@@ -31,7 +31,9 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -291,4 +293,16 @@ func base36Sha224NameValue(name string) string {
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 
 	return base36hash[:8]
+}
+
+// WaitForAPIReady waits until the given GroupVersion is served.
+func WaitForAPIReady(t TestingT, discoveryClient discovery.DiscoveryInterface, gv schema.GroupVersion) {
+	t.Helper()
+	t.Logf("Waiting for %s to be served", gv)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		if _, err := discoveryClient.ServerResourcesForGroupVersion(gv.String()); err != nil {
+			return false, fmt.Sprintf("waiting for %s to be served: %v", gv, err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "%s is not served", gv)
 }
