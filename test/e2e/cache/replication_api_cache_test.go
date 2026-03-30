@@ -50,6 +50,7 @@ import (
 var testFiles embed.FS
 
 func TestCacheServerReplicationAPI(t *testing.T) {
+	t.Skip("Skipped due to upstream data race in k8s.io/component-base/metrics.(*Histogram).WithContext() during concurrent x509 authentication")
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
