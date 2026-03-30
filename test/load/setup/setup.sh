@@ -32,10 +32,10 @@ USE_DEFAULT_ENVOY_GATEWAY="${USE_DEFAULT_ENVOY_GATEWAY:-true}"
 
 # required variables
 : "${NODEPOOL_SELECTOR:? must be set to indicate which label is used for pooling nodes (e.g. worker.gardener.cloud/pool). This depends on your infrastructure setup. Please refer to the architecture document to see which pools should exist}"
+: "${GATEWAY_BASE_URL:? must be set to indicate the base domain for the gateway. Needed to setup kcp correctly.}"
 
 if [ "$USE_DEFAULT_ENVOY_GATEWAY" = "true" ]; then
 echo "Running with default envoy gateway. If you want to setup ingress/gateway manually, set USE_DEFAULT_ENVOY_GATEWAY to false"
-: "${GATEWAY_BASE_URL:? must be set to indicate the base domain for the gateway}"
 : "${GATEWAY_ANNOTATIONS:? annotations to set on the gateway. Format: GATEWAY_ANNOTATIONS=\'{\"key1\":\"value1\"\}, {\"key2\":\"value2\"\}\'}"
 fi
 
@@ -94,7 +94,7 @@ kubectl wait --for=jsonpath='{.status.phase}'=Running shard/shard3 -n kcp --time
 echo "Generating admin kubeconfig and saving it to admin.kubeconfig"
 kubectl apply -f manifests/kcp-admin-kubeconfig-req.yaml
 kubectl wait -n kcp --for=create secret/admin-kubeconfig --timeout=120s
-kubectl get secret admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > admin.kubeconfig
+kubectl get secret -n kcp admin-kubeconfig -o jsonpath="{.data.kubeconfig}" | base64 -d > admin.kubeconfig
 
 if [ "$USE_DEFAULT_ENVOY_GATEWAY" = "false" ]; then
   echo "
