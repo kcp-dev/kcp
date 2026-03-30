@@ -115,6 +115,7 @@ func TestCachedResources(t *testing.T) {
 
 		t.Logf("Creating %s.wildwest.dev CRD in %q", resourceName, providerPath)
 		wildwest.Create(t, providerPath, kcpCRDClusterClient, gr)
+		kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(providerPath).Discovery(), wildwestv1alpha1.SchemeGroupVersion)
 
 		crd := wildwest.CRD(t, gr)
 		sch, err := apisv1alpha1.CRDToAPIResourceSchema(crd, "today")

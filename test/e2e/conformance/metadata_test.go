@@ -27,12 +27,14 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/kube"
@@ -60,6 +62,11 @@ func TestMetadataMutations(t *testing.T) {
 	require.NoError(t, err, "error creating crd cluster client")
 
 	kube.Create(t, workspaceCRDClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(orgPath), metav1.GroupResource{Group: "apps.k8s.io", Resource: "deployments"})
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	deploymentsGVR := schema.GroupVersionResource{Group: "apps", Resource: "deployments", Version: "v1"}
+	kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(orgPath).Discovery(), deploymentsGVR.GroupVersion())
 
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating kube cluster client")

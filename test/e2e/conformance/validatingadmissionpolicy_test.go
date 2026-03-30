@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 
@@ -86,6 +87,13 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 		t.Logf("Bootstrapping Workspace CRDs in logical cluster %s", wsPath)
 		crdClient := apiExtensionsClusterClient.ApiextensionsV1().CustomResourceDefinitions()
 		wildwest.Create(t, wsPath, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
+	}
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	cowboysGVR := schema.GroupVersionResource{Group: "wildwest.dev", Resource: "cowboys", Version: "v1alpha1"}
+	for _, wsPath := range []logicalcluster.Path{ws1Path, ws2Path} {
+		kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(wsPath).Discovery(), cowboysGVR.GroupVersion())
 	}
 
 	t.Logf("Installing validating admission policy into the first workspace")

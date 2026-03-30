@@ -70,6 +70,12 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 	t.Log("Creating wildwest.dev.cowboys CR")
 	wildwest.Create(t, wsPath, kcpCRDClusterClient, cowBoysGR)
+
+	kcpClusterClient2, err := kcpclientset.NewForConfig(clusterConfig)
+	require.NoError(t, err)
+	cowboysGVR := schema.GroupVersionResource{Group: "wildwest.dev", Resource: "cowboys", Version: "v1alpha1"}
+	kcptesting.WaitForAPIReady(t, kcpClusterClient2.Cluster(wsPath).Discovery(), cowboysGVR.GroupVersion())
+
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(clusterConfig)
 	require.NoError(t, err)
 	_, err = wildwestClusterClient.Cluster(wsPath).WildwestV1alpha1().Cowboys("default").Create(t.Context(), &wildwestv1alpha1.Cowboy{
