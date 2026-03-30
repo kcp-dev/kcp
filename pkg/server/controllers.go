@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -966,7 +967,6 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 
 	if !s.Options.Virtual.Enabled && s.Options.Extra.ShardVirtualWorkspaceURL != "" {
-		vwURL := fmt.Sprintf("https://%s", s.GenericConfig.ExternalAddress)
 		if s.Options.Extra.ShardVirtualWorkspaceCAFile == "" {
 			// TODO move verification up
 			return fmt.Errorf("s.Options.Extra.ShardVirtualWorkspaceCAFile is required")
@@ -979,10 +979,17 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 			// TODO move verification up
 			return fmt.Errorf("s.Options.Extra.ShardClientKeyFile is required")
 		}
+
+		config.TLSClientConfig.CAData = nil
+		config.TLSClientConfig.CertData = nil
+		config.TLSClientConfig.KeyData = nil
 		config.TLSClientConfig.CAFile = s.Options.Extra.ShardVirtualWorkspaceCAFile
 		config.TLSClientConfig.CertFile = s.Options.Extra.ShardClientCertFile
 		config.TLSClientConfig.KeyFile = s.Options.Extra.ShardClientKeyFile
-		config.Host = fmt.Sprintf("%v%v", vwURL, initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer))
+		config.TLSClientConfig.ServerName = ""
+
+		config.Host = strings.TrimSuffix(s.Options.Extra.ShardVirtualWorkspaceURL, "/")
+		config.Host += initializingworkspacesbuilder.URLFor(tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
 	}
 
 	initializingWorkspacesKcpClusterClient, err := kcpclientset.NewForConfig(config)
