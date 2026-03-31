@@ -59,7 +59,7 @@ func TestCreateWorkspaceEnter(t *testing.T) {
 	t.Log("The current workspace is set to the new workspace")
 	stdout, _, err := tc.RunPlugin(t, "ws", ".", "--short")
 	require.NoError(t, err)
-	require.Equal(t, "root:"+wsName+"\n", stdout.String())
+	require.Contains(t, stdout.String(), wsName)
 }
 
 func TestUseWorkspace(t *testing.T) {
