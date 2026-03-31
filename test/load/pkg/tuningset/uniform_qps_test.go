@@ -18,6 +18,7 @@ package tuningset
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,6 @@ func TestUniformQPS(t *testing.T) {
 	t.Parallel()
 
 	const count = 10
-	const tolerance = 100 * time.Millisecond
 
 	tests := []struct {
 		name           string
@@ -55,25 +55,24 @@ func TestUniformQPS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := NewUniformQPS(tt.qps, count, 0)
+			synctest.Test(t, func(t *testing.T) {
+				ts := NewUniformQPS(tt.qps, count, 0)
 
-			var wg wait.Group
-			start := time.Now()
-			for range ts {
-				wg.Start(func() {
-					time.Sleep(tt.actionDuration)
-				})
-			}
-			wg.Wait()
-			elapsed := time.Since(start)
+				var wg wait.Group
+				start := time.Now()
+				for range ts {
+					wg.Start(func() {
+						time.Sleep(tt.actionDuration)
+					})
+				}
+				wg.Wait()
+				elapsed := time.Since(start)
 
-			require.InDelta(t,
-				tt.expDuration.Milliseconds(),
-				elapsed.Milliseconds(),
-				float64(tolerance.Milliseconds()),
-				"elapsed time %v should be close to estimate %v",
-				elapsed, tt.expDuration,
-			)
+				require.Equal(t, tt.expDuration, elapsed,
+					"elapsed time %v should equal estimate %v",
+					elapsed, tt.expDuration,
+				)
+			})
 		})
 	}
 }
