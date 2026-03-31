@@ -25,7 +25,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
 func TestContentAuthorizer(t *testing.T) {

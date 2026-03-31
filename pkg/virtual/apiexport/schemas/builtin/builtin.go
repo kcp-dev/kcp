@@ -35,10 +35,10 @@ import (
 	"github.com/kcp-dev/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	generatedkcpopenapi "github.com/kcp-dev/sdk/openapi"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/internalapis"
 
-	generatedkcpopenapi "github.com/kcp-dev/kcp/pkg/openapi"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 )
 
 // Create APIResourceSchemas for built-in APIs available as permission claims

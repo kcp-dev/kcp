@@ -32,10 +32,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/admission"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 type selectorAdmission struct {

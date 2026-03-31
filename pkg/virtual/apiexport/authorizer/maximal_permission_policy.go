@@ -32,11 +32,11 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 type maximalPermissionAuthorizer struct {

@@ -29,8 +29,7 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
+	rbacwrapper "github.com/kcp-dev/virtual-workspace-framework/pkg/wrappers/rbac"
 )
 
 type LocalAuthorizer struct {

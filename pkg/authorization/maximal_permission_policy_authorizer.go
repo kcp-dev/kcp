@@ -35,9 +35,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	rbacwrapper "github.com/kcp-dev/virtual-workspace-framework/pkg/wrappers/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 const (

@@ -58,12 +58,12 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/internalapis"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/internalapis"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"

@@ -34,9 +34,9 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 type alwaysDenyAuthrizer struct{}
