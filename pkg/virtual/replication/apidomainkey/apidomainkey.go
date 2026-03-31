@@ -21,8 +21,7 @@ import (
 	"strings"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
 func New(clusterName logicalcluster.Name, cachedResource string) dynamiccontext.APIDomainKey {

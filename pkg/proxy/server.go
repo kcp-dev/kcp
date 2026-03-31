@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
+	"k8s.io/apiserver/pkg/server/healthz"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -144,15 +145,8 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
-	// TODO: implement proper readyz handler
-	mux.Handle("/readyz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK")) //nolint:errcheck
-	}))
-
-	// TODO: implement proper livez handler
-	mux.Handle("/livez", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK")) //nolint:errcheck
-	}))
+	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory))
+	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
 	mux.Handle("/", handler)
 	s.Handler = mux

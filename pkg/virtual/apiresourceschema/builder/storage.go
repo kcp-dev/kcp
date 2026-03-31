@@ -35,9 +35,8 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha1"
-
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 )
 
 // NewSchemaRestProvider creates a REST provider function that serves APIResourceSchemas

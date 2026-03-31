@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
@@ -31,10 +32,11 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 )
 
 type maximalPermissionAuthorizer struct {
@@ -142,9 +144,10 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 }
 
 func getClaimedIdentity(apiExport *apisv1alpha2.APIExport, attr authorizer.Attributes) (string, bool) {
+	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: attr.GetAPIGroup(), Resource: attr.GetResource()})
 	for i := range apiExport.Spec.PermissionClaims {
-		if apiExport.Spec.PermissionClaims[i].Resource == attr.GetResource() &&
-			apiExport.Spec.PermissionClaims[i].Group == attr.GetAPIGroup() {
+		if apiExport.Spec.PermissionClaims[i].Resource == normalizedGR.Resource &&
+			apiExport.Spec.PermissionClaims[i].Group == normalizedGR.Group {
 			return apiExport.Spec.PermissionClaims[i].IdentityHash, true
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
@@ -62,26 +63,35 @@ func TestWorkspaceDeletion(t *testing.T) {
 		{
 			name: "create and clean workspace",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
-				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
+				// The kcptesting.WithRootShard was added due to the
+				// test flaking in CI, it is not actually required for
+				// the test execution. However we observed that this
+				// subtest was flaking while the next subtest - which is
+				// pinning the workspaces to the root shard - was not.
+				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Create a workspace with a shard")
-				workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
-					Spec: tenancyv1alpha1.WorkspaceSpec{
-						Type: &tenancyv1alpha1.WorkspaceTypeReference{
-							Name: "universal",
-							Path: "root",
-						},
-						Location: &tenancyv1alpha1.WorkspaceLocation{
-							Selector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"name": corev1alpha1.RootShard,
+				var workspace *tenancyv1alpha1.Workspace
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					var err error
+					workspace, err = server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Create(ctx, &tenancyv1alpha1.Workspace{
+						ObjectMeta: metav1.ObjectMeta{Name: "ws-cleanup"},
+						Spec: tenancyv1alpha1.WorkspaceSpec{
+							Type: &tenancyv1alpha1.WorkspaceTypeReference{
+								Name: "universal",
+								Path: "root",
+							},
+							Location: &tenancyv1alpha1.WorkspaceLocation{
+								Selector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"name": corev1alpha1.RootShard,
+									},
 								},
 							},
 						},
-					},
-				}, metav1.CreateOptions{})
-				require.NoError(t, err, "failed to create workspace")
+					}, metav1.CreateOptions{})
+					require.NoError(c, err, "failed to create workspace")
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Workspace should be scheduled")
 				kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
@@ -122,7 +132,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
 
 				t.Logf("Delete default ns should be forbidden")
-				err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
+				err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
 				if !apierrors.IsForbidden(err) {
 					t.Fatalf("expect default namespace deletion to be forbidden")
 				}
@@ -184,16 +194,22 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list namespaces in workspace %s", workspace.Name)
-				require.Equal(t, 0, len(nslist.Items))
+				require.Empty(t, nslist.Items)
 
 				cmlist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list configmaps in workspace %s", workspace.Name)
-				require.Equal(t, 0, len(cmlist.Items))
+				require.Empty(t, cmlist.Items)
 			},
 		},
 		{
 			name: "nested workspace cleanup when an org workspace is deleted",
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
+				// On the - kcptesting.WithRootShard the test doesn't
+				// need the root shard explicitly, it just needs to know
+				// the shard to get the client for the shard.
+				// In a future refactor the placement on the root shard
+				// could be removed and the client for the correct
+				// shards be build dynamically.
 				orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithRootShard(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 				t.Logf("Should have finalizer in org workspace")

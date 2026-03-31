@@ -40,16 +40,16 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	virtualworkspacesdynamic "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 )
 

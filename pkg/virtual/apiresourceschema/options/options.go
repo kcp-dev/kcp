@@ -25,10 +25,10 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema/builder"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 type APIResourceSchema struct{}

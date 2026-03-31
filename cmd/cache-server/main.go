@@ -27,12 +27,16 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
+	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
 	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/sdk/cmd/help"
 
 	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
 	"github.com/kcp-dev/kcp/pkg/cache/server/options"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+
+	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 )
 
 func main() {
@@ -72,6 +76,11 @@ func main() {
 		`),
 
 		RunE: func(c *cobra.Command, args []string) error {
+			// run as early as possible to avoid races later when some components (e.g. grpc) start early using klog
+			if err := logsapiv1.ValidateAndApply(serverOptions.Logs, kcpfeatures.DefaultFeatureGate); err != nil {
+				return err
+			}
+
 			completed, err := serverOptions.Complete()
 			if err != nil {
 				return err

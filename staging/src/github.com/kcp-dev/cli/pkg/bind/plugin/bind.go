@@ -56,6 +56,12 @@ type BindOptions struct {
 	AcceptedPermissionClaims []string
 	// RejectedPermissionClaims is the list of rejected permission claims for the APIBinding.
 	RejectedPermissionClaims []string
+	// AcceptAllPermissionClaims indicates whether all permission claims from the APIExport
+	// should be accepted.
+	AcceptAllPermissionClaims bool
+	// RejectAllPermissionClaims indicates whether all permission claims from the APIExport
+	// should be rejected.
+	RejectAllPermissionClaims bool
 
 	// acceptedPermissionClaims is the parsed list of accepted permission claims for the APIBinding parsed from AcceptedPermissionClaims.
 	acceptedPermissionClaims []apisv1alpha2.AcceptablePermissionClaim
@@ -78,6 +84,18 @@ func (b *BindOptions) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().DurationVar(&b.BindWaitTimeout, "timeout", time.Second*30, "Duration to wait for APIBinding to be created successfully.")
 	cmd.Flags().StringSliceVar(&b.AcceptedPermissionClaims, "accept-permission-claim", nil, "List of accepted permission claims for the APIBinding. Format:  --accept-permission-claim resource.group")
 	cmd.Flags().StringSliceVarP(&b.RejectedPermissionClaims, "reject-permission-claim", "", nil, "List of rejected permission claims for the APIBinding. Format:  --reject-permission-claim resource.group")
+	cmd.Flags().BoolVar(
+		&b.AcceptAllPermissionClaims,
+		"accept-all-permission-claims",
+		false,
+		"Accept all permission claims from the APIExport.",
+	)
+	cmd.Flags().BoolVar(
+		&b.RejectAllPermissionClaims,
+		"reject-all-permission-claims",
+		false,
+		"Reject all permission claims from the APIExport.",
+	)
 }
 
 // Complete ensures all fields are initialized.
@@ -96,6 +114,26 @@ func (b *BindOptions) Complete(args []string) error {
 func (b *BindOptions) Validate() error {
 	if b.APIExportRef == "" {
 		return errors.New("`root:ws:apiexport_object` reference to bind is required as an argument")
+	}
+
+	if b.AcceptAllPermissionClaims && b.RejectAllPermissionClaims {
+		return fmt.Errorf("cannot use both --accept-all-permission-claims and --reject-all-permission-claims")
+	}
+
+	if b.AcceptAllPermissionClaims && len(b.AcceptedPermissionClaims) > 0 {
+		return fmt.Errorf("cannot use --accept-all-permission-claims with --accept-permission-claim")
+	}
+
+	if b.AcceptAllPermissionClaims && len(b.RejectedPermissionClaims) > 0 {
+		return fmt.Errorf("cannot use --accept-all-permission-claims together with --reject-permission-claim")
+	}
+
+	if b.RejectAllPermissionClaims && len(b.RejectedPermissionClaims) > 0 {
+		return fmt.Errorf("cannot use --reject-all-permission-claims with --reject-permission-claim")
+	}
+
+	if b.RejectAllPermissionClaims && len(b.AcceptedPermissionClaims) > 0 {
+		return fmt.Errorf("cannot use --reject-all-permission-claims together with --accept-permission-claim")
 	}
 
 	// We validate the path component of the APIExport. Its name component will be implicitly validated at API look-up time.
@@ -159,14 +197,56 @@ func (b *BindOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("service discovery failed: %w", err)
 	}
 
-	apiBinding, err := b.newAPIBinding(preferredAPIBindingVersion)
-	if err != nil {
-		return fmt.Errorf("failed to create APIBinding: %w", err)
-	}
-
 	kcpClusterClient, err := newKCPClusterClient(config)
 	if err != nil {
 		return err
+	}
+
+	// Handle the "accept-all" or "reject-all" permission claims if the user requested them
+	if b.AcceptAllPermissionClaims || b.RejectAllPermissionClaims {
+		path, apiExportName := logicalcluster.NewPath(b.APIExportRef).Split()
+
+		// Fetch the APIExport object to read its permission claims
+		apiExport, err := kcpClusterClient.
+			Cluster(path).ApisV1alpha1().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get APIExport %q: %w", apiExportName, err)
+		}
+
+		// Iterate over all permission claims defined in the APIExport
+		for _, claim := range apiExport.Spec.PermissionClaims {
+			// Build an AcceptablePermissionClaim using the SDK structs
+			parsedClaim := apisv1alpha2.AcceptablePermissionClaim{
+				ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+					PermissionClaim: apisv1alpha2.PermissionClaim{
+						GroupResource: apisv1alpha2.GroupResource{
+							Group:    claim.Group,
+							Resource: claim.Resource,
+						},
+						Verbs: []string{"*"},
+					},
+					Selector: apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+				},
+				State: apisv1alpha2.ClaimAccepted, // default; may be overridden following
+			}
+
+			// Add to accepted claims if user requested accept-all
+			if b.AcceptAllPermissionClaims {
+				parsedClaim.State = apisv1alpha2.ClaimAccepted
+				b.acceptedPermissionClaims = append(b.acceptedPermissionClaims, parsedClaim)
+			}
+
+			// Add to rejected claims if user requested reject-all
+			if b.RejectAllPermissionClaims {
+				parsedClaim.State = apisv1alpha2.ClaimRejected
+				b.rejectedPermissionClaims = append(b.rejectedPermissionClaims, parsedClaim)
+			}
+		}
+	}
+
+	apiBinding, err := b.newAPIBinding(preferredAPIBindingVersion)
+	if err != nil {
+		return fmt.Errorf("failed to create APIBinding: %w", err)
 	}
 
 	if err := apiBinding.Create(ctx, kcpClusterClient.Cluster(currentClusterName)); err != nil {

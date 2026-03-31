@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
@@ -109,6 +110,13 @@ func TestMutatingWebhookInWorkspace(t *testing.T) {
 		t.Logf("Bootstrapping Workspace CRDs in logical cluster %s", wsPath)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
 		wildwest.Create(t, wsPath, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
+	}
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	cowboysGVR := schema.GroupVersionResource{Group: "wildwest.dev", Resource: "cowboys", Version: "v1alpha1"}
+	for _, wsPath := range paths {
+		kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(wsPath).Discovery(), cowboysGVR.GroupVersion())
 	}
 
 	t.Logf("Installing webhook into the first workspace")
@@ -229,6 +237,13 @@ func TestValidatingWebhookInWorkspace(t *testing.T) {
 		t.Logf("Bootstrapping Workspace CRDs in logical cluster %s", wsPath)
 		crdClient := apiExtensionsClients.ApiextensionsV1().CustomResourceDefinitions()
 		wildwest.Create(t, wsPath, crdClient, metav1.GroupResource{Group: "wildwest.dev", Resource: "cowboys"})
+	}
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	cowboysGVR := schema.GroupVersionResource{Group: "wildwest.dev", Resource: "cowboys", Version: "v1alpha1"}
+	for _, wsPath := range paths {
+		kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(wsPath).Discovery(), cowboysGVR.GroupVersion())
 	}
 
 	t.Logf("Installing webhook into the first workspace")

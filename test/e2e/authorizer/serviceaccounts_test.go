@@ -204,7 +204,7 @@ func TestServiceAccounts(t *testing.T) {
 
 				t.Log("Accessing workspace with the service account")
 				obj, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
-				require.Error(t, err, fmt.Sprintf("expected error accessing workspace with the service account, got: %v", obj))
+				require.Error(t, err, "expected error accessing workspace with the service account, got: %v", obj)
 
 				t.Log("Giving the access to configmaps in the other workspace")
 				_, err = kubeClusterClient.Cluster(otherPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
@@ -281,8 +281,6 @@ func TestServiceAccounts(t *testing.T) {
 			})
 
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
-				// See https://github.com/kcp-dev/kcp/issues/3397
-				t.Skip()
 				t.Log("Create namespace with the same name")
 				otherOrgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, otherOrgPath)
@@ -295,7 +293,7 @@ func TestServiceAccounts(t *testing.T) {
 
 				t.Log("Accessing workspace with the service account")
 				obj, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
-				require.Error(t, err, fmt.Sprintf("expected error accessing workspace with the service account, got: %v", obj))
+				require.Error(t, err, "expected error accessing workspace with the service account, got: %v", obj)
 			})
 
 			t.Run("A service account is allowed to escalate permissions implicitly", func(t *testing.T) {

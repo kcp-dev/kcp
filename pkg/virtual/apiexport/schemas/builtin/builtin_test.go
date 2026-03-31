@@ -49,5 +49,5 @@ func TestInit(t *testing.T) {
 		require.Truef(t, versionFound, "could not find version %s in API resource schema %s", api.GroupVersion.String(), schema.Name)
 	}
 
-	require.Equal(t, len(builtInAPIResourceSchemas), len(visitedResourceSchemas))
+	require.Len(t, visitedResourceSchemas, len(builtInAPIResourceSchemas))
 }

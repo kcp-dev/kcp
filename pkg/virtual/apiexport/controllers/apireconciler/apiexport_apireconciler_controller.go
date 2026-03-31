@@ -41,12 +41,12 @@ import (
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	apisv1alpha1listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha1"
 	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
 )
 
 const (

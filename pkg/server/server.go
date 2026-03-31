@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	virtualrootapiserver "github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
 	configrootidentities "github.com/kcp-dev/kcp/config/root-identities"
@@ -63,7 +64,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/virtualresources"
-	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 
 	_ "net/http/pprof"
 )

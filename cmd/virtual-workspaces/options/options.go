@@ -30,8 +30,12 @@ import (
 	"k8s.io/component-base/logs"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 
+	frameworkvwoptions "github.com/kcp-dev/virtual-workspace-framework/pkg/options"
+
 	cacheoptions "github.com/kcp-dev/kcp/pkg/cache/client/options"
 	corevwoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
+
+	_ "github.com/kcp-dev/kcp/pkg/logging/json/register"
 )
 
 // DefaultRootPathPrefix is basically constant forever, or we risk a breaking change. The
@@ -49,13 +53,13 @@ type Options struct {
 	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
 	Authentication genericapiserveroptions.DelegatingAuthenticationOptions
-	Authorization  corevwoptions.Authorization
+	Authorization  frameworkvwoptions.Authorization
 	Audit          genericapiserveroptions.AuditOptions
 
 	Logs *logs.Options
 
 	CoreVirtualWorkspaces     corevwoptions.Options
-	VirtualWorkspaceAdmission corevwoptions.Admission
+	VirtualWorkspaceAdmission frameworkvwoptions.Admission
 
 	ProfilerAddress string
 }
@@ -69,12 +73,12 @@ func NewOptions() *Options {
 		Cache:          *cacheoptions.NewCache(),
 		SecureServing:  *genericapiserveroptions.NewSecureServingOptions(),
 		Authentication: *genericapiserveroptions.NewDelegatingAuthenticationOptions(),
-		Authorization:  *corevwoptions.NewAuthorization(),
+		Authorization:  *frameworkvwoptions.NewAuthorization(),
 		Audit:          *genericapiserveroptions.NewAuditOptions(),
 		Logs:           logs.NewOptions(),
 
 		CoreVirtualWorkspaces:     *corevwoptions.NewOptions(),
-		VirtualWorkspaceAdmission: *corevwoptions.NewAdmission(),
+		VirtualWorkspaceAdmission: *frameworkvwoptions.NewAdmission(),
 		ProfilerAddress:           "",
 	}
 

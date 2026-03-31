@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,14 +48,18 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
-	t.Log("Get the logicalcluster")
-	lc, err := kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Get(t.Context(), "cluster", v1.GetOptions{})
-	require.NoError(t, err)
-
-	t.Log("Mark the logicalcluster as inactive")
-	lc.Annotations[filters.InactiveAnnotation] = "true"
-	lc, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
-	require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		lc, err := kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Get(t.Context(), "cluster", v1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		lc.Annotations[filters.InactiveAnnotation] = "true"
+		_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Verify that normal requests fail")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -68,12 +71,20 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Remove inactive annotation again")
-	delete(lc.Annotations, filters.InactiveAnnotation)
-	_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
-	require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		lc, err := kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Get(t.Context(), "cluster", v1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		delete(lc.Annotations, filters.InactiveAnnotation)
+		_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Verify that normal requests succeed again")
-	assert.NoError(t, err, "expected no error when accessing an active logical cluster")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := kubeClient.Cluster(orgPath).CoreV1().Namespaces().List(t.Context(), v1.ListOptions{})
 		if err != nil {

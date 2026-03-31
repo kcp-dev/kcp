@@ -38,6 +38,8 @@ COPY staging/src/github.com/kcp-dev/code-generator/go.mod staging/src/github.com
 COPY staging/src/github.com/kcp-dev/code-generator/go.sum staging/src/github.com/kcp-dev/code-generator/go.sum
 COPY staging/src/github.com/kcp-dev/sdk/go.mod staging/src/github.com/kcp-dev/sdk/go.mod
 COPY staging/src/github.com/kcp-dev/sdk/go.sum staging/src/github.com/kcp-dev/sdk/go.sum
+COPY staging/src/github.com/kcp-dev/virtual-workspace-framework/go.mod staging/src/github.com/kcp-dev/virtual-workspace-framework/go.mod
+COPY staging/src/github.com/kcp-dev/virtual-workspace-framework/go.sum staging/src/github.com/kcp-dev/virtual-workspace-framework/go.sum
 USER 0
 
 # Install kubectl.

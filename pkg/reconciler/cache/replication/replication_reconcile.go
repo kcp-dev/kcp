@@ -160,6 +160,11 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 			return nil
 		}
 
+		if localExists && len(localCopy.GetFinalizers()) > 0 {
+			// But do respect finalizers. We'll try to delete it on the next iteration.
+			return nil
+		}
+
 		// Object doesn't exist anymore, delete it from the global cache.
 		logger.V(2).WithValues("cluster", clusterName, "namespace", ns, "name", name).Info("Deleting object from global cache")
 		if err := r.deleteObject(ctx, clusterName, ns, name); err != nil && !apierrors.IsNotFound(err) {

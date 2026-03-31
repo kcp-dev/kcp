@@ -118,10 +118,6 @@ build: require-jq require-go require-git verify-go-versions ## Build the project
     done
 .PHONY: build
 
-.PHONY: build-all
-build-all:
-	GOOS=$(OS) GOARCH=$(ARCH) $(MAKE) build WHAT='./cmd/...'
-
 install: WHAT ?= ./cmd/... ./staging/src/github.com/kcp-dev/cli/cmd/... ./staging/src/github.com/kcp-dev/sdk/cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
 	set -x; for W in $(WHAT); do \
@@ -328,7 +324,7 @@ endif
 test-e2e: $(HTTEST)
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
-test-e2e: build-all ## Run e2e tests
+test-e2e: build ## Run e2e tests
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
 
@@ -346,7 +342,7 @@ test-e2e-shared-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-shared-minimal: LOG_DIR ?= $(WORK_DIR)/.kcp
 endif
-test-e2e-shared-minimal: build-all
+test-e2e-shared-minimal: build
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 \
@@ -373,7 +369,7 @@ test-e2e-sharded-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-sharded-minimal: LOG_DIR ?= $(WORK_DIR)/.kcp
 endif
-test-e2e-sharded-minimal: build-all
+test-e2e-sharded-minimal: build
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
@@ -410,7 +406,7 @@ test: ## Run tests
 	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Testing $$MOD module..."; \
-			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)); \
+			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v 'test/load/testing')); \
 		fi; \
 	done
 

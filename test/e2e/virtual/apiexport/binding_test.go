@@ -162,8 +162,8 @@ func TestBinding(t *testing.T) {
 	serviceProviderVirtualWorkspaceConfig := rest.CopyConfig(serviceProviderUser)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExportEndpointSlice, err := kcpClient.Cluster(serviceWorkspacePath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "api-manager", metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("waiting on apiexport to be available %v", err.Error())
+		if kcptestinghelpers.TolerateOrFail(t, err, kerrors.IsNotFound) {
+			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
 		serviceProviderVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
@@ -310,7 +310,9 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
+		if kcptestinghelpers.TolerateOrFail(t, err, kerrors.IsNotFound) {
+			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
+		}
 		var found bool
 		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
@@ -347,7 +349,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	t.Logf("Make sure secrets list shows nothing to start")
 	secrets, err := kubeClusterClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err, "error listing secrets inside %q", consumerPath)
-	require.Zero(t, len(secrets.Items), "expected 0 secrets inside %q", consumerPath)
+	require.Empty(t, secrets.Items, "expected 0 secrets inside %q", consumerPath)
 
 	t.Logf("Create a secret in consumer workspace %q before allowing create", consumerPath)
 	secretName := fmt.Sprintf("secret-%s", consumerPath.Base())
@@ -489,7 +491,9 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
+		if kcptestinghelpers.TolerateOrFail(t, err, kerrors.IsNotFound) {
+			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
+		}
 		var found bool
 		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
@@ -566,7 +570,7 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 			FieldManager:    "test-manager",
 			FieldValidation: "Ignore",
 		})
-		if err != nil {
+		if kcptestinghelpers.TolerateOrFail(t, err, kerrors.IsConflict, kerrors.IsForbidden) {
 			return false, err.Error()
 		}
 		require.NotNil(t, configMap)
@@ -661,7 +665,9 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExportEndpointSlice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
+		if kcptestinghelpers.TolerateOrFail(t, err, kerrors.IsNotFound) {
+			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
+		}
 		var found bool
 		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)

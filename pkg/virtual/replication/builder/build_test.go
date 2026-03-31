@@ -23,7 +23,7 @@ import (
 
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
 func TestDigestUrl(t *testing.T) {

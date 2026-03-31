@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeadmission "k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
@@ -31,9 +32,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/admission"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/admission"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 )
 
 type selectorAdmission struct {
@@ -57,7 +59,17 @@ func NewSelectorAdmission(apiBindingInformer apisv1alpha2informers.APIBindingClu
 					continue
 				}
 
-				if binding.Spec.Reference.Export != nil && binding.Spec.Reference.Export.Name == apiExportName && binding.Status.APIExportClusterName == apiExportCluster {
+				if binding.Spec.Reference.Export == nil || binding.Spec.Reference.Export.Name != apiExportName {
+					continue
+				}
+
+				if binding.Status.APIExportClusterName == apiExportCluster {
+					return binding, nil
+				}
+
+				// During binding initialization, Status.APIExportClusterName may not be set yet.
+				// Fall back to matching via the spec path.
+				if binding.Status.APIExportClusterName == "" && binding.Spec.Reference.Export.Path == apiExportCluster {
 					return binding, nil
 				}
 			}
@@ -103,6 +115,9 @@ func (s *selectorAdmission) Admit(ctx context.Context, a kubeadmission.Attribute
 		}
 	}
 
+	// Normalize the requested group/resource to handle the events.k8s.io ↔ core/v1 equivalence.
+	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: a.GetResource().Group, Resource: a.GetResource().Resource})
+
 	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
 		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
@@ -110,7 +125,7 @@ func (s *selectorAdmission) Admit(ctx context.Context, a kubeadmission.Attribute
 		}
 
 		// if we find the resource by its group/resource
-		if permissionClaim.Group == a.GetResource().Group && permissionClaim.Resource == a.GetResource().Resource {
+		if permissionClaim.Group == normalizedGR.Group && permissionClaim.Resource == normalizedGR.Resource {
 			// if permissionClaim is matchAll, nothing to do
 			if permissionClaim.Selector.MatchAll {
 				return nil
@@ -195,6 +210,8 @@ func (s *selectorAdmission) Validate(ctx context.Context, a kubeadmission.Attrib
 		}
 	}
 
+	// Normalize the requested group/resource to handle the events.k8s.io ↔ core/v1 equivalence.
+	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: a.GetResource().Group, Resource: a.GetResource().Resource})
 	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
 		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
@@ -202,7 +219,7 @@ func (s *selectorAdmission) Validate(ctx context.Context, a kubeadmission.Attrib
 		}
 
 		// if we find the resource by its group/resource
-		if permissionClaim.Group == a.GetResource().Group && permissionClaim.Resource == a.GetResource().Resource {
+		if permissionClaim.Group == normalizedGR.Group && permissionClaim.Resource == normalizedGR.Resource {
 			// if permissionClaim is matchAll, nothing to do
 			if permissionClaim.Selector.MatchAll {
 				return nil

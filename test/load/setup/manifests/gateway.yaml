@@ -1,0 +1,101 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy-gateway
+  namespace: envoy-gateway-system
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kcp-loadtest
+  namespace: kcp
+  annotations:
+    $GATEWAY_ANNOTATIONS
+spec:
+  gatewayClassName: envoy-gateway
+  listeners:
+    - name: https
+      # the funky double-quotes are needed to make the yq yaml parser happy when using asterisks
+      hostname: '"*.$GATEWAY_BASE_URL"'
+      protocol: TLS
+      port: 443
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: All
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: kcp-frontproxy
+  namespace: kcp
+spec:
+  parentRefs:
+    - name: kcp-loadtest
+      namespace: kcp
+  hostnames:
+    - "frontproxy.$GATEWAY_BASE_URL"
+  rules:
+    - backendRefs:
+        - name: frontproxy-front-proxy
+          namespace: kcp
+          port: 6443
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: kcp-rootshard
+  namespace: kcp
+spec:
+  parentRefs:
+    - name: kcp-loadtest
+      namespace: kcp
+  hostnames:
+    - "root.$GATEWAY_BASE_URL"
+  rules:
+    - backendRefs:
+        - name: root-kcp
+          namespace: kcp
+          port: 6443
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: kcp-shard-2
+  namespace: kcp
+spec:
+  parentRefs:
+    - name: kcp-loadtest
+      namespace: kcp
+  hostnames:
+    - "shard2.$GATEWAY_BASE_URL"
+  rules:
+    - backendRefs:
+        - name: shard2-shard-kcp
+          namespace: kcp
+          port: 6443
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: TLSRoute
+metadata:
+  name: kcp-shard-3
+  namespace: kcp
+spec:
+  parentRefs:
+    - name: kcp-loadtest
+      namespace: kcp
+  hostnames:
+    - "shard3.$GATEWAY_BASE_URL"
+  rules:
+    - backendRefs:
+        - name: shard3-shard-kcp
+          namespace: kcp
+          port: 6443

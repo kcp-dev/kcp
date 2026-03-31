@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -73,7 +74,9 @@ func TestAPIExportOpenAPI(t *testing.T) {
 	apiExportVWCfg := rest.CopyConfig(cfg)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apiExportEndpointSlice, err := kcpClients.Cluster(serviceProviderPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
-		require.NoError(t, err)
+		if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsNotFound) {
+			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
+		}
 		var found bool
 		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)

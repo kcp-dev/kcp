@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontproxy
+  namespace: kcp
+spec:
+  type: ExternalName
+  externalName: frontproxy-front-proxy.kcp.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: root
+  namespace: kcp
+spec:
+  type: ExternalName
+  externalName: root-kcp.kcp.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shard2
+  namespace: kcp
+spec:
+  type: ExternalName
+  externalName: shard2-shard-kcp.kcp.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shard3
+  namespace: kcp
+spec:
+  type: ExternalName
+  externalName: shard3-shard-kcp.kcp.svc.cluster.local

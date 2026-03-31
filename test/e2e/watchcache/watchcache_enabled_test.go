@@ -70,6 +70,12 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 	t.Log("Creating wildwest.dev.cowboys CR")
 	wildwest.Create(t, wsPath, kcpCRDClusterClient, cowBoysGR)
+
+	kcpClusterClient2, err := kcpclientset.NewForConfig(clusterConfig)
+	require.NoError(t, err)
+	cowboysGVR := schema.GroupVersionResource{Group: "wildwest.dev", Resource: "cowboys", Version: "v1alpha1"}
+	kcptesting.WaitForAPIReady(t, kcpClusterClient2.Cluster(wsPath).Discovery(), cowboysGVR.GroupVersion())
+
 	wildwestClusterClient, err := wildwestclientset.NewForConfig(clusterConfig)
 	require.NoError(t, err)
 	_, err = wildwestClusterClient.Cluster(wsPath).WildwestV1alpha1().Cowboys("default").Create(t.Context(), &wildwestv1alpha1.Cowboy{
@@ -97,7 +103,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 	for range 10 {
 		res, err := wildwestClusterClient.Cluster(wsPath).WildwestV1alpha1().Cowboys("default").List(t.Context(), metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
-		require.Equal(t, 1, len(res.Items), "expected to get exactly one cowboy")
+		require.Len(t, res.Items, 1, "expected to get exactly one cowboy")
 	}
 
 	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(t.Context(), t, server.RootShardSystemMasterBaseConfig(t), "wildwest.dev", "cowboys")
@@ -147,7 +153,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	for range 10 {
 		res, err := dynamicKcpClusterClient.Cluster(wsConsume1aPath).Resource(sheriffsGVR).Namespace("default").List(t.Context(), metav1.ListOptions{ResourceVersion: "0"})
 		require.NoError(t, err)
-		require.Equal(t, 1, len(res.Items), "expected to get exactly one sheriff")
+		require.Len(t, res.Items, 1, "expected to get exactly one sheriff")
 	}
 
 	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(t.Context(), t, server.RootShardSystemMasterBaseConfig(t), "newyork.io", "sheriffs")

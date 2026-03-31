@@ -276,6 +276,9 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	group := framework.UniqueGroup(".io")
@@ -293,6 +296,9 @@ func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	bootstrapCRD(t, ws2Path, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), sheriffCRD2)
 
 	sheriffsGVR := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
+
+	kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(ws1Path).Discovery(), sheriffsGVR.GroupVersion())
+	kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(ws2Path).Discovery(), sheriffsGVR.GroupVersion())
 
 	// Test with 2 workspaces to make sure GC works for both
 	workspaces := []logicalcluster.Path{ws1Path, ws2Path}
@@ -356,6 +362,9 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	group := framework.UniqueGroup(".io")
@@ -369,6 +378,8 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 
 	sheriffsGVRv1 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v1"}
 	sheriffsGVRv2 := schema.GroupVersionResource{Group: group, Resource: "sheriffs", Version: "v2"}
+
+	kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(wsPath).Discovery(), sheriffsGVRv1.GroupVersion())
 
 	t.Logf("Creating owner v1 sheriff")
 	ownerv1, err := dynamicClusterClient.Cluster(wsPath).Resource(sheriffsGVRv1).Namespace("default").
@@ -519,6 +530,9 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic client for server")
 
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
 	group := framework.UniqueGroup(".io")
@@ -531,6 +545,8 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	bootstrapCRD(t, wsPath, crdClusterClient.ApiextensionsV1().CustomResourceDefinitions(), crd)
 
 	gvr := schema.GroupVersionResource{Group: group, Resource: crd.Spec.Names.Plural, Version: "v1"}
+
+	kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(wsPath).Discovery(), gvr.GroupVersion())
 
 	t.Logf("Creating owner clustered")
 	owner, err := dynamicClusterClient.Cluster(wsPath).Resource(gvr).

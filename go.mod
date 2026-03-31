@@ -25,6 +25,7 @@ require (
 	github.com/kcp-dev/embeddedetcd v1.1.0
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/kcp-dev/sdk v0.0.0
+	github.com/kcp-dev/virtual-workspace-framework v0.0.0
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.23.2
@@ -34,6 +35,7 @@ require (
 	github.com/xrstf/mockoidc v0.0.0-20250721141841-711cc4e835f6
 	go.uber.org/goleak v1.3.1-0.20251210191316-2b7fd8a0d244
 	go.uber.org/multierr v1.11.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/sys v0.39.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	k8s.io/api v0.35.1
@@ -91,6 +93,7 @@ replace (
 	github.com/kcp-dev/client-go => ./staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
 	github.com/kcp-dev/sdk => ./staging/src/github.com/kcp-dev/sdk
+	github.com/kcp-dev/virtual-workspace-framework => ./staging/src/github.com/kcp-dev/virtual-workspace-framework
 )
 
 require (
@@ -180,7 +183,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
