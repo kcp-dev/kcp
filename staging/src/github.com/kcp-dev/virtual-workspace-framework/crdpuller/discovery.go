@@ -16,12 +16,6 @@ limitations under the License.
 
 package crdpuller
 
-// We import the generic control plane scheme to provide access to the kcp control plane scheme,
-// that gathers a minimal set of Kubernetes APIs without any workload-related APIs.
-//
-// We don't want to import, from physical clusters; resources that are already part of the control
-// plane scheme. The side-effect import of the generic control plane install is to required to
-// install all the required resources in the control plane scheme.
 import (
 	"context"
 	"fmt"
@@ -96,7 +90,7 @@ func NewSchemaPuller(
 
 // PullCRDs allows pulling the resources named by their plural names
 // and make them available as CRDs in the output map.
-// If the list of resources is empty, it will try pulling all the resources it finds.
+// If the list of resources is empty, it will pull all resources from the provided schema.
 func (sp *schemaPuller) PullCRDs(ctx context.Context, kcpSchema *runtime.Scheme, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
 	logger := klog.FromContext(ctx)
 

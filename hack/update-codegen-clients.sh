@@ -139,7 +139,7 @@ go install "${OPENAPI_PKG}"/cmd/openapi-gen
 # openapi-gen tries to rewrite license headers in k8s.io packages, which fails with permission errors.
 "$GOPATH"/bin/openapi-gen \
   --go-header-file "${BOILERPLATE_HEADER}" \
-  --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
+  --output-pkg github.com/kcp-dev/sdk/openapi \
   --output-file zz_generated.openapi.go \
   --output-model-name-file zz_generated.model_name.go \
   --output-dir "${SDK_PKG}/openapi" \
@@ -153,7 +153,7 @@ go install "${OPENAPI_PKG}"/cmd/openapi-gen
 
 "$GOPATH"/bin/openapi-gen \
   --go-header-file "${BOILERPLATE_HEADER}" \
-  --output-pkg github.com/kcp-dev/kcp/pkg/openapi \
+  --output-pkg github.com/kcp-dev/sdk/openapi \
   --output-file zz_generated.openapi.go \
   --output-dir "${SDK_PKG}/openapi" \
   github.com/kcp-dev/sdk/apis/core/v1alpha1 \

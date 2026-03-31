@@ -1,7 +1,7 @@
 # Contributing
 
-sdk is [Apache 2.0 licensed](LICENSE), and we accept contributions via
-GitHub pull requests.
+virtual-workspace-framework is [Apache 2.0 licensed](LICENSE), and we accept
+contributions via GitHub pull requests.
 
 Please read the following guide if you're interested in contributing.
 
