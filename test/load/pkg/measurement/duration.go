@@ -24,5 +24,5 @@ import "time"
 //	defer measurement.RecordElapsedDurationMS(time.Now(), sink)
 func RecordElapsedDurationMS(start time.Time, sink Sink) {
 	duration := time.Since(start)
-	sink.Drop(Measurement{Name: "duration_ms", Value: float64(duration.Milliseconds())})
+	sink.Drop(Measurement{Name: "duration_ms", Value: duration.Seconds() * 1000})
 }
