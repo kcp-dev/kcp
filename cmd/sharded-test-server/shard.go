@@ -93,8 +93,6 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(kcpDir, "service-account.crt")),
 		fmt.Sprintf("--service-account-private-key-file=%s", filepath.Join(kcpDir, "service-account.key")),
 		fmt.Sprintf("--service-account-signing-key-file=%s", filepath.Join(kcpDir, "service-account.key")),
-		// TODO(sttts): remove this flag as soon as we have service account token lookup configured.
-		"--service-account-lookup=false",
 		"--audit-log-path", auditFilePath,
 		fmt.Sprintf("--shard-external-url=https://%s:%d", hostIP, 6443),
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(shardDir, "apiserver.crt")),
@@ -105,7 +103,6 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--shard-client-cert-file=%s", shardClientCert),
 		fmt.Sprintf("--shard-client-key-file=%s", shardClientCertKey),
 		fmt.Sprintf("--shard-virtual-workspace-ca-file=%s", filepath.Join(kcpDir, "serving-ca.crt")),
-		"--service-account-lookup=false",
 	)
 	if len(cacheServerConfigPath) > 0 {
 		args = append(args, fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath))
