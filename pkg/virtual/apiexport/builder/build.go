@@ -41,6 +41,13 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	virtualdynamic "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
@@ -48,13 +55,6 @@ import (
 	virtualapiexportauth "github.com/kcp-dev/kcp/pkg/virtual/apiexport/authorizer"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	virtualdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 const (

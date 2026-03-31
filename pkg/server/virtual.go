@@ -30,11 +30,11 @@ import (
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	frameworkvwoptions "github.com/kcp-dev/virtual-workspace-framework/pkg/options"
+	virtualrootapiserver "github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	virtualcommandoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
-	virtualrootapiserver "github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
-	virtualoptions "github.com/kcp-dev/kcp/pkg/virtual/options"
 )
 
 type mux interface {
@@ -75,7 +75,7 @@ func newVirtualConfig(
 		return nil, err
 	}
 
-	authorizationOptions := virtualoptions.NewAuthorization()
+	authorizationOptions := frameworkvwoptions.NewAuthorization()
 	authorizationOptions.AlwaysAllowGroups = o.Authorization.AlwaysAllowGroups
 	authorizationOptions.AlwaysAllowPaths = o.Authorization.AlwaysAllowPaths
 	if err := authorizationOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
@@ -84,7 +84,7 @@ func newVirtualConfig(
 		return nil, err
 	}
 
-	admissionOptions := virtualoptions.NewAdmission()
+	admissionOptions := frameworkvwoptions.NewAdmission()
 	if err := admissionOptions.ApplyTo(&recommendedConfig.Config, func() []virtualrootapiserver.NamedVirtualWorkspace {
 		return c.Extra.VirtualWorkspaces
 	}); err != nil {

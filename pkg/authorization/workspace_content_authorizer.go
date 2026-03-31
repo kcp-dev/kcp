@@ -33,9 +33,9 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
+	rbacwrapper "github.com/kcp-dev/virtual-workspace-framework/pkg/wrappers/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
-	rbacwrapper "github.com/kcp-dev/kcp/pkg/virtual/framework/wrappers/rbac"
 )
 
 const (

@@ -26,10 +26,10 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 type APIExport struct{}

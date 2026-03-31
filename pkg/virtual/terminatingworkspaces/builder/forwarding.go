@@ -40,9 +40,8 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
-
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	registry "github.com/kcp-dev/kcp/pkg/virtual/framework/forwardingregistry"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
+	registry "github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 )
 
 // filteredLogicalClusterReadWriteRestStorage creates a RestProvider which will

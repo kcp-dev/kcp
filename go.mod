@@ -25,6 +25,7 @@ require (
 	github.com/kcp-dev/embeddedetcd v1.1.0
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/kcp-dev/sdk v0.0.0
+	github.com/kcp-dev/virtual-workspace-framework v0.0.0
 	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.23.2
@@ -92,6 +93,7 @@ replace (
 	github.com/kcp-dev/client-go => ./staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
 	github.com/kcp-dev/sdk => ./staging/src/github.com/kcp-dev/sdk
+	github.com/kcp-dev/virtual-workspace-framework => ./staging/src/github.com/kcp-dev/virtual-workspace-framework
 )
 
 require (

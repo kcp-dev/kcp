@@ -29,9 +29,8 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
-
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
 func TestDigestUrl(t *testing.T) {

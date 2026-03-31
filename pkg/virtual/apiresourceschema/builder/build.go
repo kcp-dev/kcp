@@ -36,17 +36,17 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	apisv1alpha1listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha1"
 	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	virtualworkspacesdynamic "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema"
 	apiresourceschemaauth "github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema/authorizer"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework"
-	virtualworkspacesdynamic "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apidefinition"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/apiserver"
-	dynamiccontext "github.com/kcp-dev/kcp/pkg/virtual/framework/dynamic/context"
-	"github.com/kcp-dev/kcp/pkg/virtual/framework/rootapiserver"
 )
 
 const (
