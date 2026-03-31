@@ -33,6 +33,7 @@ import (
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -43,8 +44,6 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/util"
 	"k8s.io/kube-openapi/pkg/util/proto"
-
-	kcpscheme "github.com/kcp-dev/kcp/pkg/server/scheme"
 )
 
 type schemaPuller struct {
@@ -98,7 +97,7 @@ func NewSchemaPuller(
 // PullCRDs allows pulling the resources named by their plural names
 // and make them available as CRDs in the output map.
 // If the list of resources is empty, it will try pulling all the resources it finds.
-func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
+func (sp *schemaPuller) PullCRDs(ctx context.Context, kcpSchema *runtime.Scheme, resourceNames ...string) (map[schema.GroupResource]*apiextensionsv1.CustomResourceDefinition, error) {
 	logger := klog.FromContext(ctx)
 
 	pullAllResources := len(resourceNames) == 0
@@ -155,14 +154,14 @@ func (sp *schemaPuller) PullCRDs(ctx context.Context, resourceNames ...string) (
 
 			logger := logger.WithValues("resource", apiResource.Name)
 
-			if kcpscheme.Scheme.IsGroupRegistered(gv.Group) && !kcpscheme.Scheme.IsVersionRegistered(gv) {
+			if kcpSchema.IsGroupRegistered(gv.Group) && !kcpSchema.IsVersionRegistered(gv) {
 				logger.Info("ignoring an apiVersion since it is part of the core kcp resources, but not compatible with kcp version")
 				continue
 			}
 
 			gvk := gv.WithKind(apiResource.Kind)
 			logger = logger.WithValues("kind", apiResource.Kind)
-			if (kcpscheme.Scheme.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
+			if (kcpSchema.Recognizes(gvk) || extensionsapiserver.Scheme.Recognizes(gvk)) && !resourcesToPull.Has(groupResource.String()) {
 				logger.Info("ignoring a resource since it is part of the core kcp resources")
 				continue
 			}

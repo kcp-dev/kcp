@@ -24,6 +24,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -107,7 +108,7 @@ func TestPuller(t *testing.T) {
 		},
 	}
 
-	_, err := puller.PullCRDs(context.Background(), "pods")
+	_, err := puller.PullCRDs(context.Background(), runtime.NewScheme(), "pods")
 	require.NoError(t, err, "error pulling")
 
 	require.Equal(t, 1, getCRDCount)
