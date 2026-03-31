@@ -406,7 +406,7 @@ test: ## Run tests
 	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Testing $$MOD module..."; \
-			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $(WHAT)); \
+			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v 'test/load/testing')); \
 		fi; \
 	done
 
