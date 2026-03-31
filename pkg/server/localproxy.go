@@ -175,12 +175,11 @@ func WithLocalProxy(
 			}
 			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
 			proxy := httputil.NewSingleHostReverseProxy(u)
-			// TODO(mjudeikis): remove this once we have a real cert wired in dev mode
-			proxy.Transport = &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			}
+			// Use the default transport which performs TLS verification.
+			// Workspace mount URLs are expected to present valid certificates.
+			// If the mount target uses a self-signed cert (e.g. local dev), the
+			// caller is responsible for configuring a trusted CA or using a URL
+			// with a valid cert rather than disabling verification globally.
 
 			proxy.ServeHTTP(w, req)
 			return
@@ -261,7 +260,10 @@ func NewLocalProxyHandler(defaultHandler http.Handler, additionalMappingsFile st
 			return nil, fmt.Errorf("failed to create path mapping for path %q: failed to parse URL %q: %w", m.Path, m.Backend, err)
 		}
 
-		// This is insecure, but just don't tell it to anyone :)
+		// AdditionalMappingsFile is a DEVELOPMENT ONLY feature. The backends
+		// it points to may use self-signed certificates (e.g. local kind clusters),
+		// so we allow skipping TLS verification here. This code path is never
+		// active in production deployments where AdditionalMappingsFile is unset.
 		transport, err := newInsecureTransport()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
@@ -299,10 +301,15 @@ func NewLocalProxyHandler(defaultHandler http.Handler, additionalMappingsFile st
 	return &handlers, nil
 }
 
+// newInsecureTransport returns an HTTP transport that skips TLS verification.
+// This MUST only be used for development-only code paths (e.g. AdditionalMappingsFile
+// backends). Never use this for production traffic.
+//
+//nolint:gosec // Intentionally insecure; only used in development mode (AdditionalMappingsFile).
 func newInsecureTransport() (*http.Transport, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, //nolint:gosec // dev-only, see function doc
 	}
 	return transport, nil
 }
