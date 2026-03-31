@@ -30,6 +30,11 @@
   function getLatestVersionPath() {
     const versions = getAvailableVersions();
     const latestVersion = versions[0];
+
+    if (!latestVersion) {
+      return null;
+    }
+
     const currentPath = window.location.pathname;
 
     return (
@@ -46,7 +51,13 @@
     <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
   `;
 
-    banner.querySelector("#latest-version-link").href = getLatestVersionPath();
+    banner.querySelector("#latest-version-link").addEventListener("click", function (e) {
+      const path = getLatestVersionPath();
+      if (path) {
+        e.preventDefault();
+        window.location.href = path;
+      }
+    });
 
     document.body.insertBefore(banner, document.body.firstChild);
 
