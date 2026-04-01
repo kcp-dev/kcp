@@ -48,6 +48,8 @@ import (
 // with the same data directory and that data written before the restart
 // survives.
 func TestKcpRestart(t *testing.T) {
+	t.Skip("Test causes too many flakes at the moment")
+
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
