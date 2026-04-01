@@ -661,6 +661,12 @@ func (s *Server) Run(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddPreShutdownHook("kcp-sa-cache", func() error {
+		s.Options.Extra.ServiceAccountCache.Stop()
+		return nil
+	}); err != nil {
+		return err
+	}
 	if len(s.Options.Cache.Client.KubeconfigFile) == 0 {
 		if err := s.installCacheServer(ctx); err != nil {
 			return err

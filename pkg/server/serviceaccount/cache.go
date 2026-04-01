@@ -56,12 +56,21 @@ type Cache struct {
 	secrets         coalescingCache[*corev1.Secret]
 }
 
-// NewCache returns an initialized Cache.
+// NewCache returns an initialized Cache. Call Stop to release resources.
 func NewCache() *Cache {
-	return &Cache{
+	c := &Cache{
 		serviceAccounts: newCoalescingCache[*corev1.ServiceAccount](),
 		secrets:         newCoalescingCache[*corev1.Secret](),
 	}
+	c.serviceAccounts.Start()
+	c.secrets.Start()
+	return c
+}
+
+// Stop releases background resources used by the cache.
+func (c *Cache) Stop() {
+	c.serviceAccounts.Stop()
+	c.secrets.Stop()
 }
 
 // SetKubeShardClient sets the client used to communicate with other shards.
