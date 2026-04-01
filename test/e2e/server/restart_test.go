@@ -183,9 +183,7 @@ func (k *kcpInstance) start(t *testing.T) {
 
 	cfg := k.adminConfig(t)
 
-	readyCtx, readyCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
-	defer readyCancel()
-	require.NoError(t, kcptestingserver.WaitForReady(readyCtx, cfg), "waiting for readiness (%s)", label)
+	require.NoError(t, kcptestingserver.WaitForReady(ctx, cfg), "waiting for readiness (%s)", label)
 
 	t.Logf("kcp (%s) is ready on port %s", label, securePort)
 }
