@@ -4201,13 +4201,20 @@ is a <code>http.RoundTripper</code> that sets a default shard name if not specif
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nx">ctx</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cacheclient</span><span class="p">.</span><span class="nx">WithShardInContext</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">shard</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;cache&quot;</span><span class="p">))</span>
 </code></pre></div>
 <h3 id="authorizationauthentication">Authorization/Authentication<a class="headerlink" href="#authorizationauthentication" title="Permanent link">&para;</a></h3>
-<p>Not implemented at the moment</p>
+<p>The cache server can only be connected to using x509 client certificates
+with the <code>system:masters</code> group. It does not support authz webhook,
+service accounts or other means of authentication or authorization.</p>
+<p>This is because the cache server is only meant to be used by the shards
+directly, not by operators or humans.</p>
+<p>The only exception are the health check endpoints, which are always
+accessible without authentication.</p>
 <h3 id="built-in-resources">Built-in Resources<a class="headerlink" href="#built-in-resources" title="Permanent link">&para;</a></h3>
 <p>Out of the box, the server supports the following resources:</p>
 <ul>
 <li><code>apiresourceschemas</code></li>
 <li><code>apiexports</code></li>
 <li><code>shards</code></li>
+<li><code>logicalclusters</code></li>
 </ul>
 <p>All those resources are represented as CustomResourceDefinitions and
 stored in <code>system:cache:server</code> shard under <code>system:system-crds</code> cluster.</p>
