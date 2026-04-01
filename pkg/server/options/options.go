@@ -33,14 +33,13 @@ import (
 	cliflag "k8s.io/component-base/cli/flag"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 
-	"github.com/kcp-dev/client-go/kubernetes"
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
+	kcpserviceaccount "github.com/kcp-dev/kcp/pkg/server/serviceaccount"
 )
 
 type Options struct {
@@ -79,6 +78,8 @@ type ExtraOptions struct {
 	// --miniproxy-mapping-file flag of the front-proxy. Do NOT expose this flag to users via main server options.
 	// It is overridden by the kcp start command.
 	AdditionalMappingsFile string
+
+	ServiceAccountCache *kcpserviceaccount.Cache
 }
 
 type completedOptions struct {
@@ -99,7 +100,9 @@ type CompletedOptions struct {
 }
 
 // NewOptions creates a new Options with default parameters.
-func NewOptions(rootDir string, delayedKubeClusterClient *kubernetes.ClusterInterface, delayedKcpInformers *kcpinformers.SharedInformerFactory) *Options { //nolint:gocritic
+func NewOptions(rootDir string) *Options {
+	saCache := kcpserviceaccount.NewCache()
+
 	o := &Options{
 		GenericControlPlane: *controlplaneapiserver.NewOptions(),
 		EmbeddedEtcd:        *etcdoptions.NewOptions(rootDir),
@@ -120,14 +123,15 @@ func NewOptions(rootDir string, delayedKubeClusterClient *kubernetes.ClusterInte
 			ExperimentalBindFreePort:           false,
 			ConversionCELTransformationTimeout: time.Second,
 
-			BatteriesIncluded: sets.List[string](batteries.Defaults),
+			BatteriesIncluded:   sets.List[string](batteries.Defaults),
+			ServiceAccountCache: saCache,
 		},
 	}
 
 	// override all the stuff
 	o.GenericControlPlane.SecureServing.ServerCert.CertDirectory = rootDir
 	o.GenericControlPlane.Authentication.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
-	o.GenericControlPlane.Authentication.ServiceAccounts.OptionalTokenGetter = newServiceAccountTokenCache(delayedKubeClusterClient, delayedKcpInformers)
+	o.GenericControlPlane.Authentication.ServiceAccounts.OptionalTokenGetter = saCache.TokenGetter
 	o.GenericControlPlane.Etcd.StorageConfig.Transport.ServerList = []string{"embedded"}
 	o.GenericControlPlane.Authorization = nil // we have our own
 

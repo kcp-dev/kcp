@@ -36,9 +36,7 @@ import (
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/embeddedetcd"
-	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/sdk/cmd/help"
 
 	"github.com/kcp-dev/kcp/cmd/kcp/options"
@@ -94,13 +92,7 @@ func main() {
 		}
 	}
 
-	// these are late initialized on option->config. Hence, we pass the pointers here.
-	var (
-		delayedKcpInformers      kcpinformers.SharedInformerFactory
-		delayedClusterKubeClient kubernetes.ClusterInterface
-	)
-
-	kcpOptions := options.NewOptions(rootDir, &delayedClusterKubeClient, &delayedKcpInformers)
+	kcpOptions := options.NewOptions(rootDir)
 	kcpOptions.Server.GenericControlPlane.Logs.Verbosity = logsapiv1.VerbosityLevel(2)
 	kcpOptions.Server.Extra.AdditionalMappingsFile = additionalMappingsFile
 
@@ -146,10 +138,6 @@ func main() {
 			if err != nil {
 				return err
 			}
-
-			// set the delayed client and informers, used in the service account lookup
-			delayedKcpInformers = serverConfig.KcpSharedInformerFactory
-			delayedClusterKubeClient = serverConfig.KubeClusterClient
 
 			completedConfig, err := serverConfig.Complete()
 			if err != nil {

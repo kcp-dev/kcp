@@ -28,7 +28,7 @@ import (
 )
 
 func TestAllowedFlagList(t *testing.T) {
-	o := NewOptions(".kcp", nil, nil)
+	o := NewOptions(".kcp")
 	var fss cliflag.NamedFlagSets
 	o.GenericControlPlane.AddFlags(&fss)
 
@@ -56,7 +56,7 @@ func TestAllowedFlagList(t *testing.T) {
 }
 
 func TestAllowedFlagListCleanup(t *testing.T) {
-	o := NewOptions(".kcp", nil, nil)
+	o := NewOptions(".kcp")
 	var fss cliflag.NamedFlagSets
 	o.GenericControlPlane.AddFlags(&fss)
 

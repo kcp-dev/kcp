@@ -108,7 +108,7 @@ func (s *InProcessServer) Start(ctx context.Context, t kcptestingserver.TestingT
 	// feature gates) are initialized. This can produce data races and
 	// panics if tests are run in parallel.
 	globalOptionsLock.Lock()
-	serverOptions := kcpoptions.NewOptions(s.Config.DataDir, nil, nil)
+	serverOptions := kcpoptions.NewOptions(s.Config.DataDir)
 	globalOptionsLock.Unlock()
 
 	fss := flag.NamedFlagSets{}
