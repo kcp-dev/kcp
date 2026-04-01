@@ -42,7 +42,7 @@ func WaitForReady(ctx context.Context, cfg *rest.Config) error {
 	}
 
 	if err := waitForEndpoint(ctx, client, "/livez"); err != nil {
-		return fmt.Errorf("server at %s didn't become ready: %w", cfg.Host, err)
+		return fmt.Errorf("server at %s didn't become alive: %w", cfg.Host, err)
 	}
 	if err := waitForEndpoint(ctx, client, "/readyz"); err != nil {
 		return fmt.Errorf("server at %s didn't become ready: %w", cfg.Host, err)
