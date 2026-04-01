@@ -51,20 +51,25 @@ func updatePermissionClaimsStateV1alpha1(ctx context.Context, client kcpclientse
 	if err != nil {
 		return nil, err
 	}
-	resourceGroup, err := parseResourceGroup(options.ResourceGroup)
-	if err != nil {
-		return b, fmt.Errorf("invalid option group resource '%s'", resourceGroup)
-	}
 	claims := b.binding.Spec.PermissionClaims
+outofclaims:
 	for i, claim := range claims {
-		if options.IdentityHash != "" && claim.IdentityHash == options.IdentityHash {
-			claims[i].State = state
-			break
-		} else if claim.Group == resourceGroup.Group && claim.Resource == resourceGroup.Resource {
-			claims[i].State = state
+		switch {
+		case options.IdentityHash != "":
+
+			if claim.IdentityHash == options.IdentityHash {
+				claims[i].State = state
+				break outofclaims
+			}
+		case options.ResourceGroup != "":
+
+			resourceGroup := parseResourceGroup(options.ResourceGroup)
+
+			if claim.Group == resourceGroup.Group && claim.Resource == resourceGroup.Resource {
+				claims[i].State = state
+			}
 		}
 	}
-
 	b.binding, err = client.ApisV1alpha1().APIBindings().Update(ctx, b.binding, metav1.UpdateOptions{})
 	return b, err
 }

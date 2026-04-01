@@ -180,6 +180,9 @@ func (c *ClaimsAcceptOrRejectOptions) Complete(args []string) error {
 }
 
 func (c *ClaimsAcceptOrRejectOptions) Validate() error {
+	if c.APIBindingName == "" {
+		return fmt.Errorf("error APIBinding name is missing")
+	}
 	return c.Options.Validate()
 }
 
@@ -222,8 +225,15 @@ func (c *ClaimsAcceptOrRejectOptions) Run(ctx context.Context) error {
 		_, err = apishelpers.RejectAPIBindingPermissionClaims(ctx, kcpClusterClient.Cluster(currentClusterName), preferredAPIBindingVersion, c.APIBindingName, permissionClaimsOptions)
 	}
 	if err != nil {
-		return fmt.Errorf("error finding APIBinding: %w", err)
+		return fmt.Errorf("error updating permission claim for APIBinding %q: %w", c.APIBindingName, err)
 	}
+	switch {
+	case c.ResourceGroup != "":
+		fmt.Printf("claim %q ", c.ResourceGroup)
+	case c.IdentityHash != "":
+		fmt.Printf("claim with identity hash %q ", c.IdentityHash)
+	}
+	fmt.Printf("on APIBinding %q is %sed\n", c.APIBindingName, c.Action)
 	return nil
 }
 

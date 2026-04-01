@@ -27,9 +27,7 @@ import (
 	"github.com/kcp-dev/cli/pkg/claims/plugin"
 )
 
-// TODO: Add examples for edit and update claims.
-var (
-	claimsExample = `
+var claimsExample = `
 # Lists the permission claims and their respective status related to a specific APIBinding.
 %[1]s claims get apibinding cert-manager
 
@@ -54,7 +52,6 @@ var (
 # Reject specific permission claim of a specific APIBinding using identity hash
 %[1]s claims reject cert-manager --identity-hash=5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6
 `
-)
 
 // New returns a cobra.Command for claims related actions.
 func New(streams genericclioptions.IOStreams) *cobra.Command {

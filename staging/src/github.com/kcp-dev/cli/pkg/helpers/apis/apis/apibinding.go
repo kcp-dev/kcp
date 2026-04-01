@@ -44,7 +44,7 @@ type PermissionClaimsOptions struct {
 	ResourceGroup string
 }
 
-func parseResourceGroup(resourceGroupOption string) (*apisv1alpha2.GroupResource, error) {
+func parseResourceGroup(resourceGroupOption string) *apisv1alpha2.GroupResource {
 	s := strings.SplitN(resourceGroupOption, ".", 2)
 	resource := s[0]
 	group := ""
@@ -54,7 +54,7 @@ func parseResourceGroup(resourceGroupOption string) (*apisv1alpha2.GroupResource
 	if group == "core" {
 		group = ""
 	}
-	return &apisv1alpha2.GroupResource{Group: group, Resource: resource}, nil
+	return &apisv1alpha2.GroupResource{Group: group, Resource: resource}
 }
 
 func GetAPIBinding(ctx context.Context, client kcpclientset.Interface, preferredVersion string, name string) (APIBinding, error) {
