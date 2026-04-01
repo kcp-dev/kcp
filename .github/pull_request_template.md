@@ -13,6 +13,7 @@ If this is your first time, please make sure to review CONTRIBUTING.MD.
 
 Add one of the following kinds:
 /kind bug
+/kind chore
 /kind cleanup
 /kind documentation
 /kind feature
