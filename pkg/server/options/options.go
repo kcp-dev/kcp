@@ -34,6 +34,7 @@ import (
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -215,6 +216,10 @@ func (o *CompletedOptions) Validate() []error {
 	errs = append(errs, o.Virtual.Validate()...)
 	errs = append(errs, o.HomeWorkspaces.Validate()...)
 	errs = append(errs, o.Cache.Validate()...)
+
+	if o.Extra.ShardName != corev1alpha1.RootShard && len(o.Cache.Client.KubeconfigFile) == 0 {
+		errs = append(errs, fmt.Errorf("--cache-kubeconfig is required for non-root shards"))
+	}
 
 	differential := false
 	for i, b := range o.Extra.BatteriesIncluded {
@@ -403,6 +408,9 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 	//  - we need to modify wildcardClusterNameRegex and crdWildcardPartialMetadataClusterNameRegex
 	o.Cache.Server.Etcd.EnableWatchCache = false
 	o.Cache.Server.SecureServing = completedGenericOptions.SecureServing
+	// Pass the client ca configured on the shard to the embedded cache server.
+	// The cache server will still only allow access to identities with the system:master group.
+	o.Cache.Server.Authentication.ClientCAFile = o.GenericControlPlane.Authentication.ClientCert.ClientCA
 	cacheCompletedOptions, err := o.Cache.Complete()
 	if err != nil {
 		return nil, err

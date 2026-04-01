@@ -69,7 +69,15 @@ ctx = cacheclient.WithShardInContext(ctx, shard.New("cache"))
 
 ### Authorization/Authentication
 
-Not implemented at the moment
+The cache server can only be connected to using x509 client certificates
+with the `system:masters` group. It does not support authz webhook,
+service accounts or other means of authentication or authorization.
+
+This is because the cache server is only meant to be used by the shards
+directly, not by operators or humans.
+
+The only exception are the health check endpoints, which are always
+accessible without authentication.
 
 ### Built-in Resources
 
@@ -78,6 +86,7 @@ Out of the box, the server supports the following resources:
 - `apiresourceschemas`
 - `apiexports`
 - `shards`
+- `logicalclusters`
 
 All those resources are represented as CustomResourceDefinitions and
 stored in `system:cache:server` shard under `system:system-crds` cluster.

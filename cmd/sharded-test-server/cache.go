@@ -30,17 +30,19 @@ import (
 	"github.com/abiosoft/lineprefix"
 	"github.com/fatih/color"
 
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 )
 
-func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string, syntheticDelay time.Duration) (<-chan error, string, error) {
+func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string, syntheticDelay time.Duration, clientCA *crypto.CA, clientCAPath string) (<-chan error, string, error) {
 	cyan := color.New(color.BgHiCyan, color.FgHiWhite).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgHiCyan).SprintFunc()
 	out := lineprefix.New(
@@ -52,6 +54,32 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 		lineprefix.Color(color.New(color.FgHiWhite)),
 	)
 	cacheWorkingDir := filepath.Join(workingDir, ".kcp-cache")
+
+	// Generate a client certificate for accessing the cache server.
+	cacheClientCert := filepath.Join(cacheWorkingDir, "cache-client.crt")
+	cacheClientKey := filepath.Join(cacheWorkingDir, "cache-client.key")
+	if err := os.MkdirAll(cacheWorkingDir, 0755); err != nil {
+		return nil, "", err
+	}
+	_, err := clientCA.MakeClientCertificate(cacheClientCert, cacheClientKey,
+		&user.DefaultInfo{Name: "cache-client", Groups: []string{"system:masters"}}, 365)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create cache client cert: %w", err)
+	}
+
+	// Use absolute paths for the client cert/key so they resolve correctly
+	// regardless of how the kubeconfig is loaded. ClientConfigLoadingRules
+	// resolves relative paths relative to the kubeconfig file, while
+	// LoadFromFile + NewNonInteractiveClientConfig uses them as-is from CWD.
+	absCacheClientCert, err := filepath.Abs(cacheClientCert)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to resolve absolute path for cache client cert: %w", err)
+	}
+	absCacheClientKey, err := filepath.Abs(cacheClientKey)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to resolve absolute path for cache client key: %w", err)
+	}
+
 	cachePort := 8012
 	workdir, commandLine := kcptestingserver.Command("cache-server", "cache")
 	commandLine = append(
@@ -62,6 +90,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 		"--embedded-etcd-peer-port=8011",
 		fmt.Sprintf("--secure-port=%d", cachePort),
 		fmt.Sprintf("--synthetic-delay=%s", syntheticDelay.String()),
+		fmt.Sprintf("--client-ca-file=%s", clientCAPath),
 	)
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
@@ -119,35 +148,40 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 			continue
 		}
 
-		if _, err := os.Stat(cacheKubeconfigPath); os.IsNotExist(err) {
-			cacheServerCert, err := os.ReadFile(filepath.Join(cacheWorkingDir, "apiserver.crt"))
-			if err != nil {
-				return nil, "", err
-			}
-			cacheServerKubeConfig := clientcmdapi.Config{
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"cache": {
-						Server:                   fmt.Sprintf("https://localhost:%d", cachePort),
-						CertificateAuthorityData: cacheServerCert,
-					},
-				},
-				Contexts: map[string]*clientcmdapi.Context{
-					"cache": {
-						Cluster: "cache",
-					},
-				},
-				CurrentContext: "cache",
-			}
-			if err := clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath); err != nil {
-				return nil, "", err
-			}
-		}
-
-		cacheServerKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
+		cacheServerCert, err := os.ReadFile(filepath.Join(cacheWorkingDir, "apiserver.crt"))
 		if err != nil {
 			return nil, "", err
 		}
-		cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*cacheServerKubeConfig, "cache", nil, nil)
+		cacheServerKubeConfig := clientcmdapi.Config{
+			Clusters: map[string]*clientcmdapi.Cluster{
+				"cache": {
+					Server:                   fmt.Sprintf("https://localhost:%d", cachePort),
+					CertificateAuthorityData: cacheServerCert,
+				},
+			},
+			AuthInfos: map[string]*clientcmdapi.AuthInfo{
+				"cache": {
+					ClientCertificate: absCacheClientCert,
+					ClientKey:         absCacheClientKey,
+				},
+			},
+			Contexts: map[string]*clientcmdapi.Context{
+				"cache": {
+					Cluster:  "cache",
+					AuthInfo: "cache",
+				},
+			},
+			CurrentContext: "cache",
+		}
+		if err := clientcmd.WriteToFile(cacheServerKubeConfig, cacheKubeconfigPath); err != nil {
+			return nil, "", err
+		}
+
+		loadedKubeConfig, err := clientcmd.LoadFromFile(cacheKubeconfigPath)
+		if err != nil {
+			return nil, "", err
+		}
+		cacheClientConfig := clientcmd.NewNonInteractiveClientConfig(*loadedKubeConfig, "cache", nil, nil)
 		cacheClientRestConfig, err := cacheClientConfig.ClientConfig()
 		if err != nil {
 			return nil, "", err
