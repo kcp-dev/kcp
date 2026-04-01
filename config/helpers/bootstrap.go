@@ -207,6 +207,10 @@ func createResourceFromFS(ctx context.Context, client dynamic.Interface, mapper 
 		return fmt.Errorf("could not get REST mapping for %s: %w", gvk, err)
 	}
 
+	// Clear resourceVersion before CREATE - it may have been set by a previous
+	// failed attempt that got AlreadyExists and then retried.
+	u.SetResourceVersion("")
+
 	upserted, err := client.Resource(m.Resource).Namespace(u.GetNamespace()).Create(ctx, u, metav1.CreateOptions{})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
