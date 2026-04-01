@@ -42,7 +42,7 @@ func WaitForReady(ctx context.Context, cfg *rest.Config) error {
 	}
 
 	if err := waitForEndpoint(ctx, client, "/livez"); err != nil {
-		return fmt.Errorf("server at %s didn't become ready: %w", cfg.Host, err)
+		return fmt.Errorf("server at %s didn't become alive: %w", cfg.Host, err)
 	}
 	if err := waitForEndpoint(ctx, client, "/readyz"); err != nil {
 		return fmt.Errorf("server at %s didn't become ready: %w", cfg.Host, err)
@@ -53,7 +53,7 @@ func WaitForReady(ctx context.Context, cfg *rest.Config) error {
 
 func waitForEndpoint(ctx context.Context, client *rest.RESTClient, endpoint string) error {
 	var lastError error
-	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, time.Minute, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 		req := rest.NewRequest(client).RequestURI(endpoint)
 		if _, err := req.Do(ctx).Raw(); err != nil {
 			lastError = fmt.Errorf("error contacting %s: failed components: %v", req.URL(), unreadyComponentsFromError(err))
