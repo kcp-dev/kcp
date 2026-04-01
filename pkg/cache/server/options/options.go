@@ -32,8 +32,8 @@ type Options struct {
 	ServerRunOptions *genericoptions.ServerRunOptions
 	Etcd             *genericoptions.EtcdOptions
 	SecureServing    *genericoptions.SecureServingOptionsWithLoopback
-	Authentication   *genericoptions.DelegatingAuthenticationOptions
-	Authorization    *genericoptions.DelegatingAuthorizationOptions
+	Authentication   *Authentication
+	Authorization    *Authorization
 	APIEnablement    *genericoptions.APIEnablementOptions
 	EmbeddedEtcd     etcdoptions.Options
 	SyntheticDelay   time.Duration
@@ -43,8 +43,8 @@ type completedOptions struct {
 	ServerRunOptions *genericoptions.ServerRunOptions
 	Etcd             *genericoptions.EtcdOptions
 	SecureServing    *genericoptions.SecureServingOptionsWithLoopback
-	Authentication   *genericoptions.DelegatingAuthenticationOptions
-	Authorization    *genericoptions.DelegatingAuthorizationOptions
+	Authentication   *Authentication
+	Authorization    *Authorization
 	APIEnablement    *genericoptions.APIEnablementOptions
 	EmbeddedEtcd     etcdoptions.CompletedOptions
 	SyntheticDelay   time.Duration
@@ -72,8 +72,8 @@ func NewOptions(rootDir string) *Options {
 		ServerRunOptions: genericoptions.NewServerRunOptions(),
 		Etcd:             genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, nil)),
 		SecureServing:    genericoptions.NewSecureServingOptions().WithLoopback(),
-		Authentication:   genericoptions.NewDelegatingAuthenticationOptions(),
-		Authorization:    genericoptions.NewDelegatingAuthorizationOptions(),
+		Authentication:   NewAuthentication(),
+		Authorization:    NewAuthorization(),
 		APIEnablement:    genericoptions.NewAPIEnablementOptions(),
 		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
 	}
@@ -94,10 +94,6 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		o.EmbeddedEtcd.Enabled = true
 	}
 
-	// TODO: enable authN/Z stack
-	o.Authentication = nil
-	o.Authorization = nil
-
 	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, nil); err != nil {
 		return nil, err
 	}
@@ -116,5 +112,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.EmbeddedEtcd.AddFlags(fs)
 	o.SecureServing.AddFlags(fs)
+	o.Authentication.AddFlags(fs)
+	o.Authorization.AddFlags(fs)
 	fs.DurationVar(&o.SyntheticDelay, "synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests. Useful for testing.")
 }

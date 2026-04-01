@@ -197,12 +197,10 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
 	cacheServerErrCh := make(chan indexErrTuple)
-	cacheServerConfigPath := ""
-	cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay)
+	cacheServerCh, cacheServerConfigPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"))
 	if err != nil {
 		return fmt.Errorf("error starting the cache server: %w", err)
 	}
-	cacheServerConfigPath = configPath
 	go func() {
 		err := <-cacheServerCh
 		cacheServerErrCh <- indexErrTuple{0, err}
