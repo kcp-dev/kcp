@@ -103,14 +103,22 @@ func TestCacheServerReplicationAPI(t *testing.T) {
 
 			t.Logf("Create a instances object in workspace %q", rootOrg)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(rootOrg), mapper, nil, "assets/instances.yaml", testFiles)
-				return err == nil, ""
+				err := helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(rootOrg), mapper, nil, "assets/instances.yaml", testFiles)
+				if err != nil {
+					mapper.Reset()
+					return false, err.Error()
+				}
+				return true, ""
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for instances object to be created")
 
 			t.Logf("Create a publishedResource in workspace %q", rootOrg)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(rootOrg), mapper, nil, "assets/published-resource-instances.yaml", testFiles)
-				return err == nil, ""
+				err := helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(rootOrg), mapper, nil, "assets/published-resource-instances.yaml", testFiles)
+				if err != nil {
+					mapper.Reset()
+					return false, err.Error()
+				}
+				return true, ""
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for publishedResource to be created")
 
 			t.Logf("Wait for replication api to be ready and reporting 7 replicas")
