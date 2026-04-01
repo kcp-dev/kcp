@@ -34,6 +34,7 @@ func (s *Server) installCacheServer(ctx context.Context) error {
 	// this could be reworked if we were providing Config/CompletedConfig for the additional servers
 	wasEmbeddedEtcdEnabled := s.Options.EmbeddedEtcd.Enabled
 	s.Options.Cache.Server.EmbeddedEtcd.Enabled = false
+	s.Options.Cache.Server.Authentication.EmbeddedAuthenticator = s.GenericConfig.Authentication.Authenticator
 	newCacheServerConfig, err := cacheserver.NewConfig(s.Options.Cache.Server, rest.CopyConfig(s.GenericConfig.LoopbackClientConfig))
 	if err != nil {
 		return err
