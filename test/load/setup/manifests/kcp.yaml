@@ -6,7 +6,7 @@ metadata:
 spec:
   external:
     hostname: frontproxy.$GATEWAY_BASE_URL
-    port: 6443
+    port: 443
   certificates:
     issuerRef:
       group: cert-manager.io
@@ -94,7 +94,7 @@ metadata:
   name: shard2
   namespace: kcp
 spec:
-  shardBaseURL: "https://shard2.$GATEWAY_BASE_URL:6443"
+  shardBaseURL: "https://shard2.$GATEWAY_BASE_URL:443"
   certificateTemplates:
     server:
       spec:
@@ -138,7 +138,7 @@ metadata:
   name: shard3
   namespace: kcp
 spec:
-  shardBaseURL: "https://shard3.$GATEWAY_BASE_URL:6443"
+  shardBaseURL: "https://shard3.$GATEWAY_BASE_URL:443"
   certificateTemplates:
     server:
       spec:
