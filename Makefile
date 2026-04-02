@@ -73,7 +73,7 @@ KCP_APIGEN_BIN := apigen
 KCP_APIGEN_GEN := $(TOOLS_DIR)/$(KCP_APIGEN_BIN)
 export KCP_APIGEN_GEN # so hack scripts can use it
 
-PROMETHEUS_VER := 2.24.0
+PROMETHEUS_VER := 3.11.0
 PROMETHEUS_BIN := prometheus
 PROMETHEUS := $(abspath $(TOOLS_DIR))/$(PROMETHEUS_BIN)-$(PROMETHEUS_VER)
 
