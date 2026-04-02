@@ -122,6 +122,10 @@ build: require-jq require-go require-git verify-go-versions ## Build the project
     done
 .PHONY: build
 
+.PHONY: build-e2e
+build-e2e:
+	@$(MAKE) build WHAT='./cmd/... ./staging/src/github.com/kcp-dev/cli/cmd/...'
+
 install: WHAT ?= ./cmd/... ./staging/src/github.com/kcp-dev/cli/cmd/... ./staging/src/github.com/kcp-dev/sdk/cmd/...
 install: require-jq require-go require-git verify-go-versions ## Install the project
 	set -x; for W in $(WHAT); do \
@@ -337,7 +341,7 @@ endif
 test-e2e: $(HTTEST)
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
-test-e2e: build ## Run e2e tests
+test-e2e: build-e2e ## Run e2e tests
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) $(COMPLETE_SUITES_ARG)
 
@@ -355,7 +359,7 @@ test-e2e-shared-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-shared-minimal: LOG_DIR ?= $(WORK_DIR)/.kcp
 endif
-test-e2e-shared-minimal: build
+test-e2e-shared-minimal: build-e2e
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 \
@@ -382,7 +386,7 @@ test-e2e-sharded-minimal: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
 else
 test-e2e-sharded-minimal: LOG_DIR ?= $(WORK_DIR)/.kcp
 endif
-test-e2e-sharded-minimal: build
+test-e2e-sharded-minimal: build-e2e
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
