@@ -124,6 +124,119 @@ func (g *GetAPIBindingOptions) Run(ctx context.Context) error {
 	return bindingsList.PrintPermissionClaims(out)
 }
 
+// ClaimsAcceptOrRejectOptions contains options for fetching claims.
+// and their status corresponding to a specific APIBinding.
+// to update their state based on filters.
+type ClaimsAcceptOrRejectOptions struct {
+	*base.Options
+
+	// Name of the APIbinding whose claims we need to list.
+	APIBindingName string
+
+	// Resource and group to filter claims based on resource and group.
+	ResourceGroup string
+
+	// IdentityHash to filter a unique claim.
+	IdentityHash string
+
+	// Action is either "accept" or "reject".
+	Action string
+}
+
+type (
+	ClaimsAcceptOptions = ClaimsAcceptOrRejectOptions
+	ClaimsRejectOptions = ClaimsAcceptOrRejectOptions
+)
+
+const (
+	actionAccept = "accept"
+	actionReject = "reject"
+)
+
+func NewClaimsAcceptOrRejectOptions(streams genericclioptions.IOStreams, action string) *ClaimsAcceptOrRejectOptions {
+	return &ClaimsAcceptOrRejectOptions{
+		Options: base.NewOptions(streams),
+		Action:  action,
+	}
+}
+
+func NewClaimsAcceptOptions(streams genericclioptions.IOStreams) *ClaimsAcceptOptions {
+	return NewClaimsAcceptOrRejectOptions(streams, actionAccept)
+}
+
+func NewClaimsRejectOptions(streams genericclioptions.IOStreams) *ClaimsRejectOptions {
+	return NewClaimsAcceptOrRejectOptions(streams, actionReject)
+}
+
+func (c *ClaimsAcceptOrRejectOptions) Complete(args []string) error {
+	if err := c.Options.Complete(); err != nil {
+		return err
+	}
+
+	if len(args) > 0 {
+		c.APIBindingName = args[0]
+	}
+	return nil
+}
+
+func (c *ClaimsAcceptOrRejectOptions) Validate() error {
+	if c.APIBindingName == "" {
+		return fmt.Errorf("error APIBinding name is missing")
+	}
+	return c.Options.Validate()
+}
+
+func (c *ClaimsAcceptOrRejectOptions) BindFlags(cmd *cobra.Command) {
+	c.Options.BindFlags(cmd)
+	flagset := cmd.Flags()
+	flagset.StringVar(&c.ResourceGroup, "resource", "", "Resource group of permission claim. Format: --resource resource.group")
+	flagset.StringVar(&c.IdentityHash, "identity-hash", "", "Identity hash of the resource. Format: --identity-hash id")
+}
+
+// Run claims accept or claims reject.
+func (c *ClaimsAcceptOrRejectOptions) Run(ctx context.Context) error {
+	cfg, err := c.ClientConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+
+	_, currentClusterName, err := pluginhelpers.ParseClusterURL(cfg.Host)
+	if err != nil {
+		return fmt.Errorf("current URL %q does not point to workspace", cfg.Host)
+	}
+
+	preferredAPIBindingVersion, err := pluginhelpers.PreferredVersion(cfg, schema.GroupResource{
+		Group:    apis.GroupName,
+		Resource: "apibindings",
+	})
+	if err != nil {
+		return fmt.Errorf("service discovery failed: %w", err)
+	}
+
+	kcpClusterClient, err := newKCPClusterClient(c.ClientConfig)
+	if err != nil {
+		return fmt.Errorf("error while creating kcp client %w", err)
+	}
+	permissionClaimsOptions := apishelpers.PermissionClaimsOptions{IdentityHash: c.IdentityHash, ResourceGroup: c.ResourceGroup}
+	switch c.Action {
+	case actionAccept:
+		_, err = apishelpers.AcceptAPIBindingPermissionClaims(ctx, kcpClusterClient.Cluster(currentClusterName), preferredAPIBindingVersion, c.APIBindingName, permissionClaimsOptions)
+	case actionReject:
+		_, err = apishelpers.RejectAPIBindingPermissionClaims(ctx, kcpClusterClient.Cluster(currentClusterName), preferredAPIBindingVersion, c.APIBindingName, permissionClaimsOptions)
+	}
+	if err != nil {
+		return fmt.Errorf("error updating permission claim for APIBinding %q: %w", c.APIBindingName, err)
+	}
+	switch {
+	case c.ResourceGroup != "":
+		fmt.Printf("claim %q ", c.ResourceGroup)
+	case c.IdentityHash != "":
+		fmt.Printf("claim with identity hash %q ", c.IdentityHash)
+	}
+	fmt.Printf("on APIBinding %q is %sed\n", c.APIBindingName, c.Action)
+	return nil
+}
+
 func newKCPClusterClient(clientConfig clientcmd.ClientConfig) (kcpclientset.ClusterInterface, error) {
 	config, err := clientConfig.ClientConfig()
 	if err != nil {

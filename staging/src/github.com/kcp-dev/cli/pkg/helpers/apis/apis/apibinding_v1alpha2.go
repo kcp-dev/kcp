@@ -42,6 +42,35 @@ func getAPIBindingV1alpha2(ctx context.Context, client kcpclientset.Interface, n
 	return &apiBindingV1alpha2{binding: binding}, nil
 }
 
+// updatePermissionClaimsState changes state to Accepted or Rejected of claims.
+func updatePermissionClaimsStateV1alpha2(ctx context.Context, client kcpclientset.Interface, name string, state apisv1alpha2.AcceptablePermissionClaimState, options PermissionClaimsOptions) (*apiBindingV1alpha2, error) {
+	b, err := getAPIBindingV1alpha2(ctx, client, name)
+	if err != nil {
+		return nil, err
+	}
+	claims := b.binding.Spec.PermissionClaims
+outofclaims:
+	for i, claim := range claims {
+		switch {
+		case options.IdentityHash != "":
+
+			if claim.IdentityHash == options.IdentityHash {
+				claims[i].State = state
+				break outofclaims
+			}
+		case options.ResourceGroup != "":
+
+			resourceGroup := parseResourceGroup(options.ResourceGroup)
+
+			if claim.Group == resourceGroup.Group && claim.Resource == resourceGroup.Resource {
+				claims[i].State = state
+			}
+		}
+	}
+	b.binding, err = client.ApisV1alpha2().APIBindings().Update(ctx, b.binding, metav1.UpdateOptions{})
+	return b, err
+}
+
 func (b *apiBindingV1alpha2) Refresh(ctx context.Context, client kcpclientset.Interface) error {
 	current, err := client.ApisV1alpha2().APIBindings().Get(ctx, b.binding.Name, metav1.GetOptions{})
 	if err != nil {
