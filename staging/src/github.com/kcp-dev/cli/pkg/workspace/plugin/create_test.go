@@ -251,9 +251,6 @@ func TestCreate(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// TODO(sttts): tt has a data race here due to the parallel test execution. But unaliasing it breaks the tests. WTF.
-		// tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
