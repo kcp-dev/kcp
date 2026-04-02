@@ -18,10 +18,13 @@ package quota
 
 import (
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
@@ -47,26 +50,28 @@ func TestOpenAPIv3(t *testing.T) {
 
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
-	t.Logf("Checking /openapi/v3 paths for %q", wsPath)
-	openAPIV3 := kubeClusterClient.Cluster(wsPath).Discovery().OpenAPIV3()
-	paths, err := openAPIV3.Paths()
-	require.NoError(t, err, "error retrieving %q openapi v3 paths", wsPath)
-	got := sets.NewString()
-	for path := range paths {
-		got.Insert(path)
-	}
-	expected := sets.NewString(
-		"api/v1",
-		"apis/admissionregistration.k8s.io/v1",
-		"apis/authentication.k8s.io/v1",
-		// any many more
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		t.Logf("Checking /openapi/v3 paths for %q", wsPath)
+		openAPIV3 := kubeClusterClient.Cluster(wsPath).Discovery().OpenAPIV3()
+		paths, err := openAPIV3.Paths()
+		require.NoError(c, err, "error retrieving %q openapi v3 paths", wsPath)
 
-		"apis/"+tenancyv1alpha1.SchemeGroupVersion.String(),
-		"apis/"+apisv1alpha1.SchemeGroupVersion.String(),
-		"apis/"+corev1alpha1.SchemeGroupVersion.String(),
-		"apis/"+topologyv1alpha1.SchemeGroupVersion.String(),
-	)
-	if expected.Difference(got).Len() > 0 {
-		t.Errorf("missing paths: %v", expected.Difference(got).List())
-	}
+		got := sets.NewString()
+		for path := range paths {
+			got.Insert(path)
+		}
+
+		expected := sets.NewString(
+			"api/v1",
+			"apis/admissionregistration.k8s.io/v1",
+			"apis/authentication.k8s.io/v1",
+			// any many more
+
+			"apis/"+tenancyv1alpha1.SchemeGroupVersion.String(),
+			"apis/"+apisv1alpha1.SchemeGroupVersion.String(),
+			"apis/"+corev1alpha1.SchemeGroupVersion.String(),
+			"apis/"+topologyv1alpha1.SchemeGroupVersion.String(),
+		)
+		require.Empty(c, expected.Difference(got))
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
