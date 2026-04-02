@@ -119,8 +119,8 @@ github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8Hm
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/kcp-dev/embeddedetcd v1.1.0 h1:4u5BwZdD43rMnZc3VOpj/VS/+WgJDknv1wuyy4rVkzM=
-github.com/kcp-dev/embeddedetcd v1.1.0/go.mod h1:KNR9s+3UcXtNamapwLH7M/8ZMZCHpIU5YalOAEjOwJg=
+github.com/kcp-dev/embeddedetcd v1.1.1-0.20260402110232-2cc5c5cce35e h1:nOcf6Id7wozcS2pwoNNmuKqIozAAn/K+0wu3z7xGxE0=
+github.com/kcp-dev/embeddedetcd v1.1.1-0.20260402110232-2cc5c5cce35e/go.mod h1:bv5D/GGLuILI1Y5tZzbBvzOjkdixKS9lM+bbN1vWZTE=
 github.com/kcp-dev/kubernetes v0.0.0-20260317180031-228ac1412525 h1:Ix6xWkzxeB3zD9d5BcBC1cjz2ELh7/tb3btrZdooJWQ=
 github.com/kcp-dev/kubernetes v0.0.0-20260317180031-228ac1412525/go.mod h1:OWamAtYc/9r2ICXEDBDdH6Oh6X0m6UX6QYsdn2O3QE0=
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/api v0.0.0-20260317180031-228ac1412525 h1:3TIuylu5r8EeWAJCQxqTZrCM0sXqeCCjGGCb66O/8Lo=

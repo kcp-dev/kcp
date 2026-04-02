@@ -93,19 +93,56 @@ func StartStandaloneCacheServer(ctx context.Context, t *testing.T, dataDir strin
 	cacheServerCompletedConfig, err := cacheServerConfig.Complete()
 	require.NoError(t, err)
 
+	// When the test ends the cache server is stopped.
+	// For the cache server to stop gracefully etcd must be available until it is shut down.
+	// For etcd to then gracefully stop the files on disk must be present until etcd is shut down.
+	// If the cache server/etcd are bounded by the context the server
+	// will shut down in parallel while the test harness is deleting
+	// files, which leads to spurious opaque test errors (sometimes in
+	// _other_ tests).
+	// So the shutdown _must_ be:
+	// 1. Stop cache server
+	// 2. Stop etcd
+	// 3. Let test cleanup run
+	serverCtx, serverCancel := context.WithCancel(ctx)
+	etcdCtx, etcdCancel := context.WithCancel(context.Background())
+
 	if cacheServerCompletedConfig.EmbeddedEtcd.Config != nil {
 		t.Logf("Starting embedded etcd for the cache server")
-		require.NoError(t, embeddedetcd.NewServer(cacheServerCompletedConfig.EmbeddedEtcd).Run(ctx))
+
+		etcdserver := embeddedetcd.NewServer(cacheServerCompletedConfig.EmbeddedEtcd)
+
+		if err := etcdserver.Run(etcdCtx); err != nil {
+			etcdCancel()
+			t.Fatalf("failed to start embedded etcd: %v", err)
+		}
+
+		t.Cleanup(func() {
+			<-etcdCtx.Done()
+			if err := wait.PollUntilContextTimeout(context.Background(), time.Second, wait.ForeverTestTimeout, true,
+				func(ctx context.Context) (bool, error) {
+					return etcdserver.Stopped(), nil
+				},
+			); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
+
 	cacheServer, err := cacheserver.NewServer(cacheServerCompletedConfig)
 	require.NoError(t, err)
-	preparedCachedServer, err := cacheServer.PrepareRun(ctx)
+	preparedCachedServer, err := cacheServer.PrepareRun(serverCtx)
 	require.NoError(t, err)
 	start := time.Now()
+
 	t.Logf("Starting the cache server")
 	go func() {
-		assert.NoError(t, preparedCachedServer.Run(ctx))
+		// stop etcd server after cache server is done shutting down
+		defer etcdCancel()
+		assert.NoError(t, preparedCachedServer.Run(serverCtx))
 	}()
+	// Stop cache server before starting other cleanup functions
+	t.Cleanup(serverCancel)
 
 	cacheServerCertificatePath := path.Join(dataDir, "cache", "apiserver.crt")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
