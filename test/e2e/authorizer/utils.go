@@ -18,67 +18,29 @@ package authorizer
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"os"
-	"os/exec"
-	"sync"
+	"net/http"
 	"testing"
-	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	"github.com/kcp-dev/kcp/test/server"
 )
 
-func RunWebhook(ctx context.Context, t *testing.T, port string, response string) context.CancelFunc {
-	t.Logf("Starting webhook with %s policy...", response)
-	address := fmt.Sprintf("localhost:%s", port)
+func RunWebhook(ctx context.Context, t *testing.T, port int, handler http.Handler) (string, context.CancelFunc) {
+	t.Helper()
+	t.Logf("Starting webhook on port %d...", port)
 
-	ctx, cancel := context.WithCancel(ctx)
-	pkiDir := fmt.Sprintf("testdata/.%s", t.Name())
-	args := []string{
-		"--tls",
-		"--response", response,
-		"--pki-directory", pkiDir,
-		"--listen", address,
+	srv, err := server.NewTLSServer(port, []string{"localhost"}, t.TempDir(), handler)
+	if err != nil {
+		t.Fatalf("Failed to create webhook server: %v", err)
 	}
 
-	// get the binary name from our Makefile
-	httestBinary := os.Getenv("HTTEST")
-	if httestBinary == "" {
-		httestBinary = "httest"
-	}
-
-	cmd := exec.CommandContext(ctx, httestBinary, args...)
-	if err := cmd.Start(); err != nil {
-		cancel()
+	if err := srv.Start(ctx); err != nil {
 		t.Fatalf("Failed to start webhook: %v", err)
 	}
 
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		caCertPath := fmt.Sprintf("%s/ca.crt", pkiDir)
-		if _, err := os.Stat(caCertPath); os.IsNotExist(err) {
-			return false, "ca.crt file does not exist"
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		dialer := &net.Dialer{Timeout: time.Second}
-		conn, err := dialer.DialContext(context.Background(), "tcp", address)
-		if err != nil {
-			return false, fmt.Sprintf("Webhook is not serving on %s: %v", address, err)
-		}
-		_ = conn.Close()
-		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*200)
-
-	return sync.OnceFunc(func() {
+	return srv.CAFile(), func() {
 		t.Log("Stopping webhook...")
-		cancel()
-		if err := cmd.Wait(); err != nil && err.Error() != "signal: killed" {
-			t.Logf("Error waiting for webhook to finish: %v", err)
+		if err := srv.Stop(); err != nil {
+			t.Logf("Error stopping webhook: %v", err)
 		}
-	})
+	}
 }
