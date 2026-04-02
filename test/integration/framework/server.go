@@ -19,12 +19,16 @@ package framework
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -65,6 +69,8 @@ type InProcessServer struct {
 
 	loadCfgOnce  sync.Once
 	ClientConfig clientcmd.ClientConfig
+
+	embeddedetcd *embeddedetcd.Server
 }
 
 func NewInProcessServer(t kcptestingserver.TestingT, opts ...kcptestingserver.Option) *InProcessServer {
@@ -141,11 +147,22 @@ func (s *InProcessServer) Start(ctx context.Context, t kcptestingserver.TestingT
 
 	etcdCtx, etcdCancel := context.WithCancel(context.Background())
 
-	// the etcd server must be up before NewServer because storage decorators access it right away
+	// When the test ends kcp is stopped.
+	// For kcp to stop gracefully etcd must be available until kcp is shut down.
+	// For etcd to then gracefully stop the files on disk must be present until etcd is shut down.
+	// If kcp/etcd are bounded by the context the server will shut down
+	// in parallel while the test harness is deleting files, which leads
+	// to spurious opaque test errors (sometimes in _other_ tests).
+	// So the shutdown _must_ be:
+	// 1. Stop kcp
+	// 2. Stop etcd
+	// 3. Let test cleanup run
+
 	if completedConfig.EmbeddedEtcd.Config != nil {
-		if err := embeddedetcd.NewServer(completedConfig.EmbeddedEtcd).Run(etcdCtx); err != nil {
+		s.embeddedetcd = embeddedetcd.NewServer(completedConfig.EmbeddedEtcd)
+		if err := s.embeddedetcd.Run(etcdCtx); err != nil {
 			etcdCancel()
-			t.Fatalf("failed to start embedded etcd: %v", err)
+			require.NoError(t, err)
 		}
 	}
 
@@ -177,6 +194,15 @@ func (s *InProcessServer) Stop() {
 		s.cancel = nil
 	})
 	<-s.StopCh
+	if s.embeddedetcd != nil {
+		if err := wait.PollUntilContextTimeout(context.Background(), time.Second, wait.ForeverTestTimeout, true,
+			func(ctx context.Context) (bool, error) {
+				return s.embeddedetcd.Stopped(), nil
+			},
+		); err != nil {
+			log.Printf("embedded etcd did not stop in timeout: %v", err)
+		}
+	}
 }
 
 func (s *InProcessServer) Stopped() bool {
