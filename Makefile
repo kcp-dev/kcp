@@ -56,10 +56,6 @@ GOLANGCI_LINT_BIN := golangci-lint
 GOLANGCI_LINT := $(TOOLS_GOBIN_DIR)/$(GOLANGCI_LINT_BIN)-$(GOLANGCI_LINT_VER)
 GOLANGCI_LINT_FLAGS ?=
 
-HTTEST_VER := 0.3.4
-HTTEST_BIN := httest
-export HTTEST := $(TOOLS_GOBIN_DIR)/$(HTTEST_BIN)-$(HTTEST_VER)
-
 GOTESTSUM_VER := 1.12.3
 GOTESTSUM_BIN := gotestsum
 GOTESTSUM := $(abspath $(TOOLS_DIR))/$(GOTESTSUM_BIN)-$(GOTESTSUM_VER)
@@ -155,12 +151,6 @@ $(PROMETHEUS):
 		${PROMETHEUS_BIN} \
 		${PROMETHEUS_VER}
 
-$(HTTEST):
-	@hack/uget.sh \
-		https://codeberg.org/xrstf/httest/releases/download/v{VERSION}/httest_{VERSION}_{GOOS}_{GOARCH}.tar.gz \
-		${HTTEST_BIN} \
-		${HTTEST_VER}
-
 $(LOGCHECK):
 	@GO_MODULE=true hack/uget.sh \
 		sigs.k8s.io/logtools/logcheck \
@@ -224,7 +214,7 @@ vendor: ## Vendor the dependencies
 	go mod vendor
 .PHONY: vendor
 
-tools: $(GOLANGCI_LINT) $(HTTEST) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
+tools: $(GOLANGCI_LINT) $(CONTROLLER_GEN) $(KCP_APIGEN_GEN) $(YAML_PATCH) $(GOTESTSUM) ## Install tools
 .PHONY: tools
 
 $(CONTROLLER_GEN):
@@ -338,7 +328,6 @@ PROXY_FEATURE_GATES ?= $(TEST_FEATURE_GATES)
 ifdef USE_GOTESTSUM
 test-e2e: $(GOTESTSUM)
 endif
-test-e2e: $(HTTEST)
 test-e2e: TEST_ARGS ?=
 test-e2e: WHAT ?= ./test/e2e...
 test-e2e: build-e2e ## Run e2e tests
@@ -350,7 +339,6 @@ test-e2e: build-e2e ## Run e2e tests
 ifdef USE_GOTESTSUM
 test-e2e-shared-minimal: $(GOTESTSUM)
 endif
-test-e2e-shared-minimal: $(HTTEST)
 test-e2e-shared-minimal: TEST_ARGS ?=
 test-e2e-shared-minimal: WHAT ?= ./test/e2e...
 test-e2e-shared-minimal: WORK_DIR ?= $(PWD)
@@ -376,7 +364,6 @@ test-e2e-shared-minimal: build-e2e
 ifdef USE_GOTESTSUM
 test-e2e-sharded-minimal: $(GOTESTSUM)
 endif
-test-e2e-sharded-minimal: $(HTTEST)
 test-e2e-sharded-minimal: TEST_ARGS ?=
 test-e2e-sharded-minimal: WHAT ?= ./test/e2e...
 test-e2e-sharded-minimal: WORK_DIR ?= $(PWD)
