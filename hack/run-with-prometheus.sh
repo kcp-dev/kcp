@@ -28,7 +28,7 @@ if ! command -v hack/tools/prometheus 1> /dev/null 2>&1; then
 fi
 
 touch .prometheus-config.yaml
-./hack/tools/prometheus --storage.tsdb.path=".prometheus_data" --config.file=.prometheus-config.yaml --web.enable-lifecycle &
+./hack/tools/prometheus --storage.tsdb.path=".prometheus_data" --config.file=.prometheus-config.yaml --web.enable-lifecycle --log.level=warn &
 PROM_PID=$!
 export PROMETHEUS_URL="http://localhost:9090"
 echo 'Waiting for Prometheus to be ready...'
