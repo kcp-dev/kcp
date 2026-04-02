@@ -73,6 +73,10 @@ KCP_APIGEN_BIN := apigen
 KCP_APIGEN_GEN := $(TOOLS_DIR)/$(KCP_APIGEN_BIN)
 export KCP_APIGEN_GEN # so hack scripts can use it
 
+PROMETHEUS_VER := 3.11.0
+PROMETHEUS_BIN := prometheus
+PROMETHEUS := $(abspath $(TOOLS_DIR))/$(PROMETHEUS_BIN)-$(PROMETHEUS_VER)
+
 ARCH := $(shell go env GOARCH)
 OS := $(shell go env GOOS)
 
@@ -137,6 +141,15 @@ $(GOLANGCI_LINT):
 golangci-lint-version:
 	@echo $(GOLANGCI_LINT_VER)
 .PHONY: golangci-lint-version
+
+.PHONY: prometheus
+prometheus: $(PROMETHEUS)
+
+$(PROMETHEUS):
+	@hack/uget.sh \
+		https://github.com/prometheus/prometheus/releases/download/v{VERSION}/prometheus-{VERSION}.{GOOS}-{GOARCH}.tar.gz \
+		${PROMETHEUS_BIN} \
+		${PROMETHEUS_VER}
 
 $(HTTEST):
 	@hack/uget.sh \
