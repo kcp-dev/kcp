@@ -138,8 +138,6 @@ presubmits:
             - make
             - test-e2e
           env:
-            - name: SUITES
-              value: control-plane
             - name: USE_GOTESTSUM
               value: "1"
             - name: KUBE_CACHE_MUTATION_DETECTOR
@@ -167,8 +165,6 @@ presubmits:
             - make
             - test-e2e
           env:
-            - name: SUITES
-              value: control-plane
             - name: USE_GOTESTSUM
               value: "1"
             - name: KUBE_CACHE_MUTATION_DETECTOR
@@ -200,8 +196,6 @@ presubmits:
             - make
             - test-e2e-shared-minimal
           env:
-            - name: SUITES
-              value: control-plane
             - name: USE_GOTESTSUM
               value: "1"
             - name: KUBE_CACHE_MUTATION_DETECTOR
@@ -229,8 +223,6 @@ presubmits:
             - make
             - test-e2e-sharded-minimal
           env:
-            - name: SUITES
-              value: control-plane
             - name: USE_GOTESTSUM
               value: "1"
             - name: KUBE_CACHE_MUTATION_DETECTOR
