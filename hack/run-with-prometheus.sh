@@ -18,17 +18,16 @@ set -o nounset
 set -o pipefail
 set -o errexit
 
-PROMETHEUS_VER=2.42.0
-ARCH=$(go env GOARCH)
-OS=$(go env GOOS)
-if ! command -v hack/tools/prometheus 1> /dev/null 2>&1; then
-  echo "Downloading Prometheus v${PROMETHEUS_VER}"
-  mkdir -p hack/tools
-  curl -L https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VER}/prometheus-${PROMETHEUS_VER}.${OS}-${ARCH}.tar.gz | tar -xz --strip-components 1 -C hack/tools prometheus-${PROMETHEUS_VER}.${OS}-${ARCH}/prometheus
-fi
+cd "$(dirname $0)/.."
+
+PROMETHEUS="$(UGET_PRINT_PATH=relative make --no-print-directory prometheus)"
 
 touch .prometheus-config.yaml
-./hack/tools/prometheus --storage.tsdb.path=".prometheus_data" --config.file=.prometheus-config.yaml --web.enable-lifecycle --log.level=warn &
+"$PROMETHEUS" \
+  --storage.tsdb.path=".prometheus_data" \
+  --config.file=".prometheus-config.yaml" \
+  --web.enable-lifecycle \
+  --log.level="warn" &
 PROM_PID=$!
 export PROMETHEUS_URL="http://localhost:9090"
 echo 'Waiting for Prometheus to be ready...'
