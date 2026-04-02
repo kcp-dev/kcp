@@ -22,7 +22,7 @@ require (
 	github.com/kcp-dev/apimachinery/v2 v2.29.1-0.20260223112726-38863b7c2c8e
 	github.com/kcp-dev/client-go v0.28.1-0.20260223113551-9948318ac6d7
 	github.com/kcp-dev/code-generator/v3 v3.0.0-00010101000000-000000000000
-	github.com/kcp-dev/embeddedetcd v1.1.0
+	github.com/kcp-dev/embeddedetcd v1.1.1-0.20260402110232-2cc5c5cce35e
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/kcp-dev/sdk v0.0.0
 	github.com/kcp-dev/virtual-workspace-framework v0.0.0
