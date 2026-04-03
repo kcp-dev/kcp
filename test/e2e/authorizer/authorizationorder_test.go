@@ -18,6 +18,9 @@ package authorizer
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -26,6 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -34,28 +39,30 @@ import (
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
+	"github.com/kcp-dev/kcp/test/server"
 )
 
 func TestAuthorizationOrder(t *testing.T) {
 	framework.Suite(t, "control-plane")
 	t.Parallel()
 	t.Run("Authorization order 1", func(t *testing.T) {
-		webhookPort := "8080"
+		const webhookPort = 8080
+
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		t.Cleanup(cancelFunc)
-		webhook1Stop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:allow")
-		t.Cleanup(webhook1Stop)
 
-		server, kcpClusterClient, kubeClusterClient := setupTest(t, "AlwaysAllowGroups,AlwaysAllowPaths,Webhook,RBAC", "testdata/webhook1.kubeconfig")
+		handler := server.NewAuthzHandler(server.Allow)
+		webhookCAFile, webhookStop := RunWebhook(ctx, t, webhookPort, handler)
+		t.Cleanup(webhookStop)
+
+		srv, kcpClusterClient, kubeClusterClient := setupTest(t, "AlwaysAllowGroups,AlwaysAllowPaths,Webhook,RBAC", webhookCAFile, webhookPort)
 
 		t.Log("Admin should be allowed to list Workspaces.")
 		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 		require.NoError(t, err)
 
-		// stop the webhook and switch to a deny policy
-		webhook1Stop()
-		webhook2Stop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
-		t.Cleanup(webhook2Stop)
+		// switch to a deny policy
+		handler.SetHandler(server.Deny)
 
 		t.Log("Admin should not be allowed to list ConfigMaps.")
 		_, err = kubeClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1().ConfigMaps("default").List(ctx, metav1.ListOptions{})
@@ -63,29 +70,30 @@ func TestAuthorizationOrder(t *testing.T) {
 		// access to health endpoints should still be granted based on --always-allow-paths,
 		// even if the webhook rejects the request
 		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
-		verifyEndpointAccess(ctx, t, server, "/healthz", true)
+		verifyEndpointAccess(ctx, t, srv, "/healthz", true)
 	})
 
 	t.Run("Authorization order 2", func(t *testing.T) {
-		webhookPort := "8081"
+		const webhookPort = 8081
+
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		t.Cleanup(cancelFunc)
-		webhook1Stop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:allow")
-		t.Cleanup(webhook1Stop)
 
-		server, kcpClusterClient, kubeClusterClient := setupTest(t, "Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC", "testdata/webhook2.kubeconfig")
+		handler := server.NewAuthzHandler(server.Allow)
+		webhookCAFile, webhookStop := RunWebhook(ctx, t, webhookPort, handler)
+		t.Cleanup(webhookStop)
+
+		srv, kcpClusterClient, kubeClusterClient := setupTest(t, "Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC", webhookCAFile, webhookPort)
 
 		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
-		verifyEndpointAccess(ctx, t, server, "/livez", true)
+		verifyEndpointAccess(ctx, t, srv, "/livez", true)
 
 		t.Log("Admin should be allowed now to list Workspaces.")
 		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 		require.NoError(t, err)
 
-		// stop the webhook and switch to a deny policy
-		webhook1Stop()
-		webhook2Stop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
-		t.Cleanup(webhook2Stop)
+		// switch to a deny policy
+		handler.SetHandler(server.Deny)
 
 		t.Log("Admin should not be allowed now to list Logical clusters.")
 		_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1alpha1().LogicalClusters().List(ctx, metav1.ListOptions{})
@@ -96,20 +104,23 @@ func TestAuthorizationOrder(t *testing.T) {
 		require.Error(t, err)
 
 		t.Log("Verify that it is not allowed to access one of AllowAllPaths endpoints.")
-		verifyEndpointAccess(ctx, t, server, "/readyz", false)
+		verifyEndpointAccess(ctx, t, srv, "/readyz", false)
 	})
 
 	t.Run("Default authorization order", func(t *testing.T) {
-		webhookPort := "8082"
+		const webhookPort = 8082
+
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		t.Cleanup(cancelFunc)
-		webhookStop := RunWebhook(ctx, t, webhookPort, "kubernetes:authz:deny")
+
+		handler := server.NewAuthzHandler(server.Deny)
+		webhookCAFile, webhookStop := RunWebhook(ctx, t, webhookPort, handler)
 		t.Cleanup(webhookStop)
 		// This will setup the test with the default authorization order: AlwaysAllowGroups,AlwaysAllowPaths,RBAC,Webhook
-		server, kcpClusterClient, _ := setupTest(t, "", "testdata/webhook3.kubeconfig")
+		srv, kcpClusterClient, _ := setupTest(t, "", webhookCAFile, webhookPort)
 
 		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
-		verifyEndpointAccess(ctx, t, server, "/healthz", true)
+		verifyEndpointAccess(ctx, t, srv, "/healthz", true)
 
 		t.Log("Admin should be allowed to list Workspaces.")
 		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
@@ -117,15 +128,15 @@ func TestAuthorizationOrder(t *testing.T) {
 	})
 }
 
-func setupTest(t *testing.T, authOrder, webhookConfigFile string) (kcptestingserver.RunningServer, kcpclientset.ClusterInterface, kcpkubernetesclientset.ClusterInterface) {
+func setupTest(t *testing.T, authOrder, webhookCAFile string, webhookPort int) (kcptestingserver.RunningServer, kcpclientset.ClusterInterface, kcpkubernetesclientset.ClusterInterface) {
 	args := []string{
-		"--authorization-webhook-config-file", webhookConfigFile,
+		"--authorization-webhook-config-file", createWebhookConfig(t, webhookCAFile, webhookPort),
 	}
 	if authOrder != "" {
 		args = append(args, "--authorization-order", authOrder)
 	}
 
-	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(args...))
+	kcpServer := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(args...))
 
 	// The testing framework has a rare race condition where if you stop kcp too early after it became "ready",
 	// it will run into loads of shutdown issues and the shutdown will take 3-4 minutes.
@@ -135,13 +146,37 @@ func setupTest(t *testing.T, authOrder, webhookConfigFile string) (kcptestingser
 	// See https://github.com/kcp-dev/kcp/issues/3488 for more information.
 	time.Sleep(3 * time.Second)
 
-	kcpConfig := server.BaseConfig(t)
+	kcpConfig := kcpServer.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err)
 	kcpClusterClient, err := kcpclientset.NewForConfig(kcpConfig)
 	require.NoError(t, err)
 
-	return server, kcpClusterClient, kubeClusterClient
+	return kcpServer, kcpClusterClient, kubeClusterClient
+}
+
+func createWebhookConfig(t *testing.T, caFile string, port int) string {
+	kubeconfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"go": {
+				Server:               fmt.Sprintf("https://%s/", net.JoinHostPort("localhost", fmt.Sprintf("%d", port))),
+				CertificateAuthority: caFile,
+			},
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			"go": {
+				Cluster: "go",
+			},
+		},
+		CurrentContext: "go",
+	}
+
+	tmpdir := t.TempDir()
+	configPath := filepath.Join(tmpdir, "webhook.yaml")
+	err := clientcmd.WriteToFile(kubeconfig, configPath)
+	require.NoError(t, err)
+
+	return configPath
 }
 
 func verifyEndpointAccess(ctx context.Context, t *testing.T, server kcptestingserver.RunningServer, endpoint string, shouldSucceed bool) {
