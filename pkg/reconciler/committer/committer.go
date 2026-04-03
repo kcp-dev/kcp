@@ -35,8 +35,10 @@ import (
 
 // Resource is a generic wrapper around resources so we can generate patches.
 type Resource[Sp any, St any] struct {
+	APIVersion        string `json:"apiVersion"`
+	Kind              string `json:"kind"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              Sp `json:"spec"`
+	Spec              Sp `json:"spec,omitempty"`
 	Status            St `json:"status,omitempty"`
 }
 
@@ -135,7 +137,7 @@ func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([
 	name := old.Name
 
 	oldForPatch := forPatch(old)
-	// to ensure they appear in the patch as preconditions
+
 	oldForPatch.UID = ""
 	oldForPatch.ResourceVersion = ""
 
@@ -145,7 +147,7 @@ func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([
 	}
 
 	newForPatch := forPatch(obj)
-	// to ensure they appear in the patch as preconditions
+
 	newForPatch.UID = old.UID
 	newForPatch.ResourceVersion = old.ResourceVersion
 
@@ -157,6 +159,87 @@ func generatePatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([
 	patchBytes, err := jsonpatch.CreateMergePatch(oldData, newData)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create patch for %s|%s: %w", clusterName, name, err)
+	}
+
+	var subresources []string
+	if statusChanged {
+		subresources = []string{"status"}
+	}
+
+	return patchBytes, subresources, nil
+}
+
+func NewSSACommitter[R runtime.Object, P Patcher[R], Sp any, St any](patcher ClusterPatcher[R, P], fieldManager string) CommitFunc[Sp, St] {
+	r := new(R)
+	focusType := fmt.Sprintf("%T", *r)
+	return func(ctx context.Context, old, obj *Resource[Sp, St]) error {
+		return withSSAPatchAndSubResources(ctx, focusType, old, obj, fieldManager,
+			func(patchBytes []byte, subresources []string, opts metav1.PatchOptions) error {
+				clusterName := logicalcluster.From(old)
+				_, err := patcher.Cluster(clusterName.Path()).Patch(ctx, obj.Name, types.ApplyPatchType, patchBytes, opts, subresources...)
+				return err
+			})
+	}
+}
+
+func withSSAPatchAndSubResources[Sp any, St any](ctx context.Context, focusType string, old, obj *Resource[Sp, St], fieldManager string, patch func([]byte, []string, metav1.PatchOptions) error) error {
+	logger := klog.FromContext(ctx)
+	patchBytes, subresources, err := generateSSAPatchAndSubResources(old, obj)
+	if err != nil {
+		return fmt.Errorf("failed to create SSA patch for %s %s: %w", focusType, obj.Name, err)
+	}
+
+	if len(patchBytes) == 0 {
+		return nil
+	}
+
+	force := true
+	opts := metav1.PatchOptions{
+		FieldManager: fieldManager,
+		Force:        &force,
+	}
+
+	logger.V(2).Info(fmt.Sprintf("ssa patching %s", focusType), "patch", string(patchBytes))
+	if err := patch(patchBytes, subresources, opts); err != nil {
+		return fmt.Errorf("failed to ssa patch %s %s: %w", focusType, old.Name, err)
+	}
+	return nil
+}
+
+func generateSSAPatchAndSubResources[Sp any, St any](old, obj *Resource[Sp, St]) ([]byte, []string, error) {
+	objectMetaChanged := !equality.Semantic.DeepEqual(old.ObjectMeta, obj.ObjectMeta)
+	specChanged := !equality.Semantic.DeepEqual(old.Spec, obj.Spec)
+	statusChanged := !equality.Semantic.DeepEqual(old.Status, obj.Status)
+
+	specOrObjectMetaChanged := specChanged || objectMetaChanged
+
+	if specOrObjectMetaChanged && statusChanged {
+		panic(fmt.Sprintf("programmer error: spec and status changed in same reconcile iteration. diff=%s", cmp.Diff(old, obj)))
+	}
+
+	if !specOrObjectMetaChanged && !statusChanged {
+		return nil, nil, nil
+	}
+
+	forPatch := func(r *Resource[Sp, St]) *Resource[Sp, St] {
+		var ret Resource[Sp, St]
+		ret.APIVersion = r.APIVersion
+		ret.Kind = r.Kind
+		ret.Name = r.Name
+
+		if specOrObjectMetaChanged {
+			ret.ObjectMeta = r.ObjectMeta
+			ret.Spec = r.Spec
+		} else {
+			ret.Status = r.Status
+		}
+		return &ret
+	}
+
+	newForPatch := forPatch(obj)
+	patchBytes, err := json.Marshal(newForPatch)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to Marshal new SSA data: %w", err)
 	}
 
 	var subresources []string
