@@ -112,6 +112,7 @@ type ExtraConfig struct {
 	KubeClusterClient                   kcpkubernetesclientset.ClusterInterface
 	DeepSARClient                       kcpkubernetesclientset.ClusterInterface
 	ApiExtensionsClusterClient          kcpapiextensionsclientset.ClusterInterface
+	CacheApiExtensionsClusterClient     kcpapiextensionsclientset.ClusterInterface
 	KcpClusterClient                    kcpclientset.ClusterInterface
 	KcpCacheClusterClient               kcpclientset.ClusterInterface
 	RootShardKcpClusterClient           kcpclientset.ClusterInterface
@@ -135,13 +136,14 @@ type ExtraConfig struct {
 	ShardVirtualWorkspaceURL func() string
 
 	// informers
-	KcpSharedInformerFactory                     kcpinformers.SharedInformerFactory
-	KubeSharedInformerFactory                    kcpkubernetesinformers.SharedInformerFactory
-	ApiExtensionsSharedInformerFactory           kcpapiextensionsinformers.SharedInformerFactory
-	DiscoveringDynamicSharedInformerFactory      *informer.DiscoveringDynamicSharedInformerFactory
-	CacheDiscoveringDynamicSharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
-	CacheKcpSharedInformerFactory                kcpinformers.SharedInformerFactory
-	CacheKubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+	KcpSharedInformerFactory                kcpinformers.SharedInformerFactory
+	KubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
+	PartialMetadataDDSIF                    *informer.DiscoveringDynamicSharedInformerFactory
+	CachePartialMetadataDDSIF               *informer.DiscoveringDynamicSharedInformerFactory
+	CacheApiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory
+	CacheKcpSharedInformerFactory           kcpinformers.SharedInformerFactory
+	CacheKubeSharedInformerFactory          kcpkubernetesinformers.SharedInformerFactory
 
 	// DynRESTMapper is a workspace-aware REST mapper, backed by a reconciler,
 	// which dynamically loads all bound resources through every type associated
@@ -356,6 +358,15 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	}
 	c.ApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
 		c.ApiExtensionsClusterClient,
+		resyncPeriod,
+	)
+
+	c.CacheApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(cacheClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	c.CacheApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
+		c.CacheApiExtensionsClusterClient,
 		resyncPeriod,
 	)
 
@@ -749,6 +760,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		c.OptionalVirtual, err = newVirtualConfig(
 			opts,
 			virtualWorkspacesConfig,
+			cacheClientConfig,
 			c.KubeSharedInformerFactory,
 			c.KcpSharedInformerFactory,
 			c.CacheKcpSharedInformerFactory,

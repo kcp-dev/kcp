@@ -176,11 +176,34 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return nil, err
 	}
 
-	s.DiscoveringDynamicSharedInformerFactory, err = informer.NewDiscoveringDynamicSharedInformerFactory(
+	s.PartialMetadataDDSIF, err = informer.NewDiscoveringDynamicSharedInformerFactory(
 		metadataClusterClient,
 		func(obj interface{}) bool { return true },
 		nil,
 		crdGVRSource,
+		cache.Indexers{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	cacheCrdGVRSource, err := informer.NewCRDGVRSource(s.CacheApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer())
+	if err != nil {
+		return nil, err
+	}
+	cacheClientConfig, err := c.Options.Cache.Client.RestConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
+	if err != nil {
+		return nil, err
+	}
+	cacheMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rest.AddUserAgent(rest.CopyConfig(cacheClientConfig), "kcp-cache-partial-metadata-informers"))
+	if err != nil {
+		return nil, err
+	}
+	s.CachePartialMetadataDDSIF, err = informer.NewDiscoveringDynamicSharedInformerFactory(
+		cacheMetadataClusterClient,
+		func(obj interface{}) bool { return true },
+		nil,
+		cacheCrdGVRSource,
 		cache.Indexers{},
 	)
 	if err != nil {
@@ -268,7 +291,7 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
-		if err := s.installAPIBindingController(ctx, controllerConfig, s.DiscoveringDynamicSharedInformerFactory); err != nil {
+		if err := s.installAPIBindingController(ctx, controllerConfig, s.PartialMetadataDDSIF); err != nil {
 			return err
 		}
 		if err := s.installCRDCleanupController(ctx, controllerConfig); err != nil {
@@ -415,10 +438,12 @@ func (s *Server) Run(ctx context.Context) error {
 		s.KubeSharedInformerFactory.Start(hookCtx.Done())
 		s.ApiExtensionsSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKubeSharedInformerFactory.Start(hookCtx.Done())
+		s.CacheApiExtensionsSharedInformerFactory.Start(hookCtx.Done())
 
 		s.KubeSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.ApiExtensionsSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheKubeSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
+		s.CacheApiExtensionsSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 
 		select {
 		case <-hookCtx.Done():
@@ -617,7 +642,7 @@ func (s *Server) Run(ctx context.Context) error {
 		logger.Info("finished starting (remaining) kcp informers")
 
 		logger.Info("starting dynamic metadata informer worker")
-		go s.DiscoveringDynamicSharedInformerFactory.StartWorker(hookCtx)
+		go s.PartialMetadataDDSIF.StartWorker(hookCtx)
 
 		logger.Info("synced all informers, ready to start controllers")
 		close(s.syncedCh)

@@ -685,7 +685,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		kcpClusterClient,
 		dynamicClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-		s.DiscoveringDynamicSharedInformerFactory,
+		s.PartialMetadataDDSIF,
 		s.completedConfig.DynamicRESTMapper,
 	)
 	if err != nil {
@@ -696,7 +696,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		Name: workspacemounts.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				_, notSynced := s.PartialMetadataDDSIF.Informers()
 				if len(notSynced) > 0 {
 					return false, nil
 				}
@@ -1547,7 +1547,7 @@ func (s *Server) installKubeQuotaController(
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory,
-		s.DiscoveringDynamicSharedInformerFactory,
+		s.PartialMetadataDDSIF,
 		quotaResyncPeriod,
 		replenishmentPeriod,
 		workersPerLogicalCluster,
@@ -1561,7 +1561,7 @@ func (s *Server) installKubeQuotaController(
 		Name: kubequota.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				_, notSynced := s.PartialMetadataDDSIF.Informers()
 				if len(notSynced) > 0 {
 					return false, nil
 				}
@@ -1651,7 +1651,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kubeClusterClient,
 		metadataClient,
-		s.DiscoveringDynamicSharedInformerFactory,
+		s.PartialMetadataDDSIF,
 		workersPerLogicalCluster,
 		s.syncedCh,
 	)
@@ -1663,7 +1663,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		Name: garbagecollector.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				_, notSynced := s.PartialMetadataDDSIF.Informers()
 				if len(notSynced) > 0 {
 					return false, nil
 				}
