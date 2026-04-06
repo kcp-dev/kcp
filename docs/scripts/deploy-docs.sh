@@ -52,7 +52,10 @@ if [[ -n "${BRANCH:-}" ]]; then
   MIKE_OPTIONS+=(--branch "$BRANCH")
 fi
 
-LATEST=$(git describe --tags --match="v[0-9]*" `git rev-list --tags --max-count=1` | grep -o '^v[0-9]\+\.[0-9]\+')
+# Find the highest stable release as vMAJOR.MINOR: list all v* tags, filter to
+# exact vMAJOR.MINOR.PATCH (excludes pre-releases like v0.31.0-alpha.1), strip
+# the patch segment, sort by version, and take the last (highest) entry.
+LATEST=$(git tag --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -o '^v[0-9]\+\.[0-9]\+' | sort -V | tail -n1)
 if [[ "${LATEST:-}" == "${VERSION:-}" ]]; then
   MIKE_DEPLOY_OPTIONS+=(--update-aliases)
   MIKE_ALIASES+=(latest)
