@@ -21,19 +21,21 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
-	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -48,18 +50,36 @@ import (
 
 const (
 	// ControllerName hold this controller name.
-	ControllerName = "kcp-published-resource-replication-controller"
+	ControllerName = "kcp-cached-resource-replication-controller"
 )
+
+func getClusterNameFromObj(obj any) logicalcluster.Name {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return ""
+	}
+
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return ""
+	}
+
+	return clusterName
+}
 
 // NewController returns a new replication controller.
 func NewController(
 	shardName string,
-	dynamicClusterClient kcpdynamic.ClusterInterface,
+	localDynamicClusterClient kcpdynamic.ClusterInterface,
+	globalDynamicClusterClient kcpdynamic.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
+	cacheApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface,
 	cluster logicalcluster.Name,
 	gvr schema.GroupVersionResource,
 	replicated *ReplicatedGVR,
-	callback func(),
+	requeueSelf func(),
 	localLabelSelector labels.Selector,
 ) (*Controller, error) {
 	c := &Controller{
@@ -70,90 +90,63 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-		dynamicClusterClient: dynamicClusterClient,
-		kcpCacheClient:       kcpCacheClient,
-		replicated:           replicated,
-		callback:             callback,
-		cleanupFuncs:         make([]func(), 0),
-		localLabelSelector:   localLabelSelector,
+		localDynamicClusterClient:       localDynamicClusterClient,
+		globalDynamicClusterClient:      globalDynamicClusterClient,
+		cacheApiExtensionsClusterClient: cacheApiExtensionsClusterClient,
+		replicated:                      replicated,
+		requeueSelf:                     requeueSelf,
+		onShutdownFuncs:                 make([]func(), 0),
+		localLabelSelector:              localLabelSelector,
 	}
 
-	localHandler, err := c.replicated.Local.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr) },
-		DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr) },
+	localHandler, err := c.replicated.Local.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			return getClusterNameFromObj(obj) == cluster
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr, "local") },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr, "local") },
+			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr, "local") },
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	c.cleanupFuncs = append(c.cleanupFuncs, func() {
+	c.onShutdownFuncs = append(c.onShutdownFuncs, func() {
 		_ = c.replicated.Local.RemoveEventHandler(localHandler)
 	})
 
 	globalHandler, err := c.replicated.Global.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			cachedObj := obj.(*cachev1alpha1.CachedObject)
-			labels := cachedObj.Labels
-			if labels == nil {
-				return false
-			}
-
-			// Skip CachedObjects that are not coming from the source CachedResource.
-
-			if logicalcluster.From(cachedObj) != cluster {
-				return false
-			}
-
-			if gvr.Group != labels[LabelKeyObjectGroup] ||
-				gvr.Version != labels[LabelKeyObjectVersion] ||
-				gvr.Resource != labels[LabelKeyObjectResource] {
-				return false
-			}
-
-			return true
+			return getClusterNameFromObj(obj) == cluster
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj) },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj) },
-			DeleteFunc: func(obj interface{}) { c.enqueueCacheObject(obj) },
+			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr, "global") },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr, "global") },
+			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr, "global") },
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	c.cleanupFuncs = append(c.cleanupFuncs, func() {
+	c.onShutdownFuncs = append(c.onShutdownFuncs, func() {
 		_ = c.replicated.Global.RemoveEventHandler(globalHandler)
 	})
 
 	return c, nil
 }
 
-func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource) {
+func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource, source string) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
-	c.queue.Add(gvrKey)
-}
 
-func (c *Controller) enqueueCacheObject(obj interface{}) {
-	// This way we extract what is the original GVR of the object that we are replicating.
-	cr, ok := obj.(*cachev1alpha1.CachedObject)
-	if !ok {
-		utilruntime.HandleError(fmt.Errorf("expected *cachev1alpha1.CachedObject, got %T", obj))
-		return
-	}
+	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+	logger.Info("queuing object", "gvrKey", gvrKey, "from", source)
 
-	labels := cr.GetLabels()
-	gvr := schema.GroupVersionResource{
-		Group:    labels[LabelKeyObjectGroup],
-		Version:  labels[LabelKeyObjectVersion],
-		Resource: labels[LabelKeyObjectResource],
-	}
-	key := kcpcache.ToClusterAwareKey(string(logicalcluster.From(cr)), labels[LabelKeyObjectOriginalNamespace], labels[LabelKeyObjectOriginalName])
-	gvrKey := fmt.Sprintf("%s.%s.%s::%s", gvr.Version, gvr.Resource, gvr.Group, key)
 	c.queue.Add(gvrKey)
 }
 
@@ -162,7 +155,7 @@ func (c *Controller) Start(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 	defer func() {
-		for _, cleanupFunc := range c.cleanupFuncs {
+		for _, cleanupFunc := range c.onShutdownFuncs {
 			cleanupFunc()
 		}
 	}()
@@ -222,21 +215,22 @@ type Controller struct {
 	shardName string
 	queue     workqueue.TypedRateLimitingInterface[string]
 
-	dynamicClusterClient kcpdynamic.ClusterInterface
-	kcpCacheClient       kcpclientset.ClusterInterface
+	localDynamicClusterClient       kcpdynamic.ClusterInterface
+	globalDynamicClusterClient      kcpdynamic.ClusterInterface
+	cacheApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
 
 	replicated *ReplicatedGVR
 
-	// callback is called when we want to trigger parent object reconciliation.
+	// requeueSelf is called when we want to trigger parent object reconciliation.
 	// Cache state is being managed by child controller, so we need to trigger parent object reconciliation
 	// to update parent object status.
 	// Example:
 	// 1. Add new object to replicate, so GVR controller picks it up.
 	// 2. Object is replicated to cache by child controller.
-	// 3. callback is called to update parent object status.
-	callback func()
-	// cleanupFuncs are cleanup functions that are called when the controller is stopped.
-	cleanupFuncs []func()
+	// 3. requeueSelf is called to update parent object status.
+	requeueSelf func()
+	// onShutdownFuncs are cleanup functions that are called when the controller is stopped.
+	onShutdownFuncs []func()
 
 	// localLabelSelector is the label selector that we use to filter the objects that we want to replicate.
 	// It is set when the controller is created and can be changed by the parent controller.
@@ -248,6 +242,7 @@ type Controller struct {
 
 type ReplicatedGVR struct {
 	Kind          string
+	Identity      string
 	Filter        func(u *unstructured.Unstructured) bool
 	Global, Local cache.SharedIndexInformer
 }
@@ -257,7 +252,49 @@ func InstallIndexers(replicated *ReplicatedGVR) {
 	indexers.AddIfNotPresentOrDie(
 		replicated.Global.GetIndexer(),
 		cache.Indexers{
-			ByGVRAndShardAndLogicalClusterAndNamespaceAndName: IndexByGVRAndShardAndLogicalClusterAndNamespace,
+			byShardAndLogicalClusterAndNamespaceAndName: indexByShardAndLogicalClusterAndNamespaceAndName,
 		},
 	)
+}
+
+const (
+	// byShardAndLogicalClusterAndNamespaceAndName is the name for the index that indexes by an object's shard and logical cluster, namespace and name.
+	byShardAndLogicalClusterAndNamespaceAndName = "kcp-byShardAndLogicalClusterAndNamespaceAndName"
+)
+
+// indexByShardAndLogicalClusterAndNamespaceAndName is an index function that indexes by an object's shard and logical cluster, namespace and name.
+func indexByShardAndLogicalClusterAndNamespaceAndName(obj interface{}) ([]string, error) {
+	a, err := meta.Accessor(obj)
+	if err != nil {
+		return nil, err
+	}
+	annotations := a.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	shardName := annotations[genericapirequest.ShardAnnotationKey]
+
+	key := shardAndLogicalClusterAndNamespaceKey(shardName, logicalcluster.From(a), a.GetNamespace(), a.GetName())
+
+	return []string{key}, nil
+}
+
+// shardAndLogicalClusterAndNamespaceKey creates an index key from the given parameters.
+// As of today this function is used by IndexByShardAndLogicalClusterAndNamespace indexer.
+func shardAndLogicalClusterAndNamespaceKey(shard string, cluster logicalcluster.Name, namespace, name string) string {
+	var key string
+	if len(shard) > 0 {
+		key += shard + "|"
+	}
+	if !cluster.Empty() {
+		key += cluster.String() + "|"
+	}
+	if len(namespace) > 0 {
+		key += namespace + "/"
+	}
+	if len(key) == 0 {
+		return name
+	}
+	return fmt.Sprintf("%s%s", key, name)
 }

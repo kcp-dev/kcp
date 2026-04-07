@@ -49,8 +49,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CachedResourceList{},
 		&CachedResourceEndpointSlice{},
 		&CachedResourceEndpointSliceList{},
-		&CachedObject{},
-		&CachedObjectList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

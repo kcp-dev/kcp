@@ -20,8 +20,10 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
 // QualifiedObjectName builds a fully qualified identifier for an object
@@ -32,4 +34,12 @@ func QualifiedObjectName(obj metav1.Object) string {
 		return fmt.Sprintf("%s|%s/%s", logicalcluster.From(obj), obj.GetNamespace(), obj.GetName())
 	}
 	return fmt.Sprintf("%s|%s", logicalcluster.From(obj), obj.GetName())
+}
+
+// IsCachedResourceEndpointSliceResourceStorage returns true if the APIExport resource storage
+// refers to a CachedResourceEndpointSlice virtual resource.
+func IsCachedResourceEndpointSliceResourceStorage(storage *apisv1alpha2.ResourceSchemaStorage) bool {
+	return storage.Virtual != nil &&
+		ptr.Deref(storage.Virtual.Reference.APIGroup, "") == "cache.kcp.io" &&
+		storage.Virtual.Reference.Kind == "CachedResourceEndpointSlice"
 }

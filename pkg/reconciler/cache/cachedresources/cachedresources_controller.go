@@ -33,6 +33,8 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -40,7 +42,6 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	cachev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1"
-	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	cacheinformers "github.com/kcp-dev/sdk/client/informers/externalversions/cache/v1alpha1"
 	cachev1alpha1listers "github.com/kcp-dev/sdk/client/listers/cache/v1alpha1"
 
@@ -67,16 +68,20 @@ func NewController(
 	shardName string,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	kcpCacheClient kcpclientset.ClusterInterface,
-	dynamicClient kcpdynamic.ClusterInterface,
+	localDynamicClient kcpdynamic.ClusterInterface,
+	globalDynamicClient kcpdynamic.ClusterInterface,
 
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
 
+	cacheApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface,
+	cacheApiExtensionsClusterInformer kcpapiextensionsinformers.SharedInformerFactory,
+
 	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper,
 
-	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
-	cacheKcpInformers kcpinformers.SharedInformerFactory,
+	localDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
+	globalDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
 
 	cachedResourceInformer cacheinformers.CachedResourceClusterInformer,
 	cachedResourceEndpointSliceInformer cacheinformers.CachedResourceEndpointSliceClusterInformer,
@@ -92,15 +97,18 @@ func NewController(
 		kcpClient:      kcpClusterClient,
 		kcpCacheClient: kcpCacheClient,
 
-		dynamicClient: dynamicClient,
+		localDynamicClient:  localDynamicClient,
+		globalDynamicClient: globalDynamicClient,
 
 		dynRESTMapper: dynRESTMapper,
 
-		discoveringDynamicKcpInformers: discoveringDynamicKcpInformers,
-		cacheKcpInformers:              cacheKcpInformers,
+		localDiscoveringDynamicKcpInformers:  localDiscoveringDynamicKcpInformers,
+		globalDiscoveringDynamicKcpInformers: globalDiscoveringDynamicKcpInformers,
 
-		CachedResourceLister:  cachedResourceInformer.Lister(),
-		CachedResourceIndexer: cachedResourceInformer.Informer().GetIndexer(),
+		CachedResourceLister:              cachedResourceInformer.Lister(),
+		CachedResourceIndexer:             cachedResourceInformer.Informer().GetIndexer(),
+		cacheApiExtensionsClusterClient:   cacheApiExtensionsClusterClient,
+		cacheApiExtensionsClusterInformer: cacheApiExtensionsClusterInformer,
 
 		CachedResourceEndpointSliceInformer: cachedResourceEndpointSliceInformer,
 
@@ -163,12 +171,13 @@ type Controller struct {
 	kcpClient      kcpclientset.ClusterInterface
 	kcpCacheClient kcpclientset.ClusterInterface
 
-	dynamicClient kcpdynamic.ClusterInterface
+	localDynamicClient  kcpdynamic.ClusterInterface
+	globalDynamicClient kcpdynamic.ClusterInterface
 
 	dynRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
-	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
-	cacheKcpInformers              kcpinformers.SharedInformerFactory
+	localDiscoveringDynamicKcpInformers  *informer.DiscoveringDynamicSharedInformerFactory
+	globalDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
 
 	CachedResourceIndexer cache.Indexer
 	CachedResourceLister  cachev1alpha1listers.CachedResourceClusterLister
@@ -184,6 +193,9 @@ type Controller struct {
 
 	getSecret    func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error)
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
+
+	cacheApiExtensionsClusterClient   kcpapiextensionsclientset.ClusterInterface
+	cacheApiExtensionsClusterInformer kcpapiextensionsinformers.SharedInformerFactory
 
 	getEndpointSlice    func(ctx context.Context, clusterName logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
 	createEndpointSlice func(ctx context.Context, clusterName logicalcluster.Path, endpointSlice *cachev1alpha1.CachedResourceEndpointSlice) error
@@ -260,7 +272,7 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	CachedResource, err := c.CachedResourceLister.Cluster(parent).Get(name)
+	cachedResource, err := c.CachedResourceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return false, nil
@@ -268,20 +280,20 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	old := CachedResource
-	CachedResource = CachedResource.DeepCopy()
+	old := cachedResource
+	cachedResource = cachedResource.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), CachedResource)
+	logger := logging.WithObject(klog.FromContext(ctx), cachedResource)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, parent, CachedResource)
+	requeue, err := c.reconcile(ctx, parent, cachedResource)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	oldResource := &CachedResourceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &CachedResourceResource{ObjectMeta: CachedResource.ObjectMeta, Spec: &CachedResource.Spec, Status: &CachedResource.Status}
+	newResource := &CachedResourceResource{ObjectMeta: cachedResource.ObjectMeta, Spec: &cachedResource.Spec, Status: &cachedResource.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}

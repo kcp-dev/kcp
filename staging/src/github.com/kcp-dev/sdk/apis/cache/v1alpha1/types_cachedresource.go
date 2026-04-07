@@ -23,7 +23,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-const CachedResourceFinalizer = "cachedresource.cache.kcp.dev"
+const CachedResourceFinalizer = "cache.kcp.io/cachedresource"
 
 const (
 	// CachedResourceEndpointSliceSkipAnnotation is an annotation that can be set on a CachedResource to skip the creation of default CachedResourceEndpointSlice.

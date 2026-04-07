@@ -103,7 +103,9 @@ func (r *identityReconciler) reconcile(ctx context.Context, cachedResource *cach
 		return reconcileStatusStop, err
 	}
 
-	conditions.MarkTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid)
+	if !conditions.IsTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid) {
+		conditions.MarkTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid)
+	}
 
 	return reconcileStatusContinue, nil
 }

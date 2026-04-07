@@ -60,6 +60,7 @@ import (
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
@@ -1735,6 +1736,18 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		return nil
 	}
 
+	cacheConfig, err := s.Options.Cache.Client.RestConfig(rest.CopyConfig(s.GenericConfig.LoopbackClientConfig))
+	if err != nil {
+		return err
+	}
+
+	cacheDynClientCfg := rest.CopyConfig(cacheConfig)
+	cacheDynClientCfg = cacheclient.WithShardNameFromContextRoundTripper(cacheDynClientCfg)
+	cacheDynClient, err := kcpdynamic.NewForConfig(cacheDynClientCfg)
+	if err != nil {
+		return err
+	}
+
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	workspaceConfig := rest.CopyConfig(config)
 	workspaceConfig = rest.AddUserAgent(workspaceConfig, cachedresources.ControllerName)
@@ -1754,12 +1767,15 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		kcpClusterClient,
 		s.KcpCacheClusterClient,
 		dynamicClient,
+		cacheDynClient,
 		s.KubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		s.CacheApiExtensionsClusterClient,
+		s.CacheApiExtensionsSharedInformerFactory,
 		s.completedConfig.DynamicRESTMapper,
-		s.DiscoveringDynamicSharedInformerFactory,
-		s.CacheKcpSharedInformerFactory,
+		s.PartialMetadataDDSIF,
+		s.CachePartialMetadataDDSIF,
 		cachedResourceInformer,
 		cachedResourceEndpointSliceInformer,
 	)
@@ -1770,7 +1786,9 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		Name: cachedresources.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return cachedResourceInformer.Informer().HasSynced() && cachedResourceEndpointSliceInformer.Informer().HasSynced(), nil
+				return cachedResourceInformer.Informer().HasSynced() &&
+					cachedResourceEndpointSliceInformer.Informer().HasSynced() &&
+					s.CacheApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

@@ -25,12 +25,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/informer"
 	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
@@ -40,19 +40,21 @@ import (
 // replication starts the replication machinery for a published resource.
 // Or deletes the replication controller if the published resource is being deleted.
 type replication struct {
-	shardName                      string
-	dynamicClusterClient           kcpdynamic.ClusterInterface
-	kcpCacheClient                 kcpclientset.ClusterInterface
-	dynRESTMapper                  *dynamicrestmapper.DynamicRESTMapper
-	cacheKcpInformers              kcpinformers.SharedInformerFactory
-	discoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
-	callback                       func(obj interface{})
-	controllerRegistry             *controllerRegistry
+	shardName                            string
+	localDynamicClusterClient            kcpdynamic.ClusterInterface
+	globalDynamicClusterClient           kcpdynamic.ClusterInterface
+	kcpCacheClient                       kcpclientset.ClusterInterface
+	dynRESTMapper                        *dynamicrestmapper.DynamicRESTMapper
+	localDiscoveringDynamicKcpInformers  *informer.DiscoveringDynamicSharedInformerFactory
+	globalDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
+	cacheApiExtensionsClusterClient      kcpapiextensionsclientset.ClusterInterface
+	requeueSelf                          func(obj interface{})
+	controllerRegistry                   *controllerRegistry
 }
 
 func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
-	logger.Info("reconciling published resource", "CachedResource", cachedResource.Name)
+	logger.Info("reconciling cached resource", "CachedResource", cachedResource.Name)
 
 	gvr := schema.GroupVersionResource{
 		Group:    cachedResource.Spec.Group,
@@ -79,13 +81,17 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			return reconcileStatusStopAndRequeue, nil
 		}
 
-		// Global informer is based on the CachedResource type and we construct index based on the schema labels.
 		controllerCtx, cancel := context.WithCancel(ctx)
 
-		global := r.cacheKcpInformers.Cache().V1alpha1().CachedObjects()
+		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(gvr)
+		if err != nil {
+			logger.Error(err, "Failed to get global informer for resource", "resource", gvr)
+			cancel()
+			return reconcileStatusStopAndRequeue, err
+		}
 
 		// Local informer is based on the specific types we want to replicate.
-		local, err := r.discoveringDynamicKcpInformers.ClusterWithContext(ctx, cluster).ForResource(gvr)
+		local, err := r.localDiscoveringDynamicKcpInformers.ForResource(gvr)
 		if err != nil {
 			logger.Error(err, "Failed to get local informer for resource", "resource", gvr)
 			cancel()
@@ -98,23 +104,26 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			return reconcileStatusStopAndRequeue, err
 		}
 		replicated := &replicationcontroller.ReplicatedGVR{
-			Kind:   replicatedKind.Kind,
-			Local:  local.Informer(),
-			Global: global.Informer(),
+			Identity: cachedResource.Status.IdentityHash,
+			Kind:     replicatedKind.Kind,
+			Local:    local.Informer(),
+			Global:   global.Informer(),
 		}
 		replicationcontroller.InstallIndexers(replicated)
-		callback := func() {
-			r.callback(cachedResource)
+		requeueSelf := func() {
+			r.requeueSelf(cachedResource)
 		}
 
 		c, err := replicationcontroller.NewController(
 			r.shardName,
-			r.dynamicClusterClient,
+			r.localDynamicClusterClient,
+			r.globalDynamicClusterClient,
 			r.kcpCacheClient,
+			r.cacheApiExtensionsClusterClient,
 			cluster,
 			gvr,
 			replicated,
-			callback,
+			requeueSelf,
 			resourceLabelSelector,
 		)
 		if err != nil {
@@ -125,20 +134,25 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		go replicated.Local.Run(ctx.Done())
 		go replicated.Global.Run(ctx.Done())
 
-		if !cache.WaitForCacheSync(ctx.Done(), replicated.Local.HasSynced, replicated.Global.HasSynced) {
-			cancel()
-			return reconcileStatusContinue, fmt.Errorf("failed to wait for informers to sync")
-		}
-
-		go func() {
-			c.Start(controllerCtx, 1)
-		}()
-
 		r.controllerRegistry.register(controllerName, c, cancel)
 		if cachedResource.Status.Phase != cachev1alpha1.CachedResourcePhaseDeleting {
 			conditions.MarkTrue(cachedResource, cachev1alpha1.ReplicationStarted)
 			cachedResource.Status.Phase = cachev1alpha1.CachedResourcePhaseReady
 		}
+
+		go func() {
+			defer cancel()
+
+			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Local.HasSynced, replicated.Global.HasSynced) {
+				logger.Error(nil, "Informers failed to sync, removing controller", "controller", controllerName)
+				r.controllerRegistry.unregister(controllerName)
+				requeueSelf()
+				return
+			}
+
+			c.Start(controllerCtx, 1)
+		}()
+
 		return reconcileStatusStopAndRequeue, nil // Once controller is started, we requeue to check if we need to delete it.
 	}
 	controller.SetLabelSelector(resourceLabelSelector)
