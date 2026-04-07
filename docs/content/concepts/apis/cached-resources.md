@@ -3,19 +3,7 @@
 !!! warning
     As of 0.29, this feature is of alpha-version quality. To use it, enable the `CachedAPIs` feature gate.
 
-A CachedResource object replicates a user-defined resource from its workspace into kcp's [cache server](../sharding/cache-server.md). It may be used as an [APIExport virtual resource](./exporting-apis.md#virtual-resources) with the goal of distributing static, read-only resources to multiple clusters, in a scalable way.
-
-**Example user story:**
-
-- You, the **service provider**, run a cloud _Cloud Co._, including a compute service.
-- You offer a service of provisioning and running VM instances: users create an `Instance` object and voilà, they have a running VM!
-    - But how do you design the API for configuring such a resource? How do you make your consumers know what configuration options are available, given the limited resources available in the cloud?
-    - You've decided to offer different packages for CPUs, memory, storage, GPUs; these are represented as CRDs, e.g. `cpuflavors.cloud.example.com`, `memflavors.cloud.example.com`, with `cpu-small`, `cpu-medium`, `cpu-large`, `mem-medium`, `mem-large`, `mem-xlarge` respectively.
-    - You've created a CachedResource for each flavor type.
-    - You offer the service through an APIExport containing the main `instances.cloud.example.com` resource, as well as all flavors. These are exported as [virtual resources](./exporting-apis.md#virtual-resources).
-- **Consumers** binding to your APIExport can list and get the available flavors from within their workspace (e.g. with `kubectl get cpuflavors`), and refer to them in their `Instance` spec. They cannot create, delete or otherwise modify the flavor objects in any way.
-
-See an example usage at [github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources](https://github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources).
+A CachedResource object triggers replication of a user-defined resource from its workspace into kcp's [cache server](../sharding/cache-server.md), extending its [built-in resource set](../sharding/cache-server.md#built-in-resources) with custom types. This makes those resources available across shards, enabling implementors to build globally-aware kcp-native components. API providers can additionally expose replicated resources as read-only to consumer workspaces — see [Exporting CachedResources](#exporting-cachedresources).
 
 ## Resource replication
 
@@ -87,14 +75,13 @@ flowchart TD
 You can optionally configure the following additional aspects of a CachedResource:
 
 - its identity
-- its endpoint slice
 - resource selector
 
 We'll talk about each of these next.
 
 ### CachedResource identity
 
-Similar to the [APIExport identity](./exporting-apis.md#apiexport-identity) concept, there may be many CachedResources with the same group-version-resource triplet across kcp instances. To differentiate between them and identify owners, a CachedResource object uses a unique identity key stored in a secret.
+Similar to the [APIExport identity](./exporting-apis.md#apiexport-identity) concept, there may be many CachedResources with the same group-version-resource triplet across the kcp installation. To differentiate between them and identify owners, a CachedResource object uses a unique identity key stored in a secret.
 
 The identity **key** is considered a private key and should not be shared.
 
@@ -123,44 +110,6 @@ spec:
   ...
 ```
 
-### CachedResourceEndpointSlice
-
-While CachedResources replicates their associated resources to the cache server, retrieval of these in-cache resources is done through the Replication [virtual workspace](../workspaces/virtual-workspaces.md). The Replication VW is an API server dedicated to CachedResources, and is able to access the resource's objects with read-only verbs get, list and watch.
-
-The Replication VW endpoints are listed in CachedResourceEndpointSlice. This endpoint slice is compatible with APIExport's [virtual resources](./exporting-apis.md#virtual-resources) and can be used as storage source.
-
-With that said, the Replication VW is consumer-aware, and needs a valid APIExport and APIBinding(s) to operate. Therefore it is much more convenient to access the in-cache resources through regular APIBindings in a workspace and/or the APIExport VW rather than accessing them through the Replication VW. Consider the Replication VW just as an implementation detail of the CachedResource API, and when consuming it, use APIExports.
-
-```mermaid
-flowchart TD
-    cacheServer["Cache server"]
-    replicationVW["Replication VW"]
-
-    subgraph provider["API Provider Workspace"]
-        cpuflavorsCachedResource["CPUFlavors CachedResource"]
-        cpuflavorsCachedResourceEndpointSlice["CPUFlavors CachedResourceEndpointSlice"]
-
-        cpuflavorsCachedResourceEndpointSlice --> cpuflavorsCachedResource
-    end
-
-    replicationVW -."Reads from".-> cacheServer
-    cpuflavorsCachedResourceEndpointSlice -."Has an endpoint for".-> replicationVW
-```
-
-For convenience, creating a CachedResource triggers creation of a CachedResourceEndpointSlice object under the same name. This behaviour can be disabled by adding `cachedresources.cache.kcp.io/skip-endpointslice` annotation to the CachedResource object. You can create your own like so:
-
-```yaml
-apiVersion: cache.kcp.io/v1alpha1
-kind: CachedResourceEndpointSlice
-metadata:
-  name: cpuflavors-v1
-spec:
-  cachedResource:
-    name: cpuflavors-v1 # (1)
-```
-
-1. Name of the CachedResource this endpoint slice is referencing. Currently, both CachedResource and CachedResourceEndpointSlice must be co-located in the same workspace. See <https://github.com/kcp-dev/kcp/issues/3658>
-
 ### Selectors
 
 CachedResource spec has an optional [`labelSelector`](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) field which can be used to shape the set of objects it picks up.
@@ -181,6 +130,55 @@ spec:
 ## Exporting CachedResources
 
 You can project the replicated read-only objects of a CachedResource into a workspace using the standard APIExport-APIBinding relationship. Create an APIExport and define [virtual resource](./exporting-apis.md#virtual-resources) for the associated [CachedResourceEndpointSlice](#cachedresourceendpointslice). Consumers can then bind to it.
+
+**Example user story:**
+
+- You, the **service provider**, run a cloud _Cloud Co._, including a compute service.
+- You offer a service of provisioning and running VM instances: users create an `Instance` object and voilà, they have a running VM!
+    - But how do you design the API for configuring such a resource? How do you make your consumers know what configuration options are available, given the limited resources available in the cloud?
+    - You've decided to offer different packages for CPUs, memory, storage, GPUs; these are represented as CRDs, e.g. `cpuflavors.cloud.example.com`, `memflavors.cloud.example.com`, with `cpu-small`, `cpu-medium`, `cpu-large`, `mem-medium`, `mem-large`, `mem-xlarge` respectively.
+    - You've created a CachedResource for each flavor type.
+    - You offer the service through an APIExport containing the main `instances.cloud.example.com` resource, as well as all flavors. These are exported as [virtual resources](./exporting-apis.md#virtual-resources).
+- **Consumers** binding to your APIExport can list and get the available flavors from within their workspace (e.g. with `kubectl get cpuflavors`), and refer to them in their `Instance` spec. They cannot create, delete or otherwise modify the flavor objects in any way.
+
+See an example usage at [github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources](https://github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources).
+
+### CachedResourceEndpointSlice
+
+The CachedResourceEndpointSlice tracks the consumers of the associated APIExport, and needs to be created when you want to export a CachedResource.
+
+```mermaid
+flowchart TD
+    cacheServer["Cache server"]
+    replicationVW["Replication VW"]
+
+    subgraph provider["API Provider Workspace"]
+        cpuflavorsCachedResource["CPUFlavors CachedResource"]
+        cpuflavorsCachedResourceEndpointSlice["CPUFlavors CachedResourceEndpointSlice"]
+
+        cpuflavorsCachedResourceEndpointSlice --> cpuflavorsCachedResource
+    end
+
+    replicationVW -."Reads from".-> cacheServer
+    cpuflavorsCachedResourceEndpointSlice -."Has an endpoint for".-> replicationVW
+```
+
+```yaml
+apiVersion: cache.kcp.io/v1alpha1
+kind: CachedResourceEndpointSlice
+metadata:
+  name: cpuflavors-v1
+spec:
+  cachedResource:
+    name: cpuflavors-v1 # (1)
+  export:
+    name: vm-provider # (2)
+```
+
+1. Name (and optionally the cluster path) of the CachedResource this endpoint slice is referencing.
+2. Name (and optionally the cluster path) of the APIExport this endpoint slice is referenced by.
+
+Both the `cachedResource` and `export` references are immutable once set.
 
 ```yaml
 apiVersion: apis.kcp.io/v1alpha2
@@ -205,7 +203,7 @@ spec:
 2. Reference to the CachedResourceEndpointSlice endpoint slice `cpuflavors-v1`.
 3. Identity hash of the `cpuflavors-v1` CachedResource object.
 
-A `virtual` storage definition needs (1) a reference to an [endpoint slice](./exporting-apis.md#endpoint-slices) object, and (2) a virtual resource identity. In the case of CachedResources, the endpoint slice is provided by CachedResourceEndpointSlice. For convenience, a matching CachedResourceEndpointSlice object is automatically created when creating a CachedResource. The identity hash must match the one set in CachedResource's `.status.identityHash`.
+A `virtual` storage definition needs (1) a reference to an [endpoint slice](./exporting-apis.md#endpoint-slices) object, and (2) a virtual resource identity. In the case of CachedResources, the endpoint slice is provided by CachedResourceEndpointSlice. The identity hash must match the one set in CachedResource's `.status.identityHash`.
 
 ```mermaid
 flowchart TD
@@ -231,3 +229,12 @@ flowchart TD
 ```
 
 Note the APIResourceSchema referenced by the APIExport example above: the Replication VW follows that reference, and that schema is then used to serve the resource in consumers' workspaces. The provider must therefore ensure that it is kept in-sync with the schema of the original resource.
+
+```sh
+$ # In consumer ws.
+$ kubectl get cpuflavors
+NAME
+cpu-small
+cpu-medium
+cpu-large
+```
