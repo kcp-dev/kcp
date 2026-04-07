@@ -32,7 +32,6 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
-	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -42,11 +41,10 @@ import (
 )
 
 type contentAuthorizer struct {
-	getAPIBinding                               func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
-	getAPIExportsByVirtualResourceIdentityAndGR func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error)
-	getAPIExportByPath                          func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	getCachedResource                           func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error)
-	getLogicalCluster                           func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	getCachedResourceEndpointSlice func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
+	getAPIExportByPath             func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIBinding                  func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	getLogicalCluster              func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
 	newDelegatedAuthorizer func(cluster logicalcluster.Name) (authorizer.Authorizer, error)
 }
@@ -54,25 +52,17 @@ type contentAuthorizer struct {
 var readOnlyVerbs = sets.New("get", "list", "watch")
 
 // NewContentAuthorizer creates an authorizer that checks apiexports/content permission
-// on relevant APIExports that export the CachedResource in the request URL.
-// APIExports must have identity that matches the one specified in the request URL.
+// on the APIExport referenced by the CachedResourceEndpointSlice in the request URL.
 func NewContentAuthorizer(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	localKcpInformers kcpinformers.SharedInformerFactory,
 	globalKcpInformers kcpinformers.SharedInformerFactory,
 ) authorizer.Authorizer {
 	return &contentAuthorizer{
-		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
-			return localKcpInformers.Apis().V1alpha2().APIBindings().Lister().Cluster(cluster).Get(name)
-		},
-
-		getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
-			return indexers.ByIndex[*apisv1alpha2.APIExport](
-				globalKcpInformers.Apis().V1alpha2().APIExports().Informer().GetIndexer(),
-				indexers.APIExportByVirtualResourceIdentitiesAndGRs,
-				indexers.VirtualResourceIdentityAndGRKey(vrIdentity, gr),
-			)
-		},
+		getCachedResourceEndpointSlice: informer.NewScopedGetterWithFallback(
+			localKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Lister(),
+			globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Lister(),
+		),
 
 		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](
@@ -84,14 +74,13 @@ func NewContentAuthorizer(
 			)
 		},
 
+		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
+			return localKcpInformers.Apis().V1alpha2().APIBindings().Lister().Cluster(cluster).Get(name)
+		},
+
 		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 			return localKcpInformers.Core().V1alpha1().LogicalClusters().Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
-
-		getCachedResource: informer.NewScopedGetterWithFallback(
-			localKcpInformers.Cache().V1alpha1().CachedResources().Lister(),
-			globalKcpInformers.Cache().V1alpha1().CachedResources().Lister(),
-		),
 
 		newDelegatedAuthorizer: func(cluster logicalcluster.Name) (authorizer.Authorizer, error) {
 			return delegated.NewDelegatedAuthorizer(cluster, kubeClusterClient, delegated.Options{})
@@ -104,10 +93,9 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		return authorizer.DecisionDeny, "write access to Replication virtual workspace is not allowed", nil
 	}
 
-	parsedKey, err := apidomainkey.Parse(dynamiccontext.APIDomainKeyFrom(ctx))
+	apiDomianKey, err := apidomainkey.FromContext(ctx)
 	if err != nil {
-		return authorizer.DecisionNoOpinion, "",
-			fmt.Errorf("invalid API domain key")
+		return authorizer.DecisionNoOpinion, "", fmt.Errorf("invalid API domain key")
 	}
 
 	targetCluster, err := genericapirequest.ValidClusterFrom(ctx)
@@ -115,25 +103,21 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting valid cluster from context: %w", err)
 	}
 
-	cachedResource, err := a.getCachedResource(parsedKey.CachedResourceCluster, parsedKey.CachedResourceName)
+	slice, err := a.getCachedResourceEndpointSlice(apiDomianKey.Cluster, apiDomianKey.Name)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
 	}
-	wrappedGR := schema.GroupResource{
-		Group:    cachedResource.Spec.Group,
-		Resource: cachedResource.Spec.Resource,
+	exportPath := logicalcluster.NewPath(slice.Spec.APIExport.Path)
+	if exportPath.Empty() {
+		exportPath = logicalcluster.From(slice).Path()
+	}
+	export, err := a.getAPIExportByPath(exportPath, slice.Spec.APIExport.Name)
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "APIExport not found", err
 	}
 
-	var exports []*apisv1alpha2.APIExport
-
-	if targetCluster.Wildcard || !attr.IsResourceRequest() {
-		// For non-resource or wildcard requests we need to check all relevant APIExports.
-		exports, err = a.getAPIExportsByVirtualResourceIdentityAndGR(cachedResource.Status.IdentityHash, wrappedGR)
-		if err != nil {
-			return authorizer.DecisionNoOpinion, "", err
-		}
-	} else {
-		// We have a request against a concrete cluster. There should be an associated binding in that cluster.
+	if !targetCluster.Wildcard && attr.IsResourceRequest() {
+		// For a concrete cluster request, verify the target cluster has a binding to this export.
 		lc, err := a.getLogicalCluster(targetCluster.Name)
 		if err != nil {
 			return authorizer.DecisionNoOpinion, "logical cluster not found", err
@@ -143,6 +127,16 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 			return authorizer.DecisionNoOpinion, "failed to retrieve bound resources", err
 		}
 
+		// Find the GR from the export's resource entry that references this endpoint slice.
+		var wrappedGR schema.GroupResource
+		for _, res := range export.Spec.Resources {
+			if res.Storage.Virtual != nil &&
+				res.Storage.Virtual.Reference.Name == slice.Name {
+				wrappedGR = schema.GroupResource{Group: res.Group, Resource: res.Name}
+				break
+			}
+		}
+
 		var binding *apisv1alpha2.APIBinding
 		if boundResourceLock, hasBinding := boundResources[wrappedGR.String()]; hasBinding {
 			binding, err = a.getAPIBinding(targetCluster.Name, boundResourceLock.Name)
@@ -150,19 +144,14 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		if err != nil || binding == nil {
 			return authorizer.DecisionDeny, "could not find suitable APIBinding in target logical cluster", nil //nolint:nilerr // this is on purpose, we want to deny, not return a server error
 		}
-		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
-		if path.Empty() {
-			path = logicalcluster.From(binding).Path()
-		}
-		export, err := a.getAPIExportByPath(path, binding.Spec.Reference.Export.Name)
-		if err != nil {
-			return authorizer.DecisionNoOpinion, "APIExport not found", err
-		}
-		exports = append(exports, export)
 	}
 
-	// Make sure the user has apiexports/content permissions to the exports that refer to this CachedResource resource.
-
+	// Check that the user has apiexports/content permission on the export.
+	authz, err := a.newDelegatedAuthorizer(logicalcluster.From(export))
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "",
+			fmt.Errorf("error creating delegated authorizer for API export %q, workspace %q: %w", export.Name, logicalcluster.From(export), err)
+	}
 	SARAttributes := authorizer.AttributesRecord{
 		APIGroup:        apisv1alpha1.SchemeGroupVersion.Group,
 		APIVersion:      apisv1alpha1.SchemeGroupVersion.Version,
@@ -171,47 +160,15 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		Resource:        "apiexports",
 		ResourceRequest: true,
 		Subresource:     "content",
+		Name:            export.Name,
 	}
-
-	var seenCachedResourceReference bool
-	for _, export := range exports {
-		for _, resource := range export.Spec.Resources {
-			if resource.Storage.Virtual == nil ||
-				resource.Storage.Virtual.IdentityHash != cachedResource.Status.IdentityHash {
-				continue
-			}
-			if resource.Group != cachedResource.Spec.Group ||
-				resource.Name != cachedResource.Spec.Resource {
-				continue
-			}
-			if resource.Storage.Virtual.Reference.APIGroup == nil ||
-				*resource.Storage.Virtual.Reference.APIGroup != cachev1alpha1.SchemeGroupVersion.Group ||
-				resource.Storage.Virtual.Reference.Kind != "CachedResourceEndpointSlice" ||
-				resource.Storage.Virtual.Reference.Name != cachedResource.Name {
-				continue
-			}
-
-			authz, err := a.newDelegatedAuthorizer(logicalcluster.From(export))
-			if err != nil {
-				return authorizer.DecisionNoOpinion, "",
-					fmt.Errorf("error creating delegated authorizer for API export %q, workspace %q: %w", export.Name, logicalcluster.From(export), err)
-			}
-			SARAttributes.Name = export.Name
-			dec, reason, err := authz.Authorize(ctx, SARAttributes)
-			if err != nil {
-				return authorizer.DecisionNoOpinion, "",
-					fmt.Errorf("error authorizing RBAC in API export %q, workspace %q: %w", export.Name, logicalcluster.From(export), err)
-			}
-			if dec != authorizer.DecisionAllow {
-				return authorizer.DecisionDeny, reason, nil
-			}
-
-			seenCachedResourceReference = true
-		}
+	dec, reason, err := authz.Authorize(ctx, SARAttributes)
+	if err != nil {
+		return authorizer.DecisionNoOpinion, "",
+			fmt.Errorf("error authorizing RBAC in API export %q, workspace %q: %w", export.Name, logicalcluster.From(export), err)
 	}
-
-	if !seenCachedResourceReference {
-		return authorizer.DecisionDeny, "failed to find suitable reason to allow access to CachedResource", nil
+	if dec != authorizer.DecisionAllow {
+		return authorizer.DecisionDeny, reason, nil
 	}
 
 	return authorizer.DecisionAllow, "found CachedResource reference", nil
