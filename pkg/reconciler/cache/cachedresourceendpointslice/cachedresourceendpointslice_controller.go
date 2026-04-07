@@ -35,11 +35,14 @@ import (
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	cachev1alpha1helpers "github.com/kcp-dev/sdk/apis/cache/v1alpha1/helper"
 	"github.com/kcp-dev/sdk/apis/core"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	cachev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	cachev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/cache/v1alpha1"
 	topologyinformers "github.com/kcp-dev/sdk/client/informers/externalversions/topology/v1alpha1"
 
@@ -58,6 +61,7 @@ const (
 func NewController(
 	cachedResourceEndpointSliceClusterInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer,
 	globalCachedResourceClusterInformer cachev1alpha1informers.CachedResourceClusterInformer,
+	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 	partitionClusterInformer topologyinformers.PartitionClusterInformer,
 	kcpClusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
@@ -76,6 +80,9 @@ func NewController(
 		},
 		getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
 			return indexers.ByPathAndName[*cachev1alpha1.CachedResource](cachev1alpha1.Resource("cachedresource"), globalCachedResourceClusterInformer.Informer().GetIndexer(), path, name)
+		},
+		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndName[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), globalAPIExportClusterInformer.Informer().GetIndexer(), path, name)
 		},
 		getPartition: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error) {
 			return partitionClusterInformer.Lister().Cluster(clusterName).Get(name)
@@ -118,6 +125,18 @@ func NewController(
 		},
 	}))
 
+	_, _ = globalAPIExportClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](newObj), logger)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger)
+		},
+	}))
+
 	_, _ = partitionClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.enqueuePartition(tombstone.Obj[*topologyv1alpha1.Partition](obj), logger)
@@ -148,6 +167,7 @@ type controller struct {
 	listCachedResourceEndpointSlices           func() ([]*cachev1alpha1.CachedResourceEndpointSlice, error)
 	getCachedResourceEndpointSlice             func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
 	getCachedResource                          func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
+	getAPIExport                               func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getPartition                               func(cluster logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
 	getCachedResourceEndpointSlicesByPartition func(key string) ([]*cachev1alpha1.CachedResourceEndpointSlice, error)
 
@@ -194,6 +214,20 @@ func (c *controller) enqueueCachedResource(cachedResource *cachev1alpha1.CachedR
 			continue
 		}
 		c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](slice), logger, " because of referenced CachedResource")
+	}
+}
+
+func (c *controller) enqueueAPIExport(export *apisv1alpha2.APIExport, logger logr.Logger) {
+	keys := sets.New[string]()
+	for _, res := range export.Spec.Resources {
+		if !cachev1alpha1helpers.IsCachedResourceEndpointSliceResourceStorage(&res.Storage) {
+			continue
+		}
+		keys.Insert(cache.ToClusterAwareKey(logicalcluster.From(export).String(), "", res.Storage.Virtual.Reference.Name))
+	}
+	for k := range keys {
+		logger.V(4).Info("queueing CachedResourceEndpointSlice from APIExport")
+		c.queue.Add(k)
 	}
 }
 
@@ -283,8 +317,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	err = c.reconcile(ctx, obj)
-	if err != nil {
+	if err := c.reconcile(ctx, obj); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -306,6 +339,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 func InstallIndexers(
 	globalCachedResourceClusterInformer cachev1alpha1informers.CachedResourceClusterInformer,
 	cachedResourceEndpointSliceClusterInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer,
+	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 ) {
 	indexers.AddIfNotPresentOrDie(globalCachedResourceClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
@@ -314,5 +348,8 @@ func InstallIndexers(
 		indexers.ByLogicalClusterPathAndName:             indexers.IndexByLogicalClusterPathAndName,
 		IndexCachedResourceEndpointSliceByCachedResource: IndexCachedResourceEndpointSliceByCachedResourceFunc,
 		indexCachedResourceEndpointSlicesByPartition:     indexCachedResourceEndpointSlicesByPartitionFunc,
+	})
+	indexers.AddIfNotPresentOrDie(globalAPIExportClusterInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }

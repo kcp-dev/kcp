@@ -1793,6 +1793,7 @@ func (s *Server) installCachedResourceEndpointSliceController(ctx context.Contex
 	c, err := cachedresourceendpointslice.NewController(
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
 		kcpClusterClient,
 	)
@@ -1805,6 +1806,7 @@ func (s *Server) installCachedResourceEndpointSliceController(ctx context.Contex
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced(), nil
 			})
 		},
@@ -1835,7 +1837,6 @@ func (s *Server) installCachedResourceEndpointSliceURLsController(_ context.Cont
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
-		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kcpClusterClient,
 	)
@@ -1936,14 +1937,11 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 	cachedresourceendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	cachedresourceendpointsliceurls.InstallIndexers(
-		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
-		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
-		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	return replication.InstallIndexers(
 		s.KcpSharedInformerFactory,
