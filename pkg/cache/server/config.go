@@ -34,14 +34,18 @@ import (
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	"github.com/kcp-dev/embeddedetcd"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
@@ -66,6 +70,7 @@ type completedConfig struct {
 type ExtraConfig struct {
 	ApiExtensionsClusterClient         kcpapiextensionsclientset.ClusterInterface
 	ApiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory
+	KcpSharedInformerFactory           kcpinformers.SharedInformerFactory
 }
 
 type CompletedConfig struct {
@@ -138,6 +143,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	}
 
 	serverConfig.Config.BuildHandlerChainFunc = func(apiHandler http.Handler, genericConfig *genericapiserver.Config) (secure http.Handler) {
+		apiHandler = filters.WithResourceIdentity(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthzToCompletion(apiHandler, genericConfig)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
@@ -147,6 +153,8 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		apiHandler = WithShardScope(apiHandler)
 		apiHandler = WithServiceScope(apiHandler)
 		apiHandler = WithSyntheticDelay(apiHandler, opts.SyntheticDelay)
+
+		apiHandler = filters.WithAcceptHeader(apiHandler)
 		return apiHandler
 	}
 
@@ -204,18 +212,39 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		c.ApiExtensionsClusterClient,
 		resyncPeriod,
 	)
+	_ = c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})
+
+	kcpClient, err := kcpclientset.NewForConfig(serverConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(
+		kcpClient,
+		resyncPeriod,
+	)
+
+	if err := c.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().GetIndexer().AddIndexers(cache.Indexers{
+		cachedresources.ByIdentityAndGroupResource: cachedresources.IndexByIdentityAndGroupResource,
+		cachedresources.ByGroupResource:            cachedresources.IndexByGroupResource,
+	}); err != nil {
+		return nil, err
+	}
 
 	crdRESTOptionsGetter := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd, serverConfig.ResourceTransformers, serverConfig.StorageObjectCountTracker)
 
 	c.ApiExtensions = &apiextensionsapiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiextensionsapiserver.ExtraConfig{
-			CRDRESTOptionsGetter:  crdRESTOptionsGetter,
-			MasterCount:           1,
-			Client:                c.ApiExtensionsClusterClient,
-			Informers:             c.ApiExtensionsSharedInformerFactory,
-			ClusterAwareCRDLister: &crdClusterLister{lister: c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister()},
-			ConversionFactory:     &nopCRConversionFactory{},
+			CRDRESTOptionsGetter: crdRESTOptionsGetter,
+			MasterCount:          1,
+			Client:               c.ApiExtensionsClusterClient,
+			Informers:            c.ApiExtensionsSharedInformerFactory,
+			ClusterAwareCRDLister: newCacheResourceAwareCRDClusterLister(
+				c.ApiExtensionsSharedInformerFactory,
+				c.KcpSharedInformerFactory,
+			),
+			ConversionFactory: &nopCRConversionFactory{},
 		},
 	}
 
