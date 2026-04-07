@@ -203,6 +203,7 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 		} {
 			t.Run(fmt.Sprintf("Prepare workspace %q", ws), func(t *testing.T) {
 				t.Parallel()
+				var err error
 
 				// We need the Instances CRD + a few of its CRs for testing and a CachedResource for that Instance resource + its identity secret.
 				// We iterate over two different identities, so we should have two distinct Instance resources across the cache server.
@@ -225,7 +226,7 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 
 				t.Logf("Create Instance objects in workspace %q", ws)
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
-					err = helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(ws), mapper, nil, "assets/instances.yaml", testFiles)
+					err := helpers.CreateResourceFromFS(ctx, dynamicClusterClient.Cluster(ws), mapper, nil, "assets/instances.yaml", testFiles)
 					return err == nil, ""
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for instances object to be created")
 
