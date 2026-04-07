@@ -57,8 +57,8 @@ func TestReconcileNew(t *testing.T) {
 	requeue, err := c.reconcile(context.Background(), apiBinding)
 	require.NoError(t, err)
 	require.Equal(t, apisv1alpha2.APIBindingPhaseBinding, apiBinding.Status.Phase)
-	require.False(t, requeue)
-	requireConditionMatches(t, apiBinding, conditions.FalseCondition(conditionsv1alpha1.ReadyCondition, "", "", ""))
+	require.True(t, requeue)
+	require.False(t, conditions.Has(apiBinding, conditionsv1alpha1.ReadyCondition), "unexpected Ready condition")
 }
 
 func TestReconcileBinding(t *testing.T) {

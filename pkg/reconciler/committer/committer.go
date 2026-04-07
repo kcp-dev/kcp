@@ -35,8 +35,8 @@ import (
 
 // Resource is a generic wrapper around resources so we can generate patches.
 type Resource[Sp any, St any] struct {
-	APIVersion        string `json:"apiVersion"`
-	Kind              string `json:"kind"`
+	APIVersion        string `json:"apiVersion,omitempty"`
+	Kind              string `json:"kind,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              Sp `json:"spec,omitempty"`
 	Status            St `json:"status,omitempty"`
