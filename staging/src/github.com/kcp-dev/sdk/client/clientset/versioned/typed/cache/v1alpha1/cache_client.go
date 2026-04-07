@@ -29,7 +29,6 @@ import (
 
 type CacheV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	CachedObjectsGetter
 	CachedResourcesGetter
 	CachedResourceEndpointSlicesGetter
 }
@@ -37,10 +36,6 @@ type CacheV1alpha1Interface interface {
 // CacheV1alpha1Client is used to interact with features provided by the cache.kcp.io group.
 type CacheV1alpha1Client struct {
 	restClient rest.Interface
-}
-
-func (c *CacheV1alpha1Client) CachedObjects() CachedObjectInterface {
-	return newCachedObjects(c)
 }
 
 func (c *CacheV1alpha1Client) CachedResources() CachedResourceInterface {

@@ -22,21 +22,6 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedObject) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObject"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedObjectList) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObjectList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedObjectSpec) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedObjectSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResource) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResource"
 }
@@ -84,6 +69,11 @@ func (in CachedResourceSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceStatus) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ExportBindingReference) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ExportBindingReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

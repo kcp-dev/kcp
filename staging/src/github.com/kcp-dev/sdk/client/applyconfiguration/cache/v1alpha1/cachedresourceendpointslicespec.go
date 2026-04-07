@@ -25,6 +25,8 @@ package v1alpha1
 type CachedResourceEndpointSliceSpecApplyConfiguration struct {
 	// CachedResource points to the real CachedResource the slice is created for.
 	CachedResource *CachedResourceReferenceApplyConfiguration `json:"cachedResource,omitempty"`
+	// export points to the APIExport that exports this CachedResourceEndpointSlice.
+	APIExport *ExportBindingReferenceApplyConfiguration `json:"export,omitempty"`
 	// partition points to a partition that is used for filtering the endpoints
 	// of the CachedResource part of the slice.
 	Partition *string `json:"partition,omitempty"`
@@ -41,6 +43,14 @@ func CachedResourceEndpointSliceSpec() *CachedResourceEndpointSliceSpecApplyConf
 // If called multiple times, the CachedResource field is set to the value of the last call.
 func (b *CachedResourceEndpointSliceSpecApplyConfiguration) WithCachedResource(value *CachedResourceReferenceApplyConfiguration) *CachedResourceEndpointSliceSpecApplyConfiguration {
 	b.CachedResource = value
+	return b
+}
+
+// WithAPIExport sets the APIExport field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the APIExport field is set to the value of the last call.
+func (b *CachedResourceEndpointSliceSpecApplyConfiguration) WithAPIExport(value *ExportBindingReferenceApplyConfiguration) *CachedResourceEndpointSliceSpecApplyConfiguration {
+	b.APIExport = value
 	return b
 }
 

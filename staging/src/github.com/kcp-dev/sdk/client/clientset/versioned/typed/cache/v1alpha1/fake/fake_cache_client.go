@@ -29,10 +29,6 @@ type FakeCacheV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCacheV1alpha1) CachedObjects() v1alpha1.CachedObjectInterface {
-	return newFakeCachedObjects(c)
-}
-
 func (c *FakeCacheV1alpha1) CachedResources() v1alpha1.CachedResourceInterface {
 	return newFakeCachedResources(c)
 }

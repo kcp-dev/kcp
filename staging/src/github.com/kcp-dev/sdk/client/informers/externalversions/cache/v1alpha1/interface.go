@@ -23,8 +23,6 @@ import (
 )
 
 type ClusterInterface interface {
-	// CachedObjects returns a CachedObjectClusterInformer.
-	CachedObjects() CachedObjectClusterInformer
 	// CachedResources returns a CachedResourceClusterInformer.
 	CachedResources() CachedResourceClusterInformer
 	// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceClusterInformer.
@@ -41,11 +39,6 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// CachedObjects returns a CachedObjectClusterInformer.
-func (v *version) CachedObjects() CachedObjectClusterInformer {
-	return &cachedObjectClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // CachedResources returns a CachedResourceClusterInformer.
 func (v *version) CachedResources() CachedResourceClusterInformer {
 	return &cachedResourceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -57,8 +50,6 @@ func (v *version) CachedResourceEndpointSlices() CachedResourceEndpointSliceClus
 }
 
 type Interface interface {
-	// CachedObjects returns a CachedObjectInformer.
-	CachedObjects() CachedObjectInformer
 	// CachedResources returns a CachedResourceInformer.
 	CachedResources() CachedResourceInformer
 	// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceInformer.
@@ -74,11 +65,6 @@ type scopedVersion struct {
 // New returns a new Interface.
 func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
-}
-
-// CachedObjects returns a CachedObjectInformer.
-func (v *scopedVersion) CachedObjects() CachedObjectInformer {
-	return &cachedObjectScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CachedResources returns a CachedResourceInformer.

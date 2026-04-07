@@ -24,7 +24,7 @@ package v1alpha1
 // Using a struct provides an extension point
 // CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
 type CachedResourceEndpointApplyConfiguration struct {
-	// url is an CachedResource virtual workspace URL.
+	// url is Replication virtual workspace URL.
 	URL *string `json:"url,omitempty"`
 }
 

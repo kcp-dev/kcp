@@ -18,14 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-// CachedObjectClusterListerExpansion allows custom methods to be added to
-// CachedObjectClusterLister.
-type CachedObjectClusterListerExpansion interface{}
-
-// CachedObjectListerExpansion allows custom methods to be added to
-// CachedObjectLister.
-type CachedObjectListerExpansion interface{}
-
 // CachedResourceClusterListerExpansion allows custom methods to be added to
 // CachedResourceClusterLister.
 type CachedResourceClusterListerExpansion interface{}

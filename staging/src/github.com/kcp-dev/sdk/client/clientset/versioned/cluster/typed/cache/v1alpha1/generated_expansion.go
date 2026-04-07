@@ -18,8 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-type CachedObjectClusterExpansion interface{}
-
 type CachedResourceClusterExpansion interface{}
 
 type CachedResourceEndpointSliceClusterExpansion interface{}

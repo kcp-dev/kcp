@@ -102,9 +102,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha2.ResourceSelector{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref),
 		v1alpha2.ScopedPermissionClaim{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref),
 		v1alpha2.VirtualWorkspace{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
-		cachev1alpha1.CachedObject{}.OpenAPIModelName():                               schema_sdk_apis_cache_v1alpha1_CachedObject(ref),
-		cachev1alpha1.CachedObjectList{}.OpenAPIModelName():                           schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref),
-		cachev1alpha1.CachedObjectSpec{}.OpenAPIModelName():                           schema_sdk_apis_cache_v1alpha1_CachedObjectSpec(ref),
 		cachev1alpha1.CachedResource{}.OpenAPIModelName():                             schema_sdk_apis_cache_v1alpha1_CachedResource(ref),
 		cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName():                     schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref),
 		cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName():                schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref),
@@ -115,6 +112,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		cachev1alpha1.CachedResourceReference{}.OpenAPIModelName():                    schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref),
 		cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName():                         schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref),
 		cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref),
+		cachev1alpha1.ExportBindingReference{}.OpenAPIModelName():                     schema_sdk_apis_cache_v1alpha1_ExportBindingReference(ref),
 		cachev1alpha1.GroupVersionResource{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
 		cachev1alpha1.Identity{}.OpenAPIModelName():                                   schema_sdk_apis_cache_v1alpha1_Identity(ref),
 		cachev1alpha1.ResourceCount{}.OpenAPIModelName():                              schema_sdk_apis_cache_v1alpha1_ResourceCount(ref),
@@ -3001,118 +2999,6 @@ func schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref common.ReferenceCallback
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedObject(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CachedObject defines a resource that is cached in the cache.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(cachev1alpha1.CachedObjectSpec{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"spec"},
-			},
-		},
-		Dependencies: []string{
-			cachev1alpha1.CachedObjectSpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_cache_v1alpha1_CachedObjectList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CachedObjectList contains a list of CachedObject",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(cachev1alpha1.CachedObject{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			cachev1alpha1.CachedObject{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_cache_v1alpha1_CachedObjectSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CachedObjectSpec defines the desired state of CachedObject.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"raw": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref(runtime.RawExtension{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"raw"},
-			},
-		},
-		Dependencies: []string{
-			runtime.RawExtension{}.OpenAPIModelName()},
-	}
-}
-
 func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3170,7 +3056,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Description: "url is an CachedResource virtual workspace URL.",
+							Description: "url is Replication virtual workspace URL.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3295,6 +3181,13 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.R
 							Ref:         ref(cachev1alpha1.CachedResourceReference{}.OpenAPIModelName()),
 						},
 					},
+					"export": {
+						SchemaProps: spec.SchemaProps{
+							Description: "export points to the APIExport that exports this CachedResourceEndpointSlice.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(cachev1alpha1.ExportBindingReference{}.OpenAPIModelName()),
+						},
+					},
 					"partition": {
 						SchemaProps: spec.SchemaProps{
 							Description: "partition points to a partition that is used for filtering the endpoints of the CachedResource part of the slice.",
@@ -3303,11 +3196,11 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.R
 						},
 					},
 				},
-				Required: []string{"cachedResource"},
+				Required: []string{"cachedResource", "export"},
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceReference{}.OpenAPIModelName()},
+			cachev1alpha1.CachedResourceReference{}.OpenAPIModelName(), cachev1alpha1.ExportBindingReference{}.OpenAPIModelName()},
 	}
 }
 
@@ -3543,6 +3436,35 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCal
 		},
 		Dependencies: []string{
 			cachev1alpha1.ResourceCount{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_cache_v1alpha1_ExportBindingReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExportBindingReference is a reference to an APIExport by cluster and name.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is a logical cluster path where the APIExport is defined. If the path is unset, the logical cluster of the referencing object is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the APIExport that describes the API.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
 	}
 }
 
