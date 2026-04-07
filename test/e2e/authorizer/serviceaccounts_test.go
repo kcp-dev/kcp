@@ -37,7 +37,6 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/sdk/apis/core"
 	"github.com/kcp-dev/sdk/apis/tenancy/v1alpha1/helper"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
@@ -53,12 +52,10 @@ func TestServiceAccounts(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
-	wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 
 	cfg := server.BaseConfig(t)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
-	require.NoError(t, err)
-	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
 	t.Log("Creating namespace")
@@ -189,12 +186,9 @@ func TestServiceAccounts(t *testing.T) {
 				require.NoError(t, err)
 			})
 
-			t.Run("Access another workspace in the same org and shard", func(t *testing.T) {
+			t.Run("Access another workspace in the same org", func(t *testing.T) {
 				t.Log("Create workspace with the same name")
-				// Ensure this new workspace is scheduled onto the same shard, so that it and the ServiceAccount
-				// can be resolved. See https://github.com/kcp-dev/kcp/issues/3510 for tracking multi-shard support.
-				opts := kcptesting.WithShard(kcptesting.WorkspaceShardOrDie(t, kcpClusterClient, ws).Name)
-				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, opts)
+				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespace.Name,
@@ -246,10 +240,7 @@ func TestServiceAccounts(t *testing.T) {
 				t.Log("Accessing other workspace with the (there foreign) service account should eventually work because it is authenticated")
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
 					_, err := saKubeClusterClient.Cluster(otherPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
-					if err != nil {
-						return false, err.Error()
-					}
-					return true, ""
+					return err == nil, fmt.Sprintf("err = %v", err)
 				}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 				t.Log("Taking away the authenticated access to the other workspace, restricting to only service accounts")

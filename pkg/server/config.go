@@ -342,6 +342,13 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		}
 	}
 
+	externalKubeClient, err := kcpkubernetesclientset.NewForConfig(c.ExternalLogicalClusterAdminConfig)
+	if err != nil {
+		return nil, err
+	}
+	opts.Extra.ServiceAccountCache.SetKubeShardClient(externalKubeClient)
+	opts.Extra.ServiceAccountCache.SetInformers(c.KcpSharedInformerFactory)
+
 	// Setup apiextensions * informers
 	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(c.GenericConfig.LoopbackClientConfig)
 	if err != nil {

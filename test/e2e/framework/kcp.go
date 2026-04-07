@@ -37,6 +37,6 @@ func init() {
 
 	kcptesting.InitSharedKcpServer(kcptestingserver.WithCustomArguments(
 		"--token-auth-file", DefaultTokenAuthFile,
-		"--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,GlobalServiceAccount=true",
+		"--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true",
 	))
 }

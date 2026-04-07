@@ -94,6 +94,7 @@ func clusterRoles() []rbacv1.ClusterRole {
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("delete", "update", "get").Groups(core.GroupName).Resources("logicalclusters", "logicalclusters/status").RuleOrDie(),
 				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
+				rbacv1helpers.NewRule("get").Groups("").Resources("serviceaccounts", "secrets").RuleOrDie(),
 				rbacv1helpers.NewRule("access").URLs("/").RuleOrDie(),
 			},
 		},
