@@ -37,6 +37,11 @@ func (in LogicalClusterOwner) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LogicalClusterOwnerUser) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterOwnerUser"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterSpec) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.LogicalClusterSpec"
 }

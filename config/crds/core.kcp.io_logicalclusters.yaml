@@ -119,6 +119,37 @@ spec:
                 - resource
                 - uid
                 type: object
+              ownerUser:
+                description: |-
+                  ownerUser is the identity of the user who created this workspace.
+                  Set by the system at workspace creation time. Immutable after creation.
+                  Used by virtual workspace content proxies to determine the default
+                  impersonation identity during initialization and termination.
+                properties:
+                  extra:
+                    additionalProperties:
+                      description: ExtraValue masks the value so protobuf can generate.
+                      items:
+                        type: string
+                      type: array
+                    description: extra contains additional user information.
+                    type: object
+                  groups:
+                    description: groups are the groups the user belongs to.
+                    items:
+                      type: string
+                    type: array
+                  uid:
+                    description: uid is the UID of the user.
+                    type: string
+                  username:
+                    description: username is the username of the user who created
+                      the workspace.
+                    minLength: 1
+                    type: string
+                required:
+                - username
+                type: object
               terminators:
                 description: |-
                   Terminators are set on creation by the system and copied to status when

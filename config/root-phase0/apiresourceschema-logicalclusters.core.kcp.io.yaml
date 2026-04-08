@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v251016-6e24e0d49.logicalclusters.core.kcp.io
+  name: v260408-d60f9d61a.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -115,6 +115,37 @@ spec:
               - name
               - resource
               - uid
+              type: object
+            ownerUser:
+              description: |-
+                ownerUser is the identity of the user who created this workspace.
+                Set by the system at workspace creation time. Immutable after creation.
+                Used by virtual workspace content proxies to determine the default
+                impersonation identity during initialization and termination.
+              properties:
+                extra:
+                  additionalProperties:
+                    description: ExtraValue masks the value so protobuf can generate.
+                    items:
+                      type: string
+                    type: array
+                  description: extra contains additional user information.
+                  type: object
+                groups:
+                  description: groups are the groups the user belongs to.
+                  items:
+                    type: string
+                  type: array
+                uid:
+                  description: uid is the UID of the user.
+                  type: string
+                username:
+                  description: username is the username of the user who created the
+                    workspace.
+                  minLength: 1
+                  type: string
+              required:
+              - username
               type: object
             terminators:
               description: |-

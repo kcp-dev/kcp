@@ -43,6 +43,11 @@ type LogicalClusterSpecApplyConfiguration struct {
 	// Terminators are set on creation by the system and copied to status when
 	// termination starts.
 	Terminators []corev1alpha1.LogicalClusterTerminator `json:"terminators,omitempty"`
+	// ownerUser is the identity of the user who created this workspace.
+	// Set by the system at workspace creation time. Immutable after creation.
+	// Used by virtual workspace content proxies to determine the default
+	// impersonation identity during initialization and termination.
+	OwnerUser *LogicalClusterOwnerUserApplyConfiguration `json:"ownerUser,omitempty"`
 }
 
 // LogicalClusterSpecApplyConfiguration constructs a declarative configuration of the LogicalClusterSpec type for use with
@@ -84,5 +89,13 @@ func (b *LogicalClusterSpecApplyConfiguration) WithTerminators(values ...corev1a
 	for i := range values {
 		b.Terminators = append(b.Terminators, values[i])
 	}
+	return b
+}
+
+// WithOwnerUser sets the OwnerUser field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the OwnerUser field is set to the value of the last call.
+func (b *LogicalClusterSpecApplyConfiguration) WithOwnerUser(value *LogicalClusterOwnerUserApplyConfiguration) *LogicalClusterSpecApplyConfiguration {
+	b.OwnerUser = value
 	return b
 }
