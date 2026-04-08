@@ -327,7 +327,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			},
 			Rules: []rbacv1.PolicyRule{
 				{
-					Verbs:         []string{"initialize"},
+					Verbs:         []string{"initialize", "impersonate"},
 					Resources:     []string{"workspacetypes"},
 					ResourceNames: []string{wt.Name},
 					APIGroups:     []string{"tenancy.kcp.io"},

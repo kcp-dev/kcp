@@ -325,7 +325,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
-						Verbs:         []string{"terminate"},
+						Verbs:         []string{"terminate", "impersonate"},
 						Resources:     []string{"workspacetypes"},
 						ResourceNames: []string{wt.Name},
 						APIGroups:     []string{"tenancy.kcp.io"},
