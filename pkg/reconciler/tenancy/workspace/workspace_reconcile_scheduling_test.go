@@ -425,6 +425,10 @@ func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 				Cluster:    "root",
 			},
 			Initializers: []corev1alpha1.LogicalClusterInitializer{"root:organization", "system:apibindings"},
+			OwnerUser: &corev1alpha1.LogicalClusterOwnerUser{
+				Username: "kcp-admin",
+				Extra:    map[string]corev1alpha1.ExtraValue{},
+			},
 		},
 	}
 }

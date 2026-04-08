@@ -18,12 +18,9 @@ package logicalcluster
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/initialization"
@@ -34,8 +31,7 @@ import (
 type metaDataReconciler struct {
 }
 
-func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
-	logger := klog.FromContext(ctx)
+func (r *metaDataReconciler) reconcile(_ context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	changed := false
 
 	expected := string(logicalCluster.Status.Phase)
@@ -91,27 +87,6 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 		if strings.HasPrefix(key, tenancyv1alpha1.WorkspaceTerminatorLabelPrefix) {
 			if !terminatorKeys.Has(key) {
 				delete(logicalCluster.Labels, key)
-				changed = true
-			}
-		}
-	}
-
-	if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
-		// remove owner reference
-		if value, found := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
-			var info authenticationv1.UserInfo
-			err := json.Unmarshal([]byte(value), &info)
-			if err != nil {
-				logger.WithValues(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, value).Error(err, "failed to unmarshal workspace owner annotation")
-				delete(logicalCluster.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
-				changed = true
-			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {
-				// should never happen
-				logger.Error(err, "failed to marshal user info")
-				delete(logicalCluster.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
-				changed = true
-			} else if value != string(userOnlyValue) {
-				logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
 				changed = true
 			}
 		}

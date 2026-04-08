@@ -155,6 +155,17 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
 		}
 
+		// validate ownerUser immutability
+		if old.Spec.OwnerUser != nil && logicalCluster.Spec.OwnerUser == nil {
+			return admission.NewForbidden(a, errors.New("spec.ownerUser is immutable"))
+		}
+		if old.Spec.OwnerUser != nil && logicalCluster.Spec.OwnerUser != nil {
+			if old.Spec.OwnerUser.Username != logicalCluster.Spec.OwnerUser.Username ||
+				old.Spec.OwnerUser.UID != logicalCluster.Spec.OwnerUser.UID {
+				return admission.NewForbidden(a, errors.New("spec.ownerUser is immutable"))
+			}
+		}
+
 		oldSpec := toSet(old.Spec.Initializers)
 		newSpec := toSet(logicalCluster.Spec.Initializers)
 		oldStatus := toSet(old.Status.Initializers)

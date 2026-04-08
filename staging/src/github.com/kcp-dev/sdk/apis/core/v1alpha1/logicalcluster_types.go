@@ -117,6 +117,14 @@ type LogicalClusterSpec struct {
 	//
 	// +optional
 	Terminators []LogicalClusterTerminator `json:"terminators,omitempty"`
+
+	// ownerUser is the identity of the user who created this workspace.
+	// Set by the system at workspace creation time. Immutable after creation.
+	// Used by virtual workspace content proxies to determine the default
+	// impersonation identity during initialization and termination.
+	//
+	// +optional
+	OwnerUser *LogicalClusterOwnerUser `json:"ownerUser,omitempty"`
 }
 
 // LogicalClusterOwner is a reference to a resource controlling the life-cycle of a LogicalCluster.
@@ -160,6 +168,34 @@ type LogicalClusterOwner struct {
 	// +kubebuilder:validation:Required
 	UID types.UID `json:"uid"`
 }
+
+// LogicalClusterOwnerUser holds the identity of the workspace creator.
+type LogicalClusterOwnerUser struct {
+	// username is the username of the user who created the workspace.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Username string `json:"username"`
+
+	// uid is the UID of the user.
+	//
+	// +optional
+	UID string `json:"uid,omitempty"`
+
+	// groups are the groups the user belongs to.
+	//
+	// +optional
+	Groups []string `json:"groups,omitempty"`
+
+	// extra contains additional user information.
+	//
+	// +optional
+	Extra map[string]ExtraValue `json:"extra,omitempty"`
+}
+
+// ExtraValue masks the value so protobuf can generate.
+type ExtraValue []string
 
 // LogicalClusterStatus communicates the observed state of the Workspace.
 type LogicalClusterStatus struct {

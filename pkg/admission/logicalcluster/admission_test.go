@@ -302,6 +302,103 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
+			name:        "fails if ownerUser is removed",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "spec.ownerUser is immutable",
+		},
+		{
+			name:        "fails if ownerUser username is changed",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-2",
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "spec.ownerUser is immutable",
+		},
+		{
+			name:        "fails if ownerUser UID is changed",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+					UID:      "new-uid",
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+					UID:      "old-uid",
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "spec.ownerUser is immutable",
+		},
+		{
+			name:        "passes if ownerUser is unchanged",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+					UID:      "uid-1",
+					Groups:   []string{"group-a"},
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+					UID:      "uid-1",
+					Groups:   []string{"group-a"},
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "passes if ownerUser was nil and stays nil",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "passes if ownerUser is set for the first time (nil -> set)",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withOwnerUser(&corev1alpha1.LogicalClusterOwnerUser{
+					Username: "user-1",
+				}).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
 			name:        "fails to move phase backwards",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
@@ -418,6 +515,11 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 
 func (b thisWsBuilder) withInitializers(initializers ...corev1alpha1.LogicalClusterInitializer) thisWsBuilder {
 	b.Spec.Initializers = initializers
+	return b
+}
+
+func (b thisWsBuilder) withOwnerUser(ownerUser *corev1alpha1.LogicalClusterOwnerUser) thisWsBuilder {
+	b.Spec.OwnerUser = ownerUser
 	return b
 }
 

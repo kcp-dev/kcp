@@ -238,28 +238,74 @@ func BuildVirtualWorkspace(
 					return
 				}
 
-				rawInfo, ok := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
+				// Check "impersonate" verb on workspacetypes — gates content access.
+				typeClusterName, typeName, err := initialization.TypeFrom(initializer)
+				if err != nil {
+					http.Error(writer, fmt.Sprintf("could not determine workspace type for initializer %q: %v", initializer, err), http.StatusInternalServerError)
+					return
+				}
+				impersonateAuthz, err := delegated.NewDelegatedAuthorizer(typeClusterName, kubeClusterClient, delegated.Options{})
+				if err != nil {
+					http.Error(writer, fmt.Sprintf("could not create authorizer: %v", err), http.StatusInternalServerError)
+					return
+				}
+				user, ok := genericapirequest.UserFrom(request.Context())
 				if !ok {
-					http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no user recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
+					http.Error(writer, "no user in request context", http.StatusInternalServerError)
 					return
 				}
-				var info authenticationv1.UserInfo
-				if err := json.Unmarshal([]byte(rawInfo), &info); err != nil {
-					http.Error(writer, fmt.Sprintf("could not unmarshal user info for cluster %q: %v", cluster, err), http.StatusInternalServerError)
+				impersonateDecision, _, err := impersonateAuthz.Authorize(request.Context(), authorizer.AttributesRecord{
+					APIGroup:        tenancyv1alpha1.SchemeGroupVersion.Group,
+					APIVersion:      tenancyv1alpha1.SchemeGroupVersion.Version,
+					User:            user,
+					Verb:            "impersonate",
+					Name:            typeName,
+					Resource:        "workspacetypes",
+					ResourceRequest: true,
+				})
+				if err != nil || impersonateDecision != authorizer.DecisionAllow {
+					http.Error(writer, fmt.Sprintf("workspace content access not authorized for initializer %q", initializer), http.StatusForbidden)
 					return
 				}
-				extra := map[string][]string{}
-				for k, v := range info.Extra {
-					extra[k] = v
+
+				// Read owner identity from spec.ownerUser, fall back to annotation for migration.
+				var impersonationCfg rest.ImpersonationConfig
+				if ownerUser := logicalCluster.Spec.OwnerUser; ownerUser != nil {
+					extra := map[string][]string{}
+					for k, v := range ownerUser.Extra {
+						extra[k] = []string(v)
+					}
+					impersonationCfg = rest.ImpersonationConfig{
+						UserName: ownerUser.Username,
+						UID:      ownerUser.UID,
+						Groups:   ownerUser.Groups,
+						Extra:    extra,
+					}
+				} else {
+					rawInfo, ok := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
+					if !ok {
+						http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no user recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
+						return
+					}
+					var info authenticationv1.UserInfo
+					if err := json.Unmarshal([]byte(rawInfo), &info); err != nil {
+						http.Error(writer, fmt.Sprintf("could not unmarshal user info for cluster %q: %v", cluster, err), http.StatusInternalServerError)
+						return
+					}
+					extra := map[string][]string{}
+					for k, v := range info.Extra {
+						extra[k] = v
+					}
+					impersonationCfg = rest.ImpersonationConfig{
+						UserName: info.Username,
+						UID:      info.UID,
+						Groups:   info.Groups,
+						Extra:    extra,
+					}
 				}
 
 				thisCfg := rest.CopyConfig(cfg)
-				thisCfg.Impersonate = rest.ImpersonationConfig{
-					UserName: info.Username,
-					UID:      info.UID,
-					Groups:   info.Groups,
-					Extra:    extra,
-				}
+				thisCfg.Impersonate = impersonationCfg
 				authenticatingTransport, err := rest.TransportFor(thisCfg)
 				if err != nil {
 					http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)

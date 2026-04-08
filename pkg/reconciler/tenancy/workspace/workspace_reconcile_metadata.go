@@ -18,10 +18,6 @@ package workspace
 
 import (
 	"context"
-	"encoding/json"
-
-	authenticationv1 "k8s.io/api/authentication/v1"
-	"k8s.io/klog/v2"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -30,8 +26,7 @@ import (
 type metaDataReconciler struct {
 }
 
-func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
-	logger := klog.FromContext(ctx).WithValues("reconciler", "metadata")
+func (r *metaDataReconciler) reconcile(_ context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	if workspace.Spec.Mount != nil {
 		return reconcileStatusContinue, nil
 	}
@@ -55,25 +50,9 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		changed = true
 	}
 
-	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
-		if value, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
-			var info authenticationv1.UserInfo
-			err := json.Unmarshal([]byte(value), &info)
-			if err != nil {
-				logger.Error(err, "failed to unmarshal workspace owner annotation", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, value)
-				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
-				changed = true
-			} else if userOnlyValue, err := json.Marshal(authenticationv1.UserInfo{Username: info.Username}); err != nil {
-				// should never happen
-				logger.Error(err, "failed to marshal user info")
-				delete(workspace.Annotations, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey)
-				changed = true
-			} else if value != string(userOnlyValue) {
-				workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
-				changed = true
-			}
-		}
-	}
+	// Note: group-wiping of the owner annotation on Ready phase was removed.
+	// With spec.ownerUser on LogicalCluster as the structured, immutable source of truth,
+	// there is no longer a reason to strip data from the annotation.
 
 	if changed {
 		// first update ObjectMeta before status

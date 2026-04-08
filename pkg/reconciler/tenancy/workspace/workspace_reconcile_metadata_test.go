@@ -41,7 +41,7 @@ func TestReconcileMetadata(t *testing.T) {
 		wantStatus reconcileStatus
 	}{
 		{
-			name: "removes everything but owner username when ready",
+			name: "preserves full owner annotation when ready (group-wiping removed)",
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -62,10 +62,10 @@ func TestReconcileMetadata(t *testing.T) {
 				},
 				Annotations: map[string]string{
 					"a":                                 "b",
-					"experimental.tenancy.kcp.io/owner": `{"username":"user-1"}`,
+					"experimental.tenancy.kcp.io/owner": `{"username":"user-1","groups":["a","b"],"uid":"123","extra":{"c":["d"]}}`,
 				},
 			},
-			wantStatus: reconcileStatusStopAndRequeue,
+			wantStatus: reconcileStatusContinue,
 		},
 		{
 			name: "shows phase Deleting when deletion timestamp is set",
@@ -86,7 +86,7 @@ func TestReconcileMetadata(t *testing.T) {
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
 		{
-			name: "delete invalid owner annotation when ready",
+			name: "preserves invalid owner annotation when ready (group-wiping removed)",
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -106,10 +106,11 @@ func TestReconcileMetadata(t *testing.T) {
 					"tenancy.kcp.io/phase": "Ready",
 				},
 				Annotations: map[string]string{
-					"a": "b",
+					"a":                                 "b",
+					"experimental.tenancy.kcp.io/owner": `{"username":}`,
 				},
 			},
-			wantStatus: reconcileStatusStopAndRequeue,
+			wantStatus: reconcileStatusContinue,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {

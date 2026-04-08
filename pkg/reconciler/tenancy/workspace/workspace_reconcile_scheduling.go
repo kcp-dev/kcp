@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net/url"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/martinlindhe/base36"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -308,6 +310,21 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 	}
 	if owner, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
 		logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = owner
+
+		// Also populate the structured ownerUser field from the annotation data.
+		var userInfo authenticationv1.UserInfo
+		if err := json.Unmarshal([]byte(owner), &userInfo); err == nil {
+			extra := map[string]corev1alpha1.ExtraValue{}
+			for k, v := range userInfo.Extra {
+				extra[k] = corev1alpha1.ExtraValue(v)
+			}
+			logicalCluster.Spec.OwnerUser = &corev1alpha1.LogicalClusterOwnerUser{
+				Username: userInfo.Username,
+				UID:      userInfo.UID,
+				Groups:   userInfo.Groups,
+				Extra:    extra,
+			}
+		}
 	}
 	if groups, found := workspace.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
 		logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey] = groups
