@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func TestGeneratePatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) {
@@ -145,22 +144,32 @@ func TestGenerateSSAPatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) 
 		{
 			name: "spec and status changed",
 			old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
-				Spec:   corev1alpha1.LogicalClusterSpec{DirectlyDeletable: true},
-				Status: corev1alpha1.LogicalClusterStatus{Phase: "old"},
+				APIVersion: "core.kcp.io/v1alpha1",
+				Kind:       "LogicalCluster",
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
+				Spec:       corev1alpha1.LogicalClusterSpec{DirectlyDeletable: true},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: "old"},
 			},
 			new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
-				Spec:   corev1alpha1.LogicalClusterSpec{DirectlyDeletable: false},
-				Status: corev1alpha1.LogicalClusterStatus{Phase: "new"},
+				APIVersion: "core.kcp.io/v1alpha1",
+				Kind:       "LogicalCluster",
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
+				Spec:       corev1alpha1.LogicalClusterSpec{DirectlyDeletable: false},
+				Status:     corev1alpha1.LogicalClusterStatus{Phase: "new"},
 			},
 		},
 		{
 			name: "meta and status changed",
 			old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
-				ObjectMeta: metav1.ObjectMeta{Finalizers: []string{}},
+				APIVersion: "core.kcp.io/v1alpha1",
+				Kind:       "LogicalCluster",
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Finalizers: []string{}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: "old"},
 			},
 			new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
-				ObjectMeta: metav1.ObjectMeta{Finalizers: []string{"changed"}},
+				APIVersion: "core.kcp.io/v1alpha1",
+				Kind:       "LogicalCluster",
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Finalizers: []string{"changed"}},
 				Status:     corev1alpha1.LogicalClusterStatus{Phase: "new"},
 			},
 		},
@@ -187,7 +196,10 @@ func TestGenerateSSAPatchAndSubResources(t *testing.T) {
 			{
 				name: "spec changed",
 				old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
-					Spec: corev1alpha1.LogicalClusterSpec{DirectlyDeletable: false},
+					APIVersion: "core.kcp.io/v1alpha1",
+					Kind:       "LogicalCluster",
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
+					Spec:       corev1alpha1.LogicalClusterSpec{DirectlyDeletable: false},
 				},
 				new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
 					APIVersion: "core.kcp.io/v1alpha1",
@@ -195,13 +207,16 @@ func TestGenerateSSAPatchAndSubResources(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 					Spec:       corev1alpha1.LogicalClusterSpec{DirectlyDeletable: true},
 				},
-				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster"},"spec":{"directlyDeletable":true}}`,
+				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster"},"spec":{"directlyDeletable":true},"status":{}}`,
 				expectedSubResources: nil,
 			},
 			{
 				name: "status changed",
 				old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
-					Status: corev1alpha1.LogicalClusterStatus{Phase: "old"},
+					APIVersion: "core.kcp.io/v1alpha1",
+					Kind:       "LogicalCluster",
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
+					Status:     corev1alpha1.LogicalClusterStatus{Phase: "old"},
 				},
 				new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
 					APIVersion: "core.kcp.io/v1alpha1",
@@ -209,12 +224,14 @@ func TestGenerateSSAPatchAndSubResources(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 					Status:     corev1alpha1.LogicalClusterStatus{Phase: "new"},
 				},
-				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster"},"status":{"phase":"new"}}`,
+				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster"},"spec":{},"status":{"phase":"new"}}`,
 				expectedSubResources: []string{"status"},
 			},
 			{
 				name: "meta changed",
 				old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
+					APIVersion: "core.kcp.io/v1alpha1",
+					Kind:       "LogicalCluster",
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Finalizers: []string{}},
 				},
 				new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
@@ -222,28 +239,32 @@ func TestGenerateSSAPatchAndSubResources(t *testing.T) {
 					Kind:       "LogicalCluster",
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Finalizers: []string{"changed"}},
 				},
-				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster","finalizers":["changed"]}}`,
+				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster","finalizers":["changed"]},"spec":{},"status":{}}`,
 				expectedSubResources: nil,
 			},
 			{
 				name: "no changes",
 				old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
+					APIVersion: "core.kcp.io/v1alpha1",
+					Kind:       "LogicalCluster",
 					ObjectMeta: metav1.ObjectMeta{Finalizers: []string{}},
 				},
 				new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
+					APIVersion: "core.kcp.io/v1alpha1",
+					Kind:       "LogicalCluster",
 					ObjectMeta: metav1.ObjectMeta{Finalizers: []string{}},
 				},
 				expectedPatch:        "",
 				expectedSubResources: nil,
 			},
 			{
-				name: "complex status with multiple conditions",
+				name: "complex status with multiple values",
 				old: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
+					APIVersion: "core.kcp.io/v1alpha1",
+					Kind:       "LogicalCluster",
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 					Status: corev1alpha1.LogicalClusterStatus{
 						Phase: corev1alpha1.LogicalClusterPhaseInitializing,
-						Conditions: []conditionsv1alpha1.Condition{
-							{Type: "SomeOldCondition", Status: "True"},
-						},
 					},
 				},
 				new: &Resource[corev1alpha1.LogicalClusterSpec, corev1alpha1.LogicalClusterStatus]{
@@ -251,13 +272,14 @@ func TestGenerateSSAPatchAndSubResources(t *testing.T) {
 					Kind:       "LogicalCluster",
 					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
 					Status: corev1alpha1.LogicalClusterStatus{
-						Conditions: []conditionsv1alpha1.Condition{
-							{Type: "WorkspaceAPIBindingsInitialized", Status: "True"},
-							{Type: "WorkspaceAPIBindingsReconciled", Status: "True"},
+						Phase: corev1alpha1.LogicalClusterPhaseReady,
+						Initializers: []corev1alpha1.LogicalClusterInitializer{
+							"kcp.io/apibinder",
+							"kcp.io/workspaces",
 						},
 					},
 				},
-				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster"},"status":{"conditions":[{"status":"True","type":"WorkspaceAPIBindingsInitialized"},{"status":"True","type":"WorkspaceAPIBindingsReconciled"}]}}`,
+				expectedPatch:        `{"apiVersion":"core.kcp.io/v1alpha1","kind":"LogicalCluster","metadata":{"name":"test-cluster"},"spec":{},"status":{"phase":"Ready","initializers":["kcp.io/apibinder","kcp.io/workspaces"]}}`,
 				expectedSubResources: []string{"status"},
 			},
 		}
