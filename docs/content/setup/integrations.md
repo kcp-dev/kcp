@@ -174,3 +174,30 @@ workspaces             ws   tenancy.kcp.io/v1alpha1   false   Workspace
 logicalclusters             core.kcp.io/v1alpha1     false   LogicalCluster
 ...
 ```
+
+## KubeStellar Console
+
+[KubeStellar Console](https://console.kubestellar.io) is an open-source Kubernetes dashboard that provides a web-based interface for kcp. It connects via kubeconfig and works read-only without requiring any cluster-side agent.
+
+Features relevant to kcp users include:
+
+- **Guided kcp installation mission** — a step-by-step workflow that walks you through setting up kcp and creating your first workspaces
+- **Workspace visualization** — browse and navigate the kcp workspace hierarchy
+- **API browsing** — explore API resources exposed by kcp
+- **Multi-tenant observability** — view resources across workspaces from a single pane
+- **AI-assisted operations** — natural-language queries against your kcp environment
+
+### Quick start
+
+Install with a single command:
+
+```sh
+curl -sL https://raw.githubusercontent.com/kubestellar/console/main/install.sh | bash
+```
+
+Or deploy into a Kubernetes cluster — see the [GitHub repository](https://github.com/kubestellar/console) for Helm chart and other installation options.
+
+### Links
+
+- Live demo: [console.kubestellar.io](https://console.kubestellar.io)
+- Source: [github.com/kubestellar/console](https://github.com/kubestellar/console)
