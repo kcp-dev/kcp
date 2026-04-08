@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -778,6 +779,237 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatchBookmark(t *testing.T) {
 			require.Fail(t, "timed out waiting for a bookmark event from the terminating workspaces virtual workspace")
 		}
 	}
+}
+
+func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	source := kcptesting.SharedKcpServer(t)
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	sourceConfig := source.BaseConfig(t)
+
+	sourceKcpClusterClient, err := kcpclientset.NewForConfig(sourceConfig)
+	require.NoError(t, err)
+
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
+	require.NoError(t, err)
+
+	user1 := "user-1"
+	user2 := "user-2"
+	framework.AdmitWorkspaceAccess(ctx, t, kubeClusterClient, wsPath, []string{user1, user2}, nil, false)
+
+	testLabelSelector := map[string]string{
+		"internal.kcp.io/e2e-test": t.Name(),
+	}
+
+	t.Log("Create a workspace type with terminator")
+	wst := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "contenttest-" + randSuffix(),
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Terminator: true,
+		},
+	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+	})
+
+	t.Log("Wait for WorkspaceType and virtual workspace URLs to be ready")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		wst, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.NotEmpty(c, wst.Status.VirtualWorkspaces)
+		require.True(c, conditions.IsTrue(wst, tenancyv1alpha1.WorkspaceTypeVirtualWorkspaceURLsReady))
+		require.True(c, conditions.IsTrue(wst, conditionsv1alpha1.ReadyCondition))
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Create a workspace")
+	ws, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, workspaceForType(wst, testLabelSelector), metav1.CreateOptions{})
+	require.NoError(t, err)
+	source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+	})
+
+	t.Log("Wait for workspace to be ready with terminators")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.Equal(c, corev1alpha1.LogicalClusterPhaseReady, ws.Status.Phase)
+		require.NotEmpty(c, ws.Status.Terminators)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
+
+	t.Log("Create a ConfigMap inside the workspace as admin (before deletion)")
+	nsName := "default"
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Get(ctx, nsName, metav1.GetOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	testConfigMap, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-content-access",
+		},
+		Data: map[string]string{"key": "value"},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Log("Delete the workspace to trigger termination")
+	err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
+	require.NoError(t, err)
+
+	t.Log("Ensure workspace has a deletion timestamp and is still present")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.False(c, ws.GetDeletionTimestamp().IsZero())
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Build VW clients for user-1 (terminate only, no impersonate) and user-2 (terminate + impersonate)")
+	vwURLs := []string{}
+	for _, vwURL := range wst.Status.VirtualWorkspaces {
+		if strings.Contains(vwURL.URL, terminatingworkspaces.VirtualWorkspaceName) {
+			vwURLs = append(vwURLs, vwURL.URL)
+		}
+	}
+	require.NotEmpty(t, vwURLs)
+
+	targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	require.NoError(t, err)
+	require.True(t, foundTargetVwURL)
+
+	t.Log("Set up RBAC: user-1 gets only 'terminate', user-2 gets 'terminate' + 'impersonate'")
+	terminatorRoleName := string(termination.TerminatorForType(wst)) + "-terminate-only"
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: terminatorRoleName,
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					Verbs:         []string{"terminate"},
+					Resources:     []string{"workspacetypes"},
+					ResourceNames: []string{wst.Name},
+					APIGroups:     []string{"tenancy.kcp.io"},
+				},
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: terminatorRoleName,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     terminatorRoleName,
+			},
+			Subjects: []rbacv1.Subject{{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     user1,
+			}},
+		}, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	terminatorImpersonateRoleName := string(termination.TerminatorForType(wst)) + "-terminate-impersonate"
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: terminatorImpersonateRoleName,
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					Verbs:         []string{"terminate", "impersonate"},
+					Resources:     []string{"workspacetypes"},
+					ResourceNames: []string{wst.Name},
+					APIGroups:     []string{"tenancy.kcp.io"},
+				},
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: terminatorImpersonateRoleName,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     terminatorImpersonateRoleName,
+			},
+			Subjects: []rbacv1.Subject{{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     user2,
+			}},
+		}, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	// Build user-1 VW client (terminate only)
+	user1VwConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-user1-vw")
+	user1VwConfig.Host = targetVwURL
+	user1VwConfig = framework.StaticTokenUserConfig(user1, user1VwConfig)
+	user1VwKubeClient, err := kcpkubernetesclientset.NewForConfig(user1VwConfig)
+	require.NoError(t, err)
+
+	// Build user-2 VW client (terminate + impersonate)
+	user2VwConfig := rest.AddUserAgent(rest.CopyConfig(sourceConfig), t.Name()+"-user2-vw")
+	user2VwConfig.Host = targetVwURL
+	user2VwConfig = framework.StaticTokenUserConfig(user2, user2VwConfig)
+	user2VwKubeClient, err := kcpkubernetesclientset.NewForConfig(user2VwConfig)
+	require.NoError(t, err)
+
+	t.Log("Ensure user-1 (terminate only) can list LogicalClusters through VW but NOT access workspace content")
+	// Wait for SAR cache to settle (up to 2x ForeverTestTimeout because SAR deny cache has a 30s TTL)
+	user1VwKcpClient, err := kcpclientset.NewForConfig(user1VwConfig)
+	require.NoError(t, err)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := user1VwKcpClient.CoreV1alpha1().LogicalClusters().Cluster(wsClusterName.Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		require.NoError(c, err)
+	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Verify user-1 cannot access ConfigMaps through the content proxy (no impersonate verb)")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := user1VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Get(ctx, testConfigMap.Name, metav1.GetOptions{})
+		require.True(c, errors.IsForbidden(err), "expected forbidden, got: %v", err)
+	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Verify user-2 (terminate + impersonate) CAN access ConfigMaps through the content proxy")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		cm, err := user2VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Get(ctx, testConfigMap.Name, metav1.GetOptions{})
+		require.NoError(c, err, "expected success getting configmap, got: %v", err)
+		require.Equal(c, "value", cm.Data["key"])
+	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Verify user-2 can also list ConfigMaps through the content proxy")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		cms, err := user2VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{})
+		require.NoError(c, err)
+		found := false
+		for _, cm := range cms.Items {
+			if cm.Name == testConfigMap.Name {
+				found = true
+				break
+			}
+		}
+		require.True(c, found, "expected to find test ConfigMap in list")
+	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
 func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSelector map[string]string) *tenancyv1alpha1.Workspace {
