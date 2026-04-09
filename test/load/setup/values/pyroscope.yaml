@@ -1,0 +1,116 @@
+pyroscope:
+  nodeSelector:
+    $NODEPOOL_SELECTOR: auxiliary
+  disableSelfProfile: true
+
+alloy:
+  enabled: true
+  alloy:
+    configMap:
+      # Override the default alloy config (which only does annotation-based
+      # discovery) so we can scrape kcp's authenticated pprof endpoints.
+      create: true
+      name: ""
+      content: |
+        discovery.kubernetes "kcp_shards" {
+          role = "endpoints"
+          namespaces {
+            names = ["kcp"]
+          }
+        }
+
+        discovery.relabel "kcp_shards" {
+          targets = discovery.kubernetes.kcp_shards.targets
+
+          rule {
+            source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_name"]
+            regex         = "kcp"
+            action        = "keep"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_component"]
+            regex         = "rootshard|shard"
+            action        = "keep"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_endpoint_port_name"]
+            regex         = "https"
+            action        = "keep"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "instance"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_service_label_app_kubernetes_io_component"]
+            target_label  = "component"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_service_name"]
+            target_label  = "service"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "service_name"
+          }
+        }
+
+        pyroscope.scrape "kcp_shards" {
+          targets    = discovery.relabel.kcp_shards.output
+          forward_to = [pyroscope.write.backend.receiver]
+
+          scrape_interval = "15s"
+          scheme          = "https"
+
+          tls_config {
+            insecure_skip_verify = true
+            cert_file            = "/etc/alloy/kcp-certs/tls.crt"
+            key_file             = "/etc/alloy/kcp-certs/tls.key"
+          }
+
+          profiling_config {
+            profile.process_cpu {
+              enabled = true
+              delta   = true
+            }
+            profile.memory {
+              enabled = true
+            }
+            profile.goroutine {
+              enabled = true
+            }
+            profile.mutex {
+              enabled = true
+              delta   = true
+            }
+            profile.block {
+              enabled = true
+              delta   = true
+            }
+          }
+        }
+
+        pyroscope.write "backend" {
+          endpoint {
+            url = "http://pyroscope.monitoring.svc.cluster.local:4040"
+          }
+        }
+    mounts:
+      extra:
+        - name: kcp-client-cert
+          mountPath: /etc/alloy/kcp-certs
+          readOnly: true
+  controller:
+    nodeSelector:
+      $NODEPOOL_SELECTOR: auxiliary
+    volumes:
+      extra:
+        - name: kcp-client-cert
+          secret:
+            secretName: kcp-metrics-client-cert

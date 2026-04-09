@@ -31,7 +31,9 @@ ENVOY_GATEWAY_VERSION="${ENVOY_GATEWAY_VERSION:-v1.7.0}"
 KUBE_PROMETHEUS_STACK_VERSION="${KUBE_PROMETHEUS_STACK_VERSION:-83.3.0}"
 LOKI_VERSION="${LOKI_VERSION:-6.55.0}"
 PROMTAIL_VERSION="${PROMTAIL_VERSION:-6.17.1}"
+PYROSCOPE_VERSION="${PYROSCOPE_VERSION:-1.20.3}"
 USE_DEFAULT_ENVOY_GATEWAY="${USE_DEFAULT_ENVOY_GATEWAY:-true}"
+USE_PYROSCOPE="${USE_PYROSCOPE:-false}"
 
 # required variables
 : "${NODEPOOL_SELECTOR:? must be set to indicate which label is used for pooling nodes (e.g. worker.gardener.cloud/pool). This depends on your infrastructure setup. Please refer to the architecture document to see which pools should exist}"
@@ -40,6 +42,10 @@ USE_DEFAULT_ENVOY_GATEWAY="${USE_DEFAULT_ENVOY_GATEWAY:-true}"
 if [ "$USE_DEFAULT_ENVOY_GATEWAY" = "true" ]; then
 echo "Running with default envoy gateway. If you want to setup ingress/gateway manually, set USE_DEFAULT_ENVOY_GATEWAY to false"
 : "${GATEWAY_ANNOTATIONS:? annotations to set on the gateway. Format: GATEWAY_ANNOTATIONS=\'{\"key1\":\"value1\"\}, {\"key2\":\"value2\"\}\'}"
+fi
+
+if [ "$USE_PYROSCOPE" = "true" ]; then
+  echo "Pyroscope will be deployed for continuous profiling. This can adversely impact performance. Only use it for debbuging. Set USE_PYROSCOPE to false to disable it."
 fi
 
 echo "Configuring helm repositories"
@@ -125,6 +131,14 @@ helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheu
   --namespace monitoring --create-namespace \
   --values=<(envsubst < values/kube-prometheus-stack.yaml)
 
+if [ "$USE_PYROSCOPE" = "true" ]; then
+  echo "Installing pyroscope"
+  helm upgrade --install pyroscope grafana/pyroscope \
+    --version "${PYROSCOPE_VERSION}" \
+    --namespace monitoring --create-namespace \
+    --values=<(envsubst < values/pyroscope.yaml)
+fi
+
 echo "Installing loki"
 helm upgrade --install loki grafana/loki \
   --version "${LOKI_VERSION}" \
@@ -158,6 +172,10 @@ kubectl wait --for=condition=available deployment/kube-prometheus-stack-kube-sta
 kubectl wait --for=condition=available deployment/kube-prometheus-stack-operator --namespace monitoring --timeout=120s
 kubectl rollout status daemonset/kube-prometheus-stack-prometheus-node-exporter --namespace monitoring --timeout=120s
 kubectl rollout status daemonset/promtail --namespace monitoring --timeout=120s
+if [ "$USE_PYROSCOPE" = "true" ]; then
+  kubectl rollout status statefulset/pyroscope --namespace monitoring --timeout=120s
+  kubectl rollout status statefulset/pyroscope-alloy --namespace monitoring --timeout=120s
+fi
 
 if [ "$USE_DEFAULT_ENVOY_GATEWAY" = "false" ]; then
   echo "
