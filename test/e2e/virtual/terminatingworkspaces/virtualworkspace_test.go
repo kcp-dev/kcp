@@ -849,20 +849,27 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 
 	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
 
-	t.Log("Create a ConfigMap inside the workspace as admin (before deletion)")
-	nsName := "default"
+	t.Log("Create a namespace and ConfigMap inside the workspace as admin (before deletion)")
+	nsName := "testing"
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Get(ctx, nsName, metav1.GetOptions{})
-		require.NoError(c, err)
+		_, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: nsName},
+		}, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			require.NoError(c, err)
+		}
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	testConfigMap, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-content-access",
-		},
-		Data: map[string]string{"key": "value"},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err)
+	var testConfigMap *corev1.ConfigMap
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		testConfigMap, err = kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-content-access",
+			},
+			Data: map[string]string{"key": "value"},
+		}, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Log("Delete the workspace to trigger termination")
 	err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
