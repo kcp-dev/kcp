@@ -849,7 +849,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 
 	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
 
-	t.Log("Create a namespace and ConfigMap inside the workspace as admin (before deletion)")
+	t.Log("Create a namespace and ConfigMap with a finalizer inside the workspace (before deletion)")
 	nsName := "testing"
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -860,16 +860,14 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 		}
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	var testConfigMap *corev1.ConfigMap
-	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		testConfigMap, err = kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-content-access",
-			},
-			Data: map[string]string{"key": "value"},
-		}, metav1.CreateOptions{})
-		require.NoError(c, err)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	testConfigMap, err := kubeClusterClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Create(ctx, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-content-access",
+			Finalizers: []string{"e2e-test/prevent-deletion"},
+		},
+		Data: map[string]string{"key": "value"},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
 
 	t.Log("Delete the workspace to trigger termination")
 	err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Delete(ctx, ws.Name, metav1.DeleteOptions{})
@@ -991,20 +989,20 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 		require.NoError(c, err)
 	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	t.Log("Verify user-1 cannot access ConfigMaps through the content proxy (no impersonate verb)")
+	t.Log("Verify user-1 cannot access namespaces through the content proxy (no impersonate verb)")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := user1VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Get(ctx, testConfigMap.Name, metav1.GetOptions{})
+		_, err := user1VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		require.True(c, errors.IsForbidden(err), "expected forbidden, got: %v", err)
 	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	t.Log("Verify user-2 (terminate + impersonate) CAN access ConfigMaps through the content proxy")
+	t.Log("Verify user-2 (terminate + impersonate) CAN read the pre-created ConfigMap through the content proxy")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		cm, err := user2VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).Get(ctx, testConfigMap.Name, metav1.GetOptions{})
 		require.NoError(c, err, "expected success getting configmap, got: %v", err)
 		require.Equal(c, "value", cm.Data["key"])
 	}, 2*wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	t.Log("Verify user-2 can also list ConfigMaps through the content proxy")
+	t.Log("Verify user-2 can list ConfigMaps through the content proxy")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		cms, err := user2VwKubeClient.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{})
 		require.NoError(c, err)
