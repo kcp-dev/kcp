@@ -26,7 +26,7 @@ providers as well as enterprise IT departments offering APIs within their compan
 
 **For Developers:** To build and run kcp from source:
 ```bash
-# Build and run from source
+# Build and run from source:
 go run ./cmd/kcp start
 
 # In another terminal:
