@@ -294,7 +294,7 @@ func (c *crdLister) get(ctx context.Context, clusterName logicalcluster.Name, na
 			if len(matchingCRs) == 0 {
 				return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 			}
-			return c.synthesizeCRDForCachedResources(crs)
+			return c.synthesizeCRDForCachedResources(matchingCRs)
 		}
 	}
 
