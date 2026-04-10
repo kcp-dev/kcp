@@ -133,23 +133,22 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		return cachedResource, err
 	}, kcptestinghelpers.Is(cachev1alpha1.ReplicationStarted), fmt.Sprintf("CachedResource %s should become ready", cachedResourceName))
 
-	// Create a CachedResourceEndpointSlice.
-	t.Logf("Creating CachedResourceEndpointSlice in %q", serviceProviderPath)
-	endpointSlice, err := kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResourceEndpointSlices().Create(t.Context(), &cachev1alpha1.CachedResourceEndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: gvr.GroupResource().String(),
-		},
-		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-			CachedResource: cachev1alpha1.CachedResourceReference{
-				Name: cachedResourceName,
-			},
-			APIExport: cachev1alpha1.ExportBindingReference{
-				Name: "cached-wildwest-provider",
-			},
-		},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err)
-	endpointSliceName := endpointSlice.Name
+	t.Logf("Waiting until CachedResource replicates sheriff-1")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		cachedResource, err = kcpClusterClient.Cluster(serviceProviderPath).
+			CacheV1alpha1().CachedResources().Get(t.Context(), cachedResourceName, metav1.GetOptions{})
+		require.NoError(t, err)
+		if cachedResource.Status.ResourceCounts == nil {
+			return false, "ResourceCounts should not be nil"
+		}
+		if cachedResource.Status.ResourceCounts.Local != 1 {
+			return false, fmt.Sprintf("Count of local objects should be 1, got %d", cachedResource.Status.ResourceCounts.Local)
+		}
+		if cachedResource.Status.ResourceCounts.Cache != 1 {
+			return false, fmt.Sprintf("Count of cached objects should be 1, got %d", cachedResource.Status.ResourceCounts.Cache)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting until CachedResource replicates sheriff-1")
 
 	// Create an APIExport for the created CachedResource.
 	t.Logf("Creating APIExport for Sheriff CachedResource in %q", serviceProviderPath)
@@ -168,7 +167,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 							Reference: corev1.TypedLocalObjectReference{
 								APIGroup: ptr.To(cachev1alpha1.SchemeGroupVersion.Group),
 								Kind:     "CachedResourceEndpointSlice",
-								Name:     endpointSliceName,
+								Name:     gvr.GroupResource().String(),
 							},
 							IdentityHash: cachedResource.Status.IdentityHash,
 						},
@@ -184,6 +183,24 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		apiExport, err = kcpClusterClient.Cluster(serviceProviderPath).ApisV1alpha2().APIExports().Get(t.Context(), apiExportName, metav1.GetOptions{})
 		return apiExport, err
 	}, kcptestinghelpers.Is(apisv1alpha2.APIExportIdentityValid), fmt.Sprintf("APIExport %s should have its identity ready", apiExportName))
+
+	// Create a CachedResourceEndpointSlice.
+	t.Logf("Creating CachedResourceEndpointSlice in %q", serviceProviderPath)
+	endpointSlice, err := kcpClusterClient.Cluster(serviceProviderPath).CacheV1alpha1().CachedResourceEndpointSlices().Create(t.Context(), &cachev1alpha1.CachedResourceEndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: gvr.GroupResource().String(),
+		},
+		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+			CachedResource: cachev1alpha1.CachedResourceReference{
+				Name: cachedResourceName,
+			},
+			APIExport: cachev1alpha1.ExportBindingReference{
+				Name: "cached-wildwest-provider",
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	endpointSliceName := endpointSlice.Name
 
 	// Wait for CachedResourceEndpointSlice to be ready.
 	t.Logf("Wait for CachedResourceEndpointSlice to become ready")
