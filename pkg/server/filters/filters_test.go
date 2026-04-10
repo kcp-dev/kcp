@@ -18,6 +18,8 @@ package filters
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,6 +31,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 var (
@@ -121,6 +126,89 @@ func TestReCluster(t *testing.T) {
 			if got := reClusterName.MatchString(tt.cluster); got != tt.valid {
 				t.Errorf("reCluster.MatchString(%q) = %v, want %v", tt.cluster, got, tt.valid)
 			}
+		})
+	}
+}
+
+// TestWithClusterNameShapeInvariant verifies that the defense-in-depth filter
+// rejects requests whose context carries a path-shaped cluster name (which
+// would otherwise be concatenated verbatim into the etcd key by
+// NoNamespaceKeyRootFunc, producing orphaned rows), while leaving legitimate
+// bare names, system:* names, wildcard requests, and unset-cluster requests
+// alone.
+func TestWithClusterNameShapeInvariant(t *testing.T) {
+	tests := map[string]struct {
+		cluster    *request.Cluster
+		wantStatus int
+		wantCalled bool
+	}{
+		"no cluster on context": {
+			cluster:    nil,
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"bare logical cluster name (hash)": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("25t3xbr5iceb0155")},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"bare human-readable name": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("root")},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"system:admin is allowed": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("system:admin")},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"system:system-crds is allowed": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("system:system-crds")},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"wildcard request passes through even with weird name": {
+			cluster:    &request.Cluster{Wildcard: true, Name: logicalcluster.Name("*")},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"empty name passes through": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("")},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+		},
+		"path-shaped name root:internal-cluster is rejected": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("root:internal-cluster")},
+			wantStatus: http.StatusInternalServerError,
+			wantCalled: false,
+		},
+		"path-shaped name root:org:ws is rejected": {
+			cluster:    &request.Cluster{Name: logicalcluster.Name("root:org:ws")},
+			wantStatus: http.StatusInternalServerError,
+			wantCalled: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			called := false
+			downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				called = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			h := WithClusterNameShapeInvariant(downstream)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/configmaps", http.NoBody)
+			if tt.cluster != nil {
+				req = req.WithContext(request.WithCluster(req.Context(), *tt.cluster))
+			}
+			rr := httptest.NewRecorder()
+
+			h.ServeHTTP(rr, req)
+
+			require.Equal(t, tt.wantStatus, rr.Code, "status code; body=%s", rr.Body.String())
+			require.Equal(t, tt.wantCalled, called, "downstream called")
 		})
 	}
 }
