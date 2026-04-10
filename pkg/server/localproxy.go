@@ -190,10 +190,22 @@ func WithLocalProxy(
 		clusterName, isName := path.Name()
 
 		if !isName && !found {
-			// No rewrite, depend on the handler chain to do the right thing, like 403 or 404.
-			cluster.Name = logicalcluster.Name(path.String())
-			logger.WithValues("cluster", cluster.Name).Info("cluster not found")
-			handler.ServeHTTP(w, req.WithContext(request.WithCluster(ctx, cluster)))
+			// The request targets a workspace path (e.g. root:internal-cluster)
+			// that we cannot resolve to a logical cluster on this shard. Do NOT
+			// forward with the raw path stuffed into cluster.Name: the storage
+			// key builder (NoNamespaceKeyRootFunc) would serialize it into the
+			// etcd key as if it were a real logical cluster name, producing
+			// orphaned rows that are invisible to the normal read path but
+			// still consume space and can leak via wildcard partial-metadata
+			// lists. Reject the request here instead.
+			logger.WithValues("path", path).V(4).Info("cluster path not found on this shard")
+			responsewriters.ErrorNegotiated(
+				apierrors.NewNotFound(
+					schema.GroupResource{Group: tenancyv1alpha1.SchemeGroupVersion.Group, Resource: "workspaces"},
+					path.String(),
+				),
+				errorCodecs, schema.GroupVersion{}, w, req,
+			)
 			return
 		}
 
