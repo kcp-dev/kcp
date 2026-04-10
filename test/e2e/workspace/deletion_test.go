@@ -112,7 +112,13 @@ func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	// the logicalcluster should now be cleaned up successfully
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
 		_, err := clientset.Cluster(testPath).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, v1.GetOptions{})
-		if apierrors.IsForbidden(err) {
+		// Either Forbidden (LC object is gone but the workspace path still
+		// resolves on the shard) or NotFound (the workspace has been
+		// hard-deleted and the shard's local proxy can no longer resolve
+		// the path) is a valid "logicalcluster is gone" signal. Which one
+		// we observe depends on the race between LC deletion and workspace
+		// hard-deletion.
+		if apierrors.IsForbidden(err) || apierrors.IsNotFound(err) {
 			return true, ""
 		}
 		return false, "logicalcluster still exists"

@@ -120,7 +120,18 @@ func TestWorkspaceDeletion(t *testing.T) {
 					return workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, fmt.Sprintf("workspace phase is %s", workspace.Status.Phase)
 				}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for workspace %s to become ready", orgPath.Join(workspace.Name))
 
+				// Re-fetch the workspace so we have an up-to-date Spec.Cluster
+				// (the cluster hash). We need the hash to address the logical
+				// cluster *after* the workspace is hard-deleted: at that point
+				// the workspace path is no longer resolvable via the shard's
+				// local index, but single-segment cluster-name paths still
+				// short-circuit without an index lookup.
+				workspace, err := server.kcpClusterClient.Cluster(orgPath).TenancyV1alpha1().Workspaces().Get(ctx, workspace.Name, metav1.GetOptions{})
+				require.NoError(t, err, "failed to get workspace %s", workspace.Name)
+				require.NotEmpty(t, workspace.Spec.Cluster, "workspace %s has no spec.cluster set", workspace.Name)
+
 				workspaceCluster := orgPath.Join(workspace.Name)
+				workspaceClusterPath := logicalcluster.Name(workspace.Spec.Cluster).Path()
 
 				t.Logf("Wait for default namespace to be created")
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -132,7 +143,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "default namespace was never created")
 
 				t.Logf("Delete default ns should be forbidden")
-				err := server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
+				err = server.kubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().Delete(ctx, metav1.NamespaceDefault, metav1.DeleteOptions{})
 				if !apierrors.IsForbidden(err) {
 					t.Fatalf("expect default namespace deletion to be forbidden")
 				}
@@ -189,14 +200,20 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 				t.Logf("Finally check if all resources has been removed")
 
-				// Note: we have to access the shard direction to access a logical cluster without workspace
+				// Note: we have to access the shard directly to access a
+				// logical cluster without a workspace. We must address it by
+				// the cluster hash (single-segment path), not the workspace
+				// path: once the workspace is hard-deleted, the shard's index
+				// has removed the path -> hash mapping, so path-based access
+				// would be rejected by the local proxy (404).
 				rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(server.RunningServer.RootShardSystemMasterBaseConfig(t))
+				require.NoError(t, err, "failed to construct root shard client")
 
-				nslist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+				nslist, err := rootShardKubeClusterClient.Cluster(workspaceClusterPath).CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list namespaces in workspace %s", workspace.Name)
 				require.Empty(t, nslist.Items)
 
-				cmlist, err := rootShardKubeClusterClient.Cluster(workspaceCluster).CoreV1().ConfigMaps(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+				cmlist, err := rootShardKubeClusterClient.Cluster(workspaceClusterPath).CoreV1().ConfigMaps(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err, "failed to list configmaps in workspace %s", workspace.Name)
 				require.Empty(t, cmlist.Items)
 			},

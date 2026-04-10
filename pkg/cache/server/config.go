@@ -143,6 +143,10 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
 
 		apiHandler = filters.WithAuditEventClusterAnnotation(apiHandler, nil)
+		// Defense-in-depth: after WithClusterScope has put the cluster on the
+		// request context, reject any request whose cluster.Name is path-shaped
+		// so a bogus name cannot leak into etcd keys.
+		apiHandler = filters.WithClusterNameShapeInvariant(apiHandler)
 		apiHandler = filters.WithClusterScope(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
 		apiHandler = WithServiceScope(apiHandler)

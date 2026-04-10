@@ -552,6 +552,11 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = mux
 
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made
+		// Defense-in-depth: after WithLocalProxy has resolved the workspace path to
+		// a logical cluster name, reject any request whose cluster.Name is still
+		// path-shaped. Prevents path strings from leaking into etcd keys if the
+		// localproxy logic ever regresses.
+		apiHandler = kcpfilters.WithClusterNameShapeInvariant(apiHandler)
 		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation

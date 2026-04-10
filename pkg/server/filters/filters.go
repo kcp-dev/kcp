@@ -176,6 +176,42 @@ func ClusterPathFromAndStrip(req *http.Request) (logicalcluster.Path, *url.URL, 
 	return logicalcluster.Path{}, req.URL, false, nil
 }
 
+// WithClusterNameShapeInvariant verifies that, once some upstream handler has
+// populated the cluster on the request context, the cluster name is a bare
+// logical-cluster name and not a workspace path. A path-shaped cluster name
+// (e.g. "root:internal-cluster") reaching the storage layer would be
+// concatenated verbatim into the etcd key by NoNamespaceKeyRootFunc,
+// producing orphaned rows invisible to the normal read path but still
+// consuming etcd space and leaking via wildcard partial-metadata lists.
+//
+// This is a defense-in-depth check: upstream handlers (WithLocalProxy,
+// WithClusterScope) are expected to either resolve the path to a logical
+// cluster name via the index or reject the request. This filter refuses to
+// forward a request whose invariant was violated, so any future regression
+// fails loudly here instead of silently corrupting etcd.
+//
+// The "system:" prefix is allowed: "system:..." names are legal single-name
+// logical clusters in kcp (see logicalcluster.Path.Name).
+func WithClusterNameShapeInvariant(apiHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cluster := request.ClusterFrom(req.Context())
+		if cluster != nil && !cluster.Wildcard {
+			name := cluster.Name.String()
+			if name != "" && strings.Contains(name, ":") && !strings.HasPrefix(name, "system:") {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf(
+						"invariant violation: cluster name %q on request context is a workspace path, not a logical cluster name; refusing to forward to storage",
+						name,
+					)),
+					errorCodecs, schema.GroupVersion{}, w, req,
+				)
+				return
+			}
+		}
+		apiHandler.ServeHTTP(w, req)
+	})
+}
+
 // WithAcceptHeader makes the Accept header available for code in the handler chain. It is needed for
 // Wildcard requests, when finding the CRD with a common schema. For PartialObjectMeta requests we cand
 // weaken the schema requirement and allow different schemas across workspaces.
