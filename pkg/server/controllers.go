@@ -1646,16 +1646,15 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 	}
 
 	// TODO: make it configurable
-	const (
-		workersPerLogicalCluster = 1
-	)
+	// TODO(ntnn): would be great to scale workers by number of
+	// workspaces, e.g. start with 2 and then scale logarithmically with
+	// a configurable maximum.
+	const workers = 4
 
 	c, err := garbagecollector.NewController(
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kubeClusterClient,
 		metadataClient,
 		s.PartialMetadataDDSIF,
-		workersPerLogicalCluster,
 		s.syncedCh,
 	)
 	if err != nil {
@@ -1667,14 +1666,11 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				_, notSynced := s.PartialMetadataDDSIF.Informers()
-				if len(notSynced) > 0 {
-					return false, nil
-				}
-				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+				return len(notSynced) == 0, nil
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, workers)
 		},
 	})
 }
