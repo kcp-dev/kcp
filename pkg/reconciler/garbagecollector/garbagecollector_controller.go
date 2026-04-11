@@ -19,24 +19,15 @@ package garbagecollector
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpkubernetesclient "github.com/kcp-dev/client-go/kubernetes"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadataclient "github.com/kcp-dev/client-go/metadata"
-	"github.com/kcp-dev/logicalcluster/v3"
-	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
-	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -47,65 +38,40 @@ const (
 	ControllerName = "kcp-garbage-collector"
 )
 
-// Controller manages per-workspace garbage collector controllers.
+// Controller manages a single cluster-aware garbage collector that handles all workspaces.
 type Controller struct {
-	queue workqueue.TypedRateLimitingInterface[string]
-
-	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory
-	kubeClusterClient                     kcpkubernetesclient.ClusterInterface
-	metadataClient                        kcpmetadataclient.ClusterInterface
-	logicalClusterLister                  corev1alpha1listers.LogicalClusterClusterLister
-	informersStarted                      <-chan struct{}
-
-	workersPerLogicalCluster int
-
-	// lock guards the fields in this group
-	lock        sync.RWMutex
-	cancelFuncs map[logicalcluster.Name]func()
-
-	ignoredResources map[schema.GroupResource]struct{}
+	cancel  context.CancelFunc
+	gc      *garbagecollector.GarbageCollector
+	factory *informer.DiscoveringDynamicSharedInformerFactory
 }
 
 // NewController creates a new Controller.
 func NewController(
-	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
-	kubeClusterClient kcpkubernetesclient.ClusterInterface,
-	metadataClient kcpmetadataclient.ClusterInterface,
+	kubeClusterClient *kcpkubernetesclientset.ClusterClientset,
+	metadataClusterClient kcpmetadataclient.ClusterInterface,
 	dynamicDiscoverySharedInformerFactory *informer.DiscoveringDynamicSharedInformerFactory,
-	workersPerLogicalCluster int,
 	informersStarted <-chan struct{},
 ) (*Controller, error) {
-	c := &Controller{
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{
-				Name: ControllerName,
-			},
-		),
+	ctx, cancel := context.WithCancel(context.Background())
 
-		dynamicDiscoverySharedInformerFactory: dynamicDiscoverySharedInformerFactory,
-		kubeClusterClient:                     kubeClusterClient,
-		metadataClient:                        metadataClient,
-		logicalClusterLister:                  logicalClusterInformer.Lister(),
-		informersStarted:                      informersStarted,
-
-		workersPerLogicalCluster: workersPerLogicalCluster,
-
-		cancelFuncs: map[logicalcluster.Name]func(){},
-
-		ignoredResources: defaultIgnoredResources(),
+	gc, err := garbagecollector.NewGarbageCollector(
+		ctx,
+		kubeClusterClient,
+		newCtxMetadataClient(metadataClusterClient),
+		dynamicDiscoverySharedInformerFactory.RESTMapper(),
+		defaultIgnoredResources(),
+		newUnscopedInformerFactory(dynamicDiscoverySharedInformerFactory),
+		informersStarted,
+	)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create the garbage collector: %w", err)
 	}
 
-	_, _ = logicalClusterInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: c.enqueue,
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.enqueue(oldObj)
-			},
-			DeleteFunc: c.enqueue,
-		},
-	)
-
+	c := new(Controller)
+	c.cancel = cancel
+	c.gc = gc
+	c.factory = dynamicDiscoverySharedInformerFactory
 	return c, nil
 }
 
@@ -122,239 +88,19 @@ func defaultIgnoredResources() (ret map[schema.GroupResource]struct{}) {
 	return ret
 }
 
-// enqueue adds the key for a LogicalCluster to the queue.
-func (c *Controller) enqueue(obj interface{}) {
-	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
-	if err != nil {
-		utilruntime.HandleError(err)
-		return
-	}
-
-	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing LogicalCluster")
-	c.queue.Add(key)
-}
-
-// Start starts the controller.
-func (c *Controller) Start(ctx context.Context, numThreads int) {
+// Start starts the single GC and the upstream Sync loop.
+func (c *Controller) Start(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
+	defer c.cancel()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
-	for range numThreads {
-		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
-	}
+	const syncPeriod = 30 * time.Second
 
-	<-ctx.Done()
-}
-
-// startWorker runs a single worker goroutine.
-func (c *Controller) startWorker(ctx context.Context) {
-	for c.processNextWorkItem(ctx) {
-	}
-}
-
-// processNextWorkItem waits for the queue to have a key available and then processes it.
-func (c *Controller) processNextWorkItem(ctx context.Context) bool {
-	// Wait until there is a new item in the working queue
-	raw, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	key := raw
-
-	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
-	ctx = klog.NewContext(ctx, logger)
-	logger.V(4).Info("processing key")
-
-	// No matter what, tell the queue we're done with this key, to unblock
-	// other workers.
-	defer c.queue.Done(key)
-
-	if err := c.process(ctx, key); err != nil {
-		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
-		c.queue.AddRateLimited(key)
-		return true
-	}
-
-	c.queue.Forget(key)
-
-	return true
-}
-
-// process processes a single key from the queue.
-func (c *Controller) process(ctx context.Context, key string) error {
-	logger := klog.FromContext(ctx)
-	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
-	if err != nil {
-		utilruntime.HandleError(err)
-		return nil
-	}
-
-	logger = logger.WithValues("cluster", clusterName.String())
-
-	ws, err := c.logicalClusterLister.Cluster(clusterName).Get(name)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			logger.V(2).Info("LogicalCluster not found - stopping garbage collector controller for it (if needed)")
-
-			c.lock.Lock()
-			cancel, ok := c.cancelFuncs[clusterName]
-			if ok {
-				cancel()
-				delete(c.cancelFuncs, clusterName)
-			}
-			c.lock.Unlock()
-
-			c.dynamicDiscoverySharedInformerFactory.Unsubscribe("gc-" + clusterName.String())
-
-			return nil
-		}
-
-		return err
-	}
-	logger = logging.WithObject(logger, ws)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	_, found := c.cancelFuncs[clusterName]
-	if found {
-		logger.V(4).Info("garbage collector controller already exists")
-		return nil
-	}
-
-	logger.V(2).Info("starting garbage collector controller")
-
-	ctx, cancel := context.WithCancel(ctx)
-	ctx = klog.NewContext(ctx, logger)
-	c.cancelFuncs[clusterName] = cancel
-
-	if err := c.startGarbageCollectorForLogicalCluster(ctx, clusterName); err != nil {
-		cancel()
-		delete(c.cancelFuncs, clusterName)
-		return fmt.Errorf("error starting garbage collector controller for cluster %q: %w", clusterName, err)
-	}
-
-	return nil
-}
-
-func (c *Controller) startGarbageCollectorForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
-	logger := klog.FromContext(ctx)
-
-	garbageCollector, err := garbagecollector.NewGarbageCollector(
-		ctx,
-		c.kubeClusterClient.Cluster(clusterName.Path()),
-		c.metadataClient.Cluster(clusterName.Path()),
-		c.dynamicDiscoverySharedInformerFactory.RESTMapper(),
-		c.ignoredResources,
-		c.dynamicDiscoverySharedInformerFactory.ClusterWithContext(ctx, clusterName),
-		c.informersStarted,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create the garbage collector: %w", err)
-	}
-
-	// Here we diverge from what upstream does. Upstream starts a goroutine that retrieves discovery every 30 seconds,
-	// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
-	// the combination of built-in types plus CRDs. We use that information to drive what garbage collector evaluates.
-	// TODO: support scoped shared dynamic discovery to avoid emitting global discovery events.
-
-	garbageCollectorController := garbageCollectorController{
-		clusterName: clusterName,
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{
-				Name: "gc-" + clusterName.String(),
-			},
-		),
-		work: func(ctx context.Context) {
-			//nolint:errcheck
-			garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
-		},
-	}
-	go garbageCollectorController.Start(ctx)
-
-	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("gc-" + clusterName.String())
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-apisChanged:
-				logger.V(4).Info("got API change notification")
-				garbageCollectorController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
-			}
-		}
-	}()
-
-	// Do this in a goroutine to avoid holding up a worker in the event ResyncMonitors stalls for whatever reason
-	go func() {
-		// Make sure the GC monitors are synced at least once
-		err = garbageCollector.ResyncMonitors(ctx, c.dynamicDiscoverySharedInformerFactory)
-		if err != nil {
-			logger.Error(err, "failed to sync garbage collector monitors for the first time")
-			return
-		}
-
-		// Initial sync timeout is set to 30s - as it was hardcoded in
-		// e8b1d7dc24713db99808028e0d02bacf6d48e01f in k/k. Should it timeout,
-		// the GC will continue running regardless, expecting the monitors to be
-		// synced eventually. In any case, the ResyncMonitors call above should
-		// have done that anyway.
-		go garbageCollector.Run(ctx, c.workersPerLogicalCluster, time.Second*30)
-	}()
-
-	return nil
-}
-
-type garbageCollectorController struct {
-	clusterName    logicalcluster.Name
-	queue          workqueue.TypedRateLimitingInterface[string]
-	work           func(context.Context)
-	previousCancel func()
-}
-
-// Start starts the controller, which stops when ctx.Done() is closed.
-func (c *garbageCollectorController) Start(ctx context.Context) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName+"-"+c.clusterName.String()+"-monitors")
-	ctx = klog.NewContext(ctx, logger)
-	logger.Info("Starting controller")
-	defer logger.Info("Shutting down controller")
-
-	go wait.UntilWithContext(ctx, c.startWorker, time.Second)
-	<-ctx.Done()
-	if c.previousCancel != nil {
-		c.previousCancel()
-	}
-}
-
-func (c *garbageCollectorController) startWorker(ctx context.Context) {
-	for c.processNextWorkItem(ctx) {
-	}
-}
-
-func (c *garbageCollectorController) processNextWorkItem(ctx context.Context) bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(key)
-
-	if c.previousCancel != nil {
-		c.previousCancel()
-	}
-
-	ctx, c.previousCancel = context.WithCancel(ctx)
-	c.work(ctx)
-	c.queue.Forget(key)
-	return true
+	// Run gc.Sync alongside gc.Run, same as upstream kube-controller-manager.
+	go c.gc.Sync(ctx, c.factory, syncPeriod)
+	c.gc.Run(ctx, workers, syncPeriod)
 }
