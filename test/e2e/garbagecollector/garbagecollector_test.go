@@ -18,13 +18,11 @@ package garbagecollector
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,7 +35,6 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
-	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
 	kcpdiscovery "github.com/kcp-dev/client-go/discovery"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -49,7 +46,6 @@ import (
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
-	configcrds "github.com/kcp-dev/kcp/config/crds"
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/apifixtures"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
@@ -537,7 +533,7 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 
 	group := framework.UniqueGroup(".io")
 
-	crd := NewClusterScopedCRD(group, "clustered")
+	crd := newClusterScopedCRD(group, "clustered")
 
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("gc-crd-cluster-scope"))
 
@@ -594,57 +590,4 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 			Get(t.Context(), "owner", metav1.GetOptions{})
 		return apierrors.IsNotFound(err), "owned clustered not garbage collected"
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "error waiting for owned clustered to be garbage collected")
-}
-
-func NewClusterScopedCRD(group, name string) *apiextensionsv1.CustomResourceDefinition {
-	return &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", pluralize(name), group),
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: group,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Singular: name,
-				Plural:   pluralize(name),
-				Kind:     strings.ToTitle(name),
-				ListKind: strings.ToTitle(name) + "List",
-			},
-			Scope: apiextensionsv1.ClusterScoped,
-			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1",
-					Served:  true,
-					Storage: true,
-					Schema: &apiextensionsv1.CustomResourceValidation{
-						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-							Type: "object",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func pluralize(name string) string {
-	switch string(name[len(name)-1]) {
-	case "s":
-		return name + "es"
-	case "y":
-		return strings.TrimSuffix(name, "y") + "ies"
-	}
-
-	return name + "s"
-}
-
-func bootstrapCRD(
-	t *testing.T,
-	clusterName logicalcluster.Path,
-	client kcpapiextensionsv1client.CustomResourceDefinitionClusterInterface,
-	crd *apiextensionsv1.CustomResourceDefinition,
-) {
-	t.Helper()
-
-	err := configcrds.CreateSingle(t.Context(), client.Cluster(clusterName), crd)
-	require.NoError(t, err, "error bootstrapping CRD %s in cluster %s", crd.Name, clusterName)
 }
