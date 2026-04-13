@@ -2,6 +2,9 @@ pyroscope:
   nodeSelector:
     $NODEPOOL_SELECTOR: auxiliary
   disableSelfProfile: true
+  persistence:
+    enabled: true
+    size: 50Gi
 
 alloy:
   enabled: true
