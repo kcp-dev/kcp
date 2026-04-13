@@ -89,7 +89,11 @@ func WithVirtualWorkspacesProxy(apiHandler http.Handler, shardVirtualWorkspaceUR
 			return
 		}
 
-		proxy.Transport = clientgotransport.NewImpersonatingRoundTripper(
+		// ReverseProxy instances are shared across requests, so the transport must
+		// be request-scoped to avoid leaking impersonation headers between
+		// concurrent requests.
+		requestScopedProxy := *proxy
+		requestScopedProxy.Transport = clientgotransport.NewImpersonatingRoundTripper(
 			clientgotransport.ImpersonationConfig{
 				UserName: user.GetName(),
 				UID:      user.GetUID(),
@@ -100,7 +104,7 @@ func WithVirtualWorkspacesProxy(apiHandler http.Handler, shardVirtualWorkspaceUR
 		)
 
 		logger.V(4).Info("proxying virtual workspace", "target", req.URL.String())
-		proxy.ServeHTTP(w, req)
+		requestScopedProxy.ServeHTTP(w, req)
 	}
 }
 
