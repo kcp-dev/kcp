@@ -27,6 +27,14 @@ prometheus:
       $NODEPOOL_SELECTOR: auxiliary
     scrapeInterval: 5s
     retention: 7d
+    retentionSize: 40GB # this prevents disk from overfilling during lots of test runs
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
     serviceMonitorSelectorNilUsesHelmValues: false
     # needed so we can use sort_by_label function in our dashboards
     enableFeatures:
