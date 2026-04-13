@@ -31,18 +31,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	pluginhelpers "github.com/kcp-dev/cli/pkg/helpers"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-
-	pluginhelpers "github.com/kcp-dev/cli/pkg/helpers"
 )
 
 //go:embed resources/api-provider
 var apiProviderResources embed.FS
+
+const (
+	pollIntervalAppear  = 100 * time.Millisecond
+	pollIntervalReady   = 500 * time.Millisecond
+	pollIntervalCleanup = 2 * time.Second
+	logThrottleInterval = 10 * time.Second
+)
 
 type apiProviderScenario struct{}
 
@@ -92,7 +98,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 
 				fmt.Fprintf(execCtx.Out, "  Waiting for workspace %q and all children to finish terminating...\n", orgName)
 				var lastLog time.Time
-				if err := wait.PollUntilContextCancel(ctx, 2*time.Second, true,
+				if err := wait.PollUntilContextCancel(ctx, pollIntervalCleanup, true,
 					func(ctx context.Context) (bool, error) {
 						ws, err := execCtx.KCPClusterClient.Cluster(rootPath).TenancyV1alpha1().Workspaces().
 							Get(ctx, orgName, metav1.GetOptions{})
@@ -103,7 +109,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 							return false, err
 						}
 
-						if time.Since(lastLog) >= 10*time.Second {
+						if time.Since(lastLog) >= logThrottleInterval {
 							if ws.DeletionTimestamp != nil {
 								fmt.Fprintf(execCtx.Out, "  Still terminating (cascading deletion in progress)...\n")
 							} else {
@@ -297,7 +303,7 @@ func createWorkspaceAndWait(
 		return logicalcluster.Path{}, false, fmt.Errorf("creating workspace %q: %w", name, err)
 	}
 
-	if err := wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true,
+	if err := wait.PollUntilContextCancel(ctx, pollIntervalAppear, true,
 		func(ctx context.Context) (bool, error) {
 			_, err := client.Cluster(parentPath).TenancyV1alpha1().Workspaces().
 				Get(ctx, ws.Name, metav1.GetOptions{})
@@ -311,7 +317,7 @@ func createWorkspaceAndWait(
 	}
 
 	if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
-		if err := wait.PollUntilContextCancel(ctx, 500*time.Millisecond, true,
+		if err := wait.PollUntilContextCancel(ctx, pollIntervalReady, true,
 			func(ctx context.Context) (bool, error) {
 				ws, err = client.Cluster(parentPath).TenancyV1alpha1().Workspaces().
 					Get(ctx, ws.Name, metav1.GetOptions{})
@@ -367,7 +373,7 @@ func createAPIBindingAndWait(
 		return fmt.Errorf("creating APIBinding %q: %w", bindingName, err)
 	}
 
-	if err := wait.PollUntilContextCancel(ctx, 500*time.Millisecond, true,
+	if err := wait.PollUntilContextCancel(ctx, pollIntervalReady, true,
 		func(ctx context.Context) (bool, error) {
 			b, err := client.Cluster(workspacePath).ApisV1alpha2().APIBindings().
 				Get(ctx, bindingName, metav1.GetOptions{})

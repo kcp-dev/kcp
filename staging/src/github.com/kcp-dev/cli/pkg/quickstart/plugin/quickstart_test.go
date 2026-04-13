@@ -231,19 +231,19 @@ func TestRunCleanup(t *testing.T) {
 		var callOrder []string
 		o := newOpts(t)
 		o.scenario = makeCleanupScenario(&callOrder, map[string]error{
-			"A": fmt.Errorf("A failed"),
-			"C": fmt.Errorf("C failed"),
+			"A": fmt.Errorf("scenario A failed"),
+			"C": fmt.Errorf("scenario C failed"),
 		})
 
 		err := o.Run(context.Background())
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), "A failed") {
-			t.Errorf("error missing 'A failed': %v", err)
+		if !strings.Contains(err.Error(), "scenario A failed") {
+			t.Errorf("error missing 'scenario A failed': %v", err)
 		}
-		if !strings.Contains(err.Error(), "C failed") {
-			t.Errorf("error missing 'C failed': %v", err)
+		if !strings.Contains(err.Error(), "scenario C failed") {
+			t.Errorf("error missing 'scenario C failed': %v", err)
 		}
 		if strings.Join(callOrder, ",") != "C,A" {
 			t.Errorf("cleanup order = %v, want [C A]", callOrder)

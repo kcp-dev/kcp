@@ -33,6 +33,8 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 )
 
+const defaultTimeout = 10 * time.Minute
+
 type QuickstartOptions struct {
 	*base.Options
 	Scenario    string
@@ -40,7 +42,7 @@ type QuickstartOptions struct {
 	Cleanup     bool
 	Enter       bool
 	WithSamples bool
-	Timeout time.Duration
+	Timeout     time.Duration
 
 	scenario            scenarios.Scenario
 	enterWorkspace      func(ctx context.Context, path string) error
@@ -54,7 +56,7 @@ func NewQuickstartOptions(streams genericclioptions.IOStreams) *QuickstartOption
 		Options:             base.NewOptions(streams),
 		Scenario:            "api-provider",
 		NamePrefix:          "quickstart",
-		Timeout:             10 * time.Minute,
+		Timeout:             defaultTimeout,
 		newUseWorkspaceOpts: workspaceplugin.NewUseWorkspaceOptions,
 		newKCPClusterClient: defaultKCPClusterClient,
 		newKCPDynamicClient: defaultKCPDynamicClient,
