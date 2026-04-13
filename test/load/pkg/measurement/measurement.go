@@ -21,7 +21,8 @@ package measurement
 type Sink interface {
 	// Drop adds a measurement to the backend. The backend is responsible for handling the measurement and calculating results when requested.
 	Drop(measurement Measurement)
-	// Results calculates and returns the results of all measurements. The results are returned as a map where the key is the name of the measurement and the value is the calculated result.
+	// Results calculates and returns the results of all measurements.
+	// The key format depends on the implementation (e.g. Memory uses "<stat>_<measurement>" like "avg_duration_ms").
 	Results() map[string]float64
 }
 
