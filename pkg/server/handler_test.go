@@ -125,7 +125,7 @@ func TestWithVirtualWorkspacesProxyUsesRequestScopedImpersonationTransport(t *te
 func proxiedRequest(t *testing.T, path, userName string, logger logr.Logger) *http.Request {
 	t.Helper()
 
-	req := httptest.NewRequest(http.MethodGet, "https://kcp.example"+path, nil)
+	req := httptest.NewRequest(http.MethodGet, "https://kcp.example"+path, http.NoBody)
 	ctx := request.WithUser(req.Context(), &userinfo.DefaultInfo{Name: userName})
 	ctx = klog.NewContext(ctx, logger)
 	return req.WithContext(ctx)
