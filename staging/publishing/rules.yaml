@@ -18,6 +18,12 @@ rules:
           branch: release-0.30
           dirs:
             - staging/src/github.com/kcp-dev/apimachinery
+      - name: release-0.31
+        go: 1.25.9
+        source:
+          branch: release-0.31
+          dirs:
+            - staging/src/github.com/kcp-dev/apimachinery
     destination-tag-base: v2
     library: true
   - destination: code-generator
@@ -37,6 +43,12 @@ rules:
         go: 1.24.13
         source:
           branch: release-0.30
+          dirs:
+            - staging/src/github.com/kcp-dev/code-generator
+      - name: release-0.31
+        go: 1.25.9
+        source:
+          branch: release-0.31
           dirs:
             - staging/src/github.com/kcp-dev/code-generator
     destination-tag-base: v3
@@ -73,6 +85,17 @@ rules:
             branch: release-0.30
         source:
           branch: release-0.30
+          dirs:
+            - staging/src/github.com/kcp-dev/client-go
+      - name: release-0.31
+        go: 1.25.9
+        dependencies:
+          - repository: apimachinery
+            branch: release-0.31
+          - repository: code-generator
+            branch: release-0.31
+        source:
+          branch: release-0.31
           dirs:
             - staging/src/github.com/kcp-dev/client-go
     destination-tag-base: v0
@@ -115,6 +138,19 @@ rules:
             branch: release-0.30
         source:
           branch: release-0.30
+          dirs:
+            - staging/src/github.com/kcp-dev/sdk
+      - name: release-0.31
+        go: 1.25.9
+        dependencies:
+          - repository: apimachinery
+            branch: release-0.31
+          - repository: code-generator
+            branch: release-0.31
+          - repository: client-go
+            branch: release-0.31
+        source:
+          branch: release-0.31
           dirs:
             - staging/src/github.com/kcp-dev/sdk
     destination-tag-base: v0
@@ -165,6 +201,21 @@ rules:
           branch: release-0.30
           dirs:
             - staging/src/github.com/kcp-dev/cli
+      - name: release-0.31
+        go: 1.25.9
+        dependencies:
+          - repository: apimachinery
+            branch: release-0.31
+          - repository: code-generator
+            branch: release-0.31
+          - repository: client-go
+            branch: release-0.31
+          - repository: sdk
+            branch: release-0.31
+        source:
+          branch: release-0.31
+          dirs:
+            - staging/src/github.com/kcp-dev/cli
     destination-tag-base: v0
     library: true
   - destination: virtual-workspace-framework
@@ -179,6 +230,19 @@ rules:
             branch: main
         source:
           branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/virtual-workspace-framework
+      - name: release-0.31
+        go: 1.25.9
+        dependencies:
+          - repository: apimachinery
+            branch: release-0.31
+          - repository: client-go
+            branch: release-0.31
+          - repository: sdk
+            branch: release-0.31
+        source:
+          branch: release-0.31
           dirs:
             - staging/src/github.com/kcp-dev/virtual-workspace-framework
     destination-tag-base: v0
