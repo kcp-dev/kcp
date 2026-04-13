@@ -72,8 +72,8 @@ func NewReport(title string) *Report {
 }
 
 // PrettyPrint writes all sections to w as a formatted table.
-// Each section is printed with its title as a header followed by the
-// its parameters andkey/value results from the associated Sink.
+// Each section is printed with its title as a header followed by
+// its parameters and key/value results from the associated Sink.
 func (r *Report) PrettyPrint(w io.Writer) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 
