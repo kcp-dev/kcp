@@ -4174,9 +4174,7 @@ accessible without authentication.</p>
 <p>All those resources are represented as CustomResourceDefinitions and
 stored in <code>system:cache:server</code> shard under <code>system:system-crds</code> cluster.</p>
 <h3 id="adding-new-resources">Adding New Resources<a class="headerlink" href="#adding-new-resources" title="Permanent link">&para;</a></h3>
-<p>Not implemented at the moment.
-Our near-term plan is to maintain a list of hard-coded resources that we want to keep in the cache server.
-In the future, we will use the ReplicationClam which will describe schemas that need to be exposed by the cache server.</p>
+<p>User-defined resources can be added to the cache server using the <a href="../../apis/cached-resources/">CachedResource API</a>. A CachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.</p>
 <h3 id="deletion-of-data">Deletion of Data<a class="headerlink" href="#deletion-of-data" title="Permanent link">&para;</a></h3>
 <p>Not implemented at the moment.
 Only deleting resources explicitly is possible.

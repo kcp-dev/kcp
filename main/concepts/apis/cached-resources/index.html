@@ -1314,15 +1314,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#cachedresourceendpointslice" class="md-nav__link">
-    <span class="md-ellipsis">
-      CachedResourceEndpointSlice
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#selectors" class="md-nav__link">
     <span class="md-ellipsis">
       Selectors
@@ -1342,6 +1333,21 @@
       Exporting CachedResources
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Exporting CachedResources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cachedresourceendpointslice" class="md-nav__link">
+    <span class="md-ellipsis">
+      CachedResourceEndpointSlice
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3949,15 +3955,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#cachedresourceendpointslice" class="md-nav__link">
-    <span class="md-ellipsis">
-      CachedResourceEndpointSlice
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#selectors" class="md-nav__link">
     <span class="md-ellipsis">
       Selectors
@@ -3977,6 +3974,21 @@
       Exporting CachedResources
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Exporting CachedResources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cachedresourceendpointslice" class="md-nav__link">
+    <span class="md-ellipsis">
+      CachedResourceEndpointSlice
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -4003,20 +4015,7 @@
 <p class="admonition-title">Warning</p>
 <p>As of 0.29, this feature is of alpha-version quality. To use it, enable the <code>CachedAPIs</code> feature gate.</p>
 </div>
-<p>A CachedResource object replicates a user-defined resource from its workspace into kcp's <a href="../../sharding/cache-server/">cache server</a>. It may be used as an <a href="../exporting-apis/#virtual-resources">APIExport virtual resource</a> with the goal of distributing static, read-only resources to multiple clusters, in a scalable way.</p>
-<p><strong>Example user story:</strong></p>
-<ul>
-<li>You, the <strong>service provider</strong>, run a cloud <em>Cloud Co.</em>, including a compute service.</li>
-<li>You offer a service of provisioning and running VM instances: users create an <code>Instance</code> object and voilà, they have a running VM!<ul>
-<li>But how do you design the API for configuring such a resource? How do you make your consumers know what configuration options are available, given the limited resources available in the cloud?</li>
-<li>You've decided to offer different packages for CPUs, memory, storage, GPUs; these are represented as CRDs, e.g. <code>cpuflavors.cloud.example.com</code>, <code>memflavors.cloud.example.com</code>, with <code>cpu-small</code>, <code>cpu-medium</code>, <code>cpu-large</code>, <code>mem-medium</code>, <code>mem-large</code>, <code>mem-xlarge</code> respectively.</li>
-<li>You've created a CachedResource for each flavor type.</li>
-<li>You offer the service through an APIExport containing the main <code>instances.cloud.example.com</code> resource, as well as all flavors. These are exported as <a href="../exporting-apis/#virtual-resources">virtual resources</a>.</li>
-</ul>
-</li>
-<li><strong>Consumers</strong> binding to your APIExport can list and get the available flavors from within their workspace (e.g. with <code>kubectl get cpuflavors</code>), and refer to them in their <code>Instance</code> spec. They cannot create, delete or otherwise modify the flavor objects in any way.</li>
-</ul>
-<p>See an example usage at <a href="https://github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources">github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources</a>.</p>
+<p>A CachedResource object triggers replication of a user-defined resource from its workspace into kcp's <a href="../../sharding/cache-server/">cache server</a>, extending its <a href="../../sharding/cache-server/#built-in-resources">built-in resource set</a> with custom types. This makes those resources available across shards, enabling implementors to build globally-aware kcp-native components. API providers can additionally expose replicated resources as read-only to consumer workspaces — see <a href="#exporting-cachedresources">Exporting CachedResources</a>.</p>
 <h2 id="resource-replication">Resource replication<a class="headerlink" href="#resource-replication" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
@@ -4078,12 +4077,11 @@
 <p>You can optionally configure the following additional aspects of a CachedResource:</p>
 <ul>
 <li>its identity</li>
-<li>its endpoint slice</li>
 <li>resource selector</li>
 </ul>
 <p>We'll talk about each of these next.</p>
 <h3 id="cachedresource-identity">CachedResource identity<a class="headerlink" href="#cachedresource-identity" title="Permanent link">&para;</a></h3>
-<p>Similar to the <a href="../exporting-apis/#apiexport-identity">APIExport identity</a> concept, there may be many CachedResources with the same group-version-resource triplet across kcp instances. To differentiate between them and identify owners, a CachedResource object uses a unique identity key stored in a secret.</p>
+<p>Similar to the <a href="../exporting-apis/#apiexport-identity">APIExport identity</a> concept, there may be many CachedResources with the same group-version-resource triplet across the kcp installation. To differentiate between them and identify owners, a CachedResource object uses a unique identity key stored in a secret.</p>
 <p>The identity <strong>key</strong> is considered a private key and should not be shared.</p>
 <p><strong>Hash</strong> calculated from that key, found at <code>.status.identityHash</code>, is considered a public key. APIExport's virtual resource definition expects this identity hash to be supplied when exporting a CachedResource.</p>
 <p>By default, creating a CachedResource object triggers creation of an identity secret with a randomly generated key in its <code>key</code> data item. You can provide your own key by referencing your secret in the object's spec:</p>
@@ -4106,10 +4104,36 @@
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
+<h3 id="selectors">Selectors<a class="headerlink" href="#selectors" title="Permanent link">&para;</a></h3>
+<p>CachedResource spec has an optional <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors"><code>labelSelector</code></a> field which can be used to shape the set of objects it picks up.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud.example.com</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">labelSelector</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">cloud.example.com/visibility</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public</span>
+</code></pre></div>
+<h2 id="exporting-cachedresources">Exporting CachedResources<a class="headerlink" href="#exporting-cachedresources" title="Permanent link">&para;</a></h2>
+<p>You can project the replicated read-only objects of a CachedResource into a workspace using the standard APIExport-APIBinding relationship. Create an APIExport and define <a href="../exporting-apis/#virtual-resources">virtual resource</a> for the associated <a href="#cachedresourceendpointslice">CachedResourceEndpointSlice</a>. Consumers can then bind to it.</p>
+<p><strong>Example user story:</strong></p>
+<ul>
+<li>You, the <strong>service provider</strong>, run a cloud <em>Cloud Co.</em>, including a compute service.</li>
+<li>You offer a service of provisioning and running VM instances: users create an <code>Instance</code> object and voilà, they have a running VM!<ul>
+<li>But how do you design the API for configuring such a resource? How do you make your consumers know what configuration options are available, given the limited resources available in the cloud?</li>
+<li>You've decided to offer different packages for CPUs, memory, storage, GPUs; these are represented as CRDs, e.g. <code>cpuflavors.cloud.example.com</code>, <code>memflavors.cloud.example.com</code>, with <code>cpu-small</code>, <code>cpu-medium</code>, <code>cpu-large</code>, <code>mem-medium</code>, <code>mem-large</code>, <code>mem-xlarge</code> respectively.</li>
+<li>You've created a CachedResource for each flavor type.</li>
+<li>You offer the service through an APIExport containing the main <code>instances.cloud.example.com</code> resource, as well as all flavors. These are exported as <a href="../exporting-apis/#virtual-resources">virtual resources</a>.</li>
+</ul>
+</li>
+<li><strong>Consumers</strong> binding to your APIExport can list and get the available flavors from within their workspace (e.g. with <code>kubectl get cpuflavors</code>), and refer to them in their <code>Instance</code> spec. They cannot create, delete or otherwise modify the flavor objects in any way.</li>
+</ul>
+<p>See an example usage at <a href="https://github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources">github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources</a>.</p>
 <h3 id="cachedresourceendpointslice">CachedResourceEndpointSlice<a class="headerlink" href="#cachedresourceendpointslice" title="Permanent link">&para;</a></h3>
-<p>While CachedResources replicates their associated resources to the cache server, retrieval of these in-cache resources is done through the Replication <a href="../../workspaces/virtual-workspaces/">virtual workspace</a>. The Replication VW is an API server dedicated to CachedResources, and is able to access the resource's objects with read-only verbs get, list and watch.</p>
-<p>The Replication VW endpoints are listed in CachedResourceEndpointSlice. This endpoint slice is compatible with APIExport's <a href="../exporting-apis/#virtual-resources">virtual resources</a> and can be used as storage source.</p>
-<p>With that said, the Replication VW is consumer-aware, and needs a valid APIExport and APIBinding(s) to operate. Therefore it is much more convenient to access the in-cache resources through regular APIBindings in a workspace and/or the APIExport VW rather than accessing them through the Replication VW. Consider the Replication VW just as an implementation detail of the CachedResource API, and when consuming it, use APIExports.</p>
+<p>The CachedResourceEndpointSlice tracks the consumers of the associated APIExport, and needs to be created when you want to export a CachedResource.</p>
 <pre class="mermaid"><code>flowchart TD
     cacheServer["Cache server"]
     replicationVW["Replication VW"]
@@ -4123,33 +4147,21 @@
 
     replicationVW -."Reads from".-&gt; cacheServer
     cpuflavorsCachedResourceEndpointSlice -."Has an endpoint for".-&gt; replicationVW</code></pre>
-<p>For convenience, creating a CachedResource triggers creation of a CachedResourceEndpointSlice object under the same name. This behaviour can be disabled by adding <code>cachedresources.cache.kcp.io/skip-endpointslice</code> annotation to the CachedResource object. You can create your own like so:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">cachedResource</span><span class="p">:</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span><span class="w"> </span><span class="c1"># (1)</span>
-</code></pre></div>
-<ol>
-<li>Name of the CachedResource this endpoint slice is referencing. Currently, both CachedResource and CachedResourceEndpointSlice must be co-located in the same workspace. See <a href="https://github.com/kcp-dev/kcp/issues/3658">https://github.com/kcp-dev/kcp/issues/3658</a></li>
-</ol>
-<h3 id="selectors">Selectors<a class="headerlink" href="#selectors" title="Permanent link">&para;</a></h3>
-<p>CachedResource spec has an optional <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors"><code>labelSelector</code></a> field which can be used to shape the set of objects it picks up.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cloud.example.com</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">labelSelector</span><span class="p">:</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">cloud.example.com/visibility</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">cachedResource</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span><span class="w"> </span><span class="c1"># (1)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">export</span><span class="p">:</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vm-provider</span><span class="w"> </span><span class="c1"># (2)</span>
 </code></pre></div>
-<h2 id="exporting-cachedresources">Exporting CachedResources<a class="headerlink" href="#exporting-cachedresources" title="Permanent link">&para;</a></h2>
-<p>You can project the replicated read-only objects of a CachedResource into a workspace using the standard APIExport-APIBinding relationship. Create an APIExport and define <a href="../exporting-apis/#virtual-resources">virtual resource</a> for the associated <a href="#cachedresourceendpointslice">CachedResourceEndpointSlice</a>. Consumers can then bind to it.</p>
+<ol>
+<li>Name (and optionally the cluster path) of the CachedResource this endpoint slice is referencing.</li>
+<li>Name (and optionally the cluster path) of the APIExport this endpoint slice is referenced by.</li>
+</ol>
+<p>Both the <code>cachedResource</code> and <code>export</code> references are immutable once set.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -4172,7 +4184,7 @@
 <li>Reference to the CachedResourceEndpointSlice endpoint slice <code>cpuflavors-v1</code>.</li>
 <li>Identity hash of the <code>cpuflavors-v1</code> CachedResource object.</li>
 </ol>
-<p>A <code>virtual</code> storage definition needs (1) a reference to an <a href="../exporting-apis/#endpoint-slices">endpoint slice</a> object, and (2) a virtual resource identity. In the case of CachedResources, the endpoint slice is provided by CachedResourceEndpointSlice. For convenience, a matching CachedResourceEndpointSlice object is automatically created when creating a CachedResource. The identity hash must match the one set in CachedResource's <code>.status.identityHash</code>.</p>
+<p>A <code>virtual</code> storage definition needs (1) a reference to an <a href="../exporting-apis/#endpoint-slices">endpoint slice</a> object, and (2) a virtual resource identity. In the case of CachedResources, the endpoint slice is provided by CachedResourceEndpointSlice. The identity hash must match the one set in CachedResource's <code>.status.identityHash</code>.</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph provider["API Provider Workspace"]
         export["CPUFlavors APIExport"]
@@ -4194,6 +4206,13 @@
 
     export --&gt; binding</code></pre>
 <p>Note the APIResourceSchema referenced by the APIExport example above: the Replication VW follows that reference, and that schema is then used to serve the resource in consumers' workspaces. The provider must therefore ensure that it is kept in-sync with the schema of the original resource.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span><span class="c1"># In consumer ws.</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>cpuflavors
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>NAME
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>cpu-small
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>cpu-medium
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>cpu-large
+</code></pre></div>
 
 
 
