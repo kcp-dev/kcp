@@ -796,6 +796,69 @@ func TestReconcileBinding(t *testing.T) {
 	}
 }
 
+func TestReconcileDoesNotMutateCachedLogicalClusterWhenLocksUnchanged(t *testing.T) {
+	apiBinding := newBindingBuilder().
+		WithCondition(&conditionsv1alpha1.Condition{
+			Type:   apisv1alpha2.InitialBindingCompleted,
+			Status: corev1.ConditionFalse,
+		}).
+		WithClusterName("org:ws").
+		WithName("my-binding").
+		WithExportReference(logicalcluster.NewPath("org:some-workspace"), "some-export").
+		WithPhase(apisv1alpha2.APIBindingPhaseBinding).
+		Build()
+
+	cachedLogicalCluster := withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{})
+	cachedLogicalCluster.TypeMeta = metav1.TypeMeta{
+		Kind:       "LogicalCluster",
+		APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+	}
+
+	c := &controller{
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return &apisv1alpha2.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "org-some-workspace",
+					},
+					Name: "some-export",
+				},
+				Spec:   apisv1alpha2.APIExportSpec{},
+				Status: apisv1alpha2.APIExportStatus{IdentityHash: "hash1"},
+			}, nil
+		},
+		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			return nil, fmt.Errorf("unexpected APIResourceSchema lookup")
+		},
+		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return nil, nil
+		},
+		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return cachedLogicalCluster, nil
+		},
+		updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+			// Simulate a client/update path that normalizes TypeMeta on the object it is handed.
+			lc.TypeMeta = metav1.TypeMeta{}
+			return nil
+		},
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return nil, nil
+		},
+		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return nil, fmt.Errorf("unexpected CRD lookup")
+		},
+		deletedCRDTracker: &lockedStringSet{},
+	}
+
+	requeue, err := c.reconcile(context.Background(), apiBinding)
+	require.NoError(t, err)
+	require.False(t, requeue)
+	require.Equal(t, metav1.TypeMeta{
+		Kind:       "LogicalCluster",
+		APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+	}, cachedLogicalCluster.TypeMeta)
+}
+
 func TestCRDFromAPIResourceSchema(t *testing.T) {
 	tests := map[string]struct {
 		schema  *apisv1alpha1.APIResourceSchema
