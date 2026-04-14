@@ -156,10 +156,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.VirtualWorkspaceApplyConfiguration{}
 
 		// Group=cache.kcp.io, Version=v1alpha1
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedObject"):
-		return &applyconfigurationcachev1alpha1.CachedObjectApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedObjectSpec"):
-		return &applyconfigurationcachev1alpha1.CachedObjectSpecApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResource"):
 		return &applyconfigurationcachev1alpha1.CachedResourceApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpoint"):
@@ -176,6 +172,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationcachev1alpha1.CachedResourceSpecApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceStatus"):
 		return &applyconfigurationcachev1alpha1.CachedResourceStatusApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ExportBindingReference"):
+		return &applyconfigurationcachev1alpha1.ExportBindingReferenceApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("GroupVersionResource"):
 		return &applyconfigurationcachev1alpha1.GroupVersionResourceApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("Identity"):

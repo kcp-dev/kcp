@@ -56,11 +56,35 @@ type CachedResourceEndpointSliceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="CachedResource reference must not be changed"
 	CachedResource CachedResourceReference `json:"cachedResource"`
 
+	// export points to the APIExport that exports this CachedResourceEndpointSlice.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="APIExport reference must not be changed"
+	APIExport ExportBindingReference `json:"export"`
+
 	// partition points to a partition that is used for filtering the endpoints
 	// of the CachedResource part of the slice.
 	//
 	// +optional
 	Partition string `json:"partition,omitempty"`
+}
+
+// ExportBindingReference is a reference to an APIExport by cluster and name.
+type ExportBindingReference struct {
+	// path is a logical cluster path where the APIExport is defined.
+	// If the path is unset, the logical cluster of the referencing object is used.
+	//
+	// +optional
+	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+	Path string `json:"path,omitempty"`
+
+	// name is the name of the APIExport that describes the API.
+	//
+	// +required
+	// +kubebuilder:validation:Required
+	// +kube:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.
@@ -87,7 +111,7 @@ type CachedResourceEndpointSliceStatus struct {
 
 // CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
 type CachedResourceEndpoint struct {
-	// url is an CachedResource virtual workspace URL.
+	// url is Replication virtual workspace URL.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:format:URL
@@ -109,6 +133,10 @@ const (
 	// PartitionValid is a condition for CachedResourceEndpointSlice that reflects the validity of the referenced Partition.
 	PartitionValid conditionsv1alpha1.ConditionType = "PartitionValid"
 
+	// APIExportValid is a condition for CachedResourceEndpointSlice that reflects whether the referenced APIExport exists
+	// and is accessible.
+	APIExportValid conditionsv1alpha1.ConditionType = "APIExportValid"
+
 	// EndpointURLsReady is a condition for CachedResourceEndpointSlice that reflects the readiness of the URLs.
 	//
 	// Deprecated: This condition is deprecated and will be removed in a future release.
@@ -117,6 +145,10 @@ const (
 	// PartitionInvalidReferenceReason is a reason for the PartitionValid condition of CachedResourceEndpointSlice that the
 	// Partition reference is invalid.
 	PartitionInvalidReferenceReason = "PartitionInvalidReference"
+
+	// APIExportInvalidReferenceReason is a reason for the APIExportValid condition that the APIExport either does not
+	// exist or does not reference this CachedResourceEndpointSlice.
+	APIExportInvalidReferenceReason = "APIExportInvalidReference"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

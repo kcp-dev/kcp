@@ -36,8 +36,12 @@ func (r *finalizer) reconcile(ctx context.Context, cachedResource *cachev1alpha1
 			cachedResource.Finalizers = slices.DeleteFunc(cachedResource.Finalizers, func(f string) bool {
 				return f == cachev1alpha1.CachedResourceFinalizer
 			})
+			// Requeue once to let the commit land; the object will then be GC'd by the API server.
+			return reconcileStatusStopAndRequeue, nil
 		}
-		return reconcileStatusStopAndRequeue, nil
+		// Finalizer already gone — stop without requeueing. The controller will be triggered again
+		// by the Delete watch event once the API server removes the object.
+		return reconcileStatusStop, nil
 	case !cachedResource.DeletionTimestamp.IsZero() && cachedResource.Status.Phase != cachev1alpha1.CachedResourcePhaseDeleting: // case 2: Resource is being deleted - mark as deleting
 		// Case 1: Resource is being deleted
 		conditions.MarkFalse(cachedResource, cachev1alpha1.CachedResourceValid, cachev1alpha1.CachedResourceValidDeleting, conditionsv1alpha1.ConditionSeverityError, "Published resource deleting")

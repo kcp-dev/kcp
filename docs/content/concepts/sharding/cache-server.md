@@ -93,9 +93,7 @@ stored in `system:cache:server` shard under `system:system-crds` cluster.
 
 ### Adding New Resources
 
-Not implemented at the moment.
-Our near-term plan is to maintain a list of hard-coded resources that we want to keep in the cache server.
-In the future, we will use the ReplicationClam which will describe schemas that need to be exposed by the cache server.
+User-defined resources can be added to the cache server using the [CachedResource API](../apis/cached-resources.md). A CachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.
 
 ### Deletion of Data
 

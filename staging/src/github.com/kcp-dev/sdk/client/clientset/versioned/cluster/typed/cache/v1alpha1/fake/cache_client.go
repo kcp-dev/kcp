@@ -40,10 +40,6 @@ func (c *CacheV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) ca
 	return &CacheV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
-func (c *CacheV1alpha1ClusterClient) CachedObjects() kcpcachev1alpha1.CachedObjectClusterInterface {
-	return newFakeCachedObjectClusterClient(c)
-}
-
 func (c *CacheV1alpha1ClusterClient) CachedResources() kcpcachev1alpha1.CachedResourceClusterInterface {
 	return newFakeCachedResourceClusterClient(c)
 }
@@ -55,10 +51,6 @@ func (c *CacheV1alpha1ClusterClient) CachedResourceEndpointSlices() kcpcachev1al
 type CacheV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
-}
-
-func (c *CacheV1alpha1Client) CachedObjects() cachev1alpha1.CachedObjectInterface {
-	return newFakeCachedObjectClient(c.Fake, c.ClusterPath)
 }
 
 func (c *CacheV1alpha1Client) CachedResources() cachev1alpha1.CachedResourceInterface {

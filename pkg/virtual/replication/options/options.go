@@ -56,6 +56,7 @@ func (o *Replication) Validate(flagPrefix string) []error {
 func (o *Replication) NewReplication(
 	rootPathPrefix string,
 	config *rest.Config,
+	cacheConfig *rest.Config,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 	cacheKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
@@ -69,10 +70,17 @@ func (o *Replication) NewReplication(
 		return nil, err
 	}
 
+	// We assume the cacheConfig already has the cache-related roundtrippers applied.
+	cacheDynamicClusterClient, err := kcpdynamic.NewForConfig(cacheConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return builder.BuildVirtualWorkspace(
 		config,
 		path.Join(rootPathPrefix, replication.VirtualWorkspaceName),
 		dynamicClusterClient,
+		cacheDynamicClusterClient,
 		kubeClusterClient,
 		wildcardKcpInformers,
 		cacheKcpInformers,

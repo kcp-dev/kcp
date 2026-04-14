@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -84,10 +83,10 @@ func TestContentAuthorizer(t *testing.T) {
 			expectedDecision: authorizer.DecisionNoOpinion,
 			expectedErrorStr: "error getting valid cluster from context: no cluster in the request context",
 		},
-		"missing CachedResource": {
+		"missing CachedResourceEndpointSlice": {
 			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return nil, apierrors.NewNotFound(cachev1alpha1.Resource("cachedresources"), name)
+				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+					return nil, apierrors.NewNotFound(cachev1alpha1.Resource("cachedresourceendpointslices"), name)
 				},
 			},
 			attr: authorizer.AttributesRecord{
@@ -100,153 +99,44 @@ func TestContentAuthorizer(t *testing.T) {
 				"CachedResourceCluster/cachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionNoOpinion,
-			expectedErrorStr: `cachedresources.cache.kcp.io "cachedresource-1" not found`,
-		},
-		"wildcard request and no matches": {
-			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{}, nil
-				},
-				getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
-					return nil, nil
-				},
-			},
-			attr: authorizer.AttributesRecord{
-				Verb: "get",
-				User: &user.DefaultInfo{},
-			},
-			ctx: dynamiccontext.WithAPIDomainKey(
-				genericapirequest.WithCluster(
-					context.Background(), genericapirequest.Cluster{Wildcard: true},
-				),
-				"CachedResourceCluster/cachedresource-1",
-			),
-			expectedDecision: authorizer.DecisionDeny,
-			expectedReason:   "failed to find suitable reason to allow access to CachedResource",
-		},
-		"wildcard request and APIExport with different identity": {
-			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{}, nil
-				},
-				getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
-					return []*apisv1alpha2.APIExport{
-						{
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "SomeOtherAPIExportIdentity",
-							},
-						},
-					}, nil
-				},
-			},
-			attr: authorizer.AttributesRecord{
-				Verb: "get",
-				User: &user.DefaultInfo{},
-			},
-			ctx: dynamiccontext.WithAPIDomainKey(
-				genericapirequest.WithCluster(
-					context.Background(), genericapirequest.Cluster{Wildcard: true},
-				),
-				"CachedResourceCluster/cachedresource-1",
-			),
-			expectedDecision: authorizer.DecisionDeny,
-			expectedReason:   "failed to find suitable reason to allow access to CachedResource",
-		},
-		"wildcard request and APIExport with different CachedResource": {
-			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
-						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
-						},
-					}, nil
-				},
-				getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
-					return []*apisv1alpha2.APIExport{
-						{
-							Spec: apisv1alpha2.APIExportSpec{
-								Resources: []apisv1alpha2.ResourceSchema{
-									{
-										Group: "group",
-										Name:  "resource",
-										Storage: apisv1alpha2.ResourceSchemaStorage{
-											Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-												Reference: corev1.TypedLocalObjectReference{
-													APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-													Kind:     "CachedResourceEndpointSlice",
-													Name:     "SomeOtherCachedResource",
-												},
-												IdentityHash: "CachedResourceIdentity-1",
-											},
-										},
-									},
-								},
-							},
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "APIExportIdentity",
-							},
-						},
-					}, nil
-				},
-			},
-			attr: authorizer.AttributesRecord{
-				Verb: "get",
-				User: &user.DefaultInfo{},
-			},
-			ctx: dynamiccontext.WithAPIDomainKey(
-				genericapirequest.WithCluster(
-					context.Background(), genericapirequest.Cluster{Wildcard: true},
-				),
-				"CachedResourceCluster/cachedresource-1",
-			),
-			expectedDecision: authorizer.DecisionDeny,
-			expectedReason:   "failed to find suitable reason to allow access to CachedResource",
+			expectedErrorStr: `cachedresourceendpointslices.cache.kcp.io "cachedresource-1" not found`,
 		},
 		"wildcard request and deny": {
 			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
+				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.CachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "cachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceSpec{
-							GroupVersionResource: cachev1alpha1.GroupVersionResource{
-								Group:    "group",
-								Resource: "resource",
+						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+							APIExport: cachev1alpha1.ExportBindingReference{
+								Path: "root:provider",
+								Name: "apiexport-1",
 							},
-						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
 						},
 					}, nil
 				},
-				getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
-					return []*apisv1alpha2.APIExport{
-						{
-							Spec: apisv1alpha2.APIExportSpec{
-								Resources: []apisv1alpha2.ResourceSchema{
-									{
-										Group: "group",
-										Name:  "resource",
-										Storage: apisv1alpha2.ResourceSchemaStorage{
-											Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-												Reference: corev1.TypedLocalObjectReference{
-													APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-													Kind:     "CachedResourceEndpointSlice",
-													Name:     "cachedresource-1",
-												},
-												IdentityHash: "CachedResourceIdentity-1",
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
+						Spec: apisv1alpha2.APIExportSpec{
+							Resources: []apisv1alpha2.ResourceSchema{
+								{
+									Group: "group",
+									Name:  "resource",
+									Storage: apisv1alpha2.ResourceSchemaStorage{
+										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
+											Reference: corev1.TypedLocalObjectReference{
+												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
+												Kind:     "CachedResourceEndpointSlice",
+												Name:     "cachedresource-1",
 											},
 										},
 									},
 								},
 							},
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "APIExportIdentity",
-							},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							IdentityHash: "APIExportIdentity",
 						},
 					}, nil
 				},
@@ -269,46 +159,40 @@ func TestContentAuthorizer(t *testing.T) {
 		},
 		"wildcard request and allow": {
 			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
+				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.CachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "cachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceSpec{
-							GroupVersionResource: cachev1alpha1.GroupVersionResource{
-								Group:    "group",
-								Resource: "resource",
+						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+							APIExport: cachev1alpha1.ExportBindingReference{
+								Path: "root:provider",
+								Name: "apiexport-1",
 							},
-						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
 						},
 					}, nil
 				},
-				getAPIExportsByVirtualResourceIdentityAndGR: func(vrIdentity string, gr schema.GroupResource) ([]*apisv1alpha2.APIExport, error) {
-					return []*apisv1alpha2.APIExport{
-						{
-							Spec: apisv1alpha2.APIExportSpec{
-								Resources: []apisv1alpha2.ResourceSchema{
-									{
-										Group: "group",
-										Name:  "resource",
-										Storage: apisv1alpha2.ResourceSchemaStorage{
-											Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-												Reference: corev1.TypedLocalObjectReference{
-													APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-													Kind:     "CachedResourceEndpointSlice",
-													Name:     "cachedresource-1",
-												},
-												IdentityHash: "CachedResourceIdentity-1",
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
+						Spec: apisv1alpha2.APIExportSpec{
+							Resources: []apisv1alpha2.ResourceSchema{
+								{
+									Group: "group",
+									Name:  "resource",
+									Storage: apisv1alpha2.ResourceSchemaStorage{
+										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
+											Reference: corev1.TypedLocalObjectReference{
+												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
+												Kind:     "CachedResourceEndpointSlice",
+												Name:     "cachedresource-1",
 											},
 										},
 									},
 								},
 							},
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "APIExportIdentity",
-							},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							IdentityHash: "APIExportIdentity",
 						},
 					}, nil
 				},
@@ -331,19 +215,40 @@ func TestContentAuthorizer(t *testing.T) {
 		},
 		"cluster request and no APIBinding": {
 			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
+				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.CachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "cachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceSpec{
-							GroupVersionResource: cachev1alpha1.GroupVersionResource{
-								Group:    "group",
-								Resource: "resource",
+						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+							APIExport: cachev1alpha1.ExportBindingReference{
+								Path: "root:provider",
+								Name: "apiexport-1",
 							},
 						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
+					}, nil
+				},
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
+						Spec: apisv1alpha2.APIExportSpec{
+							Resources: []apisv1alpha2.ResourceSchema{
+								{
+									Group: "group",
+									Name:  "resource",
+									Storage: apisv1alpha2.ResourceSchemaStorage{
+										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
+											Reference: corev1.TypedLocalObjectReference{
+												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
+												Kind:     "CachedResourceEndpointSlice",
+												Name:     "cachedresource-1",
+											},
+										},
+									},
+								},
+							},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							IdentityHash: "APIExportIdentity",
 						},
 					}, nil
 				},
@@ -352,9 +257,6 @@ func TestContentAuthorizer(t *testing.T) {
 				},
 				getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 					return nil, nil
-				},
-				newDelegatedAuthorizer: func(cluster logicalcluster.Name) (authorizer.Authorizer, error) {
-					return &alwaysAllowAuthrizer{}, nil
 				},
 			},
 			attr: authorizer.AttributesRecord{
@@ -374,113 +276,42 @@ func TestContentAuthorizer(t *testing.T) {
 			expectedDecision: authorizer.DecisionDeny,
 			expectedReason:   "could not find suitable APIBinding in target logical cluster",
 		},
-		"cluster request and APIExport with different CachedResource": {
-			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
-						},
-						Spec: cachev1alpha1.CachedResourceSpec{
-							GroupVersionResource: cachev1alpha1.GroupVersionResource{
-								Group:    "group",
-								Resource: "resource",
-							},
-						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
-						},
-					}, nil
-				},
-				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-					return &corev1alpha1.LogicalCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`,
-							},
-						},
-					}, nil
-				},
-				getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
-					return &apisv1alpha2.APIBinding{
-						Spec: apisv1alpha2.APIBindingSpec{
-							Reference: apisv1alpha2.BindingReference{
-								Export: &apisv1alpha2.ExportBindingReference{
-									Path: "root:provider",
-									Name: "apiexport-1",
-								},
-							},
-						},
-					}, nil
-				},
-				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-					m := map[logicalcluster.Path]*apisv1alpha2.APIExport{
-						logicalcluster.NewPath("root:provider"): {
-							Spec: apisv1alpha2.APIExportSpec{
-								Resources: []apisv1alpha2.ResourceSchema{
-									{
-										Group: "group",
-										Name:  "resource",
-										Storage: apisv1alpha2.ResourceSchemaStorage{
-											Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-												Reference: corev1.TypedLocalObjectReference{
-													APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-													Kind:     "CachedResourceEndpointSlice",
-													Name:     "SomeOtherCachedResource",
-												},
-												IdentityHash: "CachedResourceIdentity-1",
-											},
-										},
-									},
-								},
-							},
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "APIExportIdentity",
-							},
-						},
-					}
-					export, found := m[path]
-					if !found {
-						return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
-					}
-					return export, nil
-				},
-				newDelegatedAuthorizer: func(cluster logicalcluster.Name) (authorizer.Authorizer, error) {
-					return &alwaysDenyAuthrizer{}, nil
-				},
-			},
-			attr: authorizer.AttributesRecord{
-				Verb:            "get",
-				User:            &user.DefaultInfo{},
-				APIGroup:        "group",
-				APIVersion:      "v1",
-				Resource:        "resources",
-				ResourceRequest: true,
-			},
-			ctx: dynamiccontext.WithAPIDomainKey(
-				genericapirequest.WithCluster(
-					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
-				),
-				"CachedResourceCluster/cachedresource-1",
-			),
-			expectedDecision: authorizer.DecisionDeny,
-			expectedReason:   "failed to find suitable reason to allow access to CachedResource",
-		},
 		"cluster request and deny": {
 			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
+				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.CachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "cachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceSpec{
-							GroupVersionResource: cachev1alpha1.GroupVersionResource{
-								Group:    "group",
-								Resource: "resource",
+						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+							APIExport: cachev1alpha1.ExportBindingReference{
+								Path: "root:provider",
+								Name: "apiexport-1",
 							},
 						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
+					}, nil
+				},
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
+						Spec: apisv1alpha2.APIExportSpec{
+							Resources: []apisv1alpha2.ResourceSchema{
+								{
+									Group: "group",
+									Name:  "resource",
+									Storage: apisv1alpha2.ResourceSchemaStorage{
+										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
+											Reference: corev1.TypedLocalObjectReference{
+												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
+												Kind:     "CachedResourceEndpointSlice",
+												Name:     "cachedresource-1",
+											},
+										},
+									},
+								},
+							},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							IdentityHash: "APIExportIdentity",
 						},
 					}, nil
 				},
@@ -504,38 +335,6 @@ func TestContentAuthorizer(t *testing.T) {
 							},
 						},
 					}, nil
-				},
-				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-					m := map[logicalcluster.Path]*apisv1alpha2.APIExport{
-						logicalcluster.NewPath("root:provider"): {
-							Spec: apisv1alpha2.APIExportSpec{
-								Resources: []apisv1alpha2.ResourceSchema{
-									{
-										Group: "group",
-										Name:  "resource",
-										Storage: apisv1alpha2.ResourceSchemaStorage{
-											Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-												Reference: corev1.TypedLocalObjectReference{
-													APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-													Kind:     "CachedResourceEndpointSlice",
-													Name:     "cachedresource-1",
-												},
-												IdentityHash: "CachedResourceIdentity-1",
-											},
-										},
-									},
-								},
-							},
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "APIExportIdentity",
-							},
-						},
-					}
-					export, found := m[path]
-					if !found {
-						return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
-					}
-					return export, nil
 				},
 				newDelegatedAuthorizer: func(cluster logicalcluster.Name) (authorizer.Authorizer, error) {
 					return &alwaysDenyAuthrizer{}, nil
@@ -560,19 +359,40 @@ func TestContentAuthorizer(t *testing.T) {
 		},
 		"cluster request and allow": {
 			a: contentAuthorizer{
-				getCachedResource: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResource, error) {
-					return &cachev1alpha1.CachedResource{
+				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.CachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "cachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceSpec{
-							GroupVersionResource: cachev1alpha1.GroupVersionResource{
-								Group:    "group",
-								Resource: "resource",
+						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+							APIExport: cachev1alpha1.ExportBindingReference{
+								Path: "root:provider",
+								Name: "apiexport-1",
 							},
 						},
-						Status: cachev1alpha1.CachedResourceStatus{
-							IdentityHash: "CachedResourceIdentity-1",
+					}, nil
+				},
+				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return &apisv1alpha2.APIExport{
+						Spec: apisv1alpha2.APIExportSpec{
+							Resources: []apisv1alpha2.ResourceSchema{
+								{
+									Group: "group",
+									Name:  "resource",
+									Storage: apisv1alpha2.ResourceSchemaStorage{
+										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
+											Reference: corev1.TypedLocalObjectReference{
+												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
+												Kind:     "CachedResourceEndpointSlice",
+												Name:     "cachedresource-1",
+											},
+										},
+									},
+								},
+							},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							IdentityHash: "APIExportIdentity",
 						},
 					}, nil
 				},
@@ -596,38 +416,6 @@ func TestContentAuthorizer(t *testing.T) {
 							},
 						},
 					}, nil
-				},
-				getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-					m := map[logicalcluster.Path]*apisv1alpha2.APIExport{
-						logicalcluster.NewPath("root:provider"): {
-							Spec: apisv1alpha2.APIExportSpec{
-								Resources: []apisv1alpha2.ResourceSchema{
-									{
-										Group: "group",
-										Name:  "resource",
-										Storage: apisv1alpha2.ResourceSchemaStorage{
-											Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
-												Reference: corev1.TypedLocalObjectReference{
-													APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-													Kind:     "CachedResourceEndpointSlice",
-													Name:     "cachedresource-1",
-												},
-												IdentityHash: "CachedResourceIdentity-1",
-											},
-										},
-									},
-								},
-							},
-							Status: apisv1alpha2.APIExportStatus{
-								IdentityHash: "APIExportIdentity",
-							},
-						},
-					}
-					export, found := m[path]
-					if !found {
-						return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
-					}
-					return export, nil
 				},
 				newDelegatedAuthorizer: func(cluster logicalcluster.Name) (authorizer.Authorizer, error) {
 					return &alwaysAllowAuthrizer{}, nil

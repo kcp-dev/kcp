@@ -21,7 +21,4 @@ const (
 
 	CachedResourceKind     = "CachedResource"
 	CachedResourceResource = "CachedResources"
-
-	CachedObjectKind     = "CachedObject"
-	CachedObjectResource = "cachedobjects"
 )

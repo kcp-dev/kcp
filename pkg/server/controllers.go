@@ -60,6 +60,7 @@ import (
 
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
@@ -685,7 +686,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		kcpClusterClient,
 		dynamicClusterClient,
 		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
-		s.DiscoveringDynamicSharedInformerFactory,
+		s.PartialMetadataDDSIF,
 		s.completedConfig.DynamicRESTMapper,
 	)
 	if err != nil {
@@ -696,7 +697,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 		Name: workspacemounts.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				_, notSynced := s.PartialMetadataDDSIF.Informers()
 				if len(notSynced) > 0 {
 					return false, nil
 				}
@@ -1547,7 +1548,7 @@ func (s *Server) installKubeQuotaController(
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory,
-		s.DiscoveringDynamicSharedInformerFactory,
+		s.PartialMetadataDDSIF,
 		quotaResyncPeriod,
 		replenishmentPeriod,
 		workersPerLogicalCluster,
@@ -1561,7 +1562,7 @@ func (s *Server) installKubeQuotaController(
 		Name: kubequota.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				_, notSynced := s.PartialMetadataDDSIF.Informers()
 				if len(notSynced) > 0 {
 					return false, nil
 				}
@@ -1651,7 +1652,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kubeClusterClient,
 		metadataClient,
-		s.DiscoveringDynamicSharedInformerFactory,
+		s.PartialMetadataDDSIF,
 		workersPerLogicalCluster,
 		s.syncedCh,
 	)
@@ -1663,7 +1664,7 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		Name: garbagecollector.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				_, notSynced := s.DiscoveringDynamicSharedInformerFactory.Informers()
+				_, notSynced := s.PartialMetadataDDSIF.Informers()
 				if len(notSynced) > 0 {
 					return false, nil
 				}
@@ -1735,6 +1736,18 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		return nil
 	}
 
+	cacheConfig, err := s.Options.Cache.Client.RestConfig(rest.CopyConfig(s.GenericConfig.LoopbackClientConfig))
+	if err != nil {
+		return err
+	}
+
+	cacheDynClientCfg := rest.CopyConfig(cacheConfig)
+	cacheDynClientCfg = cacheclient.WithShardNameFromContextRoundTripper(cacheDynClientCfg)
+	cacheDynClient, err := kcpdynamic.NewForConfig(cacheDynClientCfg)
+	if err != nil {
+		return err
+	}
+
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	workspaceConfig := rest.CopyConfig(config)
 	workspaceConfig = rest.AddUserAgent(workspaceConfig, cachedresources.ControllerName)
@@ -1754,12 +1767,15 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		kcpClusterClient,
 		s.KcpCacheClusterClient,
 		dynamicClient,
+		cacheDynClient,
 		s.KubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		s.CacheApiExtensionsClusterClient,
+		s.CacheApiExtensionsSharedInformerFactory,
 		s.completedConfig.DynamicRESTMapper,
-		s.DiscoveringDynamicSharedInformerFactory,
-		s.CacheKcpSharedInformerFactory,
+		s.PartialMetadataDDSIF,
+		s.CachePartialMetadataDDSIF,
 		cachedResourceInformer,
 		cachedResourceEndpointSliceInformer,
 	)
@@ -1770,7 +1786,9 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		Name: cachedresources.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return cachedResourceInformer.Informer().HasSynced() && cachedResourceEndpointSliceInformer.Informer().HasSynced(), nil
+				return cachedResourceInformer.Informer().HasSynced() &&
+					cachedResourceEndpointSliceInformer.Informer().HasSynced() &&
+					s.CacheApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -1793,6 +1811,7 @@ func (s *Server) installCachedResourceEndpointSliceController(ctx context.Contex
 	c, err := cachedresourceendpointslice.NewController(
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions(),
 		kcpClusterClient,
 	)
@@ -1805,6 +1824,7 @@ func (s *Server) installCachedResourceEndpointSliceController(ctx context.Contex
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Topology().V1alpha1().Partitions().Informer().HasSynced(), nil
 			})
 		},
@@ -1835,7 +1855,6 @@ func (s *Server) installCachedResourceEndpointSliceURLsController(_ context.Cont
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
-		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kcpClusterClient,
 	)
@@ -1936,14 +1955,11 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 	cachedresourceendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	cachedresourceendpointsliceurls.InstallIndexers(
-		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
-		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
-		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
-		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	return replication.InstallIndexers(
 		s.KcpSharedInformerFactory,

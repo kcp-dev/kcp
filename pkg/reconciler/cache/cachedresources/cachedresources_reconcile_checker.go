@@ -29,7 +29,7 @@ import (
 // counters counts the number of resources in the local and cache and updates the status.
 type counter struct {
 	listSelectedLocalResources  func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error)
-	listSelectedCachedResources func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*cachev1alpha1.CachedObjectList, error)
+	listSelectedCachedResources func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error)
 }
 
 func (r *counter) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {

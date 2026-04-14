@@ -18,8 +18,10 @@ package server
 
 import (
 	"context"
+	"time"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 
@@ -67,6 +69,21 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("cache-server-start-informers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := logger.WithValues("postStartHook", "cache-server-start-informers")
 		s.ApiExtensionsSharedInformerFactory.Start(hookContext.Done())
+		s.KcpSharedInformerFactory.Start(hookContext.Done())
+
+		go s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
+
+		logger.Info("starting CRD and CachedResource informers")
+		if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
+			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
+			cachedResourcesSynced := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().HasSynced()
+			return crdsSynced && cachedResourcesSynced, nil
+		}); err != nil {
+			logger.Error(err, "failed to start some of CRD and CachedResource informers")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		logger.Info("finished starting CRD and CachedResource informers")
 
 		select {
 		case <-hookContext.Done():

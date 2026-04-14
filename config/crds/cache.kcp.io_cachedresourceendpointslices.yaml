@@ -71,6 +71,25 @@ spec:
                 x-kubernetes-validations:
                 - message: CachedResource reference must not be changed
                   rule: self == oldSelf
+              export:
+                description: export points to the APIExport that exports this CachedResourceEndpointSlice.
+                properties:
+                  name:
+                    description: name is the name of the APIExport that describes
+                      the API.
+                    type: string
+                  path:
+                    description: |-
+                      path is a logical cluster path where the APIExport is defined.
+                      If the path is unset, the logical cluster of the referencing object is used.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: APIExport reference must not be changed
+                  rule: self == oldSelf
               partition:
                 description: |-
                   partition points to a partition that is used for filtering the endpoints
@@ -78,6 +97,7 @@ spec:
                 type: string
             required:
             - cachedResource
+            - export
             type: object
           status:
             description: |-
@@ -137,7 +157,7 @@ spec:
                     of a Replication service for a specific shard.
                   properties:
                     url:
-                      description: url is an CachedResource virtual workspace URL.
+                      description: url is Replication virtual workspace URL.
                       minLength: 1
                       type: string
                   required:

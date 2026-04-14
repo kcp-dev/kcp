@@ -72,6 +72,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
+	cacheConfig *rest.Config,
 	rootPathPrefix string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
@@ -94,6 +95,7 @@ func (o *Options) NewVirtualWorkspaces(
 	replications, err := replicationoptions.New().NewReplication(
 		rootPathPrefix,
 		config,
+		cacheConfig,
 		wildcardKcpInformers,
 		cachedKcpInformers,
 	)

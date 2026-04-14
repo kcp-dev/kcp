@@ -24,10 +24,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
@@ -104,6 +107,32 @@ func TestReconcile(t *testing.T) {
 						}, nil
 					}
 				},
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					apiGroup := "cache.kcp.io"
+					return &apisv1alpha2.APIExport{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								logicalcluster.AnnotationKey: workspacePath,
+							},
+							Name: "my-export",
+						},
+						Spec: apisv1alpha2.APIExportSpec{
+							Resources: []apisv1alpha2.ResourceSchema{
+								{
+									Storage: apisv1alpha2.ResourceSchemaStorage{
+										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
+											Reference: corev1.TypedLocalObjectReference{
+												APIGroup: ptr.To(apiGroup),
+												Kind:     "CachedResourceEndpointSlice",
+												Name:     "my-slice",
+											},
+										},
+									},
+								},
+							},
+						},
+					}, nil
+				},
 				getPartition: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error) {
 					if tc.partitionMissing {
 						return nil, apierrors.NewNotFound(topologyv1alpha1.Resource("Partition"), name)
@@ -137,6 +166,9 @@ func TestReconcile(t *testing.T) {
 				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
 					CachedResource: cachev1alpha1.CachedResourceReference{
 						Name: "my-cr",
+					},
+					APIExport: cachev1alpha1.ExportBindingReference{
+						Name: "my-export",
 					},
 					Partition: "my-partition",
 				},

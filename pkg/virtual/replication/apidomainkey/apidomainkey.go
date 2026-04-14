@@ -17,6 +17,7 @@ limitations under the License.
 package apidomainkey
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -24,13 +25,17 @@ import (
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
-func New(clusterName logicalcluster.Name, cachedResource string) dynamiccontext.APIDomainKey {
-	return dynamiccontext.APIDomainKey(fmt.Sprintf("%s/%s", clusterName, cachedResource))
+func New(cluster logicalcluster.Name, name string) dynamiccontext.APIDomainKey {
+	return dynamiccontext.APIDomainKey(fmt.Sprintf("%s/%s", cluster, name))
 }
 
 type Key struct {
-	CachedResourceCluster logicalcluster.Name
-	CachedResourceName    string
+	Cluster logicalcluster.Name
+	Name    string
+}
+
+func FromContext(ctx context.Context) (*Key, error) {
+	return Parse(dynamiccontext.APIDomainKeyFrom(ctx))
 }
 
 func Parse(key dynamiccontext.APIDomainKey) (*Key, error) {
@@ -40,7 +45,7 @@ func Parse(key dynamiccontext.APIDomainKey) (*Key, error) {
 	}
 
 	return &Key{
-		CachedResourceCluster: logicalcluster.Name(parts[0]),
-		CachedResourceName:    parts[1],
+		Cluster: logicalcluster.Name(parts[0]),
+		Name:    parts[1],
 	}, nil
 }

@@ -18,9 +18,10 @@ package cachedresources
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,13 +31,13 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/identity"
+	"github.com/kcp-dev/kcp/pkg/crypto"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
 )
 
 type reconcileStatus int
@@ -71,15 +72,23 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 				return mapping.Scope, nil
 			},
 		},
+		&reconcileResourceMetadata{
+			getKind: func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+				return c.dynRESTMapper.ForCluster(cluster).KindFor(gvr)
+			},
+			getRESTScope: func(cluster logicalcluster.Name, kind schema.GroupKind) (meta.RESTScope, error) {
+				m, err := c.dynRESTMapper.ForCluster(cluster).RESTMapping(kind)
+				if err != nil {
+					return nil, err
+				}
+				return m.Scope, nil
+			},
+		},
 		&identityReconciler{
 			ensureSecretNamespaceExists: c.ensureSecretNamespaceExists,
 			getSecret:                   c.getSecret,
 			createIdentitySecret:        c.createIdentitySecret,
 			secretNamespace:             c.secretNamespace,
-		},
-		&endpointSlice{
-			getEndpointSlice:    c.getEndpointSlice,
-			createEndpointSlice: c.createEndpointSlice,
 		},
 		&purge{
 			deleteSelectedCacheResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) error {
@@ -90,19 +99,20 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			listSelectedLocalResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
 				return c.listSelectedLocalResources(ctx, cluster, cachedResource)
 			},
-			listSelectedCachedResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*cachev1alpha1.CachedObjectList, error) {
+			listSelectedCachedResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
 				return c.listSelectedCacheResources(ctx, cluster, cachedResource)
 			},
 		},
 		&replication{
-			shardName:                      c.shardName,
-			dynamicClusterClient:           c.dynamicClient,
-			kcpCacheClient:                 c.kcpCacheClient,
-			dynRESTMapper:                  c.dynRESTMapper,
-			cacheKcpInformers:              c.cacheKcpInformers,
-			discoveringDynamicKcpInformers: c.discoveringDynamicKcpInformers,
-			callback:                       c.enqueue,
-			controllerRegistry:             c.controllerRegistry,
+			shardName:                            c.shardName,
+			localDynamicClusterClient:            c.localDynamicClient,
+			globalDynamicClusterClient:           c.globalDynamicClient,
+			kcpCacheClient:                       c.kcpCacheClient,
+			dynRESTMapper:                        c.dynRESTMapper,
+			localDiscoveringDynamicKcpInformers:  c.localDiscoveringDynamicKcpInformers,
+			globalDiscoveringDynamicKcpInformers: c.globalDiscoveringDynamicKcpInformers,
+			requeueSelf:                          c.enqueue,
+			controllerRegistry:                   c.controllerRegistry,
 		},
 	}
 
@@ -140,7 +150,7 @@ func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster log
 		listOpts.LabelSelector = labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels).String()
 	}
 
-	resources, err := c.dynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, listOpts)
+	resources, err := c.localDynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, listOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -152,49 +162,29 @@ func (c *Controller) deleteSelectedCacheResources(ctx context.Context, cluster l
 	gvr := schema.GroupVersionResource{
 		Group:    cachedResource.Spec.Group,
 		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource,
+		Resource: cachedResource.Spec.Resource + ":" + cachedResource.Status.IdentityHash,
 	}
 	if gvr.Group == "" {
 		gvr.Group = "core"
 	}
 
-	selector := labels.SelectorFromSet(labels.Set{
-		replicationcontroller.LabelKeyObjectSchema: gvr.Version + "." + gvr.Resource + "." + gvr.Group,
-	})
-	if cachedResource.Spec.LabelSelector != nil && len(cachedResource.Spec.LabelSelector.MatchLabels) > 0 {
-		l := labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels)
-		r, _ := selector.Requirements()
-		selector = l.Add(r...)
-	}
-
 	ctx = cacheclient.WithShardInContext(ctx, shard.New(c.shardName))
-	return c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: selector.String(),
-	})
+	err := c.globalDynamicClient.Cluster(cluster.Path()).Resource(gvr).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+	return err
 }
 
-func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) (*cachev1alpha1.CachedObjectList, error) {
+func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
 	gvr := schema.GroupVersionResource{
 		Group:    cachedResource.Spec.Group,
 		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource,
+		Resource: cachedResource.Spec.Resource + ":" + cachedResource.Status.IdentityHash,
 	}
 	if gvr.Group == "" {
 		gvr.Group = "core"
 	}
 
-	selector := labels.SelectorFromSet(labels.Set{
-		replicationcontroller.LabelKeyObjectSchema: gvr.Version + "." + gvr.Resource + "." + gvr.Group,
-	})
-	if cachedResource.Spec.LabelSelector != nil && len(cachedResource.Spec.LabelSelector.MatchLabels) > 0 {
-		l := labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels)
-		r, _ := selector.Requirements()
-		selector = l.Add(r...)
-	}
 	ctx = cacheclient.WithShardInContext(ctx, shard.New(c.shardName))
-	resources, err := c.kcpCacheClient.Cluster(cluster.Path()).CacheV1alpha1().CachedObjects().List(ctx, metav1.ListOptions{
-		LabelSelector: selector.String(),
-	})
+	resources, err := c.globalDynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +195,7 @@ func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster log
 func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterName logicalcluster.Name, defaultSecretNamespace string) {
 	logger := klog.FromContext(ctx)
 	ctx = klog.NewContext(ctx, logger)
-	if _, err := c.getNamespace(clusterName, defaultSecretNamespace); errors.IsNotFound(err) {
+	if _, err := c.getNamespace(clusterName, defaultSecretNamespace); apierrors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        defaultSecretNamespace,
@@ -213,7 +203,7 @@ func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 			},
 		}
 		logger = logging.WithObject(logger, ns)
-		if err := c.createNamespace(ctx, clusterName.Path(), ns); err != nil && !errors.IsAlreadyExists(err) {
+		if err := c.createNamespace(ctx, clusterName.Path(), ns); err != nil && !apierrors.IsAlreadyExists(err) {
 			logger.Error(err, "error creating namespace for CachedResource secret identities")
 			// Keep going - maybe things will work. If the secret creation fails, we'll make sure to set a condition.
 		}
@@ -221,7 +211,7 @@ func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 }
 
 func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, cachedResourceName string) error {
-	secret, err := identity.GenerateIdentitySecret(ctx, defaultSecretNamespace, cachedResourceName)
+	secret, err := GenerateIdentitySecret(ctx, defaultSecretNamespace, cachedResourceName)
 	if err != nil {
 		return err
 	}
@@ -231,4 +221,27 @@ func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logic
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(2).Info("creating identity secret")
 	return c.createSecret(ctx, clusterName, secret)
+}
+
+// TODO: This is copy from apiexport controller. We should move it to a shared location.
+func GenerateIdentitySecret(ctx context.Context, ns string, name string) (*corev1.Secret, error) {
+	logger := klog.FromContext(ctx)
+	start := time.Now()
+	key := crypto.Random256BitsString()
+	if dur := time.Since(start); dur > time.Millisecond*100 {
+		logger.Info("identity key generation took a long time", "duration", dur)
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   ns,
+			Name:        name,
+			Annotations: map[string]string{},
+		},
+		StringData: map[string]string{
+			apisv1alpha1.SecretKeyAPIExportIdentity: key,
+		},
+	}
+
+	return secret, nil
 }

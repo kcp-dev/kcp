@@ -32,7 +32,6 @@ import (
 
 type CacheV1alpha1ClusterInterface interface {
 	CacheV1alpha1ClusterScoper
-	CachedObjectsClusterGetter
 	CachedResourcesClusterGetter
 	CachedResourceEndpointSlicesClusterGetter
 }
@@ -51,10 +50,6 @@ func (c *CacheV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) kc
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
-}
-
-func (c *CacheV1alpha1ClusterClient) CachedObjects() CachedObjectClusterInterface {
-	return &cachedObjectsClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *CacheV1alpha1ClusterClient) CachedResources() CachedResourceClusterInterface {
