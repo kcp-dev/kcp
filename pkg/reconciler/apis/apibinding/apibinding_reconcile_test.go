@@ -193,6 +193,7 @@ func TestReconcileBinding(t *testing.T) {
 		existingAPIBindings       []*apisv1alpha2.APIBinding
 		logicalCluster            *corev1alpha1.LogicalCluster
 		updateLogicalClusterError error
+		mutateTypeMetaOnUpdate    bool
 
 		// reconcile result
 		wantError   bool
@@ -214,6 +215,12 @@ func TestReconcileBinding(t *testing.T) {
 		// Bound resources
 		wantPhaseBound     bool
 		wantBoundResources []apisv1alpha2.BoundAPIResource
+
+		// LogicalCluster update behavior
+		checkUpdateLogicalClusterCalled bool
+		wantUpdateLogicalClusterCalled  bool
+		wantUpdatedResourceBindings     ResourceBindingsAnnotation
+		wantLogicalClusterTypeMeta      *metav1.TypeMeta
 	}{
 		"Update to nil workspace ref reports invalid APIExport": {
 			apiBinding: binding.DeepCopy().WithoutWorkspaceReference().Build(),
@@ -280,6 +287,37 @@ func TestReconcileBinding(t *testing.T) {
 			apiBinding:                binding.Build(),
 			updateLogicalClusterError: errors.New("foo"),
 			wantError:                 true,
+		},
+		"LogicalCluster update happens when resource bindings change": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:     binding.Build(),
+			wantCreateCRD:  true,
+			checkUpdateLogicalClusterCalled: true,
+			wantUpdateLogicalClusterCalled:  true,
+			wantUpdatedResourceBindings: ResourceBindingsAnnotation{
+				"widgets.kcp.io": {Lock: Lock{Name: "my-binding"}},
+			},
+		},
+		"LogicalCluster update does not happen for permission-claims-only APIBinding": {
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding: binding.DeepCopy().
+				WithExportReference(logicalcluster.NewPath("org:some-workspace"), "permission-claims-only").
+				Build(),
+			mutateTypeMetaOnUpdate:          true,
+			checkUpdateLogicalClusterCalled: true,
+			wantUpdateLogicalClusterCalled:  false,
+			wantReady:                      true,
+			wantPhaseBound:                 true,
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				completed: true,
+			},
+			wantAPIExportValid: wantAPIExportValid{
+				valid: true,
+			},
+			wantLogicalClusterTypeMeta: &metav1.TypeMeta{
+				Kind:       "LogicalCluster",
+				APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+			},
 		},
 		"Resource already bound by other APIBinding": {
 			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{
@@ -499,6 +537,7 @@ func TestReconcileBinding(t *testing.T) {
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
 			createCRDCalled := false
+			updateLogicalClusterCalled := false
 
 			apiExports := map[string]*apisv1alpha2.APIExport{
 				"some-export": {
@@ -584,6 +623,21 @@ func TestReconcileBinding(t *testing.T) {
 						},
 					},
 				},
+				"permission-claims-only": {
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "org-some-workspace",
+						},
+						Name: "permission-claims-only",
+					},
+					Spec:   apisv1alpha2.APIExportSpec{},
+					Status: apisv1alpha2.APIExportStatus{IdentityHash: "hash-claims"},
+				},
+			}
+
+			if tc.wantLogicalClusterTypeMeta != nil && tc.logicalCluster != nil {
+				tc.logicalCluster = tc.logicalCluster.DeepCopy()
+				tc.logicalCluster.TypeMeta = *tc.wantLogicalClusterTypeMeta
 			}
 
 			apiResourceSchemas := map[string]*apisv1alpha1.APIResourceSchema{
@@ -657,8 +711,17 @@ func TestReconcileBinding(t *testing.T) {
 					return tc.logicalCluster, nil
 				},
 				updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+					updateLogicalClusterCalled = true
 					if tc.updateLogicalClusterError != nil {
 						return tc.updateLogicalClusterError
+					}
+					if tc.mutateTypeMetaOnUpdate {
+						lc.TypeMeta = metav1.TypeMeta{}
+					}
+					if tc.wantUpdatedResourceBindings != nil {
+						got, err := GetResourceBindings(lc)
+						require.NoError(t, err)
+						require.Equal(t, tc.wantUpdatedResourceBindings, got)
 					}
 					return nil
 				},
@@ -677,6 +740,13 @@ func TestReconcileBinding(t *testing.T) {
 
 			// CRD creation
 			require.Equal(t, tc.wantCreateCRD, createCRDCalled, "mismatch on CRD creation expectation")
+			if tc.checkUpdateLogicalClusterCalled {
+				require.Equal(t, tc.wantUpdateLogicalClusterCalled, updateLogicalClusterCalled, "mismatch on LogicalCluster update expectation")
+			}
+			if tc.wantLogicalClusterTypeMeta != nil {
+				require.NotNil(t, tc.logicalCluster)
+				require.Equal(t, *tc.wantLogicalClusterTypeMeta, tc.logicalCluster.TypeMeta)
+			}
 
 			// APIExportValid condition
 			if tc.wantAPIExportValid.invalidReference {
@@ -794,69 +864,6 @@ func TestReconcileBinding(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestReconcileDoesNotMutateCachedLogicalClusterWhenLocksUnchanged(t *testing.T) {
-	apiBinding := newBindingBuilder().
-		WithCondition(&conditionsv1alpha1.Condition{
-			Type:   apisv1alpha2.InitialBindingCompleted,
-			Status: corev1.ConditionFalse,
-		}).
-		WithClusterName("org:ws").
-		WithName("my-binding").
-		WithExportReference(logicalcluster.NewPath("org:some-workspace"), "some-export").
-		WithPhase(apisv1alpha2.APIBindingPhaseBinding).
-		Build()
-
-	cachedLogicalCluster := withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{})
-	cachedLogicalCluster.TypeMeta = metav1.TypeMeta{
-		Kind:       "LogicalCluster",
-		APIVersion: corev1alpha1.SchemeGroupVersion.String(),
-	}
-
-	c := &controller{
-		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-			return &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "org-some-workspace",
-					},
-					Name: "some-export",
-				},
-				Spec:   apisv1alpha2.APIExportSpec{},
-				Status: apisv1alpha2.APIExportStatus{IdentityHash: "hash1"},
-			}, nil
-		},
-		getAPIResourceSchema: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
-			return nil, fmt.Errorf("unexpected APIResourceSchema lookup")
-		},
-		listCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
-			return nil, nil
-		},
-		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-			return cachedLogicalCluster, nil
-		},
-		updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
-			// Simulate a client/update path that normalizes TypeMeta on the object it is handed.
-			lc.TypeMeta = metav1.TypeMeta{}
-			return nil
-		},
-		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
-			return nil, nil
-		},
-		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
-			return nil, fmt.Errorf("unexpected CRD lookup")
-		},
-		deletedCRDTracker: &lockedStringSet{},
-	}
-
-	requeue, err := c.reconcile(context.Background(), apiBinding)
-	require.NoError(t, err)
-	require.False(t, requeue)
-	require.Equal(t, metav1.TypeMeta{
-		Kind:       "LogicalCluster",
-		APIVersion: corev1alpha1.SchemeGroupVersion.String(),
-	}, cachedLogicalCluster.TypeMeta)
 }
 
 func TestCRDFromAPIResourceSchema(t *testing.T) {
