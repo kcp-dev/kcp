@@ -236,7 +236,7 @@ func TestCachedResources(t *testing.T) {
 				return false, fmt.Sprintf("failed to create APIBinding: %v", err)
 			}
 			return true, ""
-		}, wait.ForeverTestTimeout*5, time.Second*1, "waiting to create apibinding")
+		}, wait.ForeverTestTimeout, time.Second*1, "waiting to create apibinding")
 		for resourceName := range resourceNames {
 			t.Logf("Waiting for %s.v1alpha1.wildwest.dev API to appear in %q", resourceName, consumerPath)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -247,7 +247,7 @@ func TestCachedResources(t *testing.T) {
 				return slices.ContainsFunc(groupList.Groups, func(e metav1.APIGroup) bool {
 					return e.Name == wildwestv1alpha1.SchemeGroupVersion.Group
 				}), fmt.Sprintf("wildwest.dev group not found in %q", consumerPath)
-			}, wait.ForeverTestTimeout*5, time.Second*1, "waiting for wildwest.dev group in %q", consumerPath)
+			}, wait.ForeverTestTimeout, time.Second*1, "waiting for wildwest.dev group in %q", consumerPath)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				resourceList, err := kcpClusterClient.Cluster(consumerPath).Discovery().ServerResourcesForGroupVersion("wildwest.dev/v1alpha1")
 				if err != nil {
@@ -256,7 +256,7 @@ func TestCachedResources(t *testing.T) {
 				return slices.ContainsFunc(resourceList.APIResources, func(e metav1.APIResource) bool {
 					return e.Name == resourceName
 				}), fmt.Sprintf("%s.v1alpha1.wildwest.dev API not found in %q", resourceName, consumerPath)
-			}, wait.ForeverTestTimeout*5, time.Second*1, "waiting for wildwest.dev group in %q", resourceName, consumerPath)
+			}, wait.ForeverTestTimeout, time.Second*1, "waiting for wildwest.dev group in %q", resourceName, consumerPath)
 
 			t.Logf("Ensure %s.v1alpha1.wildwest.dev API is available in OpenAPIv3 endpoint in %q", resourceName, consumerPath)
 			paths, err := kcpClusterClient.Cluster(consumerPath).Discovery().OpenAPIV3().Paths()
@@ -286,7 +286,7 @@ func TestCachedResources(t *testing.T) {
 				return false, err.Error()
 			}
 			return found, fmt.Sprintf("URL for workspace %q not found in APIExportEndpointSlice %s|%s", consumerPath, providerPath, apiExport.Name)
-		}, wait.ForeverTestTimeout*5, time.Second*1, "waiting for workspace URL in APIExportEndpointSlice")
+		}, wait.ForeverTestTimeout, time.Second*1, "waiting for workspace URL in APIExportEndpointSlice")
 
 		vwCfg := rest.CopyConfig(cfg)
 		vwCfg.Host = vwURL
@@ -425,7 +425,7 @@ func TestCachedResources(t *testing.T) {
 			return false, fmt.Sprintf("failed to get CRD: %v", err)
 		}
 		return apiextensionshelpers.IsCRDConditionFalse(sheriffsCRDConflicting, apiextensionsv1.NamesAccepted), "the CRD should not be accepted because of names collision"
-	}, wait.ForeverTestTimeout*5, time.Second*1, "waiting to create apibinding")
+	}, wait.ForeverTestTimeout, time.Second*1, "waiting to create apibinding")
 }
 
 func verifyListAndGet(

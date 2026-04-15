@@ -299,7 +299,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 				return false, err.Error()
 			}
 			return true, ""
-		}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected user-1 to get sheriff")
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
 	}
 
 	sheriffLabels := map[string]string{"hello": "world"}
@@ -338,7 +338,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 				return false, fmt.Sprintf("waiting until there are two items in list, have %d", len(sherrifList.Items))
 			}
 			return true, ""
-		}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected user-1 to list sheriffs")
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
 		require.Len(t, sherrifList.Items, 2, "expected to find exactly two sheriffs")
 
 		t.Logf("Verify that both of the created sheriffs are listed")
@@ -377,7 +377,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 				return false, err.Error()
 			}
 			return true, ""
-		}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected user-1 to watch sheriffs")
+		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
 
 		sheriffWatchCh := sheriffWatch.ResultChan()
 		waitForEvent := func() (watch.Event, bool) {
@@ -386,7 +386,7 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
 				event, more = <-sheriffWatchCh
 				return true, ""
-			}, wait.ForeverTestTimeout*5, time.Millisecond*500, "expected to get a watch event")
+			}, wait.ForeverTestTimeout, time.Millisecond*100, "expected to get a watch event")
 			return event, more
 		}
 		checkEvent := func(actualEvent watch.Event,
