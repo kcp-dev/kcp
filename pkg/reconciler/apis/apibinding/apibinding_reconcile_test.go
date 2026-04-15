@@ -289,9 +289,9 @@ func TestReconcileBinding(t *testing.T) {
 			wantError:                 true,
 		},
 		"LogicalCluster update happens when resource bindings change": {
-			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
-			apiBinding:     binding.Build(),
-			wantCreateCRD:  true,
+			logicalCluster:                  withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
+			apiBinding:                      binding.Build(),
+			wantCreateCRD:                   true,
 			checkUpdateLogicalClusterCalled: true,
 			wantUpdateLogicalClusterCalled:  true,
 			wantUpdatedResourceBindings: ResourceBindingsAnnotation{
@@ -306,8 +306,8 @@ func TestReconcileBinding(t *testing.T) {
 			mutateTypeMetaOnUpdate:          true,
 			checkUpdateLogicalClusterCalled: true,
 			wantUpdateLogicalClusterCalled:  false,
-			wantReady:                      true,
-			wantPhaseBound:                 true,
+			wantReady:                       true,
+			wantPhaseBound:                  true,
 			wantInitialBindingComplete: wantInitialBindingComplete{
 				completed: true,
 			},
