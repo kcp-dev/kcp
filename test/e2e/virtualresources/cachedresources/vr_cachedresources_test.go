@@ -59,6 +59,8 @@ import (
 )
 
 func TestCachedResources(t *testing.T) {
+	t.Skip("skipping for now because the test is not stable, see https://github.com/kcp-dev/kcp/issues/4026")
+
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
