@@ -521,14 +521,14 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &Resource{
-		APIVersion: "apis.kcp.io/v1alpha2",
+		APIVersion: apisv1alpha2.SchemeGroupVersion.String(),
 		Kind:       "APIBinding",
 		ObjectMeta: old.ObjectMeta,
 		Spec:       &old.Spec,
 		Status:     &old.Status,
 	}
 	newResource := &Resource{
-		APIVersion: "apis.kcp.io/v1alpha2",
+		APIVersion: apisv1alpha2.SchemeGroupVersion.String(),
 		Kind:       "APIBinding",
 		ObjectMeta: binding.ObjectMeta,
 		Spec:       &binding.Spec,
