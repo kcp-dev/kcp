@@ -58,8 +58,6 @@ import (
 )
 
 func TestCachedResourceVirtualWorkspace(t *testing.T) {
-	t.Skip("TestCachedResourceVirtualWorkspace is flaking (ref https://github.com/kcp-dev/kcp/issues/4026)")
-
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
