@@ -268,9 +268,28 @@ func DefaultDynamicDelegatedStoreFuncs(
 		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 			return nil, err
 		}
+
 		delegate, err := listerWatcher(ctx)
 		if err != nil {
 			return nil, err
+		}
+
+		// For API-exported resources with identity hashes, the backend (cache server)
+		// synthesizes CRDs lazily from CachedResource annotations. When the WatchList
+		// feature gate is enabled (k8s 1.35+), SetListOptionsDefaults auto-adds
+		// SendInitialEvents=true for Watch requests with empty ResourceVersion.
+		// The backend's cacher then calls waitUntilFreshAndBlock with the global etcd
+		// revision, but for newly synthesized resource types the watch cache may not
+		// have caught up yet, causing a 3s timeout (TooLargeResourceVersionError).
+		//
+		// Pre-fetch the ResourceVersion via a cheap List so the backend uses a RV its
+		// watch cache has already served, making waitUntilFreshAndBlock succeed immediately.
+		if apiExportIdentityHash != "" && v1ListOptions.SendInitialEvents != nil && *v1ListOptions.SendInitialEvents && v1ListOptions.ResourceVersion == "" {
+			list, err := delegate.List(ctx, metav1.ListOptions{Limit: 1})
+			if err != nil {
+				return nil, fmt.Errorf("failed to pre-fetch resource version for WatchList: %w", err)
+			}
+			v1ListOptions.ResourceVersion = list.GetResourceVersion()
 		}
 
 		watchCtx, cancelFn := context.WithCancel(ctx)
