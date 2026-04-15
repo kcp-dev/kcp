@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
@@ -68,11 +69,6 @@ const (
 var (
 	SystemBoundCRDsClusterName = logicalcluster.Name("system:bound-crds")
 )
-
-// boolPtr returns a pointer to a boolean value.
-func boolPtr(b bool) *bool {
-	return &b
-}
 
 // NewController returns a new controller for APIBindings.
 func NewController(
@@ -163,15 +159,17 @@ func NewController(
 			return logicalClusterInformer.Lister().Cluster(name).Get(corev1alpha1.LogicalClusterName)
 		},
 		updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
-			// FIXED: Pass the actual annotations from the LogicalCluster, not an empty map.
-			patchBytes, err := json.Marshal(map[string]interface{}{
-				"apiVersion": "core.kcp.io/v1alpha1",
-				"kind":       "LogicalCluster",
-				"metadata": map[string]interface{}{
-					"name":        lc.Name,
-					"annotations": lc.Annotations,
+			patchObj := &corev1alpha1.LogicalCluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+					Kind:       "LogicalCluster",
 				},
-			})
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        lc.Name,
+					Annotations: lc.Annotations,
+				},
+			}
+			patchBytes, err := json.Marshal(patchObj)
 			if err != nil {
 				return err
 			}
@@ -182,7 +180,7 @@ func NewController(
 				patchBytes,
 				metav1.PatchOptions{
 					FieldManager: "apibinding-reconciler-locks",
-					Force:        boolPtr(true),
+					Force:        ptr.To(true),
 				},
 			)
 			return err

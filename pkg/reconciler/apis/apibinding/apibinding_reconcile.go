@@ -134,7 +134,6 @@ func (r *newReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.
 		"Waiting for API(s) to be established",
 	)
 
-	// FIXED: Stop and requeue so the intent state commits BEFORE dangerous ops begin
 	return reconcileStatusStopAndRequeue, nil
 }
 
