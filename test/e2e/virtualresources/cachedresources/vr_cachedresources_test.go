@@ -340,8 +340,18 @@ func TestCachedResources(t *testing.T) {
 					if !more {
 						return
 					}
-					if e.Type == watch.Added {
-						atomic.AddInt32(counter, 1)
+					obj, ok := e.Object.(*unstructured.Unstructured)
+					if !ok {
+						continue
+					}
+					if obj.GetName() != "sheriffs-1" {
+						continue
+					}
+					// The provider helper does a Create followed by UpdateStatus, so depending on
+					// when the watch attaches the first visible event can be either Added or Modified.
+					// We only care that each consumer watch observed the object at least once.
+					if e.Type == watch.Added || e.Type == watch.Modified {
+						atomic.CompareAndSwapInt32(counter, 0, 1)
 					}
 				case <-ctx.Done():
 					w.Stop()
