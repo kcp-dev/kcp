@@ -340,20 +340,16 @@ func TestCachedResources(t *testing.T) {
 				select {
 				case e, more := <-resultCh:
 					if !more {
+						t.Logf("Watch for consumer workspace %q terminated", consumerPath)
 						return
 					}
-					obj, ok := e.Object.(*unstructured.Unstructured)
-					if !ok {
-						continue
+					if obj, ok := e.Object.(*unstructured.Unstructured); ok {
+						t.Logf("Watch for consumer workspace %q received %s event for %s", consumerPath, e.Type, obj.GetName())
+					} else {
+						t.Logf("Watch for consumer workspace %q received %s event for unexpected object type %T", consumerPath, e.Type, e.Object)
 					}
-					if obj.GetName() != "sheriffs-1" {
-						continue
-					}
-					// The provider helper does a Create followed by UpdateStatus, so depending on
-					// when the watch attaches the first visible event can be either Added or Modified.
-					// We only care that each consumer watch observed the object at least once.
-					if e.Type == watch.Added || e.Type == watch.Modified {
-						atomic.CompareAndSwapInt32(counter, 0, 1)
+					if e.Type == watch.Added {
+						atomic.AddInt32(counter, 1)
 					}
 				case <-ctx.Done():
 					w.Stop()
