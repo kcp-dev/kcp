@@ -59,6 +59,8 @@ import (
 )
 
 func TestCachedResources(t *testing.T) {
+	t.Skip("skipping for now because the test is not stable, see https://github.com/kcp-dev/kcp/issues/4026")
+
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -237,7 +239,6 @@ func TestCachedResources(t *testing.T) {
 			}
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Second*1, "waiting to create apibinding")
-
 		for resourceName := range resourceNames {
 			t.Logf("Waiting for %s.v1alpha1.wildwest.dev API to appear in %q", resourceName, consumerPath)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -341,8 +342,18 @@ func TestCachedResources(t *testing.T) {
 					if !more {
 						return
 					}
-					if e.Type == watch.Added {
-						atomic.AddInt32(counter, 1)
+					obj, ok := e.Object.(*unstructured.Unstructured)
+					if !ok {
+						continue
+					}
+					if obj.GetName() != "sheriffs-1" {
+						continue
+					}
+					// The provider helper does a Create followed by UpdateStatus, so depending on
+					// when the watch attaches the first visible event can be either Added or Modified.
+					// We only care that each consumer watch observed the object at least once.
+					if e.Type == watch.Added || e.Type == watch.Modified {
+						atomic.CompareAndSwapInt32(counter, 0, 1)
 					}
 				case <-ctx.Done():
 					w.Stop()

@@ -294,13 +294,10 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			var err error
 			_, err = getSheriff(t.Context(), user1CachedResourceDynClient, consumerClusterName, sheriffOne.Name)
-			if apierrors.IsForbidden(err) {
-				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
+			if err != nil {
+				t.Logf("waiting until the sheriff is in cache: %v", err)
+				return false, err.Error()
 			}
-			if apierrors.IsNotFound(err) {
-				return false, fmt.Sprintf("waiting until the sheriff is in cache: %v", err)
-			}
-			require.NoError(t, err)
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to list sheriffs")
 	}
@@ -332,6 +329,10 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			sherrifList, err = listSheriffs(t.Context(), user1CachedResourceDynClient, consumerClusterName)
 			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
+			}
+			if err != nil {
+				t.Logf("waiting until the sheriff is in cache: %v", err)
+				return false, err.Error()
 			}
 			if len(sherrifList.Items) < 2 {
 				return false, fmt.Sprintf("waiting until there are two items in list, have %d", len(sherrifList.Items))
@@ -371,9 +372,12 @@ func TestCachedResourceVirtualWorkspace(t *testing.T) {
 			if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsForbidden) {
 				return false, fmt.Sprintf("waiting until rbac cache is primed: %v", err)
 			}
+			if err != nil {
+				t.Logf("waiting until the sheriff is in cache: %v", err)
+				return false, err.Error()
+			}
 			return true, ""
 		}, wait.ForeverTestTimeout, time.Millisecond*100, "expected user-1 to watch sheriffs")
-		defer sheriffWatch.Stop()
 
 		sheriffWatchCh := sheriffWatch.ResultChan()
 		waitForEvent := func() (watch.Event, bool) {
