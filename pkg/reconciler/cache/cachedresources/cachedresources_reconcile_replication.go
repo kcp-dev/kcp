@@ -62,7 +62,6 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		Resource: cachedResource.Spec.Resource,
 	}
 	cluster := logicalcluster.From(cachedResource)
-	cacheGVR := cacheReplicationGVR(cachedResource)
 
 	var resourceLabelSelector labels.Selector
 	if cachedResource.Spec.LabelSelector != nil {
@@ -84,13 +83,9 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 
 		controllerCtx, cancel := context.WithCancel(ctx)
 
-		// Replicated objects are stored and addressed on the backing cache API under
-		// resource:identityHash. The global informer must watch that identity-scoped GVR,
-		// otherwise updates can be misclassified as creates and get dropped after an
-		// AlreadyExists response.
-		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(cacheGVR)
+		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(gvr)
 		if err != nil {
-			logger.Error(err, "Failed to get global informer for resource", "resource", cacheGVR)
+			logger.Error(err, "Failed to get global informer for resource", "resource", gvr)
 			cancel()
 			return reconcileStatusStopAndRequeue, err
 		}
@@ -176,13 +171,5 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		return reconcileStatusStopAndRequeue, nil
 	default:
 		return reconcileStatusContinue, nil
-	}
-}
-
-func cacheReplicationGVR(cachedResource *cachev1alpha1.CachedResource) schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    cachedResource.Spec.Group,
-		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource + ":" + cachedResource.Status.IdentityHash,
 	}
 }
