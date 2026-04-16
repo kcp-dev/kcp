@@ -343,8 +343,10 @@ func TestCachedResources(t *testing.T) {
 					}
 					if obj, ok := e.Object.(*unstructured.Unstructured); ok {
 						t.Logf("Watch for consumer workspace %q received %s event for %s", consumerPath, e.Type, obj.GetName())
+					} else if status, ok := e.Object.(*metav1.Status); ok {
+						t.Logf("Watch for consumer workspace %q received %s event with Status: code=%d reason=%q message=%q details=%+v", consumerPath, e.Type, status.Code, status.Reason, status.Message, status.Details)
 					} else {
-						t.Logf("Watch for consumer workspace %q received %s event for unexpected object type %T", consumerPath, e.Type, e.Object)
+						t.Logf("Watch for consumer workspace %q received %s event for unexpected object type %T: %+v", consumerPath, e.Type, e.Object, e.Object)
 					}
 					if e.Type == watch.Added {
 						atomic.AddInt32(counter, 1)
