@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -65,6 +66,11 @@ type Strategy interface {
 }
 
 type DynamicClusterClientFunc func(ctx context.Context) (kcpdynamic.ClusterInterface, error)
+
+const (
+	watchListResourceVersionRetryAttempts = 10
+	watchListResourceVersionRetryInterval = 100 * time.Millisecond
+)
 
 func DefaultDynamicDelegatedStoreFuncs(
 	factory FactoryFunc,
@@ -275,21 +281,16 @@ func DefaultDynamicDelegatedStoreFuncs(
 		}
 
 		// For API-exported resources with identity hashes, the backend (cache server)
-		// synthesizes CRDs lazily from CachedResource annotations. When the WatchList
-		// feature gate is enabled (k8s 1.35+), SetListOptionsDefaults auto-adds
-		// SendInitialEvents=true for Watch requests with empty ResourceVersion.
-		// The backend's cacher then calls waitUntilFreshAndBlock with the global etcd
-		// revision, but for newly synthesized resource types the watch cache may not
-		// have caught up yet, causing a 3s timeout (TooLargeResourceVersionError).
-		//
-		// Pre-fetch the ResourceVersion via a cheap List so the backend uses a RV its
-		// watch cache has already served, making waitUntilFreshAndBlock succeed immediately.
-		if apiExportIdentityHash != "" && v1ListOptions.SendInitialEvents != nil && *v1ListOptions.SendInitialEvents && v1ListOptions.ResourceVersion == "" {
-			list, err := delegate.List(ctx, metav1.ListOptions{Limit: 1})
+		// synthesizes CRDs lazily from CachedResource annotations. When WatchList is
+		// enabled, a newly synthesized resource can transiently fail while storage/cacher
+		// becomes ready. Pre-fetching and retrying the list to get a stable RV narrows
+		// that readiness window before opening the watch.
+		if shouldPrefetchWatchListResourceVersion(apiExportIdentityHash, v1ListOptions) {
+			resourceVersion, err := waitForWatchListResourceVersion(ctx, delegate)
 			if err != nil {
 				return nil, fmt.Errorf("failed to pre-fetch resource version for WatchList: %w", err)
 			}
-			v1ListOptions.ResourceVersion = list.GetResourceVersion()
+			v1ListOptions.ResourceVersion = resourceVersion
 		}
 
 		watchCtx, cancelFn := context.WithCancel(ctx)
@@ -310,6 +311,61 @@ func DefaultDynamicDelegatedStoreFuncs(
 	}
 	s.ResetFieldsStrategyFunc = strategy.GetResetFields
 	return s
+}
+
+func shouldPrefetchWatchListResourceVersion(apiExportIdentityHash string, options metav1.ListOptions) bool {
+	// Pre-fetch whenever we're targeting an identity-hashed (cache server) resource
+	// with an empty ResourceVersion, regardless of SendInitialEvents. The cache
+	// server's watch cache may be behind etcd right after CRD synthesis, so any
+	// empty-RV watch can time out; pre-fetching an RV the cacher has already served
+	// avoids that.
+	return apiExportIdentityHash != "" && options.ResourceVersion == ""
+}
+
+func waitForWatchListResourceVersion(ctx context.Context, delegate listerWatcher) (string, error) {
+	return waitForWatchListResourceVersionWithRetry(ctx, delegate, watchListResourceVersionRetryAttempts, watchListResourceVersionRetryInterval)
+}
+
+func waitForWatchListResourceVersionWithRetry(ctx context.Context, delegate listerWatcher, attempts int, retryInterval time.Duration) (string, error) {
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		list, err := delegate.List(ctx, metav1.ListOptions{Limit: 1})
+		if err == nil {
+			if resourceVersion := list.GetResourceVersion(); resourceVersion != "" {
+				return resourceVersion, nil
+			}
+			lastErr = fmt.Errorf("empty resourceVersion from list response")
+		} else {
+			if !isRetryableWatchListPrefetchError(err) {
+				return "", err
+			}
+			lastErr = err
+		}
+
+		if i == attempts-1 {
+			break
+		}
+
+		timer := time.NewTimer(retryInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return "", ctx.Err()
+		case <-timer.C:
+		}
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("failed to pre-fetch resource version")
+	}
+	return "", lastErr
+}
+
+func isRetryableWatchListPrefetchError(err error) bool {
+	return apierrors.IsTimeout(err) ||
+		apierrors.IsServerTimeout(err) ||
+		apierrors.IsTooManyRequests(err) ||
+		apierrors.IsServiceUnavailable(err)
 }
 
 func clientGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {

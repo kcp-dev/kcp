@@ -17,12 +17,18 @@ limitations under the License.
 package forwardingregistry
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 func TestUpdateToCreateOptions(t *testing.T) {
@@ -66,4 +72,100 @@ func TestUpdateToCreateOptions(t *testing.T) {
 		FieldValidation: "Strict",
 	}
 	require.Equalf(t, expectedCreateOptions, co, "CreateOptions should have the same fields as the UpdateOptions")
+}
+
+func TestShouldPrefetchWatchListResourceVersion(t *testing.T) {
+	sendInitialEvents := true
+	require.True(t, shouldPrefetchWatchListResourceVersion("hash", metav1.ListOptions{SendInitialEvents: &sendInitialEvents}))
+	require.False(t, shouldPrefetchWatchListResourceVersion("", metav1.ListOptions{SendInitialEvents: &sendInitialEvents}))
+	require.False(t, shouldPrefetchWatchListResourceVersion("hash", metav1.ListOptions{}))
+	require.False(t, shouldPrefetchWatchListResourceVersion("hash", metav1.ListOptions{
+		SendInitialEvents: &sendInitialEvents,
+		ResourceVersion:   "10",
+	}))
+}
+
+func TestWaitForWatchListResourceVersionWithRetry(t *testing.T) {
+	t.Run("retries transient error", func(t *testing.T) {
+		attempt := 0
+		lw := &fakeListerWatcher{
+			listFn: func() (*unstructured.UnstructuredList, error) {
+				if attempt < 2 {
+					attempt++
+					return nil, apierrors.NewServiceUnavailable("cache not ready")
+				}
+				attempt++
+				return &unstructured.UnstructuredList{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{"resourceVersion": "42"},
+					},
+				}, nil
+			},
+		}
+
+		resourceVersion, err := waitForWatchListResourceVersionWithRetry(context.Background(), lw, 3, 0)
+		require.NoError(t, err)
+		require.Equal(t, "42", resourceVersion)
+		require.Equal(t, 3, lw.listCalls)
+	})
+
+	t.Run("fails fast for non-retryable error", func(t *testing.T) {
+		lw := &fakeListerWatcher{
+			listFn: func() (*unstructured.UnstructuredList, error) {
+				return nil, apierrors.NewBadRequest("invalid list")
+			},
+		}
+
+		_, err := waitForWatchListResourceVersionWithRetry(context.Background(), lw, 3, 0)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid list")
+		require.Equal(t, 1, lw.listCalls)
+	})
+
+	t.Run("fails after retries on empty resourceVersion", func(t *testing.T) {
+		lw := &fakeListerWatcher{
+			listFn: func() (*unstructured.UnstructuredList, error) {
+				return &unstructured.UnstructuredList{}, nil
+			},
+		}
+
+		_, err := waitForWatchListResourceVersionWithRetry(context.Background(), lw, 2, 0)
+		require.EqualError(t, err, "empty resourceVersion from list response")
+		require.Equal(t, 2, lw.listCalls)
+	})
+
+	t.Run("returns context error when canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		lw := &fakeListerWatcher{
+			listFn: func() (*unstructured.UnstructuredList, error) {
+				return nil, apierrors.NewTimeoutError("timed out", 1)
+			},
+		}
+
+		_, err := waitForWatchListResourceVersionWithRetry(ctx, lw, 2, time.Second)
+		require.ErrorIs(t, err, context.Canceled)
+	})
+}
+
+type fakeListerWatcher struct {
+	listFn    func() (*unstructured.UnstructuredList, error)
+	watchFn   func() (watch.Interface, error)
+	listCalls int
+}
+
+func (f *fakeListerWatcher) List(_ context.Context, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	if f.listFn == nil {
+		return nil, fmt.Errorf("listFn must be provided")
+	}
+	f.listCalls++
+	return f.listFn()
+}
+
+func (f *fakeListerWatcher) Watch(_ context.Context, _ metav1.ListOptions) (watch.Interface, error) {
+	if f.watchFn == nil {
+		return watch.NewEmptyWatch(), nil
+	}
+	return f.watchFn()
 }
