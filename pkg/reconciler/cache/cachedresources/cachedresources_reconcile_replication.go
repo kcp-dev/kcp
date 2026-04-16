@@ -143,14 +143,30 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		go func() {
 			defer cancel()
 
-			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Local.HasSynced, replicated.Global.HasSynced) {
-				logger.Error(nil, "Informers failed to sync, removing controller", "controller", controllerName)
+			// Require the local informer to sync before starting the controller.
+			// The global (cache) informer is allowed to sync in the background: the
+			// cache server may not yet serve the replicated GVR (its CRD is synthesized
+			// only after the parent CachedResource is itself replicated), so gating the
+			// controller's startup on Global.HasSynced can stall replication indefinitely.
+			// The reconciler's Create path tolerates AlreadyExists and falls through to
+			// Update once we know the object exists remotely.
+			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Local.HasSynced) {
+				logger.Error(nil, "Local informer failed to sync, removing controller", "controller", controllerName)
 				r.controllerRegistry.unregister(controllerName)
 				requeueSelf()
 				return
 			}
 
-			c.Start(controllerCtx, 1)
+			go c.Start(controllerCtx, 1)
+
+			// Wait for the global informer to sync so Update events for existing
+			// cached objects get processed, then requeue the parent CachedResource
+			// so its ResourceCounts get re-listed against the now-live cache server.
+			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Global.HasSynced) {
+				logger.Error(nil, "Global informer failed to sync", "controller", controllerName)
+				return
+			}
+			requeueSelf()
 		}()
 
 		return reconcileStatusStopAndRequeue, nil // Once controller is started, we requeue to check if we need to delete it.
