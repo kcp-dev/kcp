@@ -39,7 +39,7 @@ const (
 // The cache server's CRD lister reads these to synthesize CRDs on demand.
 type reconcileResourceMetadata struct {
 	getKind      func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (schema.GroupVersionKind, error)
-	getRESTScope func(cluster logicalcluster.Name, kind schema.GroupKind) (meta.RESTScope, error)
+	getRESTScope func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (meta.RESTScope, error)
 }
 
 func (r *reconcileResourceMetadata) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
@@ -54,7 +54,7 @@ func (r *reconcileResourceMetadata) reconcile(ctx context.Context, cachedResourc
 	if err != nil {
 		return reconcileStatusStopAndRequeue, err
 	}
-	restScope, err := r.getRESTScope(clusterName, kind.GroupKind())
+	restScope, err := r.getRESTScope(clusterName, gvr)
 	if err != nil {
 		return reconcileStatusStopAndRequeue, err
 	}

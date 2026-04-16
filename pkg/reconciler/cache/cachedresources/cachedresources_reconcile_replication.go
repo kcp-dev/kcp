@@ -62,6 +62,7 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		Resource: cachedResource.Spec.Resource,
 	}
 	cluster := logicalcluster.From(cachedResource)
+	cacheGVR := cacheReplicationGVR(cachedResource)
 
 	var resourceLabelSelector labels.Selector
 	if cachedResource.Spec.LabelSelector != nil {
@@ -83,9 +84,13 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 
 		controllerCtx, cancel := context.WithCancel(ctx)
 
-		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(gvr)
+		// Replicated objects are stored and addressed on the backing cache API under
+		// resource:identityHash. The global informer must watch that identity-scoped GVR,
+		// otherwise updates can be misclassified as creates and get dropped after an
+		// AlreadyExists response.
+		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(cacheGVR)
 		if err != nil {
-			logger.Error(err, "Failed to get global informer for resource", "resource", gvr)
+			logger.Error(err, "Failed to get global informer for resource", "resource", cacheGVR)
 			cancel()
 			return reconcileStatusStopAndRequeue, err
 		}
@@ -143,16 +148,8 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		go func() {
 			defer cancel()
 
-			// Only require the local informer to sync before starting the controller.
-			// The global (cache) informer may take time to sync because the cache server
-			// needs the CachedResource to be replicated (with annotations and identity hash)
-			// before it can synthesize a CRD and serve the resource. Blocking on global sync
-			// creates a deadlock: the child controller can't start until the cache CRD exists,
-			// but the cache CRD won't be exercised until objects are replicated.
-			// The reconciler handles missing global state gracefully: creates handle AlreadyExists,
-			// and once the global informer eventually syncs, it triggers reconciliation for all objects.
-			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Local.HasSynced) {
-				logger.Error(nil, "Local informer failed to sync, removing controller", "controller", controllerName)
+			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Local.HasSynced, replicated.Global.HasSynced) {
+				logger.Error(nil, "Informers failed to sync, removing controller", "controller", controllerName)
 				r.controllerRegistry.unregister(controllerName)
 				requeueSelf()
 				return
@@ -179,5 +176,13 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		return reconcileStatusStopAndRequeue, nil
 	default:
 		return reconcileStatusContinue, nil
+	}
+}
+
+func cacheReplicationGVR(cachedResource *cachev1alpha1.CachedResource) schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    cachedResource.Spec.Group,
+		Version:  cachedResource.Spec.Version,
+		Resource: cachedResource.Spec.Resource + ":" + cachedResource.Status.IdentityHash,
 	}
 }
