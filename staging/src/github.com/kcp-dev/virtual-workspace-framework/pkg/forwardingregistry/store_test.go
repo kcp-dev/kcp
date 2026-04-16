@@ -122,15 +122,16 @@ func TestWaitForWatchListResourceVersionWithRetry(t *testing.T) {
 		require.Equal(t, 1, lw.listCalls)
 	})
 
-	t.Run("fails after retries on empty resourceVersion", func(t *testing.T) {
+	t.Run("falls back when resourceVersion is empty", func(t *testing.T) {
 		lw := &fakeListerWatcher{
 			listFn: func() (*unstructured.UnstructuredList, error) {
 				return &unstructured.UnstructuredList{}, nil
 			},
 		}
 
-		_, err := waitForWatchListResourceVersionWithRetry(context.Background(), lw, 2, 0)
-		require.EqualError(t, err, "empty resourceVersion from list response")
+		resourceVersion, err := waitForWatchListResourceVersionWithRetry(context.Background(), lw, 2, 0)
+		require.NoError(t, err)
+		require.Empty(t, resourceVersion)
 		require.Equal(t, 2, lw.listCalls)
 	})
 
@@ -149,10 +150,46 @@ func TestWaitForWatchListResourceVersionWithRetry(t *testing.T) {
 	})
 }
 
+func TestWatchWithRetry(t *testing.T) {
+	t.Run("retries transient watch establish error", func(t *testing.T) {
+		attempt := 0
+		lw := &fakeListerWatcher{
+			watchFn: func() (watch.Interface, error) {
+				if attempt < 2 {
+					attempt++
+					return nil, apierrors.NewTimeoutError("timeout or abort while handling", 1)
+				}
+				attempt++
+				return watch.NewEmptyWatch(), nil
+			},
+		}
+
+		w, err := watchWithRetry(context.Background(), lw, metav1.ListOptions{}, false)
+		require.NoError(t, err)
+		require.NotNil(t, w)
+		require.Equal(t, 3, lw.watchCalls)
+		w.Stop()
+	})
+
+	t.Run("fails fast for non-retryable watch error", func(t *testing.T) {
+		lw := &fakeListerWatcher{
+			watchFn: func() (watch.Interface, error) {
+				return nil, apierrors.NewBadRequest("invalid watch")
+			},
+		}
+
+		_, err := watchWithRetry(context.Background(), lw, metav1.ListOptions{}, false)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid watch")
+		require.Equal(t, 1, lw.watchCalls)
+	})
+}
+
 type fakeListerWatcher struct {
 	listFn    func() (*unstructured.UnstructuredList, error)
 	watchFn   func() (watch.Interface, error)
 	listCalls int
+	watchCalls int
 }
 
 func (f *fakeListerWatcher) List(_ context.Context, _ metav1.ListOptions) (*unstructured.UnstructuredList, error) {
@@ -164,6 +201,7 @@ func (f *fakeListerWatcher) List(_ context.Context, _ metav1.ListOptions) (*unst
 }
 
 func (f *fakeListerWatcher) Watch(_ context.Context, _ metav1.ListOptions) (watch.Interface, error) {
+	f.watchCalls++
 	if f.watchFn == nil {
 		return watch.NewEmptyWatch(), nil
 	}
