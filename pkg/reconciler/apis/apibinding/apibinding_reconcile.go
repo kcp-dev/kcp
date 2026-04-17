@@ -134,7 +134,7 @@ func (r *newReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.
 		"Waiting for API(s) to be established",
 	)
 
-	return reconcileStatusContinue, nil
+	return reconcileStatusStopAndRequeue, nil
 }
 
 type bindingReconciler struct {
