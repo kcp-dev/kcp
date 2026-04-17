@@ -1,0 +1,6 @@
+tolerations:
+  - operator: Exists
+
+config:
+  clients:
+    - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
