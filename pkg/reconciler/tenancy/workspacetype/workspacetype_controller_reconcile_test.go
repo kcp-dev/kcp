@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -49,7 +50,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 			},
@@ -57,7 +59,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
@@ -82,7 +85,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 			},
@@ -90,7 +94,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
@@ -124,7 +129,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 			},
@@ -132,7 +138,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
@@ -186,7 +193,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
@@ -212,7 +220,8 @@ func TestReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "sometype",
 					Annotations: map[string]string{
-						logicalcluster.AnnotationKey: "root:org:team:ws",
+						logicalcluster.AnnotationKey:         "root:org:team:ws",
+						core.LogicalClusterPathAnnotationKey: "root:org:team:ws",
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{

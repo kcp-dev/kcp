@@ -592,3 +592,172 @@ func shardNameToBase36Sha224(name string) string {
 	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
 	return base36hash[:8]
 }
+
+// TestLogicalClustersInitializers_DerivedTypeInNestedWorkspace tests the scenario from
+// https://github.com/kcp-dev/kcp/issues/4029 where a derived WorkspaceType in a nested
+// workspace has spec.initializer: true. The initializer name must use the canonical path
+// from the kcp.io/path annotation, not the physical cluster name.
+func TestLogicalClustersInitializers_DerivedTypeInNestedWorkspace(t *testing.T) {
+	// Scenario:
+	// - "base" type lives in root:org (canonical path), physical cluster "abc123"
+	// - "derived" type lives in root:org:team (canonical path), physical cluster "xyz789"
+	// - "derived" extends "base" and has spec.initializer: true
+	//
+	// When creating a workspace with type "derived", the initializer should be
+	// "root:org:team:derived", NOT "xyz789:derived"
+
+	baseType := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "base",
+			Annotations: map[string]string{
+				"kcp.io/cluster":                     "abc123",   // physical cluster name
+				core.LogicalClusterPathAnnotationKey: "root:org", // canonical path
+			},
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Initializer: false, // base type has no initializer
+		},
+	}
+
+	derivedType := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "derived",
+			Annotations: map[string]string{
+				"kcp.io/cluster":                     "xyz789",        // physical cluster name (differs from canonical!)
+				core.LogicalClusterPathAnnotationKey: "root:org:team", // canonical path
+			},
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Initializer: true, // derived type has initializer
+			Extend: tenancyv1alpha1.WorkspaceTypeExtension{
+				With: []tenancyv1alpha1.WorkspaceTypeReference{
+					{Path: "root:org", Name: "base"},
+				},
+			},
+		},
+	}
+
+	// Set up indexer with both types
+	workspaceTypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+	indexers.AddIfNotPresentOrDie(workspaceTypeIndexer, cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+	if err := workspaceTypeIndexer.Add(baseType); err != nil {
+		t.Fatal(err)
+	}
+	if err := workspaceTypeIndexer.Add(derivedType); err != nil {
+		t.Fatal(err)
+	}
+
+	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
+		return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeIndexer, path, name)
+	}
+	resolver := workspacetypeexists.NewTransitiveTypeResolver(getType)
+
+	// Get initializers for "derived" type
+	initializers, err := LogicalClustersInitializers(
+		resolver,
+		getType,
+		logicalcluster.NewPath("root:org:team"),
+		"derived",
+	)
+	if err != nil {
+		t.Fatalf("LogicalClustersInitializers failed: %v", err)
+	}
+
+	// Verify the initializer uses the canonical path
+	expectedInitializer := corev1alpha1.LogicalClusterInitializer("root:org:team:derived")
+	found := false
+	for _, init := range initializers {
+		if init == expectedInitializer {
+			found = true
+			break
+		}
+		// Also verify we don't have the wrong (physical path) initializer
+		wrongInitializer := corev1alpha1.LogicalClusterInitializer("xyz789:derived")
+		if init == wrongInitializer {
+			t.Errorf("Found initializer with physical cluster path %q, expected canonical path %q", wrongInitializer, expectedInitializer)
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected initializer %q not found in %v", expectedInitializer, initializers)
+	}
+}
+
+// TestLogicalClusterTerminators_DerivedTypeInNestedWorkspace is the equivalent test for terminators.
+func TestLogicalClusterTerminators_DerivedTypeInNestedWorkspace(t *testing.T) {
+	baseType := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "base",
+			Annotations: map[string]string{
+				"kcp.io/cluster":                     "abc123",
+				core.LogicalClusterPathAnnotationKey: "root:org",
+			},
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Terminator: false,
+		},
+	}
+
+	derivedType := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "derived",
+			Annotations: map[string]string{
+				"kcp.io/cluster":                     "xyz789",
+				core.LogicalClusterPathAnnotationKey: "root:org:team",
+			},
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Terminator: true,
+			Extend: tenancyv1alpha1.WorkspaceTypeExtension{
+				With: []tenancyv1alpha1.WorkspaceTypeReference{
+					{Path: "root:org", Name: "base"},
+				},
+			},
+		},
+	}
+
+	workspaceTypeIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+	indexers.AddIfNotPresentOrDie(workspaceTypeIndexer, cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+	if err := workspaceTypeIndexer.Add(baseType); err != nil {
+		t.Fatal(err)
+	}
+	if err := workspaceTypeIndexer.Add(derivedType); err != nil {
+		t.Fatal(err)
+	}
+
+	getType := func(path logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
+		return indexers.ByPathAndName[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), workspaceTypeIndexer, path, name)
+	}
+	resolver := workspacetypeexists.NewTransitiveTypeResolver(getType)
+
+	terminators, err := LogicalClusterTerminators(
+		resolver,
+		getType,
+		logicalcluster.NewPath("root:org:team"),
+		"derived",
+	)
+	if err != nil {
+		t.Fatalf("LogicalClusterTerminators failed: %v", err)
+	}
+
+	expectedTerminator := corev1alpha1.LogicalClusterTerminator("root:org:team:derived")
+	found := false
+	for _, term := range terminators {
+		if term == expectedTerminator {
+			found = true
+			break
+		}
+		wrongTerminator := corev1alpha1.LogicalClusterTerminator("xyz789:derived")
+		if term == wrongTerminator {
+			t.Errorf("Found terminator with physical cluster path %q, expected canonical path %q", wrongTerminator, expectedTerminator)
+		}
+	}
+
+	if !found {
+		t.Errorf("Expected terminator %q not found in %v", expectedTerminator, terminators)
+	}
+}

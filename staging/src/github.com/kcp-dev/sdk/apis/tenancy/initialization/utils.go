@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
@@ -63,7 +64,7 @@ func EnsureInitializerAbsent(initializer corev1alpha1.LogicalClusterInitializer,
 
 // InitializerForType determines the identifier for the implicit initializer associated with the WorkspaceType.
 func InitializerForType(wt *tenancyv1alpha1.WorkspaceType) corev1alpha1.LogicalClusterInitializer {
-	return corev1alpha1.LogicalClusterInitializer(logicalcluster.From(wt).Path().Join(wt.Name).String())
+	return corev1alpha1.LogicalClusterInitializer(logicalcluster.NewPath(wt.Annotations[core.LogicalClusterPathAnnotationKey]).Join(wt.Name).String())
 }
 
 // InitializerForReference determines the identifier for the implicit initializer associated with the

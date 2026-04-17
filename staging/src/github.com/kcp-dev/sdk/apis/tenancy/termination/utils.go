@@ -24,13 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
 // TerminatorForType determines the identifier for the implicit terminator associated with the WorkspaceType.
 func TerminatorForType(wt *tenancyv1alpha1.WorkspaceType) corev1alpha1.LogicalClusterTerminator {
-	return corev1alpha1.LogicalClusterTerminator(logicalcluster.From(wt).Path().Join(wt.Name).String())
+	return corev1alpha1.LogicalClusterTerminator(logicalcluster.NewPath(wt.Annotations[core.LogicalClusterPathAnnotationKey]).Join(wt.Name).String())
 }
 
 // TypeFrom determines the WorkspaceType workspace and name from an terminator name.
