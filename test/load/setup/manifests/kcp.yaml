@@ -24,6 +24,13 @@ spec:
   cache:
     embedded:
       enabled: true
+  resources:
+    requests:
+      cpu: "2"
+      memory: 3Gi
+    limits:
+      cpu: "12"
+      memory: 34Gi
   etcd:
     endpoints:
       - http://kcp-etcd-shard-1-client.etcd-system.svc.cluster.local:2379
@@ -110,6 +117,13 @@ spec:
   rootShard:
     ref:
       name: root
+  resources:
+    requests:
+      cpu: "2"
+      memory: 3Gi
+    limits:
+      cpu: "12"
+      memory: 34Gi
   deploymentTemplate:
     spec:
       template:
@@ -154,6 +168,13 @@ spec:
   rootShard:
     ref:
       name: root
+  resources:
+    requests:
+      cpu: "2"
+      memory: 3Gi
+    limits:
+      cpu: "12"
+      memory: 34Gi
   deploymentTemplate:
     spec:
       template:
