@@ -69,7 +69,7 @@ a kind cluster.
           {
             "name": "kubeconfig-vol",
             "secret": {
-              "secretName": "admin-kubeconfig"
+              "secretName": "kubeconfig-kcp-admin"
             }
           }
         ]

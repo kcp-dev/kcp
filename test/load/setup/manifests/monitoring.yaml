@@ -1,0 +1,78 @@
+# ServiceMonitor for kcp shard API servers (root, shard2, shard3).
+# These require client certificate authentication for /metrics.
+# The client cert is copied from kcp namespace to monitoring namespace
+# by setup.sh (see metrics-viewer secret).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kcp-shards
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kcp
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kcp
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - rootshard
+          - shard
+  endpoints:
+    - port: https
+      path: /metrics
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+        cert:
+          secret:
+            name: kcp-metrics-client-cert
+            key: tls.crt
+        keySecret:
+          name: kcp-metrics-client-cert
+          key: tls.key
+---
+# ServiceMonitor for front-proxy and root-proxy (no auth needed for /metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kcp-front-proxy
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kcp
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kcp
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - front-proxy
+          - rootshard-proxy
+  endpoints:
+    - port: https
+      path: /metrics
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+---
+# ServiceMonitor for etcd clusters
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kcp-etcd
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - etcd-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: etcd-client-service
+  endpoints:
+    - targetPort: 2379
+      path: /metrics
