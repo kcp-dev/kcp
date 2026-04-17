@@ -27,6 +27,7 @@ import (
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	"github.com/kcp-dev/logicalcluster/v3"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
@@ -83,12 +84,11 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 
 		controllerCtx, cancel := context.WithCancel(ctx)
 
-		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(gvr)
-		if err != nil {
-			logger.Error(err, "Failed to get global informer for resource", "resource", gvr)
-			cancel()
-			return reconcileStatusStopAndRequeue, err
-		}
+		// The cache server stores replicated objects under resource:identityHash. This
+		// child controller needs to observe that exact cache-side GVR; the shared
+		// cache DDSIF is keyed by plain GVR and can conflate concurrent identities.
+		cacheGVR := replicationcontroller.CacheGVRWithIdentity(gvr, cachedResource.Status.IdentityHash)
+		global := kcpdynamicinformer.NewFilteredDynamicInformer(r.globalDynamicClusterClient, cacheGVR, 0, cache.Indexers{}, nil)
 
 		// Local informer is based on the specific types we want to replicate.
 		local, err := r.localDiscoveringDynamicKcpInformers.ForResource(gvr)
