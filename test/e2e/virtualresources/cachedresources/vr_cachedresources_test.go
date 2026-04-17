@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"reflect"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -59,8 +58,6 @@ import (
 )
 
 func TestCachedResources(t *testing.T) {
-	t.Skip("skipping for now because the test is not stable, see https://github.com/kcp-dev/kcp/issues/4026")
-
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -455,37 +452,19 @@ func verifyListAndGet(
 	require.NoError(t, err)
 
 	t.Logf("Listing %s resources in %q via %q client should return one object", resourceName, targetCluster, cfg.Host)
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		list, err := dynClient.Cluster(targetCluster.Path()).
-			Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
-			List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to list: %v", err)
-		}
-		if len(list.Items) != 1 {
-			return false, fmt.Sprintf("expected 1 item, got %d", len(list.Items))
-		}
-		actual := normalizeUnstructuredMap(list.Items[0].Object)
-		if !reflect.DeepEqual(actual, expected) {
-			return false, fmt.Sprintf("list result mismatch:\n  expected: %v\n  actual:   %v", expected, actual)
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*500, "listing %s in %q via %q", resourceName, targetCluster, cfg.Host)
+	list, err := dynClient.Cluster(targetCluster.Path()).
+		Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
+		List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1, "Unexpected number of items in %s list in %q via %q", resourceName, targetCluster, cfg.Host)
+	require.Equal(t, expected, normalizeUnstructuredMap(list.Items[0].Object))
 
 	t.Logf("Getting a %s resource named %s in %q via %q should return that object", resourceName, objName, targetCluster, cfg.Host)
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		obj, err := dynClient.Cluster(targetCluster.Path()).
-			Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
-			Get(ctx, objName, metav1.GetOptions{})
-		if err != nil {
-			return false, fmt.Sprintf("failed to get: %v", err)
-		}
-		actual := normalizeUnstructuredMap(obj.Object)
-		if !reflect.DeepEqual(actual, expected) {
-			return false, fmt.Sprintf("get result mismatch:\n  expected: %v\n  actual:   %v", expected, actual)
-		}
-		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*500, "getting %s/%s in %q via %q", resourceName, objName, targetCluster, cfg.Host)
+	obj, err := dynClient.Cluster(targetCluster.Path()).
+		Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
+		Get(ctx, objName, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, expected, normalizeUnstructuredMap(obj.Object))
 }
 
 func normalizeUnstructuredMap(origObj map[string]interface{}) map[string]interface{} {

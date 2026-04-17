@@ -76,8 +76,12 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			getKind: func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 				return c.dynRESTMapper.ForCluster(cluster).KindFor(gvr)
 			},
-			getRESTScope: func(cluster logicalcluster.Name, kind schema.GroupKind) (meta.RESTScope, error) {
-				m, err := c.dynRESTMapper.ForCluster(cluster).RESTMapping(kind)
+			getRESTScope: func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (meta.RESTScope, error) {
+				kind, err := c.dynRESTMapper.ForCluster(cluster).KindFor(gvr)
+				if err != nil {
+					return nil, err
+				}
+				m, err := c.dynRESTMapper.ForCluster(cluster).RESTMapping(kind.GroupKind(), kind.Version)
 				if err != nil {
 					return nil, err
 				}
