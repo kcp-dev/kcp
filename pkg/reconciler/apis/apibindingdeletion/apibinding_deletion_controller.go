@@ -261,7 +261,6 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return remainingErr
 	}
 
-	apibindingCopy = apibinding.DeepCopy()
 	filtered := make([]string, 0, len(apibindingCopy.Finalizers))
 	for i := range apibindingCopy.Finalizers {
 		if apibindingCopy.Finalizers[i] == APIBindingFinalizer {
