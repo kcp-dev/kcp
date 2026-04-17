@@ -48,6 +48,7 @@ func TestCRDVirtualWorkspace(t *testing.T) {
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
+	group := framework.UniqueGroup(".dev")
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
@@ -61,11 +62,11 @@ func TestCRDVirtualWorkspace(t *testing.T) {
 	ctx := context.Background()
 
 	t.Log("Creating cowboys APIExport in provider workspace")
-	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClient, "wildwest.dev", "Wild West API")
+	apifixtures.CreateSheriffsSchemaAndExport(ctx, t, providerPath, kcpClient, group, "Wild West API")
 
 	t.Log("Adding CRD permission claim to APIExport")
 	require.Eventually(t, func() bool {
-		export, err := kcpClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, "wildwest.dev", metav1.GetOptions{})
+		export, err := kcpClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(ctx, group, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -111,13 +112,13 @@ func TestCRDVirtualWorkspace(t *testing.T) {
 	t.Log("Binding to cowboys export in consumer workspace with accepted CRD permission claims")
 	binding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "wildwest.dev",
+			Name: group,
 		},
 		Spec: apisv1alpha2.APIBindingSpec{
 			Reference: apisv1alpha2.BindingReference{
 				Export: &apisv1alpha2.ExportBindingReference{
 					Path: providerPath.String(),
-					Name: "wildwest.dev",
+					Name: group,
 				},
 			},
 			PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
@@ -147,7 +148,7 @@ func TestCRDVirtualWorkspace(t *testing.T) {
 
 	t.Log("Waiting for APIBinding to be bound")
 	require.Eventually(t, func() bool {
-		binding, err := kcpClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, "wildwest.dev", metav1.GetOptions{})
+		binding, err := kcpClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, group, metav1.GetOptions{})
 		if err != nil {
 			return false
 		}
@@ -160,7 +161,7 @@ func TestCRDVirtualWorkspace(t *testing.T) {
 	t.Log("Getting virtual workspace URL from APIExportEndpointSlice")
 	var vwURL string
 	require.Eventually(t, func() bool {
-		endpointSlice, err := kcpClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "wildwest.dev", metav1.GetOptions{})
+		endpointSlice, err := kcpClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, group, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("Failed to get APIExportEndpointSlice: %v", err)
 			return false
