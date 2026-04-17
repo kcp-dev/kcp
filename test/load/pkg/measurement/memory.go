@@ -26,7 +26,7 @@ var _ Sink = (*Memory)(nil)
 
 // Memory is a simple in-memory backend that stores all measurements in a map.
 // It allows for flexible calculations after a test run.
-// Results will be returned as <stat name>_<original measurement name> (e.g. "avg_duration").
+// Results will be returned as <stat name>_<original measurement name> (e.g. "avg_duration_ms").
 type Memory struct {
 	// Stats is a list of statistical functions to run on the measurements.
 	// All Stats functions will be evaluated once you call Memory.Results().
