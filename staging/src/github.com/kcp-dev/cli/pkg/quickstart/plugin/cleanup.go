@@ -39,24 +39,22 @@ func (o *QuickstartOptions) runCleanup(ctx context.Context, execCtx scenarios.Ex
 	fmt.Fprintf(o.Out, "Cleaning up quickstart resources with prefix %q...\n\n", o.NamePrefix)
 
 	steps := o.scenario.Steps(o.NamePrefix)
-	var cleanable []scenarios.Step
-	for _, s := range steps {
-		if s.Cleanup != nil {
-			cleanable = append(cleanable, s)
-		}
-	}
 
 	var errs []error
-	total := len(cleanable)
-	for i := total - 1; i >= 0; i-- {
-		step := cleanable[i]
-		n := total - i
+	var stepNumber int
+	for i := len(steps) - 1; i >= 0; i-- {
+		step := steps[i]
+		if step.Cleanup == nil {
+			continue
+		}
+		stepNumber++
+
 		desc := step.CleanupDescription
 		if desc == "" {
 			desc = step.Description
 		}
 
-		fmt.Fprintf(o.Out, "Step %d/%d: %s...\n", n, total, desc)
+		fmt.Fprintf(o.Out, "Step %d: %s...\n", stepNumber, desc)
 		if err := step.Cleanup(ctx, execCtx); err != nil {
 			fmt.Fprintf(o.ErrOut, "  cleanup of step %q failed: %v\n", desc, err)
 			errs = append(errs, fmt.Errorf("cleanup of step %q: %w", desc, err))
