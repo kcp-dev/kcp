@@ -43,11 +43,6 @@ func TestValidate(t *testing.T) {
 		wantErr      string
 	}{
 		{
-			name:       "nil scenario (Complete not called)",
-			namePrefix: "my-test",
-			wantErr:    "scenario not initialised",
-		},
-		{
 			name:         "empty name-prefix",
 			namePrefix:   "",
 			withScenario: true,

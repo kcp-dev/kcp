@@ -108,10 +108,6 @@ func (o *QuickstartOptions) Validate() error {
 		return fmt.Errorf("failed to validate options: %w", err)
 	}
 
-	if o.scenario == nil {
-		return fmt.Errorf("scenario not initialised; Complete() must be called before Validate()")
-	}
-
 	if o.NamePrefix == "" {
 		return fmt.Errorf("--name-prefix must not be empty")
 	}
