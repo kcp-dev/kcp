@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/cli/pkg/base"
@@ -46,12 +46,12 @@ type QuickstartOptions struct {
 
 	scenario            scenarios.Scenario
 	enterWorkspace      func(ctx context.Context, path string) error
-	newUseWorkspaceOpts func(genericclioptions.IOStreams) *workspaceplugin.UseWorkspaceOptions
+	newUseWorkspaceOpts func(genericiooptions.IOStreams) *workspaceplugin.UseWorkspaceOptions
 	newKCPClusterClient func(config *rest.Config) (kcpclientset.ClusterInterface, error)
 	newKCPDynamicClient func(config *rest.Config) (kcpdynamic.ClusterInterface, error)
 }
 
-func NewQuickstartOptions(streams genericclioptions.IOStreams) *QuickstartOptions {
+func NewQuickstartOptions(streams genericiooptions.IOStreams) *QuickstartOptions {
 	o := &QuickstartOptions{
 		Options:             base.NewOptions(streams),
 		Scenario:            "api-provider",
@@ -76,21 +76,12 @@ func (o *QuickstartOptions) defaultEnterWorkspace(ctx context.Context, path stri
 
 func (o *QuickstartOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
-	cmd.Flags().StringVar(&o.Scenario, "scenario", o.Scenario,
-		"Scenario to bootstrap (api-provider)")
-	cmd.Flags().StringVar(&o.NamePrefix, "name-prefix", o.NamePrefix,
-		"Prefix for created workspace names")
-	cmd.Flags().BoolVar(&o.Cleanup, "cleanup", o.Cleanup,
-		"Delete all resources created by a previous quickstart run. "+
-			"Relies on kcp cascading deletion from the org workspace — "+
-			"APIResourceSchemas, APIExports, and APIBindings inside child workspaces "+
-			"are removed as part of the cascade, not individually.")
-	cmd.Flags().BoolVar(&o.Enter, "enter", o.Enter,
-		"Switch kubeconfig to the consumer workspace when done")
-	cmd.Flags().BoolVar(&o.WithSamples, "with-samples", o.WithSamples,
-		"Apply sample resources (Cowboys) into the consumer workspace after setup")
-	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout,
-		"Maximum time to wait for workspaces to become ready or finish terminating")
+	cmd.Flags().StringVar(&o.Scenario, "scenario", o.Scenario, "Scenario to bootstrap (api-provider)")
+	cmd.Flags().StringVar(&o.NamePrefix, "name-prefix", o.NamePrefix, "Prefix for created workspace names")
+	cmd.Flags().BoolVar(&o.Cleanup, "cleanup", o.Cleanup, "Delete all resources created by a previous quickstart run. Relies on kcp cascading deletion from the org workspace: APIResourceSchemas, APIExports, and APIBindings inside child workspaces are removed as part of the cascade, not individually")
+	cmd.Flags().BoolVar(&o.Enter, "enter", o.Enter, "Switch kubeconfig to the consumer workspace when done")
+	cmd.Flags().BoolVar(&o.WithSamples, "with-samples", o.WithSamples, "Apply sample resources (Cowboys) into the consumer workspace after setup")
+	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "Maximum time to wait for workspaces to become ready or finish terminating")
 }
 
 func (o *QuickstartOptions) Complete(args []string) error {

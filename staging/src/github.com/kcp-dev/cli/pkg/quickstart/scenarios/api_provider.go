@@ -64,26 +64,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 			Description:        fmt.Sprintf("Creating organization workspace %q", orgName),
 			CleanupDescription: fmt.Sprintf("Deleting organization workspace %q (cascades provider and consumer)", orgName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				rootPath := logicalcluster.NewPath("root")
-				wsType := &tenancyv1alpha1.WorkspaceTypeReference{
-					Name: "organization",
-					Path: "root",
-				}
-
-				labels := map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}
-				path, existed, err := createWorkspaceAndWait(ctx, execCtx.KCPClusterClient, rootPath, orgName, wsType, labels)
-				if err != nil {
-					return err
-				}
-
-				execCtx.State[StateKeyOrgPath] = path.String()
-				if existed {
-					fmt.Fprintf(execCtx.Out, "  Workspace %q already exists at %s\n", orgName, path)
-				} else {
-					fmt.Fprintf(execCtx.Out, "  Workspace %q created and ready at %s\n", orgName, path)
-				}
-
-				return nil
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath("root"), orgName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "organization", Path: "root"}, map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}, StateKeyOrgPath)
 			},
 			Cleanup: func(ctx context.Context, execCtx ExecutionContext) error {
 				rootPath := logicalcluster.NewPath("root")
@@ -130,66 +111,49 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 		{
 			Description: fmt.Sprintf("Creating service provider workspace %q", providerName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				orgPath := logicalcluster.NewPath(execCtx.State[StateKeyOrgPath])
-				wsType := &tenancyv1alpha1.WorkspaceTypeReference{
-					Name: "universal",
-					Path: "root",
-				}
-
-				labels := map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}
-				path, existed, err := createWorkspaceAndWait(ctx, execCtx.KCPClusterClient, orgPath, providerName, wsType, labels)
-				if err != nil {
-					return err
-				}
-
-				execCtx.State[StateKeyProviderPath] = path.String()
-				if existed {
-					fmt.Fprintf(execCtx.Out, "  Workspace %q already exists at %s\n", providerName, path)
-				} else {
-					fmt.Fprintf(execCtx.Out, "  Workspace %q created and ready at %s\n", providerName, path)
-				}
-
-				return nil
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[StateKeyOrgPath]), providerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}, StateKeyProviderPath)
 			},
 		},
 		{
 			Description: "Applying APIResourceSchema",
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
 				providerPath := logicalcluster.NewPath(execCtx.State[StateKeyProviderPath])
-				return applyAPIResourceSchema(ctx, execCtx.KCPClusterClient, execCtx.Out, providerPath,
-					apiProviderResources, "resources/api-provider/apiresourceschema.yaml")
+				return applyEmbeddedResource(execCtx.Out, apiProviderResources, "resources/api-provider/apiresourceschema.yaml", "APIResourceSchema", func(data []byte) (string, error) {
+					obj := &apisv1alpha1.APIResourceSchema{}
+					if err := yaml.Unmarshal(data, obj); err != nil {
+						return "", err
+					}
+					_, err := execCtx.KCPClusterClient.Cluster(providerPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, obj, metav1.CreateOptions{})
+					if err != nil {
+						return obj.Name, fmt.Errorf("creating APIResourceSchema: %w", err)
+					}
+
+					return obj.Name, nil
+				})
 			},
 		},
 		{
 			Description: "Applying APIExport",
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
 				providerPath := logicalcluster.NewPath(execCtx.State[StateKeyProviderPath])
-				return applyAPIExport(ctx, execCtx.KCPClusterClient, execCtx.Out, providerPath,
-					apiProviderResources, "resources/api-provider/apiexport.yaml")
+				return applyEmbeddedResource(execCtx.Out, apiProviderResources, "resources/api-provider/apiexport.yaml", "APIExport", func(data []byte) (string, error) {
+					obj := &apisv1alpha2.APIExport{}
+					if err := yaml.Unmarshal(data, obj); err != nil {
+						return "", err
+					}
+					_, err := execCtx.KCPClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, obj, metav1.CreateOptions{})
+					if err != nil {
+						return obj.Name, fmt.Errorf("creating APIExport: %w", err)
+					}
+
+					return obj.Name, nil
+				})
 			},
 		},
 		{
 			Description: fmt.Sprintf("Creating consumer workspace %q", consumerName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				orgPath := logicalcluster.NewPath(execCtx.State[StateKeyOrgPath])
-				wsType := &tenancyv1alpha1.WorkspaceTypeReference{
-					Name: "universal",
-					Path: "root",
-				}
-				labels := map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}
-				path, existed, err := createWorkspaceAndWait(ctx, execCtx.KCPClusterClient, orgPath, consumerName, wsType, labels)
-				if err != nil {
-					return err
-				}
-
-				execCtx.State[StateKeyConsumerPath] = path.String()
-				if existed {
-					fmt.Fprintf(execCtx.Out, "  Workspace %q already exists at %s\n", consumerName, path)
-				} else {
-					fmt.Fprintf(execCtx.Out, "  Workspace %q created and ready at %s\n", consumerName, path)
-				}
-
-				return nil
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[StateKeyOrgPath]), consumerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}, StateKeyConsumerPath)
 			},
 		},
 		{
@@ -273,14 +237,7 @@ Quickstart complete! Here's what was created:
 	return err
 }
 
-func createWorkspaceAndWait(
-	ctx context.Context,
-	client kcpclientset.ClusterInterface,
-	parentPath logicalcluster.Path,
-	name string,
-	wsType *tenancyv1alpha1.WorkspaceTypeReference,
-	labels map[string]string,
-) (logicalcluster.Path, bool, error) {
+func createWorkspaceAndWait(ctx context.Context, client kcpclientset.ClusterInterface, parentPath logicalcluster.Path, name string, wsType *tenancyv1alpha1.WorkspaceTypeReference, labels map[string]string) (logicalcluster.Path, bool, error) {
 	ws := &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -396,67 +353,22 @@ func createAPIBindingAndWait(
 	return nil
 }
 
-func applyAPIResourceSchema(
-	ctx context.Context,
-	client kcpclientset.ClusterInterface,
-	out io.Writer,
-	workspacePath logicalcluster.Path,
-	efs embed.FS,
-	filename string,
-) error {
+func applyEmbeddedResource(out io.Writer, efs embed.FS, filename string, kind string, create func(data []byte) (string, error)) error {
 	data, err := efs.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("reading embedded resource %s: %w", filename, err)
 	}
 
-	schema := &apisv1alpha1.APIResourceSchema{}
-	if err := yaml.Unmarshal(data, schema); err != nil {
-		return fmt.Errorf("parsing %s: %w", filename, err)
-	}
-
-	_, err = client.Cluster(workspacePath).ApisV1alpha1().APIResourceSchemas().
-		Create(ctx, schema, metav1.CreateOptions{})
+	name, err := create(data)
 	if apierrors.IsAlreadyExists(err) {
-		fmt.Fprintf(out, "  APIResourceSchema %q already exists\n", schema.Name)
+		fmt.Fprintf(out, "  %s %q already exists\n", kind, name)
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("creating APIResourceSchema: %w", err)
+		return err
 	}
 
-	fmt.Fprintf(out, "  APIResourceSchema %q created\n", schema.Name)
-	return nil
-}
-
-func applyAPIExport(
-	ctx context.Context,
-	client kcpclientset.ClusterInterface,
-	out io.Writer,
-	workspacePath logicalcluster.Path,
-	efs embed.FS,
-	filename string,
-) error {
-	data, err := efs.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("reading embedded resource %s: %w", filename, err)
-	}
-
-	export := &apisv1alpha2.APIExport{}
-	if err := yaml.Unmarshal(data, export); err != nil {
-		return fmt.Errorf("parsing %s: %w", filename, err)
-	}
-
-	_, err = client.Cluster(workspacePath).ApisV1alpha2().APIExports().
-		Create(ctx, export, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		fmt.Fprintf(out, "  APIExport %q already exists\n", export.Name)
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("creating APIExport: %w", err)
-	}
-
-	fmt.Fprintf(out, "  APIExport %q created\n", export.Name)
+	fmt.Fprintf(out, "  %s %q created\n", kind, name)
 	return nil
 }
 
@@ -486,5 +398,21 @@ func applySampleCowboy(ctx context.Context, execCtx ExecutionContext, workspaceP
 	}
 
 	fmt.Fprintf(execCtx.Out, "  Cowboy %q created\n", obj.GetName())
+	return nil
+}
+
+func createWorkspaceStep(ctx context.Context, execCtx ExecutionContext, parentPath logicalcluster.Path, name string, wsType *tenancyv1alpha1.WorkspaceTypeReference, labels map[string]string, stateKey string) error {
+	path, existed, err := createWorkspaceAndWait(ctx, execCtx.KCPClusterClient, parentPath, name, wsType, labels)
+	if err != nil {
+		return err
+	}
+
+	execCtx.State[stateKey] = path.String()
+	if existed {
+		fmt.Fprintf(execCtx.Out, "  Workspace %q already exists at %s\n", name, path)
+	} else {
+		fmt.Fprintf(execCtx.Out, "  Workspace %q created and ready at %s\n", name, path)
+	}
+
 	return nil
 }
