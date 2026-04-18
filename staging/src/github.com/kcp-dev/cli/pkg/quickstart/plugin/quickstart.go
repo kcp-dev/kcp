@@ -27,7 +27,7 @@ func (o *QuickstartOptions) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, o.Timeout)
 	defer cancel()
 
-	execCtx, err := o.buildExecCtx()
+	execCtx, err := o.buildExecutionContext()
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (o *QuickstartOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *QuickstartOptions) buildExecCtx() (scenarios.ExecutionContext, error) {
+func (o *QuickstartOptions) buildExecutionContext() (scenarios.ExecutionContext, error) {
 	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {
 		return scenarios.ExecutionContext{}, fmt.Errorf("failed to get client config: %w", err)
