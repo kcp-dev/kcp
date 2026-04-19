@@ -23,6 +23,7 @@ import (
 	"github.com/kcp-dev/cli/pkg/quickstart/scenarios"
 )
 
+// Run executes the quickstart scenario, creating all resources step by step, or cleaning them up if --cleanup is set.
 func (o *QuickstartOptions) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, o.Timeout)
 	defer cancel()
