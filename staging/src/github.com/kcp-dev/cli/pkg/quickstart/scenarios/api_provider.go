@@ -55,16 +55,16 @@ type apiProviderScenario struct{}
 func (s *apiProviderScenario) Name() string { return "api-provider" }
 
 func (s *apiProviderScenario) Steps(prefix string) []Step {
-	orgName := prefix + OrgSuffix
-	providerName := prefix + ProviderSuffix
-	consumerName := prefix + ConsumerSuffix
+	orgName := prefix + orgSuffix
+	providerName := prefix + providerSuffix
+	consumerName := prefix + consumerSuffix
 
 	return []Step{
 		{
 			Description:        fmt.Sprintf("Creating organization workspace %q", orgName),
 			CleanupDescription: fmt.Sprintf("Deleting organization workspace %q (cascades provider and consumer)", orgName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath("root"), orgName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "organization", Path: "root"}, map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}, StateKeyOrgPath)
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath("root"), orgName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "organization", Path: "root"}, map[string]string{quickstartLabel: "true", quickstartPrefixLabel: prefix}, stateKeyOrgPath)
 			},
 			Cleanup: func(ctx context.Context, execCtx ExecutionContext) error {
 				rootPath := logicalcluster.NewPath("root")
@@ -111,13 +111,13 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 		{
 			Description: fmt.Sprintf("Creating service provider workspace %q", providerName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[StateKeyOrgPath]), providerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}, StateKeyProviderPath)
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[stateKeyOrgPath]), providerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{quickstartLabel: "true", quickstartPrefixLabel: prefix}, stateKeyProviderPath)
 			},
 		},
 		{
 			Description: "Applying APIResourceSchema",
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				providerPath := logicalcluster.NewPath(execCtx.State[StateKeyProviderPath])
+				providerPath := logicalcluster.NewPath(execCtx.State[stateKeyProviderPath])
 				return applyEmbeddedResource(execCtx.Out, apiProviderResources, "resources/api-provider/apiresourceschema.yaml", "APIResourceSchema", func(data []byte) (string, error) {
 					obj := &apisv1alpha1.APIResourceSchema{}
 					if err := yaml.Unmarshal(data, obj); err != nil {
@@ -135,7 +135,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 		{
 			Description: "Applying APIExport",
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				providerPath := logicalcluster.NewPath(execCtx.State[StateKeyProviderPath])
+				providerPath := logicalcluster.NewPath(execCtx.State[stateKeyProviderPath])
 				return applyEmbeddedResource(execCtx.Out, apiProviderResources, "resources/api-provider/apiexport.yaml", "APIExport", func(data []byte) (string, error) {
 					obj := &apisv1alpha2.APIExport{}
 					if err := yaml.Unmarshal(data, obj); err != nil {
@@ -153,14 +153,14 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 		{
 			Description: fmt.Sprintf("Creating consumer workspace %q", consumerName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[StateKeyOrgPath]), consumerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{QuickstartLabel: "true", QuickstartPrefixLabel: prefix}, StateKeyConsumerPath)
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[stateKeyOrgPath]), consumerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{quickstartLabel: "true", quickstartPrefixLabel: prefix}, StateKeyConsumerPath)
 			},
 		},
 		{
 			Description: "Creating APIBinding in consumer workspace",
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
 				consumerPath := logicalcluster.NewPath(execCtx.State[StateKeyConsumerPath])
-				providerPath := execCtx.State[StateKeyProviderPath]
+				providerPath := execCtx.State[stateKeyProviderPath]
 				return createAPIBindingAndWait(ctx, execCtx.KCPClusterClient, execCtx.Out, consumerPath,
 					"cowboys", providerPath, "cowboys")
 			},
@@ -169,7 +169,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 }
 
 func (s *apiProviderScenario) Samples(prefix string) []Step {
-	consumerName := prefix + ConsumerSuffix
+	consumerName := prefix + consumerSuffix
 	return []Step{
 		{
 			Description: fmt.Sprintf("Applying sample Cowboy resource in %q", consumerName),
@@ -178,7 +178,7 @@ func (s *apiProviderScenario) Samples(prefix string) []Step {
 				if err := applySampleCowboy(ctx, execCtx, consumerPath); err != nil {
 					return err
 				}
-				execCtx.State[StateKeyWithSamples] = "true"
+				execCtx.State[stateKeyWithSamples] = "true"
 				return nil
 			},
 		},
@@ -186,12 +186,12 @@ func (s *apiProviderScenario) Samples(prefix string) []Step {
 }
 
 func (s *apiProviderScenario) PrintSummary(out io.Writer, prefix string, state map[string]string) error {
-	orgName := prefix + OrgSuffix
-	providerName := prefix + ProviderSuffix
-	consumerName := prefix + ConsumerSuffix
+	orgName := prefix + orgSuffix
+	providerName := prefix + providerSuffix
+	consumerName := prefix + consumerSuffix
 
 	var tryItOut string
-	if state[StateKeyWithSamples] == "true" {
+	if state[stateKeyWithSamples] == "true" {
 		tryItOut = fmt.Sprintf(`  Try it out:
     kubectl ws :%s
     kubectl get cowboys`, state[StateKeyConsumerPath])
@@ -230,7 +230,7 @@ Quickstart complete! Here's what was created:
 		orgName,
 		providerName,
 		consumerName,
-		state[StateKeyProviderPath],
+		state[stateKeyProviderPath],
 		tryItOut,
 		prefix,
 	)

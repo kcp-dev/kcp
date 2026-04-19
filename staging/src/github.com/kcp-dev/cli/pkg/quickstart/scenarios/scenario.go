@@ -27,17 +27,17 @@ import (
 )
 
 const (
-	QuickstartLabel       = "kcp.io/quickstart"
-	QuickstartPrefixLabel = "kcp.io/quickstart-prefix"
+	quickstartLabel       = "kcp.io/quickstart"
+	quickstartPrefixLabel = "kcp.io/quickstart-prefix"
 
-	OrgSuffix      = "-org"
-	ProviderSuffix = "-provider"
-	ConsumerSuffix = "-consumer"
+	orgSuffix      = "-org"
+	providerSuffix = "-provider"
+	consumerSuffix = "-consumer"
 
-	StateKeyOrgPath      = "org-path"
-	StateKeyProviderPath = "provider-path"
+	stateKeyOrgPath      = "org-path"
+	stateKeyProviderPath = "provider-path"
 	StateKeyConsumerPath = "consumer-path"
-	StateKeyWithSamples  = "with-samples"
+	stateKeyWithSamples  = "with-samples"
 )
 
 type Step struct {
