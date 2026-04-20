@@ -56,7 +56,7 @@ jobs:
 
       - name: Run GoReleaser on tag
         if: github.event_name != 'pull_request'
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # tag=v7.0.0
+        uses: goreleaser/goreleaser-action@e24998b8b67b290c2fa8b7c14fcfa7de2c5c9b8c # tag=v7.1.0
         with:
           distribution: goreleaser
           version: "~> v2"
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run GoReleaser on pull request
         if: github.event_name == 'pull_request'
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # tag=v7.0.0
+        uses: goreleaser/goreleaser-action@e24998b8b67b290c2fa8b7c14fcfa7de2c5c9b8c # tag=v7.1.0
         with:
           distribution: goreleaser
           version: "~> v2"
