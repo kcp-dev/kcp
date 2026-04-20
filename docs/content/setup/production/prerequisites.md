@@ -35,19 +35,9 @@ etcd-druid manages etcd clusters for kcp shards with automated backup, restore, 
 helm install etcd-druid oci://europe-docker.pkg.dev/gardener-project/releases/charts/gardener/etcd-druid \
   --namespace etcd-druid \
   --create-namespace \
-  --version v0.33.0
+  --version v0.36.1
 ```
 
-### Install Required CRDs
-
-**Known Issue**: The etcd-druid chart doesn't install CRDs automatically. Install them manually:
-([Issue #1185](https://github.com/gardener/etcd-druid/issues/1185)).
-Once #1185 is released, this step can be skipped.
-
-```bash
-kubectl apply -f contrib/production/etcd-druid/etcdcopybackupstasks.druid.gardener.cloud.yaml
-kubectl apply -f contrib/production/etcd-druid/etcds.druid.gardener.cloud.yaml
-```
 
 ### 2. cert-manager
 
