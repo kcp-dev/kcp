@@ -118,8 +118,16 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 				}
 
 				if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted) {
+					// Adaptive requeue: poll at 1/5 of the LogicalCluster's age, capped at 5 minutes.
+					// Young clusters get checked quickly (fast feedback when deletion finishes),
+					// older/stuck ones back off to reduce reconciler load.
+					// If the LogicalCluster never finishes deleting, the workspace stays in this
+					// branch indefinitely, requeuing every 5 minutes. There is no timeout or
+					// force-delete path here: exit only happens when getLogicalCluster returns
+					// NotFound, or something else sets WorkspaceContentDeleted=True. The mirrored
+					// condition reason/message below is the only signal of why it's stuck.
 					after := time.Since(logicalCluster.CreationTimestamp.Time) / 5
-					if max := time.Minute * 10; after > max {
+					if max := time.Minute * 5; after > max {
 						after = max
 					}
 					cond := conditions.Get(logicalCluster, tenancyv1alpha1.WorkspaceContentDeleted)

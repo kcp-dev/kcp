@@ -30,6 +30,7 @@ import (
 const (
 	byBase36Sha224Name = "byBase36Sha224Name"
 	unschedulable      = "unschedulable"
+	byLogicalCluster   = "byLogicalCluster"
 )
 
 func indexUnschedulable(obj interface{}) ([]string, error) {
@@ -38,6 +39,18 @@ func indexUnschedulable(obj interface{}) ([]string, error) {
 		return []string{"true"}, nil
 	}
 	return []string{}, nil
+}
+
+// indexWorkspaceByLogicalCluster indexes Workspaces by their spec.cluster (the
+// logical cluster name of the underlying LogicalCluster). This lets the
+// controller quickly find the Workspace tied to a given LogicalCluster when a
+// LogicalCluster event fires.
+func indexWorkspaceByLogicalCluster(obj interface{}) ([]string, error) {
+	workspace := obj.(*tenancyv1alpha1.Workspace)
+	if workspace.Spec.Cluster == "" {
+		return []string{}, nil
+	}
+	return []string{workspace.Spec.Cluster}, nil
 }
 
 func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
