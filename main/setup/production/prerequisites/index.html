@@ -805,15 +805,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#install-required-crds" class="md-nav__link">
-    <span class="md-ellipsis">
-      Install Required CRDs
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#2-cert-manager" class="md-nav__link">
     <span class="md-ellipsis">
       2. cert-manager
@@ -4093,15 +4084,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#install-required-crds" class="md-nav__link">
-    <span class="md-ellipsis">
-      Install Required CRDs
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#2-cert-manager" class="md-nav__link">
     <span class="md-ellipsis">
       2. cert-manager
@@ -4291,104 +4273,97 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>helm<span class="w"> </span>install<span class="w"> </span>etcd-druid<span class="w"> </span>oci://europe-docker.pkg.dev/gardener-project/releases/charts/gardener/etcd-druid<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--namespace<span class="w"> </span>etcd-druid<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--version<span class="w"> </span>v0.33.0
-</code></pre></div>
-<h3 id="install-required-crds">Install Required CRDs<a class="headerlink" href="#install-required-crds" title="Permanent link">&para;</a></h3>
-<p><strong>Known Issue</strong>: The etcd-druid chart doesn't install CRDs automatically. Install them manually:
-(<a href="https://github.com/gardener/etcd-druid/issues/1185">Issue #1185</a>).
-Once #1185 is released, this step can be skipped.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcdcopybackupstasks.druid.gardener.cloud.yaml
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/etcd-druid/etcds.druid.gardener.cloud.yaml
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--version<span class="w"> </span>v0.36.1
 </code></pre></div>
 <h3 id="2-cert-manager">2. cert-manager<a class="headerlink" href="#2-cert-manager" title="Permanent link">&para;</a></h3>
 <p>cert-manager automates certificate management for TLS encryption throughout the kcp deployment.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>jetstack<span class="w"> </span>https://charts.jetstack.io
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>helm<span class="w"> </span>upgrade<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--install<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>--namespace<span class="w"> </span>cert-manager<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span>--version<span class="w"> </span>v1.18.2<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span>--set<span class="w"> </span>crds.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span>--atomic<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span>cert-manager<span class="w"> </span>jetstack/cert-manager
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>jetstack<span class="w"> </span>https://charts.jetstack.io
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>helm<span class="w"> </span>upgrade<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--install<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--namespace<span class="w"> </span>cert-manager<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span>--version<span class="w"> </span>v1.18.2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span>--set<span class="w"> </span>crds.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span>--atomic<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>cert-manager<span class="w"> </span>jetstack/cert-manager
 </code></pre></div>
 <p>Optional:</p>
 <p>We gonna use the CloudFlare DNS01 challenge solver for Let's Encrypt certificates in some deployment variants. If you plan to use CloudFlare, install the cert-manager CloudFlare DNS01 solver:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml.template<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># Edit contrib/production/cert-manager/cluster-issuer.yaml to add your Email.</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cp<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml.template<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Edit contrib/production/cert-manager/cloudflare-secret.yaml to add your CloudFlare API token.</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cp<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml.template<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Edit contrib/production/cert-manager/cluster-issuer.yaml to add your Email.</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cluster-issuer.yaml
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>cp<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml.template<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Edit contrib/production/cert-manager/cloudflare-secret.yaml to add your CloudFlare API token.</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/cert-manager/cloudflare-secret.yaml
 </code></pre></div>
 <h3 id="3-kcp-operator">3. kcp-operator<a class="headerlink" href="#3-kcp-operator" title="Permanent link">&para;</a></h3>
 <p>The kcp-operator manages kcp resource lifecycle and ensures proper configuration.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>kcp<span class="w"> </span>https://kcp-dev.github.io/helm-charts
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--namespace<span class="w"> </span>kcp-operator<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>kcp-operator<span class="w"> </span>kcp/kcp-operator
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>kcp<span class="w"> </span>https://kcp-dev.github.io/helm-charts
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--namespace<span class="w"> </span>kcp-operator<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span>kcp-operator<span class="w"> </span>kcp/kcp-operator
 </code></pre></div>
 <h3 id="4-optional-oidc-provider-dex">4. (Optional) OIDC Provider (Dex)<a class="headerlink" href="#4-optional-oidc-provider-dex" title="Permanent link">&para;</a></h3>
 <p>If you have an existing OIDC provider, you can skip this section. This guide uses Dex as the OIDC provider with PostgreSQL as the backend database.</p>
 <h3 id="41-install-postgresql-operator">4.1. Install PostgreSQL Operator<a class="headerlink" href="#41-install-postgresql-operator" title="Permanent link">&para;</a></h3>
 <p>Create the OIDC namespace and install CloudNative PostgreSQL operator:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>oidc
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>--server-side<span class="w"> </span>-f<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>oidc
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>--server-side<span class="w"> </span>-f<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
 </code></pre></div>
 <h3 id="42-deploy-postgresql-database">4.2. Deploy PostgreSQL Database<a class="headerlink" href="#42-deploy-postgresql-database" title="Permanent link">&para;</a></h3>
 <p>Create a PostgreSQL cluster and database for Dex:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/postgres-cluster.yaml
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/postgres-database.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/postgres-cluster.yaml
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/postgres-database.yaml
 </code></pre></div>
 <h3 id="43-configure-dex-certificates">4.3 Configure Dex Certificates<a class="headerlink" href="#43-configure-dex-certificates" title="Permanent link">&para;</a></h3>
 <p>Request a certificate for Dex from cert-manager:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/certificate-dns.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/oidc-dex/certificate-dns.yaml
 </code></pre></div>
 <h3 id="44-deploy-dex">4.4 Deploy Dex<a class="headerlink" href="#44-deploy-dex" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Check certificate status</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>certificate<span class="w"> </span>-n<span class="w"> </span>oidc
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Once the certificate is ready, generate Dex values file</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>cp<span class="w"> </span>contrib/production/oidc-dex/values.yaml.template<span class="w"> </span>contrib/production/oidc-dex/values.yaml
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># Edit contrib/production/oidc-dex/values.yaml to set the correct domain name for Dex and database credentials.</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>dex<span class="w"> </span>https://charts.dexidp.io
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>-i<span class="w"> </span>dex<span class="w"> </span>dex/dex<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span>--namespace<span class="w"> </span>oidc<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span>-f<span class="w"> </span>contrib/production/oidc-dex/values.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Check certificate status</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>certificate<span class="w"> </span>-n<span class="w"> </span>oidc
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Once the certificate is ready, generate Dex values file</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>cp<span class="w"> </span>contrib/production/oidc-dex/values.yaml.template<span class="w"> </span>contrib/production/oidc-dex/values.yaml
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># Edit contrib/production/oidc-dex/values.yaml to set the correct domain name for Dex and database credentials.</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>dex<span class="w"> </span>https://charts.dexidp.io
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>-i<span class="w"> </span>dex<span class="w"> </span>dex/dex<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">  </span>--namespace<span class="w"> </span>oidc<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span>-f<span class="w"> </span>contrib/production/oidc-dex/values.yaml
 </code></pre></div>
 <h3 id="5-dns-configuration">5. DNS Configuration<a class="headerlink" href="#5-dns-configuration" title="Permanent link">&para;</a></h3>
 <p>Each deployment type requires specific DNS records. The exact requirements depend on your chosen variant:</p>
 <h4 id="kcp-dekker-self-signed">kcp-dekker (Self-Signed)<a class="headerlink" href="#kcp-dekker-self-signed" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>api.dekker.example.com → LoadBalancer IP
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>api.dekker.example.com → LoadBalancer IP
 </code></pre></div>
 <h4 id="kcp-vespucci-external-certs">kcp-vespucci (External Certs)<a class="headerlink" href="#kcp-vespucci-external-certs" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>api.vespucci.example.com → LoadBalancer IP
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>root.vespucci.example.com → LoadBalancer IP
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>alpha.vespucci.example.com → LoadBalancer IP
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>beta.vespucci.example.com → LoadBalancer IP - remote
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>api.vespucci.example.com → LoadBalancer IP
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>root.vespucci.example.com → LoadBalancer IP
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>alpha.vespucci.example.com → LoadBalancer IP
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>beta.vespucci.example.com → LoadBalancer IP - remote
 </code></pre></div>
 <h4 id="kcp-comer-dual-front-proxy">kcp-comer (Dual Front-Proxy)<a class="headerlink" href="#kcp-comer-dual-front-proxy" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>api.comer.example.com → CDN/LoadBalancer IP
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>root.comer.example.com → Internal LoadBalancer IP
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>alpha.comer.example.com → Internal LoadBalancer IP
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>api.comer.example.com → CDN/LoadBalancer IP
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>root.comer.example.com → Internal LoadBalancer IP
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>alpha.comer.example.com → Internal LoadBalancer IP
 </code></pre></div>
 <h2 id="verification-steps">Verification Steps<a class="headerlink" href="#verification-steps" title="Permanent link">&para;</a></h2>
 <p>After installing all prerequisites, verify the installation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Check all required namespaces exist</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>namespaces<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">&quot;(cert-manager|etcd-druid|kcp-operator|dex)&quot;</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Verify operators are running</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-A<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">&quot;(cert-manager|etcd-druid|kcp-operator|dex)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Check all required namespaces exist</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>namespaces<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">&quot;(cert-manager|etcd-druid|kcp-operator|dex)&quot;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Verify operators are running</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-A<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s2">&quot;(cert-manager|etcd-druid|kcp-operator|dex)&quot;</span>
 </code></pre></div>
 <h2 id="resource-requirements">Resource Requirements<a class="headerlink" href="#resource-requirements" title="Permanent link">&para;</a></h2>
 <p>Minimum recommended resources for shared components:</p>
