@@ -179,7 +179,7 @@ func NewController(
 
 	// Watch LogicalCluster deletions/updates so the owning Workspace is
 	// enqueued immediately, instead of waiting for the phase reconciler's
-	// backoff-based requeue (up to 10 min) to poll the LogicalCluster state.
+	// backoff-based requeue (up to 5 min) to poll the LogicalCluster state.
 	// Handlers are attached to both the local and the cache (replicated)
 	// informers: the local one reacts without any replication lag when the
 	// Workspace and its LogicalCluster live on the same shard, while the
