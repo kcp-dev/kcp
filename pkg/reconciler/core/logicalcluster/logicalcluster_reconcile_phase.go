@@ -29,6 +29,14 @@ type phaseReconciler struct{}
 
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	switch workspace.Status.Phase {
+	case "", corev1alpha1.LogicalClusterPhaseScheduling:
+		// A LogicalCluster object's placement is the shard it lives on, so its
+		// existence implies scheduling is complete. Advance to Initializing and
+		// stop so admission can copy Spec.Initializers to Status.Initializers
+		// on the transition; the next reconcile advances to Ready if none
+		// remain.
+		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInitializing
+		return reconcileStatusStopAndRequeue, nil
 	case corev1alpha1.LogicalClusterPhaseInitializing:
 		if len(workspace.Status.Initializers) > 0 {
 			conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "Initializers still exist: %v", workspace.Status.Initializers)
