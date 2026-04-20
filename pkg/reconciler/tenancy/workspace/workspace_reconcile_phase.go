@@ -119,7 +119,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 
 				if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted) {
 					after := time.Since(logicalCluster.CreationTimestamp.Time) / 5
-					if max := time.Minute * 10; after > max {
+					if max := time.Minute * 5; after > max {
 						after = max
 					}
 					cond := conditions.Get(logicalCluster, tenancyv1alpha1.WorkspaceContentDeleted)

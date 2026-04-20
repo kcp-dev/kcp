@@ -536,6 +536,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 	)
 	if err != nil {
 		return err
@@ -548,7 +549,8 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 				return s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

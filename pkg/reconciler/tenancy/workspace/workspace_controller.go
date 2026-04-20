@@ -132,6 +132,7 @@ func NewController(
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
+	cacheLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -174,6 +175,24 @@ func NewController(
 		AddFunc:    func(obj interface{}) { c.enqueueShard(obj) },
 		UpdateFunc: func(obj, _ interface{}) { c.enqueueShard(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueueShard(obj) },
+	}))
+
+	// Watch LogicalCluster deletions/updates so the owning Workspace is
+	// enqueued immediately, instead of waiting for the phase reconciler's
+	// backoff-based requeue (up to 10 min) to poll the LogicalCluster state.
+	// Handlers are attached to both the local and the cache (replicated)
+	// informers: the local one reacts without any replication lag when the
+	// Workspace and its LogicalCluster live on the same shard, while the
+	// cache one covers the cross-shard case where the LogicalCluster is
+	// only visible via replication.
+	_, _ = logicalClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(_, obj interface{}) { c.enqueueLogicalCluster(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueLogicalCluster(obj) },
+	}))
+
+	_, _ = cacheLogicalClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(_, obj interface{}) { c.enqueueLogicalCluster(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueLogicalCluster(obj) },
 	}))
 
 	return c, nil
@@ -222,6 +241,39 @@ func (c *Controller) enqueue(obj interface{}) {
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(4).Info("queueing Workspace")
 	c.queue.Add(key)
+}
+
+// enqueueLogicalCluster enqueues the Workspace (if any) whose spec.cluster
+// matches the LogicalCluster's logical cluster name. Used to react promptly to
+// LogicalCluster deletions so the Workspace does not linger waiting for the
+// phase reconciler's polling interval.
+func (c *Controller) enqueueLogicalCluster(obj interface{}) {
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	workspaces, err := c.workspaceIndexer.ByIndex(byLogicalCluster, clusterName.String())
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	for _, workspace := range workspaces {
+		wsKey, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
+		if err != nil {
+			utilruntime.HandleError(err)
+			continue
+		}
+		logging.WithQueueKey(logger, wsKey).V(3).Info("queueing Workspace because of LogicalCluster event", "logicalCluster", clusterName)
+		c.queue.Add(wsKey)
+	}
 }
 
 func (c *Controller) enqueueShard(obj interface{}) {
@@ -358,7 +410,8 @@ func InstallIndexers(
 	globalWorkspaceTypeInformer tenancyv1alpha1informers.WorkspaceTypeClusterInformer,
 ) {
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
-		unschedulable: indexUnschedulable,
+		unschedulable:    indexUnschedulable,
+		byLogicalCluster: indexWorkspaceByLogicalCluster,
 	})
 	indexers.AddIfNotPresentOrDie(globalShardInformer.Informer().GetIndexer(), cache.Indexers{
 		byBase36Sha224Name: indexByBase36Sha224Name,
