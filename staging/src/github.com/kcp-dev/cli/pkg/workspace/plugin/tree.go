@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"text/tabwriter"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -34,6 +35,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 )
@@ -55,6 +57,7 @@ type TreeOptions struct {
 
 	Full        bool
 	Interactive bool
+	Wide        bool
 
 	kcpClusterClient kcpclientset.ClusterInterface
 }
@@ -71,6 +74,7 @@ func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspace names")
 	cmd.Flags().BoolVarP(&o.Interactive, "interactive", "i", o.Interactive, "Interactive workspace tree browser")
+	cmd.Flags().BoolVar(&o.Wide, "wide", o.Wide, "Show workspace and logical cluster status for each node")
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -110,13 +114,38 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 	if !o.Full {
 		name = name[strings.LastIndex(name, ":")+1:]
 	}
-	branch := tree.AddBranch(name)
+	label := name
+	if o.Wide {
+		label = o.formatWideName(ctx, name, current, "")
+	}
+	branch := tree.AddBranch(label)
 	if err := o.populateBranch(ctx, branch, current, name); err != nil {
 		return err
 	}
 
+	if o.Wide {
+		w := tabwriter.NewWriter(o.Out, 0, 0, 2, ' ', 0)
+		fmt.Fprint(w, tree.String())
+		return w.Flush()
+	}
 	fmt.Println(tree.String())
 	return nil
+}
+
+// formatWideName appends workspace and logical cluster status to the name.
+// workspacePhase is the Phase read from the parent's Workspace list ("" when unknown, e.g. for the root).
+func (o *TreeOptions) formatWideName(ctx context.Context, name string, path logicalcluster.Path, workspacePhase corev1alpha1.LogicalClusterPhaseType) string {
+	lcPhase := corev1alpha1.LogicalClusterPhaseType("Unknown")
+	lc, err := o.kcpClusterClient.Cluster(path).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+	if err == nil && lc.Status.Phase != "" {
+		lcPhase = lc.Status.Phase
+	}
+
+	wsPart := "-"
+	if workspacePhase != "" {
+		wsPart = string(workspacePhase)
+	}
+	return fmt.Sprintf("%s\tws=%s\tlc=%s", name, wsPart, lcPhase)
 }
 
 // runInteractive starts the interactive workspace tree browser.
@@ -222,18 +251,9 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 	node.hasChildren = len(results.Items) > 0
 	node.childrenLoaded = false
 
-	shouldLoadChildren := node.expanded
-	if !shouldLoadChildren {
-		if workspace == currentWorkspace {
-			shouldLoadChildren = true
-		} else if currentWorkspace.HasPrefix(workspace) {
-			shouldLoadChildren = true
-		}
-	}
+	shouldLoadChildren := node.expanded || currentWorkspace.HasPrefix(workspace)
 
 	if shouldLoadChildren {
-		loadAllChildren := node.expanded
-
 		for _, ws := range results.Items {
 			// Skip workspaces that are being deleted, as they may no longer be
 			// accessible and listing their children could result in a 403.
@@ -243,12 +263,6 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 			_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
 			if err != nil {
 				return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
-			}
-
-			if !loadAllChildren {
-				if !currentWorkspace.HasPrefix(childPath) && childPath != currentWorkspace {
-					continue
-				}
 			}
 
 			childName := ws.Name
@@ -278,7 +292,7 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 
 			node.children = append(node.children, childNode)
 
-			if !loadAllChildren || currentWorkspace.HasPrefix(childPath) || childPath == currentWorkspace {
+			if currentWorkspace.HasPrefix(childPath) {
 				if err := o.populateInteractiveNodeBubble(ctx, childNode, childPath, childName, currentWorkspace, currentNode); err != nil {
 					return err
 				}
@@ -335,7 +349,11 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 		if o.Full {
 			name = parentName + ":" + name
 		}
-		branch := tree.AddBranch(name)
+		label := name
+		if o.Wide {
+			label = o.formatWideName(ctx, name, current, workspace.Status.Phase)
+		}
+		branch := tree.AddBranch(label)
 		if err := o.populateBranch(ctx, branch, current, name); err != nil {
 			return err
 		}
