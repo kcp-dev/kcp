@@ -292,7 +292,7 @@ func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterNam
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{
-				Name: "quota-" + clusterName.String(),
+				Name: "quota",
 			},
 		),
 		work: func(ctx context.Context) {
