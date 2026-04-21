@@ -114,15 +114,20 @@ higher than in-logical-cluster references and logic must be carefully planned:
 
 For example, during workspace creation and scheduling the scheduler running on
 the shard hosting the `Workspace` object will access another shard to create the
-`LogicalCluster` object initially. It does that by choosing a random logical
-cluster name (optimistically) and choosing a shard that name maps to (through
-consistent hashing). It then tries to create the `LogicalCluster`. On conflict,
-it can check whether the existing object belong the given `Workspace` object or
-not. If not, another name and shard is chosen, until scheduling succeeds. During
-initialization the controller on the `Workspace` hosting shard will keep watching
-the logical cluster on the other shard, with some exponential backoff. In other
-words, the `Workspace` hosting shard does not continuously watch the object on
-the other shard.
+`LogicalCluster` object initially. It picks a target shard at random from the
+set of valid `Shard` objects matching `Workspace.spec.location.selector` (see
+[`chooseShardAndMarkCondition`][choose-shard]), then generates an
+optimistic logical-cluster name (a 16-character base36 hash of a random 32-byte
+token — see [`randomClusterName`][random-name], which gives
+P(collision) < 10⁻⁹ for 2²⁶ clusters) and tries to create the `LogicalCluster`
+on that shard. On `AlreadyExists` it checks whether the existing object belongs
+to this `Workspace`; if not, it drops the cluster-name annotation and the next
+reconcile loop picks a new name and shard. The `Workspace`-hosting shard does
+not maintain a continuous watch on the remote `LogicalCluster`; it relies on
+the periodic reconcile of the workspace to observe initialization progress.
+
+[choose-shard]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L240
+[random-name]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L427
 
 Another example is API binding, but it is different than workspace scheduling:
 a binding controller running on the shard hosting the `APIBinding` object will
@@ -188,6 +193,145 @@ By the nature of replication, objects in the cache server can be old and
 incomplete. For instance, the non-existence of an object in the cache server
 does not mean it does not exist in its respective shard. The replication
 could be just delayed or the object was not identified to be worth to replicate.
+
+## Controllers and Sharding
+
+### Where controllers run
+
+Standard kcp controllers (workspace scheduler, APIBinding, APIExport endpoint
+slices, replication, RBAC labelers, etc.) run on **every shard**. There is no
+leader election across shards; each shard owns the logical clusters scheduled
+to it and reconciles its own subset of objects through wildcard informers
+scoped to that shard. This works because objects of a given logical cluster
+live on exactly one shard.
+
+### Dual-informer pattern: local + cache fallback
+
+Most cross-shard-aware controllers run two informers per type:
+
+- a **local** informer over the shard's own etcd, and
+- a **global** informer over the cache server (via the
+  `CacheKcpSharedInformerFactory`).
+
+Lookups follow a "local first, cache fallback" pattern, typically via
+[`indexers.ByPathAndNameWithFallback`][by-path-fallback]: try the local copy,
+then the cached copy if the object lives on a different shard. The APIBinding
+controller is a representative example — it resolves an `APIExport` reference
+by trying the local informer and falling back to the cache.
+
+[by-path-fallback]: https://github.com/kcp-dev/kcp/blob/main/pkg/indexers/indexers.go
+
+### Cross-shard write pattern
+
+!!! warning "Anti-pattern, tracked for removal"
+    Today the workspace scheduler writes directly to a remote shard to create
+    the `LogicalCluster`. This is the only common cross-shard write path in
+    kcp and we want to replace it with a pull-based, cache-mediated handoff.
+    Tracked in [kcp-dev/kcp#4054](https://github.com/kcp-dev/kcp/issues/4054).
+    New controllers should not introduce additional cross-shard writes.
+
+When a controller has to write to another shard (workspace scheduling is the
+only common case today), it acquires an admin client targeted at that shard's
+`spec.baseURL` (see [`createLogicalCluster`][create-lc]). There is no special
+backoff or circuit breaker for cross-shard writes — failures bubble up as
+queue requeues with the standard rate-limited backoff. This means cross-shard
+writes are best kept rare and idempotent.
+
+[create-lc]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L290
+
+### Front-proxy routing
+
+The front-proxy maintains an in-memory index built by the
+[workspace-index controller][index-controller]: it watches `Shard` objects on
+the root shard, then for each shard starts informers over its `Workspace` and
+`LogicalCluster` objects. Requests to `/clusters/<path>/...` are resolved by
+exact-match lookup against this index and reverse-proxied to the owning
+shard. Unknown paths return 403. The proxy itself does not perform consistent
+hashing or load balancing across shards; routing is purely a function of where
+a logical cluster was scheduled.
+
+[index-controller]: https://github.com/kcp-dev/kcp/blob/main/pkg/proxy/index/index_controller.go
+
+## Failure Modes and Bottlenecks
+
+### Shard unavailability
+
+There is no automatic failover for an unhealthy shard. The
+[`isValidShard`][is-valid] check is currently a no-op and shard health is
+inferred only from request errors at the moment of access. Concretely:
+
+- **Workspaces already scheduled** to the unavailable shard are unreachable
+  through the front-proxy until it returns.
+- **Workspace scheduling** continues to succeed for new workspaces as long as
+  at least one valid shard is reachable; the random selector simply skips
+  shards annotated `kcp.io/unschedulable`.
+- **Bound APIs** on a workspace whose `APIExport` lives on an unavailable
+  shard keep functioning: the CRD is materialized locally and the binding
+  controller already has the schema cached. New bindings or schema updates
+  will stall until the export's shard returns.
+- **Cross-shard writes** (e.g. workspace creation racing against the target
+  shard's outage) requeue and retry with the standard workqueue backoff.
+
+[is-valid]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L423
+
+### Cache server bottlenecks
+
+The cache server is the only fan-in point for cross-shard data, which makes it
+the most important scaling consideration in a kcp installation:
+
+- **Cardinality is bounded by what a single apiserver can hold.** The cache
+  server is an `apiextensions-apiserver` backed by etcd. The total count of
+  replicated objects across all shards must fit in one such apiserver. As a
+  rule of thumb, treat ~10,000 objects of any single replicated type as the
+  threshold to start planning partitioning (see "Partitioning strategies"
+  below).
+- **Write amplification is N → 1.** Every shard pushes its replication-marked
+  objects to the same cache server. Large numbers of frequently-updated
+  replicated objects (e.g. webhook configurations or RBAC marked for
+  replication) translate directly into write load on the cache.
+- **Replication is eventually consistent.** Controllers reading from the
+  cache informer can observe stale or temporarily missing objects.
+  Reconciliation logic must tolerate this — never use the cache as the
+  authoritative source for "does X exist?" decisions, and never compare cache
+  resource versions to local resource versions.
+- **Cache server unavailability degrades, not breaks.** Local informers and
+  the local apiserver keep working; what stops is cross-shard visibility.
+  New `APIBinding`s referencing exports on other shards will fail to resolve
+  until the cache returns.
+
+### Front-proxy bottleneck
+
+The default front-proxy implementation watches `Shard`, `Workspace`, and
+`LogicalCluster` objects across every shard. This is fine for tens of shards
+but does not scale to large installations. Production deployments are
+expected to back the proxy index with an external store rather than rely on
+the toy in-memory implementation, or to run multiple regional proxies each
+serving a subset of shards.
+
+### Partitioning strategies
+
+The only partitioning lever implemented today is **`Partition` and
+`PartitionSet` objects**, which scope `APIExportEndpointSlice` consumption to
+a subset of shards (see [Partitions](partitions.md)). This reduces per-
+controller informer load by letting an `APIExport`'s consumers talk only to
+the shards in their partition, but it does not reduce cache-server
+cardinality — every replicated object from every shard still lives in the
+single cache server.
+
+!!! warning "Future work, not implemented"
+    Two further scaling levers are commonly discussed but **not built today**:
+
+    - **Per-region (or per-tenant) cache servers** — currently the cache
+      endpoint is a single global config (`--cache-kubeconfig`); there is no
+      mechanism to map shards to different caches.
+    - **Cache hierarchies** — the replication path is strictly
+      shard → cache; there is no cache → cache forwarding, so a regional
+      cache cannot promote a curated subset to a higher-level global cache.
+
+    Both are tracked in
+    [kcp-dev/kcp#4055](https://github.com/kcp-dev/kcp/issues/4055). Until
+    they exist, the cache server is an installation-wide scaling ceiling and
+    a single point of failure for cross-shard visibility.
 
 ## Bootstrapping
 

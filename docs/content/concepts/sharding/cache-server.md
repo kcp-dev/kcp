@@ -81,15 +81,77 @@ accessible without authentication.
 
 ### Built-in Resources
 
-Out of the box, the server supports the following resources:
+The cache server stores all replicated objects as CustomResourceDefinitions
+in the `system:cache:server` shard under the `system:system-crds` cluster.
 
-- `apiresourceschemas`
-- `apiexports`
-- `shards`
-- `logicalclusters`
+The set of object types replicated to the cache server is wired up by the
+[main replication controller][replication-ctrl]. The full list as of today:
 
-All those resources are represented as CustomResourceDefinitions and
-stored in `system:cache:server` shard under `system:system-crds` cluster.
+| Resource | API group | Filter — replicated when |
+| --- | --- | --- |
+| `apiexports` | `apis.kcp.io/v1alpha2` | always |
+| `apiexportendpointslices` | `apis.kcp.io/v1alpha1` | always |
+| `apiresourceschemas` | `apis.kcp.io/v1alpha1` | always |
+| `apiconversions` | `apis.kcp.io/v1alpha1` | always |
+| `cachedresources` | `cache.kcp.io/v1alpha1` | always |
+| `cachedresourceendpointslices` | `cache.kcp.io/v1alpha1` | always |
+| `shards` | `core.kcp.io/v1alpha1` | always |
+| `workspacetypes` | `tenancy.kcp.io/v1alpha1` | always |
+| `mutatingwebhookconfigurations` | `admissionregistration.k8s.io/v1` | always |
+| `validatingwebhookconfigurations` | `admissionregistration.k8s.io/v1` | always |
+| `validatingadmissionpolicies` | `admissionregistration.k8s.io/v1` | always |
+| `validatingadmissionpolicybindings` | `admissionregistration.k8s.io/v1` | always |
+| `logicalclusters` | `core.kcp.io/v1alpha1` | annotated `core.kcp.io/replicate` |
+| `clusterroles` | `rbac.authorization.k8s.io/v1` | annotated `core.kcp.io/replicate` |
+| `clusterrolebindings` | `rbac.authorization.k8s.io/v1` | annotated `core.kcp.io/replicate` |
+
+User-defined types are added on top of this set via the
+[CachedResource API](../apis/cached-resources.md).
+
+Objects in clusters whose name starts with `system:` are excluded from
+replication.
+
+[replication-ctrl]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/replication/replication_controller.go#L199
+
+#### How RBAC objects are selected for replication
+
+`ClusterRole` and `ClusterRoleBinding` are not replicated wholesale. A set of
+"labeler" controllers stamps the `core.kcp.io/replicate` annotation onto only
+the RBAC objects that are needed for cross-shard authorization decisions:
+
+- The [APIs labeler][rbac-apis] marks `ClusterRole`s that grant `bind` on
+  `apiexports` or any verb on `apiexports/content`, so a binding controller
+  on another shard can authorize a new `APIBinding`.
+- The [Core labeler][rbac-core] marks `ClusterRole`s granting non-resource
+  URL access on logical clusters that themselves carry the replicate
+  annotation.
+- The [tenancy labeler][rbac-tenancy] marks `ClusterRole`s relevant to
+  `WorkspaceType` use.
+- The [`ClusterRoleBinding` labeler][rbac-crb] mirrors the annotation onto
+  bindings whose `roleRef` points at a replicated `ClusterRole`, or whose
+  subject is one of a small set of system-relevant principals.
+
+The replication controller then uses the annotation as its filter, so
+unrelated tenant RBAC stays local.
+
+[rbac-apis]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/apis/replicateclusterrole/replicateclusterrole_controller.go
+[rbac-core]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/core/replicateclusterrole/replicateclusterrole_controller.go
+[rbac-tenancy]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/replicateclusterrole/
+[rbac-crb]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/labelclusterrolebindings/labelclusterrolebinding_reconcile.go
+
+#### What is intentionally not replicated
+
+- **`Workspace` and most `LogicalCluster` objects.** Their cardinality
+  (every workspace in the installation) would defeat the cache server's
+  single-apiserver storage model. Cross-shard workspace lookups go through
+  the front-proxy index instead.
+- **`APIBinding`.** Bindings are local to the workspace that created them;
+  the binding controller resolves the referenced `APIExport` via the cache
+  but does not push the binding back.
+- **`Partition` / `PartitionSet`.** These are configuration objects consumed
+  in the workspace where they live and referenced by `APIExportEndpointSlice`.
+- **Identity secrets.** A `CachedResource`'s identity secret is created
+  locally per shard, not replicated.
 
 ### Adding New Resources
 
