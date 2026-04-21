@@ -7,7 +7,7 @@ require (
 	golang.org/x/text v0.31.0
 	k8s.io/code-generator v0.35.1
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b
-	k8s.io/klog/v2 v2.130.1
+	k8s.io/klog/v2 v2.140.0
 )
 
 require (
