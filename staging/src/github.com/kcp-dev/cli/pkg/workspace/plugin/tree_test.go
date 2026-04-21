@@ -54,7 +54,7 @@ func newTreeOptions(streams genericclioptions.IOStreams, serverURL string, objs 
 	o := NewTreeOptions(streams)
 	o.Options = base.NewOptions(streams)
 	o.ClientConfig = newTreeClientConfig(serverURL)
-	o.kcpClusterClient = kcpfakeclient.NewSimpleClientset(objs...)
+	o.kcpClusterClient = kcpfakeclient.NewClientset(objs...)
 	return o
 }
 
