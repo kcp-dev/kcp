@@ -1,6 +1,7 @@
 nav:
     - index.md
     - workspace-types.md
+    - workspace-types-best-practices.md
     - virtual-workspaces.md
     - workspace-initialization.md
     - workspace-termination.md
