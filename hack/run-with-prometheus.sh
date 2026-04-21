@@ -49,7 +49,7 @@ set -o errexit
 
 cd "$(dirname $0)/.."
 
-PROMETHEUS="$(UGET_PRINT_PATH=absolute make --no-print-directory prometheus)"
+PROMETHEUS="$(UGET_PRINT_PATH=absolute make --no-print-directory prometheus | tail -n 1)"
 
 if [ ! -x "${PROMETHEUS}" ]; then
   echo "prometheus binary not found at ${PROMETHEUS}" >&2
