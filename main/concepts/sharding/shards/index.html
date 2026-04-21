@@ -1718,6 +1718,108 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#controllers-and-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Controllers and Sharding
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Controllers and Sharding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-controllers-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where controllers run
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dual-informer-pattern-local-cache-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dual-informer pattern: local + cache fallback
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-shard-write-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-shard write pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#front-proxy-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Front-proxy routing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-modes-and-bottlenecks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Failure Modes and Bottlenecks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Failure Modes and Bottlenecks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shard-unavailability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shard unavailability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-server-bottlenecks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache server bottlenecks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#front-proxy-bottleneck" class="md-nav__link">
+    <span class="md-ellipsis">
+      Front-proxy bottleneck
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#partitioning-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Partitioning strategies
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#bootstrapping" class="md-nav__link">
     <span class="md-ellipsis">
       Bootstrapping
@@ -4071,6 +4173,108 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#controllers-and-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      Controllers and Sharding
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Controllers and Sharding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-controllers-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where controllers run
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dual-informer-pattern-local-cache-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dual-informer pattern: local + cache fallback
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-shard-write-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-shard write pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#front-proxy-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Front-proxy routing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-modes-and-bottlenecks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Failure Modes and Bottlenecks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Failure Modes and Bottlenecks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shard-unavailability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shard unavailability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-server-bottlenecks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache server bottlenecks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#front-proxy-bottleneck" class="md-nav__link">
+    <span class="md-ellipsis">
+      Front-proxy bottleneck
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#partitioning-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Partitioning strategies
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#bootstrapping" class="md-nav__link">
     <span class="md-ellipsis">
       Bootstrapping
@@ -4173,15 +4377,17 @@ informers that span all shard.</p>
 higher than in-logical-cluster references and logic must be carefully planned:</p>
 <p>For example, during workspace creation and scheduling the scheduler running on
 the shard hosting the <code>Workspace</code> object will access another shard to create the
-<code>LogicalCluster</code> object initially. It does that by choosing a random logical
-cluster name (optimistically) and choosing a shard that name maps to (through
-consistent hashing). It then tries to create the <code>LogicalCluster</code>. On conflict,
-it can check whether the existing object belong the given <code>Workspace</code> object or
-not. If not, another name and shard is chosen, until scheduling succeeds. During
-initialization the controller on the <code>Workspace</code> hosting shard will keep watching
-the logical cluster on the other shard, with some exponential backoff. In other
-words, the <code>Workspace</code> hosting shard does not continuously watch the object on
-the other shard.</p>
+<code>LogicalCluster</code> object initially. It picks a target shard at random from the
+set of valid <code>Shard</code> objects matching <code>Workspace.spec.location.selector</code> (see
+<a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L240"><code>chooseShardAndMarkCondition</code></a>), then generates an
+optimistic logical-cluster name (a 16-character base36 hash of a random 32-byte
+token — see <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L427"><code>randomClusterName</code></a>, which gives
+P(collision) &lt; 10⁻⁹ for 2²⁶ clusters) and tries to create the <code>LogicalCluster</code>
+on that shard. On <code>AlreadyExists</code> it checks whether the existing object belongs
+to this <code>Workspace</code>; if not, it drops the cluster-name annotation and the next
+reconcile loop picks a new name and shard. The <code>Workspace</code>-hosting shard does
+not maintain a continuous watch on the remote <code>LogicalCluster</code>; it relies on
+the periodic reconcile of the workspace to observe initialization progress.</p>
 <p>Another example is API binding, but it is different than workspace scheduling:
 a binding controller running on the shard hosting the <code>APIBinding</code> object will
 be aware of all <code>APIExport</code>s in the kcp installation through caching replication
@@ -4233,6 +4439,123 @@ authorize bindings of an API, or to use a workspace type.</p>
 incomplete. For instance, the non-existence of an object in the cache server
 does not mean it does not exist in its respective shard. The replication
 could be just delayed or the object was not identified to be worth to replicate.</p>
+<h2 id="controllers-and-sharding">Controllers and Sharding<a class="headerlink" href="#controllers-and-sharding" title="Permanent link">&para;</a></h2>
+<h3 id="where-controllers-run">Where controllers run<a class="headerlink" href="#where-controllers-run" title="Permanent link">&para;</a></h3>
+<p>Standard kcp controllers (workspace scheduler, APIBinding, APIExport endpoint
+slices, replication, RBAC labelers, etc.) run on <strong>every shard</strong>. There is no
+leader election across shards; each shard owns the logical clusters scheduled
+to it and reconciles its own subset of objects through wildcard informers
+scoped to that shard. This works because objects of a given logical cluster
+live on exactly one shard.</p>
+<h3 id="dual-informer-pattern-local-cache-fallback">Dual-informer pattern: local + cache fallback<a class="headerlink" href="#dual-informer-pattern-local-cache-fallback" title="Permanent link">&para;</a></h3>
+<p>Most cross-shard-aware controllers run two informers per type:</p>
+<ul>
+<li>a <strong>local</strong> informer over the shard's own etcd, and</li>
+<li>a <strong>global</strong> informer over the cache server (via the
+  <code>CacheKcpSharedInformerFactory</code>).</li>
+</ul>
+<p>Lookups follow a "local first, cache fallback" pattern, typically via
+<a href="https://github.com/kcp-dev/kcp/blob/main/pkg/indexers/indexers.go"><code>indexers.ByPathAndNameWithFallback</code></a>: try the local copy,
+then the cached copy if the object lives on a different shard. The APIBinding
+controller is a representative example — it resolves an <code>APIExport</code> reference
+by trying the local informer and falling back to the cache.</p>
+<h3 id="cross-shard-write-pattern">Cross-shard write pattern<a class="headerlink" href="#cross-shard-write-pattern" title="Permanent link">&para;</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Anti-pattern, tracked for removal</p>
+<p>Today the workspace scheduler writes directly to a remote shard to create
+the <code>LogicalCluster</code>. This is the only common cross-shard write path in
+kcp and we want to replace it with a pull-based, cache-mediated handoff.
+Tracked in <a href="https://github.com/kcp-dev/kcp/issues/4054">kcp-dev/kcp#4054</a>.
+New controllers should not introduce additional cross-shard writes.</p>
+</div>
+<p>When a controller has to write to another shard (workspace scheduling is the
+only common case today), it acquires an admin client targeted at that shard's
+<code>spec.baseURL</code> (see <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L290"><code>createLogicalCluster</code></a>). There is no special
+backoff or circuit breaker for cross-shard writes — failures bubble up as
+queue requeues with the standard rate-limited backoff. This means cross-shard
+writes are best kept rare and idempotent.</p>
+<h3 id="front-proxy-routing">Front-proxy routing<a class="headerlink" href="#front-proxy-routing" title="Permanent link">&para;</a></h3>
+<p>The front-proxy maintains an in-memory index built by the
+<a href="https://github.com/kcp-dev/kcp/blob/main/pkg/proxy/index/index_controller.go">workspace-index controller</a>: it watches <code>Shard</code> objects on
+the root shard, then for each shard starts informers over its <code>Workspace</code> and
+<code>LogicalCluster</code> objects. Requests to <code>/clusters/&lt;path&gt;/...</code> are resolved by
+exact-match lookup against this index and reverse-proxied to the owning
+shard. Unknown paths return 403. The proxy itself does not perform consistent
+hashing or load balancing across shards; routing is purely a function of where
+a logical cluster was scheduled.</p>
+<h2 id="failure-modes-and-bottlenecks">Failure Modes and Bottlenecks<a class="headerlink" href="#failure-modes-and-bottlenecks" title="Permanent link">&para;</a></h2>
+<h3 id="shard-unavailability">Shard unavailability<a class="headerlink" href="#shard-unavailability" title="Permanent link">&para;</a></h3>
+<p>There is no automatic failover for an unhealthy shard. The
+<a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L423"><code>isValidShard</code></a> check is currently a no-op and shard health is
+inferred only from request errors at the moment of access. Concretely:</p>
+<ul>
+<li><strong>Workspaces already scheduled</strong> to the unavailable shard are unreachable
+  through the front-proxy until it returns.</li>
+<li><strong>Workspace scheduling</strong> continues to succeed for new workspaces as long as
+  at least one valid shard is reachable; the random selector simply skips
+  shards annotated <code>kcp.io/unschedulable</code>.</li>
+<li><strong>Bound APIs</strong> on a workspace whose <code>APIExport</code> lives on an unavailable
+  shard keep functioning: the CRD is materialized locally and the binding
+  controller already has the schema cached. New bindings or schema updates
+  will stall until the export's shard returns.</li>
+<li><strong>Cross-shard writes</strong> (e.g. workspace creation racing against the target
+  shard's outage) requeue and retry with the standard workqueue backoff.</li>
+</ul>
+<h3 id="cache-server-bottlenecks">Cache server bottlenecks<a class="headerlink" href="#cache-server-bottlenecks" title="Permanent link">&para;</a></h3>
+<p>The cache server is the only fan-in point for cross-shard data, which makes it
+the most important scaling consideration in a kcp installation:</p>
+<ul>
+<li><strong>Cardinality is bounded by what a single apiserver can hold.</strong> The cache
+  server is an <code>apiextensions-apiserver</code> backed by etcd. The total count of
+  replicated objects across all shards must fit in one such apiserver. As a
+  rule of thumb, treat ~10,000 objects of any single replicated type as the
+  threshold to start planning partitioning (see "Partitioning strategies"
+  below).</li>
+<li><strong>Write amplification is N → 1.</strong> Every shard pushes its replication-marked
+  objects to the same cache server. Large numbers of frequently-updated
+  replicated objects (e.g. webhook configurations or RBAC marked for
+  replication) translate directly into write load on the cache.</li>
+<li><strong>Replication is eventually consistent.</strong> Controllers reading from the
+  cache informer can observe stale or temporarily missing objects.
+  Reconciliation logic must tolerate this — never use the cache as the
+  authoritative source for "does X exist?" decisions, and never compare cache
+  resource versions to local resource versions.</li>
+<li><strong>Cache server unavailability degrades, not breaks.</strong> Local informers and
+  the local apiserver keep working; what stops is cross-shard visibility.
+  New <code>APIBinding</code>s referencing exports on other shards will fail to resolve
+  until the cache returns.</li>
+</ul>
+<h3 id="front-proxy-bottleneck">Front-proxy bottleneck<a class="headerlink" href="#front-proxy-bottleneck" title="Permanent link">&para;</a></h3>
+<p>The default front-proxy implementation watches <code>Shard</code>, <code>Workspace</code>, and
+<code>LogicalCluster</code> objects across every shard. This is fine for tens of shards
+but does not scale to large installations. Production deployments are
+expected to back the proxy index with an external store rather than rely on
+the toy in-memory implementation, or to run multiple regional proxies each
+serving a subset of shards.</p>
+<h3 id="partitioning-strategies">Partitioning strategies<a class="headerlink" href="#partitioning-strategies" title="Permanent link">&para;</a></h3>
+<p>The only partitioning lever implemented today is <strong><code>Partition</code> and
+<code>PartitionSet</code> objects</strong>, which scope <code>APIExportEndpointSlice</code> consumption to
+a subset of shards (see <a href="../partitions/">Partitions</a>). This reduces per-
+controller informer load by letting an <code>APIExport</code>'s consumers talk only to
+the shards in their partition, but it does not reduce cache-server
+cardinality — every replicated object from every shard still lives in the
+single cache server.</p>
+<div class="admonition warning">
+<p class="admonition-title">Future work, not implemented</p>
+<p>Two further scaling levers are commonly discussed but <strong>not built today</strong>:</p>
+<ul>
+<li><strong>Per-region (or per-tenant) cache servers</strong> — currently the cache
+  endpoint is a single global config (<code>--cache-kubeconfig</code>); there is no
+  mechanism to map shards to different caches.</li>
+<li><strong>Cache hierarchies</strong> — the replication path is strictly
+  shard → cache; there is no cache → cache forwarding, so a regional
+  cache cannot promote a curated subset to a higher-level global cache.</li>
+</ul>
+<p>Both are tracked in
+<a href="https://github.com/kcp-dev/kcp/issues/4055">kcp-dev/kcp#4055</a>. Until
+they exist, the cache server is an installation-wide scaling ceiling and
+a single point of failure for cross-shard visibility.</p>
+</div>
 <h2 id="bootstrapping">Bootstrapping<a class="headerlink" href="#bootstrapping" title="Permanent link">&para;</a></h2>
 <p>A new shard starting up will run a number of standard controllers (e.g. for
 workspaces, API bindings and more). These will need a number of standard

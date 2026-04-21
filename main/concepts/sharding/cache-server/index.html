@@ -1721,6 +1721,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Built-in Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-rbac-objects-are-selected-for-replication" class="md-nav__link">
+    <span class="md-ellipsis">
+      How RBAC objects are selected for replication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-intentionally-not-replicated" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is intentionally not replicated
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4038,6 +4062,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Built-in Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-rbac-objects-are-selected-for-replication" class="md-nav__link">
+    <span class="md-ellipsis">
+      How RBAC objects are selected for replication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-intentionally-not-replicated" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is intentionally not replicated
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4164,15 +4212,133 @@ directly, not by operators or humans.</p>
 <p>The only exception are the health check endpoints, which are always
 accessible without authentication.</p>
 <h3 id="built-in-resources">Built-in Resources<a class="headerlink" href="#built-in-resources" title="Permanent link">&para;</a></h3>
-<p>Out of the box, the server supports the following resources:</p>
+<p>The cache server stores all replicated objects as CustomResourceDefinitions
+in the <code>system:cache:server</code> shard under the <code>system:system-crds</code> cluster.</p>
+<p>The set of object types replicated to the cache server is wired up by the
+<a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/replication/replication_controller.go#L199">main replication controller</a>. The full list as of today:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>API group</th>
+<th>Filter — replicated when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiexports</code></td>
+<td><code>apis.kcp.io/v1alpha2</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>apiexportendpointslices</code></td>
+<td><code>apis.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>apiresourceschemas</code></td>
+<td><code>apis.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>apiconversions</code></td>
+<td><code>apis.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>cachedresources</code></td>
+<td><code>cache.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>cachedresourceendpointslices</code></td>
+<td><code>cache.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>shards</code></td>
+<td><code>core.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>workspacetypes</code></td>
+<td><code>tenancy.kcp.io/v1alpha1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>mutatingwebhookconfigurations</code></td>
+<td><code>admissionregistration.k8s.io/v1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>validatingwebhookconfigurations</code></td>
+<td><code>admissionregistration.k8s.io/v1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>validatingadmissionpolicies</code></td>
+<td><code>admissionregistration.k8s.io/v1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>validatingadmissionpolicybindings</code></td>
+<td><code>admissionregistration.k8s.io/v1</code></td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>logicalclusters</code></td>
+<td><code>core.kcp.io/v1alpha1</code></td>
+<td>annotated <code>core.kcp.io/replicate</code></td>
+</tr>
+<tr>
+<td><code>clusterroles</code></td>
+<td><code>rbac.authorization.k8s.io/v1</code></td>
+<td>annotated <code>core.kcp.io/replicate</code></td>
+</tr>
+<tr>
+<td><code>clusterrolebindings</code></td>
+<td><code>rbac.authorization.k8s.io/v1</code></td>
+<td>annotated <code>core.kcp.io/replicate</code></td>
+</tr>
+</tbody>
+</table>
+<p>User-defined types are added on top of this set via the
+<a href="../../apis/cached-resources/">CachedResource API</a>.</p>
+<p>Objects in clusters whose name starts with <code>system:</code> are excluded from
+replication.</p>
+<h4 id="how-rbac-objects-are-selected-for-replication">How RBAC objects are selected for replication<a class="headerlink" href="#how-rbac-objects-are-selected-for-replication" title="Permanent link">&para;</a></h4>
+<p><code>ClusterRole</code> and <code>ClusterRoleBinding</code> are not replicated wholesale. A set of
+"labeler" controllers stamps the <code>core.kcp.io/replicate</code> annotation onto only
+the RBAC objects that are needed for cross-shard authorization decisions:</p>
 <ul>
-<li><code>apiresourceschemas</code></li>
-<li><code>apiexports</code></li>
-<li><code>shards</code></li>
-<li><code>logicalclusters</code></li>
+<li>The <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/apis/replicateclusterrole/replicateclusterrole_controller.go">APIs labeler</a> marks <code>ClusterRole</code>s that grant <code>bind</code> on
+  <code>apiexports</code> or any verb on <code>apiexports/content</code>, so a binding controller
+  on another shard can authorize a new <code>APIBinding</code>.</li>
+<li>The <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/core/replicateclusterrole/replicateclusterrole_controller.go">Core labeler</a> marks <code>ClusterRole</code>s granting non-resource
+  URL access on logical clusters that themselves carry the replicate
+  annotation.</li>
+<li>The <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/replicateclusterrole/">tenancy labeler</a> marks <code>ClusterRole</code>s relevant to
+  <code>WorkspaceType</code> use.</li>
+<li>The <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/cache/labelclusterrolebindings/labelclusterrolebinding_reconcile.go"><code>ClusterRoleBinding</code> labeler</a> mirrors the annotation onto
+  bindings whose <code>roleRef</code> points at a replicated <code>ClusterRole</code>, or whose
+  subject is one of a small set of system-relevant principals.</li>
 </ul>
-<p>All those resources are represented as CustomResourceDefinitions and
-stored in <code>system:cache:server</code> shard under <code>system:system-crds</code> cluster.</p>
+<p>The replication controller then uses the annotation as its filter, so
+unrelated tenant RBAC stays local.</p>
+<h4 id="what-is-intentionally-not-replicated">What is intentionally not replicated<a class="headerlink" href="#what-is-intentionally-not-replicated" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong><code>Workspace</code> and most <code>LogicalCluster</code> objects.</strong> Their cardinality
+  (every workspace in the installation) would defeat the cache server's
+  single-apiserver storage model. Cross-shard workspace lookups go through
+  the front-proxy index instead.</li>
+<li><strong><code>APIBinding</code>.</strong> Bindings are local to the workspace that created them;
+  the binding controller resolves the referenced <code>APIExport</code> via the cache
+  but does not push the binding back.</li>
+<li><strong><code>Partition</code> / <code>PartitionSet</code>.</strong> These are configuration objects consumed
+  in the workspace where they live and referenced by <code>APIExportEndpointSlice</code>.</li>
+<li><strong>Identity secrets.</strong> A <code>CachedResource</code>'s identity secret is created
+  locally per shard, not replicated.</li>
+</ul>
 <h3 id="adding-new-resources">Adding New Resources<a class="headerlink" href="#adding-new-resources" title="Permanent link">&para;</a></h3>
 <p>User-defined resources can be added to the cache server using the <a href="../../apis/cached-resources/">CachedResource API</a>. A CachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.</p>
 <h3 id="deletion-of-data">Deletion of Data<a class="headerlink" href="#deletion-of-data" title="Permanent link">&para;</a></h3>
