@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -452,19 +453,37 @@ func verifyListAndGet(
 	require.NoError(t, err)
 
 	t.Logf("Listing %s resources in %q via %q client should return one object", resourceName, targetCluster, cfg.Host)
-	list, err := dynClient.Cluster(targetCluster.Path()).
-		Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
-		List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, list.Items, 1, "Unexpected number of items in %s list in %q via %q", resourceName, targetCluster, cfg.Host)
-	require.Equal(t, expected, normalizeUnstructuredMap(list.Items[0].Object))
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		list, err := dynClient.Cluster(targetCluster.Path()).
+			Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
+			List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to list %s in %q via %q: %v", resourceName, targetCluster, cfg.Host, err)
+		}
+		if len(list.Items) != 1 {
+			return false, fmt.Sprintf("unexpected number of items in %s list in %q via %q: got %d, want 1", resourceName, targetCluster, cfg.Host, len(list.Items))
+		}
+		got := normalizeUnstructuredMap(list.Items[0].Object)
+		if !reflect.DeepEqual(expected, got) {
+			return false, fmt.Sprintf("unexpected %s list item in %q via %q:\nexpected: %#v\nactual: %#v", resourceName, targetCluster, cfg.Host, expected, got)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*500, "waiting for %s list to match expected in %q via %q", resourceName, targetCluster, cfg.Host)
 
 	t.Logf("Getting a %s resource named %s in %q via %q should return that object", resourceName, objName, targetCluster, cfg.Host)
-	obj, err := dynClient.Cluster(targetCluster.Path()).
-		Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
-		Get(ctx, objName, metav1.GetOptions{})
-	require.NoError(t, err)
-	require.Equal(t, expected, normalizeUnstructuredMap(obj.Object))
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		obj, err := dynClient.Cluster(targetCluster.Path()).
+			Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
+			Get(ctx, objName, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("failed to get %s/%s in %q via %q: %v", resourceName, objName, targetCluster, cfg.Host, err)
+		}
+		got := normalizeUnstructuredMap(obj.Object)
+		if !reflect.DeepEqual(expected, got) {
+			return false, fmt.Sprintf("unexpected %s/%s in %q via %q:\nexpected: %#v\nactual: %#v", resourceName, objName, targetCluster, cfg.Host, expected, got)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, time.Millisecond*500, "waiting for %s/%s to match expected in %q via %q", resourceName, objName, targetCluster, cfg.Host)
 }
 
 func normalizeUnstructuredMap(origObj map[string]interface{}) map[string]interface{} {
