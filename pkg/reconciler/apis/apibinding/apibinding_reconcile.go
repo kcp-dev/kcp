@@ -277,6 +277,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		// TODO(sttts): removed schemas never get unlocked. We need a distinguishable way
 		//              for intentional removal of schemas, versus movement of schemas
 		//              to another APIExport.
+		previousResourceBindings := lc.Annotations[ResourceBindingsAnnotationKey]
 		lc, _, skipped, err = WithLockedResources(crds, time.Now(), lc, grs.UnsortedList(), ExpirableLock{
 			Lock: Lock{Name: apiBinding.Name},
 		})
@@ -307,8 +308,10 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			return err
 		}
 
-		if err := r.updateLogicalCluster(ctx, lc); err != nil {
-			return err
+		if lc.Annotations[ResourceBindingsAnnotationKey] != previousResourceBindings {
+			if err := r.updateLogicalCluster(ctx, lc); err != nil {
+				return err
+			}
 		}
 
 		if len(skipped) > 0 {
