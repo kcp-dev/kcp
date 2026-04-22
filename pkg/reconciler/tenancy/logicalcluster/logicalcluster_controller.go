@@ -218,18 +218,28 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	}
 
 	// need to create ClusterRoleBinding for owner.
-	ownerAnnotation := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
-	// some older installations of kcp might have produced an annotation with empty value, so we should
-	// not care whether the annotation is set or if it's empty.
-	if ownerAnnotation == "" {
-		// no owner - can't create
-		return nil
+	var username string
+	if logicalCluster.Spec.CreatedBy != nil {
+		username = logicalCluster.Spec.CreatedBy.Username
+	} else {
+		ownerAnnotation := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
+		// some older installations of kcp might have produced an annotation with empty value, so we should
+		// not care whether the annotation is set or if it's empty.
+		if ownerAnnotation == "" {
+			// no owner - can't create
+			return nil
+		}
+
+		var userInfo authenticationv1.UserInfo
+		if err = json.Unmarshal([]byte(ownerAnnotation), &userInfo); err != nil {
+			logger.Error(err, "failed to unmarshal owner annotation on LogicalCluster", "key", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, "value", ownerAnnotation, "clusterName", clusterName)
+			// can't do anything further and requeuing won't help
+			return nil
+		}
+		username = userInfo.Username
 	}
 
-	var userInfo authenticationv1.UserInfo
-	if err = json.Unmarshal([]byte(ownerAnnotation), &userInfo); err != nil {
-		logger.Error(err, "failed to unmarshal owner annotation on LogicalCluster", "key", tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, "value", ownerAnnotation, "clusterName", clusterName)
-		// can't do anything further and requeuing won't help
+	if username == "" {
 		return nil
 	}
 
@@ -241,7 +251,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			{
 				Kind:     "User",
 				APIGroup: "rbac.authorization.k8s.io",
-				Name:     userInfo.Username,
+				Name:     username,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

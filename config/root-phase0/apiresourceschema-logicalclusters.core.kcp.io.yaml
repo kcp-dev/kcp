@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v251016-6e24e0d49.logicalclusters.core.kcp.io
+  name: v260423-d356919ea.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -60,6 +60,32 @@ spec:
           description: LogicalClusterSpec is the specification of the LogicalCluster
             resource.
           properties:
+            createdBy:
+              description: |-
+                createdBy is the user who owns this logical cluster. This is the user who
+                created the workspace.
+              properties:
+                extra:
+                  additionalProperties:
+                    description: ExtraValue masks the value so protobuf can generate
+                    items:
+                      type: string
+                    type: array
+                  description: extra contains additional information provided by the
+                    authenticator.
+                  type: object
+                groups:
+                  description: groups is the list of groups the user belongs to.
+                  items:
+                    type: string
+                  type: array
+                uid:
+                  description: uid is a unique identifier for the user.
+                  type: string
+                username:
+                  description: username is the name of the user.
+                  type: string
+              type: object
             directlyDeletable:
               default: false
               description: |-

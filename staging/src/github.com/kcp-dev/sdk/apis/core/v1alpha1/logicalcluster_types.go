@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	authenticationv1 "k8s.io/api/authentication/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -106,6 +107,12 @@ type LogicalClusterSpec struct {
 	// +optional
 	Owner *LogicalClusterOwner `json:"owner,omitempty"`
 
+	// createdBy is the user who owns this logical cluster. This is the user who
+	// created the workspace.
+	//
+	// +optional
+	CreatedBy *OwnerUserInfo `json:"createdBy,omitempty"`
+
 	// initializers are set on creation by the system and copied to status when
 	// initialization starts.
 	//
@@ -159,6 +166,29 @@ type LogicalClusterOwner struct {
 	// +required
 	// +kubebuilder:validation:Required
 	UID types.UID `json:"uid"`
+}
+
+// OwnerUserInfo is the user who owns a LogicalCluster.
+type OwnerUserInfo struct {
+	// username is the name of the user.
+	//
+	// +optional
+	Username string `json:"username,omitempty"`
+
+	// groups is the list of groups the user belongs to.
+	//
+	// +optional
+	Groups []string `json:"groups,omitempty"`
+
+	// uid is a unique identifier for the user.
+	//
+	// +optional
+	UID string `json:"uid,omitempty"`
+
+	// extra contains additional information provided by the authenticator.
+	//
+	// +optional
+	Extra map[string]authenticationv1.ExtraValue `json:"extra,omitempty"`
 }
 
 // LogicalClusterStatus communicates the observed state of the Workspace.

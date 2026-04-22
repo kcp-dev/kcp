@@ -238,15 +238,16 @@ func BuildVirtualWorkspace(
 					return
 				}
 
-				rawInfo, ok := logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]
-				if !ok {
-					http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no user recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
+				var info authenticationv1.UserInfo
+				if logicalCluster.Spec.CreatedBy == nil {
+					http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no createdBy recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
 					return
 				}
-				var info authenticationv1.UserInfo
-				if err := json.Unmarshal([]byte(rawInfo), &info); err != nil {
-					http.Error(writer, fmt.Sprintf("could not unmarshal user info for cluster %q: %v", cluster, err), http.StatusInternalServerError)
-					return
+				info = authenticationv1.UserInfo{
+					Username: logicalCluster.Spec.CreatedBy.Username,
+					UID:      logicalCluster.Spec.CreatedBy.UID,
+					Groups:   logicalCluster.Spec.CreatedBy.Groups,
+					Extra:    logicalCluster.Spec.CreatedBy.Extra,
 				}
 				extra := map[string][]string{}
 				for k, v := range info.Extra {

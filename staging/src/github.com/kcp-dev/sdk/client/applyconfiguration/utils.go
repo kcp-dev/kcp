@@ -194,6 +194,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationcorev1alpha1.LogicalClusterSpecApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("LogicalClusterStatus"):
 		return &applyconfigurationcorev1alpha1.LogicalClusterStatusApplyConfiguration{}
+	case corev1alpha1.SchemeGroupVersion.WithKind("OwnerUserInfo"):
+		return &applyconfigurationcorev1alpha1.OwnerUserInfoApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("Shard"):
 		return &applyconfigurationcorev1alpha1.ShardApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("ShardSpec"):

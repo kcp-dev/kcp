@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net/url"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/martinlindhe/base36"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -306,9 +308,20 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 			},
 		},
 	}
-	if owner, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found {
+	if owner, found := workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey]; found && owner != "" {
+		var user authenticationv1.UserInfo
+		if err := json.Unmarshal([]byte(owner), &user); err == nil {
+			logicalCluster.Spec.CreatedBy = &corev1alpha1.OwnerUserInfo{
+				Username: user.Username,
+				UID:      user.UID,
+				Groups:   user.Groups,
+				Extra:    user.Extra,
+			}
+		}
+
 		logicalCluster.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = owner
 	}
+
 	if groups, found := workspace.Annotations[authorization.RequiredGroupsAnnotationKey]; found {
 		logicalCluster.Annotations[authorization.RequiredGroupsAnnotationKey] = groups
 	}
