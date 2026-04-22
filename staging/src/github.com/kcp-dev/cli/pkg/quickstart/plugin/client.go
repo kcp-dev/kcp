@@ -55,7 +55,6 @@ func baseConfig(config *rest.Config) (*rest.Config, error) {
 	c := rest.CopyConfig(config)
 	u.Path = ""
 	c.Host = u.String()
-	c.UserAgent = rest.DefaultKubernetesUserAgent()
 
 	return c, nil
 }
