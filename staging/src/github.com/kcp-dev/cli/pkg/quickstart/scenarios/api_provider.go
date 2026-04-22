@@ -84,7 +84,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 				}
 
 				fmt.Fprintf(execCtx.Out, "  Waiting for workspace %q and all children to finish terminating...\n", orgName)
-				var lastLog time.Time
+				lastLog := time.Now()
 				if err := wait.PollUntilContextCancel(ctx, pollIntervalCleanup, true,
 					func(ctx context.Context) (bool, error) {
 						ws, err := execCtx.KCPClusterClient.Cluster(rootPath).TenancyV1alpha1().Workspaces().
