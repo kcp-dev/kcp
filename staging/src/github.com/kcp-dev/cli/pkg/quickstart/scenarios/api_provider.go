@@ -131,7 +131,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 					}
 					_, err := execCtx.KCPClusterClient.Cluster(providerPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, obj, metav1.CreateOptions{})
 					if err != nil {
-						return obj.Name, fmt.Errorf("creating APIResourceSchema: %w", err)
+						return obj.Name, fmt.Errorf("creating APIResourceSchema: %v", err)
 					}
 
 					return obj.Name, nil
