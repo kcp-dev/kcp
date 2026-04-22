@@ -54,6 +54,12 @@ type apiProviderScenario struct{}
 
 func (s *apiProviderScenario) Name() string { return "api-provider" }
 
+// EnterPath returns the absolute workspace path that --enter should switch to,
+// or "" if the scenario does not support it.
+func (s *apiProviderScenario) EnterPath(state map[string]string) string {
+	return state[stateKeyConsumerPath]
+}
+
 func (s *apiProviderScenario) Steps(prefix string) []Step {
 	orgName := prefix + orgSuffix
 	providerName := prefix + providerSuffix
@@ -153,13 +159,13 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 		{
 			Description: fmt.Sprintf("Creating consumer workspace %q", consumerName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[stateKeyOrgPath]), consumerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{quickstartLabel: "true", quickstartPrefixLabel: prefix}, StateKeyConsumerPath)
+				return createWorkspaceStep(ctx, execCtx, logicalcluster.NewPath(execCtx.State[stateKeyOrgPath]), consumerName, &tenancyv1alpha1.WorkspaceTypeReference{Name: "universal", Path: "root"}, map[string]string{quickstartLabel: "true", quickstartPrefixLabel: prefix}, stateKeyConsumerPath)
 			},
 		},
 		{
 			Description: "Creating APIBinding in consumer workspace",
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				consumerPath := logicalcluster.NewPath(execCtx.State[StateKeyConsumerPath])
+				consumerPath := logicalcluster.NewPath(execCtx.State[stateKeyConsumerPath])
 				providerPath := execCtx.State[stateKeyProviderPath]
 				return createAPIBindingAndWait(ctx, execCtx.KCPClusterClient, execCtx.Out, consumerPath,
 					"cowboys", providerPath, "cowboys")
@@ -174,7 +180,7 @@ func (s *apiProviderScenario) Samples(prefix string) []Step {
 		{
 			Description: fmt.Sprintf("Applying sample Cowboy resource in %q", consumerName),
 			Execute: func(ctx context.Context, execCtx ExecutionContext) error {
-				consumerPath := logicalcluster.NewPath(execCtx.State[StateKeyConsumerPath])
+				consumerPath := logicalcluster.NewPath(execCtx.State[stateKeyConsumerPath])
 				if err := applySampleCowboy(ctx, execCtx, consumerPath); err != nil {
 					return err
 				}
@@ -194,7 +200,7 @@ func (s *apiProviderScenario) PrintSummary(out io.Writer, prefix string, state m
 	if state[stateKeyWithSamples] == "true" {
 		tryItOut = fmt.Sprintf(`  Try it out:
     kubectl ws :%s
-    kubectl get cowboys`, state[StateKeyConsumerPath])
+    kubectl get cowboys`, state[stateKeyConsumerPath])
 	} else {
 		tryItOut = fmt.Sprintf(`  Try it out:
     kubectl ws :%s
@@ -207,7 +213,7 @@ func (s *apiProviderScenario) PrintSummary(out io.Writer, prefix string, state m
     spec:
       intent: good
     EOF
-    kubectl get cowboys`, state[StateKeyConsumerPath])
+    kubectl get cowboys`, state[stateKeyConsumerPath])
 	}
 
 	_, err := fmt.Fprintf(out, `

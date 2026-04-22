@@ -63,14 +63,14 @@ func (o *QuickstartOptions) Run(ctx context.Context) error {
 	}
 
 	if o.Enter {
-		consumerPath := execCtx.State[scenarios.StateKeyConsumerPath]
-		if consumerPath == "" {
-			return fmt.Errorf("consumer workspace path not available; cannot --enter")
+		enterPath := o.scenario.EnterPath(execCtx.State)
+		if enterPath == "" {
+			return fmt.Errorf("scenario %q does not provide a workspace to enter", o.scenario.Name())
 		}
 
 		// NOTE: prepend ':' for the absolute-path syntax required by kubectl ws.
-		if err := o.enterWorkspace(ctx, ":"+consumerPath); err != nil {
-			return fmt.Errorf("entering consumer workspace: %w", err)
+		if err := o.enterWorkspace(ctx, ":"+enterPath); err != nil {
+			return fmt.Errorf("entering workspace: %w", err)
 		}
 	}
 

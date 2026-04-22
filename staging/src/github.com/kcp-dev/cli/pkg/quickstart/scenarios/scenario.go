@@ -36,7 +36,7 @@ const (
 
 	stateKeyOrgPath      = "org-path"
 	stateKeyProviderPath = "provider-path"
-	StateKeyConsumerPath = "consumer-path"
+	stateKeyConsumerPath = "consumer-path"
 	stateKeyWithSamples  = "with-samples"
 )
 
@@ -55,6 +55,7 @@ type Scenario interface {
 	Name() string
 	Steps(prefix string) []Step
 	Samples(prefix string) []Step
+	EnterPath(state map[string]string) string
 	PrintSummary(out io.Writer, prefix string, state map[string]string) error
 }
 

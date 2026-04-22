@@ -291,6 +291,9 @@ func (c *cleanupScenario) Steps(_ string) []scenarios.Step {
 func (c *cleanupScenario) Samples(_ string) []scenarios.Step {
 	return nil
 }
+func (c *cleanupScenario) EnterPath(_ map[string]string) string {
+	return ""
+}
 func (c *cleanupScenario) PrintSummary(_ io.Writer, _ string, _ map[string]string) error {
 	return nil
 }
@@ -308,11 +311,14 @@ func (m *mockScenario) Steps(_ string) []scenarios.Step {
 		{
 			Description: "set consumer-path",
 			Execute: func(_ context.Context, execCtx scenarios.ExecutionContext) error {
-				execCtx.State[scenarios.StateKeyConsumerPath] = "root:test-org:test-consumer"
+				execCtx.State["consumer-path"] = "root:test-org:test-consumer"
 				return nil
 			},
 		},
 	}
+}
+func (m *mockScenario) EnterPath(state map[string]string) string {
+	return state["consumer-path"]
 }
 func (m *mockScenario) PrintSummary(_ io.Writer, _ string, _ map[string]string) error { return nil }
 
