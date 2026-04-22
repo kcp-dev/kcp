@@ -279,20 +279,18 @@ func createWorkspaceAndWait(ctx context.Context, client kcpclientset.ClusterInte
 		return logicalcluster.Path{}, false, fmt.Errorf("timed out waiting for workspace %q to appear: %w", name, err)
 	}
 
-	if ws.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
-		if err := wait.PollUntilContextCancel(ctx, pollIntervalReady, true,
-			func(ctx context.Context) (bool, error) {
-				ws, err = client.Cluster(parentPath).TenancyV1alpha1().Workspaces().
-					Get(ctx, ws.Name, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-				return ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, nil
-			},
-		); err != nil {
-			return logicalcluster.Path{}, false, fmt.Errorf("timed out waiting for workspace %q to become ready (current phase: %s): %w",
-				name, ws.Status.Phase, err)
-		}
+	if err := wait.PollUntilContextCancel(ctx, pollIntervalReady, true,
+		func(ctx context.Context) (bool, error) {
+			ws, err = client.Cluster(parentPath).TenancyV1alpha1().Workspaces().
+				Get(ctx, ws.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			return ws.Status.Phase == corev1alpha1.LogicalClusterPhaseReady, nil
+		},
+	); err != nil {
+		return logicalcluster.Path{}, false, fmt.Errorf("timed out waiting for workspace %q to become ready (current phase: %s): %w",
+			name, ws.Status.Phase, err)
 	}
 
 	if ws.Spec.URL == "" {
