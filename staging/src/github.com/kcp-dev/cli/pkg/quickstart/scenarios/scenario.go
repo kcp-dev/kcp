@@ -30,9 +30,9 @@ const (
 	quickstartLabel       = "kcp.io/quickstart"
 	quickstartPrefixLabel = "kcp.io/quickstart-prefix"
 
-	orgSuffix      = "-org"
-	providerSuffix = "-provider"
-	consumerSuffix = "-consumer"
+	OrgSuffix      = "-org"
+	ProviderSuffix = "-provider"
+	ConsumerSuffix = "-consumer"
 
 	stateKeyOrgPath      = "org-path"
 	stateKeyProviderPath = "provider-path"

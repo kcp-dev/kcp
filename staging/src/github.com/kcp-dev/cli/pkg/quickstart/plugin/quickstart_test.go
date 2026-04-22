@@ -53,6 +53,24 @@ func TestValidate(t *testing.T) {
 			namePrefix:   "my-test",
 			withScenario: true,
 		},
+		{
+			name:         "uppercase prefix rejected",
+			namePrefix:   "MyTest",
+			withScenario: true,
+			wantErr:      "invalid workspace name",
+		},
+		{
+			name:         "underscore prefix rejected",
+			namePrefix:   "my_test",
+			withScenario: true,
+			wantErr:      "invalid workspace name",
+		},
+		{
+			name:         "prefix with spaces rejected",
+			namePrefix:   "my test",
+			withScenario: true,
+			wantErr:      "invalid workspace name",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

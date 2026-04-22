@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 
@@ -110,6 +111,13 @@ func (o *QuickstartOptions) Validate() error {
 
 	if o.NamePrefix == "" {
 		return fmt.Errorf("--name-prefix must not be empty")
+	}
+
+	for _, suffix := range []string{scenarios.OrgSuffix, scenarios.ProviderSuffix, scenarios.ConsumerSuffix} {
+		name := o.NamePrefix + suffix
+		if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+			return fmt.Errorf("--name-prefix %q produces invalid workspace name %q: %v", o.NamePrefix, name, errs)
+		}
 	}
 
 	return nil

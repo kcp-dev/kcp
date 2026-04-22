@@ -61,9 +61,9 @@ func (s *apiProviderScenario) EnterPath(state map[string]string) string {
 }
 
 func (s *apiProviderScenario) Steps(prefix string) []Step {
-	orgName := prefix + orgSuffix
-	providerName := prefix + providerSuffix
-	consumerName := prefix + consumerSuffix
+	orgName := prefix + OrgSuffix
+	providerName := prefix + ProviderSuffix
+	consumerName := prefix + ConsumerSuffix
 
 	return []Step{
 		{
@@ -175,7 +175,7 @@ func (s *apiProviderScenario) Steps(prefix string) []Step {
 }
 
 func (s *apiProviderScenario) Samples(prefix string) []Step {
-	consumerName := prefix + consumerSuffix
+	consumerName := prefix + ConsumerSuffix
 	return []Step{
 		{
 			Description: fmt.Sprintf("Applying sample Cowboy resource in %q", consumerName),
@@ -192,9 +192,9 @@ func (s *apiProviderScenario) Samples(prefix string) []Step {
 }
 
 func (s *apiProviderScenario) PrintSummary(out io.Writer, prefix string, state map[string]string) error {
-	orgName := prefix + orgSuffix
-	providerName := prefix + providerSuffix
-	consumerName := prefix + consumerSuffix
+	orgName := prefix + OrgSuffix
+	providerName := prefix + ProviderSuffix
+	consumerName := prefix + ConsumerSuffix
 
 	var tryItOut string
 	if state[stateKeyWithSamples] == "true" {
