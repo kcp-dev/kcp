@@ -18,13 +18,10 @@ package authentication
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
-	"k8s.io/klog/v2"
-	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -96,26 +93,12 @@ func (i *eagerIndex) UpsertWorkspaceAuthenticationConfiguration(shard string, au
 	i.stopAuthenticator(shard, mapKey, errCauseUpsert)
 	i.lock.Unlock()
 
-	// build new authenticator
-	kubeAuthConfig := kubeauthenticator.Config{
-		AuthenticationConfig: convertAuthenticationConfiguration(authConfig),
-		APIAudiences:         i.baseAudiences,
-	}
-
-	ctx, cancel := context.WithCancelCause(i.lifecycleCtx)
-
-	authn, _, _, _, err := kubeAuthConfig.New(ctx)
+	state, err := buildAuthenticator(i.lifecycleCtx, i.baseAudiences, authConfig)
 	if err != nil {
-		logger := klog.FromContext(ctx).WithValues("controller", controllerName)
-		logger.Error(err, "Failed to start workspace authenticator.")
-
-		cancel(fmt.Errorf("authenticator failed to start: %w", err))
-		return
-	}
-
-	// nil is returned whenever no valid individual auth method is configured.
-	if authn == nil {
-		cancel(errCauseEmpty)
+		// TODO(ntnn): If an authenticator fails to build this will just
+		// quietly go stale with no reattempts. Arguably - if an
+		// authenticator fails to build off of a WAC it's likely
+		// a configuration issue.
 		return
 	}
 
@@ -125,10 +108,7 @@ func (i *eagerIndex) UpsertWorkspaceAuthenticationConfiguration(shard string, au
 	if i.authConfigAuthenticators[shard] == nil {
 		i.authConfigAuthenticators[shard] = map[authenticatorKey]authenticatorState{}
 	}
-	i.authConfigAuthenticators[shard][mapKey] = authenticatorState{
-		cancel:        cancel,
-		authenticator: authn,
-	}
+	i.authConfigAuthenticators[shard][mapKey] = state
 }
 
 func (i *eagerIndex) stopAuthenticator(shard string, key authenticatorKey, cause error) {

@@ -19,8 +19,11 @@ package authentication
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/klog/v2"
+	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
@@ -58,4 +61,35 @@ func getAuthConfigKey(authConfig *tenancyv1alpha1.WorkspaceAuthenticationConfigu
 		cluster: logicalcluster.From(authConfig),
 		name:    authConfig.Name,
 	}
+}
+
+// buildAuthenticator builds a JWT authenticator from the provided WAC.
+func buildAuthenticator(
+	lifecycleCtx context.Context,
+	baseAudiences authenticator.Audiences,
+	wac *tenancyv1alpha1.WorkspaceAuthenticationConfiguration,
+) (authenticatorState, error) {
+	kubeAuthConfig := kubeauthenticator.Config{
+		AuthenticationConfig: convertAuthenticationConfiguration(wac),
+		APIAudiences:         baseAudiences,
+	}
+
+	ctx, cancel := context.WithCancelCause(lifecycleCtx)
+
+	authn, _, _, _, err := kubeAuthConfig.New(ctx)
+	if err != nil {
+		logger := klog.FromContext(ctx).WithValues("controller", controllerName)
+		logger.Error(err, "Failed to start workspace authenticator.")
+
+		cancel(fmt.Errorf("authenticator failed to start: %w", err))
+		return authenticatorState{}, err
+	}
+
+	// nil is returned whenever no valid individual auth method is configured.
+	if authn == nil {
+		cancel(errCauseEmpty)
+		return authenticatorState{}, errCauseEmpty
+	}
+
+	return authenticatorState{cancel: cancel, authenticator: authn}, nil
 }
