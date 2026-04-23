@@ -17,6 +17,7 @@ limitations under the License.
 package shardlookup
 
 import (
+	"context"
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -86,6 +87,15 @@ func (c *TTLCache[V]) Start() {
 // Stop stops the goroutine evicting expired entries.
 func (c *TTLCache[V]) Stop() {
 	c.ttl.Stop()
+}
+
+// OnEviction registers a callback that is called when an entry is
+// evicted from the cache. The callback runs on a separate goroutine.
+// The returned function can be called to unsubscribe.
+func (c *TTLCache[V]) OnEviction(fn func(value V)) func() {
+	return c.ttl.OnEviction(func(_ context.Context, _ ttlcache.EvictionReason, item *ttlcache.Item[string, cacheValue[V]]) {
+		fn(item.Value().value)
+	})
 }
 
 // Get returns the value for key.
