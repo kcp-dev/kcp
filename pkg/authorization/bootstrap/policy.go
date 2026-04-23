@@ -118,6 +118,13 @@ func clusterRoles() []rbacv1.ClusterRole {
 				rbacv1helpers.NewRule("get", "list", "watch").Groups(cache.GroupName).Resources("cachedresourceendpointslices").RuleOrDie(),
 			},
 		},
+		{
+			// Allow shards to retrieve WACs from other shards for per-workspace authentication.
+			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("get").Groups(tenancy.GroupName).Resources("workspaceauthenticationconfigurations").RuleOrDie(),
+			},
+		},
 	}
 }
 
