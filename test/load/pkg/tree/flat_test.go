@@ -25,13 +25,13 @@ import (
 )
 
 func TestFlatTreeWorkspaceName(t *testing.T) {
-	ft := NewFlatTree(5)
+	ft := NewFlatTree(core.RootCluster.Path(), 5)
 	require.Equal(t, "loadtest-ws-1", ft.WorkspaceName(1))
 	require.Equal(t, "loadtest-ws-5", ft.WorkspaceName(5))
 }
 
 func TestFlatTreePathForSequenceNumber(t *testing.T) {
-	ft := NewFlatTree(3)
+	ft := NewFlatTree(core.RootCluster.Path(), 3)
 	root := core.RootCluster.Path()
 
 	require.Equal(t, root, ft.PathForSequenceNumber(0))
@@ -41,19 +41,19 @@ func TestFlatTreePathForSequenceNumber(t *testing.T) {
 }
 
 func TestFlatTreeParentSequenceNumber(t *testing.T) {
-	ft := NewFlatTree(5)
+	ft := NewFlatTree(core.RootCluster.Path(), 5)
 	require.Equal(t, 0, ft.ParentSequenceNumber(1))
 	require.Equal(t, 0, ft.ParentSequenceNumber(3))
 	require.Equal(t, 0, ft.ParentSequenceNumber(5))
 }
 
 func TestFlatTreeNumLevels(t *testing.T) {
-	ft := NewFlatTree(10)
+	ft := NewFlatTree(core.RootCluster.Path(), 10)
 	require.Equal(t, 1, ft.NumLevels())
 }
 
 func TestFlatTreeLevelRange(t *testing.T) {
-	ft := NewFlatTree(10)
+	ft := NewFlatTree(core.RootCluster.Path(), 10)
 
 	start, count := ft.LevelRange(1)
 	require.Equal(t, 1, start)

@@ -24,6 +24,9 @@ import (
 const LoadTestWsNamePrefix = "loadtest-ws-"
 
 type WorkspaceTree interface {
+	// Root returns the logical cluster path used as the root of this tree.
+	Root() logicalcluster.Path
+
 	// WorkspaceName returns the predictable name for a workspace at the given
 	// sequence number.
 	WorkspaceName(seq int) string

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kcp-dev/sdk/apis/core"
 )
 
 var _ WorkspaceTree = (*flatTree)(nil)
@@ -29,23 +28,29 @@ var _ WorkspaceTree = (*flatTree)(nil)
 // root cluster. There is no nesting — every workspace lives at depth 1.
 // We mainly use this for comparison with nested trees.
 type flatTree struct {
+	root  logicalcluster.Path
 	Count int
 }
 
-// NewFlatTree creates a flat workspace tree with the given total count.
-func NewFlatTree(count int) *flatTree {
-	return &flatTree{Count: count}
+// NewFlatTree creates a flat workspace tree with the given total count rooted
+// at the given logical cluster path.
+func NewFlatTree(root logicalcluster.Path, count int) *flatTree {
+	return &flatTree{root: root, Count: count}
 }
 
 func (t *flatTree) WorkspaceName(seq int) string {
 	return fmt.Sprintf("%s%d", LoadTestWsNamePrefix, seq)
 }
 
+func (t *flatTree) Root() logicalcluster.Path {
+	return t.root
+}
+
 func (t *flatTree) PathForSequenceNumber(seq int) logicalcluster.Path {
 	if seq == 0 {
-		return core.RootCluster.Path()
+		return t.root
 	}
-	return core.RootCluster.Path().Join(t.WorkspaceName(seq))
+	return t.root.Join(t.WorkspaceName(seq))
 }
 
 // ParentSequenceNumber always returns 0 because every workspace's parent is

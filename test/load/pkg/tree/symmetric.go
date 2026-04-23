@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kcp-dev/sdk/apis/core"
 )
 
 var _ WorkspaceTree = (*symmetricTree)(nil)
@@ -34,27 +33,32 @@ var _ WorkspaceTree = (*symmetricTree)(nil)
 // right). The branching factor is computed from count and depth as the smallest
 // integer b such that b + b² + … + b^depth >= count.
 type symmetricTree struct {
+	root            logicalcluster.Path
 	Count           int
 	Depth           int
 	BranchingFactor int
 }
 
 // NewSymmetricTree creates a SymmetricTree with the given total workspace count
-// and depth. The branching factor is the smallest integer b such that a full
-// b-ary tree of the given depth has at least count nodes. The last level may
-// be partially filled.
-func NewSymmetricTree(count, depth int) *symmetricTree {
+// and depth, rooted at the given logical cluster path. The branching factor is
+// the smallest integer b such that a full b-ary tree of the given depth has at
+// least count nodes. The last level may be partially filled.
+func NewSymmetricTree(root logicalcluster.Path, count, depth int) *symmetricTree {
 	b := findBranchingFactor(count, depth)
-	return &symmetricTree{Count: count, Depth: depth, BranchingFactor: b}
+	return &symmetricTree{root: root, Count: count, Depth: depth, BranchingFactor: b}
 }
 
 func (t *symmetricTree) WorkspaceName(seq int) string {
 	return fmt.Sprintf("%s%d", LoadTestWsNamePrefix, seq)
 }
 
+func (t *symmetricTree) Root() logicalcluster.Path {
+	return t.root
+}
+
 func (t *symmetricTree) PathForSequenceNumber(seq int) logicalcluster.Path {
 	if seq == 0 {
-		return core.RootCluster.Path()
+		return t.root
 	}
 
 	// Build ancestor chain from seq up to root.
@@ -68,7 +72,7 @@ func (t *symmetricTree) PathForSequenceNumber(seq int) logicalcluster.Path {
 	}
 
 	// Assemble path from root down to seq.
-	path := core.RootCluster.Path()
+	path := t.root
 	for i := len(chain) - 1; i >= 0; i-- {
 		path = path.Join(t.WorkspaceName(chain[i]))
 	}
