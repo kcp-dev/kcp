@@ -59,7 +59,7 @@ type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	clientGetter ClusterClientGetter
-	authIndex    state
+	authIndex    eagerIndex
 
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardLister
@@ -246,7 +246,7 @@ func (c *Controller) Lookup(wsType logicalcluster.Path) (authenticator.Request, 
 }
 
 type shardWatcher struct {
-	state                       *state
+	eagerIndex                  *eagerIndex
 	workspaceTypeInformer       cache.SharedIndexInformer
 	workspaceAuthConfigInformer cache.SharedIndexInformer
 	cancel                      context.CancelFunc
@@ -256,24 +256,24 @@ func NewShardWatcher(
 	ctx context.Context,
 	shardName string,
 	shardClient kcpclientset.ClusterInterface,
-	state *state,
+	eagerIndex *eagerIndex,
 ) (*shardWatcher, error) {
 	wacInformer := tenancyv1alpha1informers.NewWorkspaceAuthenticationConfigurationClusterInformer(shardClient, resyncPeriod, nil)
 	_, err := wacInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
-			state.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
+			eagerIndex.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
-			state.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
+			eagerIndex.UpsertWorkspaceAuthenticationConfiguration(shardName, wac)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
 			wac := obj.(*tenancyv1alpha1.WorkspaceAuthenticationConfiguration)
-			state.DeleteWorkspaceAuthenticationConfiguration(shardName, wac)
+			eagerIndex.DeleteWorkspaceAuthenticationConfiguration(shardName, wac)
 		},
 	})
 	if err != nil {
@@ -284,18 +284,18 @@ func NewShardWatcher(
 	_, err = wtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			wt := obj.(*tenancyv1alpha1.WorkspaceType)
-			state.UpsertWorkspaceType(shardName, wt)
+			eagerIndex.UpsertWorkspaceType(shardName, wt)
 		},
 		UpdateFunc: func(old, obj interface{}) {
 			wt := obj.(*tenancyv1alpha1.WorkspaceType)
-			state.UpsertWorkspaceType(shardName, wt)
+			eagerIndex.UpsertWorkspaceType(shardName, wt)
 		},
 		DeleteFunc: func(obj interface{}) {
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
 			wt := obj.(*tenancyv1alpha1.WorkspaceType)
-			state.DeleteWorkspaceType(shardName, wt)
+			eagerIndex.DeleteWorkspaceType(shardName, wt)
 		},
 	})
 	if err != nil {
@@ -305,7 +305,7 @@ func NewShardWatcher(
 	ctx, cancel := context.WithCancel(ctx)
 
 	watcher := &shardWatcher{
-		state:                       state,
+		eagerIndex:                  eagerIndex,
 		workspaceTypeInformer:       wtInformer,
 		workspaceAuthConfigInformer: wacInformer,
 		cancel:                      cancel,
@@ -327,5 +327,5 @@ func (w *shardWatcher) Stop() {
 }
 
 func (w *shardWatcher) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
-	return w.state.Lookup(wsType)
+	return w.eagerIndex.Lookup(wsType)
 }
