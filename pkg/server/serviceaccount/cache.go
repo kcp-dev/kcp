@@ -18,6 +18,7 @@ package serviceaccount
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
 	kubecorev1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/kubernetes/pkg/serviceaccount"
@@ -35,12 +37,24 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/shardlookup"
 )
 
 // Since the SATokenGetter does not get a context upstream but we need
 // to perform network requests they are bounded by this request timeout.
 // Not great, not terrible.
 const requestTimeout = 10 * time.Minute
+
+// cacheKey identifies a cluster-scoped namespaced object.
+type cacheKey struct {
+	clusterName logicalcluster.Name
+	types.NamespacedName
+}
+
+func (k cacheKey) String() string {
+	return fmt.Sprintf("%s/%s/%s", k.clusterName, k.Namespace, k.Name)
+}
 
 // Cache implements serviceaccount.ServiceAccountTokenClusterGetter.
 type Cache struct {
@@ -52,15 +66,15 @@ type Cache struct {
 	// kubeInformers is used to lookup service accounts and secrets from shard-local logical clusters.
 	kubeInformers kcpkubernetesinformers.SharedInformerFactory
 
-	serviceAccounts coalescingCache[*corev1.ServiceAccount]
-	secrets         coalescingCache[*corev1.Secret]
+	serviceAccounts *shardlookup.TTLCache[cacheKey, *corev1.ServiceAccount]
+	secrets         *shardlookup.TTLCache[cacheKey, *corev1.Secret]
 }
 
 // NewCache returns an initialized Cache. Call Stop to release resources.
 func NewCache() *Cache {
 	c := &Cache{
-		serviceAccounts: newCoalescingCache[*corev1.ServiceAccount](),
-		secrets:         newCoalescingCache[*corev1.Secret](),
+		serviceAccounts: shardlookup.NewTTLCache[cacheKey, *corev1.ServiceAccount](),
+		secrets:         shardlookup.NewTTLCache[cacheKey, *corev1.Secret](),
 	}
 	c.serviceAccounts.Start()
 	c.secrets.Start()
@@ -156,8 +170,8 @@ type serviceAccountTokenGetter struct {
 
 	// lookup in remote shards
 	kubeShardClient clientset.Interface
-	serviceAccounts coalescingCache[*corev1.ServiceAccount]
-	secrets         coalescingCache[*corev1.Secret]
+	serviceAccounts *shardlookup.TTLCache[cacheKey, *corev1.ServiceAccount]
+	secrets         *shardlookup.TTLCache[cacheKey, *corev1.Secret]
 }
 
 func (s *serviceAccountTokenGetter) GetPod(_, name string) (*corev1.Pod, error) {
@@ -176,7 +190,8 @@ func (s *serviceAccountTokenGetter) GetServiceAccount(namespace, name string) (*
 	if _, err := s.logicalClusterLister.Get(corev1alpha1.LogicalClusterName); err == nil {
 		return s.serviceAccountsLister.ServiceAccounts(namespace).Get(name)
 	}
-	return s.serviceAccounts.get(s.clusterName, namespace, name, func() (*corev1.ServiceAccount, error) {
+	key := cacheKey{s.clusterName, types.NamespacedName{Namespace: namespace, Name: name}}
+	return s.serviceAccounts.Get(key, func() (*corev1.ServiceAccount, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 		defer cancel()
 		return s.kubeShardClient.CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -187,7 +202,8 @@ func (s *serviceAccountTokenGetter) GetSecret(namespace, name string) (*corev1.S
 	if _, err := s.logicalClusterLister.Get(corev1alpha1.LogicalClusterName); err == nil {
 		return s.secretsLister.Secrets(namespace).Get(name)
 	}
-	return s.secrets.get(s.clusterName, namespace, name, func() (*corev1.Secret, error) {
+	key := cacheKey{s.clusterName, types.NamespacedName{Namespace: namespace, Name: name}}
+	return s.secrets.Get(key, func() (*corev1.Secret, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 		defer cancel()
 		return s.kubeShardClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
