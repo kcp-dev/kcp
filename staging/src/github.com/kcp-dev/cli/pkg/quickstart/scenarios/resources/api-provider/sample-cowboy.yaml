@@ -1,0 +1,7 @@
+apiVersion: wildwest.dev/v1alpha1
+kind: Cowboy
+metadata:
+  name: john-wayne
+  namespace: default
+spec:
+  intent: good
