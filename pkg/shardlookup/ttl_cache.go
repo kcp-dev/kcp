@@ -17,7 +17,6 @@ limitations under the License.
 package shardlookup
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -45,22 +44,23 @@ type TTLOptions struct {
 }
 
 // TTLCache caches objects in a TTL cache and synchronizes concurrent hits on the same key.
-type TTLCache[K comparable, V any] struct {
+// Keys are strings, typically constructed via [kcpcache.ToClusterAwareKey].
+type TTLCache[V any] struct {
 	opts  TTLOptions
-	ttl   *ttlcache.Cache[K, cacheValue[V]]
+	ttl   *ttlcache.Cache[string, cacheValue[V]]
 	group *singleflight.Group
 }
 
 // NewTTLCache creates a new Cache.
-func NewTTLCache[K comparable, V any]() *TTLCache[K, V] {
-	return NewTTLCacheWithOptions[K, V](TTLOptions{})
+func NewTTLCache[V any]() *TTLCache[V] {
+	return NewTTLCacheWithOptions[V](TTLOptions{})
 }
 
 // NewTTLCacheWithOptions creates a new Cache with the given [TTLOptions].
-func NewTTLCacheWithOptions[K comparable, V any](opts TTLOptions) *TTLCache[K, V] {
-	c := &TTLCache[K, V]{
+func NewTTLCacheWithOptions[V any](opts TTLOptions) *TTLCache[V] {
+	c := &TTLCache[V]{
 		opts:  opts,
-		ttl:   ttlcache.New[K, cacheValue[V]](),
+		ttl:   ttlcache.New[string, cacheValue[V]](),
 		group: &singleflight.Group{},
 	}
 	if int64(c.opts.SuccessTTL) == 0 {
@@ -79,12 +79,12 @@ func NewTTLCacheWithOptions[K comparable, V any](opts TTLOptions) *TTLCache[K, V
 // stale items in memory until the process exits.
 // Saving this goroutine can be a tradeoff if the amount of possible
 // keys is known to be finite and low.
-func (c *TTLCache[K, V]) Start() {
+func (c *TTLCache[V]) Start() {
 	go c.ttl.Start()
 }
 
 // Stop stops the goroutine evicting expired entries.
-func (c *TTLCache[K, V]) Stop() {
+func (c *TTLCache[V]) Stop() {
 	c.ttl.Stop()
 }
 
@@ -94,15 +94,15 @@ func (c *TTLCache[K, V]) Stop() {
 // forever.
 // If the key is not cached or is expired the value is retrieved using
 // the provided function and cached.
-func (c *TTLCache[K, V]) Get(key K, fetch func() (V, error)) (V, error) {
-	if item := c.ttl.Get(key, ttlcache.WithDisableTouchOnHit[K, cacheValue[V]]()); item != nil {
+func (c *TTLCache[V]) Get(key string, fetch func() (V, error)) (V, error) {
+	if item := c.ttl.Get(key, ttlcache.WithDisableTouchOnHit[string, cacheValue[V]]()); item != nil {
 		if !item.IsExpired() {
 			cv := item.Value()
 			return cv.value, cv.err
 		}
 	}
 
-	result, err, _ := c.group.Do(fmt.Sprintf("%v", key), func() (any, error) {
+	result, err, _ := c.group.Do(key, func() (any, error) {
 		v, err := fetch()
 		cv := cacheValue[V]{value: v, err: err}
 		ttl := c.opts.SuccessTTL
