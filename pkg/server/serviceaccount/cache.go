@@ -25,18 +25,13 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	clientset "k8s.io/client-go/kubernetes"
-	kubecorev1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
-	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/shardlookup"
 )
@@ -45,16 +40,6 @@ import (
 // to perform network requests they are bounded by this request timeout.
 // Not great, not terrible.
 const requestTimeout = 10 * time.Minute
-
-// cacheKey identifies a cluster-scoped namespaced object.
-type cacheKey struct {
-	clusterName logicalcluster.Name
-	types.NamespacedName
-}
-
-func (k cacheKey) String() string {
-	return kcpcache.ToClusterAwareKey(k.clusterName.String(), k.Namespace, k.Name)
-}
 
 // Cache implements serviceaccount.ServiceAccountTokenClusterGetter.
 type Cache struct {
@@ -143,16 +128,50 @@ func (c *Cache) Cluster(clusterName logicalcluster.Name) serviceaccount.ServiceA
 	// Once the setup finishes and the shard starts operating the Cache
 	// has both informer factories and the client.
 
+	// This is a trade off. Logical clusters are treated as remote and
+	// requests round-trip through the front-proxy; but given that we
+	// are in kube-land with eventual consistency this is fine. The
+	// occurrences of this should be relatively low.
+	logicalClusterLister := c.kcpInformers.Core().V1alpha1().LogicalClusters().Cluster(clusterName).Lister()
+	isLocal := func(_ logicalcluster.Name, _, _ string) bool {
+		_, err := logicalClusterLister.Get(corev1alpha1.LogicalClusterName)
+		return err == nil
+	}
+
+	// TODO(ntnn): This could maybe be refactored, since shardlookup.Lookup works
+	// entirely with hooks all of this could be setup when the Cache is
+	// created and just access the stored informers/clients from the
+	// hooks. Ordering wise that would be probably be fine.
+	serviceAccountsLister := c.kubeInformers.Core().V1().ServiceAccounts().Cluster(clusterName).Lister()
+	secretsLister := c.kubeInformers.Core().V1().Secrets().Cluster(clusterName).Lister()
+	kubeShardClient := c.kubeShardClient.Cluster(clusterName.Path())
+
 	return &serviceAccountTokenGetter{
-		logicalClusterLister: c.kcpInformers.Core().V1alpha1().LogicalClusters().Cluster(clusterName).Lister(),
-		clusterName:          clusterName,
-
-		serviceAccountsLister: c.kubeInformers.Core().V1().ServiceAccounts().Cluster(clusterName).Lister(),
-		secretsLister:         c.kubeInformers.Core().V1().Secrets().Cluster(clusterName).Lister(),
-
-		kubeShardClient: c.kubeShardClient.Cluster(clusterName.Path()),
-		serviceAccounts: c.serviceAccounts,
-		secrets:         c.secrets,
+		serviceAccounts: shardlookup.NewLookup(
+			c.serviceAccounts,
+			isLocal,
+			func(_ logicalcluster.Name, namespace, name string) (*corev1.ServiceAccount, error) {
+				return serviceAccountsLister.ServiceAccounts(namespace).Get(name)
+			},
+			func(_ logicalcluster.Name, namespace, name string) (*corev1.ServiceAccount, error) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+				defer cancel()
+				return kubeShardClient.CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
+			},
+		),
+		secrets: shardlookup.NewLookup(
+			c.secrets,
+			isLocal,
+			func(_ logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
+				return secretsLister.Secrets(namespace).Get(name)
+			},
+			func(_ logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+				defer cancel()
+				return kubeShardClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+			},
+		),
+		clusterName: clusterName,
 	}
 }
 
@@ -160,18 +179,10 @@ var _ serviceaccount.ServiceAccountTokenGetter = (*serviceAccountTokenGetter)(ni
 
 // serviceAccountTokenGetter implements serviceaccount.ServiceAccountTokenGetter.
 type serviceAccountTokenGetter struct {
-	// lookup if a logical cluster is shard-local
-	logicalClusterLister corev1alpha1listers.LogicalClusterLister
-	clusterName          logicalcluster.Name
+	clusterName logicalcluster.Name
 
-	// lookup in shard-local
-	serviceAccountsLister kubecorev1lister.ServiceAccountLister
-	secretsLister         kubecorev1lister.SecretLister
-
-	// lookup in remote shards
-	kubeShardClient clientset.Interface
-	serviceAccounts *shardlookup.TTLCache[*corev1.ServiceAccount]
-	secrets         *shardlookup.TTLCache[*corev1.Secret]
+	serviceAccounts *shardlookup.Lookup[*corev1.ServiceAccount]
+	secrets         *shardlookup.Lookup[*corev1.Secret]
 }
 
 func (s *serviceAccountTokenGetter) GetPod(_, name string) (*corev1.Pod, error) {
@@ -183,29 +194,9 @@ func (s *serviceAccountTokenGetter) GetNode(name string) (*corev1.Node, error) {
 }
 
 func (s *serviceAccountTokenGetter) GetServiceAccount(namespace, name string) (*corev1.ServiceAccount, error) {
-	// This is a trade off. Logical clusters are treated as remote and
-	// requests round-trip through the front-proxy; but given that we
-	// are in kube-land with eventual consistency this is fine. The
-	// occurrences of this should be relatively low.
-	if _, err := s.logicalClusterLister.Get(corev1alpha1.LogicalClusterName); err == nil {
-		return s.serviceAccountsLister.ServiceAccounts(namespace).Get(name)
-	}
-	key := cacheKey{s.clusterName, types.NamespacedName{Namespace: namespace, Name: name}}
-	return s.serviceAccounts.Get(key.String(), func() (*corev1.ServiceAccount, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-		defer cancel()
-		return s.kubeShardClient.CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
-	})
+	return s.serviceAccounts.Get(s.clusterName, namespace, name)
 }
 
 func (s *serviceAccountTokenGetter) GetSecret(namespace, name string) (*corev1.Secret, error) {
-	if _, err := s.logicalClusterLister.Get(corev1alpha1.LogicalClusterName); err == nil {
-		return s.secretsLister.Secrets(namespace).Get(name)
-	}
-	key := cacheKey{s.clusterName, types.NamespacedName{Namespace: namespace, Name: name}}
-	return s.secrets.Get(key.String(), func() (*corev1.Secret, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-		defer cancel()
-		return s.kubeShardClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
-	})
+	return s.secrets.Get(s.clusterName, namespace, name)
 }
