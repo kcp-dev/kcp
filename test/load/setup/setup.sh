@@ -181,9 +181,6 @@ if [ "$USE_DEFAULT_ENVOY_GATEWAY" = "false" ]; then
   echo "
   All components have been deployed. Now it is time for you to expose them using an ingress/gateway.
   To help you with this, you can check out manifests/gateway.yaml for an example.
-  
-  Please also create the metrics-viewer RBAC, once you can route to kcp's API server:
-  kubectl --kubeconfig admin.kubeconfig apply -f manifests/monitoring-kcp-rbac.yaml
   "
   exit 0
 fi
@@ -218,9 +215,6 @@ until last_err=$(kubectl --kubeconfig admin.kubeconfig get shards 2>&1); do
   fi
   sleep 5
 done
-
-echo "Applying metrics-viewer RBAC in kcp root workspace"
-kubectl --kubeconfig admin.kubeconfig apply -f manifests/monitoring-kcp-rbac.yaml
 
 echo "
 -------------------------
