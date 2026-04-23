@@ -179,18 +179,5 @@ func (i *eagerIndex) Lookup(wsType logicalcluster.Path) (authenticator.Request, 
 		return nil, false
 	}
 
-	authenticator := authenticatorunion.New(authenticators...)
-
-	// ensure that per-workspace auth cannot be used to become a system: user/group
-	authenticator = ForbidSystemUsernames(authenticator)
-	groupFiltered := &GroupFilter{
-		Authenticator:     authenticator,
-		DropGroupPrefixes: []string{"system:"},
-	}
-	extraFiltered := &ExtraFilter{
-		Authenticator:        groupFiltered,
-		DropExtraKeyContains: []string{"kcp.io"},
-	}
-
-	return extraFiltered, true
+	return wrapWithSecurityFilters(authenticatorunion.New(authenticators...)), true
 }

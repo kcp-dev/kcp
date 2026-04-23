@@ -54,6 +54,7 @@ var (
 	errCauseDelete      = errors.New("authentication configuration has been deleted")
 	errCauseDeleteShard = errors.New("shard has been deleted")
 	errCauseEmpty       = errors.New("no valid authentication methods configured")
+	errCauseEvict       = errors.New("cache entry evicted")
 )
 
 func getAuthConfigKey(authConfig *tenancyv1alpha1.WorkspaceAuthenticationConfiguration) authenticatorKey {
@@ -92,4 +93,18 @@ func buildAuthenticator(
 	}
 
 	return authenticatorState{cancel: cancel, authenticator: authn}, nil
+}
+
+// wrapWithSecurityFilters wraps an authenticator with security filters
+// that prevent workspace-local auth from escalating to system-level access.
+func wrapWithSecurityFilters(authn authenticator.Request) authenticator.Request {
+	authn = ForbidSystemUsernames(authn)
+	groupFiltered := &GroupFilter{
+		Authenticator:     authn,
+		DropGroupPrefixes: []string{"system:"},
+	}
+	return &ExtraFilter{
+		Authenticator:        groupFiltered,
+		DropExtraKeyContains: []string{"kcp.io"},
+	}
 }
