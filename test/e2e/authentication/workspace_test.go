@@ -35,6 +35,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/authfixtures"
@@ -620,13 +621,13 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	}
 
 	var response *authenticationv1.TokenReview
-	require.Eventually(t, func() bool {
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		var err error
-
 		response, err = kubeClusterClient.Cluster(teamPath).AuthenticationV1().TokenReviews().Create(t.Context(), review, metav1.CreateOptions{})
-		require.NoError(t, err)
-
-		return response.Status.Authenticated
+		if err != nil {
+			return false, err.Error()
+		}
+		return response.Status.Authenticated, response.Status.Error
 	}, wait.ForeverTestTimeout, 500*time.Millisecond)
 
 	require.Contains(t, response.Status.Audiences, kcpDefaultAudience)
