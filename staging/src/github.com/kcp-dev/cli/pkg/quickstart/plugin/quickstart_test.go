@@ -235,7 +235,7 @@ func TestRunCleanup(t *testing.T) {
 			t.Fatalf("Run() cleanup: %v", err)
 		}
 		want := []string{"C", "A"} // reverse order,and B has no Cleanup
-		if strings.Join(callOrder, ",") != strings.Join(want, ",") {
+		if strings.Join(callOrder, ", ") != strings.Join(want, ", ") {
 			t.Errorf("cleanup order = %v, want %v", callOrder, want)
 		}
 	})
