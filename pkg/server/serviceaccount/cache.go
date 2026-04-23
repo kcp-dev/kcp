@@ -18,7 +18,6 @@ package serviceaccount
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	kubecorev1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -53,7 +53,7 @@ type cacheKey struct {
 }
 
 func (k cacheKey) String() string {
-	return fmt.Sprintf("%s/%s/%s", k.clusterName, k.Namespace, k.Name)
+	return kcpcache.ToClusterAwareKey(k.clusterName.String(), k.Namespace, k.Name)
 }
 
 // Cache implements serviceaccount.ServiceAccountTokenClusterGetter.
@@ -66,15 +66,15 @@ type Cache struct {
 	// kubeInformers is used to lookup service accounts and secrets from shard-local logical clusters.
 	kubeInformers kcpkubernetesinformers.SharedInformerFactory
 
-	serviceAccounts *shardlookup.TTLCache[cacheKey, *corev1.ServiceAccount]
-	secrets         *shardlookup.TTLCache[cacheKey, *corev1.Secret]
+	serviceAccounts *shardlookup.TTLCache[*corev1.ServiceAccount]
+	secrets         *shardlookup.TTLCache[*corev1.Secret]
 }
 
 // NewCache returns an initialized Cache. Call Stop to release resources.
 func NewCache() *Cache {
 	c := &Cache{
-		serviceAccounts: shardlookup.NewTTLCache[cacheKey, *corev1.ServiceAccount](),
-		secrets:         shardlookup.NewTTLCache[cacheKey, *corev1.Secret](),
+		serviceAccounts: shardlookup.NewTTLCache[*corev1.ServiceAccount](),
+		secrets:         shardlookup.NewTTLCache[*corev1.Secret](),
 	}
 	c.serviceAccounts.Start()
 	c.secrets.Start()
@@ -170,8 +170,8 @@ type serviceAccountTokenGetter struct {
 
 	// lookup in remote shards
 	kubeShardClient clientset.Interface
-	serviceAccounts *shardlookup.TTLCache[cacheKey, *corev1.ServiceAccount]
-	secrets         *shardlookup.TTLCache[cacheKey, *corev1.Secret]
+	serviceAccounts *shardlookup.TTLCache[*corev1.ServiceAccount]
+	secrets         *shardlookup.TTLCache[*corev1.Secret]
 }
 
 func (s *serviceAccountTokenGetter) GetPod(_, name string) (*corev1.Pod, error) {
@@ -191,7 +191,7 @@ func (s *serviceAccountTokenGetter) GetServiceAccount(namespace, name string) (*
 		return s.serviceAccountsLister.ServiceAccounts(namespace).Get(name)
 	}
 	key := cacheKey{s.clusterName, types.NamespacedName{Namespace: namespace, Name: name}}
-	return s.serviceAccounts.Get(key, func() (*corev1.ServiceAccount, error) {
+	return s.serviceAccounts.Get(key.String(), func() (*corev1.ServiceAccount, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 		defer cancel()
 		return s.kubeShardClient.CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -203,7 +203,7 @@ func (s *serviceAccountTokenGetter) GetSecret(namespace, name string) (*corev1.S
 		return s.secretsLister.Secrets(namespace).Get(name)
 	}
 	key := cacheKey{s.clusterName, types.NamespacedName{Namespace: namespace, Name: name}}
-	return s.secrets.Get(key, func() (*corev1.Secret, error) {
+	return s.secrets.Get(key.String(), func() (*corev1.Secret, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 		defer cancel()
 		return s.kubeShardClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
