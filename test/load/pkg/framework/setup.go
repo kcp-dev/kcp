@@ -27,9 +27,12 @@ limitations under the License.
 package framework
 
 import (
+	"net/http"
 	"os"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,6 +92,7 @@ func Require(t *testing.T, caps ...Capability) *Config {
 	return cfg
 }
 
+// loadKubeconfig loads a kubeconfig from the given path and prepares it for use in load tests.
 func loadKubeconfig(t *testing.T, kubeconfigPath string) *rest.Config {
 	t.Helper()
 
@@ -101,6 +105,33 @@ func loadKubeconfig(t *testing.T, kubeconfigPath string) *rest.Config {
 
 	restConfig, err := clientcmd.NewNonInteractiveClientConfig(*rawConfig, rawConfig.CurrentContext, nil, nil).ClientConfig()
 	require.NoError(t, err, "failed to create rest.Config from %s", kubeconfigPath)
+
+	// Strip any /clusters/<path> suffix from the Host URL. kcp kubeconfigs
+	// often include this, but cluster-aware clients append it themselves.
+	if i := strings.Index(restConfig.Host, "/clusters/"); i != -1 {
+		restConfig.Host = restConfig.Host[:i]
+	}
+
+	restConfig.UserAgent = "kcp-load-test"
+
+	// Disable client-side rate limiting entirely so the tuning sets control the actual QPS.
+	restConfig.QPS = -1
+	restConfig.Burst = -1
+	restConfig.RateLimiter = nil
+
+	// ignore apiserver warnings to save resources (e.g. on deprecation headers)
+	restConfig.WarningHandler = rest.NoWarnings{}
+
+	// we need to wrap transport, so client-go can build proper TLS settings first
+	// and then we tweak connection pools on the resulting *http.Transport
+	restConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		if tr, ok := rt.(*http.Transport); ok {
+			tr.MaxIdleConns = 100
+			tr.MaxIdleConnsPerHost = 100
+			tr.IdleConnTimeout = 90 * time.Second
+		}
+		return rt
+	}
 
 	return restConfig
 }

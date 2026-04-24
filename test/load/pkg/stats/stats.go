@@ -20,8 +20,8 @@ import (
 	"github.com/montanaflynn/stats"
 )
 
-// NamedStats is a wrapper to give each stat calculation a name,
-// we can use for printing results.
+// NamedStat is a wrapper to give each stat calculation a name,
+// which is used for printing results.
 type NamedStat struct {
 	Name string
 	Calc func(values []float64) float64
@@ -36,7 +36,7 @@ func P99() NamedStat {
 			}
 
 			// we are safe to ignore the error here as we check
-			// for null before and have the percentile on a fixed number
+			// for empty before and have the percentile on a fixed number
 			p99, _ := stats.Percentile(values, 99)
 			return p99
 		},
@@ -52,7 +52,7 @@ func Avg() NamedStat {
 			}
 
 			// we are safe to ignore the error here as we check
-			// for null before
+			// for empty before
 			mean, _ := stats.Mean(values)
 			return mean
 		},
