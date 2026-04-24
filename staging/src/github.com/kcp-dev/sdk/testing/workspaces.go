@@ -32,7 +32,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -180,7 +179,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		var err error
 		ws, err = createClusterClient.Cluster(parent).TenancyV1alpha1().Workspaces().Create(ctx, tmpl, metav1.CreateOptions{})
 		return err == nil, fmt.Sprintf("error creating workspace under %s: %v", parent, err)
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
+	}, workspaceInitTimeout, time.Millisecond*100, "failed to create %s workspace under %s", tmpl.Spec.Type.Name, parent)
 
 	wsName := ws.Name
 	t.Cleanup(func() {
@@ -198,7 +197,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 				return true, ""
 			}
 			return false, err.Error()
-		}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to delete workspace %s", wsName)
+		}, workspaceInitTimeout, time.Millisecond*100, "failed to delete workspace %s", wsName)
 	})
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -220,7 +219,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 			return false, fmt.Sprintf("failed to get LogicalCluster %s via path: %v", parent.Join(ws.Name), err)
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible", ws.Spec.Type, parent.Join(ws.Name))
+	}, workspaceInitTimeout, time.Millisecond*100, "failed to wait for %s workspace %s to become accessible", ws.Spec.Type, parent.Join(ws.Name))
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		apibindings, err := clusterClient.Cluster(logicalcluster.NewPath(ws.Spec.Cluster)).ApisV1alpha2().APIBindings().List(t.Context(), metav1.ListOptions{})
@@ -317,5 +316,5 @@ func WaitForAPIReady(t TestingT, discoveryClient discovery.DiscoveryInterface, g
 			return false, fmt.Sprintf("waiting for %s to be served: %v", gv, err)
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "%s is not served", gv)
+	}, workspaceInitTimeout, 100*time.Millisecond, "%s is not served", gv)
 }
