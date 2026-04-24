@@ -59,7 +59,7 @@ type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	clientGetter ClusterClientGetter
-	authIndex    eagerIndex
+	authIndex    *eagerIndex
 
 	shardIndexer cache.Indexer
 	shardLister  corev1alpha1listers.ShardLister
@@ -85,7 +85,7 @@ func NewController(
 		queue: queue,
 
 		clientGetter: clientGetter,
-		authIndex:    *NewIndex(ctx, baseAudiences),
+		authIndex:    NewIndex(ctx, baseAudiences),
 
 		shardIndexer: shardInformer.Informer().GetIndexer(),
 		shardLister:  shardInformer.Lister(),
@@ -218,7 +218,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			return err
 		}
 
-		watcher, err := NewShardWatcher(ctx, shard.Name, client, &c.authIndex)
+		watcher, err := NewShardWatcher(ctx, shard.Name, client, c.authIndex)
 		if err != nil {
 			return fmt.Errorf("failed to start shard watcher: %w", err)
 		}
