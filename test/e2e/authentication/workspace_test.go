@@ -568,10 +568,6 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
 
-	if len(server.ShardNames()) > 1 {
-		t.Skip("This feature currently does not support multi shards because AuthConfigs are not replicated yet.")
-	}
-
 	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("workspace-auth-token-review"))
 
 	kcpConfig := server.BaseConfig(t)
