@@ -585,7 +585,7 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 
 	// create a new workspace with our new type
 	t.Log("Creating Workspaces...")
-	teamPath, _ := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
+	teamPath, teamWs := kcptesting.NewWorkspaceFixture(t, server, baseWsPath, kcptesting.WithName("team-a"), kcptesting.WithType(baseWsPath, tenancyv1alpha1.WorkspaceTypeName(wsType)))
 
 	var (
 		userName       = "peter"
@@ -630,4 +630,14 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	}, wait.ForeverTestTimeout, 500*time.Millisecond)
 
 	require.Contains(t, response.Status.Audiences, kcpDefaultAudience)
+
+	// Ensure the correct clusters are mentioned in the TokenReview.
+	require.Equal(t,
+		authenticationv1.ExtraValue{teamWs.Spec.Cluster},
+		response.Status.User.Extra["authentication.kcp.io/cluster-name"],
+	)
+	require.Contains(t,
+		response.Status.User.Extra["authentication.kcp.io/scopes"],
+		fmt.Sprintf("cluster:%s", teamWs.Spec.Cluster),
+	)
 }
