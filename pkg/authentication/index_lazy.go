@@ -89,7 +89,7 @@ func NewLazyIndex(
 			state.cancel(errCauseEvict)
 		}
 	})
-	idx.authenticators.Start()
+	idx.authenticators.StartWithContext(lifecycleCtx)
 	return idx
 }
 

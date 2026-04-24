@@ -89,6 +89,15 @@ func (c *TTLCache[V]) Stop() {
 	c.ttl.Stop()
 }
 
+// StartWithContext calls .Start and calls .Stop when the context is canceled.
+func (c *TTLCache[V]) StartWithContext(ctx context.Context) {
+	c.Start()
+	go func() {
+		<-ctx.Done()
+		c.Stop()
+	}()
+}
+
 // OnEviction registers a callback that is called when an entry is
 // evicted from the cache. The callback runs on a separate goroutine.
 // The returned function can be called to unsubscribe.

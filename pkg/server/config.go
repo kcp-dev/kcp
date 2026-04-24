@@ -479,7 +479,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		}
 
 		wacCache := shardlookup.NewTTLCache[*tenancyv1alpha1.WorkspaceAuthenticationConfiguration]()
-		wacCache.Start()
+		wacCache.StartWithContext(ctx)
 		wacLookup := shardlookup.NewLookup(
 			wacCache,
 			func(clusterName logicalcluster.Name, _, _ string) bool {
