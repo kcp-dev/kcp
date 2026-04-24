@@ -26,8 +26,10 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -57,6 +59,8 @@ import (
 	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
@@ -76,6 +80,7 @@ import (
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/virtualresources"
+	"github.com/kcp-dev/kcp/pkg/shardlookup"
 
 	_ "net/http/pprof"
 )
@@ -457,15 +462,49 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// an error.
 	var authIndex authentication.AuthenticatorIndex
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
-		// Start an index and a shard watcher to fill this index;
-		// the shard watcher's lifetime is tied to the given context.
-		authIndexState := authentication.NewIndex(ctx, c.GenericConfig.Authentication.APIAudiences)
-		_, err := authentication.NewShardWatcher(ctx, c.Options.Extra.ShardName, c.KcpClusterClient, authIndexState)
+		localWSTIndexer := c.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+		_ = localWSTIndexer.AddIndexers(cache.Indexers{
+			indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		})
+		cacheWSTIndexer := c.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+		_ = cacheWSTIndexer.AddIndexers(cache.Indexers{
+			indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+		})
+
+		logicalClusterLister := c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Lister()
+		wacLister := c.KcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceAuthenticationConfigurations().Lister()
+		externalKcpClient, err := kcpclientset.NewForConfig(c.ExternalLogicalClusterAdminConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to start shard watcher: %w", err)
+			return nil, fmt.Errorf("failed to create external kcp client for workspace authentication: %w", err)
 		}
 
-		authIndex = authIndexState
+		wacCache := shardlookup.NewTTLCache[*tenancyv1alpha1.WorkspaceAuthenticationConfiguration]()
+		wacCache.StartWithContext(ctx)
+		wacLookup := shardlookup.NewLookup(
+			wacCache,
+			func(clusterName logicalcluster.Name, _, _ string) bool {
+				_, err := logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+				return err == nil
+			},
+			func(clusterName logicalcluster.Name, _, name string) (*tenancyv1alpha1.WorkspaceAuthenticationConfiguration, error) {
+				return wacLister.Cluster(clusterName).Get(name)
+			},
+			func(clusterName logicalcluster.Name, _, name string) (*tenancyv1alpha1.WorkspaceAuthenticationConfiguration, error) {
+				// Enforce a timeout in case the front-proxy or targeted shard do not answer.
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+				defer cancel()
+				return externalKcpClient.TenancyV1alpha1().WorkspaceAuthenticationConfigurations().Cluster(clusterName.Path()).Get(ctx, name, metav1.GetOptions{})
+			},
+		)
+
+		authIndex = authentication.NewLazyIndex(
+			ctx,
+			c.GenericConfig.Authentication.APIAudiences,
+			localWSTIndexer, cacheWSTIndexer,
+			func(clusterName logicalcluster.Name, name string) (*tenancyv1alpha1.WorkspaceAuthenticationConfiguration, error) {
+				return wacLookup.Get(clusterName, "", name)
+			},
+		)
 	}
 
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
