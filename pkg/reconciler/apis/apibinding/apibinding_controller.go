@@ -63,7 +63,8 @@ import (
 )
 
 const (
-	ControllerName = "kcp-apibinding"
+	ControllerName    = "kcp-apibinding"
+	LocksFieldManager = "apibinding-reconciler-locks"
 )
 
 var (
@@ -165,8 +166,10 @@ func NewController(
 					Kind:       "LogicalCluster",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        lc.Name,
-					Annotations: lc.Annotations,
+					Name: lc.Name,
+					Annotations: map[string]string{
+						ResourceBindingsAnnotationKey: lc.Annotations[ResourceBindingsAnnotationKey],
+					},
 				},
 			}
 			patchBytes, err := json.Marshal(patchObj)
@@ -179,7 +182,7 @@ func NewController(
 				types.ApplyPatchType,
 				patchBytes,
 				metav1.PatchOptions{
-					FieldManager: "apibinding-reconciler-locks",
+					FieldManager: LocksFieldManager,
 					Force:        ptr.To(true),
 				},
 			)
