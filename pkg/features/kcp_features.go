@@ -60,6 +60,11 @@ const (
 	// users into workspaces from foreign OIDC issuers. This feature can be individually enabled on each shard and
 	// the front-proxy.
 	WorkspaceAuthentication featuregate.Feature = "WorkspaceAuthentication"
+
+	// owner: @mjudeikis, @olamilekan000
+	// alpha: v0.1
+	// Enables native API conversion rules for Custom Resources.
+	APIConversion featuregate.Feature = "APIConversion"
 )
 
 // DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
@@ -139,6 +144,9 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	WorkspaceAuthentication: {
+		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
+	APIConversion: {
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
