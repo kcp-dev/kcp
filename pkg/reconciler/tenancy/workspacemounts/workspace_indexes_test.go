@@ -29,14 +29,6 @@ import (
 )
 
 // TestIndexWorkspaceByMountObject exercises the mount-reference indexer.
-//
-// The unknown-kind case matters because client-go's storeIndex.updateSingleIndex
-// panics on any IndexFunc error (see k8s.io/client-go/tools/cache/thread_safe_store.go),
-// which would tear down the apiserver. A Workspace pointing at a kind whose
-// APIBinding/CRD hasn't reconciled yet is a normal, recoverable state — not a
-// reason to crash the process. A malformed APIVersion, by contrast, is
-// user-input that will never become valid by re-indexing the same object, so
-// reporting it is preferable to silently dropping it.
 func TestIndexWorkspaceByMountObject(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -46,6 +38,13 @@ func TestIndexWorkspaceByMountObject(t *testing.T) {
 		errMsg    string
 	}{
 		{
+			// The unknown-kind case matters because client-go's storeIndex.updateSingleIndex
+			// panics on any IndexFunc error (see k8s.io/client-go/tools/cache/thread_safe_store.go),
+			// which would tear down the apiserver. A Workspace pointing at a kind whose
+			// APIBinding/CRD hasn't reconciled yet is a normal, recoverable state — not a
+			// reason to crash the process. A malformed APIVersion, by contrast, is
+			// user-input that will never become valid by re-indexing the same object, so
+			// reporting it is preferable to silently dropping it.
 			name: "unknown kind does not error",
 			ws: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
