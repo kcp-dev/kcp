@@ -229,6 +229,9 @@ func (h *homeWorkspaceHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reque
 					core.LogicalClusterPathAnnotationKey:                    fmt.Sprintf("user:%s", effectiveUser.GetName()),
 				},
 			},
+			Spec: corev1alpha1.LogicalClusterSpec{
+				CreatedBy: workspace.CreatedByFromUserInfo(effectiveUser),
+			},
 		}
 		logicalCluster.Spec.Initializers, err = reconcilerworkspace.LogicalClustersInitializers(h.transitiveTypeResolver, h.getWorkspaceType, core.RootCluster.Path(), "home")
 		if err != nil {

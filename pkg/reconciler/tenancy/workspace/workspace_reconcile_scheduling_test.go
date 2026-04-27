@@ -424,6 +424,9 @@ func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 				Name:       "foo",
 				Cluster:    "root",
 			},
+			CreatedBy: &corev1alpha1.OwnerUserInfo{
+				Username: "kcp-admin",
+			},
 			Initializers: []corev1alpha1.LogicalClusterInitializer{"root:organization", "system:apibindings"},
 		},
 	}

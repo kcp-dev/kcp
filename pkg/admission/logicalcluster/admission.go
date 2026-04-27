@@ -23,9 +23,11 @@ import (
 	"io"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -153,6 +155,10 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 		old := &corev1alpha1.LogicalCluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, old); err != nil {
 			return fmt.Errorf("failed to convert unstructured to LogicalCluster: %w", err)
+		}
+
+		if errs := validation.ValidateImmutableField(logicalCluster.Spec.CreatedBy, old.Spec.CreatedBy, field.NewPath("spec", "createdBy")); len(errs) > 0 {
+			return admission.NewForbidden(a, errs.ToAggregate())
 		}
 
 		oldSpec := toSet(old.Spec.Initializers)

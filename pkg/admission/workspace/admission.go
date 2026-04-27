@@ -127,6 +127,23 @@ func (o *workspace) Admit(ctx context.Context, a admission.Attributes, _ admissi
 	return updateUnstructured(u, ws)
 }
 
+// CreatedByFromUserInfo returns a OwnerUserInfo for the given user.Info.
+func CreatedByFromUserInfo(user kuser.Info) *corev1alpha1.OwnerUserInfo {
+	info := &corev1alpha1.OwnerUserInfo{
+		Username: user.GetName(),
+		UID:      user.GetUID(),
+		Groups:   user.GetGroups(),
+	}
+	extra := map[string]authenticationv1.ExtraValue{}
+	for k, v := range user.GetExtra() {
+		extra[k] = v
+	}
+	if len(extra) > 0 {
+		info.Extra = extra
+	}
+	return info
+}
+
 // Validate ensures that
 // - the workspace only does a valid phase transition
 // - has a valid type and it is not mutated

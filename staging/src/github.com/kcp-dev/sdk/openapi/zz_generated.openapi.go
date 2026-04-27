@@ -121,6 +121,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName():                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
 		corev1alpha1.LogicalClusterSpec{}.OpenAPIModelName():                          schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref),
 		corev1alpha1.LogicalClusterStatus{}.OpenAPIModelName():                        schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref),
+		corev1alpha1.OwnerUserInfo{}.OpenAPIModelName():                               schema_sdk_apis_core_v1alpha1_OwnerUserInfo(ref),
 		corev1alpha1.Shard{}.OpenAPIModelName():                                       schema_sdk_apis_core_v1alpha1_Shard(ref),
 		corev1alpha1.ShardList{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
 		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
@@ -3730,6 +3731,12 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 							Ref:         ref(corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName()),
 						},
 					},
+					"createdBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "createdBy is the user who owns this logical cluster. This is the user who created the workspace.",
+							Ref:         ref(corev1alpha1.OwnerUserInfo{}.OpenAPIModelName()),
+						},
+					},
 					"initializers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "initializers are set on creation by the system and copied to status when initialization starts.",
@@ -3764,7 +3771,7 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName()},
+			corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName(), corev1alpha1.OwnerUserInfo{}.OpenAPIModelName()},
 	}
 }
 
@@ -3838,6 +3845,71 @@ func schema_sdk_apis_core_v1alpha1_LogicalClusterStatus(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_core_v1alpha1_OwnerUserInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OwnerUserInfo is the user who owns a LogicalCluster.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "username is the name of the user.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"groups": {
+						SchemaProps: spec.SchemaProps{
+							Description: "groups is the list of groups the user belongs to.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"uid": {
+						SchemaProps: spec.SchemaProps{
+							Description: "uid is a unique identifier for the user.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"extra": {
+						SchemaProps: spec.SchemaProps{
+							Description: "extra contains additional information provided by the authenticator.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Default: "",
+													Type:    []string{"string"},
+													Format:  "",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

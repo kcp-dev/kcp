@@ -47,6 +47,11 @@ func (in LogicalClusterStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OwnerUserInfo) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.OwnerUserInfo"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Shard) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.Shard"
 }

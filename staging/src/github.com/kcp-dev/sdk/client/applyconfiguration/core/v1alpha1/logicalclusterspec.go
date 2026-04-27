@@ -37,6 +37,9 @@ type LogicalClusterSpecApplyConfiguration struct {
 	// When this object is deleted, but the owner is not deleted, the owner is deleted
 	// too.
 	Owner *LogicalClusterOwnerApplyConfiguration `json:"owner,omitempty"`
+	// createdBy is the user who owns this logical cluster. This is the user who
+	// created the workspace.
+	CreatedBy *OwnerUserInfoApplyConfiguration `json:"createdBy,omitempty"`
 	// initializers are set on creation by the system and copied to status when
 	// initialization starts.
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
@@ -64,6 +67,14 @@ func (b *LogicalClusterSpecApplyConfiguration) WithDirectlyDeletable(value bool)
 // If called multiple times, the Owner field is set to the value of the last call.
 func (b *LogicalClusterSpecApplyConfiguration) WithOwner(value *LogicalClusterOwnerApplyConfiguration) *LogicalClusterSpecApplyConfiguration {
 	b.Owner = value
+	return b
+}
+
+// WithCreatedBy sets the CreatedBy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the CreatedBy field is set to the value of the last call.
+func (b *LogicalClusterSpecApplyConfiguration) WithCreatedBy(value *OwnerUserInfoApplyConfiguration) *LogicalClusterSpecApplyConfiguration {
+	b.CreatedBy = value
 	return b
 }
 
