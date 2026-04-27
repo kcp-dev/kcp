@@ -66,8 +66,6 @@ func newIndexWorkspaceByMountObject(dynamicRESTMapper *dynamicrestmapper.Dynamic
 
 		gv, err := schema.ParseGroupVersion(ws.Spec.Mount.Reference.APIVersion)
 		if err != nil {
-			// Malformed user input — safe to surface as an error; the value
-			// will never become valid by re-indexing the same object.
 			return nil, fmt.Errorf("unable to parse APIVersion of mount reference: %w", err)
 		}
 		gvk := schema.GroupVersionKind{
