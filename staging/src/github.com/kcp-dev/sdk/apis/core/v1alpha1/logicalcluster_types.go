@@ -60,7 +60,7 @@ const (
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
 //
-// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready;Unavailable
+// +kubebuilder:validation:Enum=Scheduling;Initializing;Ready;Unavailable;Terminating;Deleting
 type LogicalClusterPhaseType string
 
 const (
@@ -73,7 +73,14 @@ const (
 	// This should be used when we really can't serve the logical cluster content and not some
 	// temporary flakes, like readiness probe failing.
 	LogicalClusterPhaseUnavailable LogicalClusterPhaseType = "Unavailable"
-	LogicalClusterPhaseDeleting    LogicalClusterPhaseType = "Deleting"
+	// LogicalClusterPhaseTerminating phase is used to indicate that the logical cluster has a
+	// DeletionTimestamp set and is waiting on terminator controllers to clean up workspace
+	// content. The cluster is still served (the workspace content authorizer permits access)
+	// so that terminator controllers can act on resources before deletion.
+	LogicalClusterPhaseTerminating LogicalClusterPhaseType = "Terminating"
+	// LogicalClusterPhaseDeleting phase is used to indicate that all terminators have completed
+	// and the logical cluster is being deleted. No content access is permitted in this phase.
+	LogicalClusterPhaseDeleting LogicalClusterPhaseType = "Deleting"
 )
 
 // LogicalClusterInitializer is a unique string corresponding to a logical cluster
@@ -218,7 +225,7 @@ type LogicalClusterStatus struct {
 
 	// Terminators are set on creation by the system and must be cleared
 	// by a controller before the logical cluster can be deleted. The LogicalCluster object
-	// will stay in the phase "Deleting" until all terminator are cleared.
+	// will stay in the phase "Terminating" until all terminator are cleared.
 	//
 	// +optional
 	Terminators []LogicalClusterTerminator `json:"terminators,omitempty"`

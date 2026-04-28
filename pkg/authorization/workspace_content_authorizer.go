@@ -109,7 +109,12 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return authorizer.DecisionNoOpinion, "error getting LogicalCluster", err
 	}
 
-	if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseInitializing && logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
+	switch logicalCluster.Status.Phase {
+	case corev1alpha1.LogicalClusterPhaseInitializing,
+		corev1alpha1.LogicalClusterPhaseReady,
+		corev1alpha1.LogicalClusterPhaseTerminating:
+		// allowed
+	default: // Scheduling, Deleting, Unknown, or any future phases are not allowed to access workspace content
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", logicalCluster.Status.Phase), nil
 	}
 

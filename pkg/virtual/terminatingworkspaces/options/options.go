@@ -83,5 +83,5 @@ func (o *TerminatingWorkspaces) NewVirtualWorkspaces(
 		}
 	}
 
-	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, terminatingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, externalLogicalClusterAdminClient)
+	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, terminatingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, externalLogicalClusterAdminClient, wildcardKcpInformers)
 }

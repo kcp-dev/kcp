@@ -19,6 +19,7 @@ package termination
 import (
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -31,6 +32,11 @@ import (
 // TerminatorForType determines the identifier for the implicit terminator associated with the WorkspaceType.
 func TerminatorForType(wt *tenancyv1alpha1.WorkspaceType) corev1alpha1.LogicalClusterTerminator {
 	return corev1alpha1.LogicalClusterTerminator(logicalcluster.From(wt).Path().Join(wt.Name).String())
+}
+
+// TerminatorPresent returns true if the given terminator is in the list of terminators.
+func TerminatorPresent(terminator corev1alpha1.LogicalClusterTerminator, terminators []corev1alpha1.LogicalClusterTerminator) bool {
+	return slices.Contains(terminators, terminator)
 }
 
 // TypeFrom determines the WorkspaceType workspace and name from an terminator name.

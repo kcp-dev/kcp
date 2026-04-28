@@ -42,7 +42,7 @@ type LogicalClusterStatusApplyConfiguration struct {
 	Initializers []corev1alpha1.LogicalClusterInitializer `json:"initializers,omitempty"`
 	// Terminators are set on creation by the system and must be cleared
 	// by a controller before the logical cluster can be deleted. The LogicalCluster object
-	// will stay in the phase "Deleting" until all terminator are cleared.
+	// will stay in the phase "Terminating" until all terminator are cleared.
 	Terminators []corev1alpha1.LogicalClusterTerminator `json:"terminators,omitempty"`
 }
 

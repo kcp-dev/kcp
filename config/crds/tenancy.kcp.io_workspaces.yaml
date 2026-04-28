@@ -298,6 +298,8 @@ spec:
                 - Initializing
                 - Ready
                 - Unavailable
+                - Terminating
+                - Deleting
                 type: string
               terminators:
                 description: |-
