@@ -15,6 +15,76 @@ builds:
   env:
   - CGO_ENABLED=0
 
+- id: "kcp-front-proxy"
+  main: ./cmd/kcp-front-proxy
+  binary: bin/kcp-front-proxy
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  env:
+  - CGO_ENABLED=0
+
+- id: "cache-server"
+  main: ./cmd/cache-server
+  binary: bin/cache-server
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  env:
+  - CGO_ENABLED=0
+
+- id: "sharded-test-server"
+  main: ./cmd/sharded-test-server
+  binary: bin/sharded-test-server
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  env:
+  - CGO_ENABLED=0
+
+- id: "crd-puller"
+  main: ./cmd/crd-puller
+  binary: bin/crd-puller
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  env:
+  - CGO_ENABLED=0
+
+- id: "virtual-workspaces"
+  main: ./cmd/virtual-workspaces
+  binary: bin/virtual-workspaces
+  ldflags:
+  - "{{ .Env.LDFLAGS }}"
+  goos:
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  env:
+  - CGO_ENABLED=0
+
 # plugin builds
 - id: "kubectl-kcp"
   main: ./cmd/kubectl-kcp
@@ -83,6 +153,26 @@ archives:
 - id: kcp
   ids:
   - kcp
+- id: kcp-front-proxy
+  ids:
+  - kcp-front-proxy
+  name_template: "kcp-front-proxy_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+- id: cache-server
+  ids:
+  - cache-server
+  name_template: "cache-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+- id: sharded-test-server
+  ids:
+  - sharded-test-server
+  name_template: "sharded-test-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+- id: crd-puller
+  ids:
+  - crd-puller
+  name_template: "crd-puller_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+- id: virtual-workspaces
+  ids:
+  - virtual-workspaces
+  name_template: "virtual-workspaces_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 - id: apigen
   ids:
   - apigen
