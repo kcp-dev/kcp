@@ -1,0 +1,57 @@
+grafana:
+  nodeSelector:
+    $NODEPOOL_SELECTOR: auxiliary
+  sidecar:
+    dashboards:
+      folderAnnotation: grafana_folder
+      # move all the default dashboards to a subfolder to not clutter the main view
+      annotations:
+        grafana_folder: "kube-prometheus-stack"
+      provider:
+        foldersFromFilesStructure: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      access: proxy
+      isDefault: false
+    - name: Pyroscope
+      type: grafana-pyroscope-datasource
+      url: http://pyroscope.monitoring.svc.cluster.local:4040
+      access: proxy
+      isDefault: false
+
+prometheus:
+  prometheusSpec:
+    nodeSelector:
+      $NODEPOOL_SELECTOR: auxiliary
+    scrapeInterval: 5s
+    retention: 7d
+    retentionSize: 40GB # this prevents disk from overfilling during lots of test runs
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    # needed so we can use sort_by_label function in our dashboards
+    enableFeatures:
+      - promql-experimental-functions
+
+alertmanager:
+  enabled: false
+
+kube-state-metrics:
+  nodeSelector:
+    $NODEPOOL_SELECTOR: auxiliary
+
+prometheusOperator:
+  nodeSelector:
+    $NODEPOOL_SELECTOR: auxiliary
+
+prometheus-node-exporter:
+  nodeSelector: {}
+  tolerations:
+    - operator: Exists

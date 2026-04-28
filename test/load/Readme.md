@@ -1,6 +1,7 @@
 # Load Testing
 
-Load testing framework and loadtests for the kcp project.
+Load testing framework and loadtests for the kcp project. Please note this setup is intended to be
+used for load-testing only and not setting up fully production grade environments.
 
 ## Architecture
 
