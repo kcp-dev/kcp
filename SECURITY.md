@@ -5,7 +5,7 @@ The kcp maintainers take security for kcp very seriously, especially given kcp's
 ## Reporting a Vulnerability
 
 kcp uses GitHub to allow submission of private security reports. Please report any security finding via
-[this link](https://github.com/kcp-dev/kcp/security/advisories/new) or send a direct email to [kcp-dev-private@googlegroups.com](mailto:kcp-dev-private@googlegroups.com).
+[this link](https://github.com/kcp-dev/kcp/security/advisories/new). If submitting a GitHub advisory is not possible for you, you can send a direct email to [kcp-dev-private@googlegroups.com](mailto:kcp-dev-private@googlegroups.com).
 Maintainers will triage your report as soon as possible and get in touch with you via your report or via email in case they have more questions.
 
 As a security researcher, please report vulnerabilities to kcp in a [coordinated vulnerability disclosure](https://cheatsheetseries.owasp.org/cheatsheets/Vulnerability_Disclosure_Cheat_Sheet.html)
