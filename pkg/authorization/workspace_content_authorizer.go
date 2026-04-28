@@ -112,9 +112,13 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	switch logicalCluster.Status.Phase {
 	case corev1alpha1.LogicalClusterPhaseInitializing,
 		corev1alpha1.LogicalClusterPhaseReady,
-		corev1alpha1.LogicalClusterPhaseTerminating:
+		// Terminating: registered terminator controllers are running and need to clean up content.
+		// Deleting: terminators are done; standard kube finalization (GC, namespace deletion,
+		// finalizer removal) still needs content access until the LogicalCluster object is gone.
+		corev1alpha1.LogicalClusterPhaseTerminating,
+		corev1alpha1.LogicalClusterPhaseDeleting:
 		// allowed
-	default: // Scheduling, Deleting, Unknown, or any future phases are not allowed to access workspace content
+	default: // Scheduling, Unavailable, Unknown, or any future phases are not allowed to access workspace content
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", logicalCluster.Status.Phase), nil
 	}
 
