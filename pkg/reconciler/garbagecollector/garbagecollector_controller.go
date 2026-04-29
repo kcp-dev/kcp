@@ -40,9 +40,10 @@ const (
 
 // Controller manages a single cluster-aware garbage collector that handles all workspaces.
 type Controller struct {
-	cancel  context.CancelFunc
-	gc      *garbagecollector.GarbageCollector
-	factory *informer.DiscoveringDynamicSharedInformerFactory
+	cancel           context.CancelFunc
+	gc               *garbagecollector.GarbageCollector
+	factory          *informer.DiscoveringDynamicSharedInformerFactory
+	ignoredResources map[schema.GroupResource]struct{}
 }
 
 // NewController creates a new Controller.
@@ -54,12 +55,14 @@ func NewController(
 ) (*Controller, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	ignoredResources := defaultIgnoredResources()
+
 	gc, err := garbagecollector.NewGarbageCollector(
 		ctx,
 		kubeClusterClient,
 		newCtxMetadataClient(metadataClusterClient),
 		dynamicDiscoverySharedInformerFactory.RESTMapper(),
-		defaultIgnoredResources(),
+		ignoredResources,
 		newUnscopedInformerFactory(dynamicDiscoverySharedInformerFactory),
 		informersStarted,
 	)
@@ -70,6 +73,7 @@ func NewController(
 
 	c := new(Controller)
 	c.cancel = cancel
+	c.ignoredResources = ignoredResources
 	c.gc = gc
 	c.factory = dynamicDiscoverySharedInformerFactory
 	return c, nil
@@ -98,7 +102,28 @@ func (c *Controller) Start(ctx context.Context, workers int) {
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
-	go c.runOnDemandSync(ctx)
+	initialResources, err := garbagecollector.GetDeletableResources(logger, c.factory)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to get initial deletable resources: %w", err))
+	}
+	for gvr := range initialResources {
+		if _, ok := c.ignoredResources[gvr.GroupResource()]; ok {
+			delete(initialResources, gvr)
+		}
+	}
+
+	tracker := &gvrTracker{
+		knownGVRs:        initialResources,
+		ignoredResources: c.ignoredResources,
+		logger:           logger,
+		gc:               c.gc,
+	}
+
+	if err := tracker.gc.ResyncMonitors(logger, tracker.knownGVRs); err != nil {
+		logger.Error(err, "error during resync")
+	}
+
+	c.factory.AddGVRLifecycleHandler(ctx, tracker)
 
 	// 30s is the initial sync timeout that upstream also uses.
 	// The period isn't that important - even if the graph builder isn't
@@ -106,53 +131,34 @@ func (c *Controller) Start(ctx context.Context, workers int) {
 	c.gc.Run(ctx, workers, 30*time.Second)
 }
 
-// runOnDemandSync triggers the garbage collector monitor sync whenever the DDSIF registers a change.
-func (c *Controller) runOnDemandSync(ctx context.Context) {
-	logger := klog.FromContext(ctx)
-	apisChanged := c.factory.Subscribe(ControllerName)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-apisChanged:
-			logger.V(4).Info("got API change notification, triggering garbage collector sync")
-			c.syncOnce(ctx)
-		}
+type gvrTracker struct {
+	knownGVRs        map[schema.GroupVersionResource]struct{}
+	ignoredResources map[schema.GroupResource]struct{}
+	logger           klog.Logger
+	gc               *garbagecollector.GarbageCollector
+}
+
+func (tracker *gvrTracker) GVRAdded(gvr schema.GroupVersionResource) {
+	if _, ok := tracker.ignoredResources[gvr.GroupResource()]; ok {
+		return
+	}
+	if _, ok := tracker.knownGVRs[gvr]; ok {
+		// guard to prevent "empty" updates when the GVR is already known
+		return
+	}
+	tracker.knownGVRs[gvr] = struct{}{}
+	if err := tracker.gc.ResyncMonitors(tracker.logger, tracker.knownGVRs); err != nil {
+		tracker.logger.Error(err, "error during resync")
 	}
 }
 
-// syncOnce runs exactly one iteration of gc.Sync's body.
-func (c *Controller) syncOnce(ctx context.Context) {
-	oneShotCtx := newNonPropagatingCtx(ctx)
-	defer oneShotCtx.cancel()
-
-	// Start a goroutine running the sync with the non-propagating context.
-	// Sync uses wait.UntilWithContext. By cancelling the context after
-	// 2s we are stopping the wait.UntilX from performing more
-	// iterations. Since the context does not propagate cancellation we
-	// are also not stopping other context-based tasks from stopping.
-
-	// foreverSyncPeriod is passed to .Sync which then passes that as
-	// the wait period to wait.UntilWithContext. Setting a high value
-	// ensures that even if the body finishes very quickly (e.g. within
-	// the 2s timeout to cancel the non propagating context) it doesn't
-	// run a second iteration.
-	foreverSyncPeriod := 1 * time.Hour
-
-	done := make(chan struct{})
-	go func() {
-		// .Sync will return after the one iteration, close the done
-		// channel which the main function is waiting on to not exit
-		// before the one sync iteration is done.
-		c.gc.Sync(oneShotCtx, c.factory, foreverSyncPeriod)
-		close(done)
-	}()
-
-	select {
-	case <-ctx.Done():
-	case <-time.After(2 * time.Second):
+func (tracker *gvrTracker) GVRRemoved(gvr schema.GroupVersionResource) {
+	if _, ok := tracker.knownGVRs[gvr]; !ok {
+		// guard to prevent "empty" updates when the GVR is already gone
+		return
 	}
-
-	oneShotCtx.cancel()
-	<-done
+	delete(tracker.knownGVRs, gvr)
+	if err := tracker.gc.ResyncMonitors(tracker.logger, tracker.knownGVRs); err != nil {
+		tracker.logger.Error(err, "error during resync")
+	}
 }
