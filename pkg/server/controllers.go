@@ -1062,6 +1062,8 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		crdClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	if err != nil {
 		return err
@@ -1072,7 +1074,9 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced(), nil
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -1943,6 +1947,8 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.CacheKcpSharedInformerFactory.Tenancy().V1alpha1().WorkspaceTypes())
 	crdcleanup.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	defaultapibindinglifecycle.InstallIndexers(
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),

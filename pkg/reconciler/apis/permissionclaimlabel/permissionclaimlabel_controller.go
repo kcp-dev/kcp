@@ -139,11 +139,42 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	logger.Info("starting controller")
 	defer logger.Info("shutting down controller")
 
+	// Re-enqueue every APIBinding whenever the dynamic informer factory discovers
+	// new GVRs (or loses them). This unblocks bindings whose permission claims
+	// reference a resource whose informer was missing earlier — e.g. when a bound
+	// CRD only just landed on this shard.
+	changes := c.ddsif.Subscribe(ControllerName)
+	go func() {
+		defer c.ddsif.Unsubscribe(ControllerName)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-changes:
+				if !ok {
+					return
+				}
+				c.enqueueAllAPIBindings(logger)
+			}
+		}
+	}()
+
 	for range numThreads {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
 
 	<-ctx.Done()
+}
+
+// enqueueAllAPIBindings re-enqueues every APIBinding the controller knows about.
+// Cheap: it walks the informer's index keys and adds them to the queue. Used as a
+// fan-out trigger when the discovering informer factory observes a GVR change.
+func (c *controller) enqueueAllAPIBindings(logger logr.Logger) {
+	keys := c.apiBindingsIndexer.ListKeys()
+	logger.V(4).Info("re-enqueueing all APIBindings due to ddsif change", "count", len(keys))
+	for _, key := range keys {
+		c.queue.Add(key)
+	}
 }
 
 func (c *controller) startWorker(ctx context.Context) {

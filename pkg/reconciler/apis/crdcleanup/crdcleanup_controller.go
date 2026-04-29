@@ -24,6 +24,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -35,7 +37,9 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	sdkclient "github.com/kcp-dev/sdk/client"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -55,6 +59,8 @@ func NewController(
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -66,8 +72,70 @@ func NewController(
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
+		listBoundCRDsByGroupResource: func(gr schema.GroupResource) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			crds, err := crdInformer.Lister().Cluster(apibinding.SystemBoundCRDsClusterName).List(labels.Everything())
+			if err != nil {
+				return nil, err
+			}
+			var matching []*apiextensionsv1.CustomResourceDefinition
+			for _, crd := range crds {
+				if crd.Spec.Group == gr.Group && crd.Spec.Names.Plural == gr.Resource {
+					matching = append(matching, crd)
+				}
+			}
+			return matching, nil
+		},
 		getAPIBindingsByBoundResourceUID: func(name string) ([]*apisv1alpha2.APIBinding, error) {
 			return indexers.ByIndex[*apisv1alpha2.APIBinding](apiBindingInformer.Informer().GetIndexer(), indexers.APIBindingByBoundResourceUID, name)
+		},
+		// getAPIBindingsClaimingCRD walks back from a bound CRD to APIBindings that
+		// reference it via accepted permission claims. The CRD's schema-cluster +
+		// schema-name annotations identify the source APIResourceSchema; the APIExport
+		// indexer locates its owning export(s); a binding with an accepted claim whose
+		// (identityHash, group, resource) matches counts as a referrer. See issue #4087.
+		getAPIBindingsClaimingCRD: func(crd *apiextensionsv1.CustomResourceDefinition) ([]*apisv1alpha2.APIBinding, error) {
+			schemaCluster := crd.Annotations[apisv1alpha1.AnnotationSchemaClusterKey]
+			schemaName := crd.Annotations[apisv1alpha1.AnnotationSchemaNameKey]
+			if schemaCluster == "" || schemaName == "" {
+				return nil, nil
+			}
+			schemaKey := sdkclient.ToClusterAwareKey(logicalcluster.NewPath(schemaCluster), schemaName)
+			exports, err := indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](
+				apiExportInformer.Informer().GetIndexer(),
+				globalAPIExportInformer.Informer().GetIndexer(),
+				indexers.APIExportByAPIResourceSchema, schemaKey,
+			)
+			if err != nil {
+				return nil, err
+			}
+			gr := schema.GroupResource{Group: crd.Spec.Group, Resource: crd.Spec.Names.Plural}
+			var refs []*apisv1alpha2.APIBinding
+			seen := sets.New[string]()
+			for _, exp := range exports {
+				if exp.Status.IdentityHash == "" {
+					continue
+				}
+				bindings, err := indexers.ByIndex[*apisv1alpha2.APIBinding](
+					apiBindingInformer.Informer().GetIndexer(),
+					indexers.APIBindingByAcceptedClaimIdentityAndGR,
+					indexers.IdentityGroupResourceKeyFunc(exp.Status.IdentityHash, gr.Group, gr.Resource),
+				)
+				if err != nil {
+					return nil, err
+				}
+				for _, b := range bindings {
+					k, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(b)
+					if err != nil {
+						continue
+					}
+					if seen.Has(k) {
+						continue
+					}
+					seen.Insert(k)
+					refs = append(refs, b)
+				}
+			}
+			return refs, nil
 		},
 		deleteCRD: func(ctx context.Context, name string) error {
 			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDsClusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
@@ -109,7 +177,9 @@ type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	getCRD                           func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listBoundCRDsByGroupResource     func(gr schema.GroupResource) ([]*apiextensionsv1.CustomResourceDefinition, error)
 	getAPIBindingsByBoundResourceUID func(name string) ([]*apisv1alpha2.APIBinding, error)
+	getAPIBindingsClaimingCRD        func(crd *apiextensionsv1.CustomResourceDefinition) ([]*apisv1alpha2.APIBinding, error)
 	deleteCRD                        func(ctx context.Context, name string) error
 }
 
@@ -149,6 +219,41 @@ func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha2.
 		key := kcpcache.ToClusterAwareKey(apibinding.SystemBoundCRDsClusterName.String(), "", uid)
 		logging.WithQueueKey(logger, key).V(3).Info("queueing CRD via APIBinding")
 		c.queue.Add(key)
+	}
+
+	// Permission-claim referrers are tracked indirectly: a binding's accepted
+	// permission claims keep matching CRDs alive even though the CRD's UID never
+	// appears in BoundResources. When a binding's claims change (or it is deleted),
+	// re-evaluate every bound CRD whose group/resource matches an old or new claim.
+	// process() will then resolve back via APIExport identity hash and decide.
+	claimGRs := sets.New[schema.GroupResource]()
+	collect := func(b *apisv1alpha2.APIBinding) {
+		if b == nil {
+			return
+		}
+		for _, pc := range b.Spec.PermissionClaims {
+			if pc.State != apisv1alpha2.ClaimAccepted {
+				continue
+			}
+			if pc.IdentityHash == "" {
+				continue
+			}
+			claimGRs.Insert(schema.GroupResource{Group: pc.Group, Resource: pc.Resource})
+		}
+	}
+	collect(oldBinding)
+	collect(newBinding)
+	for gr := range claimGRs {
+		crds, err := c.listBoundCRDsByGroupResource(gr)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("listing bound CRDs for %s: %w", gr, err))
+			continue
+		}
+		for _, crd := range crds {
+			key := kcpcache.ToClusterAwareKey(apibinding.SystemBoundCRDsClusterName.String(), "", crd.Name)
+			logging.WithQueueKey(logger, key).V(3).Info("queueing CRD via APIBinding permission claim")
+			c.queue.Add(key)
+		}
 	}
 }
 
@@ -227,6 +332,16 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return nil
 	}
 
+	// Also consult the permission-claim referrer path: a binding may keep this CRD
+	// alive without listing its UID in BoundResources.
+	claimRefs, err := c.getAPIBindingsClaimingCRD(obj)
+	if err != nil {
+		return err
+	}
+	if len(claimRefs) > 0 {
+		return nil
+	}
+
 	age := time.Since(obj.CreationTimestamp.Time)
 
 	if age < AgeThreshold {
@@ -248,11 +363,23 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer) {
+func InstallIndexers(
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
+	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
+) {
 	indexers.AddIfNotPresentOrDie(
 		apiBindingInformer.Informer().GetIndexer(),
 		cache.Indexers{
-			indexers.APIBindingByBoundResourceUID: indexers.IndexAPIBindingByBoundResourceUID,
+			indexers.APIBindingByBoundResourceUID:           indexers.IndexAPIBindingByBoundResourceUID,
+			indexers.APIBindingByAcceptedClaimIdentityAndGR: indexers.IndexAPIBindingByAcceptedClaimIdentityAndGR,
 		},
 	)
+	// AddIfNotPresentOrDie is a no-op if the index name is already registered (the
+	// apibinding controller registers the same indexer under the same name).
+	for _, inf := range []apisv1alpha2informers.APIExportClusterInformer{apiExportInformer, globalAPIExportInformer} {
+		indexers.AddIfNotPresentOrDie(inf.Informer().GetIndexer(), cache.Indexers{
+			indexers.APIExportByAPIResourceSchema: indexers.IndexAPIExportByAPIResourceSchema,
+		})
+	}
 }
