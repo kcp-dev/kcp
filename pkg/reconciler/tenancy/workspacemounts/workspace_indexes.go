@@ -77,7 +77,25 @@ func newIndexWorkspaceByMountObject(dynamicRESTMapper *dynamicrestmapper.Dynamic
 		forCluster := dynamicRESTMapper.ForCluster(logicalcluster.From(ws))
 		gvr, err := forCluster.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get REST mapping for %s: %w", gvk, err)
+			// The kind backing the mount reference is not (yet) known in this
+			// cluster — typically because the APIBinding or CRD that provides
+			// it hasn't finished reconciling at the time this Workspace was
+			// added to the informer cache.
+			//
+			// Returning the error here is fatal: client-go's
+			// storeIndex.updateSingleIndex panics on any IndexFunc error
+			// (see k8s.io/client-go/tools/cache/thread_safe_store.go), which
+			// tears down the apiserver process. Skip indexing this Workspace
+			// instead.
+			//
+			// Trade-off: the index won't be repopulated for this Workspace
+			// until its cache entry next Update fires (periodic resync or a
+			// spec/status change). Until then, mount-resource events won't
+			// propagate to this Workspace via the index. The controller's
+			// own reconcile path still runs on direct Workspace events, so
+			// the mount URL eventually catches up; event fan-out from the
+			// mount resource to the Workspace is the only thing delayed.
+			return nil, nil //nolint:nilerr // intentional: see comment above
 		}
 
 		key := workspaceMountsReferenceKey{
