@@ -240,7 +240,7 @@ spec:
                 description: |-
                   Terminators are set on creation by the system and must be cleared
                   by a controller before the logical cluster can be deleted. The LogicalCluster object
-                  will stay in the phase "Terminating" until all terminator are cleared.
+                  will stay in the phase "Terminating" until all terminators are cleared.
                 items:
                   description: |-
                     LogicalClusterTerminator is a unique string corresponding to a logical cluster
