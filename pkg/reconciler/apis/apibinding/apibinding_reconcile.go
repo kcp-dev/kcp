@@ -58,6 +58,9 @@ type reconciler interface {
 
 func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (bool, error) {
 	reconcilers := []reconciler{
+		// Runs first so that an annotation-only change can preempt the status changes from
+		// bindingReconciler.
+		&permissionClaimMaterialiserReconciler{controller: c},
 		&phaseReconciler{
 			newReconciler:     &newReconciler{controller: c},
 			bindingReconciler: &bindingReconciler{controller: c},
@@ -603,6 +606,116 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 func boundCRDName(schema *apisv1alpha1.APIResourceSchema) string {
 	return string(schema.UID)
+}
+
+// permissionClaimMaterialiserReconciler ensures that, for each accepted permission claim
+// with a non-empty identity hash, the bound CRD for the claimed resource exists in the
+// system:bound-crds workspace on this shard. Without this, the permissionclaimlabel
+// controller fails with "unable to find informer for <group>.<resource>" on shards where
+// no other APIBinding has bound the producing APIExport (issue #4087 for future reference).
+//
+// This is a pure side effect on a different object (system:bound-crds CRDs); it does not
+// mutate the APIBinding. The bound CRD's lifecycle is governed by CRDCleanup, which uses
+// indexers.APIBindingByAcceptedClaimIdentityAndGR to discover APIBindings still
+// referencing the CRD via permission claims (in addition to the existing BoundResources
+// reference path).
+type permissionClaimMaterialiserReconciler struct {
+	*controller
+}
+
+func (r *permissionClaimMaterialiserReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (reconcileStatus, error) {
+	logger := klog.FromContext(ctx)
+
+	for _, claim := range apiBinding.Spec.PermissionClaims {
+		if claim.State != apisv1alpha2.ClaimAccepted {
+			continue
+		}
+		// An empty identity hash means the claim targets a built-in or local resource
+		// (e.g. core configmaps/secrets) whose informer is always available.
+		if claim.IdentityHash == "" {
+			continue
+		}
+
+		exports, err := r.controller.getAPIExportsByIdentity(claim.IdentityHash)
+		if err != nil {
+			logger.V(2).Info("error looking up APIExports by identity for permission claim",
+				"identity", claim.IdentityHash, "group", claim.Group, "resource", claim.Resource, "err", err.Error())
+			continue
+		}
+		if len(exports) == 0 {
+			logger.V(4).Info("no APIExport found for permission claim identity",
+				"identity", claim.IdentityHash, "group", claim.Group, "resource", claim.Resource)
+			continue
+		}
+
+		// Pick a deterministic export. Multiple exports may share the same identity
+		// hash (the apiexport reconciler treats this as same-owner same-schema).
+		sort.Slice(exports, func(i, j int) bool {
+			a, b := exports[i], exports[j]
+			ka := logicalcluster.From(a).String() + "/" + a.Name
+			kb := logicalcluster.From(b).String() + "/" + b.Name
+			return ka < kb
+		})
+
+		var producerSchema *apisv1alpha1.APIResourceSchema
+		for _, exp := range exports {
+			for _, res := range exp.Spec.Resources {
+				if res.Group != claim.Group || res.Name != claim.Resource {
+					continue
+				}
+				sch, err := r.getAPIResourceSchema(logicalcluster.From(exp), res.Schema)
+				if err != nil {
+					continue
+				}
+				producerSchema = sch
+				break
+			}
+			if producerSchema != nil {
+				break
+			}
+		}
+		if producerSchema == nil {
+			logger.V(4).Info("no APIResourceSchema found for permission claim",
+				"identity", claim.IdentityHash, "group", claim.Group, "resource", claim.Resource)
+			continue
+		}
+
+		if err := r.ensurePermissionClaimBoundCRD(ctx, producerSchema); err != nil {
+			logger.V(2).Info("error ensuring bound CRD for permission claim",
+				"schema", producerSchema.Name, "err", err.Error())
+			continue
+		}
+	}
+
+	return reconcileStatusContinue, nil
+}
+
+// ensurePermissionClaimBoundCRD creates the bound CRD for the given APIResourceSchema in
+// system:bound-crds if it does not already exist. It is idempotent and safe to call from
+// any shard's apibinding controller. The CRD is named by the schema UID so that
+// concurrent creators converge on the same object.
+func (r *permissionClaimMaterialiserReconciler) ensurePermissionClaimBoundCRD(ctx context.Context, sch *apisv1alpha1.APIResourceSchema) error {
+	name := boundCRDName(sch)
+
+	if _, err := r.getCRD(SystemBoundCRDsClusterName, name); err == nil {
+		// Already there. Recreation only happens via the regular Resources path; here
+		// we merely need it to exist so the local DDSIF discovers it.
+		if !r.deletedCRDTracker.Has(name) {
+			return nil
+		}
+	} else if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	crd, err := generateCRD(sch)
+	if err != nil {
+		return err
+	}
+	if _, err := r.createCRD(ctx, SystemBoundCRDsClusterName.Path(), crd); err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	r.deletedCRDTracker.Remove(name)
+	return nil
 }
 
 func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {

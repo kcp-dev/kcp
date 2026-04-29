@@ -93,6 +93,37 @@ func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
 	return ret, nil
 }
 
+// APIBindingByAcceptedClaimIdentityAndGR is the indexer name for retrieving APIBindings by
+// the (identityHash, group, resource) of any of their accepted permission claims that
+// reference an external APIExport (i.e. claims with a non-empty IdentityHash).
+const APIBindingByAcceptedClaimIdentityAndGR = "apibinding-byAcceptedClaimIdentityAndGR"
+
+// IndexAPIBindingByAcceptedClaimIdentityAndGR is an index function that indexes an
+// APIBinding by every accepted permission claim that targets a resource from an external
+// APIExport. The index key is "<identityHash>/<group>/<resource>".
+//
+// CRDCleanup uses this to ask: "which APIBindings still need a particular bound CRD via a
+// permission claim?" The CRD's group+resource come from its spec; the producer's identity
+// hash comes from the APIExport that owns the schema annotated on the CRD.
+func IndexAPIBindingByAcceptedClaimIdentityAndGR(obj interface{}) ([]string, error) {
+	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIBinding", obj)
+	}
+
+	ret := make([]string, 0, len(apiBinding.Spec.PermissionClaims))
+	for _, c := range apiBinding.Spec.PermissionClaims {
+		if c.State != apisv1alpha2.ClaimAccepted {
+			continue
+		}
+		if c.IdentityHash == "" {
+			continue
+		}
+		ret = append(ret, IdentityGroupResourceKeyFunc(c.IdentityHash, c.Group, c.Resource))
+	}
+	return ret, nil
+}
+
 const APIBindingByBoundResources = "byBoundResources"
 
 func IndexAPIBindingByBoundResources(obj interface{}) ([]string, error) {
