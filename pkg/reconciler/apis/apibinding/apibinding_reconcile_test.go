@@ -51,14 +51,25 @@ func TestReconcileNew(t *testing.T) {
 		WithExportReference(logicalcluster.NewPath("org:some-workspace"), "some-export").
 		Build()
 
-	c := &controller{}
+	c := &controller{
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return nil, apierrors.NewNotFound(apisv1alpha2.SchemeGroupVersion.WithResource("apiexports").GroupResource(), "some-export")
+		},
+	}
 
-	t.Logf("Run only newReconciler because no phase is set")
-	requeue, err := c.reconcile(context.Background(), apiBinding)
+	ctx := context.Background()
+
+	t.Logf("reconcile #1 - fresh binding, no Phase")
+	requeue, err := c.reconcile(ctx, apiBinding)
 	require.NoError(t, err)
-	require.Equal(t, apisv1alpha2.APIBindingPhaseBinding, apiBinding.Status.Phase)
 	require.True(t, requeue)
-	require.False(t, conditions.Has(apiBinding, conditionsv1alpha1.ReadyCondition), "unexpected Ready condition")
+	require.Equal(t, apisv1alpha2.APIBindingPhaseBinding, apiBinding.Status.Phase)
+	require.False(t, conditions.Has(apiBinding, conditionsv1alpha1.ReadyCondition))
+
+	t.Logf("reconcile #2 - same object, simulate the requeue")
+	_, err = c.reconcile(ctx, apiBinding)
+	require.NoError(t, err)
+	require.True(t, conditions.Has(apiBinding, conditionsv1alpha1.ReadyCondition))
 }
 
 func TestReconcileBinding(t *testing.T) {
