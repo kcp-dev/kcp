@@ -46,9 +46,10 @@ const DefaultRootPathPrefix string = "/services"
 type Options struct {
 	Output io.Writer
 
-	KubeconfigFile string
-	Context        string
-	RootPathPrefix string
+	KubeconfigFile                            string
+	ExternalLogicalClusterAdminKubeconfigFile string
+	Context                                   string
+	RootPathPrefix                            string
 
 	Cache          cacheoptions.Cache
 	SecureServing  genericapiserveroptions.SecureServingOptions
@@ -103,6 +104,12 @@ func (o *Options) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.KubeconfigFile, "kubeconfig", o.KubeconfigFile,
 		"The kubeconfig file of the kcp instance that hosts workspaces.")
 	_ = cobra.MarkFlagRequired(flags, "kubeconfig")
+
+	flags.StringVar(&o.ExternalLogicalClusterAdminKubeconfigFile, "external-logical-cluster-admin-kubeconfig", o.ExternalLogicalClusterAdminKubeconfigFile,
+		"Optional kubeconfig pointing at the front-proxy. Used by virtual workspaces "+
+			"to issue SubjectAccessReview against clusters that may live on a different "+
+			"shard than this VW (e.g. a workspacetype's cluster). When unset, falls back "+
+			"to --kubeconfig, which only works in non-sharded deployments.")
 
 	flags.StringVar(&o.Context, "context", o.Context, "Name of the context in the kubeconfig file to use")
 	flags.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")

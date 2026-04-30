@@ -131,6 +131,51 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 		os.Exit(1)
 	}
 
+	// External-logical-cluster-admin kubeconfig: points at the front-proxy
+	// so SAR calls for clusters hosted on other shards reach the shard that
+	// owns them.
+	//
+	// We use the kcp-admin client cert here (system:kcp:admin group bound to
+	// cluster-admin) rather than the VW's local system:masters cert because
+	// the front-proxy strips system:masters from inbound client certs (see
+	// pkg/proxy/options/authentication.go DropGroups). system:kcp:admin
+	// survives the proxy and has the create-subjectaccessreviews permission
+	// the SAR call needs.
+	kcpAdminCertPath, err := filepath.Abs(filepath.Join(workDirPath, ".kcp", "kcp-admin.crt"))
+	if err != nil {
+		return nil, fmt.Errorf("error getting absolute path for kcp-admin.crt: %w", err)
+	}
+	kcpAdminKeyPath, err := filepath.Abs(filepath.Join(workDirPath, ".kcp", "kcp-admin.key"))
+	if err != nil {
+		return nil, fmt.Errorf("error getting absolute path for kcp-admin.key: %w", err)
+	}
+	externalLogicalClusterAdminKubeConfig := clientcmdapi.Config{
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"front-proxy": {
+				Server:               fmt.Sprintf("https://%s", net.JoinHostPort(hostIP, "6443")),
+				CertificateAuthority: servingCAPath,
+			},
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			"front-proxy": {
+				Cluster:  "front-proxy",
+				AuthInfo: "kcp-admin",
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"kcp-admin": {
+				ClientCertificate: kcpAdminCertPath,
+				ClientKey:         kcpAdminKeyPath,
+			},
+		},
+		CurrentContext: "front-proxy",
+	}
+	externalLogicalClusterAdminKubeconfigPath := filepath.Join(wvDir, "virtualworkspace-external-logical-cluster-admin.kubeconfig")
+	if err := clientcmd.WriteToFile(externalLogicalClusterAdminKubeConfig, externalLogicalClusterAdminKubeconfigPath); err != nil {
+		fmt.Printf("failed to write vw external-logical-cluster-admin kubeconfig: %v", err)
+		os.Exit(1)
+	}
+
 	authenticationKubeconfigPath := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", index), "admin.kubeconfig")
 	clientCAFilePath := filepath.Join(workDirPath, ".kcp", "client-ca.crt")
 
@@ -146,6 +191,7 @@ func newVirtualWorkspace(ctx context.Context, index int, servingCA *crypto.CA, h
 
 	args := []string{
 		fmt.Sprintf("--kubeconfig=%s", kubeconfigPath),
+		fmt.Sprintf("--external-logical-cluster-admin-kubeconfig=%s", externalLogicalClusterAdminKubeconfigPath),
 		fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath),
 		fmt.Sprintf("--authentication-kubeconfig=%s", authenticationKubeconfigPath),
 		fmt.Sprintf("--client-ca-file=%s", clientCAFilePath),
