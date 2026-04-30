@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -118,6 +119,9 @@ type GenericDiscoveringDynamicSharedInformerFactory[Informer cache.SharedIndexIn
 	// handlersLock protects multiple writers racing to update handlers.
 	handlersLock sync.Mutex
 	handlers     atomic.Value
+
+	gvrLifecycleListenersLock sync.Mutex
+	gvrLifecycleListeners     []*gvrLifecycleListener
 
 	// updateCh receives notifications for all CRD add/update/delete events, so we can start new informers and stop
 	// informers no longer needed.
@@ -393,6 +397,69 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	return informers, notSynced
 }
 
+// GVRLifecycleHandler is an event handler that is notified whenever a GVR is added or removed.
+type GVRLifecycleHandler interface {
+	GVRAdded(gvr schema.GroupVersionResource)
+	GVRRemoved(gvr schema.GroupVersionResource)
+}
+
+type gvrLifecycleEvent struct {
+	gvr   schema.GroupVersionResource
+	added bool
+}
+
+type gvrLifecycleListener struct {
+	handler GVRLifecycleHandler
+	queue   workqueue.TypedInterface[gvrLifecycleEvent]
+}
+
+func newGVRLifecycleListener(handler GVRLifecycleHandler) *gvrLifecycleListener {
+	return &gvrLifecycleListener{
+		handler: handler,
+		queue:   workqueue.NewTyped[gvrLifecycleEvent](),
+	}
+}
+
+func (l *gvrLifecycleListener) enqueue(event gvrLifecycleEvent) {
+	l.queue.Add(event)
+}
+
+func (l *gvrLifecycleListener) run(ctx context.Context) {
+	go func() {
+		<-ctx.Done()
+		l.queue.ShutDown()
+	}()
+	for {
+		item, shutdown := l.queue.Get()
+		if shutdown {
+			return
+		}
+		if item.added {
+			l.handler.GVRAdded(item.gvr)
+		} else {
+			l.handler.GVRRemoved(item.gvr)
+		}
+		l.queue.Done(item)
+	}
+}
+
+type GVRLifecycleHandlerFuncs struct {
+	AddedFunc   func(gvr schema.GroupVersionResource)
+	RemovedFunc func(gvr schema.GroupVersionResource)
+}
+
+func (g GVRLifecycleHandlerFuncs) GVRAdded(gvr schema.GroupVersionResource) {
+	if g.AddedFunc != nil {
+		g.AddedFunc(gvr)
+	}
+}
+
+func (g GVRLifecycleHandlerFuncs) GVRRemoved(gvr schema.GroupVersionResource) {
+	if g.RemovedFunc != nil {
+		g.RemovedFunc(gvr)
+	}
+}
+
 // GVREventHandler is an event handler that includes the GroupVersionResource
 // of the resource being handled.
 type GVREventHandler interface {
@@ -434,6 +501,29 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	d.handlers.Store(newHandlers)
 
 	d.handlersLock.Unlock()
+}
+
+// AddGVRLifecycleHandler notifies the handler of changes to known GVRs.
+// It acts similar to a handler on an informer but is bound by the
+// passed context instead of handling a registration.
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) AddGVRLifecycleHandler(ctx context.Context, handler GVRLifecycleHandler) {
+	listener := newGVRLifecycleListener(handler)
+
+	d.gvrLifecycleListenersLock.Lock()
+	d.gvrLifecycleListeners = append(d.gvrLifecycleListeners, listener)
+	d.gvrLifecycleListenersLock.Unlock()
+
+	go func() {
+		listener.run(ctx)
+		d.gvrLifecycleListenersLock.Lock()
+		d.gvrLifecycleListeners = slices.DeleteFunc(
+			d.gvrLifecycleListeners,
+			func(item *gvrLifecycleListener) bool {
+				return item == listener
+			},
+		)
+		d.gvrLifecycleListenersLock.Unlock()
+	}()
 }
 
 // StartWorker starts the worker that waits for notifications that informer updates are needed. This call is blocking,
@@ -583,6 +673,21 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 			logger.V(4).Info("successfully notified discovery subscriber")
 		default:
 			logger.V(4).Info("unable to notify discovery subscriber - channel full")
+		}
+	}
+
+	d.gvrLifecycleListenersLock.Lock()
+	listeners := d.gvrLifecycleListeners
+	d.gvrLifecycleListenersLock.Unlock()
+
+	for i := range informersToAdd {
+		for _, l := range listeners {
+			l.enqueue(gvrLifecycleEvent{gvr: informersToAdd[i], added: true})
+		}
+	}
+	for i := range informersToRemove {
+		for _, l := range listeners {
+			l.enqueue(gvrLifecycleEvent{gvr: informersToRemove[i], added: false})
 		}
 	}
 }
