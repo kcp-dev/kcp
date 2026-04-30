@@ -59,8 +59,6 @@ import (
 )
 
 func TestCachedResources(t *testing.T) {
-	t.Skip("skipping for now because the test is not stable, see https://github.com/kcp-dev/kcp/issues/4026")
-
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -460,17 +458,17 @@ func verifyListAndGet(
 			Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
 			List(ctx, metav1.ListOptions{})
 		if err != nil {
-			return false, fmt.Sprintf("failed to list: %v", err)
+			return false, fmt.Sprintf("failed to list %s in %q via %q: %v", resourceName, targetCluster, cfg.Host, err)
 		}
 		if len(list.Items) != 1 {
-			return false, fmt.Sprintf("expected 1 item, got %d", len(list.Items))
+			return false, fmt.Sprintf("unexpected number of items in %s list in %q via %q: got %d, want 1", resourceName, targetCluster, cfg.Host, len(list.Items))
 		}
-		actual := normalizeUnstructuredMap(list.Items[0].Object)
-		if !reflect.DeepEqual(actual, expected) {
-			return false, fmt.Sprintf("list result mismatch:\n  expected: %v\n  actual:   %v", expected, actual)
+		got := normalizeUnstructuredMap(list.Items[0].Object)
+		if !reflect.DeepEqual(expected, got) {
+			return false, fmt.Sprintf("unexpected %s list item in %q via %q:\nexpected: %#v\nactual: %#v", resourceName, targetCluster, cfg.Host, expected, got)
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*500, "listing %s in %q via %q", resourceName, targetCluster, cfg.Host)
+	}, wait.ForeverTestTimeout, time.Millisecond*500, "waiting for %s list to match expected in %q via %q", resourceName, targetCluster, cfg.Host)
 
 	t.Logf("Getting a %s resource named %s in %q via %q should return that object", resourceName, objName, targetCluster, cfg.Host)
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -478,14 +476,14 @@ func verifyListAndGet(
 			Resource(wildwestv1alpha1.SchemeGroupVersion.WithResource(resourceName)).
 			Get(ctx, objName, metav1.GetOptions{})
 		if err != nil {
-			return false, fmt.Sprintf("failed to get: %v", err)
+			return false, fmt.Sprintf("failed to get %s/%s in %q via %q: %v", resourceName, objName, targetCluster, cfg.Host, err)
 		}
-		actual := normalizeUnstructuredMap(obj.Object)
-		if !reflect.DeepEqual(actual, expected) {
-			return false, fmt.Sprintf("get result mismatch:\n  expected: %v\n  actual:   %v", expected, actual)
+		got := normalizeUnstructuredMap(obj.Object)
+		if !reflect.DeepEqual(expected, got) {
+			return false, fmt.Sprintf("unexpected %s/%s in %q via %q:\nexpected: %#v\nactual: %#v", resourceName, objName, targetCluster, cfg.Host, expected, got)
 		}
 		return true, ""
-	}, wait.ForeverTestTimeout, time.Millisecond*500, "getting %s/%s in %q via %q", resourceName, objName, targetCluster, cfg.Host)
+	}, wait.ForeverTestTimeout, time.Millisecond*500, "waiting for %s/%s to match expected in %q via %q", resourceName, objName, targetCluster, cfg.Host)
 }
 
 func normalizeUnstructuredMap(origObj map[string]interface{}) map[string]interface{} {
