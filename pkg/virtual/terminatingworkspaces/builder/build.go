@@ -21,15 +21,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
@@ -40,11 +45,13 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
 	virtualworkspacesdynamic "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/handler"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
@@ -56,6 +63,7 @@ import (
 const (
 	wildcardLogicalClustersName = terminatingworkspaces.VirtualWorkspaceName + "-wildcard-logicalclusters"
 	logicalClustersName         = terminatingworkspaces.VirtualWorkspaceName + "-logicalclusters"
+	workspaceContentName        = terminatingworkspaces.VirtualWorkspaceName + "-workspace-content"
 )
 
 // BuildVirtualWorkspace builds the terminating-workspaces virtual workspaces.
@@ -71,6 +79,7 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kubeClusterClient, externalLogicalClusterAdminClient kcpkubernetesclientset.ClusterInterface,
+	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -166,10 +175,146 @@ func BuildVirtualWorkspace(
 		},
 	}
 
+	workspaceContentReadyCh := make(chan struct{})
+	workspaceContent := &handler.VirtualWorkspace{
+		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
+			if !ok {
+				return false, "", requestContext
+			}
+
+			if cluster.Wildcard {
+				// content access requires a specific cluster
+				return false, "", requestContext
+			}
+
+			// this proxying server does not handle requests for logicalclusters.core.kcp.io
+			resourceURL := strings.TrimPrefix(urlPath, prefixToStrip)
+			if isLogicalClusterRequest(resourceURL) {
+				return false, "", requestContext
+			}
+
+			// in this case since we're proxying and not consuming this request we *do not* want to strip
+			// the cluster prefix
+			prefixToStrip = strings.TrimSuffix(prefixToStrip, cluster.Name.Path().RequestPath())
+
+			completedContext = genericapirequest.WithCluster(requestContext, cluster)
+			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
+			return true, prefixToStrip, completedContext
+		}),
+		Authorizer: cachingAuthorizer,
+		ReadyChecker: framework.ReadyFunc(func() error {
+			select {
+			case <-workspaceContentReadyCh:
+				return nil
+			default:
+				return fmt.Errorf("%s virtual workspace controllers are not started", workspaceContentName)
+			}
+		}),
+		HandlerFactory: handler.HandlerFactory(func(rootAPIServerConfig genericapiserver.CompletedConfig) (http.Handler, error) {
+			if err := rootAPIServerConfig.AddPostStartHook(workspaceContentName, func(hookContext genericapiserver.PostStartHookContext) error {
+				defer close(workspaceContentReadyCh)
+
+				for name, informer := range map[string]cache.SharedIndexInformer{
+					"logicalclusters": wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+				} {
+					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
+						klog.Background().Error(nil, "informer not synced")
+						return nil
+					}
+				}
+
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+
+			forwardedHost, err := url.Parse(cfg.Host)
+			if err != nil {
+				return nil, err
+			}
+
+			lister := wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				cluster, err := genericapirequest.ClusterNameFrom(request.Context())
+				if err != nil {
+					http.Error(writer, fmt.Sprintf("could not determine cluster for request: %v", err), http.StatusInternalServerError)
+					return
+				}
+				logicalCluster, err := lister.Cluster(cluster).Get(corev1alpha1.LogicalClusterName)
+				if err != nil {
+					http.Error(writer, fmt.Sprintf("error getting logicalcluster %s|%s: %v", cluster, corev1alpha1.LogicalClusterName, err), http.StatusInternalServerError)
+					return
+				}
+
+				terminator := corev1alpha1.LogicalClusterTerminator(dynamiccontext.APIDomainKeyFrom(request.Context()))
+				if logicalCluster.DeletionTimestamp.IsZero() || !termination.TerminatorPresent(terminator, logicalCluster.Status.Terminators) {
+					http.Error(writer, fmt.Sprintf("terminator %q cannot access this workspace", terminator), http.StatusForbidden)
+					return
+				}
+
+				if logicalCluster.Spec.CreatedBy == nil {
+					http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no createdBy recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
+					return
+				}
+				info := authenticationv1.UserInfo{
+					Username: logicalCluster.Spec.CreatedBy.Username,
+					UID:      logicalCluster.Spec.CreatedBy.UID,
+					Groups:   logicalCluster.Spec.CreatedBy.Groups,
+					Extra:    logicalCluster.Spec.CreatedBy.Extra,
+				}
+				extra := map[string][]string{}
+				for k, v := range info.Extra {
+					extra[k] = v
+				}
+
+				thisCfg := rest.CopyConfig(cfg)
+				thisCfg.Impersonate = rest.ImpersonationConfig{
+					UserName: info.Username,
+					UID:      info.UID,
+					Groups:   info.Groups,
+					Extra:    extra,
+				}
+				authenticatingTransport, err := rest.TransportFor(thisCfg)
+				if err != nil {
+					http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
+					return
+				}
+				proxy := &httputil.ReverseProxy{
+					Director: func(request *http.Request) {
+						for _, header := range []string{
+							"Authorization",
+							transport.ImpersonateUserHeader,
+							transport.ImpersonateUIDHeader,
+							transport.ImpersonateGroupHeader,
+						} {
+							request.Header.Del(header)
+						}
+						for key := range request.Header {
+							if strings.HasPrefix(key, transport.ImpersonateUserExtraHeaderPrefix) {
+								request.Header.Del(key)
+							}
+						}
+						request.URL.Scheme = forwardedHost.Scheme
+						request.URL.Host = forwardedHost.Host
+					},
+					Transport: authenticatingTransport,
+				}
+				proxy.ServeHTTP(writer, request)
+			}), nil
+		}),
+	}
+
 	return []rootapiserver.NamedVirtualWorkspace{
 		{Name: wildcardLogicalClustersName, VirtualWorkspace: wildcardLogicalClusters},
 		{Name: logicalClustersName, VirtualWorkspace: logicalClusters},
+		{Name: workspaceContentName, VirtualWorkspace: workspaceContent},
 	}, nil
+}
+
+// URLFor returns the absolute path for the specified terminator.
+func URLFor(terminatorName corev1alpha1.LogicalClusterTerminator) string {
+	return path.Join("/services", terminatingworkspaces.VirtualWorkspaceName, string(terminatorName))
 }
 
 var resolver = requestinfo.NewFactory()

@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v251015-1d163d0e5.workspaces.tenancy.kcp.io
+  name: v260428-d075f2d48.workspaces.tenancy.kcp.io
 spec:
   group: tenancy.kcp.io
   names:
@@ -295,6 +295,8 @@ spec:
               - Initializing
               - Ready
               - Unavailable
+              - Terminating
+              - Deleting
               type: string
             terminators:
               description: |-
