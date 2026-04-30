@@ -62,6 +62,18 @@ const (
 	WorkspaceAuthentication featuregate.Feature = "WorkspaceAuthentication"
 )
 
+// Re-export upstream feature gates used by kcp server logic so callers import
+// only this package instead of mixing kcp and upstream feature imports.
+// Mirrored from k8s.io/apiserver/pkg/features.
+const (
+	// StorageVersionAPI enables the storage version API (alpha since k8s 1.20, off by default).
+	// When enabled in kcp, WithStorageVersionPrecondition is applied in the handler chain to
+	// block write requests to resources whose storage versions have not yet converged across
+	// all kcp shards during a rolling upgrade.
+	// See: https://github.com/kcp-dev/kubernetes/pull/185
+	StorageVersionAPI = genericfeatures.StorageVersionAPI
+)
+
 // DefaultFeatureGate exposes the upstream feature gate, but with our gate setting applied.
 var DefaultFeatureGate = utilfeature.DefaultFeatureGate
 
@@ -140,6 +152,11 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 	},
 	WorkspaceAuthentication: {
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
+	// StorageVersionAPI mirrors the upstream k8s gate; kcp keeps it Alpha/off-by-default.
+	// Must be listed here so kcp's feature gate machinery tracks it and exposes it via --feature-gates.
+	genericfeatures.StorageVersionAPI: {
+		{Version: version.MustParse("1.20"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
