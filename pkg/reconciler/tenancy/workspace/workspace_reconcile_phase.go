@@ -39,6 +39,11 @@ type phaseReconciler struct {
 	requeueAfter func(workspace *tenancyv1alpha1.Workspace, after time.Duration)
 }
 
+// logicalClusterTimeout is the time limit for a logical cluster to
+// appear for the shard before marking its corresponding Workspace as
+// Unavailable.
+const logicalClusterTimeout = time.Second
+
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "phase")
 
@@ -61,7 +66,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 				if hasShard {
 					shard, shardErr := r.getShardByHash(shardHash)
 					if shardErr == nil && shard.DeletionTimestamp.IsZero() {
-						if workspace.CreationTimestamp.IsZero() || time.Since(workspace.CreationTimestamp.Time) < 10*time.Second {
+						if workspace.CreationTimestamp.IsZero() || time.Since(workspace.CreationTimestamp.Time) < logicalClusterTimeout {
 							logger.V(3).Info("LogicalCluster not found but shard is alive, requeueing", "shard", shard.Name)
 							r.requeueAfter(workspace, 1*time.Second)
 							return reconcileStatusContinue, nil
@@ -97,6 +102,27 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 
 		case corev1alpha1.LogicalClusterPhaseUnavailable:
+			if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceInitialized) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceInitialized) == tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared {
+				shardHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+				if hasShard {
+					shard, shardErr := r.getShardByHash(shardHash)
+					if shardErr == nil && shard.DeletionTimestamp.IsZero() {
+						_, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
+						if apierrors.IsNotFound(err) {
+							return reconcileStatusStopAndRequeue, nil
+						}
+						if err != nil {
+							return reconcileStatusStopAndRequeue, err
+						}
+						// Only resetting the condition. Terminal condition phase will update the phase and the
+						// next reconcile will continue where the workspace left off.
+						logger.V(3).Info("LogicalCluster reappeared, recovering workspace", "cluster", workspace.Spec.Cluster)
+						conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
+						// Immediately request requeueing to recover the workspace faster.
+						r.requeueAfter(workspace, time.Second)
+					}
+				}
+			}
 			if updateTerminalConditionPhase(workspace) {
 				return reconcileStatusStopAndRequeue, nil
 			}

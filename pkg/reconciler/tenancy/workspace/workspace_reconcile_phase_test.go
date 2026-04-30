@@ -302,6 +302,117 @@ func TestReconcilePhase(t *testing.T) {
 			wantPhase:  corev1alpha1.LogicalClusterPhaseReady,
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
+		{
+			name: "workspace is unavailable due to disappeared logical cluster and shard is alive - recovers when LC reappears",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
+					Conditions: []conditionsv1alpha1.Condition{
+						{
+							Type:     tenancyv1alpha1.WorkspaceInitialized,
+							Status:   corev1.ConditionFalse,
+							Severity: conditionsv1alpha1.ConditionSeverityError,
+							Reason:   tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared,
+							Message:  "LogicalCluster cluster-1 not found",
+						},
+					},
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					Status: corev1alpha1.LogicalClusterStatus{
+						Initializers: []corev1alpha1.LogicalClusterInitializer{},
+					},
+				}, nil
+			},
+			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+				return &corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "shard-1"}}, nil
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseReady,
+			wantStatus: reconcileStatusStopAndRequeue,
+			wantCondition: conditionsv1alpha1.Condition{
+				Type:   tenancyv1alpha1.WorkspaceInitialized,
+				Status: corev1.ConditionTrue,
+			},
+			wantRequeue: true,
+		},
+		{
+			name: "workspace is unavailable due to disappeared logical cluster and shard is alive - requeues when LC still not found",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
+					Conditions: []conditionsv1alpha1.Condition{
+						{
+							Type:     tenancyv1alpha1.WorkspaceInitialized,
+							Status:   corev1.ConditionFalse,
+							Severity: conditionsv1alpha1.ConditionSeverityError,
+							Reason:   tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared,
+							Message:  "LogicalCluster cluster-1 not found",
+						},
+					},
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
+			},
+			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+				return &corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "shard-1"}}, nil
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseUnavailable,
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "workspace is unavailable due to disappeared logical cluster and shard is gone - no recovery",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
+					Conditions: []conditionsv1alpha1.Condition{
+						{
+							Type:     tenancyv1alpha1.WorkspaceInitialized,
+							Status:   corev1.ConditionFalse,
+							Severity: conditionsv1alpha1.ConditionSeverityError,
+							Reason:   tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared,
+							Message:  "LogicalCluster cluster-1 not found",
+						},
+					},
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
+			},
+			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), "shard-hash-1")
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseUnavailable,
+			wantStatus: reconcileStatusContinue,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			requeued := false
