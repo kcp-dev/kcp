@@ -66,15 +66,28 @@ const (
 	workspaceContentName        = initializingworkspaces.VirtualWorkspaceName + "-workspace-content"
 )
 
+// BuildVirtualWorkspace builds the initializing-workspaces virtual workspaces.
+//
+// externalLogicalClusterAdminClient is used for SubjectAccessReview calls
+// against the workspacetype's logical cluster. In sharded deployments, the
+// workspacetype can live on a different shard than the workspace, so this
+// client must be able to reach any cluster (typically routed through the
+// front-proxy). When nil, kubeClusterClient is used as a fallback, which only
+// works when the workspacetype is co-located with the VW's shard.
 func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
-	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
+	kubeClusterClient, externalLogicalClusterAdminClient kcpkubernetesclientset.ClusterInterface,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
+	}
+
+	sarKubeClusterClient := externalLogicalClusterAdminClient
+	if sarKubeClusterClient == nil {
+		sarKubeClusterClient = kubeClusterClient
 	}
 
 	logicalClusterResource := apisv1alpha1.APIResourceSchema{}
@@ -93,7 +106,7 @@ func BuildVirtualWorkspace(
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
-	cachingAuthorizer := delegated.NewCachingAuthorizer(kubeClusterClient, authorizerWithCache, delegated.CachingOptions{})
+	cachingAuthorizer := delegated.NewCachingAuthorizer(sarKubeClusterClient, authorizerWithCache, delegated.CachingOptions{})
 	wildcardLogicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)

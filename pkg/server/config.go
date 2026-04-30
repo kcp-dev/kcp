@@ -790,9 +790,19 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		virtualWorkspacesConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		virtualWorkspacesConfig = rest.AddUserAgent(virtualWorkspacesConfig, "virtual-workspaces")
 
+		// externalLogicalClusterAdminConfig (front-proxy) is used by VWs that
+		// need to reach clusters hosted on other shards. Defaults to the
+		// loopback when no dedicated kubeconfig was supplied; the SAR will
+		// fall back to local-only resolution which works in single-shard
+		// deployments.
+		externalLogicalClusterAdminConfig := rest.CopyConfig(c.ExternalLogicalClusterAdminConfig)
+		externalLogicalClusterAdminConfig = rest.AddUserAgent(externalLogicalClusterAdminConfig, "virtual-workspaces-external")
+
 		c.OptionalVirtual, err = newVirtualConfig(
 			opts,
 			virtualWorkspacesConfig,
+			cacheClientConfig,
+			externalLogicalClusterAdminConfig,
 			c.KubeSharedInformerFactory,
 			c.KcpSharedInformerFactory,
 			c.CacheKcpSharedInformerFactory,

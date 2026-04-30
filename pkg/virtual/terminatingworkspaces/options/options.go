@@ -56,6 +56,7 @@ func (o *TerminatingWorkspaces) Validate(flagPrefix string) []error {
 func (o *TerminatingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
+	externalLogicalClusterAdminConfig *rest.Config,
 	wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "terminatingworkspaces-virtual-workspace")
@@ -68,5 +69,19 @@ func (o *TerminatingWorkspaces) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, terminatingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient)
+	// externalLogicalClusterAdminConfig (when set) targets the front-proxy
+	// so SubjectAccessReview calls for the workspacetype's cluster reach the
+	// shard that hosts it instead of the local shard. When unset, the SAR
+	// goes through the local shard's loopback, which only works in
+	// non-sharded deployments or when the workspacetype is co-located.
+	var externalLogicalClusterAdminClient kcpkubernetesclientset.ClusterInterface
+	if externalLogicalClusterAdminConfig != nil {
+		externalCfg := rest.AddUserAgent(rest.CopyConfig(externalLogicalClusterAdminConfig), "terminatingworkspaces-virtual-workspace-sar")
+		externalLogicalClusterAdminClient, err = kcpkubernetesclientset.NewForConfig(externalCfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, terminatingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, externalLogicalClusterAdminClient)
 }
