@@ -26,7 +26,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/conversion"
 	apiextensionsoptions "k8s.io/apiextensions-apiserver/pkg/cmd/server/options"
 	"k8s.io/apiextensions-apiserver/pkg/generated/openapi"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,6 +44,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
+	kcpconversion "github.com/kcp-dev/kcp/pkg/conversion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
@@ -235,6 +235,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		return nil, err
 	}
 
+	// Ensure the cache server natively listens for APIConversions
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
+
 	crdRESTOptionsGetter := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd, serverConfig.ResourceTransformers, serverConfig.StorageObjectCountTracker)
 
 	c.ApiExtensions = &apiextensionsapiserver.Config{
@@ -248,19 +251,12 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 				c.ApiExtensionsSharedInformerFactory,
 				c.KcpSharedInformerFactory,
 			),
-			ConversionFactory: &nopCRConversionFactory{},
+			ConversionFactory: kcpconversion.NewCRConverterFactory(
+				c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+				5*time.Second,
+			),
 		},
 	}
 
 	return c, nil
-}
-
-// nopCRConversionFactory implements conversion.Factory and always returns a no-op converter because we currently have
-// no need to perform CR conversions in the cache server.
-type nopCRConversionFactory struct{}
-
-// NewConverter always returns a no-op converter because we currently have no need to perform CR conversions in the
-// cache server.
-func (n nopCRConversionFactory) NewConverter(_ *apiextensionsv1.CustomResourceDefinition) (conversion.CRConverter, error) {
-	return conversion.NewNOPConverter(), nil
 }

@@ -68,6 +68,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpconversion "github.com/kcp-dev/kcp/pkg/conversion"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -677,10 +678,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	admissionPluginInitializers = append(admissionPluginInitializers, kubePluginInitializer...)
 
 	authInfoResolver := webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeControlPlane.ProxyTransport, kubeControlPlane.Generic.EgressSelector, kubeControlPlane.Generic.LoopbackClientConfig, kubeControlPlane.Generic.TracerProvider)
-	conversionFactory, err := NewCRConverterFactory(serviceResolver, authInfoResolver)
-	if err != nil {
-		return nil, err
-	}
+	_ = authInfoResolver
+
+	conversionFactory := kcpconversion.NewCRConverterFactory(
+		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+		opts.Extra.ConversionCELTransformationTimeout,
+	)
 	apiextGenericConfig := *c.GenericConfig
 	apiextGenericConfig.SkipOpenAPIInstallation = true // we run our own OpenAPI service
 	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
