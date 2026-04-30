@@ -98,26 +98,28 @@ func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribut
 	return a.decision, "", a.err
 }
 
-func newPlugin(decision authorizer.Decision, exports ...*apisv1alpha2.APIExport) *workspacetype {
+func newPlugin(decision authorizer.Decision, exports ...*apisv1alpha2.APIExport) (*workspacetype, *logicalcluster.Name) {
 	exportMap := make(map[string]*apisv1alpha2.APIExport, len(exports))
 	for _, e := range exports {
-		exportMap[logicalcluster.From(e).String()+"/"+e.Name] = e
+		exportMap[e.Name] = e
 	}
 
+	var capturedCluster logicalcluster.Name
 	p := &workspacetype{
 		Handler: admission.NewHandler(admission.Create, admission.Update),
 		createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {
+			capturedCluster = clusterName
 			return &fakeAuthorizer{decision: decision}, nil
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-			if e, ok := exportMap[path.String()+"/"+name]; ok {
+			if e, ok := exportMap[name]; ok {
 				return e, nil
 			}
 			return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
 		},
 	}
 	p.SetReadyFunc(func() bool { return true })
-	return p
+	return p, &capturedCluster
 }
 
 func newAPIExport(cluster logicalcluster.Name, name string) *apisv1alpha2.APIExport {
@@ -138,14 +140,15 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 	tenantCluster := logicalcluster.Name("root-test")
 
 	tests := []struct {
-		name         string
-		op           admission.Operation
-		newWT        *tenancyv1alpha1.WorkspaceType
-		oldWT        *tenancyv1alpha1.WorkspaceType
-		decision     authorizer.Decision
-		exports      []*apisv1alpha2.APIExport
-		wantForbid   bool
-		wantContains string
+		name                  string
+		op                    admission.Operation
+		newWT                 *tenancyv1alpha1.WorkspaceType
+		oldWT                 *tenancyv1alpha1.WorkspaceType
+		decision              authorizer.Decision
+		exports               []*apisv1alpha2.APIExport
+		wantForbid            bool
+		wantContains          string
+		wantAuthorizerCluster logicalcluster.Name
 	}{
 		{
 			name:  "create without defaultAPIBindings is allowed",
@@ -213,11 +216,23 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 			decision:   authorizer.DecisionAllow,
 			wantForbid: true,
 		},
+		{
+			name: "create with non-root path uses cluster from resolved APIExport",
+			op:   admission.Create,
+			newWT: newWorkspaceType(tenantCluster, "remote",
+				tenancyv1alpha1.APIExportReference{Path: "some:other:path", Export: "cowboys-remote"},
+			),
+			decision: authorizer.DecisionAllow,
+			exports: []*apisv1alpha2.APIExport{
+				newAPIExport(logicalcluster.Name("actual-export-cluster"), "cowboys-remote"),
+			},
+			wantAuthorizerCluster: logicalcluster.Name("actual-export-cluster"),
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := newPlugin(tt.decision, tt.exports...)
+			p, capturedCluster := newPlugin(tt.decision, tt.exports...)
 			attr := makeAttr(t, tt.op, tt.newWT, tt.oldWT, nil)
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tenantCluster})
 			err := p.Validate(ctx, attr, nil)
@@ -232,6 +247,9 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantAuthorizerCluster != "" && *capturedCluster != tt.wantAuthorizerCluster {
+				t.Fatalf("expected authorizer cluster %q, got %q", tt.wantAuthorizerCluster, *capturedCluster)
 			}
 		})
 	}
