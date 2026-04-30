@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/pkg/version"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	logsapiv1 "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
@@ -96,6 +97,32 @@ func Run(ctx context.Context, o *options.Options) error {
 	cacheConfig, err := o.Cache.RestConfig(defaultCacheClientConfig)
 	if err != nil {
 		return err
+	}
+
+	// parse external-logical-cluster-admin (front-proxy) kubeconfig if
+	// supplied. The VW uses this for SubjectAccessReview against clusters
+	// that may not live on the local shard; otherwise it falls back to the
+	// local kubeconfig.
+	var externalLogicalClusterAdminConfig *rest.Config
+	if o.ExternalLogicalClusterAdminKubeconfigFile != "" {
+		externalKubeConfig, err := readKubeConfig(o.ExternalLogicalClusterAdminKubeconfigFile, o.Context)
+		if err != nil {
+			return err
+		}
+		externalLogicalClusterAdminConfig, err = externalKubeConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+		externalLogicalClusterAdminConfig.QPS = -1
+
+		// strip any /clusters/... path from the host: the kcp client
+		// adds the cluster prefix itself when the SAR is issued.
+		eu, err := url.Parse(externalLogicalClusterAdminConfig.Host)
+		if err != nil {
+			return err
+		}
+		eu.Path = ""
+		externalLogicalClusterAdminConfig.Host = eu.String()
 	}
 	cacheKcpClusterClient, err := kcpclientset.NewForConfig(cacheConfig)
 	if err != nil {
@@ -187,7 +214,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		return err
 	}
 
-	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
+	rootAPIServerConfig.Extra.VirtualWorkspaces, err = o.CoreVirtualWorkspaces.NewVirtualWorkspaces(identityConfig, externalLogicalClusterAdminConfig, o.RootPathPrefix, wildcardKubeInformers, wildcardKcpInformers, cacheKcpInformers)
 	if err != nil {
 		return err
 	}

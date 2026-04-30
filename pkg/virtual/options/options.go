@@ -70,8 +70,16 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.APIResourceSchema.AddFlags(fs, virtualWorkspacesFlagPrefix)
 }
 
+// NewVirtualWorkspaces builds the configured virtual workspaces.
+//
+// externalLogicalClusterAdminConfig is an optional client config that points
+// at the front-proxy and is used by VWs that need to reach clusters hosted on
+// other shards (e.g. for SubjectAccessReview against the workspacetype's
+// cluster). When nil, all VW operations go through config (the local shard
+// loopback), which is correct for non-sharded deployments.
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
+	externalLogicalClusterAdminConfig *rest.Config,
 	rootPathPrefix string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
@@ -86,7 +94,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +109,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	terminatingworkspaces, err := o.TerminatingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, wildcardKcpInformers)
+	terminatingworkspaces, err := o.TerminatingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers)
 	if err != nil {
 		return nil, err
 	}

@@ -126,7 +126,7 @@ func TestBuildVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err, "ClusterClientSet should not return an error")
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(nil, 0)
 
-	virtualWorkspaces, err := BuildVirtualWorkspace(cfg, rootPathPrefix, dynamicClusterClient, kubeClusterClient, wildcardKcpInformers)
+	virtualWorkspaces, err := BuildVirtualWorkspace(cfg, rootPathPrefix, dynamicClusterClient, kubeClusterClient, nil, wildcardKcpInformers)
 	require.NoError(t, err, "BuildVirtualWorkspace should not return an error")
 
 	assert.Len(t, virtualWorkspaces, 3, "There should be three virtual workspaces")
