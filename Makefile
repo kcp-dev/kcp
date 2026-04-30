@@ -144,6 +144,7 @@ golangci-lint-version:
 
 .PHONY: prometheus
 prometheus: $(PROMETHEUS)
+	@echo $(PROMETHEUS)
 
 $(PROMETHEUS):
 	@hack/uget.sh \
