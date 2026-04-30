@@ -375,8 +375,6 @@ func InstallIndexers(
 			indexers.APIBindingByAcceptedClaimIdentityAndGR: indexers.IndexAPIBindingByAcceptedClaimIdentityAndGR,
 		},
 	)
-	// AddIfNotPresentOrDie is a no-op if the index name is already registered (the
-	// apibinding controller registers the same indexer under the same name).
 	for _, inf := range []apisv1alpha2informers.APIExportClusterInformer{apiExportInformer, globalAPIExportInformer} {
 		indexers.AddIfNotPresentOrDie(inf.Informer().GetIndexer(), cache.Indexers{
 			indexers.APIExportByAPIResourceSchema: indexers.IndexAPIExportByAPIResourceSchema,
