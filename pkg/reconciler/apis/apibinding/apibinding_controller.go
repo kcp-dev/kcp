@@ -138,6 +138,9 @@ func NewController(
 			}
 			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
 		},
+		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexers.APIExportByIdentity, identityHash)
+		},
 
 		getAPIResourceSchema: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIResourceSchema, apisv1alpha1listers.APIResourceSchemaLister](apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
 
@@ -302,8 +305,9 @@ type controller struct {
 	listAPIBindingsByAPIExport func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 
-	getAPIExportByPath    func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	getAPIExportsBySchema func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error)
+	getAPIExportByPath      func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIExportsBySchema   func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error)
+	getAPIExportsByIdentity func(identityHash string) ([]*apisv1alpha2.APIExport, error)
 
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 
@@ -516,9 +520,11 @@ func InstallIndexers(
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+		indexers.APIExportByIdentity:         indexers.IndexAPIExportByIdentity,
 	})
 	indexers.AddIfNotPresentOrDie(globalAPIExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
+		indexers.APIExportByIdentity:         indexers.IndexAPIExportByIdentity,
 	})
 }

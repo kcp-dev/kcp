@@ -127,6 +127,9 @@ func TestBoundCRDDeletion(t *testing.T) {
 					}
 					return []*apisv1alpha2.APIBinding{}, nil
 				},
+				getAPIBindingsClaimingCRD: func(crd *apiextensionsv1.CustomResourceDefinition) ([]*apisv1alpha2.APIBinding, error) {
+					return nil, nil
+				},
 				deleteCRD: func(ctx context.Context, name string) error {
 					deleteHappened = true
 					return nil
