@@ -801,7 +801,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		c.OptionalVirtual, err = newVirtualConfig(
 			opts,
 			virtualWorkspacesConfig,
-			cacheClientConfig,
 			externalLogicalClusterAdminConfig,
 			c.KubeSharedInformerFactory,
 			c.KcpSharedInformerFactory,

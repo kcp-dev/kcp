@@ -79,7 +79,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 // loopback), which is correct for non-sharded deployments.
 func (o *Options) NewVirtualWorkspaces(
 	config *rest.Config,
-	cacheConfig *rest.Config,
 	externalLogicalClusterAdminConfig *rest.Config,
 	rootPathPrefix string,
 	wildcardKubeInformers kcpkubernetesinformers.SharedInformerFactory,

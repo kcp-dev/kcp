@@ -55,7 +55,6 @@ type CompletedVirtualConfig struct {
 func newVirtualConfig(
 	o kcpserveroptions.CompletedOptions,
 	config *rest.Config,
-	cacheConfig *rest.Config,
 	externalLogicalClusterAdminConfig *rest.Config,
 	kubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory,
 	kcpSharedInformerFactory, cacheKcpSharedInformerFactory kcpinformers.SharedInformerFactory,
@@ -95,7 +94,6 @@ func newVirtualConfig(
 
 	c.Extra.VirtualWorkspaces, err = o.Virtual.VirtualWorkspaces.NewVirtualWorkspaces(
 		config,
-		cacheConfig,
 		externalLogicalClusterAdminConfig,
 		virtualcommandoptions.DefaultRootPathPrefix,
 		kubeSharedInformerFactory,
