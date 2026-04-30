@@ -52,8 +52,7 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 	}
 	gvrParts := strings.SplitN(keyParts[0], ".", 3)
 	gvrFromKey := schema.GroupVersionResource{Version: gvrParts[0], Resource: gvrParts[1], Group: gvrParts[2]}
-	gvrWithIdentity := gvrFromKey
-	gvrWithIdentity.Resource += ":" + c.replicated.Identity
+	gvrWithIdentity := CacheGVRWithIdentity(gvrFromKey, c.replicated.Identity)
 
 	// Key will present in the form of namespace/name in the current logical cluster.
 	key := keyParts[1]
@@ -156,6 +155,12 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 	}
 	defer c.requeueSelf()
 	return r.reconcile(ctx, key)
+}
+
+func CacheGVRWithIdentity(gvr schema.GroupVersionResource, identity string) schema.GroupVersionResource {
+	cacheGVR := gvr
+	cacheGVR.Resource += ":" + identity
+	return cacheGVR
 }
 
 type replicationReconciler struct {
