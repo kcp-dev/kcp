@@ -18,6 +18,7 @@ package apibinding
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
@@ -60,7 +63,8 @@ import (
 )
 
 const (
-	ControllerName = "kcp-apibinding"
+	ControllerName    = "kcp-apibinding"
+	LocksFieldManager = "apibinding-reconciler-locks"
 )
 
 var (
@@ -156,12 +160,39 @@ func NewController(
 			return logicalClusterInformer.Lister().Cluster(name).Get(corev1alpha1.LogicalClusterName)
 		},
 		updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
-			_, err := kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(lc).Path()).Update(ctx, lc, metav1.UpdateOptions{})
+			patchObj := &corev1alpha1.LogicalCluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+					Kind:       "LogicalCluster",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: lc.Name,
+					Annotations: map[string]string{
+						ResourceBindingsAnnotationKey: lc.Annotations[ResourceBindingsAnnotationKey],
+					},
+				},
+			}
+			patchBytes, err := json.Marshal(patchObj)
+			if err != nil {
+				return err
+			}
+			_, err = kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(lc).Path()).Patch(
+				ctx,
+				lc.Name,
+				types.ApplyPatchType,
+				patchBytes,
+				metav1.PatchOptions{
+					FieldManager: LocksFieldManager,
+					Force:        ptr.To(true),
+				},
+			)
 			return err
 		},
 		deletedCRDTracker: newLockedStringSet(),
-		commit:            committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
-	}
+		commit: committer.NewSSACommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](
+			kcpClusterClient.ApisV1alpha2().APIBindings(),
+			ControllerName,
+		)}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
@@ -492,8 +523,20 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	}
 
 	// If the object being reconciled changed as a result, update it.
-	oldResource := &Resource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &Resource{ObjectMeta: binding.ObjectMeta, Spec: &binding.Spec, Status: &binding.Status}
+	oldResource := &Resource{
+		APIVersion: apisv1alpha2.SchemeGroupVersion.String(),
+		Kind:       "APIBinding",
+		ObjectMeta: old.ObjectMeta,
+		Spec:       &old.Spec,
+		Status:     &old.Status,
+	}
+	newResource := &Resource{
+		APIVersion: apisv1alpha2.SchemeGroupVersion.String(),
+		Kind:       "APIBinding",
+		ObjectMeta: binding.ObjectMeta,
+		Spec:       &binding.Spec,
+		Status:     &binding.Status,
+	}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}
