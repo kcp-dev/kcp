@@ -128,7 +128,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			}
 			return reconcileStatusContinue, nil
 
-		case corev1alpha1.LogicalClusterPhaseReady:
+		case corev1alpha1.LogicalClusterPhaseReady,
+			corev1alpha1.LogicalClusterPhaseTerminating,
+			corev1alpha1.LogicalClusterPhaseDeleting:
 			// On delete we need to wait for the logical cluster to be deleted
 			// before we can mark the workspace as deleted.
 			if !workspace.DeletionTimestamp.IsZero() {
@@ -141,6 +143,15 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 					logger.Info("LogicalCluster disappeared")
 					conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted)
 					return reconcileStatusContinue, nil
+				}
+
+				// mirror phase + terminators from the LogicalCluster so that the user-facing
+				// workspace reflects whether terminators are still running (Terminating) or
+				// the cluster is being finalized (Deleting).
+				workspace.Status.Terminators = logicalCluster.Status.Terminators
+				if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseTerminating ||
+					logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseDeleting {
+					workspace.Status.Phase = logicalCluster.Status.Phase
 				}
 
 				if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted) {
@@ -185,6 +196,14 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 // updateTerminalConditionPhase checks if the workspace is ready by checking conditions and sets the phase accordingly.
 // It returns true if the phase was changed, false otherwise.
 func updateTerminalConditionPhase(workspace *tenancyv1alpha1.Workspace) bool {
+	// terminating/deleting workspaces are not subject to Unavailable/Ready transitions;
+	// failing conditions (e.g. WorkspaceContentDeleted=False while waiting on
+	// terminators) are expected during termination.
+	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseTerminating ||
+		workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseDeleting {
+		return false
+	}
+
 	var notReady bool
 	for _, c := range workspace.Status.Conditions {
 		if c.Status == v1.ConditionFalse && strings.HasPrefix(string(c.Type), "Workspace") {

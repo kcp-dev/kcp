@@ -28,6 +28,26 @@ import (
 type phaseReconciler struct{}
 
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
+	if !workspace.DeletionTimestamp.IsZero() {
+		// terminator controllers operate during the Terminating phase. Once they have all
+		// removed themselves from status.terminators, transition to Deleting so that the
+		// workspace content authorizer stops permitting access and the cluster can be
+		// finalized.
+		switch {
+		case len(workspace.Status.Terminators) > 0:
+			if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseTerminating {
+				workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseTerminating
+				return reconcileStatusContinue, nil
+			}
+		default:
+			if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseDeleting {
+				workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseDeleting
+				return reconcileStatusContinue, nil
+			}
+		}
+		return reconcileStatusContinue, nil
+	}
+
 	switch workspace.Status.Phase {
 	case "", corev1alpha1.LogicalClusterPhaseScheduling:
 		// A LogicalCluster object's placement is the shard it lives on, so its

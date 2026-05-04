@@ -39,9 +39,6 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 	changed := false
 
 	expected := string(logicalCluster.Status.Phase)
-	if !logicalCluster.DeletionTimestamp.IsZero() {
-		expected = string(corev1alpha1.LogicalClusterPhaseDeleting)
-	}
 	if got := logicalCluster.Labels[tenancyv1alpha1.WorkspacePhaseLabel]; got != expected {
 		if logicalCluster.Labels == nil {
 			logicalCluster.Labels = map[string]string{}

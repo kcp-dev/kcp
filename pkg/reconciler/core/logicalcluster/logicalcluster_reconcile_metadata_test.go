@@ -66,13 +66,31 @@ func TestReconcileMetadata(t *testing.T) {
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
 		{
-			name: "shows phase Deleting when deletion timestamp is set",
+			name: "label tracks Terminating phase",
 			input: &corev1alpha1.LogicalCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					DeletionTimestamp: &metav1.Time{Time: date},
 				},
 				Status: corev1alpha1.LogicalClusterStatus{
-					Phase: corev1alpha1.LogicalClusterPhaseReady,
+					Phase: corev1alpha1.LogicalClusterPhaseTerminating,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				DeletionTimestamp: &metav1.Time{Time: date},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": string(corev1alpha1.LogicalClusterPhaseTerminating),
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "label tracks Deleting phase",
+			input: &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: date},
+				},
+				Status: corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseDeleting,
 				},
 			},
 			expected: metav1.ObjectMeta{

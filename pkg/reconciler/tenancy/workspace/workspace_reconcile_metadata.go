@@ -44,9 +44,6 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 	}
 
 	expected := string(workspace.Status.Phase)
-	if !workspace.DeletionTimestamp.IsZero() {
-		expected = "Deleting"
-	}
 	if got := workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel]; got != expected {
 		if workspace.Labels == nil {
 			workspace.Labels = map[string]string{}

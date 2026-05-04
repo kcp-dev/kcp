@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260423-d356919ea.logicalclusters.core.kcp.io
+  name: v260428-d075f2d48.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -230,12 +230,14 @@ spec:
               - Initializing
               - Ready
               - Unavailable
+              - Terminating
+              - Deleting
               type: string
             terminators:
               description: |-
                 Terminators are set on creation by the system and must be cleared
                 by a controller before the logical cluster can be deleted. The LogicalCluster object
-                will stay in the phase "Deleting" until all terminator are cleared.
+                will stay in the phase "Terminating" until all terminator are cleared.
               items:
                 description: |-
                   LogicalClusterTerminator is a unique string corresponding to a logical cluster
