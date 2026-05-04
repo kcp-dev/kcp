@@ -5,6 +5,8 @@
 [![GitHub](https://img.shields.io/github/license/kcp-dev/kcp)](https://github.com/kcp-dev/kcp/blob/main/LICENSE)
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/kcp-dev/kcp?sort=semver)](https://github.com/kcp-dev/kcp/releases/latest)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkcp-dev%2Fkcp?ref=badge_shield)
+[![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=kcp)](https://insights.linuxfoundation.org/project/kcp)
+[![LFX Active Contributors](https://insights.linuxfoundation.org/api/badge/active-contributors?project=kcp)](https://insights.linuxfoundation.org/project/kcp)
 
 ## Overview
 
