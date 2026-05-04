@@ -5,8 +5,8 @@ description: >
 
 # WorkspaceType Best Practices
 
-`WorkspaceType` is a powerful extension point in kcp, but it is also one of
-the most frequently misused. The core reason is that a `WorkspaceType` is
+`WorkspaceType` is a powerful extension point in kcp, but it is also very
+easily misused. The core reason is that a `WorkspaceType` is
 **not a 1:1 model of a workspace** — a single type is referenced by many
 workspaces, lives across replication boundaries, and sits on the critical
 path of workspace creation whenever it carries blocking initializers.
@@ -64,8 +64,8 @@ from becoming ready. Prefer this order of choices:
    and the user observes provisioning progress on your own CR's status.
 2. **Initializer used only for truly blocking invariants.** Something the
    workspace is *broken* without — for example, a `ClusterRoleBinding` that
-   grants the workspace owner any access at all, or an `APIBinding` the
-   workspace is contractually expected to have on day one.
+   grants the workspace owner any access at all, or assigning a cost center
+   to correctly assign costs generated from the workspace.
 3. **Avoid chaining multiple blocking initializers from different teams on
    the same type.** Each one becomes a single point of failure for every
    workspace of that type. If any controller is down or slow, every new
@@ -87,7 +87,7 @@ from becoming ready. Prefer this order of choices:
 
 ### Anti-patterns
 
-- Using initializers to run long-running bootstrap scripts.
+- Using initializers to run long-running bootstrap processes.
 - Using initializers to call out to external systems whose latency or
   availability you do not control.
 - Using initializers when a post-creation reconciler would do.
@@ -160,13 +160,13 @@ The type says "this is an organization workspace"; a separate
 
 ## Provider Bootstrapping Without Initializers
 
-There is a genuine chicken-and-egg problem for provider controllers:
-a provider can only reconcile workspaces it can see, and for most
-providers "see" means "has an `APIBinding` to the provider's API". A
-freshly created workspace has no such binding yet. The naive fix — solve
-it with a blocking initializer on the `WorkspaceType` — pulls every
-provider onto the critical path of workspace creation, which is exactly
-what this page is trying to avoid.
+Providers can only reconciler workspaces they see through their virtual
+workspaces, that means the workspaces require the APIBinding.
+
+Solving this issue by giving each provider as a blocking initializer on
+the `WorkspaceType` makes **every** provider a critical component for
+workspace creation. If **one** provider runs in an issue the workspace
+creation is blocked until that provider recovers.
 
 Recommended patterns, in order of preference:
 
