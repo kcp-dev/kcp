@@ -163,6 +163,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-termination/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types-best-practices/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types-best-practices/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types/</loc>
         <lastmod>2026-05-04</lastmod>
         <changefreq>daily</changefreq>

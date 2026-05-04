@@ -6,30 +6,33 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Guidance on how to design, deploy, and consume WorkspaceTypes safely.
+">
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/">
+      
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/workspaces/workspace-types-best-practices/">
       
       
-        <link rel="prev" href="../running-sharded/">
+        <link rel="prev" href="../workspace-types/">
       
       
-        <link rel="next" href="../internals/etcd-structure/">
+        <link rel="next" href="../virtual-workspaces/">
       
       
-      <link rel="icon" href="../../favicons/favicon.ico">
+      <link rel="icon" href="../../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>Storage to REST Patterns - docs.kcp.io</title>
+        <title>WorkspaceType Best Practices - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -48,11 +51,11 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/version_banner.css">
+      <link rel="stylesheet" href="../../../stylesheets/version_banner.css">
     
-      <link rel="stylesheet" href="../../stylesheets/crd.css">
+      <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#storage-to-rest-patterns" class="md-skip">
+        <a href="#workspacetype-best-practices" class="md-skip">
           Skip to content
         </a>
       
@@ -96,9 +99,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Storage to REST Patterns
+              WorkspaceType Best Practices
             
           </span>
         </div>
@@ -234,7 +237,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../.." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
     
@@ -254,32 +257,12 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../setup/" class="md-tabs__link">
+        <a href="../../../setup/" class="md-tabs__link">
           
   
     
   
   Setup
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../concepts/" class="md-tabs__link">
-          
-  
-    
-  
-  Concepts
 
         </a>
       </li>
@@ -296,7 +279,27 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+        <a href="../../" class="md-tabs__link">
+          
+  
+    
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../developers/" class="md-tabs__link">
           
   
     
@@ -316,7 +319,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+        <a href="../../../contributing/" class="md-tabs__link">
           
   
     
@@ -336,7 +339,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reference/" class="md-tabs__link">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -371,9 +374,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -425,7 +428,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../.." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -458,7 +461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../GOALS/" class="md-nav__link">
+      <a href="../../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -519,7 +522,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../setup/" class="md-nav__link ">
+            <a href="../../../setup/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -552,7 +555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/quickstart/" class="md-nav__link">
+      <a href="../../../setup/quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -573,7 +576,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/helm/" class="md-nav__link">
+      <a href="../../../setup/helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -594,7 +597,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -615,7 +618,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/integrations/" class="md-nav__link">
+      <a href="../../../setup/integrations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -671,7 +674,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../setup/production/" class="md-nav__link ">
+            <a href="../../../setup/production/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -704,7 +707,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/overview/" class="md-nav__link">
+      <a href="../../../setup/production/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -725,7 +728,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/prerequisites/" class="md-nav__link">
+      <a href="../../../setup/production/prerequisites/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -746,7 +749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/kcp-dekker/" class="md-nav__link">
+      <a href="../../../setup/production/kcp-dekker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -767,7 +770,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/kcp-vespucci/" class="md-nav__link">
+      <a href="../../../setup/production/kcp-vespucci/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -788,7 +791,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/kcp-comer/" class="md-nav__link">
+      <a href="../../../setup/production/kcp-comer/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -809,7 +812,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/audit-logging/" class="md-nav__link">
+      <a href="../../../setup/production/audit-logging/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -842,6 +845,8 @@
       
   
   
+    
+  
   
   
     
@@ -870,21 +875,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -895,13 +901,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -917,7 +923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/terminology/" class="md-nav__link">
+      <a href="../../terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -938,7 +944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -956,6 +962,8 @@
                 
   
   
+    
+  
   
   
     
@@ -983,18 +991,16 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1011,7 +1017,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Workspaces
@@ -1027,7 +1033,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1045,10 +1051,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-types-best-practices/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    WorkspaceType Best Practices
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1057,6 +1083,146 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-use-a-workspacetype" class="md-nav__link">
+    <span class="md-ellipsis">
+      When to Use a WorkspaceType
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initialization-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Initialization Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Initialization Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefer-non-blocking-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prefer non-blocking patterns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-you-do-need-an-initializer" class="md-nav__link">
+    <span class="md-ellipsis">
+      When you do need an initializer
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anti-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Anti-patterns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#termination-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Termination Best Practices
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1n-reuse-and-schema-evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      1:N Reuse and Schema Evolution
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1:N Reuse and Schema Evolution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mutations-have-wide-blast-radius" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mutations have wide blast radius
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replication-amplifies-the-effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replication amplifies the effect
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-not-encode-per-workspace-configuration-in-the-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Do not encode per-workspace configuration in the type
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provider-bootstrapping-without-initializers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Provider Bootstrapping Without Initializers
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      Checklist
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1069,7 +1235,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1090,7 +1256,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1111,7 +1277,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1132,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/workspaces/mounts/" class="md-nav__link">
+      <a href="../mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1194,7 +1360,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/apis/" class="md-nav__link ">
+            <a href="../../apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1227,7 +1393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1248,7 +1414,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1269,7 +1435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/cached-resources/" class="md-nav__link">
+      <a href="../../apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1290,7 +1456,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1311,7 +1477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1367,7 +1533,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/authentication/" class="md-nav__link ">
+            <a href="../../authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1400,7 +1566,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="../../authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1421,7 +1587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authentication/workspace/" class="md-nav__link">
+      <a href="../../authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1475,7 +1641,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1508,7 +1674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1566,7 +1732,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1599,7 +1765,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1620,7 +1786,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1641,7 +1807,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1695,7 +1861,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1728,7 +1894,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1761,8 +1927,6 @@
       
   
   
-    
-  
   
   
     
@@ -1785,22 +1949,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../../developers/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1811,13 +1974,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             Developers
@@ -1879,7 +2042,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1900,7 +2063,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../controllers/client-go/" class="md-nav__link">
+      <a href="../../../developers/controllers/client-go/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1929,7 +2092,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../running-sharded/" class="md-nav__link">
+      <a href="../../../developers/running-sharded/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1947,30 +2110,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Storage to REST Patterns
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1979,53 +2122,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#logical-clusters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Logical Clusters
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      etcd
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#generic-registry" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generic Registry
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2084,7 +2180,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../internals/etcd-structure/" class="md-nav__link">
+      <a href="../../../developers/internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2105,7 +2201,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2165,7 +2261,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../investigations/" class="md-nav__link ">
+            <a href="../../../developers/investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2198,7 +2294,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../../developers/investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2219,7 +2315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../../developers/investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2240,7 +2336,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../../developers/investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2261,7 +2357,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2332,7 +2428,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/" class="md-nav__link ">
+            <a href="../../../contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2365,7 +2461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/getting-started/" class="md-nav__link">
+      <a href="../../../contributing/getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2386,7 +2482,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/coding/" class="md-nav__link">
+      <a href="../../../contributing/coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2407,7 +2503,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/monorepo/" class="md-nav__link">
+      <a href="../../../contributing/monorepo/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2474,7 +2570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/governance/general-technical-review/" class="md-nav__link">
+      <a href="../../../contributing/governance/general-technical-review/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2495,7 +2591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/governance/security-self-assessment/" class="md-nav__link">
+      <a href="../../../contributing/governance/security-self-assessment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2549,7 +2645,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/continuous-integration/" class="md-nav__link ">
+            <a href="../../../contributing/continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2582,7 +2678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2661,7 +2757,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
+      <a href="../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2682,7 +2778,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2703,7 +2799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2747,7 +2843,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
+            <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2825,7 +2921,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../reference/" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2944,7 +3040,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2965,7 +3061,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2986,7 +3082,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3007,7 +3103,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3028,7 +3124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3049,7 +3145,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_accept/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_accept/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3070,7 +3166,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3091,7 +3187,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3112,7 +3208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_claims_reject/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_reject/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3133,7 +3229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3154,7 +3250,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3175,7 +3271,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_quickstart/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3196,7 +3292,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3217,7 +3313,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3238,7 +3334,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3259,7 +3355,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3280,7 +3376,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3301,7 +3397,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3322,7 +3418,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3343,7 +3439,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3364,7 +3460,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3385,7 +3481,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3516,7 +3612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3537,7 +3633,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3558,7 +3654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3579,7 +3675,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3600,7 +3696,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3675,7 +3771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3696,7 +3792,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3771,7 +3867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3792,7 +3888,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3867,7 +3963,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3888,7 +3984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3952,27 +4048,120 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#logical-clusters" class="md-nav__link">
+  <a href="#when-to-use-a-workspacetype" class="md-nav__link">
     <span class="md-ellipsis">
-      Logical Clusters
+      When to Use a WorkspaceType
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#etcd" class="md-nav__link">
+  <a href="#initialization-best-practices" class="md-nav__link">
     <span class="md-ellipsis">
-      etcd
+      Initialization Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Initialization Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prefer-non-blocking-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prefer non-blocking patterns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-you-do-need-an-initializer" class="md-nav__link">
+    <span class="md-ellipsis">
+      When you do need an initializer
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anti-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Anti-patterns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#termination-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Termination Best Practices
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#generic-registry" class="md-nav__link">
+  <a href="#1n-reuse-and-schema-evolution" class="md-nav__link">
     <span class="md-ellipsis">
-      Generic Registry
+      1:N Reuse and Schema Evolution
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1:N Reuse and Schema Evolution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mutations-have-wide-blast-radius" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mutations have wide blast radius
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replication-amplifies-the-effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replication amplifies the effect
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-not-encode-per-workspace-configuration-in-the-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Do not encode per-workspace configuration in the type
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provider-bootstrapping-without-initializers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Provider Bootstrapping Without Initializers
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      Checklist
     </span>
   </a>
   
@@ -3996,68 +4185,244 @@
   
 
 
-<h1 id="storage-to-rest-patterns">Storage to REST Patterns<a class="headerlink" href="#storage-to-rest-patterns" title="Permanent link">&para;</a></h1>
-<h2 id="logical-clusters">Logical Clusters<a class="headerlink" href="#logical-clusters" title="Permanent link">&para;</a></h2>
-<p>kcp promises to support 1 million logical clusters.
-A logical cluster is like a Kubernetes endpoint, i.e. an endpoint usual Kubernetes client tooling (client-go, controller-runtime and others)
-and user interfaces (kubectl, helm, web console, ...) can talk to, just like to a Kubernetes cluster.
-Thus creating a logical cluster must be efficient, both in terms of storage and compute.
-It also must provide isolation, just like regular clusters.</p>
-<h2 id="etcd">etcd<a class="headerlink" href="#etcd" title="Permanent link">&para;</a></h2>
-<p>etcd is the primary datastore used by kcp.
-It stores data in a key-value store.
-The store’s logical view is a flat binary key space.
-The key space has a lexically sorted index on byte string keys.</p>
-<p>In order to create a logical hierarchy, keys are usually mixed with <code>/</code> e.g.  <code>/company/branch/location</code></p>
-<p>To make it more concrete let’s create a company acme with two branches, marketing, and sales in some locations.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>etcdctl put /acme/marketing/london foo
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>etcdctl put /acme/marketing/gdansk foo2
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>etcdctl put /acme/sales/warszawa foo3
-</code></pre></div>
-<p>In order to get all branches of acme company, all we have to do is to ask the database to return all keys matching <code>/acme</code> prefix
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>etcdctl get --prefix /acme
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>/acme/marketing/gdansk
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>foo2
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>/acme/marketing/london
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>foo
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>/acme/sales/warszawa
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>foo3
-</code></pre></div></p>
-<p>In order to see all locations of marketing teams, we as for records matching /acme/marketing prefix
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>etcdctl get --prefix /acme/marketing
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>/acme/marketing/gdansk
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>foo2
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>/acme/marketing/london
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>foo
-</code></pre></div></p>
-<p>Note that those queries are based on byte comparisons.
-We didn't create an <code>/acme</code> key.
-Everything matching the prefix will be returned when using the --prefix parameter.</p>
-<p>This is the key idea behind workspaces in kcp.
-Creating a workspace on the storage layer is very efficient because it boils down to concatenating a string.
-It also provides isolation on the lowest possible level.
-Data is filtered by the database engine.</p>
-<h2 id="generic-registry">Generic Registry<a class="headerlink" href="#generic-registry" title="Permanent link">&para;</a></h2>
-<p>kcp is based on the generic apiserver library provided by Kubernetes.
-The central type provided by the library that interacts with a storage layer is called the generic registry.
-It connects an API endpoint (REST) with a database layer.
-Almost all API types make use of it.</p>
-<p>The generic apiserver library keeps an in-memory representation of the store for each resource in an API group.
-For example, <code>secrets</code> resources in the <code>core</code> API group gets their own storage.</p>
-<p>From the perspective of this document, we can assume that the most important feature of generic storage
-is to compute the key that is passed to the database to find the data the user wants.</p>
-<p><img alt="" src="../registry.png" /></p>
-<p>When the server starts it precomputes the <code>ResourcePrefix</code> with a group and a resource name.
-Everything else, like a workspace name, is added dynamically.
-For example, a request with a URL of <code>/clusters/acme/core/secrets</code> finds a storage responsible
-for <code>core/secrets</code> resources and adds <code>acme</code> to the <code>ResourcePrefix</code>.
-The new string becomes a key that is passed to etcd to find only resources for <code>acme</code> cluster.</p>
+<h1 id="workspacetype-best-practices">WorkspaceType Best Practices<a class="headerlink" href="#workspacetype-best-practices" title="Permanent link">&para;</a></h1>
+<p><code>WorkspaceType</code> is a powerful extension point in kcp, but it is also very
+easily misused. The core reason is that a <code>WorkspaceType</code> is
+<strong>not a 1:1 model of a workspace</strong> — a single type is referenced by many
+workspaces, lives across replication boundaries, and sits on the critical
+path of workspace creation whenever it carries blocking initializers.</p>
+<p>This page captures recommendations that complement the mechanics described
+in <a href="../workspace-types/">Workspace Types</a>,
+<a href="../workspace-initialization/">Workspace Initialization</a>, and
+<a href="../workspace-termination/">Workspace Termination</a>. Read those first — this
+page assumes you already know <em>how</em> the pieces work and focuses on <em>when</em>
+and <em>whether</em> to use them.</p>
+<h2 id="when-to-use-a-workspacetype">When to Use a WorkspaceType<a class="headerlink" href="#when-to-use-a-workspacetype" title="Permanent link">&para;</a></h2>
+<p>Think of a <code>WorkspaceType</code> as a <strong>static schema for a workspace</strong>, not as a
+runtime provisioning mechanism. It is a good fit for:</p>
+<ul>
+<li>Declaring the shape of a class of workspaces (allowed parents and
+  children, default child type, inherited behavior through <code>extend.with</code>).</li>
+<li>One-time structural setup that genuinely must be in place before the
+  workspace becomes usable to end users.</li>
+<li>Cross-cutting policy that has to be enforced at creation time and cannot
+  be retrofitted later.</li>
+</ul>
+<p>It is <strong>not</strong> a good fit for:</p>
+<ul>
+<li>Provisioning application-level resources on behalf of a tenant (quotas,
+  default namespaces, day-2 config objects). Model these with regular
+  controllers that reconcile provider-owned config CRs instead.</li>
+<li>Anything that might need to change per-workspace. <code>WorkspaceType</code> objects
+  are referenced, not copied — mutating one mutates the contract for every
+  workspace that points at it.</li>
+<li>Work that can just as easily be done asynchronously after the workspace
+  is ready. If the workspace does not <em>functionally</em> require the resource
+  to exist before it is handed to the user, it should not block creation.</li>
+</ul>
+<p>Rule of thumb: if you are tempted to put business logic behind an
+initializer, the workspace probably does not need the initializer at all.
+Provision asynchronously and let the consumer observe readiness through a
+status field on their own resource.</p>
+<h2 id="initialization-best-practices">Initialization Best Practices<a class="headerlink" href="#initialization-best-practices" title="Permanent link">&para;</a></h2>
+<p>Initializers turn workspace creation into a distributed rendezvous. Every
+controller that owns an initializer is, for as long as it holds the
+initializer, a hard dependency of <code>Workspace.status.phase = Ready</code>.</p>
+<h3 id="prefer-non-blocking-patterns">Prefer non-blocking patterns<a class="headerlink" href="#prefer-non-blocking-patterns" title="Permanent link">&para;</a></h3>
+<p>Most "initialization" work does not actually need to block the workspace
+from becoming ready. Prefer this order of choices:</p>
+<ol>
+<li><strong>No initializer at all.</strong> Have your controller watch for new
+   <code>LogicalCluster</code> objects (or workspace-scoped resources it cares about)
+   and reconcile asynchronously. The workspace becomes <code>Ready</code> immediately
+   and the user observes provisioning progress on your own CR's status.</li>
+<li><strong>Initializer used only for truly blocking invariants.</strong> Something the
+   workspace is <em>broken</em> without — for example, a <code>ClusterRoleBinding</code> that
+   grants the workspace owner any access at all, or assigning a cost center
+   to correctly assign costs generated from the workspace.</li>
+<li><strong>Avoid chaining multiple blocking initializers from different teams on
+   the same type.</strong> Each one becomes a single point of failure for every
+   workspace of that type. If any controller is down or slow, every new
+   workspace of that type stalls.</li>
+</ol>
+<h3 id="when-you-do-need-an-initializer">When you do need an initializer<a class="headerlink" href="#when-you-do-need-an-initializer" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Keep the initializer controller's reconcile loop <strong>fast and idempotent</strong>.
+  It sits on the critical path of workspace creation; a p99 of several
+  seconds multiplies across bursts.</li>
+<li>Make the controller <strong>highly available</strong>. It is infrastructure for
+  every workspace of this type, not a tenant-scoped component.</li>
+<li>Use the
+  <a href="../workspace-initialization/#the-initializingworkspaces-virtual-workspace"><code>initializingworkspaces</code> virtual workspace</a>
+  and patch-based updates — do not try to <code>Update</code> <code>LogicalCluster</code> objects.</li>
+<li>Treat the set of initializers on a type as <strong>append-only from the user's
+  perspective</strong>. Adding a new blocking initializer to an existing type
+  changes the readiness contract for workspaces already in flight.</li>
+</ul>
+<h3 id="anti-patterns">Anti-patterns<a class="headerlink" href="#anti-patterns" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Using initializers to run long-running bootstrap processes.</li>
+<li>Using initializers to call out to external systems whose latency or
+  availability you do not control.</li>
+<li>Using initializers when a post-creation reconciler would do.</li>
+<li>Emitting user-visible errors from inside an initializer — the user sees
+  their workspace stuck in <code>Initializing</code> with no actionable signal.</li>
+</ul>
+<h2 id="termination-best-practices">Termination Best Practices<a class="headerlink" href="#termination-best-practices" title="Permanent link">&para;</a></h2>
+<p>Terminators are the counterpart to initializers and carry the same risk
+profile in reverse: every terminator is a hard dependency of the workspace
+actually going away. A stuck terminator is a stuck workspace deletion.</p>
+<ul>
+<li>Prefer regular Kubernetes <strong>finalizers on workspace-scoped resources</strong>
+  for cleanup that is internal to the workspace. Terminators should only
+  run logic that must happen <em>outside</em> the workspace (for example, freeing
+  an external account, releasing a provider-side record).</li>
+<li>Terminators run with <strong>no guaranteed ordering</strong> relative to each other
+  or to in-workspace finalizers. Do not rely on another controller having
+  already cleaned up a particular resource.</li>
+<li>Make the cleanup logic <strong>idempotent and side-effect-safe on retry</strong> —
+  terminators can and will run multiple times.</li>
+<li>Have a clear plan for <strong>what happens if the external system is
+  unreachable</strong>. A terminator that blocks forever on a 500 from a
+  downstream API leaks workspace objects indefinitely.</li>
+<li>Emit a status condition the operator can see. "Stuck in terminating" is
+  the single most common workspace-lifecycle support request; make it easy
+  to triage.</li>
+</ul>
+<h2 id="1n-reuse-and-schema-evolution">1:N Reuse and Schema Evolution<a class="headerlink" href="#1n-reuse-and-schema-evolution" title="Permanent link">&para;</a></h2>
+<p>A <code>WorkspaceType</code> is a <strong>shared contract</strong>. A single <code>WorkspaceType</code> object
+is typically referenced by every workspace of that type, across shards and
+across replication boundaries. That has two consequences that are easy to
+miss.</p>
+<h3 id="mutations-have-wide-blast-radius">Mutations have wide blast radius<a class="headerlink" href="#mutations-have-wide-blast-radius" title="Permanent link">&para;</a></h3>
+<p>Changes to a <code>WorkspaceType</code> are not versioned per-workspace. Adding an
+initializer, tightening <code>limitAllowedChildren</code>, or extending another type
+immediately changes behavior for:</p>
+<ul>
+<li>every in-flight workspace that has not yet finished initializing, and</li>
+<li>every future workspace of that type.</li>
+</ul>
+<p>Existing workspaces that are already <code>Ready</code> are not re-initialized, so the
+result is a fleet where old and new workspaces behave differently despite
+sharing a type name. Treat the set of initializers and constraints on a
+published <code>WorkspaceType</code> as part of its public API.</p>
+<h3 id="replication-amplifies-the-effect">Replication amplifies the effect<a class="headerlink" href="#replication-amplifies-the-effect" title="Permanent link">&para;</a></h3>
+<p>When a <code>WorkspaceType</code> is replicated, the same object is consumed by many
+consumers that do not coordinate with you. Breaking changes are effectively
+unshippable without a coordinated rollout:</p>
+<ul>
+<li>Introduce new behavior under a <strong>new type</strong> (for example,
+  <code>org-v2</code>) rather than mutating <code>org</code> in place, whenever the change alters
+  the readiness contract.</li>
+<li>Use <code>extend.with</code> to share behavior between the old and new type during
+  the transition, so you are not duplicating the whole definition.</li>
+<li>Give consumers time to migrate before retiring the old type.</li>
+</ul>
+<h3 id="do-not-encode-per-workspace-configuration-in-the-type">Do not encode per-workspace configuration in the type<a class="headerlink" href="#do-not-encode-per-workspace-configuration-in-the-type" title="Permanent link">&para;</a></h3>
+<p>Because the type is shared, anything that varies per workspace (quotas,
+cost center, feature flags, account IDs) must live on a <strong>provider-owned
+CR</strong> inside or next to the workspace — not on the <code>WorkspaceType</code> itself.
+The type says "this is an organization workspace"; a separate
+<code>Organization</code> CR says "...and specifically, it's for team X with quota Y".</p>
+<h2 id="provider-bootstrapping-without-initializers">Provider Bootstrapping Without Initializers<a class="headerlink" href="#provider-bootstrapping-without-initializers" title="Permanent link">&para;</a></h2>
+<p>Providers can only reconciler workspaces they see through their virtual
+workspaces, that means the workspaces require the APIBinding.</p>
+<p>Solving this issue by giving each provider as a blocking initializer on
+the <code>WorkspaceType</code> makes <strong>every</strong> provider a critical component for
+workspace creation. If <strong>one</strong> provider runs in an issue the workspace
+creation is blocked until that provider recovers.</p>
+<p>Recommended patterns, in order of preference:</p>
+<ol>
+<li><strong>Platform-level <code>APIBinding</code> propagation.</strong> Have the platform (not each
+   individual provider) ensure that newly created workspaces of a given
+   type receive the set of <code>APIBindings</code> they are expected to have. Once
+   the binding exists, the provider's own controller can observe the
+   workspace through the normal virtual-workspace mechanism and reconcile
+   asynchronously — no initializer required.</li>
+<li>
+<p><strong>An init-agent pattern.</strong> A small, generic agent runs against the
+   <code>initializingworkspaces</code> virtual workspace of a type and applies a
+   declaratively configured set of objects (typically <code>APIBindings</code>,
+   <code>ClusterRoleBindings</code>, and similar structural resources) into the
+   workspace before removing the initializer. The
+   <a href="https://github.com/kcp-dev/init-agent"><code>kcp-dev/init-agent</code></a> project
+   implements this: you describe <em>what</em> must exist in a new workspace,
+   and the agent handles the initializer lifecycle. This consolidates
+   blocking work into one well-understood controller instead of
+   spreading it across every provider.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code>init-agent</code> is a <strong>no-code convenience</strong> on top of the standard
+initializer mechanism — not a scalability story. It does not
+remove any of the architectural concerns described earlier on
+this page: the initializer still sits on the critical path of
+workspace creation, it is still a hard dependency of
+<code>phase=Ready</code>, it still fans out 1:N across every workspace of
+the type, and the agent itself is still an HA component you are
+now responsible for operating. Using <code>init-agent</code> means you have
+chosen to pay those costs without writing a controller — not
+that you have avoided them. Before reaching for it, convince
+yourself that an initializer is genuinely required; if it is
+not, option 1 (platform-level <code>APIBinding</code> propagation with
+asynchronous reconciliation) remains the preferred pattern.</p>
+</div>
+<ol>
+<li><strong>Provider watches, user acts.</strong> The consumer explicitly creates an
+   <code>APIBinding</code> for the providers they want to use, and only then does
+   the provider's controller start reconciling in that workspace. This
+   is the <strong>desired provider model</strong> and should be the default: each
+   provider is opt-in, consumers choose what they bind, and the platform
+   stays a platform instead of becoming a monolith of pre-wired
+   services.</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Avoid the "every workspace binds everything" anti-pattern.
+Auto-binding every provider into every new workspace — whether
+via a blanket platform rule, a catch-all initializer, or an
+init-agent config that enumerates every known provider — is not
+a platform architecture. It re-centralizes ownership, couples
+every provider's availability to workspace creation, and makes
+the blast radius of any single provider's bug the entire fleet.
+Platform-level <code>APIBinding</code> propagation (option 1) should only
+cover the small set of bindings that are genuinely structural
+for the workspace type; everything else belongs to the consumer.</p>
+</div>
+</li>
+</ol>
+<p>Whichever pattern you pick, the shared goal is the same: keep
+provider-specific, failure-prone logic <em>off</em> the workspace-creation
+critical path, and let providers do their work through normal
+reconciliation once the workspace is visible to them.</p>
+<h2 id="checklist">Checklist<a class="headerlink" href="#checklist" title="Permanent link">&para;</a></h2>
+<p>Before shipping a new <code>WorkspaceType</code>, ask:</p>
+<ul>
+<li>[ ] Does this type describe structure, or is it secretly a provisioning
+      mechanism? If the latter, redesign as a provider-owned CR.</li>
+<li>[ ] Does every initializer on this type represent something the
+      workspace is genuinely unusable without? If not, drop it.</li>
+<li>[ ] Is every initializer owned by an HA controller with a fast, safe
+      reconcile loop?</li>
+<li>[ ] Do terminators only handle external cleanup, with in-workspace
+      cleanup left to Kubernetes finalizers?</li>
+<li>[ ] Is the set of initializers, terminators, and constraints treated as
+      part of the type's public API, with a plan for breaking changes via
+      a new type rather than in-place mutation?</li>
+<li>[ ] Is per-workspace configuration modeled on a separate CR, not on the
+      <code>WorkspaceType</code> itself?</li>
+<li>[ ] For bootstrapping, have you considered platform-level <code>APIBinding</code>
+      propagation or the init-agent pattern before reaching for a custom
+      blocking initializer?</li>
+</ul>
 
 
 
 
 
 
+
+  
+  
 
 
 
@@ -4141,12 +4506,12 @@ The new string becomes a key that is passed to etcd to find only resources for <
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
-        <script src="../../scripts/version_banner.js"></script>
+        <script src="../../../scripts/version_banner.js"></script>
       
     
   </body>
