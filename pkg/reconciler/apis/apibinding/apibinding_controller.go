@@ -140,7 +140,7 @@ func NewController(
 			if err != nil {
 				return nil, err
 			}
-			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexAPIExportsByAPIResourceSchema, key)
+			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexers.APIExportByAPIResourceSchema, key)
 		},
 		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
 			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexers.APIExportByIdentity, identityHash)
@@ -561,13 +561,13 @@ func InstallIndexers(
 
 	// APIExport indexers
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
-		indexers.APIExportByIdentity:         indexers.IndexAPIExportByIdentity,
+		indexers.ByLogicalClusterPathAndName:  indexers.IndexByLogicalClusterPathAndName,
+		indexers.APIExportByAPIResourceSchema: indexers.IndexAPIExportByAPIResourceSchema,
+		indexers.APIExportByIdentity:          indexers.IndexAPIExportByIdentity,
 	})
 	indexers.AddIfNotPresentOrDie(globalAPIExportInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
-		indexAPIExportsByAPIResourceSchema:   indexAPIExportsByAPIResourceSchemasFunc,
-		indexers.APIExportByIdentity:         indexers.IndexAPIExportByIdentity,
+		indexers.ByLogicalClusterPathAndName:  indexers.IndexByLogicalClusterPathAndName,
+		indexers.APIExportByAPIResourceSchema: indexers.IndexAPIExportByAPIResourceSchema,
+		indexers.APIExportByIdentity:          indexers.IndexAPIExportByIdentity,
 	})
 }

@@ -623,6 +623,25 @@ type permissionClaimMaterialiserReconciler struct {
 	*controller
 }
 
+// reconcile materialises bound CRDs for accepted permission claims on a best-effort
+// basis. Errors are logged and the loop continues rather than returning, by design:
+//
+//   - Per-claim independence: a failure resolving one claim must not skip subsequent
+//     claims that are perfectly resolvable on this pass.
+//   - Cross-shard eventual consistency: the APIExport lookup by IdentityHash goes
+//     through the cache-server-fed informer. On a fresh shard the foreign APIExport
+//     may simply not have arrived yet; requeuing the APIBinding would hot-loop. The
+//     real feedback loop is indexers.IndexAPIBindingByAcceptedClaimedGroupResource,
+//     which re-enqueues the APIBinding when the missing APIExport/Schema appears.
+//   - Idempotent shared-target writes: ensurePermissionClaimBoundCRD writes into
+//     system:bound-crds, which every shard's apibinding controller writes into.
+//     AlreadyExists is expected, not a failure to surface on APIBinding status.
+//   - Decoupled from APIBinding readiness: this is a side effect on a different
+//     object. The BoundResources path gates Ready; failing the whole reconcile here
+//     would taint status for an unrelated concern.
+//   - Ordering with permissionclaimlabel is event-driven, not synchronously gated:
+//     that controller re-triggers on CRD/APIBinding events, so "materialiser must
+//     succeed first" is achieved by event ordering, not by error propagation here.
 func (r *permissionClaimMaterialiserReconciler) reconcile(ctx context.Context, apiBinding *apisv1alpha2.APIBinding) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
 
