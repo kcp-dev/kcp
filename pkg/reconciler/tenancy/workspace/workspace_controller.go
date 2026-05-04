@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
+	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 )
 
 const (
@@ -164,11 +165,23 @@ func NewController(
 		clientPool: newClientPool(logicalClusterAdminConfig),
 
 		commit: committer.NewCommitter[*tenancyv1alpha1.Workspace, tenancyv1alpha1client.WorkspaceInterface, *tenancyv1alpha1.WorkspaceSpec, *tenancyv1alpha1.WorkspaceStatus](kcpClusterClient.TenancyV1alpha1().Workspaces()),
+
+		countedWorkspaces: make(map[string]string),
 	}
 
 	_, _ = workspaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		AddFunc: func(obj interface{}) {
+			c.enqueue(obj)
+			c.handleMetricsOnAdd(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.enqueue(newObj)
+			c.handleMetricsOnUpdate(oldObj, newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueue(obj)
+			c.handleMetricsOnDelete(obj)
+		},
 	})
 
 	_, _ = globalShardInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
@@ -230,6 +243,9 @@ type Controller struct {
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, old, new *workspaceResource) error
+
+	mu                sync.Mutex
+	countedWorkspaces map[string]string
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -419,4 +435,86 @@ func InstallIndexers(
 	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
+}
+
+func (c *Controller) handleMetricsOnAdd(obj any) {
+	workspace, ok := obj.(*tenancyv1alpha1.Workspace)
+	if !ok {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
+	if err != nil {
+		return
+	}
+	phase := string(workspace.Status.Phase)
+	if _, exists := c.countedWorkspaces[key]; !exists {
+		c.countedWorkspaces[key] = phase
+		if phase != "" {
+			kcpmetrics.IncrementWorkspaceCount(c.shardName, phase)
+		}
+	}
+}
+
+func (c *Controller) handleMetricsOnUpdate(oldObj, newObj any) {
+	oldWorkspace, ok := oldObj.(*tenancyv1alpha1.Workspace)
+	if !ok {
+		return
+	}
+
+	newWorkspace, ok := newObj.(*tenancyv1alpha1.Workspace)
+	if !ok {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(newWorkspace)
+	if err != nil {
+		return
+	}
+	oldPhase := string(oldWorkspace.Status.Phase)
+	newPhase := string(newWorkspace.Status.Phase)
+
+	if oldPhase != newPhase {
+		if oldPhase != "" {
+			kcpmetrics.DecrementWorkspaceCount(c.shardName, oldPhase)
+		}
+		if newPhase != "" {
+			kcpmetrics.IncrementWorkspaceCount(c.shardName, newPhase)
+		}
+		c.countedWorkspaces[key] = newPhase
+	}
+}
+
+func (c *Controller) handleMetricsOnDelete(obj any) {
+	workspace, ok := obj.(*tenancyv1alpha1.Workspace)
+	if !ok {
+		if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+			workspace, ok = tombstone.Obj.(*tenancyv1alpha1.Workspace)
+			if !ok {
+				return
+			}
+		} else {
+			return
+		}
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(workspace)
+	if err != nil {
+		return
+	}
+	if phase, exists := c.countedWorkspaces[key]; exists {
+		delete(c.countedWorkspaces, key)
+		if phase != "" {
+			kcpmetrics.DecrementWorkspaceCount(c.shardName, phase)
+		}
+	}
 }
