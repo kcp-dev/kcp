@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -139,11 +140,43 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	logger.Info("starting controller")
 	defer logger.Info("shutting down controller")
 
+	// React to GVRs being added or removed by the dynamic informer factory and
+	// only enqueue bindings whose accepted permission claims reference that
+	// group/resource. This unblocks bindings whose claim was waiting on an
+	// informer that just appeared (e.g. a bound CRD landing on this shard) and
+	// re-runs them when a backing informer goes away.
+	c.ddsif.AddGVRLifecycleHandler(ctx, informer.GVRLifecycleHandlerFuncs{
+		AddedFunc:   func(gvr schema.GroupVersionResource) { c.enqueueByGroupResource(gvr.GroupResource(), logger) },
+		RemovedFunc: func(gvr schema.GroupVersionResource) { c.enqueueByGroupResource(gvr.GroupResource(), logger) },
+	})
+
 	for range numThreads {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
 
 	<-ctx.Done()
+}
+
+// enqueueByGroupResource enqueues every APIBinding that has an accepted permission
+// claim for the given group/resource, across all clusters on this shard.
+func (c *controller) enqueueByGroupResource(gr schema.GroupResource, logger logr.Logger) {
+	bindings, err := indexers.ListAPIBindingsByAcceptedClaimedGroupResource(c.apiBindingsIndexer, gr)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to list APIBindings by claimed group resource %q: %w", gr, err))
+		return
+	}
+	if len(bindings) == 0 {
+		return
+	}
+	logger.V(4).Info("re-enqueueing APIBindings claiming changed GVR", "groupResource", gr.String(), "count", len(bindings))
+	for _, b := range bindings {
+		key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(b)
+		if err != nil {
+			utilruntime.HandleError(err)
+			continue
+		}
+		c.queue.Add(key)
+	}
 }
 
 func (c *controller) startWorker(ctx context.Context) {
@@ -225,6 +258,7 @@ func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInf
 	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
 		cache.Indexers{
 			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
+			indexers.APIBindingByAcceptedClaimedGroupResource:            indexers.IndexAPIBindingByAcceptedClaimedGroupResource,
 		},
 	); err != nil {
 		panic(err)

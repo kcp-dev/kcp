@@ -26,6 +26,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	sdkclient "github.com/kcp-dev/sdk/client"
 )
 
 const (
@@ -41,7 +42,27 @@ const (
 
 	APIExportByVirtualResourceIdentities       = "APIExportByVirtualResourceIdentities"
 	APIExportByVirtualResourceIdentitiesAndGRs = "APIExportByVirtualResourceIdentitiesAndGRs"
+
+	// APIExportByAPIResourceSchema is the indexer name for retrieving APIExports by the
+	// cluster-aware key of one of their APIResourceSchemas (Spec.Resources[].Schema).
+	APIExportByAPIResourceSchema = "apiExportsByAPIResourceSchema"
 )
+
+// IndexAPIExportByAPIResourceSchema is an index function that maps an APIExport to the
+// cluster-aware keys of every APIResourceSchema it references in Spec.Resources. The key
+// format is "<schemaCluster>|<schemaName>", matching client.ToClusterAwareKey output.
+func IndexAPIExportByAPIResourceSchema(obj interface{}) ([]string, error) {
+	apiExport, ok := obj.(*apisv1alpha2.APIExport)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
+	}
+	cluster := logicalcluster.From(apiExport).Path()
+	ret := make([]string, 0, len(apiExport.Spec.Resources))
+	for _, resourceSchema := range apiExport.Spec.Resources {
+		ret = append(ret, sdkclient.ToClusterAwareKey(cluster, resourceSchema.Schema))
+	}
+	return ret, nil
+}
 
 // IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
 func IndexAPIExportByIdentity(obj interface{}) ([]string, error) {
