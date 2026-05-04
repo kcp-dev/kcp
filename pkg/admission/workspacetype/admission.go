@@ -18,6 +18,7 @@ package workspacetype
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -26,13 +27,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+
+	apibindingadmission "github.com/kcp-dev/kcp/pkg/admission/apibinding"
+	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 // Validate WorkspaceTypes creation and updates for
-//  - "organization" type is only created in root workspace.
+//   - the "root" WorkspaceType can only be created in the root cluster.
+//   - .spec.defaultChildWorkspaceType.path, .spec.limitAllowedChildren.types[*].path,
+//     and .spec.limitAllowedParents.types[*].path must be set when their parent
+//     fields are present.
+//   - the user has the "bind" verb on every APIExport listed in
+//     spec.defaultAPIBindings (newly added entries on update). This prevents
+//     a privilege escalation where unprivileged users would otherwise cause
+//     the default-apibinding-controller to create APIBindings on their behalf
+//     to APIExports they cannot bind directly.
 
 const (
 	PluginName = "tenancy.kcp.io/WorkspaceType"
@@ -41,18 +61,36 @@ const (
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
-			return &workspacetype{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
-			}, nil
+			p := &workspacetype{
+				Handler:          admission.NewHandler(admission.Create, admission.Update),
+				createAuthorizer: delegated.NewDelegatedAuthorizer,
+			}
+			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+				return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), p.apiExportIndexer, p.cacheAPIExportIndexer, path, name)
+			}
+			return p, nil
 		})
 }
 
 type workspacetype struct {
 	*admission.Handler
+
+	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+
+	apiExportIndexer      cache.Indexer
+	cacheAPIExportIndexer cache.Indexer
+
+	deepSARClient    kcpkubernetesclientset.ClusterInterface
+	createAuthorizer delegated.DelegatedAuthorizerFactory
 }
 
 // Ensure that the required admission interfaces are implemented.
-var _ = admission.ValidationInterface(&workspacetype{})
+var (
+	_ = admission.ValidationInterface(&workspacetype{})
+	_ = admission.InitializationValidator(&workspacetype{})
+	_ = kcpinitializers.WantsKcpInformers(&workspacetype{})
+	_ = kcpinitializers.WantsDeepSARClient(&workspacetype{})
+)
 
 func (o *workspacetype) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
@@ -97,5 +135,132 @@ func (o *workspacetype) Validate(ctx context.Context, a admission.Attributes, _ 
 		}
 	}
 
+	return o.checkDefaultAPIBindingsPermissions(ctx, a, clusterName, wt)
+}
+
+// checkDefaultAPIBindingsPermissions ensures the user creating or updating the
+// WorkspaceType has the "bind" verb on every APIExport newly added to
+// spec.defaultAPIBindings. The default-apibinding-controller later creates
+// APIBindings to these exports using its own (system) credentials, so without
+// this check unprivileged users could indirectly bind APIExports they have no
+// "bind" permission on.
+func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, a admission.Attributes, clusterName logicalcluster.Name, wt *tenancyv1alpha1.WorkspaceType) error {
+	if len(wt.Spec.DefaultAPIBindings) == 0 {
+		return nil
+	}
+
+	if !o.WaitForReady() {
+		return admission.NewForbidden(a, errors.New("not yet ready to handle request"))
+	}
+
+	// `grandfathered` holds the entries that should be skipped by the permission
+	// check below.
+	//
+	//   * On Create: stays nil. Reads from a nil map return (zero, false), so
+	//     nothing is skipped and *every* binding in wt.Spec.DefaultAPIBindings
+	//     is checked. This is the primary entry point for the permission gate.
+	//
+	//   * On Update: populated from the old object's bindings. Entries present
+	//     in the old object are "grandfathered" — they were already validated
+	//     when the WorkspaceType was created (or, for objects predating this
+	//     check, predate it entirely). Only newly added bindings are checked,
+	//     so a user without bind permission on an unrelated existing entry can
+	//     still perform legitimate updates.
+	var grandfathered map[tenancyv1alpha1.APIExportReference]struct{}
+	if a.GetOperation() == admission.Update {
+		oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
+		if !ok {
+			return fmt.Errorf("unexpected type %T", a.GetOldObject())
+		}
+		oldWT := &tenancyv1alpha1.WorkspaceType{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldU.Object, oldWT); err != nil {
+			return fmt.Errorf("failed to convert old unstructured to WorkspaceType: %w", err)
+		}
+		grandfathered = make(map[tenancyv1alpha1.APIExportReference]struct{}, len(oldWT.Spec.DefaultAPIBindings))
+		for _, ref := range oldWT.Spec.DefaultAPIBindings {
+			grandfathered[ref] = struct{}{}
+		}
+	}
+
+	for _, ref := range wt.Spec.DefaultAPIBindings {
+		// Skip grandfathered entries on Update; on Create the map is nil so this
+		// is always false and every entry falls through to the permission check.
+		if _, ok := grandfathered[ref]; ok {
+			continue
+		}
+
+		exportPath := ref.Path
+		exportName := ref.Export
+
+		// unified forbidden error that does not leak workspace existence
+		forbidden := admission.NewForbidden(a, fmt.Errorf("unable to create or update WorkspaceType: no permission to bind to export %s",
+			logicalcluster.NewPath(exportPath).Join(exportName).String()))
+
+		// Resolve the APIExport's cluster. An empty path means the same cluster
+		// as the WorkspaceType being admitted (matching the reconciler's behavior).
+		var exportClusterName logicalcluster.Name
+		switch {
+		case exportPath == "":
+			exportClusterName = clusterName
+		case exportPath == core.RootCluster.String():
+			exportClusterName = core.RootCluster
+		default:
+			path := logicalcluster.NewPath(exportPath)
+			export, err := o.getAPIExport(path, exportName)
+			if err != nil {
+				return forbidden
+			}
+			exportClusterName = logicalcluster.From(export)
+		}
+
+		if err := o.checkAPIExportAccess(ctx, a, exportClusterName, exportName); err != nil {
+			return forbidden
+		}
+	}
+
 	return nil
+}
+
+func (o *workspacetype) checkAPIExportAccess(ctx context.Context, a admission.Attributes, apiExportClusterName logicalcluster.Name, apiExportName string) error {
+	logger := klog.FromContext(ctx)
+	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient, delegated.Options{})
+	if err != nil {
+		logger.Error(err, "error creating authorizer from delegating authorizer config")
+		return errors.New("unable to authorize request")
+	}
+	return apibindingadmission.CheckAPIExportAccess(ctx, a.GetUserInfo(), apiExportName, authz)
+}
+
+func (o *workspacetype) ValidateInitialization() error {
+	if o.deepSARClient == nil {
+		return fmt.Errorf(PluginName + " plugin needs a deepSARClient")
+	}
+	if o.apiExportIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs an APIExport indexer")
+	}
+	if o.cacheAPIExportIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a cache APIExport indexer")
+	}
+	return nil
+}
+
+func (o *workspacetype) SetDeepSARClient(client kcpkubernetesclientset.ClusterInterface) {
+	o.deepSARClient = client
+}
+
+func (o *workspacetype) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	apiExportsReady := local.Apis().V1alpha2().APIExports().Informer().HasSynced
+	cacheAPIExportsReady := global.Apis().V1alpha2().APIExports().Informer().HasSynced
+	o.SetReadyFunc(func() bool {
+		return apiExportsReady() && cacheAPIExportsReady()
+	})
+	o.apiExportIndexer = local.Apis().V1alpha2().APIExports().Informer().GetIndexer()
+	o.cacheAPIExportIndexer = global.Apis().V1alpha2().APIExports().Informer().GetIndexer()
+
+	indexers.AddIfNotPresentOrDie(local.Apis().V1alpha2().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+	indexers.AddIfNotPresentOrDie(global.Apis().V1alpha2().APIExports().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
 }
