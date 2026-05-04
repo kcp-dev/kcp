@@ -30,10 +30,20 @@ var (
 		},
 		[]string{"shard", "phase"},
 	)
+
+	workspaceCount = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Name:           "kcp_workspace_count",
+			Help:           "Number of workspaces currently running with specific phases on this shard.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shard", "phase"},
+	)
 )
 
 func init() {
 	legacyregistry.MustRegister(logicalClusterCount)
+	legacyregistry.MustRegister(workspaceCount)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.
@@ -44,4 +54,14 @@ func IncrementLogicalClusterCount(shardName string, phase string) {
 // DecrementLogicalClusterCount decrements the count for the given shard and phase.
 func DecrementLogicalClusterCount(shardName string, phase string) {
 	logicalClusterCount.WithLabelValues(shardName, phase).Dec()
+}
+
+// IncrementWorkspaceCount increments the count for the given shard and phase.
+func IncrementWorkspaceCount(shardName string, phase string) {
+	workspaceCount.WithLabelValues(shardName, phase).Inc()
+}
+
+// DecrementWorkspaceCount decrements the count for the given shard and phase.
+func DecrementWorkspaceCount(shardName string, phase string) {
+	workspaceCount.WithLabelValues(shardName, phase).Dec()
 }
