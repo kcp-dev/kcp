@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgofeaturegate "k8s.io/client-go/features"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 )
 
@@ -126,6 +127,7 @@ func (c *controller) RunWithContext(ctx context.Context) {
 		<-ctx.Done()
 		c.config.Queue.Close()
 	}()
+	logger := klog.FromContext(ctx)
 
 	// kcp modification: Use our forked NewReflectorWithOptions with KeyFunction support
 	r := NewReflectorWithOptions(
@@ -133,6 +135,7 @@ func (c *controller) RunWithContext(ctx context.Context) {
 		c.config.ObjectType,
 		c.config.Queue,
 		ReflectorOptions{
+			Logger:          &logger,
 			ResyncPeriod:    c.config.FullResyncPeriod,
 			MinWatchTimeout: c.config.MinWatchTimeout,
 			TypeDescription: c.config.ObjectDescription,
@@ -169,6 +172,27 @@ func (c *controller) RunWithContext(ctx context.Context) {
 	wg.Wait()
 }
 
+// Returns true once this controller has completed an initial resource listing
+func (c *controller) HasSynced() bool {
+	return c.config.Queue.HasSynced()
+}
+
+// HasSyncedChecker enables waiting for syncing without polling.
+// The returned DoneChecker can be passed to [WaitFor].
+// It delegates to the Config's Queue.
+func (c *controller) HasSyncedChecker() cache.DoneChecker {
+	return c.config.Queue.HasSyncedChecker()
+}
+
+func (c *controller) LastSyncResourceVersion() string {
+	c.reflectorMutex.RLock()
+	defer c.reflectorMutex.RUnlock()
+	if c.reflector == nil {
+		return ""
+	}
+	return c.reflector.LastSyncResourceVersion()
+}
+
 // processLoop drains the work queue.
 // TODO: Consider doing the processing in parallel. This will require a little thought
 // to make sure that we don't end up processing the same object multiple times
@@ -186,7 +210,7 @@ func (c *controller) processLoop(ctx context.Context) {
 		default:
 			var err error
 			if useBatchProcess {
-				err = batchQueue.PopBatch(c.config.ProcessBatch)
+				err = batchQueue.PopBatch(c.config.ProcessBatch, cache.PopProcessFunc(c.config.Process))
 			} else {
 				// otherwise fallback to non-batch process behavior
 				_, err = c.config.Pop(cache.PopProcessFunc(c.config.Process))
@@ -198,21 +222,4 @@ func (c *controller) processLoop(ctx context.Context) {
 			}
 		}
 	}
-}
-
-// HasSynced returns true if the source informer has synced.
-func (c *controller) HasSynced() bool {
-	return c.config.Queue.HasSynced()
-}
-
-// LastSyncResourceVersion is the resource version observed when last synced with the underlying
-// store. The value returned is not synchronized with access to the underlying store and is not
-// thread-safe.
-func (c *controller) LastSyncResourceVersion() string {
-	c.reflectorMutex.RLock()
-	defer c.reflectorMutex.RUnlock()
-	if c.reflector == nil {
-		return ""
-	}
-	return c.reflector.LastSyncResourceVersion()
 }
