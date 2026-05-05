@@ -217,12 +217,17 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 						fmt.Sprintf("only removing the %q initializer is supported", initializer),
 					)},
 				)
-				if len(previous)-len(current) != 1 {
-					return invalidUpdateErr
-				}
-				for _, item := range current {
-					if item == string(initializer) {
+				// Allow updates that don't touch initializers (e.g. condition-only status
+				// updates while bindings are still pending). Otherwise require exactly one
+				// initializer removed and it must be the one this VW is scoped to.
+				if len(previous) != len(current) {
+					if len(previous)-len(current) != 1 {
 						return invalidUpdateErr
+					}
+					for _, item := range current {
+						if item == string(initializer) {
+							return invalidUpdateErr
+						}
 					}
 				}
 				return updateValidation(ctx, obj, old)
