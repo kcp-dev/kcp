@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -76,13 +77,63 @@ func DefaultWatchErrorHandler(ctx context.Context, r *Reflector, err error) {
 
 const defaultExpectedTypeName = "<unspecified>"
 
-// We try to spread the load on apiserver by setting timeouts for
-// watch requests - it is random in [minWatchTimeout, 2*minWatchTimeout].
-var defaultMinWatchTimeout = 5 * time.Minute
+var (
+	// We try to spread the load on apiserver by setting timeouts for
+	// watch requests - it is random in [minWatchTimeout, 2*minWatchTimeout].
+	defaultMinWatchTimeout = 5 * time.Minute
+	defaultMaxWatchTimeout = 2 * defaultMinWatchTimeout
+	// We used to make the call every 1sec (1 QPS), the goal here is to achieve ~98% traffic reduction when
+	// API server is not healthy. With these parameters, backoff will stop at [30,60) sec interval which is
+	// 0.22 QPS.
+	defaultBackoffInit = 800 * time.Millisecond
+	defaultBackoffMax  = 30 * time.Second
+	// If we don't backoff for 2min, assume API server is healthy and we reset the backoff.
+	defaultBackoffReset  = 2 * time.Minute
+	defaultBackoffFactor = 2.0
+	defaultBackoffJitter = 1.0
+)
+
+/* kcp: the interfaces are not needed
+// ReflectorStore is the subset of cache.Store that the reflector uses
+type ReflectorStore interface {
+	// Add adds the given object to the accumulator associated with the given object's key
+	Add(obj interface{}) error
+
+	// Update updates the given object in the accumulator associated with the given object's key
+	Update(obj interface{}) error
+
+	// Delete deletes the given object from the accumulator associated with the given object's key
+	Delete(obj interface{}) error
+
+	// Replace will delete the contents of the store, using instead the
+	// given list. Store takes ownership of the list, you should not reference
+	// it after calling this function.
+	Replace([]interface{}, string) error
+
+	// Resync is meaningless in the terms appearing here but has
+	// meaning in some implementations that have non-trivial
+	// additional behavior (e.g., DeltaFIFO).
+	Resync() error
+}
+
+// ReflectorBookmarkStore is an optional interface that allows a store
+// to be informed of bookmark events received by the reflector.
+type ReflectorBookmarkStore interface {
+	Bookmark(resourceVersion string) error
+}
+
+// TransformingStore is an optional interface that can be implemented by the provided store.
+// If implemented on the provided store reflector will use the same transformer in its internal stores.
+type TransformingStore interface {
+	ReflectorStore
+	Transformer() TransformFunc
+}
+*/
 
 // Reflector watches a specified resource and causes all changes to be reflected in the given store.
 // kcp modification: Added keyFunction field for cluster-aware key generation.
 type Reflector struct {
+	logger klog.Logger
 	// name identifies this reflector. By default, it will be a file:line if possible.
 	name string
 	// The name of the type we expect to place in the store. The name
@@ -101,11 +152,14 @@ type Reflector struct {
 	store cache.ReflectorStore
 	// listerWatcher is used to perform lists and watches.
 	listerWatcher cache.ListerWatcherWithContext
-	// backoff manages backoff of ListWatch
-	backoffManager wait.BackoffManager
-	resyncPeriod   time.Duration
+	// delay returns the next backoff interval for retries.
+	resyncPeriod time.Duration
+	delayHandler wait.DelayFunc
 	// minWatchTimeout defines the minimum timeout for watch requests.
 	minWatchTimeout time.Duration
+	// maxWatchTimeout defines the maximum timeout for watch requests.
+	// Actual timeout is random in [minWatchTimeout, maxWatchTimeout].
+	maxWatchTimeout time.Duration
 	// clock allows tests to manipulate time
 	clock clock.Clock
 	// paginatedResult defines whether pagination should be forced for list calls.
@@ -161,6 +215,10 @@ func (r *Reflector) TypeDescription() string {
 // ReflectorOptions configures a Reflector.
 // kcp modification: Added KeyFunction field.
 type ReflectorOptions struct {
+	// Logger, if not nil, is used instead of klog.Background() for logging.
+	// The name of the reflector gets added automatically.
+	Logger *klog.Logger
+
 	// Name is the Reflector's name. If unset/unspecified, the name defaults to the closest source_file.go:line
 	// in the call stack that is outside this package.
 	Name string
@@ -183,22 +241,16 @@ type ReflectorOptions struct {
 	// Clock allows tests to control time. If unset defaults to clock.RealClock{}
 	Clock clock.Clock
 
+	// Backoff is an optional custom backoff configuration.
+	// If set, it will be used instead of the default exponential backoff.
+	// DelayWithReset(clock, resetDuration) will be called on it to create the delay function.
+	// TODO(#136943): Expose this configuration through SharedInformerFactory.
+	Backoff *wait.Backoff
+
 	// kcp modification: KeyFunction is used to generate keys for objects in the temporary store
 	// during WatchList operations. If unset, defaults to DeletionHandlingMetaClusterNamespaceKeyFunc
 	// for cluster-aware key generation.
 	KeyFunction cache.KeyFunc
-}
-
-// NewReflector creates a new Reflector with its name defaulted to the closest source_file.go:line in the call stack
-// that is outside this package. See NewReflectorWithOptions for further information.
-func NewReflector(lw cache.ListerWatcher, expectedType interface{}, store cache.ReflectorStore, resyncPeriod time.Duration) *Reflector {
-	return NewReflectorWithOptions(lw, expectedType, store, ReflectorOptions{ResyncPeriod: resyncPeriod})
-}
-
-// NewNamedReflector creates a new Reflector with the specified name. See NewReflectorWithOptions for further
-// information.
-func NewNamedReflector(name string, lw cache.ListerWatcher, expectedType interface{}, store cache.ReflectorStore, resyncPeriod time.Duration) *Reflector {
-	return NewReflectorWithOptions(lw, expectedType, store, ReflectorOptions{Name: name, ResyncPeriod: resyncPeriod})
 }
 
 // NewReflectorWithOptions creates a new Reflector object which will keep the
@@ -216,9 +268,31 @@ func NewReflectorWithOptions(lw cache.ListerWatcher, expectedType interface{}, s
 	if reflectorClock == nil {
 		reflectorClock = clock.RealClock{}
 	}
+
 	minWatchTimeout := defaultMinWatchTimeout
+	maxWatchTimeout := defaultMaxWatchTimeout
 	if options.MinWatchTimeout > defaultMinWatchTimeout {
 		minWatchTimeout = options.MinWatchTimeout
+		maxWatchTimeout = 2 * minWatchTimeout
+	}
+	if maxWatchTimeout < minWatchTimeout {
+		klog.TODO().V(3).Info(
+			"maxWatchTimeout was less than minWatchTimeout, overriding to minWatchTimeout. Watch timeout randomization is disabled.",
+			"minWatchTimeout", minWatchTimeout,
+			"maxWatchTimeout", maxWatchTimeout,
+		)
+		maxWatchTimeout = minWatchTimeout
+	}
+
+	backoff := options.Backoff
+	if backoff == nil {
+		backoff = &wait.Backoff{
+			Duration: defaultBackoffInit,
+			Cap:      defaultBackoffMax,
+			Steps:    int(math.Ceil(float64(defaultBackoffMax) / float64(defaultBackoffInit))),
+			Factor:   defaultBackoffFactor,
+			Jitter:   defaultBackoffJitter,
+		}
 	}
 
 	// kcp modification: default to cluster-aware key function
@@ -228,16 +302,14 @@ func NewReflectorWithOptions(lw cache.ListerWatcher, expectedType interface{}, s
 	}
 
 	r := &Reflector{
-		name:            options.Name,
-		resyncPeriod:    options.ResyncPeriod,
-		minWatchTimeout: minWatchTimeout,
-		typeDescription: options.TypeDescription,
-		listerWatcher:   cache.ToListerWatcherWithContext(lw),
-		store:           store,
-		// We used to make the call every 1sec (1 QPS), the goal here is to achieve ~98% traffic reduction when
-		// API server is not healthy. With these parameters, backoff will stop at [30,60) sec interval which is
-		// 0.22 QPS. If we don't backoff for 2min, assume API server is healthy and we reset the backoff.
-		backoffManager:    wait.NewExponentialBackoffManager(800*time.Millisecond, 30*time.Second, 2*time.Minute, 2.0, 1.0, reflectorClock),
+		name:              options.Name,
+		resyncPeriod:      options.ResyncPeriod,
+		minWatchTimeout:   minWatchTimeout,
+		maxWatchTimeout:   maxWatchTimeout,
+		typeDescription:   options.TypeDescription,
+		listerWatcher:     cache.ToListerWatcherWithContext(lw),
+		store:             store,
+		delayHandler:      backoff.DelayWithReset(reflectorClock, defaultBackoffReset),
 		clock:             reflectorClock,
 		watchErrorHandler: DefaultWatchErrorHandler, // kcp modification: use our local handler
 		expectedType:      reflect.TypeOf(expectedType),
@@ -247,6 +319,13 @@ func NewReflectorWithOptions(lw cache.ListerWatcher, expectedType interface{}, s
 	if r.name == "" {
 		r.name = naming.GetNameFromCallsite(internalPackages...)
 	}
+
+	logger := klog.Background()
+	if options.Logger != nil {
+		logger = *options.Logger
+	}
+	logger = klog.LoggerWithName(logger, r.name)
+	r.logger = logger
 
 	if r.typeDescription == "" {
 		r.typeDescription = getTypeDescriptionFromObject(expectedType)
@@ -258,11 +337,8 @@ func NewReflectorWithOptions(lw cache.ListerWatcher, expectedType interface{}, s
 
 	r.useWatchList = clientfeatures.FeatureGates().Enabled(clientfeatures.WatchListClient)
 	if r.useWatchList && watchlist.DoesClientNotSupportWatchListSemantics(lw) {
-		// Using klog.TODO() here because switching to a caller-provided contextual logger
-		// would require an API change and updating all existing call sites.
-		klog.TODO().V(2).Info(
-			"The provided ListWatcher doesn't support WatchList semantics. The feature will be disabled. If you are using a custom client, check the documentation of watchlist.DoesClientNotSupportWatchListSemantics() method",
-			"listWatcherType", fmt.Sprintf("%T", lw),
+		r.logger.V(2).Info(
+			"The client used to build this informer/reflector doesn't support WatchList semantics. The feature will be disabled. This is expected in unit tests but not in production. For details, see the documentation of watchlist.DoesClientNotSupportWatchListSemantics().",
 			"feature", clientfeatures.WatchListClient,
 		)
 		r.useWatchList = false
@@ -324,11 +400,14 @@ func (r *Reflector) Run(stopCh <-chan struct{}) {
 func (r *Reflector) RunWithContext(ctx context.Context) {
 	logger := klog.FromContext(ctx)
 	logger.V(3).Info("Starting reflector", "type", r.typeDescription, "resyncPeriod", r.resyncPeriod, "reflector", r.name)
-	wait.BackoffUntil(func() {
+	// Until runs the loop immediately (immediate=true) and resets the backoff timer after each
+	// successful iteration (sliding=true). See backoff constants at top of file for generalized QPS targets (~0.22 QPS).
+	_ = r.delayHandler.Until(ctx, true, true, func(ctx context.Context) (bool, error) {
 		if err := r.ListAndWatchWithContext(ctx); err != nil {
 			r.watchErrorHandler(ctx, r, err)
 		}
-	}, r.backoffManager, true, ctx.Done())
+		return false, nil
+	})
 	logger.V(3).Info("Stopping reflector", "type", r.typeDescription, "resyncPeriod", r.resyncPeriod, "reflector", r.name)
 }
 
@@ -480,8 +559,10 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 		// start the clock before sending the request, since some proxies won't flush headers until after the first watch event is sent
 		start := r.clock.Now()
 
+		// if w is already initialized, it must be past any synthetic non-rv-ordered added events
+		propagateRVFromStart := true
 		if w == nil {
-			timeoutSeconds := int64(r.minWatchTimeout.Seconds() * (rand.Float64() + 1.0))
+			timeoutSeconds := int64(r.minWatchTimeout.Seconds() + rand.Float64()*(r.maxWatchTimeout.Seconds()-r.minWatchTimeout.Seconds()))
 			options := metav1.ListOptions{
 				ResourceVersion: r.LastSyncResourceVersion(),
 				// We want to avoid situations of hanging watchers. Stop any watchers that do not
@@ -492,6 +573,11 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 				// watch bookmarks, it will ignore this field).
 				AllowWatchBookmarks: true,
 			}
+			if options.ResourceVersion == "" || options.ResourceVersion == "0" {
+				// if we're starting the watch at a resource version that will get synthetic ADDED events in non-rv order,
+				// wait until we're through that set of events before propagating the RV
+				propagateRVFromStart = false
+			}
 
 			w, err = r.listerWatcher.WatchWithContext(ctx, options)
 			if err != nil {
@@ -500,7 +586,7 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 					select {
 					case <-stopCh:
 						return nil
-					case <-r.backoffManager.Backoff().C():
+					case <-r.clock.After(r.delayHandler()):
 						continue
 					}
 				}
@@ -508,7 +594,25 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 			}
 		}
 
-		err = handleWatch(ctx, start, w, r.store, r.expectedType, r.expectedGVK, r.name, r.typeDescription, r.setLastSyncResourceVersion,
+		err = handleWatch(ctx, start, w, r.store, r.expectedType, r.expectedGVK, r.name, r.typeDescription,
+			func(rv string, eventReceivedBesidesAdded bool) {
+				// We update the resource version in the store only if we have received at least one event that is
+				// not an added event, or if the resource version has been set previously. This is because we can
+				// encounter 2 scenarios:
+				// 1. The watch is started from a resource version specified by the LastSyncResourceVersion field.
+				//    In this case, we can update the resource version in the store without worrying about it being
+				//    out of order since we will not receive any synthetic added events for resources that may be
+				//    out of order.
+				// 2. The watch is started when the LastSyncResourceVersion field is empty. In this case, we may not
+				//    update the LastSyncResourceVersion until we receive at least one event that is not an added
+				//    event, since that is the only way to ensure that the watch has exited the initial list phase.
+				if propagateRVFromStart || eventReceivedBesidesAdded {
+					r.setLastSyncResourceVersion(rv)
+					if rvu, ok := r.store.(cache.ResourceVersionUpdater); ok {
+						rvu.UpdateResourceVersion(rv)
+					}
+				}
+			},
 			r.clock, resyncerrc)
 		// handleWatch always stops the watcher. So we don't need to here.
 		// Just set it to nil to trigger a retry on the next loop.
@@ -527,7 +631,7 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 					select {
 					case <-stopCh:
 						return nil
-					case <-r.backoffManager.Backoff().C():
+					case <-r.clock.After(r.delayHandler()):
 						continue
 					}
 				case apierrors.IsInternalError(err) && retry.ShouldRetry():
@@ -600,6 +704,11 @@ func (r *Reflector) list(ctx context.Context) error {
 			// the reflector makes forward progress.
 			list, paginatedResult, err = pager.ListWithAlloc(context.Background(), metav1.ListOptions{ResourceVersion: r.relistResourceVersion()})
 		}
+		if err == nil {
+			if unsupportedList, unsupportedListGVK := isUnsupportedTableListObject(list); unsupportedList {
+				err = fmt.Errorf("unsupported list gvk: %v, type: %v", unsupportedListGVK, r.typeDescription)
+			}
+		}
 		close(listCh)
 	}()
 	select {
@@ -609,6 +718,7 @@ func (r *Reflector) list(ctx context.Context) error {
 		panic(r)
 	case <-listCh:
 	}
+
 	initTrace.Step("Objects listed", trace.Field{Key: "error", Value: err})
 	if err != nil {
 		return fmt.Errorf("failed to list %v: %w", r.typeDescription, err)
@@ -681,7 +791,7 @@ func (r *Reflector) watchList(ctx context.Context) (watch.Interface, error) {
 	isErrorRetriableWithSideEffectsFn := func(err error) bool {
 		if canRetry := isWatchErrorRetriable(err); canRetry {
 			logger.V(2).Info("watch-list failed - backing off", "reflector", r.name, "type", r.typeDescription, "err", err)
-			<-r.backoffManager.Backoff().C()
+			<-r.clock.After(r.delayHandler())
 			return true
 		}
 		if isExpiredError(err) || isTooLargeResourceVersionError(err) {
@@ -720,7 +830,7 @@ func (r *Reflector) watchList(ctx context.Context) (watch.Interface, error) {
 		// TODO(#115478): large "list", slow clients, slow network, p&f
 		//  might slow down streaming and eventually fail.
 		//  maybe in such a case we should retry with an increased timeout?
-		timeoutSeconds := int64(r.minWatchTimeout.Seconds() * (rand.Float64() + 1.0))
+		timeoutSeconds := int64(r.minWatchTimeout.Seconds() + rand.Float64()*(r.maxWatchTimeout.Seconds()-r.minWatchTimeout.Seconds()))
 		options := metav1.ListOptions{
 			ResourceVersion:      lastKnownRV,
 			AllowWatchBookmarks:  true,
@@ -738,7 +848,11 @@ func (r *Reflector) watchList(ctx context.Context) (watch.Interface, error) {
 			return nil, err
 		}
 		watchListBookmarkReceived, err := handleListWatch(ctx, start, w, temporaryStore, r.expectedType, r.expectedGVK, r.name, r.typeDescription,
-			func(rv string) { resourceVersion = rv },
+			func(rv string, eventReceivedBesidesAdded bool) {
+				if eventReceivedBesidesAdded {
+					resourceVersion = rv
+				}
+			},
 			r.clock, make(chan error))
 		if err != nil {
 			w.Stop() // stop and retry with clean state
@@ -795,7 +909,7 @@ func handleListWatch(
 	expectedGVK *schema.GroupVersionKind,
 	name string,
 	expectedTypeName string,
-	setLastSyncResourceVersion func(string),
+	setLastSyncResourceVersion func(string, bool),
 	clock clock.Clock,
 	errCh chan error,
 ) (bool, error) {
@@ -816,7 +930,7 @@ func handleWatch(
 	expectedGVK *schema.GroupVersionKind,
 	name string,
 	expectedTypeName string,
-	setLastSyncResourceVersion func(string),
+	setLastSyncResourceVersion func(string, bool),
 	clock clock.Clock,
 	errCh chan error,
 ) error {
@@ -844,12 +958,13 @@ func handleAnyWatch(
 	expectedGVK *schema.GroupVersionKind,
 	name string,
 	expectedTypeName string,
-	setLastSyncResourceVersion func(string),
+	setLastSyncResourceVersion func(string, bool),
 	exitOnWatchListBookmarkReceived bool,
 	clock clock.Clock,
 	errCh chan error,
 ) (bool, error) {
 	watchListBookmarkReceived := false
+	eventReceivedBesidesAdded := false
 	eventCount := 0
 	logger := klog.FromContext(ctx)
 	initialEventsEndBookmarkWarningTicker := newInitialEventsEndBookmarkTicker(logger, name, clock, start, exitOnWatchListBookmarkReceived)
@@ -887,14 +1002,11 @@ loop:
 					continue
 				}
 			}
-			// For now, let's block unsupported Table
-			// resources for watchlist only
+			// we don't support receiving resources in Table format
 			// see #132926 for more info
-			if exitOnWatchListBookmarkReceived {
-				if unsupportedGVK := isUnsupportedTableObject(event.Object); unsupportedGVK {
-					utilruntime.HandleErrorWithContext(ctx, nil, "Unsupported watch event object gvk", "reflector", name, "actualGVK", event.Object.GetObjectKind().GroupVersionKind())
-					continue
-				}
+			if unsupportedGVK := isUnsupportedTableObject(event.Object); unsupportedGVK {
+				utilruntime.HandleErrorWithContext(ctx, nil, "Unsupported watch event object gvk", "reflector", name, "actualGVK", event.Object.GetObjectKind().GroupVersionKind())
+				continue
 			}
 			meta, err := meta.Accessor(event.Object)
 			if err != nil {
@@ -909,6 +1021,7 @@ loop:
 					utilruntime.HandleErrorWithContext(ctx, err, "Unable to add watch event object to store", "reflector", name, "object", event.Object)
 				}
 			case watch.Modified:
+				eventReceivedBesidesAdded = true
 				err := store.Update(event.Object)
 				if err != nil {
 					utilruntime.HandleErrorWithContext(ctx, err, "Unable to update watch event object to store", "reflector", name, "object", event.Object)
@@ -917,22 +1030,29 @@ loop:
 				// TODO: Will any consumers need access to the "last known
 				// state", which is passed in event.Object? If so, may need
 				// to change this.
+				eventReceivedBesidesAdded = true
 				err := store.Delete(event.Object)
 				if err != nil {
 					utilruntime.HandleErrorWithContext(ctx, err, "Unable to delete watch event object from store", "reflector", name, "object", event.Object)
 				}
 			case watch.Bookmark:
 				// A `Bookmark` means watch has synced here, just update the resourceVersion
+				eventReceivedBesidesAdded = true
 				if meta.GetAnnotations()[metav1.InitialEventsAnnotationKey] == "true" {
 					watchListBookmarkReceived = true
+				}
+				// Propagate the resource version from the bookmark event to stores which indicate they want it
+				if bookmarkStore, ok := store.(cache.ReflectorBookmarkStore); ok {
+					err := bookmarkStore.Bookmark(resourceVersion)
+					if err != nil {
+						utilruntime.HandleErrorWithContext(ctx, err, "Unable to send bookmark event to store", "reflector", name, "object", event.Object)
+					}
 				}
 			default:
 				utilruntime.HandleErrorWithContext(ctx, err, "Unknown watch event", "reflector", name, "event", event)
 			}
-			setLastSyncResourceVersion(resourceVersion)
-			if rvu, ok := store.(cache.ResourceVersionUpdater); ok {
-				rvu.UpdateResourceVersion(resourceVersion)
-			}
+			// when eventReceivedBesidesAdded is true, that indicates we are definitely past any initial synthetic Added events
+			setLastSyncResourceVersion(resourceVersion, eventReceivedBesidesAdded)
 			eventCount++
 			if exitOnWatchListBookmarkReceived && watchListBookmarkReceived {
 				stopWatcher = false
@@ -1181,6 +1301,15 @@ func isUnsupportedTableObject(rawObject runtime.Object) bool {
 	}
 
 	return unsupportedTableGVK[rawObject.GetObjectKind().GroupVersionKind()]
+}
+
+func isUnsupportedTableListObject(rawObject runtime.Object) (bool, schema.GroupVersionKind) {
+	unstructuredObj, ok := rawObject.(*unstructured.UnstructuredList)
+	if !ok {
+		return false, schema.GroupVersionKind{}
+	}
+
+	return unsupportedTableGVK[unstructuredObj.GetObjectKind().GroupVersionKind()], unstructuredObj.GetObjectKind().GroupVersionKind()
 }
 
 // checkWatchListDataConsistencyIfRequested performs a data consistency check against the
