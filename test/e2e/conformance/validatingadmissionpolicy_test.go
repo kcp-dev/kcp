@@ -27,6 +27,7 @@ import (
 
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,13 +97,30 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 		kcptesting.WaitForAPIReady(t, kcpClusterClient.Cluster(wsPath).Discovery(), cowboysGVR.GroupVersion())
 	}
 
-	t.Logf("Installing validating admission policy into the first workspace")
+	t.Logf("Creating a ConfigMap to use as policy parameter in the first workspace")
+	paramConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "policy-params",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"forbidden": "bad",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(ws1Path).CoreV1().ConfigMaps("default").Create(ctx, paramConfigMap, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create param ConfigMap")
+
+	t.Logf("Installing validating admission policy with paramKind into the first workspace")
 	policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "policy-",
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 			FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			ParamKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -121,7 +139,7 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 				},
 			},
 			Validations: []admissionregistrationv1.Validation{{
-				Expression: "object.spec.intent != 'bad'",
+				Expression: "object.spec.intent != params.data.forbidden",
 			}},
 		},
 	}
@@ -138,13 +156,18 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 		return p.Generation == p.Status.ObservedGeneration && p.Status.TypeChecking != nil && len(p.Status.TypeChecking.ExpressionWarnings) == 0
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	t.Logf("Installing validating admission policy binding into the first workspace")
+	t.Logf("Installing validating admission policy binding with paramRef into the first workspace")
 	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "binding-",
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-			PolicyName:        policy.Name,
+			PolicyName: policy.Name,
+			ParamRef: &admissionregistrationv1.ParamRef{
+				Name:                    "policy-params",
+				Namespace:               "default",
+				ParameterNotFoundAction: ptr.To(admissionregistrationv1.DenyAction),
+			},
 			ValidationActions: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 		},
 	}
@@ -175,7 +198,8 @@ func TestValidatingAdmissionPolicyInWorkspace(t *testing.T) {
 		_, err := cowbyClusterClient.Cluster(ws1Path).WildwestV1alpha1().Cowboys("default").Create(ctx, &badCowboy, metav1.CreateOptions{})
 		if err != nil {
 			if errors.IsInvalid(err) {
-				if strings.Contains(err.Error(), "failed expression: object.spec.intent != 'bad'") {
+				// we need to specifically match the error message here to ensure that the rejection is coming from our CEL expression and not from missing the configmap
+				if strings.Contains(err.Error(), "failed expression: object.spec.intent != params.data.forbidden") {
 					return true
 				}
 			}
@@ -325,13 +349,30 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 		return err == nil
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
-	t.Logf("Installing validating admission policy into the source workspace")
+	t.Logf("Creating a ConfigMap to use as policy parameter in the source workspace")
+	paramConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "policy-params",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"forbidden": "bad",
+		},
+	}
+	_, err = kubeClusterClient.Cluster(sourcePath).CoreV1().ConfigMaps("default").Create(ctx, paramConfigMap, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create param ConfigMap")
+
+	t.Logf("Installing validating admission policy with paramKind into the source workspace")
 	policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "policy-",
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
 			FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			ParamKind: &admissionregistrationv1.ParamKind{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
@@ -350,7 +391,7 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 				},
 			},
 			Validations: []admissionregistrationv1.Validation{{
-				Expression: "object.spec.intent != 'bad'",
+				Expression: "object.spec.intent != params.data.forbidden",
 			}},
 		},
 	}
@@ -380,13 +421,18 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	_, err = cowbyClusterClient.Cluster(targetPath).WildwestV1alpha1().Cowboys("default").Create(ctx, newCowboy("bad"), metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	t.Logf("Installing validating admission policy binding into the source workspace")
+	t.Logf("Installing validating admission policy binding with paramRef into the source workspace")
 	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "binding-",
 		},
 		Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-			PolicyName:        policy.Name,
+			PolicyName: policy.Name,
+			ParamRef: &admissionregistrationv1.ParamRef{
+				Name:                    "policy-params",
+				Namespace:               "default",
+				ParameterNotFoundAction: ptr.To(admissionregistrationv1.DenyAction),
+			},
 			ValidationActions: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
 		},
 	}
@@ -400,7 +446,7 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 		if err != nil {
 			if errors.IsInvalid(err) {
 				t.Logf("Error: %v", err)
-				if strings.Contains(err.Error(), "failed expression: object.spec.intent != 'bad'") {
+				if strings.Contains(err.Error(), "failed expression: object.spec.intent != params.data.forbidden") {
 					return true
 				}
 			}
