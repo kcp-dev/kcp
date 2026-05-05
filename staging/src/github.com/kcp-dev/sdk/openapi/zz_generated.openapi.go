@@ -5172,11 +5172,39 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 							},
 						},
 					},
+					"initializerPermissions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "initializerPermissions are the RBAC rules granted to initializer controllers when they access workspace content through the initializing virtual workspace's content proxy. Rules are evaluated in-process by the VW proxy on each request; no ClusterRole or ClusterRoleBinding objects are created inside the workspace.\n\nWhen empty (the default), the VW content proxy falls back to impersonating the workspace owner (full cluster-admin), preserving the historical behavior.\n\nChanges take effect immediately for all workspaces of this type.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/rbac/v1.PolicyRule"),
+									},
+								},
+							},
+						},
+					},
+					"terminatorPermissions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "terminatorPermissions are the RBAC rules granted to terminator controllers when they access workspace content through the terminating virtual workspace's content proxy. Rules are evaluated in-process by the VW proxy on each request; no ClusterRole or ClusterRoleBinding objects are created inside the workspace.\n\nWhen empty (the default), the VW content proxy falls back to impersonating the workspace owner (full cluster-admin), preserving the historical behavior.\n\nChanges take effect immediately for all workspaces of this type.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/rbac/v1.PolicyRule"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			tenancyv1alpha1.APIExportReference{}.OpenAPIModelName(), tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeExtension{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeSelector{}.OpenAPIModelName()},
+			tenancyv1alpha1.APIExportReference{}.OpenAPIModelName(), tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeExtension{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeReference{}.OpenAPIModelName(), tenancyv1alpha1.WorkspaceTypeSelector{}.OpenAPIModelName(), "k8s.io/api/rbac/v1.PolicyRule"},
 	}
 }
 

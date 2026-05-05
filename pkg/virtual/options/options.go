@@ -95,7 +95,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers)
+	initializingworkspaces, err := o.InitializingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers, cachedKcpInformers)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	terminatingworkspaces, err := o.TerminatingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers)
+	terminatingworkspaces, err := o.TerminatingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers, cachedKcpInformers)
 	if err != nil {
 		return nil, err
 	}

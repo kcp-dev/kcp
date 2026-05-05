@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"path"
 	"strings"
@@ -34,7 +33,6 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
@@ -42,6 +40,7 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -55,7 +54,9 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	rootphase0 "github.com/kcp-dev/kcp/config/root-phase0"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 )
@@ -79,7 +80,7 @@ func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	kubeClusterClient, externalLogicalClusterAdminClient kcpkubernetesclientset.ClusterInterface,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
+	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -216,7 +217,9 @@ func BuildVirtualWorkspace(
 				defer close(workspaceContentReadyCh)
 
 				for name, informer := range map[string]cache.SharedIndexInformer{
-					"logicalclusters": wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+					"logicalclusters":       wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+					"workspacetypes":        wildcardKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
+					"cached-workspacetypes": cachedKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),
 				} {
 					if !cache.WaitForNamedCacheSync(name, hookContext.Done(), informer.HasSynced) {
 						klog.Background().Error(nil, "informer not synced")
@@ -235,6 +238,14 @@ func BuildVirtualWorkspace(
 			}
 
 			lister := wildcardKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+			localWSTIndexer := wildcardKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+			cachedWSTIndexer := cachedKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
+			indexers.AddIfNotPresentOrDie(localWSTIndexer, cache.Indexers{
+				indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+			})
+			indexers.AddIfNotPresentOrDie(cachedWSTIndexer, cache.Indexers{
+				indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+			})
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				cluster, err := genericapirequest.ClusterNameFrom(request.Context())
 				if err != nil {
@@ -253,6 +264,50 @@ func BuildVirtualWorkspace(
 					return
 				}
 
+				// Fetch the WorkspaceType the terminator originates from. If it
+				// declares terminatorPermissions, evaluate the request in-process
+				// and forward with the controller's identity + synthetic group;
+				// otherwise fall back to owner impersonation.
+				// See resolveTerminatorWorkspaceType for the fail-closed policy.
+				wst, lookupErr := resolveTerminatorWorkspaceType(terminator, localWSTIndexer, cachedWSTIndexer)
+				if lookupErr != nil {
+					klog.FromContext(request.Context()).Error(lookupErr, "WorkspaceType lookup for terminator failed; refusing to proxy", "terminator", terminator)
+					http.Error(writer, fmt.Sprintf("terminator %q: WorkspaceType not found in local or cached indexer; refusing to fall back to owner impersonation: %v", terminator, lookupErr), http.StatusServiceUnavailable)
+					return
+				}
+
+				if wst != nil && len(wst.Spec.TerminatorPermissions) > 0 {
+					caller := authorization.RequestUserInfo(request)
+					if caller == nil {
+						http.Error(writer, "no user information in request context", http.StatusInternalServerError)
+						return
+					}
+					if allowed, reason := authorization.EvaluateLifecyclePermissions(request, caller, wst.Spec.TerminatorPermissions); !allowed {
+						http.Error(writer, fmt.Sprintf("terminator %q denied by terminatorPermissions: %s", terminator, reason), http.StatusForbidden)
+						return
+					}
+
+					thisCfg := rest.CopyConfig(cfg)
+					extra := map[string][]string{}
+					for k, v := range caller.GetExtra() {
+						extra[k] = v
+					}
+					thisCfg.Impersonate = rest.ImpersonationConfig{
+						UserName: caller.GetName(),
+						UID:      caller.GetUID(),
+						Groups:   append([]string{authorization.TerminatorGroup(terminator)}, caller.GetGroups()...),
+						Extra:    extra,
+					}
+					authenticatingTransport, err := rest.TransportFor(thisCfg)
+					if err != nil {
+						http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
+						return
+					}
+					serveProxy(writer, request, forwardedHost, authenticatingTransport)
+					return
+				}
+
+				// Owner-impersonation fallback (mode 2).
 				if logicalCluster.Spec.CreatedBy == nil {
 					http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no createdBy recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
 					return
@@ -280,27 +335,7 @@ func BuildVirtualWorkspace(
 					http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
 					return
 				}
-				proxy := &httputil.ReverseProxy{
-					Director: func(request *http.Request) {
-						for _, header := range []string{
-							"Authorization",
-							transport.ImpersonateUserHeader,
-							transport.ImpersonateUIDHeader,
-							transport.ImpersonateGroupHeader,
-						} {
-							request.Header.Del(header)
-						}
-						for key := range request.Header {
-							if strings.HasPrefix(key, transport.ImpersonateUserExtraHeaderPrefix) {
-								request.Header.Del(key)
-							}
-						}
-						request.URL.Scheme = forwardedHost.Scheme
-						request.URL.Host = forwardedHost.Host
-					},
-					Transport: authenticatingTransport,
-				}
-				proxy.ServeHTTP(writer, request)
+				serveProxy(writer, request, forwardedHost, authenticatingTransport)
 			}), nil
 		}),
 	}
@@ -310,6 +345,37 @@ func BuildVirtualWorkspace(
 		{Name: logicalClustersName, VirtualWorkspace: logicalClusters},
 		{Name: workspaceContentName, VirtualWorkspace: workspaceContent},
 	}, nil
+}
+
+// resolveTerminatorWorkspaceType resolves the WorkspaceType referenced by a
+// terminator. It returns:
+//
+//   - (wst, nil)  — the terminator encodes a WST reference and the WST was
+//     found in the local or cache-server indexer; caller should evaluate
+//     wst.Spec.TerminatorPermissions (Mode 1).
+//   - (nil, nil)  — the terminator is a known system terminator: well-formed
+//     but intentionally not backed by a WST. Caller should fall through to
+//     owner impersonation (Mode 2).
+//   - (nil, err)  — either the terminator is malformed (TypeFrom failed) or
+//     it encodes a real (non-system) WST reference that neither indexer has.
+//     Both cases must fail closed: granting Mode 2 to a terminator we cannot
+//     validate would be a silent privilege escalation.
+func resolveTerminatorWorkspaceType(
+	terminator corev1alpha1.LogicalClusterTerminator,
+	localWSTIndexer, cachedWSTIndexer cache.Indexer,
+) (*tenancyv1alpha1.WorkspaceType, error) {
+	wstCluster, wstName, typeErr := termination.TypeFrom(terminator)
+	if typeErr != nil {
+		return nil, fmt.Errorf("malformed terminator %q: %w", terminator, typeErr)
+	}
+	if wstCluster == core.SystemCluster {
+		return nil, nil //nolint:nilnil // system terminator: intentional fall-through to owner impersonation
+	}
+	return indexers.ByPathAndNameWithFallback[*tenancyv1alpha1.WorkspaceType](
+		tenancyv1alpha1.Resource("workspacetypes"),
+		localWSTIndexer, cachedWSTIndexer,
+		wstCluster.Path(), wstName,
+	)
 }
 
 // URLFor returns the absolute path for the specified terminator.

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -146,6 +147,32 @@ type WorkspaceTypeSpec struct {
 	//
 	// +optional
 	AuthenticationConfigurations []AuthenticationConfigurationReference `json:"authenticationConfigurations,omitempty"`
+
+	// initializerPermissions are the RBAC rules granted to initializer controllers when they
+	// access workspace content through the initializing virtual workspace's content proxy.
+	// Rules are evaluated in-process by the VW proxy on each request; no ClusterRole or
+	// ClusterRoleBinding objects are created inside the workspace.
+	//
+	// When empty (the default), the VW content proxy falls back to impersonating the
+	// workspace owner (full cluster-admin), preserving the historical behavior.
+	//
+	// Changes take effect immediately for all workspaces of this type.
+	//
+	// +optional
+	InitializerPermissions []rbacv1.PolicyRule `json:"initializerPermissions,omitempty"`
+
+	// terminatorPermissions are the RBAC rules granted to terminator controllers when they
+	// access workspace content through the terminating virtual workspace's content proxy.
+	// Rules are evaluated in-process by the VW proxy on each request; no ClusterRole or
+	// ClusterRoleBinding objects are created inside the workspace.
+	//
+	// When empty (the default), the VW content proxy falls back to impersonating the
+	// workspace owner (full cluster-admin), preserving the historical behavior.
+	//
+	// Changes take effect immediately for all workspaces of this type.
+	//
+	// +optional
+	TerminatorPermissions []rbacv1.PolicyRule `json:"terminatorPermissions,omitempty"`
 }
 
 // APIExportReference provides the fields necessary to resolve an APIExport.

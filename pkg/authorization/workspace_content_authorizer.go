@@ -100,6 +100,18 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
+	// Lifecycle synthetic groups (system:kcp:initializer:*, system:kcp:terminator:*)
+	// are injected by the initializing/terminating VW content proxies *after* they
+	// have evaluated the request against the WorkspaceType's
+	// initializer/terminator permissions. They cannot be self-asserted because the
+	// front-proxy drops them on ingress. Their presence is the authoritative
+	// "pre-authorized by VW" marker — delegating further would re-run RBAC against
+	// the caller's identity, which by design has no in-workspace permissions, so
+	// allow directly here.
+	if HasLifecycleGroup(attr.GetUser().GetGroups()) {
+		return authorizer.DecisionAllow, "lifecycle VW pre-authorized access", nil
+	}
+
 	// check the workspace even exists
 	logicalCluster, err := a.getLogicalCluster(cluster.Name)
 	if err != nil {

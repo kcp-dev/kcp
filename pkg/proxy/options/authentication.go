@@ -65,8 +65,19 @@ func NewAuthentication() *Authentication {
 			WithWebHook(),
 		// SystemLogicalClusterAdmin is privileged and only for internal traffic,
 		// SystemExternalLogicalClusterAdmin must be used for all logical-cluster-admin
-		// requests via the proxy, so we drop SystemLogicalClusterAdmin here
-		DropGroups: []string{user.SystemPrivilegedGroup, bootstrap.SystemLogicalClusterAdmin},
+		// requests via the proxy, so we drop SystemLogicalClusterAdmin here.
+		//
+		// system:kcp:initializer:* and system:kcp:terminator:* are synthetic groups
+		// that lifecycle VW content proxies inject after they have evaluated the
+		// request against the WorkspaceType's initializer/terminator permissions.
+		// Stripping them on ingress prevents clients from self-asserting them and
+		// bypassing the in-process RBAC evaluation.
+		DropGroups: []string{
+			user.SystemPrivilegedGroup,
+			bootstrap.SystemLogicalClusterAdmin,
+			bootstrap.SystemKcpInitializerGroupPrefix + "*",
+			bootstrap.SystemKcpTerminatorGroupPrefix + "*",
+		},
 	}
 	auth.BuiltInOptions.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	return auth

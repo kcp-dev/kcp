@@ -76,6 +76,65 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
+### Workspace Lifecycle During Termination
+
+A workspace under deletion goes through two distinct phases:
+
+| Phase | When | Content access | Purpose |
+|---|---|---|---|
+| `Terminating` | `deletionTimestamp` is set **and** `status.terminators` is non-empty | Allowed (terminator controllers + standard authorization) | Terminator controllers run their cleanup logic |
+| `Deleting` | `deletionTimestamp` is set **and** `status.terminators` is empty | Allowed | Standard kube finalization (GC, namespace deletion, finalizers on in-workspace resources) |
+
+The phase is visible on the `Workspace` and the underlying `LogicalCluster`. Once the `LogicalCluster` object
+itself is deleted, the parent `Workspace` finishes deletion as well.
+
+### Scoping Terminator Content Access
+
+The `terminate` verb above only gates **access to the terminating virtual workspace**. To control what the
+terminator controller is allowed to do **inside** the workspace it's tearing down, use one of the two modes below.
+The semantics mirror the [initializer](workspace-initialization.md#scoping-initializer-content-access) modes.
+
+#### Mode 1 — Declarative scoped permissions (recommended)
+
+Set `spec.terminatorPermissions` on the `WorkspaceType` to a list of standard RBAC `PolicyRule`s. The terminating
+VW content proxy evaluates each request against these rules in-process and forwards allowed requests with the
+**controller's own identity** plus a synthetic group `system:kcp:terminator:<terminator-name>`. The shard's
+workspace content authorizer trusts the synthetic group as a "pre-authorized by VW" marker.
+
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: example
+spec:
+  terminator: true
+  terminatorPermissions:
+    - apiGroups: [""]
+      resources: ["*"]
+      verbs: ["get", "list", "delete"]
+    - apiGroups: ["apps"]
+      resources: ["deployments"]
+      verbs: ["get", "list", "delete"]
+```
+
+Why prefer this mode:
+
+- **Least privilege** — give terminator controllers exactly what they need to clean up, no more.
+- **Clear audit attribution** — audit logs show the terminator controller's identity, not the impersonated owner.
+- **Avoids cross-cluster impersonation problems** when the workspace owner is foreign to the workspace (e.g. a
+  ServiceAccount from another cluster).
+- **No materialized state** — rules live on the `WorkspaceType` and are evaluated per request; edits take effect
+  immediately for all workspaces of that type.
+
+The synthetic group prefix `system:kcp:terminator:*` is included in the front-proxy's
+`--authentication-drop-groups` defaults, so clients cannot self-assert it from outside.
+
+#### Mode 2 — Owner impersonation (default, backwards compatible)
+
+If `terminatorPermissions` is unset or empty, the terminating VW impersonates the workspace owner recorded in
+`LogicalCluster.spec.createdBy`. The owner has cluster-admin via the `workspace-admin` `ClusterRoleBinding`, so
+the controller gets full admin access. This preserves historical behavior; for new `WorkspaceType`s, prefer Mode 1.
+
 ## Writing Custom Termination Controllers
 
 Custom Termination Controllers are responsible for handling termination logic for custom WorkspaceTypes. They interact with kcp by:
