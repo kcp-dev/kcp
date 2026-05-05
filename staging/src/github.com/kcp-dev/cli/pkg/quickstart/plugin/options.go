@@ -63,6 +63,7 @@ func NewQuickstartOptions(streams genericiooptions.IOStreams) *QuickstartOptions
 		newKCPDynamicClient: defaultKCPDynamicClient,
 	}
 	o.enterWorkspace = o.defaultEnterWorkspace
+	o.OptOutOfWorkspaceFlag = true
 	return o
 }
 

@@ -54,6 +54,7 @@ func NewSnapshotOptions(streams genericclioptions.IOStreams) *SnapshotOptions {
 	}
 
 	o.OptOutOfDefaultKubectlFlags = true
+	o.OptOutOfWorkspaceFlag = true
 
 	return o
 }

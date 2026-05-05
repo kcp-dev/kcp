@@ -28,10 +28,14 @@ type Options struct {
 	// OptOutOfDefaultKubectlFlags indicates that the standard kubectl/kubeconfig-related flags should not be bound
 	// by default.
 	OptOutOfDefaultKubectlFlags bool
+	// OptOutOfWorkspaceFlag indicates that the --workspace/-w flag should not be bound.
+	OptOutOfWorkspaceFlag bool
 	// Kubeconfig specifies kubeconfig file(s).
 	Kubeconfig string
 	// KubectlOverrides stores the extra client connection fields, such as context, user, etc.
 	KubectlOverrides *clientcmd.ConfigOverrides
+	// Workspace is an optional workspace path to target, overriding the current workspace in the kubeconfig.
+	Workspace string
 
 	genericclioptions.IOStreams
 
@@ -54,7 +58,15 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 		return
 	}
 
-	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "path to the kubeconfig file")
+	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to the kubeconfig file")
+
+	if !o.OptOutOfWorkspaceFlag {
+		cmd.Flags().StringVarP(&o.Workspace, "workspace", "w", o.Workspace,
+			"Workspace path to target. If not specified, the current workspace from the kubeconfig will be used. "+
+				"Use a leading ':' for absolute paths (e.g. ':root:my-ws'), or omit it for relative paths (e.g. 'my-ws'). "+
+				"'.' stays in the current workspace, '..' navigates to the parent workspace.",
+		)
+	}
 
 	// We add only a subset of kubeconfig-related flags to the plugin.
 	// All those with LongName == "" will be ignored.
@@ -76,6 +88,15 @@ func (o *Options) Complete() error {
 		loadingRules.ExplicitPath = o.Kubeconfig
 
 		o.ClientConfig = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, o.KubectlOverrides)
+	}
+
+	// If the workspace flag is set, wrap the given ClientConfig to override
+	// the server URL to point to a specific workspace.
+	if o.Workspace != "" {
+		o.ClientConfig = &workspaceOverrideClientConfig{
+			delegate:  o.ClientConfig,
+			workspace: o.Workspace,
+		}
 	}
 
 	return nil
