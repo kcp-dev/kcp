@@ -70,14 +70,6 @@ func startFrontProxy(
 
 	mappings := []types.PathMapping{
 		{
-			Path: "/services/",
-			// TODO: support multiple virtual workspace backend servers
-			Backend:         fmt.Sprintf("https://localhost:%s", vwPort),
-			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
-			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
-			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
-		},
-		{
 			Path:            "/e2e/clusters/{cluster}/",
 			Backend:         "https://localhost:2443",
 			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
