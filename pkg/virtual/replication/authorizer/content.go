@@ -122,7 +122,7 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		if err != nil {
 			return authorizer.DecisionNoOpinion, "logical cluster not found", err
 		}
-		boundResources, err := apibinding.GetResourceBindings(lc)
+		boundResources, err := apibinding.GetAllResourceBindings(lc)
 		if err != nil {
 			return authorizer.DecisionNoOpinion, "failed to retrieve bound resources", err
 		}

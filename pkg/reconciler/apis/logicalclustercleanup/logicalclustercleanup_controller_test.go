@@ -52,7 +52,7 @@ func TestReconciler(t *testing.T) {
 		"no annotations leads to migration – no crds or bindings": {
 			logicalCluster: &corev1alpha1.LogicalCluster{},
 			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-				"internal.apis.kcp.io/resource-bindings": "{}",
+				"internal.apis.kcp.io/locks-crds": "{}",
 			}}},
 		},
 		"update error": {
@@ -72,7 +72,8 @@ func TestReconciler(t *testing.T) {
 				&newAPIBinding().WithName("binding2").WithBoundResources("group", "cs", "group", "ds").APIBinding,
 			},
 			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"bs.group":{"n":"binding1"},"crd1s.group":{"c":true},"crd2s.group":{"c":true},"cs.group":{"n":"binding2"},"ds.group":{"n":"binding2"}}`,
+				// Note: With SSA split, logicalclustercleanup only writes CRD entries
+				"internal.apis.kcp.io/locks-crds": `{"crd1s.group":{"c":true},"crd2s.group":{"c":true}}`,
 			}}},
 		},
 		"with annotation, only CRDs are added": {
@@ -89,29 +90,34 @@ func TestReconciler(t *testing.T) {
 				&newAPIBinding().WithName("binding2").WithBoundResources("group", "cs", "group", "ds").APIBinding,
 			},
 			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"crd1s.group":{"c":true},"crd2s.group":{"c":true}}`,
+				// With SSA split, logicalclustercleanup only manages CRD entries
+				// The old annotation is preserved for backward compatibility
+				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"crd1s.group":{"c":true}}`,
+				"internal.apis.kcp.io/locks-crds":        `{"crd1s.group":{"c":true},"crd2s.group":{"c":true}}`,
 			}}},
 		},
-		"CRDs are not removed by default, but bindings are": {
+		"CRDs are not removed by default, but bindings are not managed by this controller": {
 			logicalCluster: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"bs.group":{"n":"binding1"},"crd1s.group":{"c":true},"crd2s.group":{"c":true},"cs.group":{"n":"binding2"},"ds.group":{"n":"binding2"}}`,
+				"internal.apis.kcp.io/locks-crds": `{"crd1s.group":{"c":true},"crd2s.group":{"c":true}}`,
 			}}},
 			apiBindings: []*apisv1alpha2.APIBinding{
 				&newAPIBinding().WithName("binding1").WithBoundResources("group", "as", "group", "bs").APIBinding,
 			},
-			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"bs.group":{"n":"binding1"},"crd1s.group":{"c":true},"crd2s.group":{"c":true}}`,
-			}}},
+			want: nil, // No change expected - CRDs are already in the right place
 		},
 		"Expired CRDs that don't exist are removed": {
 			logicalCluster: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 				"internal.apis.kcp.io/resource-bindings": fmt.Sprintf(`{"crd1s.group":{"c":true,"e":%q},"crd2s.group":{"c":true,"e":%q},"crd3s.group":{"c":true,"e":%q}}`, expired, expired, notExpired),
 			}}},
 			crds: []*apiextensionsv1.CustomResourceDefinition{
-				newCRD("group", "crd1s"),
+				// crd1s is established, so it should be added without expiry
+				withEstablished(newCRD("group", "crd1s")),
 			},
 			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-				"internal.apis.kcp.io/resource-bindings": fmt.Sprintf(`{"crd1s.group":{"c":true},"crd3s.group":{"c":true,"e":%q}}`, notExpired),
+				// With SSA split, controller migrates CRD entries from old annotation
+				// The old annotation is kept for backward compatibility
+				"internal.apis.kcp.io/resource-bindings": fmt.Sprintf(`{"crd1s.group":{"c":true,"e":%q},"crd2s.group":{"c":true,"e":%q},"crd3s.group":{"c":true,"e":%q}}`, expired, expired, notExpired),
+				"internal.apis.kcp.io/locks-crds":        fmt.Sprintf(`{"crd1s.group":{"c":true},"crd3s.group":{"c":true,"e":%q}}`, notExpired),
 			}}},
 		},
 	}
@@ -125,7 +131,7 @@ func TestReconciler(t *testing.T) {
 					}
 					return tt.logicalCluster, nil
 				},
-				updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+				updateLogicalClusterCRDs: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
 					if tt.updateError != nil {
 						return tt.updateError
 					}

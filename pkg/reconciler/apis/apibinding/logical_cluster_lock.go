@@ -32,9 +32,30 @@ import (
 )
 
 const (
-	// ResourceBindingsAnnotationKey is the key for the annotation on the LogicalCluster
-	// to hold ResourceBindings.
+	// ResourceBindingsAnnotationKey is the legacy key for the annotation on the LogicalCluster
+	// to hold ResourceBindings. This is kept for backward compatibility during migration.
+	//
+	// Deprecated: Use the new split annotation keys instead.
 	ResourceBindingsAnnotationKey = "internal.apis.kcp.io/resource-bindings"
+
+	// LocksBindingsAnnotationKey is the annotation key for APIBinding lock entries.
+	// Written by the apibinding controller.
+	LocksBindingsAnnotationKey = "internal.apis.kcp.io/locks-bindings"
+	// LocksCRDsAnnotationKey is the annotation key for CRD lock entries.
+	// Written by the logicalclustercleanup controller.
+	LocksCRDsAnnotationKey = "internal.apis.kcp.io/locks-crds"
+	// LocksPendingAnnotationKey is the annotation key for pending CRD locks.
+	// Written by the crdnooverlappinggvr admission plugin.
+	LocksPendingAnnotationKey = "internal.apis.kcp.io/locks-pending"
+)
+
+const (
+	// FieldManagerBindings is the SSA field manager for the apibinding controller.
+	FieldManagerBindings = "kcp-apibinding"
+	// FieldManagerCRDs is the SSA field manager for the logicalclustercleanup controller.
+	FieldManagerCRDs = "kcp-logicalclustercleanup"
+	// FieldManagerPending is the SSA field manager for the crdnooverlappinggvr admission plugin.
+	FieldManagerPending = "kcp-crdnooverlappinggvr"
 )
 
 // Lock is a lock for a resource, part of the apis.kcp.io/resource-bindings annotation.
@@ -75,6 +96,9 @@ func UnmarshalResourceBindingsAnnotation(ann string) (ResourceBindingsAnnotation
 }
 
 // GetResourceBindings reads ResourceBindingsAnnotation from LogicalCluster's annotation.
+// For backward compatibility, it reads from the legacy annotation key if the new keys are not present.
+//
+// Deprecated: Use GetAllResourceBindings instead which merges all three annotation sources.
 func GetResourceBindings(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
 	const jsonEmptyObj = "{}"
 
@@ -84,6 +108,79 @@ func GetResourceBindings(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnot
 	}
 
 	return UnmarshalResourceBindingsAnnotation(ann)
+}
+
+// GetBindingsLocks reads the bindings annotation from LogicalCluster.
+func GetBindingsLocks(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
+	ann := lc.Annotations[LocksBindingsAnnotationKey]
+	if ann == "" {
+		return make(ResourceBindingsAnnotation), nil
+	}
+	return UnmarshalResourceBindingsAnnotation(ann)
+}
+
+// GetCRDsLocks reads the CRDs annotation from LogicalCluster.
+func GetCRDsLocks(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
+	ann := lc.Annotations[LocksCRDsAnnotationKey]
+	if ann == "" {
+		return make(ResourceBindingsAnnotation), nil
+	}
+	return UnmarshalResourceBindingsAnnotation(ann)
+}
+
+// GetPendingLocks reads the pending locks annotation from LogicalCluster.
+func GetPendingLocks(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
+	ann := lc.Annotations[LocksPendingAnnotationKey]
+	if ann == "" {
+		return make(ResourceBindingsAnnotation), nil
+	}
+	return UnmarshalResourceBindingsAnnotation(ann)
+}
+
+// GetAllResourceBindings merges all three lock annotations (crds, bindings, pending)
+// into a single ResourceBindingsAnnotation with precedence: crds > bindings > pending.
+// This allows readers to see a unified view while writers can use SSA on their own keys.
+func GetAllResourceBindings(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
+	result := make(ResourceBindingsAnnotation)
+
+	// First, read from legacy annotation for backward compatibility during migration
+	legacy, err := GetResourceBindings(lc)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range legacy {
+		result[k] = v
+	}
+
+	// Then, read from new annotations with precedence: crds > bindings > pending
+	// Pending locks have lowest priority (they're provisional)
+	pending, err := GetPendingLocks(lc)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range pending {
+		result[k] = v
+	}
+
+	// Binding locks override pending locks
+	bindings, err := GetBindingsLocks(lc)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range bindings {
+		result[k] = v
+	}
+
+	// CRD locks have highest priority
+	crds, err := GetCRDsLocks(lc)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range crds {
+		result[k] = v
+	}
+
+	return result, nil
 }
 
 // WithLockedResources tries to lock the resources for the given binding. It
@@ -185,4 +282,136 @@ func unlockResource(ctx context.Context, kcpClusterClient kcpclientset.ClusterIn
 	}
 
 	return nil
+}
+
+// WithLockedResourcesForBindings locks resources for the APIBinding controller.
+// It reads from the merged view of all annotations but only writes to the bindings annotation.
+// This allows the apibinding controller to use SSA on its own key.
+func WithLockedResourcesForBindings(crds []*apiextensionsv1.CustomResourceDefinition, now time.Time, lc *corev1alpha1.LogicalCluster, grs []schema.GroupResource, binding ExpirableLock) (*corev1alpha1.LogicalCluster, []schema.GroupResource, map[schema.GroupResource]Lock, error) {
+	// Read from all sources to check locks
+	rbs, err := GetAllResourceBindings(lc)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	crdNames := make(map[string]bool, len(crds))
+	for _, crd := range crds {
+		crdNames[crd.Name] = true
+	}
+
+	// Read the bindings-specific annotation to update
+	bindingsRbs, err := GetBindingsLocks(lc)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// find what resources need to be newly locked
+	skipped := make(map[schema.GroupResource]Lock)
+	newlyLocked := make([]schema.GroupResource, 0, len(grs))
+	locked := make([]schema.GroupResource, 0, len(grs))
+	for _, gr := range grs {
+		b, found := rbs[gr.String()]
+		if !found || b.Lock == binding.Lock {
+			newlyLocked = append(newlyLocked, gr)
+			locked = append(locked, gr)
+			continue
+		}
+		if b.CRD && !crdNames[gr.String()] && b.CRDExpiry != nil && now.After(b.CRDExpiry.Time) {
+			// CRD binding expired, and CRD is not known
+			newlyLocked = append(newlyLocked, gr)
+			locked = append(locked, gr)
+			continue
+		}
+		skipped[gr] = b.Lock
+	}
+
+	// don't do anything if no resources need to be locked
+	if len(newlyLocked) == 0 {
+		return lc, locked, skipped, nil
+	}
+
+	// update only the bindings annotation
+	for _, gr := range newlyLocked {
+		bindingsRbs[gr.String()] = binding
+	}
+	lc = lc.DeepCopy()
+	bs, err := json.Marshal(bindingsRbs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to marshal ResourceBindings annotation: %w", err)
+	}
+	if lc.Annotations == nil {
+		lc.Annotations = make(map[string]string)
+	}
+	lc.Annotations[LocksBindingsAnnotationKey] = string(bs)
+
+	return lc, locked, skipped, nil
+}
+
+// GetAllResourceBindingsForRead returns all resource bindings for reading purposes.
+// This is a convenience alias for GetAllResourceBindings.
+func GetAllResourceBindingsForRead(lc *corev1alpha1.LogicalCluster) (ResourceBindingsAnnotation, error) {
+	return GetAllResourceBindings(lc)
+}
+
+// WithLockedResourcesForPending locks resources for the admission plugin (pending locks).
+// It reads from the merged view of all annotations but only writes to the pending annotation.
+// This allows the admission plugin to use SSA on its own key.
+func WithLockedResourcesForPending(crds []*apiextensionsv1.CustomResourceDefinition, now time.Time, lc *corev1alpha1.LogicalCluster, grs []schema.GroupResource, binding ExpirableLock) (*corev1alpha1.LogicalCluster, []schema.GroupResource, map[schema.GroupResource]Lock, error) {
+	// Read from all sources to check locks
+	rbs, err := GetAllResourceBindings(lc)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	crdNames := make(map[string]bool, len(crds))
+	for _, crd := range crds {
+		crdNames[crd.Name] = true
+	}
+
+	// Read the pending-specific annotation to update
+	pendingRbs, err := GetPendingLocks(lc)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// find what resources need to be newly locked
+	skipped := make(map[schema.GroupResource]Lock)
+	newlyLocked := make([]schema.GroupResource, 0, len(grs))
+	locked := make([]schema.GroupResource, 0, len(grs))
+	for _, gr := range grs {
+		b, found := rbs[gr.String()]
+		if !found || b.Lock == binding.Lock {
+			newlyLocked = append(newlyLocked, gr)
+			locked = append(locked, gr)
+			continue
+		}
+		if b.CRD && !crdNames[gr.String()] && b.CRDExpiry != nil && now.After(b.CRDExpiry.Time) {
+			// CRD binding expired, and CRD is not known
+			newlyLocked = append(newlyLocked, gr)
+			locked = append(locked, gr)
+			continue
+		}
+		skipped[gr] = b.Lock
+	}
+
+	// don't do anything if no resources need to be locked
+	if len(newlyLocked) == 0 {
+		return lc, locked, skipped, nil
+	}
+
+	// update only the pending annotation
+	for _, gr := range newlyLocked {
+		pendingRbs[gr.String()] = binding
+	}
+	lc = lc.DeepCopy()
+	bs, err := json.Marshal(pendingRbs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to marshal ResourceBindings annotation: %w", err)
+	}
+	if lc.Annotations == nil {
+		lc.Annotations = make(map[string]string)
+	}
+	lc.Annotations[LocksPendingAnnotationKey] = string(bs)
+
+	return lc, locked, skipped, nil
 }

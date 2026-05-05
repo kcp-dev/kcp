@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
@@ -63,8 +62,7 @@ import (
 )
 
 const (
-	ControllerName    = "kcp-apibinding"
-	LocksFieldManager = "apibinding-reconciler-locks"
+	ControllerName = "kcp-apibinding"
 )
 
 var (
@@ -171,7 +169,7 @@ func NewController(
 				ObjectMeta: metav1.ObjectMeta{
 					Name: lc.Name,
 					Annotations: map[string]string{
-						ResourceBindingsAnnotationKey: lc.Annotations[ResourceBindingsAnnotationKey],
+						LocksBindingsAnnotationKey: lc.Annotations[LocksBindingsAnnotationKey],
 					},
 				},
 			}
@@ -185,8 +183,8 @@ func NewController(
 				types.ApplyPatchType,
 				patchBytes,
 				metav1.PatchOptions{
-					FieldManager: LocksFieldManager,
-					Force:        ptr.To(true),
+					FieldManager: FieldManagerBindings,
+					// Force is not needed because each writer uses its own annotation key
 				},
 			)
 			return err

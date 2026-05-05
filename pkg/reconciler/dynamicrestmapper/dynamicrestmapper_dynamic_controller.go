@@ -171,12 +171,20 @@ func getResourceBindingsAnnJSON(lc *corev1alpha1.LogicalCluster) string {
 		return jsonEmptyObj
 	}
 
-	ann := lc.Annotations[apibinding.ResourceBindingsAnnotationKey]
-	if ann == "" {
-		ann = jsonEmptyObj
+	// Use GetAllResourceBindings to get the merged view of all annotations
+	rbs, err := apibinding.GetAllResourceBindings(lc)
+	if err != nil {
+		return jsonEmptyObj
+	}
+	if len(rbs) == 0 {
+		return jsonEmptyObj
 	}
 
-	return ann
+	bs, err := json.Marshal(rbs)
+	if err != nil {
+		return jsonEmptyObj
+	}
+	return string(bs)
 }
 
 func diffResourceBindingsAnn(oldAnn, newAnn apibinding.ResourceBindingsAnnotation) (toRemove, toAdd apibinding.ResourceBindingsAnnotation) {
@@ -215,7 +223,8 @@ func (c *DynamicTypesController) enqueueCRDUpdate(crd *apiextensionsv1.CustomRes
 		return
 	}
 
-	boundResourcesAnn, err := apibinding.GetResourceBindings(lc)
+	// Use GetAllResourceBindings to get the merged view of all lock annotations
+	boundResourcesAnn, err := apibinding.GetAllResourceBindings(lc)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
@@ -261,7 +270,8 @@ func (c *DynamicTypesController) enqueueAPIBindingUpdate(apiBinding *apisv1alpha
 		utilruntime.HandleError(err)
 		return
 	}
-	boundResourcesAnn, err := apibinding.GetResourceBindings(lc)
+	// Use GetAllResourceBindings to get the merged view of all lock annotations
+	boundResourcesAnn, err := apibinding.GetAllResourceBindings(lc)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return

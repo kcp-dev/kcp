@@ -18,6 +18,7 @@ package crdnooverlappinggvr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/util/retry"
@@ -80,7 +82,33 @@ func (p *crdNoOverlappingGVRAdmission) SetKcpInformers(local, global kcpinformer
 // SetKcpClusterClient sets the client for kcp resources. It's part of WantsKcpClusterClient.
 func (p *crdNoOverlappingGVRAdmission) SetKcpClusterClient(c kcpclientset.ClusterInterface) {
 	p.updateLogicalCluster = func(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster, opts metav1.UpdateOptions) (*corev1alpha1.LogicalCluster, error) {
-		return c.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(logicalCluster).Path()).Update(ctx, logicalCluster, opts)
+		// Use SSA to write only to the pending locks annotation key
+		patchObj := &corev1alpha1.LogicalCluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+				Kind:       "LogicalCluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: logicalCluster.Name,
+				Annotations: map[string]string{
+					apibinding.LocksPendingAnnotationKey: logicalCluster.Annotations[apibinding.LocksPendingAnnotationKey],
+				},
+			},
+		}
+		patchBytes, err := json.Marshal(patchObj)
+		if err != nil {
+			return nil, err
+		}
+		return c.CoreV1alpha1().LogicalClusters().Cluster(logicalcluster.From(logicalCluster).Path()).Patch(
+			ctx,
+			logicalCluster.Name,
+			types.ApplyPatchType,
+			patchBytes,
+			metav1.PatchOptions{
+				FieldManager: apibinding.FieldManagerPending,
+				// Force is not needed because each writer uses its own annotation key
+			},
+		)
 	}
 }
 
@@ -136,7 +164,7 @@ func (p *crdNoOverlappingGVRAdmission) Validate(ctx context.Context, a admission
 		}
 
 		var updated *corev1alpha1.LogicalCluster
-		updated, _, skipped, err = apibinding.WithLockedResources(nil, time.Now(), lc, []schema.GroupResource{gr}, apibinding.ExpirableLock{
+		updated, _, skipped, err = apibinding.WithLockedResourcesForPending(nil, time.Now(), lc, []schema.GroupResource{gr}, apibinding.ExpirableLock{
 			Lock:      apibinding.Lock{CRD: true},
 			CRDExpiry: ptr.To(p.now()),
 		})
