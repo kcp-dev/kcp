@@ -22,11 +22,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgofeaturegate "k8s.io/client-go/features"
 	"k8s.io/client-go/tools/cache"
@@ -35,6 +37,7 @@ import (
 	"k8s.io/utils/buffer"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
+	utiltrace "k8s.io/utils/trace"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpreflector "github.com/kcp-dev/apimachinery/v2/third_party/reflector"
@@ -88,10 +91,14 @@ func NewSharedIndexInformer(lw cache.ListerWatcher, exampleObject runtime.Object
 func NewSharedIndexInformerWithOptions(lw cache.ListerWatcher, exampleObject runtime.Object, options cache.SharedIndexInformerOptions) kcpcache.ScopeableSharedIndexInformer {
 	realClock := &clock.RealClock{}
 
+	processor := &sharedProcessor{clock: realClock}
+	processor.listenersRCond = sync.NewCond(processor.listenersLock.RLocker())
+
 	return &sharedIndexInformer{
 		// kcp modification: We changed the keyfunction passed to NewIndexer
-		indexer:                         cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, options.Indexers),
-		processor:                       &sharedProcessor{clock: realClock},
+		indexer:                         cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, options.Indexers, cache.WithStoreMetrics(options.Identifier, options.InformerMetricsProvider)),
+		processor:                       processor,
+		synced:                          make(chan struct{}),
 		listerWatcher:                   lw,
 		objectType:                      exampleObject,
 		objectDescription:               options.ObjectDescription,
@@ -99,6 +106,9 @@ func NewSharedIndexInformerWithOptions(lw cache.ListerWatcher, exampleObject run
 		defaultEventHandlerResyncPeriod: options.ResyncPeriod,
 		clock:                           realClock,
 		cacheMutationDetector:           cache.NewCacheMutationDetector(fmt.Sprintf("%T", exampleObject)),
+		identifier:                      options.Identifier,
+		informerMetricsProvider:         options.InformerMetricsProvider,
+		keyFunc:                         kcpcache.MetaClusterNamespaceKeyFunc,
 	}
 }
 
@@ -184,6 +194,10 @@ type sharedIndexInformer struct {
 	indexer    cache.Indexer
 	controller cache.Controller
 
+	// synced gets created when creating the sharedIndexInformer.
+	// It gets closed when Run detects that the processor created
+	synced chan struct{}
+
 	processor             *sharedProcessor
 	cacheMutationDetector cache.MutationDetector
 
@@ -217,6 +231,15 @@ type sharedIndexInformer struct {
 	watchErrorHandler cache.WatchErrorHandlerWithContext
 
 	transform cache.TransformFunc
+
+	// identifier is used to identify this informer for metrics and logging purposes.
+	identifier cache.InformerNameAndResource
+
+	// informerMetricsProvider is the metrics provider for the FIFO queue.
+	informerMetricsProvider cache.InformerMetricsProvider
+
+	// keyFunc is called when processing deltas by the underlying process function.
+	keyFunc cache.KeyFunc
 }
 
 func (s *sharedIndexInformer) Cluster(cluster logicalcluster.Name) cache.SharedIndexInformer {
@@ -244,6 +267,10 @@ func (v *dummyController) Run(stopCh <-chan struct{}) {
 
 func (v *dummyController) HasSynced() bool {
 	return v.informer.HasSynced()
+}
+
+func (v *dummyController) HasSyncedChecker() cache.DoneChecker {
+	return v.informer.HasSyncedChecker()
 }
 
 func (v *dummyController) LastSyncResourceVersion() string {
@@ -315,16 +342,23 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 		s.startedLock.Lock()
 		defer s.startedLock.Unlock()
 
+		// kcp: This is almost verbatim the content of newQueueFIFO in controller.go
 		var fifo cache.Queue
 		if clientgofeaturegate.FeatureGates().Enabled(clientgofeaturegate.InOrderInformers) {
 			fifo = cache.NewRealFIFOWithOptions(cache.RealFIFOOptions{
+				Logger: &logger,
+				Name:   fmt.Sprintf("RealFIFO %T", s.objectType),
 				// KCP modification: We changed the keyfunction passed to NewDeltaFIFOWithOptions
-				KeyFunction:  kcpcache.MetaClusterNamespaceKeyFunc,
-				KnownObjects: s.indexer,
-				Transformer:  s.transform,
+				KeyFunction:     kcpcache.MetaClusterNamespaceKeyFunc,
+				KnownObjects:    s.indexer,
+				Transformer:     s.transform,
+				Identifier:      s.identifier,
+				MetricsProvider: s.informerMetricsProvider,
 			})
 		} else {
 			fifo = cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{
+				Logger:                &logger,
+				Name:                  fmt.Sprintf("RealFIFO %T", s.objectType),
 				KnownObjects:          s.indexer,
 				EmitDeltaTypeReplaced: true,
 				Transformer:           s.transform,
@@ -344,8 +378,12 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 			FullResyncPeriod:  s.resyncCheckPeriod,
 			ShouldResync:      s.processor.shouldResync,
 
-			Process:                      s.HandleDeltas,
-			ProcessBatch:                 s.HandleBatchDeltas,
+			Process: func(obj interface{}, isInInitialList bool) error {
+				return s.handleDeltas(logger, obj, isInInitialList)
+			},
+			ProcessBatch: func(deltas []cache.Delta, isInInitialList bool) error {
+				return s.handleBatchDeltas(logger, deltas, isInInitialList)
+			},
 			WatchErrorHandlerWithContext: s.watchErrorHandler,
 			KeyFunction:                  kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc,
 		}
@@ -364,6 +402,15 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 	defer stopProcessor(errors.New("informer is stopping")) // Tell Processor to stop
 	wg.StartWithChannel(processorStopCtx.Done(), s.cacheMutationDetector.Run)
 	wg.StartWithContext(processorStopCtx, s.processor.run)
+	wg.Start(func() {
+		select {
+		case <-ctx.Done():
+			// We were stopped without completing the sync.
+		case <-s.controller.HasSyncedChecker().Done():
+			// Controller has synced and thus so have we.
+			close(s.synced)
+		}
+	})
 
 	defer func() {
 		s.startedLock.Lock()
@@ -380,13 +427,31 @@ func (s *sharedIndexInformer) HasStarted() bool {
 }
 
 func (s *sharedIndexInformer) HasSynced() bool {
-	s.startedLock.Lock()
-	defer s.startedLock.Unlock()
-
-	if s.controller == nil {
+	select {
+	case <-s.synced:
+		return true
+	default:
 		return false
 	}
-	return s.controller.HasSynced()
+}
+
+func (s *sharedIndexInformer) HasSyncedChecker() cache.DoneChecker {
+	return &sharedIndexInformerDone{
+		s: s,
+	}
+}
+
+// sharedIndexInformerDone implements [NamedCacheSync] for a [sharedIndexInformer].
+type sharedIndexInformerDone struct {
+	s *sharedIndexInformer
+}
+
+func (sd *sharedIndexInformerDone) Name() string {
+	return fmt.Sprintf("SharedIndexInformer %T", sd.s.objectType)
+}
+
+func (sd *sharedIndexInformerDone) Done() <-chan struct{} {
+	return sd.s.synced
 }
 
 func (s *sharedIndexInformer) LastSyncResourceVersion() string {
@@ -476,10 +541,12 @@ func (s *sharedIndexInformer) AddEventHandlerWithOptions(handler cache.ResourceE
 			}
 		}
 	}
-	listener := newProcessListener(logger, handler, resyncPeriod, determineResyncPeriod(logger, resyncPeriod, s.resyncCheckPeriod), s.clock.Now(), initialBufferSize, s.HasSynced)
+
+	listener := newProcessListener(logger, handler, resyncPeriod, determineResyncPeriod(logger, resyncPeriod, s.resyncCheckPeriod), s.clock.Now(), initialBufferSize, s.HasSyncedChecker())
 
 	if !s.started {
-		return s.processor.addListener(listener), nil
+		handle, _ := s.processor.addListener(listener)
+		return handle, nil
 	}
 
 	// in order to safely join, we have to
@@ -490,7 +557,7 @@ func (s *sharedIndexInformer) AddEventHandlerWithOptions(handler cache.ResourceE
 	s.blockDeltas.Lock()
 	defer s.blockDeltas.Unlock()
 
-	handle := s.processor.addListener(listener)
+	handle, started := s.processor.addListener(listener)
 	for _, item := range s.indexer.List() {
 		// Note that we enqueue these notifications with the lock held
 		// and before returning the handle. That means there is never a
@@ -503,23 +570,28 @@ func (s *sharedIndexInformer) AddEventHandlerWithOptions(handler cache.ResourceE
 		listener.add(addNotification{newObj: item, isInInitialList: true})
 	}
 
+	// Initial list is added, now we can allow the listener to detect that "upstream has synced".
+	if started {
+		s.processor.wg.Start(listener.watchSynced)
+	}
+
 	return handle, nil
 }
 
-func (s *sharedIndexInformer) HandleDeltas(obj interface{}, isInInitialList bool) error {
+func (s *sharedIndexInformer) handleDeltas(logger klog.Logger, obj interface{}, isInInitialList bool) error {
 	s.blockDeltas.Lock()
 	defer s.blockDeltas.Unlock()
 
 	if deltas, ok := obj.(cache.Deltas); ok {
-		return processDeltas(s, s.indexer, deltas, isInInitialList)
+		return processDeltas(logger, s, s.indexer, deltas, isInInitialList, s.keyFunc)
 	}
 	return errors.New("object given as Process argument is not Deltas")
 }
 
-func (s *sharedIndexInformer) HandleBatchDeltas(deltas []cache.Delta, isInInitialList bool) error {
+func (s *sharedIndexInformer) handleBatchDeltas(logger klog.Logger, deltas []cache.Delta, isInInitialList bool) error {
 	s.blockDeltas.Lock()
 	defer s.blockDeltas.Unlock()
-	return processDeltasInBatch(s, s.indexer, deltas, isInInitialList)
+	return processDeltasInBatch(logger, s, s.indexer, deltas, isInInitialList, s.keyFunc)
 }
 
 // Conforms to cache.ResourceEventHandler
@@ -588,6 +660,7 @@ func (s *sharedIndexInformer) RemoveEventHandler(handle cache.ResourceEventHandl
 type sharedProcessor struct {
 	listenersStarted bool
 	listenersLock    sync.RWMutex
+	listenersRCond   *sync.Cond // Caller of Wait must hold a read lock on listenersLock.
 	// Map from listeners to whether or not they are currently syncing
 	listeners map[*processorListener]bool
 	clock     clock.Clock
@@ -611,7 +684,7 @@ func (p *sharedProcessor) getListener(registration cache.ResourceEventHandlerReg
 	return nil
 }
 
-func (p *sharedProcessor) addListener(listener *processorListener) cache.ResourceEventHandlerRegistration {
+func (p *sharedProcessor) addListener(listener *processorListener) (cache.ResourceEventHandlerRegistration, bool) {
 	p.listenersLock.Lock()
 	defer p.listenersLock.Unlock()
 
@@ -622,11 +695,13 @@ func (p *sharedProcessor) addListener(listener *processorListener) cache.Resourc
 	p.listeners[listener] = true
 
 	if p.listenersStarted {
+		// Not starting listener.watchSynced!
+		// The caller must first add the initial list, then start it.
 		p.wg.Start(listener.run)
 		p.wg.Start(listener.pop)
 	}
 
-	return listener
+	return listener, p.listenersStarted
 }
 
 func (p *sharedProcessor) removeListener(handle cache.ResourceEventHandlerRegistration) error {
@@ -657,6 +732,14 @@ func (p *sharedProcessor) distribute(obj interface{}, sync bool) {
 	p.listenersLock.RLock()
 	defer p.listenersLock.RUnlock()
 
+	// Before we start blocking on writes to the listeners' channels,
+	// ensure that they all have been started. If the processor stops,
+	// p.listeners gets cleared, in which case we also continue here
+	// and return without doing anything.
+	for !p.listenersStarted && len(p.listeners) > 0 {
+		p.listenersRCond.Wait()
+	}
+
 	for listener, isSyncing := range p.listeners {
 		switch {
 		case !sync:
@@ -671,15 +754,26 @@ func (p *sharedProcessor) distribute(obj interface{}, sync bool) {
 	}
 }
 
+// sharedProcessorRunHook can be used inside tests to execute additional code
+// at the start of sharedProcessor.run.
+var sharedProcessorRunHook atomic.Pointer[func()]
+
 func (p *sharedProcessor) run(ctx context.Context) {
 	func() {
-		p.listenersLock.RLock()
-		defer p.listenersLock.RUnlock()
+		hook := sharedProcessorRunHook.Load()
+		if hook != nil {
+			(*hook)()
+		}
+		// Changing listenersStarted needs a write lock.
+		p.listenersLock.Lock()
+		defer p.listenersLock.Unlock()
 		for listener := range p.listeners {
+			p.wg.Start(listener.watchSynced)
 			p.wg.Start(listener.run)
 			p.wg.Start(listener.pop)
 		}
 		p.listenersStarted = true
+		p.listenersRCond.Signal()
 	}()
 	<-ctx.Done()
 
@@ -695,6 +789,9 @@ func (p *sharedProcessor) run(ctx context.Context) {
 
 	// Reset to false since no listeners are running
 	p.listenersStarted = false
+
+	// Wake up sharedProcessor.distribute.
+	p.listenersRCond.Signal()
 
 	p.wg.Wait() // Wait for all .pop() and .run() to stop
 }
@@ -733,7 +830,7 @@ func (p *sharedProcessor) resyncCheckPeriodChanged(logger klog.Logger, resyncChe
 }
 
 // processorListener relays notifications from a sharedProcessor to
-// one cache.ResourceEventHandler --- using two goroutines, two unbuffered
+// one cache.ResourceEventHandler --- using three goroutines, two unbuffered
 // channels, and an unbounded ring buffer.  The `add(notification)`
 // function sends the given notification to `addCh`.  One goroutine
 // runs `pop()`, which pumps notifications from `addCh` to `nextCh`
@@ -741,16 +838,24 @@ func (p *sharedProcessor) resyncCheckPeriodChanged(logger klog.Logger, resyncChe
 // Another goroutine runs `run()`, which receives notifications from
 // `nextCh` and synchronously invokes the appropriate handler method.
 //
+// The third goroutine watches the upstream "has synced" channel
+// and notifies a SingleFileTracker instance. That instance then
+// combines the upstream state and the processListener state to
+// implement the overall "event handler has synced".
+//
 // processorListener also keeps track of the adjusted requested resync
 // period of the listener.
 type processorListener struct {
 	logger klog.Logger
 	nextCh chan interface{}
 	addCh  chan interface{}
+	done   chan struct{}
 
-	handler cache.ResourceEventHandler
+	handler     cache.ResourceEventHandler
+	handlerName string
 
-	syncTracker *synctrack.SingleFileTracker
+	syncTracker       *synctrack.SingleFileTracker
+	upstreamHasSynced cache.DoneChecker
 
 	// pendingNotifications is an unbounded ring buffer that holds all notifications not yet distributed.
 	// There is one per listener, but a failing/stalled listener will have infinite pendingNotifications
@@ -758,6 +863,9 @@ type processorListener struct {
 	// TODO: This is no worse than before, since reflectors were backed by unbounded DeltaFIFOs, but
 	// we should try to do something better.
 	pendingNotifications buffer.RingGrowing
+	// pendingNotificationsLength tracks pendingNotifications size and is only mutated by pop().
+	// run() reads this to decide when to enable expensive time tracing.
+	pendingNotificationsLength atomic.Int64
 
 	// requestedResyncPeriod is how frequently the listener wants a
 	// full resync from the shared informer, but modified by two
@@ -788,13 +896,23 @@ func (p *processorListener) HasSynced() bool {
 	return p.syncTracker.HasSynced()
 }
 
-func newProcessListener(logger klog.Logger, handler cache.ResourceEventHandler, requestedResyncPeriod, resyncPeriod time.Duration, now time.Time, bufferSize int, hasSynced func() bool) *processorListener {
+// HasNamedSync is done if the source informer has synced, and all
+// corresponding events have been delivered.
+func (p *processorListener) HasSyncedChecker() cache.DoneChecker {
+	return p.syncTracker
+}
+
+func newProcessListener(logger klog.Logger, handler cache.ResourceEventHandler, requestedResyncPeriod, resyncPeriod time.Duration, now time.Time, bufferSize int, hasSynced cache.DoneChecker) *processorListener {
+	handlerName := nameForHandler(handler)
 	ret := &processorListener{
 		logger:                logger,
 		nextCh:                make(chan interface{}),
 		addCh:                 make(chan interface{}),
+		done:                  make(chan struct{}),
+		upstreamHasSynced:     hasSynced,
 		handler:               handler,
-		syncTracker:           &synctrack.SingleFileTracker{UpstreamHasSynced: hasSynced},
+		handlerName:           handlerName,
+		syncTracker:           synctrack.NewSingleFileTracker(fmt.Sprintf("%s + event handler %s", hasSynced.Name(), handlerName)),
 		pendingNotifications:  *buffer.NewRingGrowing(bufferSize),
 		requestedResyncPeriod: requestedResyncPeriod,
 		resyncPeriod:          resyncPeriod,
@@ -815,6 +933,7 @@ func (p *processorListener) add(notification interface{}) {
 func (p *processorListener) pop() {
 	defer utilruntime.HandleCrashWithLogger(p.logger)
 	defer close(p.nextCh) // Tell .run() to stop
+	defer close(p.done)   // Tell .watchSynced() to stop
 
 	var nextCh chan<- interface{}
 	var notification interface{}
@@ -824,7 +943,9 @@ func (p *processorListener) pop() {
 			// Notification dispatched
 			var ok bool
 			notification, ok = p.pendingNotifications.ReadOne()
-			if !ok { // Nothing to pop
+			if ok {
+				p.pendingNotificationsLength.Add(-1)
+			} else { // Nothing to pop
 				nextCh = nil // Disable this select case
 			}
 		case notificationToAdd, ok := <-p.addCh:
@@ -837,6 +958,7 @@ func (p *processorListener) pop() {
 				nextCh = p.nextCh
 			} else { // There is already a notification waiting to be dispatched
 				p.pendingNotifications.WriteOne(notificationToAdd)
+				p.pendingNotificationsLength.Add(1)
 			}
 		}
 	}
@@ -859,6 +981,14 @@ func (p *processorListener) run() {
 			// Gets reset below, but only if we get that far.
 			sleepAfterCrash = true
 			defer utilruntime.HandleCrashWithLogger(p.logger)
+			pendingNotifications := p.pendingNotificationsLength.Load()
+			if pendingNotifications > initialBufferSize {
+				trace := utiltrace.New("processorListener handler",
+					utiltrace.Field{Key: "handler", Value: p.handlerName},
+					utiltrace.Field{Key: "pendingNotifications", Value: pendingNotifications},
+				)
+				defer trace.LogIfLong(100 * time.Millisecond)
+			}
 
 			switch notification := next.(type) {
 			case updateNotification:
@@ -875,6 +1005,16 @@ func (p *processorListener) run() {
 			}
 			sleepAfterCrash = false
 		}()
+	}
+}
+
+func (p *processorListener) watchSynced() {
+	select {
+	case <-p.upstreamHasSynced.Done():
+		// Notify tracker that the upstream has synced.
+		p.syncTracker.UpstreamHasSynced()
+	case <-p.done:
+		// Give up waiting for sync.
 	}
 }
 
@@ -910,17 +1050,37 @@ func (p *processorListener) setResyncPeriod(resyncPeriod time.Duration) {
 // taken from k8s.io/client-go/tools/cache/controller.go
 // kcp modification: we added this function from controller.go
 func processDeltas(
+	logger klog.Logger,
 	// Object which receives event notifications from the given deltas
 	handler cache.ResourceEventHandler,
 	clientState cache.Store,
 	deltas cache.Deltas,
 	isInInitialList bool,
+	keyFunc cache.KeyFunc,
 ) error {
 	// from oldest to newest
 	for _, d := range deltas {
 		obj := d.Object
 
 		switch d.Type {
+		case cache.ReplacedAll:
+			info, ok := obj.(cache.ReplacedAllInfo)
+			if !ok {
+				return fmt.Errorf("ReplacedAll did not contain ReplacedAllInfo: %T", obj)
+			}
+			if err := processReplacedAllInfo(logger, handler, info, clientState, isInInitialList, keyFunc); err != nil {
+				return err
+			}
+		case cache.SyncAll:
+			_, ok := obj.(cache.SyncAllInfo)
+			if !ok {
+				return fmt.Errorf("SyncAll did not contain SyncAllInfo: %T", obj)
+			}
+			objs := clientState.List()
+			for _, obj := range objs {
+				handler.OnUpdate(obj, obj)
+			}
+			return nil
 		case cache.Sync, cache.Replaced, cache.Added, cache.Updated:
 			if old, exists, err := clientState.Get(obj); err == nil && exists {
 				if err := clientState.Update(obj); err != nil {
@@ -938,6 +1098,12 @@ func processDeltas(
 				return err
 			}
 			handler.OnDelete(obj)
+		case cache.Bookmark:
+			info, ok := obj.(cache.BookmarkInfo)
+			if !ok {
+				return fmt.Errorf("bookmark delta did not contain BookmarkInfo: %T", obj)
+			}
+			clientState.Bookmark(info.ResourceVersion)
 		}
 	}
 	return nil
@@ -953,10 +1119,12 @@ func processDeltas(
 // Returns an error if any Delta or transaction fails. For TransactionError,
 // only successful operations trigger callbacks.
 func processDeltasInBatch(
+	logger klog.Logger,
 	handler cache.ResourceEventHandler,
 	clientState cache.Store,
 	deltas []cache.Delta,
 	isInInitialList bool,
+	keyFunc cache.KeyFunc,
 ) error {
 	// from oldest to newest
 	txns := make([]cache.Transaction, 0)
@@ -965,7 +1133,7 @@ func processDeltasInBatch(
 	if !txnSupported {
 		var errs []error
 		for _, delta := range deltas {
-			if err := processDeltas(handler, clientState, cache.Deltas{delta}, isInInitialList); err != nil {
+			if err := processDeltas(logger, handler, clientState, cache.Deltas{delta}, isInInitialList, keyFunc); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1008,6 +1176,8 @@ func processDeltasInBatch(
 			callbacks = append(callbacks, func() {
 				handler.OnDelete(obj)
 			})
+		default:
+			return fmt.Errorf("Delta type %s is not supported in batch processing", d.Type)
 		}
 	}
 
@@ -1025,5 +1195,156 @@ func processDeltasInBatch(
 	for _, callback := range callbacks {
 		callback()
 	}
+	return nil
+}
+
+func processReplacedAllInfo(logger klog.Logger, handler cache.ResourceEventHandler, info cache.ReplacedAllInfo, clientState cache.Store, isInInitialList bool, keyFunc cache.KeyFunc) error {
+	var deletions []cache.DeletedFinalStateUnknown
+	type replacement struct {
+		oldObj interface{}
+		newObj interface{}
+	}
+	replacements := make([]replacement, 0, len(info.Objects))
+
+	err := reconcileReplacement(logger, nil, clientState, info.Objects, keyFunc,
+		func(obj cache.DeletedFinalStateUnknown) error {
+			deletions = append(deletions, obj)
+			return nil
+		},
+		func(obj interface{}) error {
+			// This behavior matches processDeltas handling of Replace deltas
+			if old, exists, err := clientState.Get(obj); err == nil && exists {
+				replacements = append(replacements, replacement{newObj: obj, oldObj: old})
+			} else {
+				replacements = append(replacements, replacement{newObj: obj})
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Replace the client state first so the store reflects the events handlers are given
+	if err := clientState.Replace(info.Objects, info.ResourceVersion); err != nil {
+		return err
+	}
+	// Processing all deletions first matches behavior of RealFIFO#Replace
+	for _, objToDelete := range deletions {
+		handler.OnDelete(objToDelete)
+	}
+	// Processing adds/updates in order observed by reconcileReplacement matches behavior of RealFIFO#Replace
+	for _, r := range replacements {
+		if r.oldObj != nil {
+			handler.OnUpdate(r.oldObj, r.newObj)
+		} else {
+			handler.OnAdd(r.newObj, isInInitialList)
+		}
+	}
+	return nil
+}
+
+// reconcileReplacement takes the items that are already in the queue and the set of new items
+// and based upon the state of the items in the queue and known objects will call onDelete and onReplace
+// depending upon whether the item is being deleted or replaced/added.
+// kcp: This is taken from the_real_fifo.go
+func reconcileReplacement(
+	logger klog.Logger,
+	queuedItems []cache.Delta,
+	knownObjects cache.KeyListerGetter,
+	newItems []interface{},
+	keyOf func(obj interface{}) (string, error),
+	onDelete func(obj cache.DeletedFinalStateUnknown) error,
+	onReplace func(obj interface{}) error,
+) error {
+	// determine the keys of everything we're adding.  We cannot add the items until after the synthetic deletes have been
+	// created for items that don't existing in newItems
+	newKeys := sets.Set[string]{}
+	for _, obj := range newItems {
+		key, err := keyOf(obj)
+		if err != nil {
+			return cache.KeyError{Obj: obj, Err: err}
+		}
+		newKeys.Insert(key)
+	}
+
+	queuedKeys := []string{}
+	lastQueuedItemForKey := map[string]cache.Delta{}
+	for _, queuedItem := range queuedItems {
+		queuedKey, err := keyOf(queuedItem.Object)
+		if err != nil {
+			return cache.KeyError{Obj: queuedItem.Object, Err: err}
+		}
+
+		if _, seen := lastQueuedItemForKey[queuedKey]; !seen {
+			queuedKeys = append(queuedKeys, queuedKey)
+		}
+		lastQueuedItemForKey[queuedKey] = queuedItem
+	}
+
+	// all the deletes already in the queue are important. There are two cases
+	// 1. queuedItems has delete for key/X and newItems has replace for key/X.  This means the queued UID was deleted and a new one was created.
+	// 2. queuedItems has a delete for key/X and newItems does NOT have key/X.  This means the queued item was deleted.
+	// Do deletion detection against objects in the queue.
+	for _, queuedKey := range queuedKeys {
+		if newKeys.Has(queuedKey) {
+			continue
+		}
+
+		// Delete pre-existing items not in the new list.
+		// This could happen if watch deletion event was missed while
+		// disconnected from apiserver.
+		lastQueuedItem := lastQueuedItemForKey[queuedKey]
+		// if we've already got the item marked as deleted, no need to add another delete
+		if lastQueuedItem.Type == cache.Deleted {
+			continue
+		}
+
+		// if we got here, then the last entry we have for the queued item is *not* a deletion and we need to add a delete
+		deletedObj := lastQueuedItem.Object
+
+		retErr := onDelete(cache.DeletedFinalStateUnknown{
+			Key: queuedKey,
+			Obj: deletedObj,
+		})
+		if retErr != nil {
+			return fmt.Errorf("couldn't enqueue object: %w", retErr)
+		}
+	}
+
+	// Detect deletions for objects not present in the queue, but present in KnownObjects
+	knownKeys := knownObjects.ListKeys()
+	for _, knownKey := range knownKeys {
+		if newKeys.Has(knownKey) { // still present
+			continue
+		}
+		if _, inQueuedItems := lastQueuedItemForKey[knownKey]; inQueuedItems { // already added delete for these
+			continue
+		}
+
+		deletedObj, exists, err := knownObjects.GetByKey(knownKey)
+		if err != nil {
+			deletedObj = nil
+			utilruntime.HandleErrorWithLogger(logger, err, "Error during lookup, placing DeleteFinalStateUnknown marker without object", "key", knownKey)
+		} else if !exists {
+			deletedObj = nil
+			utilruntime.HandleErrorWithLogger(logger, nil, "Key does not exist in known objects store, placing DeleteFinalStateUnknown marker without object", "key", knownKey)
+		}
+		retErr := onDelete(cache.DeletedFinalStateUnknown{
+			Key: knownKey,
+			Obj: deletedObj,
+		})
+		if retErr != nil {
+			return fmt.Errorf("couldn't enqueue object: %w", retErr)
+		}
+	}
+
+	// now that we have the deletes we need for items, we can add the newItems to the items queue
+	for _, obj := range newItems {
+		if err := onReplace(obj); err != nil {
+			return fmt.Errorf("couldn't enqueue object: %w", err)
+		}
+	}
+
 	return nil
 }
