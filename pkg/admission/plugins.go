@@ -31,13 +31,17 @@ import (
 	certsigning "k8s.io/kubernetes/plugin/pkg/admission/certificates/signing"
 	certsubjectrestriction "k8s.io/kubernetes/plugin/pkg/admission/certificates/subjectrestriction"
 	"k8s.io/kubernetes/plugin/pkg/admission/defaulttolerationseconds"
+	jobadmission "k8s.io/kubernetes/plugin/pkg/admission/job"
 	"k8s.io/kubernetes/plugin/pkg/admission/limitranger"
 	"k8s.io/kubernetes/plugin/pkg/admission/network/defaultingressclass"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodedeclaredfeatures"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodetaint"
+	"k8s.io/kubernetes/plugin/pkg/admission/podgroup"
+	"k8s.io/kubernetes/plugin/pkg/admission/podresize"
 	"k8s.io/kubernetes/plugin/pkg/admission/podtopologylabels"
 	podpriority "k8s.io/kubernetes/plugin/pkg/admission/priority"
 	"k8s.io/kubernetes/plugin/pkg/admission/runtimeclass"
+	"k8s.io/kubernetes/plugin/pkg/admission/scheduling/podgroupprotection"
 	"k8s.io/kubernetes/plugin/pkg/admission/security/podsecurity"
 	"k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/persistentvolume/resize"
@@ -198,6 +202,10 @@ var defaultOnKubePluginsInKube = sets.New[string](
 	podtopologylabels.PluginName,            // PodTopologyLabels
 	mutatingadmissionpolicy.PluginName,      // MutatingAdmissionPolicy
 	nodedeclaredfeatures.PluginName,         // NodeDeclaredFeatureValidator
+	jobadmission.PluginName,                 // JobValidation, only active when feature gate WorkloadWithJob is enabled
+	podgroupprotection.PluginName,           // PodGroupProtection
+	podgroup.PluginName,                     // PodGroupWorkloadExists, only active when feature gate GenericWorkload is enabled
+	podresize.PluginName,                    // PodResizeValidator, only active when feature gate InPlacePodVerticalScaling is enabled
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.
