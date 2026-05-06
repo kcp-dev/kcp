@@ -103,7 +103,7 @@ func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExpo
 			typer,
 			true,
 			kind,
-			ValidatePathSegmentName,
+			forwardingregistry.ValidatePathSegmentName,
 			nil,
 			nil,
 			nil,
