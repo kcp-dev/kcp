@@ -62,7 +62,7 @@ func NewSimpleMetadataClient(scheme *runtime.Scheme, objects ...runtime.Object) 
 	}
 
 	codecs := serializer.NewCodecFactory(scheme)
-	o := kcptesting.NewObjectTracker(scheme, codecs.UniversalDecoder())
+	o := kcptesting.NewObjectTracker(scheme, codecs.UniversalDeserializer())
 	for _, obj := range objects {
 		metaObj, ok := obj.(logicalcluster.Object)
 		if !ok {
@@ -430,6 +430,7 @@ func (c *metadataResourceClient) List(ctx context.Context, opts metav1.ListOptio
 }
 
 func (c *metadataResourceClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	opts.Watch = true
 	switch {
 	case len(c.namespace) == 0:
 		return c.client.Fake.

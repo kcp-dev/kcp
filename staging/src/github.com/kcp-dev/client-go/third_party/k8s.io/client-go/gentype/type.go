@@ -32,3 +32,6 @@ type namedObject interface {
 	comparable
 	GetName() *string
 }
+
+// kcp: The rebase will add a load of structures and things here - these
+// are not needed.
