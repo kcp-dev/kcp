@@ -86,7 +86,7 @@ func (c *FakeDiscovery) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav
 		ClusterPath: c.ClusterPath,
 	}
 	if _, err = c.Invokes(action, nil); err != nil {
-		return nil, nil, err
+		return resultGroups, c.Resources[c.ClusterPath], err
 	}
 	return resultGroups, c.Resources[c.ClusterPath], nil
 }
