@@ -185,18 +185,18 @@ type serviceAccountTokenGetter struct {
 	secrets         *shardlookup.Lookup[*corev1.Secret]
 }
 
-func (s *serviceAccountTokenGetter) GetPod(_, name string) (*corev1.Pod, error) {
+func (s *serviceAccountTokenGetter) GetPod(_ context.Context, _, name string) (*corev1.Pod, error) {
 	return nil, kerrors.NewNotFound(schema.GroupResource{Group: "", Resource: "pods"}, name)
 }
 
-func (s *serviceAccountTokenGetter) GetNode(name string) (*corev1.Node, error) {
+func (s *serviceAccountTokenGetter) GetNode(_ context.Context, name string) (*corev1.Node, error) {
 	return nil, kerrors.NewNotFound(schema.GroupResource{Group: "", Resource: "nodes"}, name)
 }
 
-func (s *serviceAccountTokenGetter) GetServiceAccount(namespace, name string) (*corev1.ServiceAccount, error) {
+func (s *serviceAccountTokenGetter) GetServiceAccount(_ context.Context, namespace, name string) (*corev1.ServiceAccount, error) {
 	return s.serviceAccounts.Get(s.clusterName, namespace, name)
 }
 
-func (s *serviceAccountTokenGetter) GetSecret(namespace, name string) (*corev1.Secret, error) {
+func (s *serviceAccountTokenGetter) GetSecret(_ context.Context, namespace, name string) (*corev1.Secret, error) {
 	return s.secrets.Get(s.clusterName, namespace, name)
 }
