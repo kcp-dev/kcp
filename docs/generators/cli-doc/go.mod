@@ -1,6 +1,6 @@
 module github.com/kcp-dev/kcp/docs/generators/cli-doc
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/kcp-dev/cli v0.0.0
