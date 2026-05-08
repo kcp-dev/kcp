@@ -6,7 +6,7 @@ module github.com/kcp-dev/kcp
 // The script hack/verify-go-versions.sh checks that all version
 // references across the codebase are consistent with the versions
 // maintained here.
-// go-build-version 1.25.9
+// go-build-version 1.25.10
 go 1.25.0
 
 require (
