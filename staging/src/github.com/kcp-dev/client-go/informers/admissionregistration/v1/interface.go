@@ -23,6 +23,10 @@ import (
 )
 
 type ClusterInterface interface {
+	// MutatingAdmissionPolicies returns a MutatingAdmissionPolicyClusterInformer.
+	MutatingAdmissionPolicies() MutatingAdmissionPolicyClusterInformer
+	// MutatingAdmissionPolicyBindings returns a MutatingAdmissionPolicyBindingClusterInformer.
+	MutatingAdmissionPolicyBindings() MutatingAdmissionPolicyBindingClusterInformer
 	// MutatingWebhookConfigurations returns a MutatingWebhookConfigurationClusterInformer.
 	MutatingWebhookConfigurations() MutatingWebhookConfigurationClusterInformer
 	// ValidatingAdmissionPolicies returns a ValidatingAdmissionPolicyClusterInformer.
@@ -41,6 +45,16 @@ type version struct {
 // New returns a new Interface.
 func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) ClusterInterface {
 	return &version{factory: f, tweakListOptions: tweakListOptions}
+}
+
+// MutatingAdmissionPolicies returns a MutatingAdmissionPolicyClusterInformer.
+func (v *version) MutatingAdmissionPolicies() MutatingAdmissionPolicyClusterInformer {
+	return &mutatingAdmissionPolicyClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// MutatingAdmissionPolicyBindings returns a MutatingAdmissionPolicyBindingClusterInformer.
+func (v *version) MutatingAdmissionPolicyBindings() MutatingAdmissionPolicyBindingClusterInformer {
+	return &mutatingAdmissionPolicyBindingClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // MutatingWebhookConfigurations returns a MutatingWebhookConfigurationClusterInformer.
