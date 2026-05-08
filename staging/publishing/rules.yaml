@@ -6,6 +6,11 @@ rules:
           branch: main
           dirs:
             - staging/src/github.com/kcp-dev/apimachinery
+      - name: rebase-staging
+        source:
+          branch: rebase-staging
+          dirs:
+            - staging/src/github.com/kcp-dev/apimachinery
       - name: release-0.29
         go: 1.24.13
         source:
@@ -31,6 +36,11 @@ rules:
       - name: main
         source:
           branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/code-generator
+      - name: rebase-staging
+        source:
+          branch: rebase-staging
           dirs:
             - staging/src/github.com/kcp-dev/code-generator
       - name: release-0.29
@@ -63,6 +73,16 @@ rules:
             branch: main
         source:
           branch: main
+          dirs:
+            - staging/src/github.com/kcp-dev/client-go
+      - name: rebase-staging
+        dependencies:
+          - repository: apimachinery
+            branch: rebase-staging
+          - repository: code-generator
+            branch: rebase-staging
+        source:
+          branch: rebase-staging
           dirs:
             - staging/src/github.com/kcp-dev/client-go
       - name: release-0.29
