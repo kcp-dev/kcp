@@ -18,6 +18,7 @@ package validatingadmissionpolicy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -272,7 +273,7 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, t
 			validating.NewValidatingAdmissionPolicyAccessor,
 			validating.NewValidatingAdmissionPolicyBindingAccessor,
 			validating.CompilePolicy,
-			nil,
+			&deferredInformerFactory{},
 			dynamicClient,
 			restMapper,
 			cn,
@@ -314,4 +315,16 @@ func (k *KubeValidatingAdmissionPolicy) logicalClusterDeleted(clusterName logica
 type stoppableValidatingAdmissionPolicy struct {
 	*validating.Plugin
 	stop func()
+}
+
+// deferredInformerFactory is a helper object to minimize changes in our upstream kubernetes fork.
+// By returning an error on ForResource, we trigger a fallback to dynamic informers in the generic policy source.
+// We need dynamic informer creation to correctly scope the informer based on the target cluster, which can either
+// be the policy cluster or the cluster where the APIExport resides.
+type deferredInformerFactory struct {
+	informers.SharedInformerFactory
+}
+
+func (d *deferredInformerFactory) ForResource(resource schema.GroupVersionResource) (informers.GenericInformer, error) {
+	return nil, fmt.Errorf("deferring creation to dynamic informer. This is expected")
 }
