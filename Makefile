@@ -387,7 +387,7 @@ test-e2e-sharded-minimal: build-e2e
 
 # This is just easy target to run 2 shard test server locally until manually killed.
 # You can target test to it by running:
-# go test ./test/e2e/apibinding/... --kcp-kubeconfig=$(pwd)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(pwd)/.kcp-0/admin.kubeconfig -run=^TestAPIBinding$
+# go test ./test/e2e/apibinding/... --kcp-kubeconfig=$(pwd)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(pwd)/.kcp-0/admin.kubeconfig --shard-kubeconfigs=shard-1=$(pwd)/.kcp-1/admin.kubeconfig -run=^TestAPIBinding$
 test-run-sharded-server: WORK_DIR ?= $(PWD)
 test-run-sharded-server: LOG_DIR ?= $(WORK_DIR)/.kcp
 test-run-sharded-server:
