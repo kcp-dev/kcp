@@ -37,8 +37,6 @@ import (
 	authorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	autoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
-	autoscalingv2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
-	autoscalingv2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	certificatesv1 "k8s.io/client-go/kubernetes/typed/certificates/v1"
@@ -72,7 +70,7 @@ import (
 	resourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
 	resourcev1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
 	schedulingv1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
-	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
+	schedulingv1alpha2 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha2"
 	schedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
@@ -109,10 +107,6 @@ import (
 	kcpfakeautoscalingv1 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v1/fake"
 	kcpautoscalingv2 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2"
 	kcpfakeautoscalingv2 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2/fake"
-	kcpautoscalingv2beta1 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2beta1"
-	kcpfakeautoscalingv2beta1 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2beta1/fake"
-	kcpautoscalingv2beta2 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2beta2"
-	kcpfakeautoscalingv2beta2 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2beta2/fake"
 	kcpbatchv1 "github.com/kcp-dev/client-go/kubernetes/typed/batch/v1"
 	kcpfakebatchv1 "github.com/kcp-dev/client-go/kubernetes/typed/batch/v1/fake"
 	kcpbatchv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/batch/v1beta1"
@@ -179,8 +173,8 @@ import (
 	kcpfakeresourcev1beta2 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta2/fake"
 	kcpschedulingv1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1"
 	kcpfakeschedulingv1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1/fake"
-	kcpschedulingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha1"
-	kcpfakeschedulingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha1/fake"
+	kcpschedulingv1alpha2 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha2"
+	kcpfakeschedulingv1alpha2 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha2/fake"
 	kcpschedulingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1beta1"
 	kcpfakeschedulingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1beta1/fake"
 	kcpstoragev1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1"
@@ -337,16 +331,6 @@ func (c *ClusterClientset) AutoscalingV1() kcpautoscalingv1.AutoscalingV1Cluster
 // AutoscalingV2 retrieves the AutoscalingV2ClusterClient
 func (c *ClusterClientset) AutoscalingV2() kcpautoscalingv2.AutoscalingV2ClusterInterface {
 	return &kcpfakeautoscalingv2.AutoscalingV2ClusterClient{Fake: &c.Fake}
-}
-
-// AutoscalingV2beta1 retrieves the AutoscalingV2beta1ClusterClient
-func (c *ClusterClientset) AutoscalingV2beta1() kcpautoscalingv2beta1.AutoscalingV2beta1ClusterInterface {
-	return &kcpfakeautoscalingv2beta1.AutoscalingV2beta1ClusterClient{Fake: &c.Fake}
-}
-
-// AutoscalingV2beta2 retrieves the AutoscalingV2beta2ClusterClient
-func (c *ClusterClientset) AutoscalingV2beta2() kcpautoscalingv2beta2.AutoscalingV2beta2ClusterInterface {
-	return &kcpfakeautoscalingv2beta2.AutoscalingV2beta2ClusterClient{Fake: &c.Fake}
 }
 
 // BatchV1 retrieves the BatchV1ClusterClient
@@ -514,9 +498,9 @@ func (c *ClusterClientset) SchedulingV1() kcpschedulingv1.SchedulingV1ClusterInt
 	return &kcpfakeschedulingv1.SchedulingV1ClusterClient{Fake: &c.Fake}
 }
 
-// SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient
-func (c *ClusterClientset) SchedulingV1alpha1() kcpschedulingv1alpha1.SchedulingV1alpha1ClusterInterface {
-	return &kcpfakeschedulingv1alpha1.SchedulingV1alpha1ClusterClient{Fake: &c.Fake}
+// SchedulingV1alpha2 retrieves the SchedulingV1alpha2ClusterClient
+func (c *ClusterClientset) SchedulingV1alpha2() kcpschedulingv1alpha2.SchedulingV1alpha2ClusterInterface {
+	return &kcpfakeschedulingv1alpha2.SchedulingV1alpha2ClusterClient{Fake: &c.Fake}
 }
 
 // SchedulingV1beta1 retrieves the SchedulingV1beta1ClusterClient
@@ -655,16 +639,6 @@ func (c *Clientset) AutoscalingV1() autoscalingv1.AutoscalingV1Interface {
 // AutoscalingV2 retrieves the AutoscalingV2Client
 func (c *Clientset) AutoscalingV2() autoscalingv2.AutoscalingV2Interface {
 	return &kcpfakeautoscalingv2.AutoscalingV2Client{Fake: c.Fake, ClusterPath: c.clusterPath}
-}
-
-// AutoscalingV2beta1 retrieves the AutoscalingV2beta1Client
-func (c *Clientset) AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1Interface {
-	return &kcpfakeautoscalingv2beta1.AutoscalingV2beta1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
-}
-
-// AutoscalingV2beta2 retrieves the AutoscalingV2beta2Client
-func (c *Clientset) AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2Interface {
-	return &kcpfakeautoscalingv2beta2.AutoscalingV2beta2Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // BatchV1 retrieves the BatchV1Client
@@ -832,9 +806,9 @@ func (c *Clientset) SchedulingV1() schedulingv1.SchedulingV1Interface {
 	return &kcpfakeschedulingv1.SchedulingV1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
-// SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client
-func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
-	return &kcpfakeschedulingv1alpha1.SchedulingV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+// SchedulingV1alpha2 retrieves the SchedulingV1alpha2Client
+func (c *Clientset) SchedulingV1alpha2() schedulingv1alpha2.SchedulingV1alpha2Interface {
+	return &kcpfakeschedulingv1alpha2.SchedulingV1alpha2Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // SchedulingV1beta1 retrieves the SchedulingV1beta1Client

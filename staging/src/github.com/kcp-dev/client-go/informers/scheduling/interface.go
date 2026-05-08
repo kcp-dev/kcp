@@ -21,7 +21,7 @@ package scheduling
 import (
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
 	kcpv1 "github.com/kcp-dev/client-go/informers/scheduling/v1"
-	kcpv1alpha1 "github.com/kcp-dev/client-go/informers/scheduling/v1alpha1"
+	kcpv1alpha2 "github.com/kcp-dev/client-go/informers/scheduling/v1alpha2"
 	kcpv1beta1 "github.com/kcp-dev/client-go/informers/scheduling/v1beta1"
 )
 
@@ -29,8 +29,8 @@ import (
 type ClusterInterface interface {
 	// V1 provides access to shared informers for resources in V1.
 	V1() kcpv1.ClusterInterface
-	// V1alpha1 provides access to shared informers for resources in V1alpha1.
-	V1alpha1() kcpv1alpha1.ClusterInterface
+	// V1alpha2 provides access to shared informers for resources in V1alpha2.
+	V1alpha2() kcpv1alpha2.ClusterInterface
 	// V1beta1 provides access to shared informers for resources in V1beta1.
 	V1beta1() kcpv1beta1.ClusterInterface
 }
@@ -50,9 +50,9 @@ func (g *group) V1() kcpv1.ClusterInterface {
 	return kcpv1.New(g.factory, g.tweakListOptions)
 }
 
-// V1alpha1 returns a new kcpv1alpha1.ClusterInterface.
-func (g *group) V1alpha1() kcpv1alpha1.ClusterInterface {
-	return kcpv1alpha1.New(g.factory, g.tweakListOptions)
+// V1alpha2 returns a new kcpv1alpha2.ClusterInterface.
+func (g *group) V1alpha2() kcpv1alpha2.ClusterInterface {
+	return kcpv1alpha2.New(g.factory, g.tweakListOptions)
 }
 
 // V1beta1 returns a new kcpv1beta1.ClusterInterface.

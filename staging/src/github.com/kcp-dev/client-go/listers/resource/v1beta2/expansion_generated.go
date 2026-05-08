@@ -22,6 +22,10 @@ package v1beta2
 // DeviceClassClusterLister.
 type DeviceClassClusterListerExpansion interface{}
 
+// DeviceTaintRuleClusterListerExpansion allows custom methods to be added to
+// DeviceTaintRuleClusterLister.
+type DeviceTaintRuleClusterListerExpansion interface{}
+
 // ResourceClaimClusterListerExpansion allows custom methods to be added to
 // ResourceClaimClusterLister.
 type ResourceClaimClusterListerExpansion interface{}

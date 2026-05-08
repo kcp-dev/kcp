@@ -25,6 +25,8 @@ import (
 type ClusterInterface interface {
 	// DeviceTaintRules returns a DeviceTaintRuleClusterInformer.
 	DeviceTaintRules() DeviceTaintRuleClusterInformer
+	// ResourcePoolStatusRequests returns a ResourcePoolStatusRequestClusterInformer.
+	ResourcePoolStatusRequests() ResourcePoolStatusRequestClusterInformer
 }
 
 type version struct {
@@ -40,4 +42,9 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 // DeviceTaintRules returns a DeviceTaintRuleClusterInformer.
 func (v *version) DeviceTaintRules() DeviceTaintRuleClusterInformer {
 	return &deviceTaintRuleClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ResourcePoolStatusRequests returns a ResourcePoolStatusRequestClusterInformer.
+func (v *version) ResourcePoolStatusRequests() ResourcePoolStatusRequestClusterInformer {
+	return &resourcePoolStatusRequestClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
