@@ -44,6 +44,10 @@ func (c *ResourceV1alpha3ClusterClient) DeviceTaintRules() kcpresourcev1alpha3.D
 	return newFakeDeviceTaintRuleClusterClient(c)
 }
 
+func (c *ResourceV1alpha3ClusterClient) ResourcePoolStatusRequests() kcpresourcev1alpha3.ResourcePoolStatusRequestClusterInterface {
+	return newFakeResourcePoolStatusRequestClusterClient(c)
+}
+
 type ResourceV1alpha3Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -51,6 +55,10 @@ type ResourceV1alpha3Client struct {
 
 func (c *ResourceV1alpha3Client) DeviceTaintRules() resourcev1alpha3.DeviceTaintRuleInterface {
 	return newFakeDeviceTaintRuleClient(c.Fake, c.ClusterPath)
+}
+
+func (c *ResourceV1alpha3Client) ResourcePoolStatusRequests() resourcev1alpha3.ResourcePoolStatusRequestInterface {
+	return newFakeResourcePoolStatusRequestClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

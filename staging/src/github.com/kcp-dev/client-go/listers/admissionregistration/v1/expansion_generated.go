@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1
 
+// MutatingAdmissionPolicyClusterListerExpansion allows custom methods to be added to
+// MutatingAdmissionPolicyClusterLister.
+type MutatingAdmissionPolicyClusterListerExpansion interface{}
+
+// MutatingAdmissionPolicyBindingClusterListerExpansion allows custom methods to be added to
+// MutatingAdmissionPolicyBindingClusterLister.
+type MutatingAdmissionPolicyBindingClusterListerExpansion interface{}
+
 // MutatingWebhookConfigurationClusterListerExpansion allows custom methods to be added to
 // MutatingWebhookConfigurationClusterLister.
 type MutatingWebhookConfigurationClusterListerExpansion interface{}

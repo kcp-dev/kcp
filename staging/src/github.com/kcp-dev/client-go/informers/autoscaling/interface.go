@@ -21,8 +21,6 @@ package autoscaling
 import (
 	kcpv1 "github.com/kcp-dev/client-go/informers/autoscaling/v1"
 	kcpv2 "github.com/kcp-dev/client-go/informers/autoscaling/v2"
-	kcpv2beta1 "github.com/kcp-dev/client-go/informers/autoscaling/v2beta1"
-	kcpv2beta2 "github.com/kcp-dev/client-go/informers/autoscaling/v2beta2"
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
 )
 
@@ -32,10 +30,6 @@ type ClusterInterface interface {
 	V1() kcpv1.ClusterInterface
 	// V2 provides access to shared informers for resources in V2.
 	V2() kcpv2.ClusterInterface
-	// V2beta1 provides access to shared informers for resources in V2beta1.
-	V2beta1() kcpv2beta1.ClusterInterface
-	// V2beta2 provides access to shared informers for resources in V2beta2.
-	V2beta2() kcpv2beta2.ClusterInterface
 }
 
 type group struct {
@@ -56,14 +50,4 @@ func (g *group) V1() kcpv1.ClusterInterface {
 // V2 returns a new kcpv2.ClusterInterface.
 func (g *group) V2() kcpv2.ClusterInterface {
 	return kcpv2.New(g.factory, g.tweakListOptions)
-}
-
-// V2beta1 returns a new kcpv2beta1.ClusterInterface.
-func (g *group) V2beta1() kcpv2beta1.ClusterInterface {
-	return kcpv2beta1.New(g.factory, g.tweakListOptions)
-}
-
-// V2beta2 returns a new kcpv2beta2.ClusterInterface.
-func (g *group) V2beta2() kcpv2beta2.ClusterInterface {
-	return kcpv2beta2.New(g.factory, g.tweakListOptions)
 }

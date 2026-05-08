@@ -33,6 +33,7 @@ import (
 type ResourceV1alpha3ClusterInterface interface {
 	ResourceV1alpha3ClusterScoper
 	DeviceTaintRulesClusterGetter
+	ResourcePoolStatusRequestsClusterGetter
 }
 
 type ResourceV1alpha3ClusterScoper interface {
@@ -53,6 +54,10 @@ func (c *ResourceV1alpha3ClusterClient) Cluster(clusterPath logicalcluster.Path)
 
 func (c *ResourceV1alpha3ClusterClient) DeviceTaintRules() DeviceTaintRuleClusterInterface {
 	return &deviceTaintRulesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *ResourceV1alpha3ClusterClient) ResourcePoolStatusRequests() ResourcePoolStatusRequestClusterInterface {
+	return &resourcePoolStatusRequestsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new ResourceV1alpha3ClusterClient for the given config.

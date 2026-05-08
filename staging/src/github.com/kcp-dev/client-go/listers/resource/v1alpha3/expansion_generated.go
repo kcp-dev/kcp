@@ -21,3 +21,7 @@ package v1alpha3
 // DeviceTaintRuleClusterListerExpansion allows custom methods to be added to
 // DeviceTaintRuleClusterLister.
 type DeviceTaintRuleClusterListerExpansion interface{}
+
+// ResourcePoolStatusRequestClusterListerExpansion allows custom methods to be added to
+// ResourcePoolStatusRequestClusterLister.
+type ResourcePoolStatusRequestClusterListerExpansion interface{}

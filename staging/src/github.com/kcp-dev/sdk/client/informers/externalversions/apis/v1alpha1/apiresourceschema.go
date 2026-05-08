@@ -22,11 +22,6 @@ import (
 	context "context"
 	time "time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	watch "k8s.io/apimachinery/pkg/watch"
-	cache "k8s.io/client-go/tools/cache"
-
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpinformers "github.com/kcp-dev/apimachinery/v2/third_party/informers"
 	logicalcluster "github.com/kcp-dev/logicalcluster/v3"
@@ -35,6 +30,10 @@ import (
 	kcpcluster "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinternalinterfaces "github.com/kcp-dev/sdk/client/informers/externalversions/internalinterfaces"
 	kcpv1alpha1 "github.com/kcp-dev/sdk/client/listers/apis/v1alpha1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	watch "k8s.io/apimachinery/pkg/watch"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // APIResourceSchemaClusterInformer provides access to a shared informer and lister for
