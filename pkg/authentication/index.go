@@ -18,9 +18,14 @@ package authentication
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/klog/v2"
 	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
@@ -29,6 +34,14 @@ import (
 	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
+
+// authenticatorSetupTimeout is duration to wait for an authenticator to
+// be initialized, means it finished the discovery of its issuers and is
+// ready to validate requests.
+//
+// 10s is the time upstream waits in the updateAuthenticationConfig when
+// an authenticator is updated.
+const authenticatorSetupTimeout = 10 * time.Second
 
 // AuthenticatorIndex implements a mapping from workspace type to authenticator.Request.
 type AuthenticatorIndex interface {
@@ -76,12 +89,11 @@ func buildAuthenticator(
 	}
 
 	ctx, cancel := context.WithCancelCause(lifecycleCtx)
+	logger := klog.FromContext(ctx).WithValues("controller", controllerName)
 
 	authn, _, _, _, err := kubeAuthConfig.New(ctx)
 	if err != nil {
-		logger := klog.FromContext(ctx).WithValues("controller", controllerName)
 		logger.Error(err, "Failed to start workspace authenticator.")
-
 		cancel(fmt.Errorf("authenticator failed to start: %w", err))
 		return authenticatorState{}, err
 	}
@@ -92,7 +104,42 @@ func buildAuthenticator(
 		return authenticatorState{}, errCauseEmpty
 	}
 
+	if len(wac.Spec.JWT) > 0 {
+		// There shouldn't be an authenticator without at least one JWT
+		// at the very least because the spec validates this but better
+		// safe than sorry.
+
+		// Wait for the authenticator to be initialized.
+		//
+		// The authenticators do have a healthcheck, however this healthcheck is not exposed
+		// and it is not easy to expose without intrusive changes.
+		//
+		// An alternative would've been to use the update function returned by kubeAuthConfig.New
+		// which _does_ wait until the authenticator's healthcheck are ready, however that would
+		// create each authenticator twice and just discard the first iteration.
+		//
+		// Instead the authenticator is validated by continually authenticating a dummy token
+		// created with the first issuer until the error is no longer "not initialized".
+		dummyToken := dummyTokenForIssuer(wac.Spec.JWT[0].Issuer.URL)
+		if err := wait.PollUntilContextTimeout(ctx, time.Second, authenticatorSetupTimeout, true, func(ctx context.Context) (bool, error) {
+			dummyReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
+			dummyReq.Header.Set("Authorization", "Bearer "+dummyToken)
+			_, _, err := authn.AuthenticateRequest(dummyReq)
+			return err == nil || !strings.Contains(err.Error(), "not initialized"), nil
+		}); err != nil {
+			logger.Error(err, "Failed to validate workspace authenticator.")
+			cancel(fmt.Errorf("authenticator failed to validate within %q: %w", authenticatorSetupTimeout, err))
+			return authenticatorState{}, err
+		}
+	}
+
 	return authenticatorState{cancel: cancel, authenticator: authn}, nil
+}
+
+func dummyTokenForIssuer(issuer string) string {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"iss":%q}`, issuer)))
+	return header + "." + payload + "."
 }
 
 // wrapWithSecurityFilters wraps an authenticator with security filters
