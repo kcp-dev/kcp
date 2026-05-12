@@ -35,10 +35,11 @@ in a scalable way.
     kubectl create -f config/examples/virtualresources/apiresourceschema-virtualmachine.yaml
    ```
 
-4. Create an APIExport for the virtual machines:
+4. Create an APIExport for the virtual machines and the CachedResourceEndpointSlice that references it:
 
     ```bash
     kubectl create -f config/examples/virtualresources/apiexport.yaml
+    kubectl create -f config/examples/virtualresources/cached-resource-instances-endpointslice.yaml
    ```
 
 5. Create a consumer workspace, where we will consume the virtual machines:
