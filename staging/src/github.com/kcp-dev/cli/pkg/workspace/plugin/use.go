@@ -70,8 +70,10 @@ type UseWorkspaceOptions struct {
 
 // NewUseWorkspaceOptions returns a new UseWorkspaceOptions.
 func NewUseWorkspaceOptions(streams genericclioptions.IOStreams) *UseWorkspaceOptions {
+	opts := base.NewOptions(streams)
+	opts.OptOutOfWorkspaceFlag = true
 	return &UseWorkspaceOptions{
-		Options: base.NewOptions(streams),
+		Options: opts,
 
 		newKCPClusterClient: newKCPClusterClient,
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
@@ -466,8 +468,10 @@ type CurrentWorkspaceOptions struct {
 
 // NewCurrentWorkspaceOptions returns a new CurrentWorkspaceOptions.
 func NewCurrentWorkspaceOptions(streams genericclioptions.IOStreams) *CurrentWorkspaceOptions {
+	opts := base.NewOptions(streams)
+	opts.OptOutOfWorkspaceFlag = true
 	return &CurrentWorkspaceOptions{
-		Options: base.NewOptions(streams),
+		Options: opts,
 	}
 }
 

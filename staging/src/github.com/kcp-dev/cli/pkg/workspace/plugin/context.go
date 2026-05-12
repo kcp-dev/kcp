@@ -54,8 +54,10 @@ type CreateContextOptions struct {
 
 // NewCreateContextOptions returns a new CreateContextOptions.
 func NewCreateContextOptions(streams genericclioptions.IOStreams) *CreateContextOptions {
+	opts := base.NewOptions(streams)
+	opts.OptOutOfWorkspaceFlag = true
 	return &CreateContextOptions{
-		Options: base.NewOptions(streams),
+		Options: opts,
 
 		modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig *clientcmdapi.Config) error {
 			return clientcmd.ModifyConfig(configAccess, *newConfig, true)
