@@ -3,16 +3,19 @@ module github.com/kcp-dev/kcp/test/load
 go 1.25.0
 
 require (
+	github.com/kcp-dev/client-go v0.35.1
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/kcp-dev/sdk v0.31.0
 	github.com/montanaflynn/stats v0.7.1
 	github.com/stretchr/testify v1.11.1
+	k8s.io/api v0.35.1
 	k8s.io/apimachinery v0.35.1
 	k8s.io/client-go v0.35.1
 )
 
 replace (
 	github.com/kcp-dev/apimachinery/v2 => ../../staging/src/github.com/kcp-dev/apimachinery
+	github.com/kcp-dev/client-go => ../../staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ./staging/src/github.com/kcp-dev/code-generator
 	github.com/kcp-dev/sdk => ../../staging/src/github.com/kcp-dev/sdk
 )
@@ -51,7 +54,6 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.35.1 // indirect
 	k8s.io/apiextensions-apiserver v0.35.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
