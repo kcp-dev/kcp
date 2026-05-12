@@ -40,7 +40,6 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -58,6 +57,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
+	virtualshared "github.com/kcp-dev/kcp/pkg/virtual/shared"
 	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 )
 
@@ -300,10 +300,10 @@ func BuildVirtualWorkspace(
 					}
 					authenticatingTransport, err := rest.TransportFor(thisCfg)
 					if err != nil {
-						http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
+						http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
 						return
 					}
-					serveProxy(writer, request, forwardedHost, authenticatingTransport)
+					virtualshared.ServeProxy(writer, request, forwardedHost, authenticatingTransport)
 					return
 				}
 
@@ -332,10 +332,10 @@ func BuildVirtualWorkspace(
 				}
 				authenticatingTransport, err := rest.TransportFor(thisCfg)
 				if err != nil {
-					http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
+					http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
 					return
 				}
-				serveProxy(writer, request, forwardedHost, authenticatingTransport)
+				virtualshared.ServeProxy(writer, request, forwardedHost, authenticatingTransport)
 			}), nil
 		}),
 	}
@@ -364,17 +364,10 @@ func resolveTerminatorWorkspaceType(
 	terminator corev1alpha1.LogicalClusterTerminator,
 	localWSTIndexer, cachedWSTIndexer cache.Indexer,
 ) (*tenancyv1alpha1.WorkspaceType, error) {
-	wstCluster, wstName, typeErr := termination.TypeFrom(terminator)
-	if typeErr != nil {
-		return nil, fmt.Errorf("malformed terminator %q: %w", terminator, typeErr)
-	}
-	if wstCluster == core.SystemCluster {
-		return nil, nil //nolint:nilnil // system terminator: intentional fall-through to owner impersonation
-	}
-	return indexers.ByPathAndNameWithFallback[*tenancyv1alpha1.WorkspaceType](
-		tenancyv1alpha1.Resource("workspacetypes"),
+	return virtualshared.ResolveLifecycleWorkspaceType(
+		"terminator", string(terminator),
+		func() (logicalcluster.Name, string, error) { return termination.TypeFrom(terminator) },
 		localWSTIndexer, cachedWSTIndexer,
-		wstCluster.Path(), wstName,
 	)
 }
 

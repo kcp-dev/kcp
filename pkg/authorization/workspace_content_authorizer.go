@@ -100,18 +100,6 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
-	// Lifecycle synthetic groups (system:kcp:initializer:*, system:kcp:terminator:*)
-	// are injected by the initializing/terminating VW content proxies *after* they
-	// have evaluated the request against the WorkspaceType's
-	// initializer/terminator permissions. They cannot be self-asserted because the
-	// front-proxy drops them on ingress. Their presence is the authoritative
-	// "pre-authorized by VW" marker — delegating further would re-run RBAC against
-	// the caller's identity, which by design has no in-workspace permissions, so
-	// allow directly here.
-	if HasLifecycleGroup(attr.GetUser().GetGroups()) {
-		return authorizer.DecisionAllow, "lifecycle VW pre-authorized access", nil
-	}
-
 	// check the workspace even exists
 	logicalCluster, err := a.getLogicalCluster(cluster.Name)
 	if err != nil {
@@ -132,6 +120,27 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		// allowed
 	default: // Scheduling, Unavailable, Unknown, or any future phases are not allowed to access workspace content
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", logicalCluster.Status.Phase), nil
+	}
+
+	// Lifecycle synthetic groups (system:kcp:initializer:*, system:kcp:terminator:*)
+	// are injected by the initializing/terminating VW content proxies *after* they
+	// have evaluated the request against the WorkspaceType's
+	// initializer/terminator permissions. They cannot be self-asserted because the
+	// front-proxy drops them on ingress. Their presence is the authoritative
+	// "pre-authorized by VW" marker — delegating further would re-run RBAC against
+	// the caller's identity, which by design has no in-workspace permissions, so
+	// allow directly here.
+	//
+	// Only honor the synthetic group when the workspace is actually in a lifecycle
+	// phase (Initializing/Terminating/Deleting). For Ready workspaces a leftover
+	// lifecycle group on the caller must not grant unconditional access.
+	if HasLifecycleGroup(attr.GetUser().GetGroups()) {
+		switch logicalCluster.Status.Phase {
+		case corev1alpha1.LogicalClusterPhaseInitializing,
+			corev1alpha1.LogicalClusterPhaseTerminating,
+			corev1alpha1.LogicalClusterPhaseDeleting:
+			return authorizer.DecisionAllow, "lifecycle VW pre-authorized access", nil
+		}
 	}
 
 	switch {

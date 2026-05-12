@@ -142,8 +142,12 @@ ServiceAccounts declared within a workspace don't have access to content of init
 The initializing and terminating virtual workspace content proxies can forward requests with one of two synthetic
 groups attached to the controller's identity:
 
-* `system:kcp:initializer:<initializer-name>` (e.g. `system:kcp:initializer:root:tenant`)
-* `system:kcp:terminator:<terminator-name>`
+* `system:kcp:initializer:<initializer-path>` (e.g. `system:kcp:initializer:root:tenant`)
+* `system:kcp:terminator:<terminator-path>` (e.g. `system:kcp:terminator:root:tenant`)
+
+The `<initializer-path>` / `<terminator-path>` segment is the fully qualified path of the
+WorkspaceType the controller is associated with (workspace path joined with the WST
+name), not just the short WST name.
 
 When the workspace content authorizer sees one of these groups it treats the request as **pre-authorized by the
 VW** and delegates to the next authorizer without re-evaluating workspace RBAC. This is what allows initializer

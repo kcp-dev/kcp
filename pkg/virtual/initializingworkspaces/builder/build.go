@@ -40,7 +40,6 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -59,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
+	virtualshared "github.com/kcp-dev/kcp/pkg/virtual/shared"
 )
 
 const (
@@ -305,10 +305,10 @@ func BuildVirtualWorkspace(
 					}
 					authenticatingTransport, err := rest.TransportFor(thisCfg)
 					if err != nil {
-						http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
+						http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
 						return
 					}
-					serveProxy(writer, request, forwardedHost, authenticatingTransport)
+					virtualshared.ServeProxy(writer, request, forwardedHost, authenticatingTransport)
 					return
 				}
 
@@ -337,10 +337,10 @@ func BuildVirtualWorkspace(
 				}
 				authenticatingTransport, err := rest.TransportFor(thisCfg)
 				if err != nil {
-					http.Error(writer, fmt.Sprintf("could create round-tripper: %v", err), http.StatusInternalServerError)
+					http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
 					return
 				}
-				serveProxy(writer, request, forwardedHost, authenticatingTransport)
+				virtualshared.ServeProxy(writer, request, forwardedHost, authenticatingTransport)
 			}), nil
 		}),
 	}
@@ -436,17 +436,10 @@ func resolveInitializerWorkspaceType(
 	initializer corev1alpha1.LogicalClusterInitializer,
 	localWSTIndexer, cachedWSTIndexer cache.Indexer,
 ) (*tenancyv1alpha1.WorkspaceType, error) {
-	wstCluster, wstName, typeErr := initialization.TypeFrom(initializer)
-	if typeErr != nil {
-		return nil, fmt.Errorf("malformed initializer %q: %w", initializer, typeErr)
-	}
-	if wstCluster == core.SystemCluster {
-		return nil, nil //nolint:nilnil // system initializer: intentional fall-through to owner impersonation
-	}
-	return indexers.ByPathAndNameWithFallback[*tenancyv1alpha1.WorkspaceType](
-		tenancyv1alpha1.Resource("workspacetypes"),
+	return virtualshared.ResolveLifecycleWorkspaceType(
+		"initializer", string(initializer),
+		func() (logicalcluster.Name, string, error) { return initialization.TypeFrom(initializer) },
 		localWSTIndexer, cachedWSTIndexer,
-		wstCluster.Path(), wstName,
 	)
 }
 

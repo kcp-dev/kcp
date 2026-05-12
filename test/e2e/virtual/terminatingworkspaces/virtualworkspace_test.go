@@ -56,6 +56,7 @@ import (
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
 	"github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
@@ -1302,15 +1303,19 @@ func TestTerminatingWorkspacesVirtualWorkspaceTerminatorPermissions(t *testing.T
 	directConfig = framework.StaticTokenUserConfig("user-2", directConfig)
 	directConfig.Impersonate = rest.ImpersonationConfig{
 		UserName: "user-2",
-		Groups:   []string{string(terminator)}, // attempt to forge: system:kcp:terminator:<...>
+		// Forge the fully-qualified synthetic group: system:kcp:terminator:<wst-path>.
+		Groups: []string{authorization.TerminatorGroup(terminator)},
 	}
 	directKube, err := kcpkubernetesclientset.NewForConfig(directConfig)
 	require.NoError(t, err)
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err := directKube.Cluster(wsClusterName.Path()).CoreV1().ConfigMaps(nsName).List(ctx, metav1.ListOptions{})
 		require.Error(c, err, "self-asserted synthetic group should not grant access")
-		// Either the impersonation is rejected, or the request is denied because the
-		// effective user has no rights inside the workspace.
+		// After the front-proxy strips the synthetic group, user-2 has no access to the
+		// workspace at all. The shard surfaces that as 403 (workspace_content_authorizer
+		// denies) or 401 (impersonation rejected); NotFound is also accepted because in
+		// some code paths a user with no workspace-content access sees the cluster URL
+		// as non-existent rather than forbidden.
 		require.True(c, errors.IsForbidden(err) || errors.IsUnauthorized(err) || errors.IsNotFound(err),
 			"expected forbidden/unauthorized/notfound, got: %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)

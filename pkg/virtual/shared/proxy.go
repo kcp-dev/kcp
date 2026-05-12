@@ -14,7 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package builder
+// Package shared contains helpers reused by the initializing and terminating
+// workspace virtual workspaces. Both VWs implement the same lifecycle content
+// proxy pattern, so they share their HTTP plumbing here to keep behaviour in
+// lockstep.
+package shared
 
 import (
 	"net/http"
@@ -25,11 +29,12 @@ import (
 	"k8s.io/client-go/transport"
 )
 
-// serveProxy strips any client-supplied auth/impersonation headers from the request
-// and reverse-proxies it to forwardedHost using the supplied (impersonating)
-// transport. Used by the workspace-content sub-workspace handler under both modes
-// of operation (synthetic-group + caller identity, or owner impersonation fallback).
-func serveProxy(writer http.ResponseWriter, request *http.Request, forwardedHost *url.URL, rt http.RoundTripper) {
+// ServeProxy strips any client-supplied auth/impersonation headers from the
+// request and reverse-proxies it to forwardedHost using the supplied
+// (impersonating) transport. It is used by the workspace-content sub-workspace
+// handlers under both modes of operation (synthetic-group + caller identity,
+// or owner impersonation fallback).
+func ServeProxy(writer http.ResponseWriter, request *http.Request, forwardedHost *url.URL, rt http.RoundTripper) {
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			for _, header := range []string{
