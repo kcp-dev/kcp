@@ -664,7 +664,7 @@ func TestInitializingWorkspacesVirtualWorkspaceInitializerPermissions(t *testing
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 	t.Log("Create a workspace of that type; it will get stuck in Initializing because the initializer is not removed")
-	wsTemplate := workspaceForType(wst, map[string]string{"internal.kcp.io/e2e-test": t.Name()})
+	wsTemplate := workspaceForType(wst, map[string]string{"internal.kcp.io/e2e-test": "initializer-permissions"})
 	var ws *tenancyv1alpha1.Workspace
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		// Don't reassign wsTemplate on error: Create returns (nil, err) on failure,
