@@ -78,6 +78,13 @@ func getAuthConfigKey(authConfig *tenancyv1alpha1.WorkspaceAuthenticationConfigu
 }
 
 // buildAuthenticator builds a JWT authenticator from the provided WAC.
+//
+// The returned authenticator is not necessarily initialized yet; the upstream
+// JWT authenticator performs OIDC discovery asynchronously. Callers on the
+// request hot path (lazy index) should waitForAuthenticatorInit before serving
+// requests. Callers driven by informer events (eager index) intentionally do
+// not wait, so that a slow discovery does not block the informer event handler
+// or silently drop the authenticator on timeout.
 func buildAuthenticator(
 	lifecycleCtx context.Context,
 	baseAudiences authenticator.Audiences,
@@ -104,36 +111,36 @@ func buildAuthenticator(
 		return authenticatorState{}, errCauseEmpty
 	}
 
-	if len(wac.Spec.JWT) > 0 {
-		// There shouldn't be an authenticator without at least one JWT
-		// at the very least because the spec validates this but better
-		// safe than sorry.
+	return authenticatorState{cancel: cancel, authenticator: authn}, nil
+}
 
-		// Wait for the authenticator to be initialized.
-		//
-		// The authenticators do have a healthcheck, however this healthcheck is not exposed
-		// and it is not easy to expose without intrusive changes.
-		//
-		// An alternative would've been to use the update function returned by kubeAuthConfig.New
-		// which _does_ wait until the authenticator's healthcheck are ready, however that would
-		// create each authenticator twice and just discard the first iteration.
-		//
-		// Instead the authenticator is validated by continually authenticating a dummy token
-		// created with the first issuer until the error is no longer "not initialized".
-		dummyToken := dummyTokenForIssuer(wac.Spec.JWT[0].Issuer.URL)
-		if err := wait.PollUntilContextTimeout(ctx, time.Second, authenticatorSetupTimeout, true, func(ctx context.Context) (bool, error) {
-			dummyReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
-			dummyReq.Header.Set("Authorization", "Bearer "+dummyToken)
-			_, _, err := authn.AuthenticateRequest(dummyReq)
-			return err == nil || !strings.Contains(err.Error(), "not initialized"), nil
-		}); err != nil {
-			logger.Error(err, "Failed to validate workspace authenticator.")
-			cancel(fmt.Errorf("authenticator failed to validate within %q: %w", authenticatorSetupTimeout, err))
-			return authenticatorState{}, err
-		}
+// waitForAuthenticatorInit blocks until the authenticator's underlying JWT
+// verifier has been initialized (i.e. OIDC discovery has completed), or until
+// authenticatorSetupTimeout elapses.
+//
+// The authenticators do have a healthcheck, however this healthcheck is not
+// exposed and it is not easy to expose without intrusive changes.
+//
+// An alternative would've been to use the update function returned by
+// kubeAuthConfig.New which _does_ wait until the authenticator's healthcheck
+// are ready, however that would create each authenticator twice and just
+// discard the first iteration.
+//
+// Instead the authenticator is validated by continually authenticating a
+// dummy token created with the first issuer until the error is no longer
+// "not initialized".
+func waitForAuthenticatorInit(ctx context.Context, authn authenticator.Request, wac *tenancyv1alpha1.WorkspaceAuthenticationConfiguration) error {
+	if len(wac.Spec.JWT) == 0 {
+		return nil
 	}
 
-	return authenticatorState{cancel: cancel, authenticator: authn}, nil
+	dummyToken := dummyTokenForIssuer(wac.Spec.JWT[0].Issuer.URL)
+	return wait.PollUntilContextTimeout(ctx, time.Second, authenticatorSetupTimeout, true, func(ctx context.Context) (bool, error) {
+		dummyReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/", http.NoBody)
+		dummyReq.Header.Set("Authorization", "Bearer "+dummyToken)
+		_, _, err := authn.AuthenticateRequest(dummyReq)
+		return err == nil || !strings.Contains(err.Error(), "not initialized"), nil
+	})
 }
 
 func dummyTokenForIssuer(issuer string) string {
