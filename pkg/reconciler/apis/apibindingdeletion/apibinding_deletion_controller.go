@@ -261,6 +261,14 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		return remainingErr
 	}
 
+	// Commit the status update from mutateResourceRemainingStatus first.
+	// The committer rejects simultaneous spec/metadata + status changes, so the
+	// finalizer removal below must go in a separate patch.
+	statusResource := &Resource{ObjectMeta: apibindingCopy.ObjectMeta, Spec: &apibindingCopy.Spec, Status: &apibindingCopy.Status}
+	if err := c.commit(ctx, oldResource, statusResource); err != nil {
+		return err
+	}
+
 	filtered := make([]string, 0, len(apibindingCopy.Finalizers))
 	for i := range apibindingCopy.Finalizers {
 		if apibindingCopy.Finalizers[i] == APIBindingFinalizer {
@@ -271,9 +279,11 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	if len(apibindingCopy.Finalizers) == len(filtered) {
 		return nil
 	}
-	apibindingCopy.Finalizers = filtered
+	finalizersCopy := apibindingCopy.DeepCopy()
+	finalizersCopy.Finalizers = filtered
 	logger.V(2).Info("finalizing APIBinding")
-	newResource := &Resource{ObjectMeta: apibindingCopy.ObjectMeta, Spec: &apibindingCopy.Spec, Status: &apibindingCopy.Status}
+	oldResource = &Resource{ObjectMeta: apibindingCopy.ObjectMeta, Spec: &apibindingCopy.Spec, Status: &apibindingCopy.Status}
+	newResource := &Resource{ObjectMeta: finalizersCopy.ObjectMeta, Spec: &finalizersCopy.Spec, Status: &finalizersCopy.Status}
 	return c.commit(ctx, oldResource, newResource)
 }
 
