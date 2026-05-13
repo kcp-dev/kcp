@@ -68,6 +68,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpconversion "github.com/kcp-dev/kcp/pkg/conversion"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -676,11 +677,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.Apis = kubeControlPlane
 	admissionPluginInitializers = append(admissionPluginInitializers, kubePluginInitializer...)
 
-	authInfoResolver := webhook.NewDefaultAuthenticationInfoResolverWrapper(kubeControlPlane.ProxyTransport, kubeControlPlane.Generic.EgressSelector, kubeControlPlane.Generic.LoopbackClientConfig, kubeControlPlane.Generic.TracerProvider)
-	conversionFactory, err := NewCRConverterFactory(serviceResolver, authInfoResolver)
-	if err != nil {
-		return nil, err
-	}
+	conversionFactory := kcpconversion.NewCRConverterFactory(
+		c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
+		opts.Extra.ConversionCELTransformationTimeout,
+		kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIConversion),
+	)
+	// make sure the informer gets started, otherwise conversions will not work!
+	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
+
 	apiextGenericConfig := *c.GenericConfig
 	apiextGenericConfig.SkipOpenAPIInstallation = true // we run our own OpenAPI service
 	c.ApiExtensions, err = controlplaneapiserver.CreateAPIExtensionsConfig(
@@ -693,9 +697,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, fmt.Errorf("error configuring api extensions: %w", err)
 	}
-
-	// make sure the informer gets started, otherwise conversions will not work!
-	_ = c.KcpSharedInformerFactory.Apis().V1alpha1().APIConversions().Informer()
 
 	_ = c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer().AddIndexers(cache.Indexers{
