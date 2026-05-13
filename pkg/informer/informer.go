@@ -234,26 +234,30 @@ func NewDiscoveringDynamicSharedInformerFactory(
 	gvrSource GVRSource,
 	indexers cache.Indexers,
 ) (*DiscoveringDynamicSharedInformerFactory, error) {
+	d := &DiscoveringDynamicSharedInformerFactory{}
+
 	f, err := NewGenericDiscoveringDynamicSharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister](
 		func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
 			indexers[kcpcache.ClusterIndexName] = kcpcache.ClusterIndexFunc
 			indexers[kcpcache.ClusterAndNamespaceIndexName] = kcpcache.ClusterAndNamespaceIndexFunc
-			return kcpdynamicinformer.NewFilteredDynamicInformer(
+			inf := kcpdynamicinformer.NewFilteredDynamicInformer(
 				dynamicClusterClient,
 				gvr,
 				resyncPeriod,
 				indexers,
 				tweakListOptions,
 			)
+			// TODO handle error
+			_ = inf.Informer().SetIgnoreFunc(d.isClusterIgnored)
+			return inf
 		},
 		filterFunc,
 		gvrSource,
 		indexers,
 	)
 
-	return &DiscoveringDynamicSharedInformerFactory{
-		GenericDiscoveringDynamicSharedInformerFactory: f,
-	}, err
+	d.GenericDiscoveringDynamicSharedInformerFactory = f
+	return d, err
 }
 
 // DiscoveringDynamicSharedInformerFactory is a factory for cluster-aware
@@ -263,6 +267,8 @@ func NewDiscoveringDynamicSharedInformerFactory(
 // based on the main informer factory, but scoped for a given logical cluster.
 type DiscoveringDynamicSharedInformerFactory struct {
 	*GenericDiscoveringDynamicSharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister, kcpinformers.GenericClusterInformer]
+
+	ignoredClusters sync.Map // logicalcluster.Name → struct{}
 }
 
 func (d *DiscoveringDynamicSharedInformerFactory) Cluster(cluster logicalcluster.Name) kcpinformers.ScopedDynamicSharedInformerFactory {
@@ -280,6 +286,34 @@ func (d *DiscoveringDynamicSharedInformerFactory) ClusterWithContext(ctx context
 	}
 
 	return informer
+}
+
+func (d *DiscoveringDynamicSharedInformerFactory) IgnoreCluster(cluster logicalcluster.Name) {
+	d.ignoredClusters.Store(cluster, struct{}{})
+
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	for _, inf := range d.informers {
+		indexer := inf.Informer().GetIndexer()
+		items, err := indexer.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(cluster))
+		if err != nil {
+			continue
+		}
+		for _, obj := range items {
+			_ = indexer.Delete(obj)
+		}
+	}
+}
+
+func (d *DiscoveringDynamicSharedInformerFactory) isClusterIgnored(obj interface{}) bool {
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return false
+	}
+	cluster := logicalcluster.From(accessor)
+	_, excluded := d.ignoredClusters.Load(cluster)
+	return excluded
 }
 
 type scopedDiscoveringDynamicSharedInformerFactory struct {
