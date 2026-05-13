@@ -227,6 +227,16 @@ func InstallIndexers(
 			Local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
 			Global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
 		},
+		admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingadmissionpolicies"): {
+			Kind:   "MutatingAdmissionPolicy",
+			Local:  localKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicies().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicies().Informer(),
+		},
+		admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingadmissionpolicybindings"): {
+			Kind:   "MutatingAdmissionPolicyBinding",
+			Local:  localKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
+		},
 		admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
 			Kind:   "ValidatingWebhookConfiguration",
 			Local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),

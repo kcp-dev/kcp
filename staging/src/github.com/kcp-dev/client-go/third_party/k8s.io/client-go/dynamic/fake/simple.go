@@ -453,7 +453,6 @@ func (c *dynamicResourceClient) List(ctx context.Context, opts metav1.ListOption
 	case len(c.namespace) > 0:
 		obj, err = c.client.Fake.
 			Invokes(kcptesting.NewListActionWithOptions(c.resource, c.client.clusterPath, listForFakeClientGVK, c.namespace, opts), &metav1.Status{Status: "dynamic list fail"})
-
 	}
 
 	if obj == nil {
@@ -493,6 +492,7 @@ func (c *dynamicResourceClient) List(ctx context.Context, opts metav1.ListOption
 }
 
 func (c *dynamicResourceClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	opts.Watch = true
 	switch {
 	case len(c.namespace) == 0:
 		return c.client.Fake.
@@ -501,7 +501,6 @@ func (c *dynamicResourceClient) Watch(ctx context.Context, opts metav1.ListOptio
 	case len(c.namespace) > 0:
 		return c.client.Fake.
 			InvokesWatch(kcptesting.NewWatchActionWithOptions(c.resource, c.client.clusterPath, c.namespace, opts))
-
 	}
 
 	panic("math broke")

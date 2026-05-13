@@ -42,8 +42,6 @@ import (
 	authorizationv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/authorization/v1beta1"
 	autoscalingv1 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v1"
 	autoscalingv2 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2"
-	autoscalingv2beta1 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2beta1"
-	autoscalingv2beta2 "github.com/kcp-dev/client-go/kubernetes/typed/autoscaling/v2beta2"
 	batchv1 "github.com/kcp-dev/client-go/kubernetes/typed/batch/v1"
 	batchv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/batch/v1beta1"
 	certificatesv1 "github.com/kcp-dev/client-go/kubernetes/typed/certificates/v1"
@@ -77,7 +75,7 @@ import (
 	resourcev1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta1"
 	resourcev1beta2 "github.com/kcp-dev/client-go/kubernetes/typed/resource/v1beta2"
 	schedulingv1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1"
-	schedulingv1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha1"
+	schedulingv1alpha2 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1alpha2"
 	schedulingv1beta1 "github.com/kcp-dev/client-go/kubernetes/typed/scheduling/v1beta1"
 	storagev1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1"
 	storagev1alpha1 "github.com/kcp-dev/client-go/kubernetes/typed/storage/v1alpha1"
@@ -103,8 +101,6 @@ type ClusterInterface interface {
 	AuthorizationV1beta1() authorizationv1beta1.AuthorizationV1beta1ClusterInterface
 	AutoscalingV1() autoscalingv1.AutoscalingV1ClusterInterface
 	AutoscalingV2() autoscalingv2.AutoscalingV2ClusterInterface
-	AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1ClusterInterface
-	AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2ClusterInterface
 	BatchV1() batchv1.BatchV1ClusterInterface
 	BatchV1beta1() batchv1beta1.BatchV1beta1ClusterInterface
 	CertificatesV1() certificatesv1.CertificatesV1ClusterInterface
@@ -138,7 +134,7 @@ type ClusterInterface interface {
 	ResourceV1beta1() resourcev1beta1.ResourceV1beta1ClusterInterface
 	ResourceV1beta2() resourcev1beta2.ResourceV1beta2ClusterInterface
 	SchedulingV1() schedulingv1.SchedulingV1ClusterInterface
-	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface
+	SchedulingV1alpha2() schedulingv1alpha2.SchedulingV1alpha2ClusterInterface
 	SchedulingV1beta1() schedulingv1beta1.SchedulingV1beta1ClusterInterface
 	StorageV1() storagev1.StorageV1ClusterInterface
 	StorageV1alpha1() storagev1alpha1.StorageV1alpha1ClusterInterface
@@ -164,8 +160,6 @@ type ClusterClientset struct {
 	authorizationV1beta1          *authorizationv1beta1.AuthorizationV1beta1ClusterClient
 	autoscalingV1                 *autoscalingv1.AutoscalingV1ClusterClient
 	autoscalingV2                 *autoscalingv2.AutoscalingV2ClusterClient
-	autoscalingV2beta1            *autoscalingv2beta1.AutoscalingV2beta1ClusterClient
-	autoscalingV2beta2            *autoscalingv2beta2.AutoscalingV2beta2ClusterClient
 	batchV1                       *batchv1.BatchV1ClusterClient
 	batchV1beta1                  *batchv1beta1.BatchV1beta1ClusterClient
 	certificatesV1                *certificatesv1.CertificatesV1ClusterClient
@@ -199,7 +193,7 @@ type ClusterClientset struct {
 	resourceV1beta1               *resourcev1beta1.ResourceV1beta1ClusterClient
 	resourceV1beta2               *resourcev1beta2.ResourceV1beta2ClusterClient
 	schedulingV1                  *schedulingv1.SchedulingV1ClusterClient
-	schedulingV1alpha1            *schedulingv1alpha1.SchedulingV1alpha1ClusterClient
+	schedulingV1alpha2            *schedulingv1alpha2.SchedulingV1alpha2ClusterClient
 	schedulingV1beta1             *schedulingv1beta1.SchedulingV1beta1ClusterClient
 	storageV1                     *storagev1.StorageV1ClusterClient
 	storageV1alpha1               *storagev1alpha1.StorageV1alpha1ClusterClient
@@ -283,16 +277,6 @@ func (c *ClusterClientset) AutoscalingV1() autoscalingv1.AutoscalingV1ClusterInt
 // AutoscalingV2 retrieves the AutoscalingV2ClusterClient.
 func (c *ClusterClientset) AutoscalingV2() autoscalingv2.AutoscalingV2ClusterInterface {
 	return c.autoscalingV2
-}
-
-// AutoscalingV2beta1 retrieves the AutoscalingV2beta1ClusterClient.
-func (c *ClusterClientset) AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1ClusterInterface {
-	return c.autoscalingV2beta1
-}
-
-// AutoscalingV2beta2 retrieves the AutoscalingV2beta2ClusterClient.
-func (c *ClusterClientset) AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2ClusterInterface {
-	return c.autoscalingV2beta2
 }
 
 // BatchV1 retrieves the BatchV1ClusterClient.
@@ -460,9 +444,9 @@ func (c *ClusterClientset) SchedulingV1() schedulingv1.SchedulingV1ClusterInterf
 	return c.schedulingV1
 }
 
-// SchedulingV1alpha1 retrieves the SchedulingV1alpha1ClusterClient.
-func (c *ClusterClientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1ClusterInterface {
-	return c.schedulingV1alpha1
+// SchedulingV1alpha2 retrieves the SchedulingV1alpha2ClusterClient.
+func (c *ClusterClientset) SchedulingV1alpha2() schedulingv1alpha2.SchedulingV1alpha2ClusterInterface {
+	return c.schedulingV1alpha2
 }
 
 // SchedulingV1beta1 retrieves the SchedulingV1beta1ClusterClient.
@@ -598,14 +582,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	if err != nil {
 		return nil, err
 	}
-	cs.autoscalingV2beta1, err = autoscalingv2beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	cs.autoscalingV2beta2, err = autoscalingv2beta2.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 	cs.batchV1, err = batchv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -738,7 +714,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	if err != nil {
 		return nil, err
 	}
-	cs.schedulingV1alpha1, err = schedulingv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.schedulingV1alpha2, err = schedulingv1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -797,8 +773,6 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.authorizationV1beta1 = authorizationv1beta1.NewForConfigOrDie(c)
 	cs.autoscalingV1 = autoscalingv1.NewForConfigOrDie(c)
 	cs.autoscalingV2 = autoscalingv2.NewForConfigOrDie(c)
-	cs.autoscalingV2beta1 = autoscalingv2beta1.NewForConfigOrDie(c)
-	cs.autoscalingV2beta2 = autoscalingv2beta2.NewForConfigOrDie(c)
 	cs.batchV1 = batchv1.NewForConfigOrDie(c)
 	cs.batchV1beta1 = batchv1beta1.NewForConfigOrDie(c)
 	cs.certificatesV1 = certificatesv1.NewForConfigOrDie(c)
@@ -832,7 +806,7 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.resourceV1beta1 = resourcev1beta1.NewForConfigOrDie(c)
 	cs.resourceV1beta2 = resourcev1beta2.NewForConfigOrDie(c)
 	cs.schedulingV1 = schedulingv1.NewForConfigOrDie(c)
-	cs.schedulingV1alpha1 = schedulingv1alpha1.NewForConfigOrDie(c)
+	cs.schedulingV1alpha2 = schedulingv1alpha2.NewForConfigOrDie(c)
 	cs.schedulingV1beta1 = schedulingv1beta1.NewForConfigOrDie(c)
 	cs.storageV1 = storagev1.NewForConfigOrDie(c)
 	cs.storageV1alpha1 = storagev1alpha1.NewForConfigOrDie(c)

@@ -235,7 +235,10 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, t
 		}
 	}()
 
-	plugin := validating.NewPlugin(nil)
+	plugin, err := validating.NewPlugin(nil)
+	if err != nil {
+		return nil, err
+	}
 
 	delegate = &stoppableValidatingAdmissionPolicy{
 		Plugin: plugin,

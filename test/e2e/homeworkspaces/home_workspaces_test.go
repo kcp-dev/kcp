@@ -18,18 +18,23 @@ package homeworkspaces
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclusterclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -60,13 +65,22 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	kcpUser2Client := clientFor("user-2-token")
 
 	t.Logf("Get ~ Home workspace URL for user-1")
-	user1Home, err := kcpUser1Client.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
-	require.NoError(t, err, "user-1 should be able to get ~ workspace")
+	var user1Home *tenancyv1alpha1.Workspace
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		var err error
+		user1Home, err = kcpUser1Client.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, "~", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error getting ~ workspace: %v", err)
+		}
+		if user1Home.Status.Phase != corev1alpha1.LogicalClusterPhaseReady {
+			return false, fmt.Sprintf("home workspace not ready, phase: %s", user1Home.Status.Phase)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "user-1 should be able to get ~ workspace in ready phase")
 	require.NotEqual(t, metav1.Time{}, user1Home.CreationTimestamp, "should have a creation timestamp, i.e. is not virtual")
-	require.Equal(t, corev1alpha1.LogicalClusterPhaseReady, user1Home.Status.Phase, "created home workspace should be ready")
 
 	t.Logf("Get the logical cluster inside user:user-1 (alias of ~)")
-	_, err = kcpUser1Client.Cluster(logicalcluster.NewPath("user:user-1")).CoreV1alpha1().LogicalClusters().Get(ctx, "cluster", metav1.GetOptions{})
+	_, err := kcpUser1Client.Cluster(logicalcluster.NewPath("user:user-1")).CoreV1alpha1().LogicalClusters().Get(ctx, "cluster", metav1.GetOptions{})
 	require.NoError(t, err, "user-1 should be able to get a logical cluster in home workspace")
 
 	t.Logf("Get ~ Home workspace URL for user-2")

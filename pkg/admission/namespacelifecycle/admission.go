@@ -70,12 +70,12 @@ type workspaceNamespaceLifecycle struct {
 }
 
 func newWorkspaceNamespaceLifecycle() (*workspaceNamespaceLifecycle, error) {
-	legacyLifecycle, err := lifecycle.NewLifecycle(sets.NewString(metav1.NamespaceDefault, metav1.NamespaceSystem, metav1.NamespacePublic))
+	legacyLifecycle, err := lifecycle.NewLifecycle(sets.New[string](metav1.NamespaceDefault, metav1.NamespaceSystem, metav1.NamespacePublic))
 	if err != nil {
 		return nil, err
 	}
 
-	lifecycle, err := lifecycle.NewLifecycle(sets.NewString())
+	lifecycle, err := lifecycle.NewLifecycle(sets.New[string]())
 	if err != nil {
 		return nil, err
 	}

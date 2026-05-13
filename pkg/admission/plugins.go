@@ -31,13 +31,17 @@ import (
 	certsigning "k8s.io/kubernetes/plugin/pkg/admission/certificates/signing"
 	certsubjectrestriction "k8s.io/kubernetes/plugin/pkg/admission/certificates/subjectrestriction"
 	"k8s.io/kubernetes/plugin/pkg/admission/defaulttolerationseconds"
+	jobadmission "k8s.io/kubernetes/plugin/pkg/admission/job"
 	"k8s.io/kubernetes/plugin/pkg/admission/limitranger"
 	"k8s.io/kubernetes/plugin/pkg/admission/network/defaultingressclass"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodedeclaredfeatures"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodetaint"
+	"k8s.io/kubernetes/plugin/pkg/admission/podgroup"
+	"k8s.io/kubernetes/plugin/pkg/admission/podresize"
 	"k8s.io/kubernetes/plugin/pkg/admission/podtopologylabels"
 	podpriority "k8s.io/kubernetes/plugin/pkg/admission/priority"
 	"k8s.io/kubernetes/plugin/pkg/admission/runtimeclass"
+	"k8s.io/kubernetes/plugin/pkg/admission/scheduling/podgroupprotection"
 	"k8s.io/kubernetes/plugin/pkg/admission/security/podsecurity"
 	"k8s.io/kubernetes/plugin/pkg/admission/serviceaccount"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/persistentvolume/resize"
@@ -54,6 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
+	kcpmutatingadmissionpolicy "github.com/kcp-dev/kcp/pkg/admission/mutatingadmissionpolicy"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
 	"github.com/kcp-dev/kcp/pkg/admission/pathannotation"
@@ -86,6 +91,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
 	kcpmutatingwebhook.PluginName,
+	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
@@ -127,6 +133,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	apiexportendpointslice.Register(plugins)
 	workspacenamespacelifecycle.Register(plugins)
 	kcpmutatingwebhook.Register(plugins)
+	kcpmutatingadmissionpolicy.Register(plugins)
 	kcpvalidatingadmissionpolicy.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
 	reservedcrdannotations.Register(plugins)
@@ -159,6 +166,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
 	kcpmutatingwebhook.PluginName,
+	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
 	reservedcrdannotations.PluginName,
@@ -198,6 +206,10 @@ var defaultOnKubePluginsInKube = sets.New[string](
 	podtopologylabels.PluginName,            // PodTopologyLabels
 	mutatingadmissionpolicy.PluginName,      // MutatingAdmissionPolicy
 	nodedeclaredfeatures.PluginName,         // NodeDeclaredFeatureValidator
+	jobadmission.PluginName,                 // JobValidation, only active when feature gate WorkloadWithJob is enabled
+	podgroupprotection.PluginName,           // PodGroupProtection
+	podgroup.PluginName,                     // PodGroupWorkloadExists, only active when feature gate GenericWorkload is enabled
+	podresize.PluginName,                    // PodResizeValidator, only active when feature gate InPlacePodVerticalScaling is enabled
 )
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kcp.

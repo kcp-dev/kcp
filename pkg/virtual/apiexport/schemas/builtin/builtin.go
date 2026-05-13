@@ -252,6 +252,26 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 	},
 	{
 		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "mutatingadmissionpolicies",
+			Singular: "mutatingadmissionpolicy",
+			Kind:     "MutatingAdmissionPolicy",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1"},
+		Instance:      &admissionregistrationv1.MutatingAdmissionPolicy{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "mutatingadmissionpolicybindings",
+			Singular: "mutatingadmissionpolicybinding",
+			Kind:     "MutatingAdmissionPolicyBinding",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1"},
+		Instance:      &admissionregistrationv1.MutatingAdmissionPolicyBinding{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
 			Plural:   "validatingadmissionpolicies",
 			Singular: "validatingadmissionpolicy",
 			Kind:     "ValidatingAdmissionPolicy",

@@ -29,6 +29,7 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
 	logsapi "k8s.io/component-base/logs/api/v1"
+	kubefeatures "k8s.io/kubernetes/pkg/features"
 )
 
 const (
@@ -196,6 +197,23 @@ func disableFeatures() error {
 		// We disable SizeBasedListCostEstimate by default in kcp as stats collector does not have cluster awarness yet.
 		// We add this here to track changes in future k8s releases.
 		genericfeatures.SizeBasedListCostEstimate: false,
+
+		// UnknownVersionInteroperabilityProxy causes the apiserver to
+		// connect to etcd before starting up - including before
+		// embeddedetcd is started. The feature allows an apiserver to
+		// proxy to another apiserver in the fleet in case a request
+		// cannot be handled due to the version not being known by the
+		// apiserver.
+		genericfeatures.UnknownVersionInteroperabilityProxy: false,
+
+		// DynamicResourceAllocation is irrelevant in kcp.
+		kubefeatures.DRAExtendedResource: false,
+
+		// WatchCacheInitializationPostStartHook blocks /readyz until
+		// all built-in APIs report ready. This isn't a problem for kcp
+		// but causes the e2e home workspace tests to fail.
+		// Disabling the feature gate for now and fixing the tests later.
+		genericfeatures.WatchCacheInitializationPostStartHook: false,
 	}
 	for f, v := range toDisable {
 		err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=%v", f, v))

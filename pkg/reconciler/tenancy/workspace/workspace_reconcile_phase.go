@@ -42,7 +42,7 @@ type phaseReconciler struct {
 // logicalClusterTimeout is the time limit for a logical cluster to
 // appear for the shard before marking its corresponding Workspace as
 // Unavailable.
-const logicalClusterTimeout = time.Second
+const logicalClusterTimeout = time.Minute
 
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx).WithValues("reconciler", "phase")

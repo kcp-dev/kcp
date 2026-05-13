@@ -966,6 +966,8 @@ var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = 
 	gvrFor("rbac.authorization.k8s.io", "v1", "rolebindings"):                         withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "RoleBinding", "rolebinding"),
 	gvrFor("events.k8s.io", "v1", "events"):                                           withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Event", "event"),
 	gvrFor("admissionregistration.k8s.io", "v1", "mutatingwebhookconfigurations"):     withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingWebhookConfiguration", "mutatingwebhookconfiguration"),
+	gvrFor("admissionregistration.k8s.io", "v1", "mutatingadmissionpolicies"):         withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingAdmissionPolicy", "mutatingadmissionpolicy"),
+	gvrFor("admissionregistration.k8s.io", "v1", "mutatingadmissionpolicybindings"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "MutatingAdmissionPolicyBinding", "mutatingadmissionpolicybinding"),
 	gvrFor("admissionregistration.k8s.io", "v1", "validatingadmissionpolicies"):       withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingAdmissionPolicy", "validatingadmissionpolicy"),
 	gvrFor("admissionregistration.k8s.io", "v1", "validatingadmissionpolicybindings"): withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingAdmissionPolicyBinding", "validatingadmissionpolicybinding"),
 	gvrFor("admissionregistration.k8s.io", "v1", "validatingwebhookconfigurations"):   withGVRPartialMetadata(apiextensionsv1.ClusterScoped, "ValidatingWebhookConfiguration", "validatingwebhookconfiguration"),

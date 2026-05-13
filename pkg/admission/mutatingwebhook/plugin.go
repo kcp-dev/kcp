@@ -123,8 +123,7 @@ func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 
 	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
 	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
-	plugin.SetHookSource(hookSource)
-	plugin.SetReadyFuncFromKCP(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
+	plugin.SetAPISource(hookSource)
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		return fmt.Errorf("error validating MutatingWebhook initialization: %w", err)

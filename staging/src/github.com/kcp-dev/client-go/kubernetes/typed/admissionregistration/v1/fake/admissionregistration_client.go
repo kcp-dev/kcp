@@ -40,6 +40,14 @@ func (c *AdmissionregistrationV1ClusterClient) Cluster(clusterPath logicalcluste
 	return &AdmissionregistrationV1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+func (c *AdmissionregistrationV1ClusterClient) MutatingAdmissionPolicies() kcpadmissionregistrationv1.MutatingAdmissionPolicyClusterInterface {
+	return newFakeMutatingAdmissionPolicyClusterClient(c)
+}
+
+func (c *AdmissionregistrationV1ClusterClient) MutatingAdmissionPolicyBindings() kcpadmissionregistrationv1.MutatingAdmissionPolicyBindingClusterInterface {
+	return newFakeMutatingAdmissionPolicyBindingClusterClient(c)
+}
+
 func (c *AdmissionregistrationV1ClusterClient) MutatingWebhookConfigurations() kcpadmissionregistrationv1.MutatingWebhookConfigurationClusterInterface {
 	return newFakeMutatingWebhookConfigurationClusterClient(c)
 }
@@ -59,6 +67,14 @@ func (c *AdmissionregistrationV1ClusterClient) ValidatingWebhookConfigurations()
 type AdmissionregistrationV1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
+}
+
+func (c *AdmissionregistrationV1Client) MutatingAdmissionPolicies() admissionregistrationv1.MutatingAdmissionPolicyInterface {
+	return newFakeMutatingAdmissionPolicyClient(c.Fake, c.ClusterPath)
+}
+
+func (c *AdmissionregistrationV1Client) MutatingAdmissionPolicyBindings() admissionregistrationv1.MutatingAdmissionPolicyBindingInterface {
+	return newFakeMutatingAdmissionPolicyBindingClient(c.Fake, c.ClusterPath)
 }
 
 func (c *AdmissionregistrationV1Client) MutatingWebhookConfigurations() admissionregistrationv1.MutatingWebhookConfigurationInterface {
