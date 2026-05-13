@@ -413,6 +413,106 @@ func TestReconcilePhase(t *testing.T) {
 			wantPhase:  corev1alpha1.LogicalClusterPhaseUnavailable,
 			wantStatus: reconcileStatusContinue,
 		},
+		{
+			name: "workspace ready and being deleted, LogicalCluster has terminators - phase becomes Terminating",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					Status: corev1alpha1.LogicalClusterStatus{
+						Terminators: []corev1alpha1.LogicalClusterTerminator{"terminator-1"},
+					},
+				}, nil
+			},
+			wantPhase:   corev1alpha1.LogicalClusterPhaseTerminating,
+			wantStatus:  reconcileStatusContinue,
+			wantRequeue: true,
+		},
+		{
+			name: "workspace ready and being deleted, LogicalCluster has no terminators - phase becomes Deleting",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					Status: corev1alpha1.LogicalClusterStatus{
+						Terminators: []corev1alpha1.LogicalClusterTerminator{},
+					},
+				}, nil
+			},
+			wantPhase:   corev1alpha1.LogicalClusterPhaseDeleting,
+			wantStatus:  reconcileStatusContinue,
+			wantRequeue: true,
+		},
+		{
+			name: "workspace terminating, LogicalCluster terminators cleared - transitions to Deleting",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase:       corev1alpha1.LogicalClusterPhaseTerminating,
+					Terminators: []corev1alpha1.LogicalClusterTerminator{"terminator-1"},
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					Status: corev1alpha1.LogicalClusterStatus{
+						Terminators: []corev1alpha1.LogicalClusterTerminator{},
+					},
+				}, nil
+			},
+			wantPhase:   corev1alpha1.LogicalClusterPhaseDeleting,
+			wantStatus:  reconcileStatusContinue,
+			wantRequeue: true,
+		},
+		{
+			name: "workspace being deleted, LogicalCluster is gone - WorkspaceContentDeleted set",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseDeleting,
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseDeleting,
+			wantStatus: reconcileStatusContinue,
+			wantCondition: conditionsv1alpha1.Condition{
+				Type:   tenancyv1alpha1.WorkspaceContentDeleted,
+				Status: corev1.ConditionTrue,
+			},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			requeued := false
