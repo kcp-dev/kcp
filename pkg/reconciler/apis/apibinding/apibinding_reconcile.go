@@ -281,10 +281,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		//              for intentional removal of schemas, versus movement of schemas
 		//              to another APIExport.
 		// Read current bindings annotation to check if we need to update
-		bindingsBefore, err := GetBindingsLocks(lc)
-		if err != nil {
-			return err
-		}
+		bindingsBefore := lc.Annotations[LocksBindingsAnnotationKey]
 		lc, _, skipped, err = WithLockedResourcesForBindings(crds, time.Now(), lc, grs.UnsortedList(), ExpirableLock{
 			Lock: Lock{Name: apiBinding.Name},
 		})
@@ -315,21 +312,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			return err
 		}
 
-		// Check if bindings annotation changed by comparing before and after
-		bindingsAfter, err := GetBindingsLocks(lc)
-		if err != nil {
-			return err
-		}
-		bindingsChanged := len(bindingsBefore) != len(bindingsAfter)
-		if !bindingsChanged {
-			for k, v := range bindingsBefore {
-				if v2, ok := bindingsAfter[k]; !ok || v != v2 {
-					bindingsChanged = true
-					break
-				}
-			}
-		}
-		if bindingsChanged {
+		if lc.Annotations[LocksBindingsAnnotationKey] != bindingsBefore {
 			if err := r.updateLogicalCluster(ctx, lc); err != nil {
 				return err
 			}

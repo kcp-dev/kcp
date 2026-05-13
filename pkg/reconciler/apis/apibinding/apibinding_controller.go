@@ -290,10 +290,13 @@ func NewController(
 			c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](obj), logger, "")
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			was := old.(*corev1alpha1.LogicalCluster).Annotations[ResourceBindingsAnnotationKey]
-			is := obj.(*corev1alpha1.LogicalCluster).Annotations[ResourceBindingsAnnotationKey]
-			if was != is {
-				c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](obj), logger, "")
+			oldLC := old.(*corev1alpha1.LogicalCluster)
+			newLC := obj.(*corev1alpha1.LogicalCluster)
+			for _, key := range []string{LocksBindingsAnnotationKey, LocksCRDsAnnotationKey, LocksPendingAnnotationKey} {
+				if oldLC.Annotations[key] != newLC.Annotations[key] {
+					c.enqueueLogicalCluster(tombstone.Obj[*corev1alpha1.LogicalCluster](obj), logger, "")
+					return
+				}
 			}
 		},
 	}))
