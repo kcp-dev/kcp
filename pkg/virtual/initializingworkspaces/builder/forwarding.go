@@ -19,6 +19,7 @@ package builder
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -224,10 +225,8 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 					if len(previous)-len(current) != 1 {
 						return invalidUpdateErr
 					}
-					for _, item := range current {
-						if item == string(initializer) {
-							return invalidUpdateErr
-						}
+					if slices.Contains(current, string(initializer)) {
+						return invalidUpdateErr
 					}
 				}
 				return updateValidation(ctx, obj, old)

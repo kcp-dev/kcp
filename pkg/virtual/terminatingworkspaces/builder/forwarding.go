@@ -220,11 +220,16 @@ func validateTerminatorStatusUpdate(terminator corev1alpha1.LogicalClusterTermin
 			)},
 		)
 
-		if len(previous)-len(current) != 1 {
-			return invalidUpdateErr
-		}
-		if slices.Contains(current, string(terminator)) {
-			return invalidUpdateErr
+		// Allow updates that don't touch terminators (e.g. condition-only status
+		// updates while termination is still pending). Otherwise require exactly one
+		// terminator removed and it must be the one this VW is scoped to.
+		if len(previous) != len(current) {
+			if len(previous)-len(current) != 1 {
+				return invalidUpdateErr
+			}
+			if slices.Contains(current, string(terminator)) {
+				return invalidUpdateErr
+			}
 		}
 
 		return nil

@@ -78,9 +78,30 @@ func TestValidateOnlyTerminatorChanged(t *testing.T) {
 		},
 		{
 			name:   "no object changes",
-			expErr: true, // we expect an error here, as we always expect the number of terminators to decrease
+			expErr: false, // condition-only status updates that don't touch terminators are allowed
 			old:    &corev1alpha1.LogicalCluster{},
 			new:    &corev1alpha1.LogicalCluster{},
+		},
+		{
+			name:       "no terminator change with terminators present",
+			expErr:     false,
+			terminator: "t1",
+			old: &corev1alpha1.LogicalCluster{
+				Status: corev1alpha1.LogicalClusterStatus{
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"t1",
+						"t2",
+					},
+				},
+			},
+			new: &corev1alpha1.LogicalCluster{
+				Status: corev1alpha1.LogicalClusterStatus{
+					Terminators: []corev1alpha1.LogicalClusterTerminator{
+						"t1",
+						"t2",
+					},
+				},
+			},
 		},
 	}
 
