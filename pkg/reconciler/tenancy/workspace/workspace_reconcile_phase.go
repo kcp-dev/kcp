@@ -145,13 +145,18 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 					return reconcileStatusContinue, nil
 				}
 
-				// mirror phase + terminators from the LogicalCluster so that the user-facing
-				// workspace reflects whether terminators are still running (Terminating) or
-				// the cluster is being finalized (Deleting).
+				// Mirror terminators from the LogicalCluster, then derive the phase the
+				// same way the LogicalCluster's phase reconciler does. Computing locally
+				// (instead of mirroring logicalCluster.Status.Phase) avoids a window
+				// where the WS phase stays Ready because the LC phase reconciler — a
+				// separate controller — has not yet flipped LC.Status.Phase to
+				// Terminating/Deleting. Without this, users see Phase=Ready on a
+				// workspace that has DeletionTimestamp set.
 				workspace.Status.Terminators = logicalCluster.Status.Terminators
-				if logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseTerminating ||
-					logicalCluster.Status.Phase == corev1alpha1.LogicalClusterPhaseDeleting {
-					workspace.Status.Phase = logicalCluster.Status.Phase
+				if len(workspace.Status.Terminators) > 0 {
+					workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseTerminating
+				} else {
+					workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseDeleting
 				}
 
 				if !conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceContentDeleted) {
