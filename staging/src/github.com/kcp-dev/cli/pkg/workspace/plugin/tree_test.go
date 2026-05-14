@@ -161,6 +161,46 @@ func TestPopulateBranch_NormalWorkspace(t *testing.T) {
 		"expected normal workspace NOT to be marked as [m]")
 }
 
+// TestPopulateBranch_MountWorkspaceWithClustersURL verifies that a workspace
+// whose Spec.Mount is non-nil but whose Spec.URL still contains a /clusters/
+// segment is rendered as a leaf rather than recursed into. Mount provider URLs
+// often look like /services/<provider>/clusters/<parent>/... — that segment
+// resolves back to the parent cluster, so recursing would loop forever.
+func TestPopulateBranch_MountWorkspaceWithClustersURL(t *testing.T) {
+	// URL contains /clusters/root/, which would otherwise cause populateBranch
+	// to recurse into "root" (the same cluster it was just listing).
+	mountURLWithClusters := "https://localhost:9443/services/edges-proxy/clusters/root/apis/example.io/v1/edges/mounted-ws/k8s"
+
+	mountWS := &tenancyv1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "mounted-ws",
+			Annotations: map[string]string{logicalcluster.AnnotationKey: "root"},
+		},
+		Spec: tenancyv1alpha1.WorkspaceSpec{
+			URL:   mountURLWithClusters,
+			Mount: &tenancyv1alpha1.Mount{},
+		},
+	}
+
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	streams := genericclioptions.IOStreams{
+		In:     strings.NewReader(""),
+		Out:    out,
+		ErrOut: errOut,
+	}
+
+	o := newTreeOptions(streams, "https://test/clusters/root", mountWS)
+
+	tree := treeprint.New()
+	err := o.populateBranch(context.Background(), tree, logicalcluster.NewPath("root"), "root")
+	require.NoError(t, err, "populateBranch should not error or loop for a mount workspace whose URL contains /clusters/")
+
+	treeStr := tree.String()
+	require.Contains(t, treeStr, "mounted-ws [m]",
+		"expected mount workspace to be rendered as a '<name> [m]' leaf, not recursed into")
+}
+
 // TestRun_MountContextURL verifies that when the kubeconfig host points to a
 // non-standard (mount) URL, Run does not return an error; instead it prints a
 // message to Out and returns immediately (no fallback to root).
