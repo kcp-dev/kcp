@@ -19,6 +19,7 @@ package builder
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -216,11 +217,14 @@ func withUpdateValidation(initializer corev1alpha1.LogicalClusterInitializer) re
 						fmt.Sprintf("only removing the %q initializer is supported", initializer),
 					)},
 				)
-				if len(previous)-len(current) != 1 {
-					return invalidUpdateErr
-				}
-				for _, item := range current {
-					if item == string(initializer) {
+				// Allow updates that don't touch initializers (e.g. condition-only status
+				// updates while bindings are still pending). Otherwise require exactly one
+				// initializer removed and it must be the one this VW is scoped to.
+				if len(previous) != len(current) {
+					if len(previous)-len(current) != 1 {
+						return invalidUpdateErr
+					}
+					if slices.Contains(current, string(initializer)) {
 						return invalidUpdateErr
 					}
 				}
