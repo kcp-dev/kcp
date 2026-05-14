@@ -57,6 +57,11 @@ func KubectlKcpCommand() *cobra.Command {
 	// setup klog
 	fs := goflags.NewFlagSet("klog", goflags.PanicOnError)
 	klog.InitFlags(fs)
+	// Opt into the new klog behavior so that -stderrthreshold is honored even
+	// when -logtostderr=true (the default).
+	// Ref: kubernetes/klog#212, kubernetes/klog#432
+	_ = fs.Set("legacy_stderr_threshold_behavior", "false")
+	_ = fs.Set("stderrthreshold", "INFO")
 	root.PersistentFlags().AddGoFlagSet(fs)
 
 	if v := version.Get().String(); len(v) == 0 {
