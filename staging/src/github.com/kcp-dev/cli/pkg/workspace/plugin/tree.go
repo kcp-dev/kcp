@@ -266,37 +266,39 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 			if ws.DeletionTimestamp != nil {
 				continue
 			}
+			// A mounted workspace's content is served by the mount provider, not
+			// by recursive Workspace listing. Represent it as a non-selectable leaf
+			// regardless of whether its proxy URL happens to contain a /clusters/
+			// segment — when it does, that segment typically points back at the
+			// parent cluster, which would cause this recursion to loop forever.
+			if ws.Spec.Mount != nil {
+				childName := ws.Name
+				if o.Full {
+					childName = workspaceName + ":" + childName
+				}
+				// Use the logical parent path + workspace name as an approximation.
+				mountPath := workspace.Join(ws.Name)
+				childWorkspaceInfo := &workspaceInfo{
+					Path:    mountPath,
+					Type:    ws.Spec.Type,
+					Cluster: ws.Spec.Cluster,
+				}
+				childNode := &treeNode{
+					name:           childName + " [m]",
+					path:           mountPath,
+					info:           childWorkspaceInfo,
+					selectable:     false,
+					parent:         node,
+					childrenLoaded: true,
+					apiInfoLoaded:  false,
+					hasChildren:    false,
+				}
+				node.children = append(node.children, childNode)
+				node.hasChildren = true
+				continue
+			}
 			_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
 			if err != nil {
-				if ws.Spec.Mount != nil {
-					// Mounted workspaces use a provider-specific URL that does not
-					// follow the /clusters/ pattern. Represent them as non-selectable
-					// leaf nodes; their content is served by the mount provider.
-					childName := ws.Name
-					if o.Full {
-						childName = workspaceName + ":" + childName
-					}
-					// Use the logical parent path + workspace name as an approximation.
-					mountPath := workspace.Join(ws.Name)
-					childWorkspaceInfo := &workspaceInfo{
-						Path:    mountPath,
-						Type:    ws.Spec.Type,
-						Cluster: ws.Spec.Cluster,
-					}
-					childNode := &treeNode{
-						name:           childName + " [m]",
-						path:           mountPath,
-						info:           childWorkspaceInfo,
-						selectable:     false,
-						parent:         node,
-						childrenLoaded: true,
-						apiInfoLoaded:  false,
-						hasChildren:    false,
-					}
-					node.children = append(node.children, childNode)
-					node.hasChildren = true
-					continue
-				}
 				return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
 			}
 
@@ -374,19 +376,21 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 		if workspace.DeletionTimestamp != nil {
 			continue
 		}
+		// A mounted workspace's content is served by the mount provider, not by
+		// recursive Workspace listing. Render it as a leaf regardless of whether
+		// its proxy URL happens to contain a /clusters/<name>/ segment — when it
+		// does, that segment typically points back at the parent cluster, which
+		// would cause this recursion to loop forever.
+		if workspace.Spec.Mount != nil {
+			name := workspace.Name
+			if o.Full {
+				name = parentName + ":" + name
+			}
+			tree.AddBranch(name + " [m]")
+			continue
+		}
 		_, current, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
 		if err != nil {
-			if workspace.Spec.Mount != nil {
-				// Mounted workspaces use a provider-specific URL that does not follow
-				// the /clusters/ pattern. Add them as leaf nodes since their children
-				// (if any) are served by the mount provider, not by the kcp API.
-				name := workspace.Name
-				if o.Full {
-					name = parentName + ":" + name
-				}
-				tree.AddBranch(name + " [m]")
-				continue
-			}
 			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)
 		}
 		// NOTE(hasheddan): the cluster URL from the Workspace does not use the
