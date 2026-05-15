@@ -29,5 +29,6 @@ import (
 type ScopeableSharedIndexInformer interface {
 	Cluster(clusterName logicalcluster.Name) cache.SharedIndexInformer
 	ClusterWithContext(ctx context.Context, clusterName logicalcluster.Name) cache.SharedIndexInformer
+	SetIgnoreFunc(fn func(interface{}) bool) error
 	cache.SharedIndexInformer
 }
