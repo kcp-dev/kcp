@@ -18,7 +18,32 @@ Origin (DCO). This document was created by the Linux Kernel community and is a
 simple statement that you, as a contributor, have the legal right to make the
 contribution. See the [DCO](https://github.com/kcp-dev/kcp/tree/main/DCO) file for details.
 
+The DCO requires a human to certify the contribution. AI agents cannot legally provide this certification.
+
 For how to correctly set this on your commits, check out the [Getting Started](./getting-started.md#developer-certificate-of-origin-dco) guide.
+
+## Use of AI Coding Assistants
+
+Contributors are welcome to use AI tools to aid development. However, the human author remains fully responsible
+for every contribution they submit. Before opening a pull request, filing an issue, or pushing a commit,
+contributors must review and understand the content in its entirety — just as they would for any code they write themselves.
+
+### Authorship and Responsibility
+
+AI tools are not authors. The human submitting the contribution is the sole author and bears full responsibility for it,
+including correctness, licensing compliance, and adherence to project conventions.
+
+We will not accept contributions that attribute authorship or sign-off to an AI tool. This includes the following
+or similar markers, which shift the responsibility to an AI:
+
+- `Signed-off-by: <AI tool name>`
+- `Co-authored-by: <AI tool name>`
+- `Committed-by: <AI tool name>`
+- `Generated with <AI tool name>`
+
+### Attribution
+
+There is no need to attribute your commit messages using `Assisted-by` markers.
 
 ## Community Roles
 
