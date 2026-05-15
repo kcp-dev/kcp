@@ -55,7 +55,6 @@ type Authentication struct {
 // NewAuthentication creates a default Authentication.
 func NewAuthentication() *Authentication {
 	auth := &Authentication{
-		// Note: when adding new auth methods, also update AdditionalAuthEnabled below
 		BuiltInOptions: kubeoptions.NewBuiltInAuthenticationOptions().
 			WithClientCert().
 			WithOIDC().
@@ -70,19 +69,6 @@ func NewAuthentication() *Authentication {
 	}
 	auth.BuiltInOptions.ServiceAccounts.Issuers = []string{"https://kcp.default.svc"}
 	return auth
-}
-
-// When configured to enable auth other than ClientCert, this returns true.
-func (c *Authentication) AdditionalAuthEnabled() bool {
-	return c.tokenAuthEnabled() || c.serviceAccountAuthEnabled() || c.oidcAuthEnabled()
-}
-
-func (c *Authentication) oidcAuthEnabled() bool {
-	return c.BuiltInOptions.OIDC != nil && c.BuiltInOptions.OIDC.IssuerURL != ""
-}
-
-func (c *Authentication) tokenAuthEnabled() bool {
-	return c.BuiltInOptions.TokenFile != nil && c.BuiltInOptions.TokenFile.TokenFile != ""
 }
 
 func (c *Authentication) serviceAccountAuthEnabled() bool {

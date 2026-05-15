@@ -100,16 +100,11 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		return s, err
 	}
 
-	// The optional auth handler will call the underlying authenticator only if
-	// auth methods are configured directly on the front-proxy *or* if there is
-	// a custom workspace authenticator, i.e. the AdditionalAuthEnabled field
-	// only represents the CLI flag state.
 	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
 	handler = frontproxyfilters.WithOptionalAuthentication(
 		handler,
 		failedHandler,
-		s.completedConfig.AuthenticationInfo.Authenticator,
-		s.CompletedConfig.AdditionalAuthEnabled)
+		s.completedConfig.AuthenticationInfo.Authenticator)
 
 	// Make the per-workspace authenticator available to the previous middleware
 	// by hooking up a handler and a runtime index.
