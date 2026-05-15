@@ -27,6 +27,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -174,6 +175,12 @@ type Reflector struct {
 	isLastSyncResourceVersionUnavailable bool
 	// lastSyncResourceVersionMutex guards read/write access to lastSyncResourceVersion
 	lastSyncResourceVersionMutex sync.RWMutex
+	// activeWatch holds the current watch so ForceRelist can stop it.
+	activeWatch     watch.Interface
+	activeWatchLock sync.Mutex
+	// relistRequested is set by ForceRelist to signal that watch() should
+	// return after the current watch ends, allowing a fresh list cycle.
+	relistRequested atomic.Bool
 	// Called whenever the ListAndWatch drops the connection with an error.
 	// kcp modification: use our local type instead of cache.WatchErrorHandlerWithContext
 	watchErrorHandler WatchErrorHandlerWithContext
@@ -541,6 +548,9 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 	var err error
 	retry := cache.NewRetryWithDeadline(r.MaxInternalErrorRetryDuration, time.Minute, apierrors.IsInternalError, r.clock)
 	defer func() {
+		r.activeWatchLock.Lock()
+		r.activeWatch = nil
+		r.activeWatchLock.Unlock()
 		if w != nil {
 			w.Stop()
 		}
@@ -594,6 +604,10 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 			}
 		}
 
+		r.activeWatchLock.Lock()
+		r.activeWatch = w
+		r.activeWatchLock.Unlock()
+
 		err = handleWatch(ctx, start, w, r.store, r.expectedType, r.expectedGVK, r.name, r.typeDescription,
 			func(rv string, eventReceivedBesidesAdded bool) {
 				// We update the resource version in the store only if we have received at least one event that is
@@ -614,9 +628,15 @@ func (r *Reflector) watch(ctx context.Context, w watch.Interface, resyncerrc cha
 				}
 			},
 			r.clock, resyncerrc)
+		r.activeWatchLock.Lock()
+		r.activeWatch = nil
+		r.activeWatchLock.Unlock()
 		// handleWatch always stops the watcher. So we don't need to here.
 		// Just set it to nil to trigger a retry on the next loop.
 		w = nil
+		if r.relistRequested.CompareAndSwap(true, false) {
+			return nil
+		}
 		retry.After(err)
 		if err != nil {
 			if !errors.Is(err, errorStopRequested) {
@@ -1129,6 +1149,19 @@ func (r *Reflector) setIsLastSyncResourceVersionUnavailable(isUnavailable bool) 
 	r.lastSyncResourceVersionMutex.Lock()
 	defer r.lastSyncResourceVersionMutex.Unlock()
 	r.isLastSyncResourceVersionUnavailable = isUnavailable
+}
+
+// ForceRelist marks the last known resource version as unavailable and
+// sets a marker that a relist was requested and cancels the active watch.
+// This will cause
+func (r *Reflector) ForceRelist() {
+	r.setIsLastSyncResourceVersionUnavailable(true)
+	r.relistRequested.Store(true)
+	r.activeWatchLock.Lock()
+	if r.activeWatch != nil {
+		r.activeWatch.Stop()
+	}
+	r.activeWatchLock.Unlock()
 }
 
 func isExpiredError(err error) bool {

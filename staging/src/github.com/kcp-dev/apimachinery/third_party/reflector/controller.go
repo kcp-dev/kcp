@@ -193,6 +193,20 @@ func (c *controller) LastSyncResourceVersion() string {
 	return c.reflector.LastSyncResourceVersion()
 }
 
+// ForceRelist causes the underlying reflector to perform a full relist
+// on the next list/watch cycle.
+//
+// The relist forces all informers to be consistent with the objects as
+// they are stored in etcd.
+func (c *controller) ForceRelist() {
+	c.reflectorMutex.RLock()
+	defer c.reflectorMutex.RUnlock()
+	if c.reflector == nil {
+		return
+	}
+	c.reflector.ForceRelist()
+}
+
 // processLoop drains the work queue.
 // TODO: Consider doing the processing in parallel. This will require a little thought
 // to make sure that we don't end up processing the same object multiple times

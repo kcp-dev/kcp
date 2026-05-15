@@ -342,6 +342,30 @@ func (s *sharedIndexInformer) SetIgnoreFunc(fn func(interface{}) bool) error {
 	return nil
 }
 
+// ForceRelist causes the underlying reflector to perform a full relist
+// on the next list/watch cycle if it supports it.
+//
+// The relist forces all informers to be consistent with the objects as
+// they are stored in etcd.
+//
+// This method is a kcp addition and forwards the request to the forked
+// controller, which in turn forwards it to the forked reflector.
+func (s *sharedIndexInformer) ForceRelist() {
+	s.startedLock.Lock()
+	defer s.startedLock.Unlock()
+
+	if !s.started {
+		return
+	}
+
+	type forceRelister interface {
+		ForceRelist()
+	}
+	if r, ok := s.controller.(forceRelister); ok {
+		r.ForceRelist()
+	}
+}
+
 func (s *sharedIndexInformer) Run(stopCh <-chan struct{}) {
 	s.RunWithContext(wait.ContextForChannel(stopCh))
 }

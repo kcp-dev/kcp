@@ -314,6 +314,17 @@ func (d *DiscoveringDynamicSharedInformerFactory) PurgeCluster(cluster logicalcl
 	}
 }
 
+// ForceRelist causes all informers to perform a full relist from the
+// apiserver on the next list/watch cycle.
+func (d *DiscoveringDynamicSharedInformerFactory) ForceRelist() {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	for _, inf := range d.informers {
+		inf.Informer().ForceRelist()
+	}
+}
+
 type scopedDiscoveringDynamicSharedInformerFactory struct {
 	*DiscoveringDynamicSharedInformerFactory
 	cluster   logicalcluster.Name
