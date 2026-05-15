@@ -18,6 +18,7 @@ package logicalclustercleanup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -27,7 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/types"
+	utiljson "k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -69,8 +71,34 @@ func NewController(
 		getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 			return logicalClusterInformer.Lister().Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 		},
-		updateLogicalCluster: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
-			_, err := kcpClusterClient.CoreV1alpha1().Cluster(logicalcluster.From(lc).Path()).LogicalClusters().Update(ctx, lc, metav1.UpdateOptions{})
+		updateLogicalClusterCRDs: func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+			// Use SSA to write only to the CRDs annotation key
+			patchObj := &corev1alpha1.LogicalCluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: corev1alpha1.SchemeGroupVersion.String(),
+					Kind:       "LogicalCluster",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: lc.Name,
+					Annotations: map[string]string{
+						apibindingreconciler.LocksCRDsAnnotationKey: lc.Annotations[apibindingreconciler.LocksCRDsAnnotationKey],
+					},
+				},
+			}
+			patchBytes, err := json.Marshal(patchObj)
+			if err != nil {
+				return err
+			}
+			_, err = kcpClusterClient.CoreV1alpha1().Cluster(logicalcluster.From(lc).Path()).LogicalClusters().Patch(
+				ctx,
+				lc.Name,
+				types.ApplyPatchType,
+				patchBytes,
+				metav1.PatchOptions{
+					FieldManager: apibindingreconciler.FieldManagerCRDs,
+					// Force is not needed because each writer uses its own annotation key
+				},
+			)
 			return err
 		},
 		listsCRDs: func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
@@ -124,10 +152,10 @@ func NewController(
 type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
-	getLogicalCluster    func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
-	updateLogicalCluster func(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error
-	listsCRDs            func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
-	listAPIBindings      func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	getLogicalCluster        func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	updateLogicalClusterCRDs func(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error
+	listsCRDs                func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error)
+	listAPIBindings          func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 }
 
 // enqueueLogicalCluster enqueues a LogicalCluster.
@@ -226,12 +254,12 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	logger := logging.WithObject(klog.FromContext(ctx), lc)
 
-	// decode existing annotation.
+	// decode existing CRD annotation - this controller only manages CRD entries.
 	rbs := make(apibindingreconciler.ResourceBindingsAnnotation)
-	annValue, found := lc.Annotations[apibindingreconciler.ResourceBindingsAnnotationKey]
+	annValue, found := lc.Annotations[apibindingreconciler.LocksCRDsAnnotationKey]
 	if found {
-		if err := json.Unmarshal([]byte(annValue), &rbs); err != nil {
-			logger.Error(err, "failed to unmarshal ResourceBindings annotation, resetting")
+		if err := utiljson.Unmarshal([]byte(annValue), &rbs); err != nil {
+			logger.Error(err, "failed to unmarshal CRDs locks annotation, resetting")
 			annValue = ""
 		}
 	}
@@ -249,38 +277,32 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 
-	// migrate or rebuild APIBinding entries from status.boundResources? This happens only once per logical cluster.
-	// After the initial migration this is done by the apibinding controller.
-	if annValue == "" {
-		for _, b := range bindings {
-			for _, br := range b.Status.BoundResources {
-				gr := schema.GroupResource{Group: br.Group, Resource: br.Resource}
-				if old, found := rbs[gr.String()]; !found {
-					rbs[gr.String()] = apibindingreconciler.ExpirableLock{Lock: apibindingreconciler.Lock{Name: b.Name}}
-				} else {
-					logger.Info("resource is already bound to APIBinding. THIS ININCONSISTENT!", "resource", gr.String(), "apibinding", old.Name, "apibinding", b.Name)
+	// migrate CRD entries from legacy annotation if needed
+	// Only migrate if we don't have any CRD entries yet
+	if len(rbs) == 0 {
+		// Check if there's a legacy annotation with CRD entries to migrate
+		legacyAnn, legacyFound := lc.Annotations[apibindingreconciler.ResourceBindingsAnnotationKey] //nolint:staticcheck // SA1019 - using deprecated constant for backward compatibility during migration
+		if legacyFound && legacyAnn != "" {
+			var legacyRbs apibindingreconciler.ResourceBindingsAnnotation
+			if err := utiljson.Unmarshal([]byte(legacyAnn), &legacyRbs); err == nil {
+				for gr, lock := range legacyRbs {
+					if lock.CRD {
+						rbs[gr] = lock
+					}
 				}
-			}
-		}
-	} else {
-		// remove bindings that are gone.
-		bindingNames := make(map[string]bool)
-		for _, b := range bindings {
-			bindingNames[b.Name] = true
-		}
-		for gr, b := range rbs {
-			if b.CRD {
-				continue
-			}
-			if _, found := bindingNames[b.Name]; !found {
-				logger.V(4).Info("removing binding", "binding", b.Name, "resource", gr)
-				delete(rbs, gr)
 			}
 		}
 	}
 
-	// always add CRDs.
+	// Build set of binding names for consistency checking
+	bindingNames := make(map[string]bool)
+	for _, b := range bindings {
+		bindingNames[b.Name] = true
+	}
+
+	// Build set of established CRD names and group-resources
 	crdNames := make(map[string]bool)
+	crdGroupResources := make(map[string]bool)
 	for _, crd := range crds {
 		crdNames[crd.Name] = true
 
@@ -290,46 +312,53 @@ func (c *controller) process(ctx context.Context, key string) error {
 		}
 
 		gr := schema.GroupResource{Group: crd.Spec.Group, Resource: crd.Spec.Names.Plural}
-		if old, found := rbs[gr.String()]; !found {
-			rbs[gr.String()] = apibindingreconciler.ExpirableLock{Lock: apibindingreconciler.Lock{CRD: true}}
-		} else if !old.CRD {
-			logger.Info("CRD exists and is established, but already bound to APIBinding. THIS IS INCONSISTENT!", "resource", gr.String(), "apibinding", old.Name)
-		}
+		crdGroupResources[gr.String()] = true
 	}
 
-	// remove only when expired and gone, remove expiry when CRD exists.
-	for gr, b := range rbs {
-		if !b.CRD {
+	// Build new CRD entries map
+	newRbs := make(apibindingreconciler.ResourceBindingsAnnotation)
+
+	// First, add all established CRDs
+	for gr := range crdGroupResources {
+		newRbs[gr] = apibindingreconciler.ExpirableLock{Lock: apibindingreconciler.Lock{CRD: true}}
+	}
+
+	// Process existing CRD entries: preserve expiry for missing CRDs, clear expiry for existing ones
+	for gr, lock := range rbs {
+		if !lock.CRD {
+			// Skip non-CRD entries - they shouldn't be here but just in case
 			continue
 		}
-		if crdNames[gr] {
-			b.CRDExpiry = nil
-			rbs[gr] = b
+		if crdGroupResources[gr] {
+			// CRD exists and is established, it's already in newRbs above
 			continue
 		}
 
-		// CRD doesn't exist.
-		if b.CRDExpiry != nil && time.Now().After(b.CRDExpiry.Time) {
+		// CRD doesn't exist anymore
+		if lock.CRDExpiry != nil && time.Now().After(lock.CRDExpiry.Time) {
 			logger.V(4).Info("removing expired CRD binding of non-existing CRD", "crd", gr)
-			delete(rbs, gr)
+			// Don't add to newRbs (effectively deleting)
+		} else {
+			// Preserve the entry with its expiry
+			newRbs[gr] = lock
 		}
 	}
 
-	// update annotation on LogicalCluster.
-	bs, err := json.Marshal(rbs)
+	// update CRD annotation on LogicalCluster using SSA
+	bs, err := utiljson.Marshal(newRbs)
 	if err != nil {
-		return fmt.Errorf("failed to marshal ResourceBindings annotation: %w", err)
+		return fmt.Errorf("failed to marshal CRDs locks annotation: %w", err)
 	}
-	if lc.Annotations[apibindingreconciler.ResourceBindingsAnnotationKey] == string(bs) {
+	if lc.Annotations[apibindingreconciler.LocksCRDsAnnotationKey] == string(bs) {
 		return nil
 	}
-	logger.V(4).Info("Updating"+apibindingreconciler.ResourceBindingsAnnotationKey, "old", annValue, "new", string(bs))
+	logger.V(4).Info("Updating "+apibindingreconciler.LocksCRDsAnnotationKey, "old", annValue, "new", string(bs))
 	lc = lc.DeepCopy()
 	if lc.Annotations == nil {
 		lc.Annotations = make(map[string]string)
 	}
-	lc.Annotations[apibindingreconciler.ResourceBindingsAnnotationKey] = string(bs)
-	if err := c.updateLogicalCluster(ctx, lc); err != nil {
+	lc.Annotations[apibindingreconciler.LocksCRDsAnnotationKey] = string(bs)
+	if err := c.updateLogicalClusterCRDs(ctx, lc); err != nil {
 		return fmt.Errorf("failed to update LogicalCluster: %w", err)
 	}
 

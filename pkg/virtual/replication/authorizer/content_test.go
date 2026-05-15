@@ -319,7 +319,7 @@ func TestContentAuthorizer(t *testing.T) {
 					return &corev1alpha1.LogicalCluster{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`,
+								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`, //nolint:staticcheck // SA1019 - using deprecated constant in test
 							},
 						},
 					}, nil
@@ -400,7 +400,7 @@ func TestContentAuthorizer(t *testing.T) {
 					return &corev1alpha1.LogicalCluster{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`,
+								apibinding.ResourceBindingsAnnotationKey: `{"resource.group": {"n": "apibinding-1"}}`, //nolint:staticcheck // SA1019 - using deprecated constant in test
 							},
 						},
 					}, nil

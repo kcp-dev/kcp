@@ -140,7 +140,7 @@ func TestValidate(t *testing.T) {
 		},
 
 		{
-			name: "fails without resource binding annotation on LogicalCluster",
+			name: "succeeds without resource binding annotation on LogicalCluster - creates pending lock",
 			attr: createAttr(&apiextensions.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{Name: "test"},
 				Spec: apiextensions.CustomResourceDefinitionSpec{
@@ -150,7 +150,7 @@ func TestValidate(t *testing.T) {
 			}),
 			clusterName:    "root:acme",
 			initialObjects: []runtime.Object{createLogicalCluster("root:acme")},
-			wantErr:        true,
+			wantAnnotation: `{"foo.acme.dev":{"c":true,"e":"2022-01-01T00:00:00Z"}}`,
 		},
 		{
 			name: "fails without LogicalCluster",
@@ -241,7 +241,8 @@ func TestValidate(t *testing.T) {
 				if updatedLogicalCluster == nil {
 					t.Fatal("expected LogicalCluster to be updated, got nil")
 				}
-				if got := updatedLogicalCluster.Annotations[apibinding.ResourceBindingsAnnotationKey]; got != scenario.wantAnnotation {
+				// With SSA split, the admission plugin writes to the pending locks annotation key
+				if got := updatedLogicalCluster.Annotations[apibinding.LocksPendingAnnotationKey]; got != scenario.wantAnnotation {
 					t.Errorf("expected LogicalCluster annotation %q, got %q", scenario.wantAnnotation, got)
 				}
 			}
@@ -310,7 +311,7 @@ func createLogicalCluster(clusterName string) *corev1alpha1.LogicalCluster {
 
 func withCRD(lc *corev1alpha1.LogicalCluster, gr schema.GroupResource, expiry *metav1.Time) *corev1alpha1.LogicalCluster {
 	rbs := make(apibinding.ResourceBindingsAnnotation)
-	if v := lc.Annotations[apibinding.ResourceBindingsAnnotationKey]; v != "" {
+	if v := lc.Annotations[apibinding.LocksPendingAnnotationKey]; v != "" {
 		if err := json.Unmarshal([]byte(v), &rbs); err != nil {
 			panic(err)
 		}
@@ -325,13 +326,13 @@ func withCRD(lc *corev1alpha1.LogicalCluster, gr schema.GroupResource, expiry *m
 	if err != nil {
 		panic(err)
 	}
-	lc.Annotations[apibinding.ResourceBindingsAnnotationKey] = string(bs)
+	lc.Annotations[apibinding.LocksPendingAnnotationKey] = string(bs)
 	return lc
 }
 
 func withBinding(lc *corev1alpha1.LogicalCluster, binding string, boundResources []apisv1alpha2.BoundAPIResource) *corev1alpha1.LogicalCluster {
 	rbs := make(apibinding.ResourceBindingsAnnotation)
-	if v := lc.Annotations[apibinding.ResourceBindingsAnnotationKey]; v != "" {
+	if v := lc.Annotations[apibinding.LocksPendingAnnotationKey]; v != "" {
 		if err := json.Unmarshal([]byte(v), &rbs); err != nil {
 			panic(err)
 		}
@@ -347,6 +348,6 @@ func withBinding(lc *corev1alpha1.LogicalCluster, binding string, boundResources
 	if err != nil {
 		panic(err)
 	}
-	lc.Annotations[apibinding.ResourceBindingsAnnotationKey] = string(bs)
+	lc.Annotations[apibinding.LocksPendingAnnotationKey] = string(bs)
 	return lc
 }

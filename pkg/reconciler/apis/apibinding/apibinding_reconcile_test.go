@@ -285,13 +285,21 @@ func TestReconcileBinding(t *testing.T) {
 			},
 			wantError: true,
 		},
-		"LogicalCluster without resource binding annotation": {
-			logicalCluster: newLogicalCluster(),
+		"LogicalCluster with empty resource binding annotation - binding succeeds": {
+			// With split annotations, the controller can now lock resources even when
+			// starting with an empty bindings annotation. This tests the successful
+			// binding flow with the new SSA-based split annotation design.
+			logicalCluster: withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
 			apiBinding:     binding.Build(),
-			wantInitialBindingComplete: wantInitialBindingComplete{
-				resourceConflict: true,
+			wantCreateCRD:  true,
+			wantAPIExportValid: wantAPIExportValid{
+				valid: true,
 			},
-			wantError: true,
+			wantInitialBindingComplete: wantInitialBindingComplete{
+				// CRD is created, so we wait for it to be established
+				waitingForEstablished: true,
+			},
+			wantBoundResources: nil, // not yet established
 		},
 		"LogicalCluster update error": {
 			logicalCluster:            withResourceBindings(newLogicalCluster(), ResourceBindingsAnnotation{}),
@@ -730,7 +738,7 @@ func TestReconcileBinding(t *testing.T) {
 						lc.TypeMeta = metav1.TypeMeta{}
 					}
 					if tc.wantUpdatedResourceBindings != nil {
-						got, err := GetResourceBindings(lc)
+						got, err := GetBindingsLocks(lc)
 						require.NoError(t, err)
 						require.Equal(t, tc.wantUpdatedResourceBindings, got)
 					}
@@ -1329,7 +1337,8 @@ func withResourceBindings(lc *corev1alpha1.LogicalCluster, rbs ResourceBindingsA
 
 	lc = lc.DeepCopy()
 	lc.Annotations = make(map[string]string)
-	lc.Annotations[ResourceBindingsAnnotationKey] = string(bs)
+	// Use the new bindings annotation key for tests
+	lc.Annotations[LocksBindingsAnnotationKey] = string(bs)
 	return lc
 }
 

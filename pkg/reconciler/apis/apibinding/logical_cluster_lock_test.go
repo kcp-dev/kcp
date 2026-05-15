@@ -30,7 +30,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
 
-func TestWithLockedResources(t *testing.T) {
+func TestWithLockedResourcesForBindings(t *testing.T) {
 	now := time.Now().UTC()
 	expired := time.Now().Add(-1).UTC().Format(time.RFC3339)
 	notExpired := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
@@ -46,17 +46,13 @@ func TestWithLockedResources(t *testing.T) {
 		wantSkipped map[schema.GroupResource]Lock
 		wantErr     bool
 	}{
-		"no annotation errors": {
-			lc:      &corev1alpha1.LogicalCluster{},
-			grs:     []schema.GroupResource{{Group: "group", Resource: "foos"}},
-			binding: ExpirableLock{Lock: Lock{Name: "binding"}},
-			wantErr: true,
-		},
-		"empty annotation errors": {
-			lc:      newLogicalClusterWithAnnotation(""),
-			grs:     []schema.GroupResource{{Group: "group", Resource: "foos"}},
-			binding: ExpirableLock{Lock: Lock{Name: "binding"}},
-			wantErr: true,
+		"no annotation succeeds": {
+			lc:          &corev1alpha1.LogicalCluster{},
+			grs:         []schema.GroupResource{{Group: "group", Resource: "foos"}},
+			binding:     ExpirableLock{Lock: Lock{Name: "binding"}},
+			want:        newLogicalClusterWithAnnotation(`{"foos.group":{"n":"binding"}}`),
+			wantLocked:  []schema.GroupResource{{Group: "group", Resource: "foos"}},
+			wantSkipped: map[schema.GroupResource]Lock{},
 		},
 		"invalid annotation errors": {
 			lc:      newLogicalClusterWithAnnotation("invalid"),
@@ -175,19 +171,19 @@ func TestWithLockedResources(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, locked, skipped, err := WithLockedResources(tt.crds, now, tt.lc, tt.grs, tt.binding)
+			got, locked, skipped, err := WithLockedResourcesForBindings(tt.crds, now, tt.lc, tt.grs, tt.binding)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("WithLockedResources() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("WithLockedResourcesForBindings() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("WithLockedResources() +got -want\n%s", diff)
+				t.Errorf("WithLockedResourcesForBindings() +got -want\n%s", diff)
 			}
 			if diff := cmp.Diff(locked, tt.wantLocked); diff != "" {
-				t.Errorf("WithLockedResources() +got -want:\n%s", diff)
+				t.Errorf("WithLockedResourcesForBindings() +got -want:\n%s", diff)
 			}
 			if diff := cmp.Diff(skipped, tt.wantSkipped); diff != "" {
-				t.Errorf("WithLockedResources() +got -want:\n%s", diff)
+				t.Errorf("WithLockedResourcesForBindings() +got -want:\n%s", diff)
 			}
 		})
 	}
@@ -197,7 +193,7 @@ func newLogicalClusterWithAnnotation(ann string) *corev1alpha1.LogicalCluster {
 	return &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				ResourceBindingsAnnotationKey: ann,
+				LocksBindingsAnnotationKey: ann,
 			},
 		},
 	}
