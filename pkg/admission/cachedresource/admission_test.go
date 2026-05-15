@@ -156,6 +156,30 @@ func TestAdmission(t *testing.T) {
 			),
 			cluster: logicalcluster.Name("cluster-2"),
 		},
+		"SameNameReapply": {
+			attr: createAttr(createCachedResource("wohoo", schema.GroupVersionResource{
+				Group:    "example.org",
+				Version:  "v1",
+				Resource: "objects",
+			})),
+			index: map[logicalcluster.Name]map[schema.GroupVersionResource][]*cachev1alpha1.CachedResource{
+				"cluster-1": {
+					schema.GroupVersionResource{
+						Group:    "example.org",
+						Version:  "v1",
+						Resource: "objects",
+					}: []*cachev1alpha1.CachedResource{
+						createCachedResource("wohoo", schema.GroupVersionResource{
+							Group:    "example.org",
+							Version:  "v1",
+							Resource: "objects",
+						}),
+					},
+				},
+			},
+			wantErr: nil,
+			cluster: logicalcluster.Name("cluster-1"),
+		},
 		"IgnoreIfNotCreate": {
 			attr: updateAttr(createCachedResource("wohoo", schema.GroupVersionResource{
 				Group:    "example.org",
