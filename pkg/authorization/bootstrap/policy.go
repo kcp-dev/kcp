@@ -47,6 +47,19 @@ const (
 	SystemExternalLogicalClusterAdmin = "system:kcp:external-logical-cluster-admin"
 	// SystemKcpWorkspaceAccessGroup is a group that gives a user system:authenticated access to a workspace.
 	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"
+	// SystemKcpInitializerGroupPrefix is the group prefix used by the initializing virtual workspace's
+	// content proxy to mark a request as already authorized against the WorkspaceType's
+	// initializerPermissions. Concrete groups are formed as
+	//   system:kcp:initializer:<initializer-name>
+	// where <initializer-name> is the fully qualified initializer identifier produced by
+	// initialization.InitializerForType (e.g. "root:org:tenant"). Clients cannot self-assert
+	// these groups: the front-proxy strips them via --authentication-drop-groups before the
+	// request ever reaches a shard, so seeing one inside the workspace content authorizer is
+	// a trustworthy signal that a VW proxy has already evaluated the request.
+	SystemKcpInitializerGroupPrefix = "system:kcp:initializer:"
+	// SystemKcpTerminatorGroupPrefix is the group prefix used by the terminating virtual
+	// workspace's content proxy. See SystemKcpInitializerGroupPrefix for semantics.
+	SystemKcpTerminatorGroupPrefix = "system:kcp:terminator:"
 )
 
 const (

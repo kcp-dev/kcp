@@ -192,6 +192,46 @@ spec:
       path: root:base
 ```
 
+### Lifecycle Permissions
+
+A `WorkspaceType` can declare the RBAC rules its initializer and terminator controllers are
+allowed to use against the content of workspaces of this type:
+
+* `spec.initializerPermissions` — `[]rbacv1.PolicyRule` evaluated by the initializing
+  virtual workspace content proxy on every request, before forwarding to the shard.
+* `spec.terminatorPermissions` — same, for the terminating virtual workspace.
+
+When set, the VW forwards allowed requests with the controller's **own identity** plus a
+synthetic group (`system:kcp:initializer:<name>` / `system:kcp:terminator:<name>`) that the
+shard's workspace content authorizer trusts as a "pre-authorized by VW" marker. When unset,
+the VW falls back to impersonating the workspace owner (`spec.createdBy` on the `LogicalCluster`).
+
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: tenant
+spec:
+  initializer: true
+  terminator: true
+  initializerPermissions:
+    - apiGroups: [""]
+      resources: ["configmaps", "namespaces"]
+      verbs: ["get", "list", "create", "update"]
+    - apiGroups: ["apis.kcp.io"]
+      resources: ["apibindings"]
+      verbs: ["get", "list", "create"]
+  terminatorPermissions:
+    - apiGroups: [""]
+      resources: ["*"]
+      verbs: ["get", "list", "delete"]
+```
+
+See [Workspace Initialization](./workspace-initialization.md#scoping-initializer-content-access)
+and [Workspace Termination](./workspace-termination.md#scoping-terminator-content-access) for
+the complete model, including how synthetic groups are protected from forgery and how
+extended `WorkspaceType`s evaluate independently.
+
 ### Workspace Constraint Mechanisms
 
 kcp provides two primary constraint mechanisms for workspace types:
