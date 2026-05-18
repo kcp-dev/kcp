@@ -1,0 +1,40 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: today.sheriffs.wildwest.dev
+spec:
+  group: wildwest.dev
+  names:
+    kind: Sheriff
+    listKind: SheriffList
+    plural: sheriffs
+    singular: sheriff
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      description: Sheriff is part of the wild west
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: SheriffSpec holds the desired state of the Sheriff.
+          properties:
+            badge:
+              type: string
+          type: object
+        status:
+          description: SheriffStatus communicates the observed state of the Sheriff.
+          properties:
+            ok:
+              type: boolean
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
