@@ -57,7 +57,7 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 	rootPathPrefix string,
 	config *rest.Config,
 	externalLogicalClusterAdminConfig *rest.Config,
-	wildcardKcpInformers kcpinformers.SharedInformerFactory,
+	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) (workspaces []rootapiserver.NamedVirtualWorkspace, err error) {
 	config = rest.AddUserAgent(rest.CopyConfig(config), "initializingworkspaces-virtual-workspace")
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
@@ -83,5 +83,5 @@ func (o *InitializingWorkspaces) NewVirtualWorkspaces(
 		}
 	}
 
-	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, initializingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, externalLogicalClusterAdminClient, wildcardKcpInformers)
+	return builder.BuildVirtualWorkspace(config, path.Join(rootPathPrefix, initializingworkspaces.VirtualWorkspaceName), dynamicClusterClient, kubeClusterClient, externalLogicalClusterAdminClient, wildcardKcpInformers, cachedKcpInformers)
 }

@@ -130,7 +130,35 @@ By default, workspaces are only accessible to a subject if they are in `Ready` p
 can be accessed only by subjects who are granted `admin` verb on the `workspaces/content` resource in the
 parent workspace.
 
+The authorizer also permits content access while the workspace is in the `Terminating` and `Deleting` phases so
+that terminator controllers and standard kube finalization (garbage collection, namespace deletion, finalizer
+removal) can complete cleanup. Permission is otherwise unchanged: subjects still need a matching binding inside
+the workspace.
+
 ServiceAccounts declared within a workspace don't have access to content of initializing workspaces.
+
+##### Lifecycle Synthetic Groups
+
+The initializing and terminating virtual workspace content proxies can forward requests with one of two synthetic
+groups attached to the controller's identity:
+
+* `system:kcp:initializer:<initializer-path>` (e.g. `system:kcp:initializer:root:tenant`)
+* `system:kcp:terminator:<terminator-path>` (e.g. `system:kcp:terminator:root:tenant`)
+
+The `<initializer-path>` / `<terminator-path>` segment is the fully qualified path of the
+WorkspaceType the controller is associated with (workspace path joined with the WST
+name), not just the short WST name.
+
+When the workspace content authorizer sees one of these groups it treats the request as **pre-authorized by the
+VW** and delegates to the next authorizer without re-evaluating workspace RBAC. This is what allows initializer
+and terminator controllers with scoped `initializerPermissions` / `terminatorPermissions` (see
+[Workspace Types](../workspaces/workspace-types.md#lifecycle-permissions)) to act with their own identity instead
+of impersonating the workspace owner.
+
+These groups cannot be self-asserted by clients: the front-proxy's `--authentication-drop-groups` defaults strip
+both prefixes (`system:kcp:initializer:*` and `system:kcp:terminator:*`) from every incoming request before any
+routing happens. The only code paths that can inject them are the VW content proxies, which run inside the
+front-proxy process and add the group **after** the in-process RBAC evaluation has already allowed the request.
 
 ##### Cross-Workspace
 

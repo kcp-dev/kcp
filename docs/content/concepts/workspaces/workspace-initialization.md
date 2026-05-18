@@ -74,6 +74,78 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
+### Scoping Initializer Content Access
+
+The `initialize` verb above only gates **access to the initializing virtual workspace** (the URL where controllers
+list/watch `LogicalCluster` objects and modify `status.initializers`). The verb says **nothing** about what the
+controller is allowed to do **inside** the workspace it's initializing. There are two modes for that:
+
+#### Mode 1 — Declarative scoped permissions (recommended)
+
+Set `spec.initializerPermissions` on the `WorkspaceType` to a list of standard RBAC `PolicyRule`s. The VW content
+proxy evaluates each incoming request against these rules in-process before forwarding to the shard. Allowed
+requests are forwarded with the **controller's own identity**; denied requests are rejected with `403` immediately.
+
+```yaml
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: example
+spec:
+  initializer: true
+  initializerPermissions:
+    - apiGroups: [""]
+      resources: ["configmaps", "secrets", "namespaces"]
+      verbs: ["get", "list", "create", "update", "delete"]
+    - apiGroups: ["apis.kcp.io"]
+      resources: ["apibindings"]
+      verbs: ["get", "list", "create", "update", "delete"]
+```
+
+Why this is the recommended mode:
+
+- **Least privilege.** A controller that only needs ConfigMaps gets only ConfigMaps — not full cluster-admin.
+- **Clear audit attribution.** Audit logs show the controller's actual identity, not the workspace owner being
+  impersonated. With multiple initializers on a single workspace each one is distinguishable.
+- **Avoids cross-cluster impersonation problems.** Workspace owners (especially ServiceAccounts) are often foreign
+  to the workspace they own, which previously caused initialization to fail with `User ... cannot create resource ...`
+  (see [kcp#4038](https://github.com/kcp-dev/kcp/issues/4038)). With this mode the owner is never impersonated.
+- **No materialized state.** No `ClusterRole`/`ClusterRoleBinding` objects are created inside the workspace; the
+  rules live on the `WorkspaceType` and are evaluated on the fly. Edits take effect immediately for all workspaces
+  of that type.
+
+##### How the trust model works
+
+When a request is allowed, the VW forwards it with the controller's identity **plus a synthetic group** of the form:
+
+```
+system:kcp:initializer:<initializer-name>
+```
+
+For example, an initializer derived from a `WorkspaceType` named `example` in the `root` workspace produces the
+group `system:kcp:initializer:root:example`.
+
+The shard's workspace content authorizer treats the presence of this group as a "pre-authorized by VW" marker and
+allows the request without re-evaluating the permissions. This is safe because clients cannot self-assert these
+groups: the front-proxy's `--authentication-drop-groups` defaults strip `system:kcp:initializer:*` and
+`system:kcp:terminator:*` from every incoming request before any routing happens.
+
+##### Extending types
+
+When a `WorkspaceType` `gamma` extends `alpha` and `beta`, each initializer is evaluated independently against
+**its own** `WorkspaceType`'s `initializerPermissions` — there is no merging. A workspace of type `gamma` accessed
+through the `alpha` initializer is gated by `alpha`'s permissions only.
+
+#### Mode 2 — Owner impersonation (default, backwards compatible)
+
+If `initializerPermissions` is unset or empty, the VW falls back to impersonating the workspace owner recorded in
+`LogicalCluster.spec.createdBy`. Because the owner is bound to the `cluster-admin` `ClusterRole` via the
+`workspace-admin` `ClusterRoleBinding`, the controller effectively gets cluster-admin in the workspace.
+
+This preserves historical behavior. It works well when the workspace creator is a regular user who lives in the
+same logical cluster as the workspace, but can fail when the creator is foreign to the new workspace (e.g. a
+`ServiceAccount` from another cluster). For new `WorkspaceType`s, prefer Mode 1.
+
 ## Writing Custom Initialization Controllers
 
 ### Responsibilities Of Custom Initialization Controllers

@@ -22,6 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	rbacv1 "k8s.io/api/rbac/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
@@ -656,6 +657,20 @@ func (in *WorkspaceTypeSpec) DeepCopyInto(out *WorkspaceTypeSpec) {
 		in, out := &in.AuthenticationConfigurations, &out.AuthenticationConfigurations
 		*out = make([]AuthenticationConfigurationReference, len(*in))
 		copy(*out, *in)
+	}
+	if in.InitializerPermissions != nil {
+		in, out := &in.InitializerPermissions, &out.InitializerPermissions
+		*out = make([]rbacv1.PolicyRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.TerminatorPermissions != nil {
+		in, out := &in.TerminatorPermissions, &out.TerminatorPermissions
+		*out = make([]rbacv1.PolicyRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }
