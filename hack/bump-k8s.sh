@@ -45,20 +45,27 @@ bump_root() {
     GOPROXY=direct go mod tidy
 }
 
-bump_vw_framework() {
+bump_module() {
+    local target="$1"
+    if ! [[ -d "$target" ]]; then
+        echo "target '$target' is not a directory"
+        exit 1
+    fi
+
     go mod edit -json | jq -r '.Replace[] | "\(.Old.Path)=\(.New.Path)@\(.New.Version)"' | grep k8s.io \
         | while read replace; do
-        go mod edit -modfile=./staging/src/github.com/kcp-dev/virtual-workspace-framework/go.mod -replace "$replace"
+        go mod edit -modfile="./$target/go.mod" -replace "$replace"
     done
 
     # `go mod tidy` and `-modfile` with relative replacements fails as
     # it tries to resolve the relative paths from cwd instead of the
     # modfile location.
     (
-        cd staging/src/github.com/kcp-dev/virtual-workspace-framework
+        cd "$target"
         go mod tidy
     )
 }
 
 bump_root
-bump_vw_framework
+bump_module "staging/src/github.com/kcp-dev/virtual-workspace-framework"
+bump_module "docs/generators/cli-doc"
