@@ -2,16 +2,18 @@
 
 The table below lists all current maintainers for the kcp project as defined by our [project governance](./GOVERNANCE.md).
 
-| Name                  | GitHub Handle                                    | Domains of reponsibility                                       | Affiliation                 |
-| --------------------- | ------------------------------------------------ | -------------------------------------------------------------- | --------------------------- |
-| Andy Anderson         | [@clubanderson](https://github.com/clubanderson) | Governance                                                     | IBM                         |
-| Marvin Beckers        | [@embik](https://github.com/embik)               | kcp core, kcp-operator, multicluster-provider, infrastructure  | Kubermatic                  |
-| Mangirdas Judeikis    | [@mjudeikis](https://github.com/mjudeikis)       | kcp core                                                       | -                           |
-| Nelo-T. Wallus        | [@ntnn](https://github.com/ntnn)                 | kcp core                                                       | SAP                         |
-| Sebastian Scheele     | [@scheeles](https://github.com/scheeles)         | Governance                                                     | Kubermatic                  |
-| Dr. Stefan Schimanski | [@sttts](https://github.com/sttts)               | Governance, kcp core                                           | NVIDIA                      |
-| Marko Mudrinić        | [@xmudrii](https://github.com/xmudrii)           | kcp core                                                       | Kubermatic                  |
-| Christoph Mewes       | [@xrstf](https://github.com/xrstf)               | kcp core, API Syncagent, kcp-operator, infrastructure           | Kubermatic                  |
+| Name                  | GitHub Handle                                    | Domains of reponsibility                                      | Affiliation |
+|-----------------------|--------------------------------------------------|---------------------------------------------------------------|-------------|
+| Andy Anderson         | [@clubanderson](https://github.com/clubanderson) | Governance                                                    | IBM         |
+| Marvin Beckers        | [@embik](https://github.com/embik)               | kcp core, kcp-operator, multicluster-provider, infrastructure | Kubermatic  |
+| Mangirdas Judeikis    | [@mjudeikis](https://github.com/mjudeikis)       | kcp core                                                      | -           |
+| Nelo-T. Wallus        | [@ntnn](https://github.com/ntnn)                 | kcp core                                                      | SAP         |
+| Sebastian Scheele     | [@scheeles](https://github.com/scheeles)         | Governance                                                    | Kubermatic  |
+| Dr. Stefan Schimanski | [@sttts](https://github.com/sttts)               | Governance, kcp core                                          | NVIDIA      |
+| Marko Mudrinić        | [@xmudrii](https://github.com/xmudrii)           | kcp core                                                      | Kubermatic  |
+| Christoph Mewes       | [@xrstf](https://github.com/xrstf)               | kcp core, API Syncagent, kcp-operator, infrastructure         | Kubermatic  |
+| Robert Vasek          | [@gman0](https://github.com/gman0)               | kcp core                                                      | Clyso       |
+| Simon Bein            | [@SimonTheLeg](https://github.com/SimonTheLeg)   | kcp core, kcp-operator                                        | Kubermatic  |
 
 ## Emeritus Maintainers
 
