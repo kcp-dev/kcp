@@ -13,6 +13,7 @@ require (
 
 replace (
 	github.com/kcp-dev/apimachinery/v2 => ../../staging/src/github.com/kcp-dev/apimachinery
+	github.com/kcp-dev/client-go => ../../staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ../../staging/src/github.com/kcp-dev/code-generator
 	github.com/kcp-dev/sdk => ../../staging/src/github.com/kcp-dev/sdk
 )

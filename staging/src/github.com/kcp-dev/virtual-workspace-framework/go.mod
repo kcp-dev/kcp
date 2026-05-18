@@ -189,5 +189,6 @@ replace (
 replace (
 	github.com/kcp-dev/apimachinery/v2 => ../apimachinery
 	github.com/kcp-dev/client-go => ../client-go
+	github.com/kcp-dev/code-generator/v3 => ../code-generator
 	github.com/kcp-dev/sdk => ../sdk
 )
