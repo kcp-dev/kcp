@@ -1166,6 +1166,63 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#scoping-initializer-content-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scoping Initializer Content Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scoping Initializer Content Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mode-1-declarative-scoped-permissions-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mode 1 — Declarative scoped permissions (recommended)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mode 1 — Declarative scoped permissions (recommended)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-trust-model-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How the trust model works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extending-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extending types
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-2-owner-impersonation-default-backwards-compatible" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mode 2 — Owner impersonation (default, backwards compatible)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4027,6 +4084,63 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#scoping-initializer-content-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scoping Initializer Content Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scoping Initializer Content Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mode-1-declarative-scoped-permissions-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mode 1 — Declarative scoped permissions (recommended)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mode 1 — Declarative scoped permissions (recommended)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-trust-model-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How the trust model works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extending-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extending types
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-2-owner-impersonation-default-backwards-compatible" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mode 2 — Owner impersonation (default, backwards compatible)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4148,6 +4262,61 @@
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">initialize-example-workspacetype</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
 </code></pre></div>
+<h3 id="scoping-initializer-content-access">Scoping Initializer Content Access<a class="headerlink" href="#scoping-initializer-content-access" title="Permanent link">&para;</a></h3>
+<p>The <code>initialize</code> verb above only gates <strong>access to the initializing virtual workspace</strong> (the URL where controllers
+list/watch <code>LogicalCluster</code> objects and modify <code>status.initializers</code>). The verb says <strong>nothing</strong> about what the
+controller is allowed to do <strong>inside</strong> the workspace it's initializing. There are two modes for that:</p>
+<h4 id="mode-1-declarative-scoped-permissions-recommended">Mode 1 — Declarative scoped permissions (recommended)<a class="headerlink" href="#mode-1-declarative-scoped-permissions-recommended" title="Permanent link">&para;</a></h4>
+<p>Set <code>spec.initializerPermissions</code> on the <code>WorkspaceType</code> to a list of standard RBAC <code>PolicyRule</code>s. The VW content
+proxy evaluates each incoming request against these rules in-process before forwarding to the shard. Allowed
+requests are forwarded with the <strong>controller's own identity</strong>; denied requests are rejected with <code>403</code> immediately.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenancy.kcp.io/v1alpha1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WorkspaceType</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">initializer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">initializerPermissions</span><span class="p">:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;configmaps&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;secrets&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;namespaces&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;get&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;list&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;create&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;update&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;delete&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;apis.kcp.io&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;apibindings&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;get&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;list&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;create&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;update&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;delete&quot;</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>Why this is the recommended mode:</p>
+<ul>
+<li><strong>Least privilege.</strong> A controller that only needs ConfigMaps gets only ConfigMaps — not full cluster-admin.</li>
+<li><strong>Clear audit attribution.</strong> Audit logs show the controller's actual identity, not the workspace owner being
+  impersonated. With multiple initializers on a single workspace each one is distinguishable.</li>
+<li><strong>Avoids cross-cluster impersonation problems.</strong> Workspace owners (especially ServiceAccounts) are often foreign
+  to the workspace they own, which previously caused initialization to fail with <code>User ... cannot create resource ...</code>
+  (see <a href="https://github.com/kcp-dev/kcp/issues/4038">kcp#4038</a>). With this mode the owner is never impersonated.</li>
+<li><strong>No materialized state.</strong> No <code>ClusterRole</code>/<code>ClusterRoleBinding</code> objects are created inside the workspace; the
+  rules live on the <code>WorkspaceType</code> and are evaluated on the fly. Edits take effect immediately for all workspaces
+  of that type.</li>
+</ul>
+<h5 id="how-the-trust-model-works">How the trust model works<a class="headerlink" href="#how-the-trust-model-works" title="Permanent link">&para;</a></h5>
+<p>When a request is allowed, the VW forwards it with the controller's identity <strong>plus a synthetic group</strong> of the form:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>system:kcp:initializer:&lt;initializer-name&gt;
+</code></pre></div>
+<p>For example, an initializer derived from a <code>WorkspaceType</code> named <code>example</code> in the <code>root</code> workspace produces the
+group <code>system:kcp:initializer:root:example</code>.</p>
+<p>The shard's workspace content authorizer treats the presence of this group as a "pre-authorized by VW" marker and
+allows the request without re-evaluating the permissions. This is safe because clients cannot self-assert these
+groups: the front-proxy's <code>--authentication-drop-groups</code> defaults strip <code>system:kcp:initializer:*</code> and
+<code>system:kcp:terminator:*</code> from every incoming request before any routing happens.</p>
+<h5 id="extending-types">Extending types<a class="headerlink" href="#extending-types" title="Permanent link">&para;</a></h5>
+<p>When a <code>WorkspaceType</code> <code>gamma</code> extends <code>alpha</code> and <code>beta</code>, each initializer is evaluated independently against
+<strong>its own</strong> <code>WorkspaceType</code>'s <code>initializerPermissions</code> — there is no merging. A workspace of type <code>gamma</code> accessed
+through the <code>alpha</code> initializer is gated by <code>alpha</code>'s permissions only.</p>
+<h4 id="mode-2-owner-impersonation-default-backwards-compatible">Mode 2 — Owner impersonation (default, backwards compatible)<a class="headerlink" href="#mode-2-owner-impersonation-default-backwards-compatible" title="Permanent link">&para;</a></h4>
+<p>If <code>initializerPermissions</code> is unset or empty, the VW falls back to impersonating the workspace owner recorded in
+<code>LogicalCluster.spec.createdBy</code>. Because the owner is bound to the <code>cluster-admin</code> <code>ClusterRole</code> via the
+<code>workspace-admin</code> <code>ClusterRoleBinding</code>, the controller effectively gets cluster-admin in the workspace.</p>
+<p>This preserves historical behavior. It works well when the workspace creator is a regular user who lives in the
+same logical cluster as the workspace, but can fail when the creator is foreign to the new workspace (e.g. a
+<code>ServiceAccount</code> from another cluster). For new <code>WorkspaceType</code>s, prefer Mode 1.</p>
 <h2 id="writing-custom-initialization-controllers">Writing Custom Initialization Controllers<a class="headerlink" href="#writing-custom-initialization-controllers" title="Permanent link">&para;</a></h2>
 <h3 id="responsibilities-of-custom-initialization-controllers">Responsibilities Of Custom Initialization Controllers<a class="headerlink" href="#responsibilities-of-custom-initialization-controllers" title="Permanent link">&para;</a></h3>
 <p>Custom Initialization Controllers are responsible for handling initialization logic for custom WorkspaceTypes. They interact with kcp by:</p>
@@ -4160,12 +4329,12 @@
 <h3 id="the-initializingworkspaces-virtual-workspace">The <code>initializingworkspaces</code> Virtual Workspace<a class="headerlink" href="#the-initializingworkspaces-virtual-workspace" title="Permanent link">&para;</a></h3>
 <p>As a service provider, you can use the <code>initializingworkspaces</code> virtual workspace to manage workspace resources in the initializing phase. This virtual workspace allows you to fetch <code>LogicalCluster</code> objects that are in the initializing phase and request initialization by a specific controller.</p>
 <p>You can retrieve the url of a Virtual Workspace directly from the <code>.status.virtualWorkspaces</code> field of the corresponding WorkspaceType. Returning to our previous example using a custom WorkspaceType called "example", you will receive the following output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>workspacetype<span class="w"> </span>example<span class="w"> </span>-o<span class="w"> </span>yaml
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>...
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>status:
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>virtualWorkspaces:
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>-<span class="w"> </span>url:<span class="w"> </span>https://&lt;shard-url&gt;/services/initializingworkspaces/root:example
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>workspacetype<span class="w"> </span>example<span class="w"> </span>-o<span class="w"> </span>yaml
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>...
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>status:
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>virtualWorkspaces:
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>-<span class="w"> </span>url:<span class="w"> </span>https://&lt;shard-url&gt;/services/initializingworkspaces/root:example
 </code></pre></div>
 <p>You can use this url to construct a kubeconfig for your controller. To do so, use the url directly as the <code>cluster.server</code> in your kubeconfig and provide the subject with sufficient permissions (see <a href="#enforcing-permissions-for-initializers">Enforcing Permissions for Initializers</a>)</p>
 <h3 id="code-sample">Code Sample<a class="headerlink" href="#code-sample" title="Permanent link">&para;</a></h3>
