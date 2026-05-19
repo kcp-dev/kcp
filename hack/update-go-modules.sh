@@ -28,4 +28,7 @@ for dir in "${DIRS[@]}"; do
   cd "$dir"
   echo "Tidying ${dir}"
   go mod tidy
+  # This is what the publishing bot runs. If this fails the publishing
+  # bot will fail to publish to the staging repository.
+  go list -m -json all >/dev/null
 done
