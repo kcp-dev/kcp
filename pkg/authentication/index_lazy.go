@@ -181,6 +181,11 @@ func (idx *lazyIndex) buildUnionAuthenticator(clusterPath logicalcluster.Path, w
 			parentCancel(err)
 			return authenticatorState{}, err
 		}
+		if err := waitForAuthenticatorInit(parentCtx, state.authenticator, wac); err != nil {
+			err = fmt.Errorf("authenticator for WorkspaceAuthenticationConfiguration %q from %q failed to validate within %q: %w", ref.Name, clusterName, authenticatorSetupTimeout, err)
+			parentCancel(err)
+			return authenticatorState{}, err
+		}
 		authenticators = append(authenticators, state.authenticator)
 	}
 

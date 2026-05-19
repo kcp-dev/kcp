@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xrstf/mockoidc"
 
@@ -35,7 +36,6 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
-	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/test/e2e/fixtures/authfixtures"
@@ -616,24 +616,20 @@ func TestWorkspaceOIDCTokenReview(t *testing.T) {
 		},
 	}
 
-	var response *authenticationv1.TokenReview
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		var err error
-		response, err = kubeClusterClient.Cluster(teamPath).AuthenticationV1().TokenReviews().Create(t.Context(), review, metav1.CreateOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-		return response.Status.Authenticated, response.Status.Error
-	}, wait.ForeverTestTimeout, 500*time.Millisecond)
+	// This check cannot happen in an .Eventually - when a valid request
+	// comes in it must succeed on the first try.
+	response, err := kubeClusterClient.Cluster(teamPath).AuthenticationV1().TokenReviews().Create(t.Context(), review, metav1.CreateOptions{})
+	require.NoError(t, err)
 
-	require.Contains(t, response.Status.Audiences, kcpDefaultAudience)
-
+	// Ensure the token is valid and has the right audience
+	assert.True(t, response.Status.Authenticated, "token was not authenticated: %s", response.Status.Error)
+	assert.Contains(t, response.Status.Audiences, kcpDefaultAudience)
 	// Ensure the correct clusters are mentioned in the TokenReview.
-	require.Equal(t,
+	assert.Equal(t,
 		authenticationv1.ExtraValue{teamWs.Spec.Cluster},
 		response.Status.User.Extra["authentication.kcp.io/cluster-name"],
 	)
-	require.Contains(t,
+	assert.Contains(t,
 		response.Status.User.Extra["authentication.kcp.io/scopes"],
 		fmt.Sprintf("cluster:%s", teamWs.Spec.Cluster),
 	)
