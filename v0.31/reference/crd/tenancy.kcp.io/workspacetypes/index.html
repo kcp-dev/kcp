@@ -4376,6 +4376,209 @@ initializer name is <code>root:org:example</code>.</p>
 
 <div class="property depth-1">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions">.spec.initializerPermissions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>initializerPermissions are the RBAC rules granted to initializer controllers when they
+access workspace content through the initializing virtual workspace&rsquo;s content proxy.
+Rules are evaluated in-process by the VW proxy on each request; no ClusterRole or
+ClusterRoleBinding objects are created inside the workspace.</p>
+
+<p>When empty (the default), the VW content proxy falls back to impersonating the
+workspace owner (full cluster-admin), preserving the historical behavior.</p>
+
+<p>Changes take effect immediately for all workspaces of this type.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*]">.spec.initializerPermissions[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>PolicyRule holds information that describes a policy rule, but does not contain information
+about who the rule applies to or which namespace the rule applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].apiGroups">.spec.initializerPermissions[*].apiGroups</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+the enumerated resources in any API group will be allowed. &ldquo;&rdquo; represents the core API group and &ldquo;*&rdquo; represents all API groups.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].apiGroups[*]">.spec.initializerPermissions[*].apiGroups[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].nonResourceURLs">.spec.initializerPermissions[*].nonResourceURLs</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;secrets&rdquo;) or non-resource URL paths (such as &ldquo;/api&rdquo;),  but not both.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].nonResourceURLs[*]">.spec.initializerPermissions[*].nonResourceURLs[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].resourceNames">.spec.initializerPermissions[*].resourceNames</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].resourceNames[*]">.spec.initializerPermissions[*].resourceNames[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].resources">.spec.initializerPermissions[*].resources</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>Resources is a list of resources this rule applies to. &lsquo;*&rsquo; represents all resources.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].resources[*]">.spec.initializerPermissions[*].resources[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].verbs">.spec.initializerPermissions[*].verbs</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. &lsquo;*&rsquo; represents all verbs.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.initializerPermissions[*].verbs[*]">.spec.initializerPermissions[*].verbs[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha1-.spec.limitAllowedChildren">.spec.limitAllowedChildren</h3>
 </div>
 <div class="property-body">
@@ -4621,6 +4824,209 @@ for this terminator will be a colon-delimited string using the workspace in whic
 the WorkspaceType is defined, and the type&rsquo;s name. For example, if a
 WorkspaceType <code>example</code> is created in the <code>root:org</code> workspace, the implicit
 terminator name is <code>root:org:example</code>.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions">.spec.terminatorPermissions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>terminatorPermissions are the RBAC rules granted to terminator controllers when they
+access workspace content through the terminating virtual workspace&rsquo;s content proxy.
+Rules are evaluated in-process by the VW proxy on each request; no ClusterRole or
+ClusterRoleBinding objects are created inside the workspace.</p>
+
+<p>When empty (the default), the VW content proxy falls back to impersonating the
+workspace owner (full cluster-admin), preserving the historical behavior.</p>
+
+<p>Changes take effect immediately for all workspaces of this type.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*]">.spec.terminatorPermissions[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>PolicyRule holds information that describes a policy rule, but does not contain information
+about who the rule applies to or which namespace the rule applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].apiGroups">.spec.terminatorPermissions[*].apiGroups</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+the enumerated resources in any API group will be allowed. &ldquo;&rdquo; represents the core API group and &ldquo;*&rdquo; represents all API groups.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].apiGroups[*]">.spec.terminatorPermissions[*].apiGroups[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].nonResourceURLs">.spec.terminatorPermissions[*].nonResourceURLs</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;secrets&rdquo;) or non-resource URL paths (such as &ldquo;/api&rdquo;),  but not both.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].nonResourceURLs[*]">.spec.terminatorPermissions[*].nonResourceURLs[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].resourceNames">.spec.terminatorPermissions[*].resourceNames</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].resourceNames[*]">.spec.terminatorPermissions[*].resourceNames[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].resources">.spec.terminatorPermissions[*].resources</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>Resources is a list of resources this rule applies to. &lsquo;*&rsquo; represents all resources.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].resources[*]">.spec.terminatorPermissions[*].resources[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].verbs">.spec.terminatorPermissions[*].verbs</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. &lsquo;*&rsquo; represents all verbs.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.terminatorPermissions[*].verbs[*]">.spec.terminatorPermissions[*].verbs[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
 
 </div>
 
