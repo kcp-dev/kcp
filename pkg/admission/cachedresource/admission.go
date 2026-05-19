@@ -156,8 +156,15 @@ func (adm *CachedResourceAdmission) validateV1alpha1(ctx context.Context, a admi
 		return err
 	}
 
-	// Make sure there is at most one CachedResource per GVR.
-	if len(existing) > 0 {
+	// Make sure there is at most one CachedResource per GVR. An entry that
+	// matches the incoming object's name is not a real conflict — it is a
+	// re-apply of the same object, which the storage layer will surface
+	// naturally as AlreadyExists. Rejecting here would mask that error
+	// behind a misleading Forbidden and break idempotent client flows.
+	for _, e := range existing {
+		if e.Name == cachedResource.Name {
+			continue
+		}
 		return admission.NewForbidden(a,
 			field.Invalid(
 				field.NewPath("spec"),
