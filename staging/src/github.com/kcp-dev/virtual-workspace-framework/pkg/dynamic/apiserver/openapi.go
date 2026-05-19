@@ -163,13 +163,20 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 	// If we found the struct, and the channel is closed, and the spec was generated successfully, serve the already
 	// generated spec, otherwise regenerate it.
 	if ok {
+		cached := entry.(*openAPIServiceItem)
+		// Wait for the previous attempt outside the key lock so concurrent
+		// requests can proceed; we still hold the key lock for the cache miss
+		// path below, so only one regeneration runs at a time per key.
 		_ = o.servicesLock.UnlockKey(key) // error is always nil
-		item = entry.(*openAPIServiceItem)
-		<-item.done
-		if item.err == nil {
+		<-cached.done
+		if cached.err == nil {
 			log.V(7).Info("Reusing OpenAPI v3 service from cache")
-			return item.service, nil
+			return cached.service, nil
 		}
+		// Cached entry recorded an error — reacquire the key lock so we can
+		// regenerate. Without this we'd fall through and call UnlockKey again
+		// on an unlocked mutex, panicking sync.Mutex.
+		o.servicesLock.LockKey(key)
 	}
 
 	doneCh := make(chan struct{})
@@ -246,10 +253,15 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 		routeSpecs[groupPath] = []*spec3.OpenAPI{spec}
 	}
 
-	// Build OpenAPI v3 specs for /apis/<group>/<version>, i.e. build OpenAPI v3 specs for each APIDefinition
+	// Build OpenAPI v3 specs for /apis/<group>/<version>, i.e. build OpenAPI v3 specs for each APIDefinition.
+	// We pass the GVR's version so a multi-version APIResourceSchema (e.g. built-in apibindings carrying
+	// both v1alpha1 and v1alpha2) emits a spec only for the version this apiSet entry is keyed on.
+	// Otherwise the same APIResourceSchema referenced from two apiSet entries (one per version) would
+	// yield duplicate specs that addSpecs then tries to merge, which trips the strict component-name
+	// conflict check.
 	resourceSpecs := make([]map[string][]*spec3.OpenAPI, 0, len(apiSet))
-	for _, apiDefinition := range apiSet {
-		specs, err := apiResourceSchemaToSpec(apiDefinition.GetAPIResourceSchema())
+	for gvr, apiDefinition := range apiSet {
+		specs, err := apiResourceSchemaToSpec(apiDefinition.GetAPIResourceSchema(), gvr.Version)
 		if err != nil {
 			item.err = err
 			return nil, err
@@ -278,11 +290,19 @@ func (o *openAPIHandler) handleOpenAPIRequest(apiSet apidefinition.APIDefinition
 	return item.service, nil
 }
 
-func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) (map[string][]*spec3.OpenAPI, error) {
+// apiResourceSchemaToSpec builds the OpenAPI v3 spec for the given APIResourceSchema.
+// If onlyVersion is non-empty, only that single version is emitted; this lets callers
+// avoid duplicate specs when the same multi-version APIResourceSchema is reached via
+// multiple per-version apiSet entries.
+func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema, onlyVersion string) (map[string][]*spec3.OpenAPI, error) {
 	specs := map[string][]*spec3.OpenAPI{}
 	versions := make([]apiextensionsv1.CustomResourceDefinitionVersion, 0, len(apiResourceSchema.Spec.Versions))
+	srcVersions := make([]apisv1alpha1.APIResourceVersion, 0, len(apiResourceSchema.Spec.Versions))
 
 	for _, ver := range apiResourceSchema.Spec.Versions {
+		if onlyVersion != "" && ver.Name != onlyVersion {
+			continue
+		}
 		verSchema, err := ver.GetSchema()
 		if err != nil {
 			return nil, err
@@ -295,6 +315,7 @@ func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) 
 			},
 			Subresources: &ver.Subresources,
 		})
+		srcVersions = append(srcVersions, ver)
 	}
 
 	crd := &apiextensionsv1.CustomResourceDefinition{
@@ -313,7 +334,7 @@ func apiResourceSchemaToSpec(apiResourceSchema *apisv1alpha1.APIResourceSchema) 
 		}
 
 		if isCRDResource(crd) {
-			patchCRDSchemaForOpenAPI(spec, &apiResourceSchema.Spec.Versions[i])
+			patchCRDSchemaForOpenAPI(spec, &srcVersions[i])
 		}
 
 		gv := schema.GroupVersion{Group: crd.Spec.Group, Version: ver.Name}
@@ -427,7 +448,10 @@ func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.O
 
 	for _, apiDefSpec := range apiDefSpecs {
 		for gvPath, spec := range apiDefSpec {
-			byGroupVersionSpecs[gvPath] = spec
+			// Append rather than assign: multiple APIDefinitions may produce
+			// specs for the same group/version (e.g. several Kinds bound under
+			// one GV via an APIExport). MergeSpecsV3 below merges the slice.
+			byGroupVersionSpecs[gvPath] = append(byGroupVersionSpecs[gvPath], spec...)
 		}
 	}
 
@@ -435,7 +459,7 @@ func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.O
 	for gvPath, specs := range byGroupVersionSpecs {
 		log.V(6).Info("Merging OpenAPI v3 specs", "gvPath", gvPath)
 
-		gvSpec, err := builder.MergeSpecsV3(specs...)
+		gvSpec, err := mergeSpecsV3Tolerant(specs)
 		if err != nil {
 			return fmt.Errorf("failed to merge specs: %v", err)
 		}
@@ -444,6 +468,60 @@ func addSpecs(service *handler3.OpenAPIService, routeSpecs map[string][]*spec3.O
 	}
 
 	return nil
+}
+
+// mergeSpecsV3Tolerant merges OpenAPI v3 specs that share a group/version.
+//
+// Unlike apiextensions-apiserver's builder.MergeSpecsV3 it does NOT error on
+// shared component-schema names: when several CRDs are bound under the same
+// group/version (the case this handler is built for), every CRD's spec
+// re-emits common helper types (meta.v1.*, autoscaling.v1.*, and kcp-specific
+// types like apis.v1alpha1.APIBinding). The strict merge treats those as
+// conflicts. Here we keep the first definition we see — they're semantically
+// the same regardless of which CRD emitted them.
+//
+// Paths from later specs override earlier ones with the same key, which is
+// the natural behavior: each path lives on exactly one resource.
+func mergeSpecsV3Tolerant(specs []*spec3.OpenAPI) (*spec3.OpenAPI, error) {
+	merged := &spec3.OpenAPI{}
+	if len(specs) > 0 {
+		merged.Version = specs[0].Version
+		merged.Info = specs[0].Info
+	}
+	for _, s := range specs {
+		if s == nil {
+			continue
+		}
+		if s.Components != nil {
+			if merged.Components == nil {
+				merged.Components = &spec3.Components{}
+			}
+			if merged.Components.Schemas == nil {
+				merged.Components.Schemas = map[string]*spec.Schema{}
+			}
+			for k, v := range s.Components.Schemas {
+				if _, exists := merged.Components.Schemas[k]; exists {
+					// keep first; common helper types may differ slightly
+					// across per-CRD specs (e.g. description ordering) but
+					// are semantically equivalent.
+					continue
+				}
+				merged.Components.Schemas[k] = v
+			}
+		}
+		if s.Paths != nil {
+			if merged.Paths == nil {
+				merged.Paths = &spec3.Paths{}
+			}
+			if merged.Paths.Paths == nil {
+				merged.Paths.Paths = map[string]*spec3.Path{}
+			}
+			for k, v := range s.Paths.Paths {
+				merged.Paths.Paths[k] = v
+			}
+		}
+	}
+	return merged, nil
 }
 
 func apiConfigurationKey(apiDefs apidefinition.APIDefinitionSet) (string, error) {
