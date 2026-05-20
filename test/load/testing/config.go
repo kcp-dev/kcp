@@ -49,6 +49,9 @@ func defaultParams() Params {
 		CRUDConfigMapQPS:        150,
 		ProviderWorkspacesCount: 1000,
 		ConsumerWorkspacesCount: 9000,
+		CreateAPIExportQPS:      4.0,
+		CreateAPIBindingQPS:     4.0,
+		CRUDSharedAPIQPS:        150,
 	}
 }
 
@@ -76,10 +79,18 @@ type Params struct {
 
 	// ConsumerWorkspacesCount is the number of consumer workspaces for API sharing tests.
 	ConsumerWorkspacesCount int `json:"consumerWorkspacesCount"`
+
+	// CreateAPIExportQPS is the rate at which APIExport creation requests are sent.
+	CreateAPIExportQPS float64 `json:"createAPIExportQPS"`
+
+	// CreateAPIBindingQPS is the rate at which APIBinding creation requests are sent.
+	CreateAPIBindingQPS float64 `json:"createAPIBindingQPS"`
+
+	// CRUDSharedAPIQPS is the rate at which custom resource CRUD operations are sent.
+	CRUDSharedAPIQPS float64 `json:"crudSharedAPIQPS"`
 }
 
 // WorkspaceTree returns a workspace tree built from the configured parameters.
-// It panics if WorkspaceTreeType is not "symmetric" or "flat".
 func (p Params) WorkspaceTree() tree.WorkspaceTree {
 	switch p.WorkspaceTreeType {
 	case "symmetric":

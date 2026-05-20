@@ -7,6 +7,9 @@
     "createWorkspaceQPS": 2.0,
     "crudConfigMapQPS": 150,
     "providerWorkspacesCount": 10,
-    "consumerWorkspacesCount": 90
+    "consumerWorkspacesCount": 90,
+    "createAPIExportQPS": 2.0,
+    "createAPIBindingQPS": 2.0,
+    "crudSharedAPIQPS": 150
   }
 }
