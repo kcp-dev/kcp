@@ -29,10 +29,22 @@ logdir=".loadtest-results"
 mkdir -p "$logdir"
 
 # parse user input
+configfile=""
+if [[ "${1:-}" == "--config" ]]; then
+  configfile="$(realpath "$2")"
+  shift 2
+fi
+
 testname=${1:-}
 if [[ -z "$testname" ]]; then
-  echo "Usage: $0 <testname>"
+  echo "Usage: $0 [--config config.json] <testname>"
   exit 1
+fi
+
+# build go test args
+go_test_args=(-timeout 2h -test.fullpath=true -run "^${testname}$" -count=1 -v github.com/kcp-dev/kcp/test/load/testing)
+if [[ -n "$configfile" ]]; then
+  go_test_args+=(-args --config="$configfile")
 fi
 
 # execute the test and capture logs
@@ -40,7 +52,7 @@ logfile="$logdir/${testname}_$(date '+%Y-%m-%d-%H:%M:%S').log"
 echo "Executing test: $testname"
 echo "Logs will be saved to: $logfile"
 
-go test -timeout 2h -test.fullpath=true -run "^${testname}$" -count=1 -v github.com/kcp-dev/kcp/test/load/testing &> "$logfile" &
+go test "${go_test_args[@]}" &> "$logfile" &
 test_pid=$!
 
 # on Ctrl+C: stop tailing but keep the test running

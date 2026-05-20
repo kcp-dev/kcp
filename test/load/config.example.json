@@ -1,0 +1,12 @@
+{
+  "_comment": "you can override default parameters defined in params.go",
+  "params": {
+    "workspaceCount": 100,
+    "workspaceDepth": 5,
+    "workspaceTreeType": "symmetric",
+    "createWorkspaceQPS": 2.0,
+    "crudConfigMapQPS": 150,
+    "providerWorkspacesCount": 10,
+    "consumerWorkspacesCount": 90
+  }
+}
