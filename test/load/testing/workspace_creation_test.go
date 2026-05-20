@@ -42,7 +42,7 @@ import (
 
 const workspaceCount = 10000
 const workspaceDepth = 5
-const createWorkspaceQPS = 2.0
+const createWorkspaceQPS = 8.0
 
 func TestWorkspaceCreation(t *testing.T) {
 	cfg := framework.Require(t, framework.KCPFrontProxyKubeconfig)
