@@ -50,6 +50,7 @@ import (
 
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/apis"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -380,11 +381,23 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 			return d.isBoundResource(logicalcluster.From(ws), group, resource)
 		}},
 	}, resources)
-	groupVersionResources, err := groupVersionResources(deletableResources)
+	allGVRs, err := groupVersionResources(deletableResources)
 	if err != nil {
 		// discovery errors are not fatal.  We often have some set of resources we can operate against even if we don't have a complete list
 		errs = append(errs, err)
 		deletionContentSuccessReason = "GroupVersionParsingFailed"
+	}
+
+	// Split GVRs: delete APIBindings last so their schemas remain available
+	// while namespaces cascade-delete bound resources.
+	apiBindingGVRs := map[schema.GroupVersionResource]sets.Set[string]{}
+	nonAPIBindingGVRs := map[schema.GroupVersionResource]sets.Set[string]{}
+	for gvr, verbs := range allGVRs {
+		if gvr.Group == apis.GroupName && gvr.Resource == "apibindings" {
+			apiBindingGVRs[gvr] = verbs
+		} else {
+			nonAPIBindingGVRs[gvr] = verbs
+		}
 	}
 
 	numRemainingTotals := allGVRDeletionMetadata{
@@ -392,7 +405,7 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 		finalizersToNumRemaining: map[string]int{},
 	}
 	deleteContentErrs := []error{}
-	for gvr, verbs := range groupVersionResources {
+	for gvr, verbs := range nonAPIBindingGVRs {
 		gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, logicalcluster.From(ws), gvr, verbs, clusterDeletedAt)
 		if err != nil {
 			// If there is an error, hold on to it but proceed with all the remaining
@@ -409,6 +422,28 @@ func (d *logicalClusterResourcesDeleter) deleteAllContent(ctx context.Context, w
 					continue
 				}
 				numRemainingTotals.finalizersToNumRemaining[finalizer] += numRemaining
+			}
+		}
+	}
+
+	// Only delete APIBindings after all other resources have been cleaned up.
+	if len(numRemainingTotals.gvrToNumRemaining) == 0 && len(numRemainingTotals.finalizersToNumRemaining) == 0 && len(deleteContentErrs) == 0 {
+		for gvr, verbs := range apiBindingGVRs {
+			gvrDeletionMetadata, err := d.deleteAllContentForGroupVersionResource(ctx, logicalcluster.From(ws), gvr, verbs, clusterDeletedAt)
+			if err != nil {
+				deleteContentErrs = append(deleteContentErrs, err)
+			}
+			if gvrDeletionMetadata.finalizerEstimateSeconds > estimate {
+				estimate = gvrDeletionMetadata.finalizerEstimateSeconds
+			}
+			if gvrDeletionMetadata.numRemaining > 0 {
+				numRemainingTotals.gvrToNumRemaining[gvr] = gvrDeletionMetadata.numRemaining
+				for finalizer, numRemaining := range gvrDeletionMetadata.finalizersToNumRemaining {
+					if numRemaining == 0 {
+						continue
+					}
+					numRemainingTotals.finalizersToNumRemaining[finalizer] += numRemaining
+				}
 			}
 		}
 	}
