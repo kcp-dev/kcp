@@ -103,10 +103,7 @@ Typical loop:
 ./hack/run-with-prometheus.sh ./bin/kcp start --debug-socket-path=/tmp/kcp-debug.sock
 
 # In another shell, drive workspace churn
-for i in {1..100}; do
-  kubectl apply -f workspace.yaml; sleep 3
-  kubectl delete -f workspace.yaml; sleep 3
-done
+kubectl-kcp quickstart --scenario workspaces --tree-depth 10 --tree-count 1000
 
 # Watch http://localhost:9090/graph?g0.expr=go_goroutines and confirm slope
 # When the count is clearly elevated, grab a labeled dump:
@@ -202,10 +199,7 @@ To diff before/after a known-clean baseline (the technique used in
 curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=2' > before.txt
 
 # Run churn: create/delete N workspaces in a loop
-for i in {1..100}; do
-  kubectl apply -f workspace.yaml; sleep 3
-  kubectl delete -f workspace.yaml; sleep 3
-done
+kubectl-kcp quickstart --scenario workspaces --tree-depth 10 --tree-count 1000
 
 # After churn
 curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=2' > after.txt
