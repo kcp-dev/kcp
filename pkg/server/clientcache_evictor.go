@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"context"
+
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -32,7 +34,8 @@ import (
 // Without this, those caches grow monotonically and pin per-cluster REST
 // clients, codec factories, JSON-decoded schemas, etc. for the lifetime of
 // the process. See https://github.com/kcp-dev/kcp/issues/4071.
-func installClientCacheEvictor(informer corev1alpha1informers.LogicalClusterClusterInformer) {
+func installClientCacheEvictor(ctx context.Context, informer corev1alpha1informers.LogicalClusterClusterInformer) {
+	logger := klog.FromContext(ctx)
 	_, _ = informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			lc, ok := obj.(*corev1alpha1.LogicalCluster)
@@ -50,7 +53,7 @@ func installClientCacheEvictor(informer corev1alpha1informers.LogicalClusterClus
 			if name == "" {
 				return
 			}
-			klog.V(4).InfoS("evicting per-cluster client caches", "logicalcluster", name)
+			logger.V(4).Info("evicting per-cluster client caches", "logicalcluster", name)
 			apiclient.EvictCluster(name.Path())
 		},
 	})
