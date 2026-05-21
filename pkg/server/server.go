@@ -493,6 +493,7 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
+		installClientCacheEvictor(s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
