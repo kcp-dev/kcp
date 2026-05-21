@@ -30,12 +30,14 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -48,6 +50,7 @@ func NewController(
 	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
+	clusterContextManager *contextmanager.Manager[logicalcluster.Path],
 ) (*Controller, error) {
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -60,6 +63,7 @@ func NewController(
 		kcpClusterClient:      kcpClusterClient,
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
 		logicalClusterLister:  logicalClusterInformer.Lister(),
+		clusterContextManager: clusterContextManager,
 		commit:                committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -84,6 +88,8 @@ type Controller struct {
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
+
+	clusterContextManager *contextmanager.Manager[logicalcluster.Path]
 
 	// commit creates a patch and submits it, if needed.
 	commit func(ctx context.Context, old, new *logicalClusterResource) error
