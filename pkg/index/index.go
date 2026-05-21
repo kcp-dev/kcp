@@ -265,7 +265,12 @@ func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	// This LC keyed as the child in a parent→child relationship. Normally
 	// cleaned by DeleteWorkspace via the parent's Workspace event, but if
 	// the LogicalCluster delete races ahead of the Workspace delete (or the
-	// Workspace event is missed) the entries leak.
+	// Workspace event is missed) the entries leak. Capture the parent and
+	// workspace name before deleting the reverse edges so we can also scrub
+	// the forward edge under the parent below.
+	parentCluster, hasParent := c.shardClusterParentCluster[shard][clusterName]
+	workspaceName, hasWorkspaceName := c.shardClusterWorkspaceName[shard][clusterName]
+
 	delete(c.shardClusterWorkspaceName[shard], clusterName)
 	if len(c.shardClusterWorkspaceName[shard]) == 0 {
 		delete(c.shardClusterWorkspaceName, shard)
@@ -290,6 +295,40 @@ func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	delete(c.shardClusterWorkspaceNameErrorCode[shard], clusterName)
 	if len(c.shardClusterWorkspaceNameErrorCode[shard]) == 0 {
 		delete(c.shardClusterWorkspaceNameErrorCode, shard)
+	}
+
+	// Scrub the forward edge in the parent's per-workspace maps. Without
+	// this, deleting the child LC before its Workspace event arrives leaves
+	// shardClusterWorkspaceNameCluster[shard][parent][wsName] pointing at a
+	// gone cluster — and the parent map keeps growing across churn.
+	if hasParent && hasWorkspaceName {
+		if m := c.shardClusterWorkspaceNameCluster[shard][parentCluster]; m != nil {
+			delete(m, workspaceName)
+			if len(m) == 0 {
+				delete(c.shardClusterWorkspaceNameCluster[shard], parentCluster)
+				if len(c.shardClusterWorkspaceNameCluster[shard]) == 0 {
+					delete(c.shardClusterWorkspaceNameCluster, shard)
+				}
+			}
+		}
+		if m := c.shardClusterWorkspaceMount[shard][parentCluster]; m != nil {
+			delete(m, workspaceName)
+			if len(m) == 0 {
+				delete(c.shardClusterWorkspaceMount[shard], parentCluster)
+				if len(c.shardClusterWorkspaceMount[shard]) == 0 {
+					delete(c.shardClusterWorkspaceMount, shard)
+				}
+			}
+		}
+		if m := c.shardClusterWorkspaceNameErrorCode[shard][parentCluster]; m != nil {
+			delete(m, workspaceName)
+			if len(m) == 0 {
+				delete(c.shardClusterWorkspaceNameErrorCode[shard], parentCluster)
+				if len(c.shardClusterWorkspaceNameErrorCode[shard]) == 0 {
+					delete(c.shardClusterWorkspaceNameErrorCode, shard)
+				}
+			}
+		}
 	}
 
 	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
