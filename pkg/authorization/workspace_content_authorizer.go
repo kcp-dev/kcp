@@ -112,6 +112,11 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 	switch logicalCluster.Status.Phase {
 	case corev1alpha1.LogicalClusterPhaseInitializing,
 		corev1alpha1.LogicalClusterPhaseReady,
+		// Inactive: WithBlockInactiveLogicalClusters denies content access at the HTTP filter
+		// layer while permitting /openapi and the LogicalCluster resource itself, so the cluster
+		// can be reactivated. The authorizer must not also deny based on phase, otherwise the
+		// LC GET/UPDATE used to clear the inactive annotation is rejected.
+		corev1alpha1.LogicalClusterPhaseInactive,
 		// Terminating: registered terminator controllers are running and need to clean up content.
 		// Deleting: terminators are done; standard kube finalization (GC, namespace deletion,
 		// finalizer removal) still needs content access until the LogicalCluster object is gone.
