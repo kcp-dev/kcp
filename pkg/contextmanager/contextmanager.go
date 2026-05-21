@@ -59,14 +59,22 @@ func (m *Manager[K]) ContextFor(parent context.Context, key K) (context.Context,
 }
 
 func (m *Manager[K]) getContext(key K) context.Context {
+	// Fast path - a context exists for the key
+	if stored, loaded := m.entries.Load(key); loaded {
+		return stored.(*entry).ctx
+	}
+
+	// Slow path - a context does not exist
 	ctx, cancel := context.WithCancelCause(m.root)
 	e := &entry{ctx: ctx, cancel: cancel}
 
-	if actual, loaded := m.entries.LoadOrStore(key, e); loaded {
+	stored, loaded := m.entries.LoadOrStore(key, e)
+	if loaded {
+		// If loaded is true a value was already stored, cancel the
+		// intermitteent context and return the stored value
 		cancel(nil)
-		return actual.(*entry).ctx
 	}
-	return ctx
+	return stored.(*entry).ctx
 }
 
 func (m *Manager[K]) Has(key K) bool {
