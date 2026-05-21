@@ -69,6 +69,11 @@ func (m *Manager[K]) getContext(key K) context.Context {
 	return ctx
 }
 
+func (m *Manager[K]) Has(key K) bool {
+	_, ok := m.entries.Load(key)
+	return ok
+}
+
 // Cancel cancels the context for the given key.
 func (m *Manager[K]) Cancel(key K) {
 	v, loaded := m.entries.LoadAndDelete(key)
