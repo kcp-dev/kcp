@@ -40,3 +40,36 @@ const (
 func Cluster(ctx context.Context, controller string, cluster logicalcluster.Name, fn func(context.Context)) {
 	pprof.Do(ctx, pprof.Labels(LabelController, controller, LabelLogicalCluster, cluster.String()), fn)
 }
+
+// PushCluster applies the (controller, cluster) labels to the current goroutine
+// and returns a labeled context plus a restore function. Use at the top of a
+// reconcile body when wrapping in a closure is impractical:
+//
+//	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+//	defer done()
+//
+// Scope of attribution this gives you:
+//   - CPU profile (/debug/pprof/profile): samples taken while the goroutine
+//     holds these labels are tagged with (controller, cluster). Use
+//     `pprof -tagfocus=controller=...` to slice CPU by reconciler.
+//   - Goroutine profile (/debug/pprof/goroutine?debug=1): any goroutine still
+//     mid-call when the dump is taken shows labels. Spawning a child
+//     goroutine between push and done() also propagates labels for that
+//     child's lifetime — useful only if the reconcile body itself starts a
+//     long-lived goroutine, which the per-cluster reconcilers usually don't.
+//
+// What this does NOT give you:
+//   - Heap profile attribution. Go's mprof samples do not record goroutine
+//     labels (only the CPU and goroutine profiles do). Heap analysis stays
+//     call-site-based via `pprof -base T0.pprof T2.pprof`.
+//
+// Restoration assumes the goroutine's labels at call entry match the labels
+// already in ctx. kcp reconciler workers start clean and propagate ctx, so
+// that holds; if an upstream caller has set labels via SetGoroutineLabels
+// without putting them in ctx, this restore clobbers them.
+func PushCluster(ctx context.Context, controller string, cluster logicalcluster.Name) (context.Context, func()) {
+	prev := ctx
+	labeled := pprof.WithLabels(ctx, pprof.Labels(LabelController, controller, LabelLogicalCluster, cluster.String()))
+	pprof.SetGoroutineLabels(labeled)
+	return labeled, func() { pprof.SetGoroutineLabels(prev) }
+}

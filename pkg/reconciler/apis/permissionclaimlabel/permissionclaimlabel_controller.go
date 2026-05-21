@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
@@ -216,6 +217,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 		logger.Error(err, "invalid key")
 		return nil
 	}
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+	defer done()
 
 	obj, err := c.apiBindingsLister.Cluster(clusterName).Get(name)
 	if err != nil {

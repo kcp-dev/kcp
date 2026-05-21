@@ -44,6 +44,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
@@ -310,6 +311,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 		return err
 	}
 	clusterName := logicalcluster.Name(cluster.String()) // TODO: remove this when SplitMetaClusterNamespaceKey returns a tenancy.Name
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+	defer done()
 
 	obj, err := c.getCRD(clusterName, name)
 	if err != nil {
