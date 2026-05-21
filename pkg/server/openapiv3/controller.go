@@ -267,3 +267,15 @@ func (c *Controller) GetCRDSpecs(clusterName logicalcluster.Name, name string) (
 
 	return specs, nil
 }
+
+// EvictCluster removes all cached OpenAPI v3 specs for clusterName. Normally
+// the entry is cleaned per-CRD via the CRD informer's delete event handler,
+// but if the LogicalCluster delete races ahead of those CRD deletes (or any
+// CRD delete event is missed), the bucket — which holds 100KB–1MB of built
+// spec per CRD version — would leak for the lifetime of the process. Call
+// this from a LogicalCluster delete handler to bound retention.
+func (c *Controller) EvictCluster(clusterName logicalcluster.Name) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	delete(c.byClusterNameVersion, clusterName)
+}
