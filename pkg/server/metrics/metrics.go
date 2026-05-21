@@ -39,11 +39,21 @@ var (
 		},
 		[]string{"shard", "phase"},
 	)
+
+	apiBindingPhase = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Name:           "kcp_apibinding_phase",
+			Help:           "Number of APIBindings in each phase (Binding, Bound, or empty for newly created).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"phase"},
+	)
 )
 
 func init() {
 	legacyregistry.MustRegister(logicalClusterCount)
 	legacyregistry.MustRegister(workspaceCount)
+	legacyregistry.MustRegister(apiBindingPhase)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.
@@ -64,4 +74,14 @@ func IncrementWorkspaceCount(shardName string, phase string) {
 // DecrementWorkspaceCount decrements the count for the given shard and phase.
 func DecrementWorkspaceCount(shardName string, phase string) {
 	workspaceCount.WithLabelValues(shardName, phase).Dec()
+}
+
+// IncrementAPIBindingPhase increments the gauge for the given APIBinding phase.
+func IncrementAPIBindingPhase(phase string) {
+	apiBindingPhase.WithLabelValues(phase).Inc()
+}
+
+// DecrementAPIBindingPhase decrements the gauge for the given APIBinding phase.
+func DecrementAPIBindingPhase(phase string) {
+	apiBindingPhase.WithLabelValues(phase).Dec()
 }
