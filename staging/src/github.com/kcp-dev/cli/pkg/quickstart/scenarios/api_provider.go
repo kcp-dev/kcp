@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	pluginhelpers "github.com/kcp-dev/cli/pkg/helpers"
@@ -53,6 +54,16 @@ const (
 type apiProviderScenario struct{}
 
 func (s *apiProviderScenario) Name() string { return "api-provider" }
+
+func (s *apiProviderScenario) Validate(prefix string) error {
+	for _, suffix := range []string{OrgSuffix, ProviderSuffix, ConsumerSuffix} {
+		name := prefix + suffix
+		if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+			return fmt.Errorf("--name-prefix %q produces invalid workspace name %q: %v", prefix, name, errs)
+		}
+	}
+	return nil
+}
 
 // EnterPath returns the absolute workspace path that --enter should switch to,
 // or "" if the scenario does not support it.

@@ -41,6 +41,10 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 			  api-provider   Create a service provider workspace with a sample API
 			                 (cowboys) and a consumer workspace with a binding to it.
 			                 (default)
+			  workspaces     Create an organization workspace populated with a
+			                 randomly-shaped tree of child workspaces. Useful for
+			                 performance testing the workspace control plane.
+			                 Tune with --tree-depth, --tree-count, --tree-seed.
 
 			Use --cleanup to tear down all resources created by a previous run.
 		`),
