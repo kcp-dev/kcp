@@ -399,6 +399,61 @@ func TestDeleteLogicalCluster(t *testing.T) {
 	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "root", "", true)
 }
 
+// TestDeleteLogicalClusterScrubsAllMaps guards against the bug where
+// DeleteLogicalCluster cleaned only 2 of 7 per-cluster maps, leaving stale
+// entries whenever the LogicalCluster delete event arrived before (or
+// without) the matching Workspace delete event.
+func TestDeleteLogicalClusterScrubsAllMaps(t *testing.T) {
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+
+	// "34" exists both as a child (org workspace under root points at it)
+	// and as a parent (it has its own sub-workspace "sub" pointing at "99").
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertWorkspace("root", newWorkspaceWithMount("mounted", "34", "55",
+		tenancyv1alpha1.ObjectReference{APIVersion: "v1", Kind: "Cluster", Name: "m"}))
+	target.UpsertWorkspace("root", withPhase(newWorkspace("broken", "34", "66"),
+		corev1alpha1.LogicalClusterPhaseUnavailable))
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+
+	// Sanity: all 7 maps must hold an entry that references "34".
+	assertHasCluster := func(name string, presence bool) {
+		t.Helper()
+		c := logicalcluster.Name("34")
+		_, child := target.shardClusterWorkspaceName["root"][c]
+		_, parent := target.shardClusterParentCluster["root"][c]
+		_, asParentInName := target.shardClusterWorkspaceNameCluster["root"][c]
+		_, asParentInMount := target.shardClusterWorkspaceMount["root"][c]
+		_, asParentInError := target.shardClusterWorkspaceNameErrorCode["root"][c]
+		_, asType := target.shardClusterWorkspaceType["root"][c]
+		_, asShard := target.clusterShards[c]
+		got := map[string]bool{
+			"shardClusterWorkspaceName":          child,
+			"shardClusterParentCluster":          parent,
+			"shardClusterWorkspaceNameCluster":   asParentInName,
+			"shardClusterWorkspaceMount":         asParentInMount,
+			"shardClusterWorkspaceNameErrorCode": asParentInError,
+			"shardClusterWorkspaceType":          asType,
+			"clusterShards":                      asShard,
+		}
+		for k, v := range got {
+			if v != presence {
+				t.Errorf("[%s] map %q for cluster %q: got presence=%v, want %v", name, k, c, v, presence)
+			}
+		}
+	}
+	assertHasCluster("pre-delete", true)
+
+	// Simulate the race: LogicalCluster delete arrives before any of the
+	// Workspace delete events.
+	target.DeleteLogicalCluster("root", newLogicalCluster("34"))
+
+	// All 7 maps must now be free of any reference to "34".
+	assertHasCluster("post-delete", false)
+}
+
 func TestDeleteWorkspace(t *testing.T) {
 	target := New(nil)
 
