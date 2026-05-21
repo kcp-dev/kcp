@@ -739,7 +739,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}); err != nil {
 			return err
 		}
-		installOpenAPIV3Evictor(s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(), s.openAPIv3Controller)
+		installOpenAPIV3Evictor(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(), s.openAPIv3Controller)
 		go s.openAPIv3Controller.Run(ctx)
 		return nil
 	}); err != nil {
