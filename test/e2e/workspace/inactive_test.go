@@ -48,6 +48,11 @@ func TestInactiveLogicalCluster(t *testing.T) {
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
 
+	t.Log("Opening watch on ConfigMaps before marking inactive")
+	watcher, err := kubeClient.Cluster(orgPath).CoreV1().ConfigMaps("default").Watch(t.Context(), v1.ListOptions{})
+	require.NoError(t, err)
+	t.Cleanup(watcher.Stop)
+
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		lc, err := kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Get(t.Context(), "cluster", v1.GetOptions{})
 		if err != nil {
@@ -69,6 +74,19 @@ func TestInactiveLogicalCluster(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Log("Verify that the open watch is terminated")
+drain:
+	for {
+		select {
+		case _, ok := <-watcher.ResultChan():
+			if !ok {
+				break drain
+			}
+		case <-time.After(wait.ForeverTestTimeout):
+			t.Fatal("watch was not terminated after marking logical cluster inactive")
+		}
+	}
 
 	t.Log("Remove inactive annotation again")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -92,4 +110,9 @@ func TestInactiveLogicalCluster(t *testing.T) {
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Log("Verify that a new watch can be opened after re-activation")
+	newWatcher, err := kubeClient.Cluster(orgPath).CoreV1().ConfigMaps("default").Watch(t.Context(), v1.ListOptions{})
+	require.NoError(t, err)
+	t.Cleanup(newWatcher.Stop)
 }
