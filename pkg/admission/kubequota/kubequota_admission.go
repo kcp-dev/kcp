@@ -44,6 +44,7 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 )
 
 // PluginName is the name of this admission plugin.
@@ -162,7 +163,7 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 }
 
 // getOrCreateDelegate creates a resourcequota.QuotaAdmission plugin for clusterName.
-func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name) (*stoppableQuotaAdmission, error) {
+func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name) (retDelegate *stoppableQuotaAdmission, retErr error) {
 	k.lock.RLock()
 	delegate := k.delegates[clusterName]
 	k.lock.RUnlock()
@@ -181,41 +182,50 @@ func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name)
 
 	// Set up a context that is cancelable and that is bounded by k.serverDone
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		// Wait for either the context or the server to be done. If it's the server, cancel the context.
-		select {
-		case <-ctx.Done():
-		case <-k.serverDone:
+
+	// Label the per-cluster init for the duration of this function so that the
+	// supervisor goroutine below, plus any processorListener goroutines spawned
+	// by ValidateInitialization() via AddEventHandler on the shared informer,
+	// inherit pprof labels and remain attributable if they leak (#4071, #3350).
+	pproflabels.Cluster(ctx, PluginName, clusterName, func(ctx context.Context) {
+		go func() {
+			// Wait for either the context or the server to be done. If it's the server, cancel the context.
+			select {
+			case <-ctx.Done():
+			case <-k.serverDone:
+				cancel()
+			}
+		}()
+
+		const evaluatorWorkersPerWorkspace = 5
+		quotaAdmission, err := resourcequota.NewResourceQuota(k.userSuppliedConfiguration, evaluatorWorkersPerWorkspace)
+		if err != nil {
 			cancel()
+			retErr = err
+			return
 		}
-	}()
 
-	const evaluatorWorkersPerWorkspace = 5
-	quotaAdmission, err := resourcequota.NewResourceQuota(k.userSuppliedConfiguration, evaluatorWorkersPerWorkspace)
-	if err != nil {
-		cancel()
-		return nil, err
-	}
+		delegate = &stoppableQuotaAdmission{
+			QuotaAdmission: quotaAdmission,
+			stop:           cancel,
+		}
 
-	delegate = &stoppableQuotaAdmission{
-		QuotaAdmission: quotaAdmission,
-		stop:           cancel,
-	}
+		delegate.SetDrainedNotification(ctx.Done())
+		delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.Cluster(clusterName).Lister())
+		delegate.SetResourceQuotaInformer(k.scopingResourceQuotaInformer.Cluster(clusterName).Informer())
+		delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
+		delegate.SetQuotaConfiguration(k.quotaConfiguration)
 
-	delegate.SetDrainedNotification(ctx.Done())
-	delegate.SetResourceQuotaLister(k.scopingResourceQuotaInformer.Cluster(clusterName).Lister())
-	delegate.SetResourceQuotaInformer(k.scopingResourceQuotaInformer.Cluster(clusterName).Informer())
-	delegate.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(clusterName.Path()))
-	delegate.SetQuotaConfiguration(k.quotaConfiguration)
+		if err := delegate.ValidateInitialization(); err != nil {
+			cancel()
+			retErr = err
+			return
+		}
 
-	if err := delegate.ValidateInitialization(); err != nil {
-		cancel()
-		return nil, err
-	}
-
-	k.delegates[clusterName] = delegate
-
-	return delegate, nil
+		k.delegates[clusterName] = delegate
+		retDelegate = delegate
+	})
+	return retDelegate, retErr
 }
 
 type stoppableQuotaAdmission struct {
