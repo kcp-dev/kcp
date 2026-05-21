@@ -454,6 +454,75 @@ func TestDeleteLogicalClusterScrubsAllMaps(t *testing.T) {
 	assertHasCluster("post-delete", false)
 }
 
+// TestDeleteLogicalCluster_ScrubsAllMaps verifies DeleteLogicalCluster removes
+// every per-cluster entry, including ones populated by UpsertWorkspace before
+// the matching Workspace delete event is observed. The leak this guards against
+// is that the LogicalCluster delete may race ahead of the Workspace delete (or
+// the Workspace event may be missed entirely on the front proxy informer), in
+// which case the per-cluster maps would otherwise retain entries indefinitely.
+func TestDeleteLogicalCluster_ScrubsAllMaps(t *testing.T) {
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+
+	// Parent "root" contains workspace "org" with scheduled cluster "orgcluster",
+	// plus an unavailable workspace and a mounted one — exercises every map.
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "orgcluster"))
+	target.UpsertWorkspace("root", withPhase(newWorkspace("bad", "root", "badcluster"), corev1alpha1.LogicalClusterPhaseUnavailable))
+	target.UpsertWorkspace("root", newWorkspaceWithMount("mnt", "root", "mntcluster", tenancyv1alpha1.ObjectReference{Name: "ref"}))
+	target.UpsertLogicalCluster("root", newLogicalCluster("orgcluster"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("badcluster"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("mntcluster"))
+
+	// Sanity: every map has the parent's bucket populated.
+	if _, ok := target.shardClusterWorkspaceNameCluster["root"][logicalcluster.Name("root")]; !ok {
+		t.Fatal("setup: shardClusterWorkspaceNameCluster[root][root] should be populated")
+	}
+	if _, ok := target.shardClusterWorkspaceMount["root"][logicalcluster.Name("root")]; !ok {
+		t.Fatal("setup: shardClusterWorkspaceMount[root][root] should be populated")
+	}
+	if _, ok := target.shardClusterWorkspaceNameErrorCode["root"][logicalcluster.Name("root")]; !ok {
+		t.Fatal("setup: shardClusterWorkspaceNameErrorCode[root][root] should be populated")
+	}
+	if _, ok := target.shardClusterWorkspaceName["root"][logicalcluster.Name("orgcluster")]; !ok {
+		t.Fatal("setup: shardClusterWorkspaceName[root][orgcluster] should be populated")
+	}
+	if _, ok := target.shardClusterParentCluster["root"][logicalcluster.Name("orgcluster")]; !ok {
+		t.Fatal("setup: shardClusterParentCluster[root][orgcluster] should be populated")
+	}
+
+	// Delete the CHILD logical cluster directly, without first deleting the
+	// Workspace CR. This is the out-of-order case the cleanup must handle.
+	target.DeleteLogicalCluster("root", newLogicalCluster("orgcluster"))
+
+	if _, ok := target.shardClusterWorkspaceName["root"][logicalcluster.Name("orgcluster")]; ok {
+		t.Error("shardClusterWorkspaceName[root][orgcluster] leaked after child LogicalCluster delete")
+	}
+	if _, ok := target.shardClusterParentCluster["root"][logicalcluster.Name("orgcluster")]; ok {
+		t.Error("shardClusterParentCluster[root][orgcluster] leaked after child LogicalCluster delete")
+	}
+	if _, ok := target.clusterShards[logicalcluster.Name("orgcluster")]; ok {
+		t.Error("clusterShards[orgcluster] leaked after LogicalCluster delete")
+	}
+
+	// Delete the PARENT logical cluster while child workspace entries still exist
+	// in the parent-keyed buckets. The whole bucket should be dropped.
+	target.DeleteLogicalCluster("root", newLogicalCluster("root"))
+
+	if _, ok := target.shardClusterWorkspaceNameCluster["root"][logicalcluster.Name("root")]; ok {
+		t.Error("shardClusterWorkspaceNameCluster[root][root] leaked after parent LogicalCluster delete")
+	}
+	if _, ok := target.shardClusterWorkspaceMount["root"][logicalcluster.Name("root")]; ok {
+		t.Error("shardClusterWorkspaceMount[root][root] leaked after parent LogicalCluster delete")
+	}
+	if _, ok := target.shardClusterWorkspaceNameErrorCode["root"][logicalcluster.Name("root")]; ok {
+		t.Error("shardClusterWorkspaceNameErrorCode[root][root] leaked after parent LogicalCluster delete")
+	}
+	if _, ok := target.shardClusterWorkspaceType["root"][logicalcluster.Name("root")]; ok {
+		t.Error("shardClusterWorkspaceType[root][root] leaked after parent LogicalCluster delete")
+	}
+}
+
 func TestDeleteWorkspace(t *testing.T) {
 	target := New(nil)
 
