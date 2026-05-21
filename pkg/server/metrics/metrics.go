@@ -48,12 +48,22 @@ var (
 		},
 		[]string{"phase"},
 	)
+
+	apiBindingConditionStatus = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Name:           "kcp_apibinding_condition_status",
+			Help:           "Number of APIBindings with each condition type and status (True, False, Unknown).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"condition", "status"},
+	)
 )
 
 func init() {
 	legacyregistry.MustRegister(logicalClusterCount)
 	legacyregistry.MustRegister(workspaceCount)
 	legacyregistry.MustRegister(apiBindingPhase)
+	legacyregistry.MustRegister(apiBindingConditionStatus)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.
@@ -84,4 +94,14 @@ func IncrementAPIBindingPhase(phase string) {
 // DecrementAPIBindingPhase decrements the gauge for the given APIBinding phase.
 func DecrementAPIBindingPhase(phase string) {
 	apiBindingPhase.WithLabelValues(phase).Dec()
+}
+
+// IncrementAPIBindingConditionStatus increments the gauge for the given condition type and status.
+func IncrementAPIBindingConditionStatus(conditionType, status string) {
+	apiBindingConditionStatus.WithLabelValues(conditionType, status).Inc()
+}
+
+// DecrementAPIBindingConditionStatus decrements the gauge for the given condition type and status.
+func DecrementAPIBindingConditionStatus(conditionType, status string) {
+	apiBindingConditionStatus.WithLabelValues(conditionType, status).Dec()
 }

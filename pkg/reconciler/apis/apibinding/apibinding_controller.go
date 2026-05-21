@@ -198,7 +198,8 @@ func NewController(
 			kcpClusterClient.ApisV1alpha2().APIBindings(),
 			ControllerName,
 		),
-		countedAPIBindings: make(map[string]string),
+		countedAPIBindings:          make(map[string]string),
+		countedAPIBindingConditions: make(map[string]map[string]string),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -209,16 +210,20 @@ func NewController(
 			binding := tombstone.Obj[*apisv1alpha2.APIBinding](obj)
 			c.enqueueAPIBinding(binding, logger, "")
 			c.handlePhaseMetricsOnAdd(binding)
+			c.handleConditionMetricsOnAdd(binding)
 		},
 		UpdateFunc: func(oldObj, obj interface{}) {
 			binding := tombstone.Obj[*apisv1alpha2.APIBinding](obj)
+			old := tombstone.Obj[*apisv1alpha2.APIBinding](oldObj)
 			c.enqueueAPIBinding(binding, logger, "")
-			c.handlePhaseMetricsOnUpdate(tombstone.Obj[*apisv1alpha2.APIBinding](oldObj), binding)
+			c.handlePhaseMetricsOnUpdate(old, binding)
+			c.handleConditionMetricsOnUpdate(old, binding)
 		},
 		DeleteFunc: func(obj interface{}) {
 			binding := tombstone.Obj[*apisv1alpha2.APIBinding](obj)
 			c.enqueueAPIBinding(binding, logger, "")
 			c.handlePhaseMetricsOnDelete(binding)
+			c.handleConditionMetricsOnDelete(binding)
 		},
 	})
 
@@ -366,6 +371,8 @@ type controller struct {
 
 	mu                 sync.Mutex
 	countedAPIBindings map[string]string
+	// countedAPIBindingConditions maps binding key -> (conditionType -> status)
+	countedAPIBindingConditions map[string]map[string]string
 }
 
 // enqueueAPIBinding enqueues an APIBinding .
@@ -640,4 +647,80 @@ func (c *controller) handlePhaseMetricsOnDelete(binding *apisv1alpha2.APIBinding
 			kcpmetrics.DecrementAPIBindingPhase(phase)
 		}
 	}
+}
+
+func (c *controller) handleConditionMetricsOnAdd(binding *apisv1alpha2.APIBinding) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(binding)
+	if err != nil {
+		return
+	}
+
+	snapshot := make(map[string]string, len(binding.Status.Conditions))
+	for _, cond := range binding.Status.Conditions {
+		snapshot[string(cond.Type)] = string(cond.Status)
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, exists := c.countedAPIBindingConditions[key]; exists {
+		return
+	}
+	c.countedAPIBindingConditions[key] = snapshot
+	for condType, status := range snapshot {
+		kcpmetrics.IncrementAPIBindingConditionStatus(condType, status)
+	}
+}
+
+func (c *controller) handleConditionMetricsOnUpdate(oldBinding, newBinding *apisv1alpha2.APIBinding) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(newBinding)
+	if err != nil {
+		return
+	}
+
+	newSnapshot := make(map[string]string, len(newBinding.Status.Conditions))
+	for _, cond := range newBinding.Status.Conditions {
+		newSnapshot[string(cond.Type)] = string(cond.Status)
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	oldSnapshot := c.countedAPIBindingConditions[key]
+
+	// Decrement removed or changed conditions.
+	for condType, oldStatus := range oldSnapshot {
+		newStatus, exists := newSnapshot[condType]
+		if !exists || newStatus != oldStatus {
+			kcpmetrics.DecrementAPIBindingConditionStatus(condType, oldStatus)
+		}
+	}
+	// Increment new or changed conditions.
+	for condType, newStatus := range newSnapshot {
+		oldStatus, exists := oldSnapshot[condType]
+		if !exists || oldStatus != newStatus {
+			kcpmetrics.IncrementAPIBindingConditionStatus(condType, newStatus)
+		}
+	}
+
+	c.countedAPIBindingConditions[key] = newSnapshot
+}
+
+func (c *controller) handleConditionMetricsOnDelete(binding *apisv1alpha2.APIBinding) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(binding)
+	if err != nil {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	snapshot, exists := c.countedAPIBindingConditions[key]
+	if !exists {
+		return
+	}
+	for condType, status := range snapshot {
+		kcpmetrics.DecrementAPIBindingConditionStatus(condType, status)
+	}
+	delete(c.countedAPIBindingConditions, key)
 }

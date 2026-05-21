@@ -29,7 +29,8 @@ import (
 
 func newTestController() *controller {
 	return &controller{
-		countedAPIBindings: make(map[string]string),
+		countedAPIBindings:          make(map[string]string),
+		countedAPIBindingConditions: make(map[string]map[string]string),
 	}
 }
 
