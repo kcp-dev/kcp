@@ -19,13 +19,19 @@ package logicalcluster
 import (
 	"context"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
+	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
-type phaseReconciler struct{}
+type phaseReconciler struct {
+	clusterContextManager *contextmanager.Manager[logicalcluster.Path]
+}
 
 func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	if !workspace.DeletionTimestamp.IsZero() {
@@ -42,6 +48,8 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 		default:
 			if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseDeleting {
 				workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseDeleting
+				// At this point access to the LC is no longer permitted, cancel contexts.
+				r.clusterContextManager.Cancel(logicalcluster.From(workspace).Path())
 				return reconcileStatusContinue, nil
 			}
 		}
@@ -65,6 +73,19 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 
 		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
+	case corev1alpha1.LogicalClusterPhaseReady:
+		if workspace.Annotations[filters.InactiveAnnotation] == "true" {
+			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInactive
+			// Cancel active connections for this LC as well as wildcard
+			// connections, as they may watch objects in this LC.
+			lcPath := logicalcluster.From(workspace).Path()
+			r.clusterContextManager.Cancel(lcPath)
+			r.clusterContextManager.Cancel(logicalcluster.Wildcard)
+		}
+	case corev1alpha1.LogicalClusterPhaseInactive:
+		if workspace.Annotations[filters.InactiveAnnotation] != "true" {
+			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
+		}
 	}
 
 	return reconcileStatusContinue, nil
