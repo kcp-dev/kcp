@@ -195,14 +195,15 @@ To diff before/after a known-clean baseline (the technique used in
 [#3350](https://github.com/kcp-dev/kcp/issues/3350)):
 
 ```
-# Baseline: kcp running, no churn
-curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=2' > before.txt
+# Baseline: kcp running, no churn. Use debug=1 — labels only appear in the
+# aggregated format.
+curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=1' > before.txt
 
 # Run churn: create/delete N workspaces in a loop
 kubectl-kcp quickstart --scenario workspaces --tree-depth 10 --tree-count 1000
 
 # After churn
-curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=2' > after.txt
+curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=1' > after.txt
 
 # Compare counts per controller label
 diff <(grep -oE '"controller":"[^"]+"' before.txt | sort | uniq -c) \

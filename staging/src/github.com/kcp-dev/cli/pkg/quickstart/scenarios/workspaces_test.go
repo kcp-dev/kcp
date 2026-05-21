@@ -17,7 +17,6 @@ limitations under the License.
 package scenarios
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -162,7 +161,10 @@ func TestWorkspacesGenerateTreeCached(t *testing.T) {
 	first := s.generateTree("p")
 	second := s.generateTree("p")
 
-	if fmt.Sprintf("%p", first) != fmt.Sprintf("%p", second) {
+	if len(first) == 0 || len(second) == 0 {
+		t.Fatal("generateTree returned an empty slice; expected non-empty cached result")
+	}
+	if &first[0] != &second[0] {
 		t.Error("generateTree returned different slices on repeat call; expected cached result")
 	}
 }
