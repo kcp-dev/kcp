@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"context"
+
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -33,7 +35,8 @@ import (
 // event being observed and ordered before the LogicalCluster delete. When that
 // ordering breaks the bucket leaks 100KB–1MB per CRD version forever. See
 // https://github.com/kcp-dev/kcp/issues/4071.
-func installOpenAPIV3Evictor(informer corev1alpha1informers.LogicalClusterClusterInformer, controller *openapiv3.Controller) {
+func installOpenAPIV3Evictor(ctx context.Context, informer corev1alpha1informers.LogicalClusterClusterInformer, controller *openapiv3.Controller) {
+	logger := klog.FromContext(ctx).WithName("openapiv3-evictor")
 	_, _ = informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			lc, ok := obj.(*corev1alpha1.LogicalCluster)
@@ -51,7 +54,7 @@ func installOpenAPIV3Evictor(informer corev1alpha1informers.LogicalClusterCluste
 			if name == "" {
 				return
 			}
-			klog.V(4).InfoS("evicting OpenAPI v3 cache", "logicalcluster", name)
+			logger.V(4).Info("evicting OpenAPI v3 cache", "logicalcluster", name)
 			controller.EvictCluster(name)
 		},
 	})
