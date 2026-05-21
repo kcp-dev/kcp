@@ -68,6 +68,15 @@ var (
 			Buckets:        []float64{100, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000, 300000},
 		},
 	)
+
+	apiExportConditionStatus = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Name:           "kcp_apiexport_condition_status",
+			Help:           "Number of APIExports with each condition type and status (True, False, Unknown).",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"condition", "status"},
+	)
 )
 
 func init() {
@@ -76,6 +85,7 @@ func init() {
 	legacyregistry.MustRegister(apiBindingPhase)
 	legacyregistry.MustRegister(apiBindingConditionStatus)
 	legacyregistry.MustRegister(apiBindingReadyDurationMs)
+	legacyregistry.MustRegister(apiExportConditionStatus)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.
@@ -121,4 +131,14 @@ func DecrementAPIBindingConditionStatus(conditionType, status string) {
 // ObserveAPIBindingReadyDuration records the duration from creation to Bound phase.
 func ObserveAPIBindingReadyDuration(creationTime time.Time) {
 	apiBindingReadyDurationMs.Observe(float64(time.Since(creationTime).Milliseconds()))
+}
+
+// IncrementAPIExportConditionStatus increments the gauge for the given APIExport condition type and status.
+func IncrementAPIExportConditionStatus(conditionType, status string) {
+	apiExportConditionStatus.WithLabelValues(conditionType, status).Inc()
+}
+
+// DecrementAPIExportConditionStatus decrements the gauge for the given APIExport condition type and status.
+func DecrementAPIExportConditionStatus(conditionType, status string) {
+	apiExportConditionStatus.WithLabelValues(conditionType, status).Dec()
 }

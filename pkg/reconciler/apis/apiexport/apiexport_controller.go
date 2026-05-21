@@ -19,6 +19,7 @@ package apiexport
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +50,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
+	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 )
 
 const (
@@ -133,17 +135,25 @@ func NewController(
 		},
 
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha2().APIExports()),
+
+		countedAPIExportConditions: make(map[string]map[string]string),
 	}
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport))
+			export := obj.(*apisv1alpha2.APIExport)
+			c.enqueueAPIExport(export)
+			c.handleConditionMetricsOnAdd(export)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueAPIExport(newObj.(*apisv1alpha2.APIExport))
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			export := newObj.(*apisv1alpha2.APIExport)
+			c.enqueueAPIExport(export)
+			c.handleConditionMetricsOnUpdate(oldObj.(*apisv1alpha2.APIExport), export)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport))
+			export := obj.(*apisv1alpha2.APIExport)
+			c.enqueueAPIExport(export)
+			c.handleConditionMetricsOnDelete(export)
 		},
 	})
 
@@ -214,6 +224,9 @@ type controller struct {
 	listShards func() ([]*corev1alpha1.Shard, error)
 
 	commit CommitFunc
+
+	mu                          sync.Mutex
+	countedAPIExportConditions  map[string]map[string]string
 }
 
 // enqueueAPIExport enqueues an APIExport.
@@ -380,4 +393,78 @@ func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInf
 			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
 		},
 	)
+}
+
+func (c *controller) handleConditionMetricsOnAdd(export *apisv1alpha2.APIExport) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		return
+	}
+
+	snapshot := make(map[string]string, len(export.Status.Conditions))
+	for _, cond := range export.Status.Conditions {
+		snapshot[string(cond.Type)] = string(cond.Status)
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, exists := c.countedAPIExportConditions[key]; exists {
+		return
+	}
+	c.countedAPIExportConditions[key] = snapshot
+	for condType, status := range snapshot {
+		kcpmetrics.IncrementAPIExportConditionStatus(condType, status)
+	}
+}
+
+func (c *controller) handleConditionMetricsOnUpdate(oldExport, newExport *apisv1alpha2.APIExport) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(newExport)
+	if err != nil {
+		return
+	}
+
+	newSnapshot := make(map[string]string, len(newExport.Status.Conditions))
+	for _, cond := range newExport.Status.Conditions {
+		newSnapshot[string(cond.Type)] = string(cond.Status)
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	oldSnapshot := c.countedAPIExportConditions[key]
+
+	for condType, oldStatus := range oldSnapshot {
+		newStatus, exists := newSnapshot[condType]
+		if !exists || newStatus != oldStatus {
+			kcpmetrics.DecrementAPIExportConditionStatus(condType, oldStatus)
+		}
+	}
+	for condType, newStatus := range newSnapshot {
+		oldStatus, exists := oldSnapshot[condType]
+		if !exists || oldStatus != newStatus {
+			kcpmetrics.IncrementAPIExportConditionStatus(condType, newStatus)
+		}
+	}
+
+	c.countedAPIExportConditions[key] = newSnapshot
+}
+
+func (c *controller) handleConditionMetricsOnDelete(export *apisv1alpha2.APIExport) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	snapshot, exists := c.countedAPIExportConditions[key]
+	if !exists {
+		return
+	}
+	for condType, status := range snapshot {
+		kcpmetrics.DecrementAPIExportConditionStatus(condType, status)
+	}
+	delete(c.countedAPIExportConditions, key)
 }
