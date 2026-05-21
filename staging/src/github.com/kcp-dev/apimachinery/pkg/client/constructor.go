@@ -34,11 +34,55 @@ type Constructor[R any] struct {
 type Cache[R any] interface {
 	ClusterOrDie(clusterPath logicalcluster.Path) R
 	Cluster(clusterPath logicalcluster.Path) (R, error)
+	// Evict drops the cached client for clusterPath, if any. Used to release
+	// per-cluster client state (REST clients, codec factories, parsed
+	// schemas) when a logical cluster is deleted. Safe to call concurrently
+	// with Cluster / ClusterOrDie. No-op if the path is not cached.
+	Evict(clusterPath logicalcluster.Path)
+}
+
+// Evictor is the non-generic subset of Cache used by EvictCluster to fan
+// eviction out to every registered cache. Every cache returned by NewCache
+// is auto-registered. Callers that wrap or substitute caches may register
+// their own implementation via RegisterEvictor.
+type Evictor interface {
+	Evict(clusterPath logicalcluster.Path)
+}
+
+var (
+	evictorsMu sync.RWMutex
+	evictors   []Evictor
+)
+
+// RegisterEvictor adds e to the set of caches notified by EvictCluster.
+// NewCache calls this automatically.
+func RegisterEvictor(e Evictor) {
+	evictorsMu.Lock()
+	defer evictorsMu.Unlock()
+	evictors = append(evictors, e)
+}
+
+// EvictCluster notifies every registered cache that clusterPath has been
+// deleted and its cached client (and everything that client transitively
+// pins — REST client, codec factory, JSON decoder state, OpenAPI schemas)
+// can be released. Wire this to a LogicalCluster delete handler to bound
+// retained memory per workspace lifetime. See
+// https://github.com/kcp-dev/kcp/issues/4071.
+func EvictCluster(clusterPath logicalcluster.Path) {
+	evictorsMu.RLock()
+	snapshot := make([]Evictor, len(evictors))
+	copy(snapshot, evictors)
+	evictorsMu.RUnlock()
+	for _, e := range snapshot {
+		e.Evict(clusterPath)
+	}
 }
 
 // NewCache creates a new client factory cache using the given constructor.
+// The cache is auto-registered with the package-level EvictCluster fan-out
+// so per-cluster entries can be released when a LogicalCluster is deleted.
 func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constructor[R]) Cache[R] {
-	return &clientCache[R]{
+	c := &clientCache[R]{
 		cfg:         cfg,
 		client:      client,
 		constructor: constructor,
@@ -46,6 +90,8 @@ func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constru
 		RWMutex:              &sync.RWMutex{},
 		clientsByClusterPath: map[logicalcluster.Path]R{},
 	}
+	RegisterEvictor(c)
+	return c
 }
 
 type clientCache[R any] struct {
@@ -98,4 +144,11 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	c.clientsByClusterPath[clusterPath] = instance
 
 	return instance, nil
+}
+
+// Evict drops the cached client for clusterPath, if any.
+func (c *clientCache[R]) Evict(clusterPath logicalcluster.Path) {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.clientsByClusterPath, clusterPath)
 }
