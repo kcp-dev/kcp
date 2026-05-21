@@ -17,6 +17,8 @@ limitations under the License.
 package metrics
 
 import (
+	"time"
+
 	"k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/legacyregistry"
 )
@@ -57,6 +59,15 @@ var (
 		},
 		[]string{"condition", "status"},
 	)
+
+	apiBindingReadyDurationMs = metrics.NewHistogram(
+		&metrics.HistogramOpts{
+			Name:           "kcp_apibinding_ready_duration_ms",
+			Help:           "Duration in milliseconds from APIBinding creation to reaching the Bound phase.",
+			StabilityLevel: metrics.ALPHA,
+			Buckets:        []float64{100, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000, 300000},
+		},
+	)
 )
 
 func init() {
@@ -64,6 +75,7 @@ func init() {
 	legacyregistry.MustRegister(workspaceCount)
 	legacyregistry.MustRegister(apiBindingPhase)
 	legacyregistry.MustRegister(apiBindingConditionStatus)
+	legacyregistry.MustRegister(apiBindingReadyDurationMs)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.
@@ -104,4 +116,9 @@ func IncrementAPIBindingConditionStatus(conditionType, status string) {
 // DecrementAPIBindingConditionStatus decrements the gauge for the given condition type and status.
 func DecrementAPIBindingConditionStatus(conditionType, status string) {
 	apiBindingConditionStatus.WithLabelValues(conditionType, status).Dec()
+}
+
+// ObserveAPIBindingReadyDuration records the duration from creation to Bound phase.
+func ObserveAPIBindingReadyDuration(creationTime time.Time) {
+	apiBindingReadyDurationMs.Observe(float64(time.Since(creationTime).Milliseconds()))
 }

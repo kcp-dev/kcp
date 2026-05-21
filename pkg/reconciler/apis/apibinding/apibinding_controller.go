@@ -628,6 +628,9 @@ func (c *controller) handlePhaseMetricsOnUpdate(oldBinding, newBinding *apisv1al
 		if newPhase != "" {
 			kcpmetrics.IncrementAPIBindingPhase(newPhase)
 		}
+		if newPhase == string(apisv1alpha2.APIBindingPhaseBound) {
+			kcpmetrics.ObserveAPIBindingReadyDuration(newBinding.CreationTimestamp.Time)
+		}
 		c.countedAPIBindings[key] = newPhase
 	}
 }
