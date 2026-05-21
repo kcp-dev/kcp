@@ -51,6 +51,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 )
 
 const (
@@ -68,6 +69,7 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
+	shardName string,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -77,6 +79,7 @@ func NewController(
 			},
 		),
 
+		shardName:         shardName,
 		kcpClusterClient:  kcpClusterClient,
 		kubeClusterClient: kubeClusterClient,
 
@@ -137,6 +140,7 @@ func NewController(
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha2().APIExports()),
 
 		countedAPIExportConditions: make(map[string]map[string]string),
+		readyAPIExports:            make(map[string]struct{}),
 	}
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -144,16 +148,19 @@ func NewController(
 			export := obj.(*apisv1alpha2.APIExport)
 			c.enqueueAPIExport(export)
 			c.handleConditionMetricsOnAdd(export)
+			c.handleReadyDurationMetricOnAdd(export)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			export := newObj.(*apisv1alpha2.APIExport)
 			c.enqueueAPIExport(export)
 			c.handleConditionMetricsOnUpdate(oldObj.(*apisv1alpha2.APIExport), export)
+			c.handleReadyDurationMetricOnUpdate(export)
 		},
 		DeleteFunc: func(obj interface{}) {
-			export := obj.(*apisv1alpha2.APIExport)
+			export := tombstone.Obj[*apisv1alpha2.APIExport](obj)
 			c.enqueueAPIExport(export)
 			c.handleConditionMetricsOnDelete(export)
+			c.handleReadyDurationMetricOnDelete(export)
 		},
 	})
 
@@ -203,6 +210,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
+	shardName         string
 	kcpClusterClient  kcpclientset.ClusterInterface
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
@@ -225,8 +233,10 @@ type controller struct {
 
 	commit CommitFunc
 
-	mu                          sync.Mutex
-	countedAPIExportConditions  map[string]map[string]string
+	// metricsMu protects countedAPIExportConditions and readyAPIExports.
+	metricsMu                  sync.Mutex
+	countedAPIExportConditions map[string]map[string]string
+	readyAPIExports            map[string]struct{}
 }
 
 // enqueueAPIExport enqueues an APIExport.
@@ -406,15 +416,15 @@ func (c *controller) handleConditionMetricsOnAdd(export *apisv1alpha2.APIExport)
 		snapshot[string(cond.Type)] = string(cond.Status)
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
 
 	if _, exists := c.countedAPIExportConditions[key]; exists {
 		return
 	}
 	c.countedAPIExportConditions[key] = snapshot
 	for condType, status := range snapshot {
-		kcpmetrics.IncrementAPIExportConditionStatus(condType, status)
+		kcpmetrics.IncrementAPIExportConditionStatus(c.shardName, condType, status)
 	}
 }
 
@@ -429,21 +439,21 @@ func (c *controller) handleConditionMetricsOnUpdate(oldExport, newExport *apisv1
 		newSnapshot[string(cond.Type)] = string(cond.Status)
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
 
 	oldSnapshot := c.countedAPIExportConditions[key]
 
 	for condType, oldStatus := range oldSnapshot {
 		newStatus, exists := newSnapshot[condType]
 		if !exists || newStatus != oldStatus {
-			kcpmetrics.DecrementAPIExportConditionStatus(condType, oldStatus)
+			kcpmetrics.DecrementAPIExportConditionStatus(c.shardName, condType, oldStatus)
 		}
 	}
 	for condType, newStatus := range newSnapshot {
 		oldStatus, exists := oldSnapshot[condType]
 		if !exists || oldStatus != newStatus {
-			kcpmetrics.IncrementAPIExportConditionStatus(condType, newStatus)
+			kcpmetrics.IncrementAPIExportConditionStatus(c.shardName, condType, newStatus)
 		}
 	}
 
@@ -456,15 +466,77 @@ func (c *controller) handleConditionMetricsOnDelete(export *apisv1alpha2.APIExpo
 		return
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
 
 	snapshot, exists := c.countedAPIExportConditions[key]
 	if !exists {
 		return
 	}
 	for condType, status := range snapshot {
-		kcpmetrics.DecrementAPIExportConditionStatus(condType, status)
+		kcpmetrics.DecrementAPIExportConditionStatus(c.shardName, condType, status)
 	}
 	delete(c.countedAPIExportConditions, key)
+}
+
+func isAPIExportReady(export *apisv1alpha2.APIExport) bool {
+	identityValid := false
+	urlsReady := false
+	for _, cond := range export.Status.Conditions {
+		switch cond.Type {
+		case apisv1alpha2.APIExportIdentityValid:
+			identityValid = cond.Status == corev1.ConditionTrue
+		case apisv1alpha2.APIExportVirtualWorkspaceURLsReady:
+			urlsReady = cond.Status == corev1.ConditionTrue
+		}
+	}
+	return identityValid && urlsReady
+}
+
+func (c *controller) handleReadyDurationMetricOnAdd(export *apisv1alpha2.APIExport) {
+	if !isAPIExportReady(export) {
+		return
+	}
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		return
+	}
+
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+
+	// On add (including restarts), just mark the export as already seen so that
+	// a subsequent update does not re-record the ready duration.
+	c.readyAPIExports[key] = struct{}{}
+}
+
+func (c *controller) handleReadyDurationMetricOnUpdate(export *apisv1alpha2.APIExport) {
+	if !isAPIExportReady(export) {
+		return
+	}
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		return
+	}
+
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+
+	if _, alreadyObserved := c.readyAPIExports[key]; alreadyObserved {
+		return
+	}
+	c.readyAPIExports[key] = struct{}{}
+	kcpmetrics.ObserveAPIExportReadyDuration(c.shardName, export.CreationTimestamp.Time)
+}
+
+func (c *controller) handleReadyDurationMetricOnDelete(export *apisv1alpha2.APIExport) {
+	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
+	if err != nil {
+		return
+	}
+
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+
+	delete(c.readyAPIExports, key)
 }

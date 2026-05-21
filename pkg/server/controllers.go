@@ -770,6 +770,7 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIConversions(),
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.Options.Extra.ShardName,
 	)
 	if err != nil {
 		return err
@@ -1140,6 +1141,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		s.Options.Extra.ShardName,
 	)
 	if err != nil {
 		return err

@@ -48,7 +48,7 @@ var (
 			Help:           "Number of APIBindings in each phase (Binding, Bound, or empty for newly created).",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"phase"},
+		[]string{"shard", "phase"},
 	)
 
 	apiBindingConditionStatus = metrics.NewGaugeVec(
@@ -57,16 +57,17 @@ var (
 			Help:           "Number of APIBindings with each condition type and status (True, False, Unknown).",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"condition", "status"},
+		[]string{"shard", "condition", "status"},
 	)
 
-	apiBindingReadyDurationMs = metrics.NewHistogram(
+	apiBindingReadyDurationMs = metrics.NewHistogramVec(
 		&metrics.HistogramOpts{
 			Name:           "kcp_apibinding_ready_duration_ms",
 			Help:           "Duration in milliseconds from APIBinding creation to reaching the Bound phase.",
 			StabilityLevel: metrics.ALPHA,
 			Buckets:        []float64{100, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000, 300000},
 		},
+		[]string{"shard"},
 	)
 
 	apiExportConditionStatus = metrics.NewGaugeVec(
@@ -75,7 +76,17 @@ var (
 			Help:           "Number of APIExports with each condition type and status (True, False, Unknown).",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"condition", "status"},
+		[]string{"shard", "condition", "status"},
+	)
+
+	apiExportReadyDurationMs = metrics.NewHistogramVec(
+		&metrics.HistogramOpts{
+			Name:           "kcp_apiexport_ready_duration_ms",
+			Help:           "Duration in milliseconds from APIExport creation to becoming fully operational (IdentityValid and VirtualWorkspaceURLsReady both True).",
+			StabilityLevel: metrics.ALPHA,
+			Buckets:        []float64{100, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000, 300000},
+		},
+		[]string{"shard"},
 	)
 )
 
@@ -86,6 +97,7 @@ func init() {
 	legacyregistry.MustRegister(apiBindingConditionStatus)
 	legacyregistry.MustRegister(apiBindingReadyDurationMs)
 	legacyregistry.MustRegister(apiExportConditionStatus)
+	legacyregistry.MustRegister(apiExportReadyDurationMs)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.
@@ -109,36 +121,41 @@ func DecrementWorkspaceCount(shardName string, phase string) {
 }
 
 // IncrementAPIBindingPhase increments the gauge for the given APIBinding phase.
-func IncrementAPIBindingPhase(phase string) {
-	apiBindingPhase.WithLabelValues(phase).Inc()
+func IncrementAPIBindingPhase(shardName, phase string) {
+	apiBindingPhase.WithLabelValues(shardName, phase).Inc()
 }
 
 // DecrementAPIBindingPhase decrements the gauge for the given APIBinding phase.
-func DecrementAPIBindingPhase(phase string) {
-	apiBindingPhase.WithLabelValues(phase).Dec()
+func DecrementAPIBindingPhase(shardName, phase string) {
+	apiBindingPhase.WithLabelValues(shardName, phase).Dec()
 }
 
 // IncrementAPIBindingConditionStatus increments the gauge for the given condition type and status.
-func IncrementAPIBindingConditionStatus(conditionType, status string) {
-	apiBindingConditionStatus.WithLabelValues(conditionType, status).Inc()
+func IncrementAPIBindingConditionStatus(shardName, conditionType, status string) {
+	apiBindingConditionStatus.WithLabelValues(shardName, conditionType, status).Inc()
 }
 
 // DecrementAPIBindingConditionStatus decrements the gauge for the given condition type and status.
-func DecrementAPIBindingConditionStatus(conditionType, status string) {
-	apiBindingConditionStatus.WithLabelValues(conditionType, status).Dec()
+func DecrementAPIBindingConditionStatus(shardName, conditionType, status string) {
+	apiBindingConditionStatus.WithLabelValues(shardName, conditionType, status).Dec()
 }
 
 // ObserveAPIBindingReadyDuration records the duration from creation to Bound phase.
-func ObserveAPIBindingReadyDuration(creationTime time.Time) {
-	apiBindingReadyDurationMs.Observe(float64(time.Since(creationTime).Milliseconds()))
+func ObserveAPIBindingReadyDuration(shardName string, creationTime time.Time) {
+	apiBindingReadyDurationMs.WithLabelValues(shardName).Observe(float64(time.Since(creationTime).Milliseconds()))
 }
 
 // IncrementAPIExportConditionStatus increments the gauge for the given APIExport condition type and status.
-func IncrementAPIExportConditionStatus(conditionType, status string) {
-	apiExportConditionStatus.WithLabelValues(conditionType, status).Inc()
+func IncrementAPIExportConditionStatus(shardName, conditionType, status string) {
+	apiExportConditionStatus.WithLabelValues(shardName, conditionType, status).Inc()
 }
 
 // DecrementAPIExportConditionStatus decrements the gauge for the given APIExport condition type and status.
-func DecrementAPIExportConditionStatus(conditionType, status string) {
-	apiExportConditionStatus.WithLabelValues(conditionType, status).Dec()
+func DecrementAPIExportConditionStatus(shardName, conditionType, status string) {
+	apiExportConditionStatus.WithLabelValues(shardName, conditionType, status).Dec()
+}
+
+// ObserveAPIExportReadyDuration records the duration from APIExport creation to fully operational.
+func ObserveAPIExportReadyDuration(shardName string, creationTime time.Time) {
+	apiExportReadyDurationMs.WithLabelValues(shardName).Observe(float64(time.Since(creationTime).Milliseconds()))
 }

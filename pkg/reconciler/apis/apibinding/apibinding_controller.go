@@ -86,6 +86,7 @@ func NewController(
 	globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	globalAPIConversionInformer apisv1alpha1informers.APIConversionClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
+	shardName string,
 ) (*controller, error) {
 	c := &controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -96,6 +97,7 @@ func NewController(
 		),
 		crdClusterClient: crdClusterClient,
 		kcpClusterClient: kcpClusterClient,
+		shardName:        shardName,
 
 		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).List(labels.Everything())
@@ -344,6 +346,7 @@ type CommitFunc = func(context.Context, *Resource, *Resource) error
 type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
+	shardName        string
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient kcpclientset.ClusterInterface
 
@@ -369,8 +372,9 @@ type controller struct {
 	deletedCRDTracker *lockedStringSet
 	commit            CommitFunc
 
-	mu                 sync.Mutex
-	countedAPIBindings map[string]string
+	// countedAPIBindingsLock protects countedAPIBindings and countedAPIBindingConditions.
+	countedAPIBindingsLock sync.Mutex
+	countedAPIBindings     map[string]string
 	// countedAPIBindingConditions maps binding key -> (conditionType -> status)
 	countedAPIBindingConditions map[string]map[string]string
 }
@@ -599,13 +603,13 @@ func (c *controller) handlePhaseMetricsOnAdd(binding *apisv1alpha2.APIBinding) {
 	}
 	phase := string(binding.Status.Phase)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.countedAPIBindingsLock.Lock()
+	defer c.countedAPIBindingsLock.Unlock()
 
 	if _, exists := c.countedAPIBindings[key]; !exists {
 		c.countedAPIBindings[key] = phase
 		if phase != "" {
-			kcpmetrics.IncrementAPIBindingPhase(phase)
+			kcpmetrics.IncrementAPIBindingPhase(c.shardName, phase)
 		}
 	}
 }
@@ -618,18 +622,18 @@ func (c *controller) handlePhaseMetricsOnUpdate(oldBinding, newBinding *apisv1al
 	oldPhase := string(oldBinding.Status.Phase)
 	newPhase := string(newBinding.Status.Phase)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.countedAPIBindingsLock.Lock()
+	defer c.countedAPIBindingsLock.Unlock()
 
 	if oldPhase != newPhase {
 		if oldPhase != "" {
-			kcpmetrics.DecrementAPIBindingPhase(oldPhase)
+			kcpmetrics.DecrementAPIBindingPhase(c.shardName, oldPhase)
 		}
 		if newPhase != "" {
-			kcpmetrics.IncrementAPIBindingPhase(newPhase)
+			kcpmetrics.IncrementAPIBindingPhase(c.shardName, newPhase)
 		}
 		if newPhase == string(apisv1alpha2.APIBindingPhaseBound) {
-			kcpmetrics.ObserveAPIBindingReadyDuration(newBinding.CreationTimestamp.Time)
+			kcpmetrics.ObserveAPIBindingReadyDuration(c.shardName, newBinding.CreationTimestamp.Time)
 		}
 		c.countedAPIBindings[key] = newPhase
 	}
@@ -641,13 +645,13 @@ func (c *controller) handlePhaseMetricsOnDelete(binding *apisv1alpha2.APIBinding
 		return
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.countedAPIBindingsLock.Lock()
+	defer c.countedAPIBindingsLock.Unlock()
 
 	if phase, exists := c.countedAPIBindings[key]; exists {
 		delete(c.countedAPIBindings, key)
 		if phase != "" {
-			kcpmetrics.DecrementAPIBindingPhase(phase)
+			kcpmetrics.DecrementAPIBindingPhase(c.shardName, phase)
 		}
 	}
 }
@@ -663,15 +667,15 @@ func (c *controller) handleConditionMetricsOnAdd(binding *apisv1alpha2.APIBindin
 		snapshot[string(cond.Type)] = string(cond.Status)
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.countedAPIBindingsLock.Lock()
+	defer c.countedAPIBindingsLock.Unlock()
 
 	if _, exists := c.countedAPIBindingConditions[key]; exists {
 		return
 	}
 	c.countedAPIBindingConditions[key] = snapshot
 	for condType, status := range snapshot {
-		kcpmetrics.IncrementAPIBindingConditionStatus(condType, status)
+		kcpmetrics.IncrementAPIBindingConditionStatus(c.shardName, condType, status)
 	}
 }
 
@@ -686,8 +690,8 @@ func (c *controller) handleConditionMetricsOnUpdate(oldBinding, newBinding *apis
 		newSnapshot[string(cond.Type)] = string(cond.Status)
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.countedAPIBindingsLock.Lock()
+	defer c.countedAPIBindingsLock.Unlock()
 
 	oldSnapshot := c.countedAPIBindingConditions[key]
 
@@ -695,14 +699,14 @@ func (c *controller) handleConditionMetricsOnUpdate(oldBinding, newBinding *apis
 	for condType, oldStatus := range oldSnapshot {
 		newStatus, exists := newSnapshot[condType]
 		if !exists || newStatus != oldStatus {
-			kcpmetrics.DecrementAPIBindingConditionStatus(condType, oldStatus)
+			kcpmetrics.DecrementAPIBindingConditionStatus(c.shardName, condType, oldStatus)
 		}
 	}
 	// Increment new or changed conditions.
 	for condType, newStatus := range newSnapshot {
 		oldStatus, exists := oldSnapshot[condType]
 		if !exists || oldStatus != newStatus {
-			kcpmetrics.IncrementAPIBindingConditionStatus(condType, newStatus)
+			kcpmetrics.IncrementAPIBindingConditionStatus(c.shardName, condType, newStatus)
 		}
 	}
 
@@ -715,15 +719,15 @@ func (c *controller) handleConditionMetricsOnDelete(binding *apisv1alpha2.APIBin
 		return
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.countedAPIBindingsLock.Lock()
+	defer c.countedAPIBindingsLock.Unlock()
 
 	snapshot, exists := c.countedAPIBindingConditions[key]
 	if !exists {
 		return
 	}
 	for condType, status := range snapshot {
-		kcpmetrics.DecrementAPIBindingConditionStatus(condType, status)
+		kcpmetrics.DecrementAPIBindingConditionStatus(c.shardName, condType, status)
 	}
 	delete(c.countedAPIBindingConditions, key)
 }

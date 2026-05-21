@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
@@ -32,7 +33,7 @@ func bindingWithConditions(cluster, name string, conds ...conditionsv1alpha1.Con
 	return &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Annotations: map[string]string{"kcp.io/cluster": cluster},
+			Annotations: map[string]string{logicalcluster.AnnotationKey: cluster},
 		},
 		Status: apisv1alpha2.APIBindingStatus{Conditions: conds},
 	}

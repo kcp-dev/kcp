@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
@@ -38,7 +39,7 @@ func binding(cluster, name string, phase apisv1alpha2.APIBindingPhaseType) *apis
 	return &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Annotations: map[string]string{"kcp.io/cluster": cluster},
+			Annotations: map[string]string{logicalcluster.AnnotationKey: cluster},
 		},
 		Status: apisv1alpha2.APIBindingStatus{Phase: phase},
 	}
@@ -61,7 +62,7 @@ func TestHandlePhaseMetricsOnAdd(t *testing.T) {
 		c.handlePhaseMetricsOnAdd(b)
 		require.Len(t, c.countedAPIBindings, 1)
 		for _, v := range c.countedAPIBindings {
-			require.Equal(t, "", v)
+			require.Empty(t, v)
 		}
 	})
 

@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
@@ -32,6 +33,7 @@ import (
 func newTestController() *controller {
 	return &controller{
 		countedAPIExportConditions: make(map[string]map[string]string),
+		readyAPIExports:            make(map[string]struct{}),
 	}
 }
 
@@ -39,7 +41,7 @@ func exportWithConditions(cluster, name string, conds ...conditionsv1alpha1.Cond
 	return &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Annotations: map[string]string{"kcp.io/cluster": cluster},
+			Annotations: map[string]string{logicalcluster.AnnotationKey: cluster},
 		},
 		Status: apisv1alpha2.APIExportStatus{Conditions: conds},
 	}
