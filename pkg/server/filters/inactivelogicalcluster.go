@@ -38,6 +38,10 @@ const (
 
 // WithBlockInactiveLogicalClusters ensures that any requests to logical
 // clusters marked inactive are rejected.
+//
+// The filter intentionally acts on the InactiveAnnotation to deny
+// access as early as possible, as opposed to the Inactive LC phase
+// which is only set after the LC reconciler fires.
 func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient corev1alpha1informers.LogicalClusterClusterInformer) http.HandlerFunc {
 	allowedPathPrefixes := []string{
 		"/openapi",
