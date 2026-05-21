@@ -692,6 +692,12 @@ func (s *Server) Run(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddPreShutdownHook("kcp-cluster-context-manager", func() error {
+		s.ClusterContextManager.CancelAll()
+		return nil
+	}); err != nil {
+		return err
+	}
 	if len(s.Options.Cache.Client.KubeconfigFile) == 0 {
 		if err := s.installCacheServer(ctx); err != nil {
 			return err
