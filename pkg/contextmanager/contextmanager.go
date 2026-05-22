@@ -25,19 +25,19 @@ import (
 var errShutdown = errors.New("context manager shut down")
 
 // Manager tracks contexts derived from the root context.
-type Manager[K comparable] struct {
+type Manager[K fmt.Stringer] struct {
 	rc *rootCtx
 }
 
 // New creates a new context manager.
-func New[K comparable](root context.Context) *Manager[K] {
+func New[K fmt.Stringer](root context.Context) *Manager[K] {
 	return &Manager[K]{rc: newRootCtx(root)}
 }
 
 // Context returns a new context that is derived from parent.
 // The context will be cancelled if either the manager's root context or the respective key context is cancelled.
 func (m *Manager[K]) Context(parent context.Context, key K) (context.Context, context.CancelFunc) {
-	keyCtx, _ := m.rc.context(fmt.Sprint(key))
+	keyCtx, _ := m.rc.context(key.String())
 
 	ctx, cancel := context.WithCancelCause(parent)
 	stop := context.AfterFunc(keyCtx, func() {
@@ -55,12 +55,12 @@ func (m *Manager[K]) Context(parent context.Context, key K) (context.Context, co
 // Cancel cancels the context for the given key with reason.
 // If no context exists for the key a context will be created and cancelled.
 func (m *Manager[K]) Cancel(key K, reason error) {
-	m.rc.cancel(fmt.Sprint(key), reason)
+	m.rc.cancel(key.String(), reason)
 }
 
 // Delete removes the entry for the given key, cancelling its context with reason.
 func (m *Manager[K]) Delete(key K, reason error) {
-	m.rc.delete(fmt.Sprint(key), reason)
+	m.rc.delete(key.String(), reason)
 }
 
 // Shutdown cancels the root context, which propagates to all contexts.
