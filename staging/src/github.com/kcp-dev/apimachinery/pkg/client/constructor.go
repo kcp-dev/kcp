@@ -89,6 +89,7 @@ func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constru
 
 		RWMutex:              &sync.RWMutex{},
 		clientsByClusterPath: map[logicalcluster.Path]R{},
+		evictGen:             map[logicalcluster.Path]uint64{},
 	}
 	RegisterEvictor(c)
 	return c
@@ -101,6 +102,16 @@ type clientCache[R any] struct {
 
 	*sync.RWMutex
 	clientsByClusterPath map[logicalcluster.Path]R
+	// evictGen is bumped on every Evict(path). A Cluster() build whose captured
+	// generation no longer matches at write time means an eviction raced in
+	// mid-build; the freshly-built client is returned to the caller but not
+	// cached, so we don't resurrect state for a deleted cluster.
+	//
+	// Entries are never deleted, so the map grows with the lifetime set of
+	// evicted paths. Per entry: ~16B string header + ~16-32B path bytes + 8B
+	// uint64 + ~26B map-bucket overhead ≈ ~70B. 100k churned workspaces ≈ ~7MB,
+	// which is bounded and not worth GCing.
+	evictGen map[logicalcluster.Path]uint64
 }
 
 // ClusterOrDie returns a new client scoped to the given logical cluster, or panics if there
@@ -122,6 +133,7 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	var exists bool
 	c.RLock()
 	cachedClient, exists = c.clientsByClusterPath[clusterPath]
+	genAtStart := c.evictGen[clusterPath]
 	c.RUnlock()
 	if exists {
 		return cachedClient, nil
@@ -140,6 +152,12 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	if exists {
 		return cachedClient, nil
 	}
+	if c.evictGen[clusterPath] != genAtStart {
+		// An Evict raced with this build. Hand the freshly-built client to the
+		// caller so its in-flight request can complete, but do not cache it —
+		// the cluster has been signalled as gone.
+		return instance, nil
+	}
 
 	c.clientsByClusterPath[clusterPath] = instance
 
@@ -151,4 +169,5 @@ func (c *clientCache[R]) Evict(clusterPath logicalcluster.Path) {
 	c.Lock()
 	defer c.Unlock()
 	delete(c.clientsByClusterPath, clusterPath)
+	c.evictGen[clusterPath]++
 }
