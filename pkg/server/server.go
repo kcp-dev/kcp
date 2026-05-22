@@ -693,7 +693,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	if err := s.AddPreShutdownHook("kcp-cluster-context-manager", func() error {
-		s.ClusterContextManager.CancelAll()
+		s.ClusterContextManager.Shutdown()
 		return nil
 	}); err != nil {
 		return err

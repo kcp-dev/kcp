@@ -18,36 +18,30 @@ package contextmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sync"
 )
+
+var errShutdown = errors.New("context manager shut down")
 
 // Manager tracks contexts derived from the root context.
 type Manager[K comparable] struct {
-	root       context.Context //nolint:containedctx
-	cancelRoot context.CancelCauseFunc
-	entries    sync.Map // K → *entry
-}
-
-type entry struct {
-	ctx    context.Context //nolint:containedctx
-	cancel context.CancelCauseFunc
+	rc *rootCtx
 }
 
 // New creates a new context manager.
 func New[K comparable](root context.Context) *Manager[K] {
-	ctx, cancel := context.WithCancelCause(root)
-	return &Manager[K]{root: ctx, cancelRoot: cancel}
+	return &Manager[K]{rc: newRootCtx(root)}
 }
 
-// ContextFor returns a new context that is derived from parent.
+// Context returns a new context that is derived from parent.
 // The context will be cancelled if either the manager's root context or the respective key context is cancelled.
-func (m *Manager[K]) ContextFor(parent context.Context, key K) (context.Context, context.CancelFunc) {
-	keyCtx := m.getContext(key)
+func (m *Manager[K]) Context(parent context.Context, key K) (context.Context, context.CancelFunc) {
+	keyCtx, _ := m.rc.context(fmt.Sprint(key))
 
 	ctx, cancel := context.WithCancelCause(parent)
 	stop := context.AfterFunc(keyCtx, func() {
-		cancel(fmt.Errorf("%v cancelled", key))
+		cancel(context.Cause(keyCtx))
 	})
 
 	cleanup := func() {
@@ -58,40 +52,18 @@ func (m *Manager[K]) ContextFor(parent context.Context, key K) (context.Context,
 	return ctx, cleanup
 }
 
-func (m *Manager[K]) getContext(key K) context.Context {
-	// Fast path - a context exists for the key
-	if stored, loaded := m.entries.Load(key); loaded {
-		return stored.(*entry).ctx
-	}
-
-	// Slow path - a context does not exist
-	ctx, cancel := context.WithCancelCause(m.root)
-	e := &entry{ctx: ctx, cancel: cancel}
-
-	stored, loaded := m.entries.LoadOrStore(key, e)
-	if loaded {
-		// If loaded is true a value was already stored, cancel the
-		// intermitteent context and return the stored value
-		cancel(nil)
-	}
-	return stored.(*entry).ctx
+// Cancel cancels the context for the given key with reason.
+// If no context exists for the key a context will be created and cancelled.
+func (m *Manager[K]) Cancel(key K, reason error) {
+	m.rc.cancel(fmt.Sprint(key), reason)
 }
 
-func (m *Manager[K]) Has(key K) bool {
-	_, ok := m.entries.Load(key)
-	return ok
+// Delete removes the entry for the given key, cancelling its context with reason.
+func (m *Manager[K]) Delete(key K, reason error) {
+	m.rc.delete(fmt.Sprint(key), reason)
 }
 
-// Cancel cancels the context for the given key.
-func (m *Manager[K]) Cancel(key K) {
-	v, loaded := m.entries.LoadAndDelete(key)
-	if !loaded {
-		return
-	}
-	v.(*entry).cancel(fmt.Errorf("%v cancelled", key))
-}
-
-// CancelAll cancels the root context, which propagates to all contexts created by .ContextFor.
-func (m *Manager[K]) CancelAll() {
-	m.cancelRoot(fmt.Errorf("context manager shut down"))
+// Shutdown cancels the root context, which propagates to all contexts.
+func (m *Manager[K]) Shutdown() {
+	m.rc.cancelAll(errShutdown)
 }

@@ -18,6 +18,7 @@ package logicalcluster
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -48,8 +49,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 		default:
 			if workspace.Status.Phase != corev1alpha1.LogicalClusterPhaseDeleting {
 				workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseDeleting
-				// At this point access to the LC is no longer permitted, cancel contexts.
-				r.clusterContextManager.Cancel(logicalcluster.From(workspace).Path())
+				// At this point access to the LC is no longer permitted, delete contexts for it.
+				lcPath := logicalcluster.From(workspace).Path()
+				r.clusterContextManager.Delete(lcPath, fmt.Errorf("logical cluster %s deleted", lcPath))
 				return reconcileStatusContinue, nil
 			}
 		}
@@ -79,12 +81,18 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 			// Cancel active connections for this LC as well as wildcard
 			// connections, as they may watch objects in this LC.
 			lcPath := logicalcluster.From(workspace).Path()
-			r.clusterContextManager.Cancel(lcPath)
-			r.clusterContextManager.Cancel(logicalcluster.Wildcard)
+			reason := fmt.Errorf("logical cluster %s inactive", lcPath)
+			r.clusterContextManager.Cancel(lcPath, reason)
+			r.clusterContextManager.Cancel(logicalcluster.Wildcard, reason)
 		}
 	case corev1alpha1.LogicalClusterPhaseInactive:
 		if workspace.Annotations[filters.InactiveAnnotation] != "true" {
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
+			// Drop the cancelled entries so the next request creates fresh live contexts.
+			lcPath := logicalcluster.From(workspace).Path()
+			reason := fmt.Errorf("logical cluster %s reactivated", lcPath)
+			r.clusterContextManager.Delete(lcPath, reason)
+			r.clusterContextManager.Delete(logicalcluster.Wildcard, reason)
 		}
 	}
 
