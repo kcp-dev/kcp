@@ -41,7 +41,7 @@ func (c *Controller) reconcile(ctx context.Context, logicalCluster *corev1alpha1
 	reconcilers := []reconciler{
 		&metaDataReconciler{},
 		&terminatorReconciler{},
-		&phaseReconciler{},
+		&phaseReconciler{clusterContextManager: c.clusterContextManager},
 		&urlReconciler{shardExternalURL: c.shardExternalURL},
 	}
 

@@ -68,6 +68,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
@@ -132,6 +133,7 @@ type ExtraConfig struct {
 	// misc
 	preHandlerChainMux    *handlerChainMuxes
 	quotaAdmissionStopCh  chan struct{}
+	ClusterContextManager *contextmanager.Manager[logicalcluster.Path]
 	openAPIv3Controller   *openapiv3.Controller
 	openAPIv3ServiceCache *openapiv3.ServiceCache
 
@@ -507,6 +509,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		)
 	}
 
+	c.ExtraConfig.ClusterContextManager = contextmanager.New[logicalcluster.Path](ctx)
+
 	// preHandlerChainMux is called before the actual handler chain. Note that BuildHandlerChainFunc below
 	// is called multiple times, but only one of the handler chain will actually be used. Hence, we wrap it
 	// to give handlers below one mux.Handle func to call.
@@ -591,6 +595,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = filters.WithWarningRecorder(apiHandler)
 
 		apiHandler = kcpfilters.WithAuditEventClusterAnnotation(apiHandler, c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
+		apiHandler = kcpfilters.WithPerClusterContext(apiHandler, c.ClusterContextManager)
 		apiHandler = kcpfilters.WithBlockInactiveLogicalClusters(apiHandler, c.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 
 		// Add a mux before the chain, for other handlers with their own handler chain to hook in. For example, when

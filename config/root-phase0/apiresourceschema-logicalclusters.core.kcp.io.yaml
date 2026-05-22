@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260428-d075f2d48.logicalclusters.core.kcp.io
+  name: v260522-2bf05df66.logicalclusters.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -230,6 +230,7 @@ spec:
               - Initializing
               - Ready
               - Unavailable
+              - Inactive
               - Terminating
               - Deleting
               type: string
