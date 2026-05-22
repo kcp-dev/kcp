@@ -37,7 +37,6 @@ func TestEvictCluster(t *testing.T) {
 			"another": {"crd-c": {"v1": cached.Static(&spec3.OpenAPI{}, "etag")}},
 		},
 	}
-	c.lock = sync.Mutex{}
 
 	c.EvictCluster("target")
 
