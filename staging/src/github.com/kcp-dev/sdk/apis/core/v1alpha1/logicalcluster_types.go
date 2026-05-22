@@ -56,6 +56,20 @@ const (
 	// LogicalClusterFinalizerName attached to the owner of the LogicalCluster resource (usually a Workspace) so that we can control
 	// deletion of LogicalCluster resources.
 	LogicalClusterFinalizerName = "core.kcp.io/logicalcluster"
+
+	// LogicalClusterInactiveAnnotationKey is the annotation denoting a logical
+	// cluster should be deemed unreachable. When set to "true" the
+	// active connections for the logical cluster will be cancelled and
+	// requests will be rejected.
+	// The phase of a logical cluster with this annotation is set to
+	// LogicalClusterPhaseInactive.
+	LogicalClusterInactiveAnnotationKey = "core.kcp.io/inactive"
+
+	// LogicalClusterInactiveAnnotationKeyLegacy is the previous
+	// inactive annotation key and honoured for backwards compatibility.
+	//
+	// Deprecated: use LogicalClusterInactiveAnnotationKey.
+	LogicalClusterInactiveAnnotationKeyLegacy = "internal.kcp.io/inactive"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
@@ -75,7 +89,7 @@ const (
 	LogicalClusterPhaseUnavailable LogicalClusterPhaseType = "Unavailable"
 	// LogicalClusterPhaseInactive phase indicates that the logical cluster has been
 	// intentionally taken offline (for example, during maintenance).
-	// This phase is driven by the internal.kcp.io/inactive annotation.
+	// This phase is driven by the LogicalClusterInactiveAnnotationKey annotation.
 	// This is distinct from Unavailable in so far that Inactive is an
 	// intentional admin decision, while Unavailable is caused by an error.
 	LogicalClusterPhaseInactive LogicalClusterPhaseType = "Inactive"
@@ -247,6 +261,15 @@ func (in *LogicalCluster) GetConditions() conditionsv1alpha1.Conditions {
 
 var _ conditions.Getter = &LogicalCluster{}
 var _ conditions.Setter = &LogicalCluster{}
+
+// IsLogicalClusterInactive reports whether the given annotations mark a
+// LogicalCluster as inactive. It accepts both the canonical
+// LogicalClusterInactiveAnnotationKey and the deprecated
+// LogicalClusterInactiveAnnotationKeyLegacy.
+func IsLogicalClusterInactive(annotations map[string]string) bool {
+	return annotations[LogicalClusterInactiveAnnotationKey] == "true" ||
+		annotations[LogicalClusterInactiveAnnotationKeyLegacy] == "true"
+}
 
 // LogicalClusterList is a list of LogicalCluster
 //

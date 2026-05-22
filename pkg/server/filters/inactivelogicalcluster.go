@@ -30,16 +30,10 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 )
 
-const (
-	// InactiveAnnotation is the annotation denoting a logical cluster should be
-	// deemed unreachable.
-	InactiveAnnotation = "internal.kcp.io/inactive"
-)
-
 // WithBlockInactiveLogicalClusters ensures that any requests to logical
 // clusters marked inactive are rejected.
 //
-// The filter intentionally acts on the InactiveAnnotation to deny
+// The filter intentionally acts on the inactive annotation to deny
 // access as early as possible, as opposed to the Inactive LC phase
 // which is only set after the LC reconciler fires.
 func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient corev1alpha1informers.LogicalClusterClusterInformer) http.HandlerFunc {
@@ -60,7 +54,7 @@ func WithBlockInactiveLogicalClusters(handler http.Handler, kcpClusterClient cor
 		if cluster != nil && !cluster.Name.Empty() && !isException {
 			logicalCluster, err := kcpClusterClient.Cluster(cluster.Name).Lister().Get(corev1alpha1.LogicalClusterName)
 			if err == nil {
-				if ann, ok := logicalCluster.ObjectMeta.Annotations[InactiveAnnotation]; ok && ann == "true" {
+				if corev1alpha1.IsLogicalClusterInactive(logicalCluster.Annotations) {
 					responsewriters.ErrorNegotiated(
 						apierrors.NewForbidden(corev1alpha1.Resource("logicalclusters"), cluster.Name.String(), errors.New("logical cluster is marked inactive")),
 						errorCodecs, schema.GroupVersion{}, w, req,

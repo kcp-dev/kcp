@@ -27,11 +27,11 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
-	"github.com/kcp-dev/kcp/pkg/server/filters"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -58,7 +58,7 @@ func TestInactiveLogicalCluster(t *testing.T) {
 		if err != nil {
 			return false, err.Error()
 		}
-		lc.Annotations[filters.InactiveAnnotation] = "true"
+		lc.Annotations[corev1alpha1.LogicalClusterInactiveAnnotationKey] = "true"
 		_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()
@@ -94,7 +94,7 @@ drain:
 		if err != nil {
 			return false, err.Error()
 		}
-		delete(lc.Annotations, filters.InactiveAnnotation)
+		delete(lc.Annotations, corev1alpha1.LogicalClusterInactiveAnnotationKey)
 		_, err = kcpClient.Cluster(orgPath).CoreV1alpha1().LogicalClusters().Update(t.Context(), lc, v1.UpdateOptions{})
 		if err != nil {
 			return false, err.Error()

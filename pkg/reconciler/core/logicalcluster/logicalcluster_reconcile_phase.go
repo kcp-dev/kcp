@@ -27,7 +27,6 @@ import (
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
-	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
 type phaseReconciler struct {
@@ -76,7 +75,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 	case corev1alpha1.LogicalClusterPhaseReady:
-		if workspace.Annotations[filters.InactiveAnnotation] == "true" {
+		if corev1alpha1.IsLogicalClusterInactive(workspace.Annotations) {
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInactive
 			// Cancel active connections for this LC as well as wildcard
 			// connections, as they may watch objects in this LC.
@@ -86,7 +85,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 			r.clusterContextManager.Cancel(logicalcluster.Wildcard, reason)
 		}
 	case corev1alpha1.LogicalClusterPhaseInactive:
-		if workspace.Annotations[filters.InactiveAnnotation] != "true" {
+		if !corev1alpha1.IsLogicalClusterInactive(workspace.Annotations) {
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 			// Drop the cancelled entries so the next request creates fresh live contexts.
 			lcPath := logicalcluster.From(workspace).Path()
