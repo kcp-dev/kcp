@@ -36,7 +36,26 @@ import (
 // This is used e.g. to cancel active connections when a logical cluster
 // is being migrated.
 func WithPerClusterContext(handler http.Handler, mgr *contextmanager.Manager[logicalcluster.Path]) http.HandlerFunc {
+	// TODO(ntnn): THis is the same list as for inactive logical clusters.
+	// Will look into deduplicating this when implementing lc migration.
+	// exemptPathPrefixes allows some paths to pass without adding a context.
+	exemptPathPrefixes := []string{
+		// Kube clients expect the /openapi endpoint to be available to
+		// e.g. retrieve schemas. E.g. kubectl-edit fetches openapi
+		// specs to validate the edited resource.
+		"/openapi",
+		// logical cluster objects must still be editable to lifecylce the lc.
+		"/apis/core.kcp.io/v1alpha1/logicalclusters",
+	}
+
 	return func(w http.ResponseWriter, req *http.Request) {
+		for _, prefix := range exemptPathPrefixes {
+			if strings.HasPrefix(req.URL.Path, prefix) {
+				handler.ServeHTTP(w, req)
+				return
+			}
+		}
+
 		cluster := request.ClusterFrom(req.Context())
 
 		var clusterPath logicalcluster.Path
