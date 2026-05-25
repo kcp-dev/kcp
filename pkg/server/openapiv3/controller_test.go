@@ -17,7 +17,6 @@ limitations under the License.
 package openapiv3
 
 import (
-	"sync"
 	"testing"
 
 	"k8s.io/kube-openapi/pkg/cached"
