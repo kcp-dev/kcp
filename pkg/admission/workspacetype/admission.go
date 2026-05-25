@@ -208,6 +208,15 @@ func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, 
 			path := logicalcluster.NewPath(exportPath)
 			export, err := o.getAPIExport(path, exportName)
 			if err != nil {
+				if apierrors.IsNotFound(err) {
+					// APIExport does not exist (yet). The default-apibinding-
+					// controller will only create a binding once it appears,
+					// and without it we have no cluster to authorize against.
+					// Skipping the entry preserves the declarative ordering
+					// use case (WorkspaceType created ahead of its exports)
+					// that pre-dated this admission check.
+					continue
+				}
 				return forbidden
 			}
 			exportClusterName = logicalcluster.From(export)

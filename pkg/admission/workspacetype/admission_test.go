@@ -208,13 +208,15 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 			decision: authorizer.DecisionAllow,
 		},
 		{
-			name: "create denied when referenced APIExport cannot be resolved",
+			name: "create allowed when referenced APIExport cannot be resolved",
 			op:   admission.Create,
 			newWT: newWorkspaceType(tenantCluster, "z",
 				tenancyv1alpha1.APIExportReference{Path: "some:other:cluster", Export: "missing"},
 			),
-			decision:   authorizer.DecisionAllow,
-			wantForbid: true,
+			// Decision is intentionally Deny: when the APIExport is not found
+			// we should skip the SAR entirely, so even a denying authorizer
+			// must not produce a forbidden result.
+			decision: authorizer.DecisionDeny,
 		},
 		{
 			name: "create with non-root path uses cluster from resolved APIExport",
