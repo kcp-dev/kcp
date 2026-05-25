@@ -28,9 +28,10 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+
+	configshard "github.com/kcp-dev/kcp/config/shard"
 )
 
 const (
@@ -44,26 +45,29 @@ const (
 	// watchCacheKickerAnnotation carries a per-tick timestamp on each kicked
 	// object so each patch produces a distinct etcd revision (and therefore
 	// a watch event flowing through the cacher).
-	watchCacheKickerAnnotation = "kcp.io/watchcache-kicker-tick"
+	watchCacheKickerAnnotation = "internal.kcp.io/watchcache-kicker-tick"
 
 	// watchCacheKickerFieldManager makes audit-log filtering trivial.
 	watchCacheKickerFieldManager = "kcp-watchcache-kicker"
 )
 
 // installWatchCacheKicker periodically generates one watch event per target
-// resource by patching a per-resource "kick object" in the root cluster.
+// resource by patching a per-resource "kick object" in the system:shard
+// logical cluster (bootstrapped on every shard, including non-root ones).
 // Works around the upstream watchCache bug where resizeCacheLocked is only
 // called from updateCache(event) and gated on isCacheFullLocked(); without
 // the kick, rings grow during workload bursts and never shrink during idle.
 // See https://github.com/kubernetes/kubernetes/issues/139250.
 //
-// Cost: ~7 metadata patches every 80 s per shard. Each patch sets the same
-// annotation key (only the timestamp value changes), so per-object growth
-// is bounded. Field manager "kcp-watchcache-kicker" is used so the patches
-// can be filtered in audit logs.
+// Each patch sets the same annotation key (only the timestamp value
+// changes), so per-object growth is bounded. Field manager
+// "kcp-watchcache-kicker" is used so the patches can be filtered in audit
+// logs.
 //
-// If a target object is missing (e.g. no APIBindings in the root cluster),
-// that resource is skipped silently — it is not an error.
+// system:shard is bootstrapped with the kick targets the kicker needs that
+// k8s/kcp does not already provide (see config/shard/*.yaml). Resources that
+// may legitimately be empty in system:shard (e.g. CachedResources on a
+// freshly started shard) are kicked via list-first and skipped silently.
 func installWatchCacheKicker(
 	ctx context.Context,
 	kubeClient kcpkubernetesclientset.ClusterInterface,
@@ -88,7 +92,10 @@ func kickAll(
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
 	patch := fmt.Appendf(nil, `{"metadata":{"annotations":{%q:%q}}}`, watchCacheKickerAnnotation, ts)
 	opts := metav1.PatchOptions{FieldManager: watchCacheKickerFieldManager}
-	root := core.RootCluster.Path()
+	// system:shard is bootstrapped on every shard (root and non-root), so the
+	// kicker functions identically on all shards. It hosts a LogicalCluster,
+	// the "default" namespace, and APIBindings for the root APIs.
+	shard := configshard.SystemShardCluster.Path()
 
 	type op struct {
 		resource string
@@ -98,31 +105,23 @@ func kickAll(
 		{
 			resource: "logicalclusters.core.kcp.io",
 			fn: func() error {
-				_, err := kcpClient.Cluster(root).CoreV1alpha1().LogicalClusters().
+				_, err := kcpClient.Cluster(shard).CoreV1alpha1().LogicalClusters().
 					Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, opts)
-				return err
-			},
-		},
-		{
-			resource: "clusterrolebindings.rbac.authorization.k8s.io",
-			fn: func() error {
-				_, err := kubeClient.Cluster(root).RbacV1().ClusterRoleBindings().
-					Patch(ctx, "system:masters", types.MergePatchType, patch, opts)
 				return err
 			},
 		},
 		{
 			resource: "namespaces",
 			fn: func() error {
-				_, err := kubeClient.Cluster(root).CoreV1().Namespaces().
-					Patch(ctx, "kcp-system", types.MergePatchType, patch, opts)
+				_, err := kubeClient.Cluster(shard).CoreV1().Namespaces().
+					Patch(ctx, "default", types.MergePatchType, patch, opts)
 				return err
 			},
 		},
 		{
 			resource: "serviceaccounts",
 			fn: func() error {
-				_, err := kubeClient.Cluster(root).CoreV1().ServiceAccounts("kcp-system").
+				_, err := kubeClient.Cluster(shard).CoreV1().ServiceAccounts("default").
 					Patch(ctx, "default", types.MergePatchType, patch, opts)
 				return err
 			},
@@ -130,35 +129,34 @@ func kickAll(
 		{
 			resource: "configmaps",
 			fn: func() error {
-				_, err := kubeClient.Cluster(root).CoreV1().ConfigMaps("kcp-system").
+				_, err := kubeClient.Cluster(shard).CoreV1().ConfigMaps("default").
 					Patch(ctx, "kube-root-ca.crt", types.MergePatchType, patch, opts)
 				return err
 			},
 		},
-		// apibindings / workspaces: kick the first one we find, if any.
-		// These resources may legitimately be empty in the root cluster
-		// (esp. in a freshly bootstrapped install), so we list first and
-		// skip silently when empty.
 		{
-			resource: "apibindings.apis.kcp.io",
+			// Bootstrapped via config/shard/watchcache-kicker-clusterrolebinding.yaml
+			// with an empty subjects list, so it grants no permissions.
+			resource: "clusterrolebindings.rbac.authorization.k8s.io",
 			fn: func() error {
-				list, err := kcpClient.Cluster(root).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{Limit: 1})
-				if err != nil || len(list.Items) == 0 {
-					return err
-				}
-				_, err = kcpClient.Cluster(root).ApisV1alpha2().APIBindings().
-					Patch(ctx, list.Items[0].Name, types.MergePatchType, patch, opts)
+				_, err := kubeClient.Cluster(shard).RbacV1().ClusterRoleBindings().
+					Patch(ctx, "watchcache-kicker", types.MergePatchType, patch, opts)
 				return err
 			},
 		},
+		// apibindings, cachedresources and cachedresourceendpointslices: kick
+		// the first one we find on the shard, if any. APIBindings are present
+		// after configshard.Bootstrap binds the root APIs; the cache resources
+		// may legitimately be absent on a freshly started shard, so we list
+		// first and skip silently when empty.
 		{
-			resource: "workspaces.tenancy.kcp.io",
+			resource: "apibindings.apis.kcp.io",
 			fn: func() error {
-				list, err := kcpClient.Cluster(root).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{Limit: 1})
+				list, err := kcpClient.Cluster(shard).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{Limit: 1})
 				if err != nil || len(list.Items) == 0 {
 					return err
 				}
-				_, err = kcpClient.Cluster(root).TenancyV1alpha1().Workspaces().
+				_, err = kcpClient.Cluster(shard).ApisV1alpha2().APIBindings().
 					Patch(ctx, list.Items[0].Name, types.MergePatchType, patch, opts)
 				return err
 			},
