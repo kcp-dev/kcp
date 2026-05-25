@@ -333,14 +333,18 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 	defer utilruntime.HandleCrashWithContext(ctx)
 	logger := klog.FromContext(ctx)
 
-	if s.HasStarted() {
-		logger.Info("Warning: the sharedIndexInformer has started, run more than once is not allowed")
-		return
-	}
-
-	func() {
+	// Check-and-set s.started atomically under startedLock. Without this, two
+	// concurrent RunWithContext calls (e.g. an explicit informer.Run plus a
+	// factory.Start that also starts the same informer) can both pass the
+	// guard, both initialize the controller, and both reach the close(s.synced)
+	// goroutine below — panicking with "close of closed channel".
+	alreadyStarted := func() bool {
 		s.startedLock.Lock()
 		defer s.startedLock.Unlock()
+
+		if s.started {
+			return true
+		}
 
 		// kcp: This is almost verbatim the content of newQueueFIFO in controller.go
 		var fifo cache.Queue
@@ -391,7 +395,12 @@ func (s *sharedIndexInformer) RunWithContext(ctx context.Context) {
 		s.controller = kcpreflector.New(cfg)
 		// kcp modification: we removed setting the s.controller.clock here as it's an unexported field we can't access
 		s.started = true
+		return false
 	}()
+	if alreadyStarted {
+		logger.Info("Warning: the sharedIndexInformer has started, run more than once is not allowed")
+		return
+	}
 
 	// Separate stop context because Processor should be stopped strictly after controller.
 	// Cancelation in the parent context is ignored and all values are passed on,
