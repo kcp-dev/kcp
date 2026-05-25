@@ -494,6 +494,7 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
 		installClientCacheEvictor(hookCtx, s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
+		installWatchCacheKicker(hookCtx, s.KubeClusterClient, s.KcpClusterClient)
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
