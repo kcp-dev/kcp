@@ -57,6 +57,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/authfixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -825,6 +826,210 @@ func TestInitializingWorkspacesVirtualWorkspaceInitializerPermissions(t *testing
 		require.NoError(c, err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.Equal(c, corev1alpha1.LogicalClusterPhaseReady, ws.Status.Phase)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+}
+
+// TestInitializingWorkspacesServiceAccountOwnedWorkspace reproduces the scenario
+// from https://github.com/kcp-dev/kcp/issues/4038: a service account creates a
+// workspace whose WorkspaceType declares an initializer. Before declarative
+// initializerPermissions existed, the initializing VW content proxy would fall
+// back to owner-impersonation (Mode 2) and try to impersonate the SA in the
+// freshly-created workspace. The SA carries scope/warrant extras tied to its
+// source cluster, so the impersonated identity is denied in the new cluster
+// and the workspace gets stuck in Initializing forever with messages like
+// "User \"system:serviceaccount:...\" cannot ... at the cluster scope: access denied".
+//
+// With initializerPermissions on the WorkspaceType (Mode 1), the VW forwards
+// the request with the caller's identity plus the synthetic
+// system:kcp:initializer:<wst> group instead of impersonating the SA, so the
+// SA can drive its own custom initializer to completion regardless of the
+// scope on its identity.
+func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	source := kcptesting.SharedKcpServer(t)
+	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	sourceConfig := source.BaseConfig(t)
+
+	sourceKcpClusterClient, err := kcpclientset.NewForConfig(sourceConfig)
+	require.NoError(t, err)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
+	require.NoError(t, err)
+
+	t.Log("Create a service account in the workspace; this SA will both create and initialize the child workspace")
+	sa, tokenSecret := authfixtures.CreateServiceAccount(t, kubeClusterClient, wsPath, "default", "issue-4038-")
+	saSubjectName := "system:serviceaccount:default:" + sa.Name
+	saConfig := framework.ConfigWithToken(string(tokenSecret.Data["token"]), rest.CopyConfig(sourceConfig))
+	saKcpClient, err := kcpclientset.NewForConfig(saConfig)
+	require.NoError(t, err)
+
+	const characters = "abcdefghijklmnopqrstuvwxyz"
+	suffix := func() string {
+		b := make([]byte, 10)
+		for i := range b {
+			b[i] = characters[rand.Intn(len(characters))]
+		}
+		return string(b)
+	}
+
+	t.Log("Create a WorkspaceType with initializerPermissions so the initializer does not impersonate the SA owner")
+	wst := &tenancyv1alpha1.WorkspaceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "saowned" + suffix(),
+		},
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			Initializer: true,
+			InitializerPermissions: []rbacv1.PolicyRule{{
+				APIGroups: []string{"core.kcp.io"},
+				Resources: []string{"logicalclusters", "logicalclusters/status"},
+				Verbs:     []string{"get", "list", "watch", "update", "patch"},
+			}},
+		},
+	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+	})
+
+	t.Log("Wait for WorkspaceType and its virtual workspace URLs to be ready")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		wst, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.NotEmpty(c, wst.Status.VirtualWorkspaces)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	initializer := initialization.InitializerForType(wst)
+
+	t.Log("Grant the SA: use of the workspacetype, create workspaces, and initialize the workspacetype")
+	saRules := []rbacv1.PolicyRule{
+		{
+			Verbs:         []string{"use"},
+			APIGroups:     []string{"tenancy.kcp.io"},
+			Resources:     []string{"workspacetypes"},
+			ResourceNames: []string{wst.Name},
+		},
+		{
+			Verbs:     []string{"create", "get", "list", "watch"},
+			APIGroups: []string{"tenancy.kcp.io"},
+			Resources: []string{"workspaces"},
+		},
+		{
+			Verbs:         []string{"initialize"},
+			APIGroups:     []string{"tenancy.kcp.io"},
+			Resources:     []string{"workspacetypes"},
+			ResourceNames: []string{wst.Name},
+		},
+	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "sa-" + wst.Name},
+			Rules:      saRules,
+		}, metav1.CreateOptions{})
+		if !errors.IsAlreadyExists(err) {
+			require.NoError(c, err)
+		}
+		_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "sa-" + wst.Name},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     "sa-" + wst.Name,
+			},
+			Subjects: []rbacv1.Subject{{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     saSubjectName,
+			}},
+		}, metav1.CreateOptions{})
+		if !errors.IsAlreadyExists(err) {
+			require.NoError(c, err)
+		}
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Service account creates a workspace of the SA-owned type")
+	wsTemplate := workspaceForType(wst, map[string]string{"internal.kcp.io/e2e-test": "issue-4038"})
+	var ws *tenancyv1alpha1.Workspace
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		created, createErr := saKcpClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, wsTemplate, metav1.CreateOptions{})
+		require.NoError(c, createErr)
+		ws = created
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	source.Artifact(t, func() (runtime.Object, error) {
+		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+	})
+
+	t.Log("Workspace is in Initializing with the SA's custom initializer present, and createdBy records the SA as owner")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.Contains(c, ws.Annotations, "internal.tenancy.kcp.io/shard")
+		require.Equal(c, corev1alpha1.LogicalClusterPhaseInitializing, ws.Status.Phase)
+		require.Contains(c, ws.Status.Initializers, initializer)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	wsClusterName := logicalcluster.Name(ws.Spec.Cluster)
+
+	// Confirm the LogicalCluster.Spec.CreatedBy is indeed the SA: this is the
+	// identity that the pre-fix Mode-2 path would have impersonated, and which
+	// would have failed because the SA's scope makes it unusable in the new
+	// cluster.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		lc, err := sourceKcpClusterClient.Cluster(wsClusterName.Path()).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		require.NoError(c, err)
+		require.NotNil(c, lc.Spec.CreatedBy)
+		require.Equal(c, saSubjectName, lc.Spec.CreatedBy.Username,
+			"workspace was not created by the service account: %+v", lc.Spec.CreatedBy)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Resolve the initializing VW URL on the workspace's shard")
+	vwURLs := []string{}
+	for _, vwURL := range wst.Status.VirtualWorkspaces {
+		if strings.Contains(vwURL.URL, initializingworkspaces.VirtualWorkspaceName) {
+			vwURLs = append(vwURLs, vwURL.URL)
+		}
+	}
+	require.NotEmpty(t, vwURLs, "expected at least one initializing VW URL on the workspacetype")
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	require.NoError(t, err)
+	require.True(t, found)
+
+	t.Log("Service account drives the initializer through the VW with its own token")
+	vwSaConfig := rest.AddUserAgent(rest.CopyConfig(saConfig), t.Name()+"-virtual")
+	vwSaConfig.Host = targetVwURL
+	saVwKcp, err := kcpclientset.NewForConfig(vwSaConfig)
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		// The pre-fix bug would surface here as a 403 from the shard:
+		// the VW falls back to Mode 2, impersonates the SA, and the shard
+		// refuses the impersonated identity because it is scoped to the
+		// SA's source cluster, not the new workspace's cluster. With
+		// initializerPermissions on the WST, the VW takes Mode 1 and
+		// forwards with the synthetic initializer group instead.
+		lc, err := saVwKcp.Cluster(wsClusterName.Path()).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		require.NoError(c, err)
+		mod := lc.DeepCopy()
+		mod.Status.Initializers = initialization.EnsureInitializerAbsent(initializer, mod.Status.Initializers)
+		oldData, err := json.Marshal(corev1alpha1.LogicalCluster{Status: lc.Status})
+		require.NoError(c, err)
+		newData, err := json.Marshal(corev1alpha1.LogicalCluster{Status: mod.Status})
+		require.NoError(c, err)
+		patch, err := jsonpatch.CreateMergePatch(oldData, newData)
+		require.NoError(c, err)
+		_, err = saVwKcp.Cluster(wsClusterName.Path()).CoreV1alpha1().LogicalClusters().Patch(ctx, corev1alpha1.LogicalClusterName, types.MergePatchType, patch, metav1.PatchOptions{}, "status")
+		require.NoError(c, err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Log("Workspace finishes initialization and reaches Ready (issue #4038 would leave it stuck in Initializing forever)")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		ws, err = sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Get(ctx, ws.Name, metav1.GetOptions{})
 		require.NoError(c, err)
