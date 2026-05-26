@@ -493,7 +493,6 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
-		installClientCacheEvictor(hookCtx, s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().Run(hookContext.Done())
@@ -509,6 +508,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		logger.Info("finished starting APIExport, APIBinding and LogicalCluster informers")
+		installClientCacheEvictor(hookCtx, s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
