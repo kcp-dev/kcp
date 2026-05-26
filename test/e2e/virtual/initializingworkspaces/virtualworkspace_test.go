@@ -854,36 +854,26 @@ func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	t.Cleanup(cancelFunc)
+	ctx := t.Context()
 
 	sourceConfig := source.BaseConfig(t)
 
 	sourceKcpClusterClient, err := kcpclientset.NewForConfig(sourceConfig)
 	require.NoError(t, err)
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
+	sourceKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(sourceConfig)
 	require.NoError(t, err)
 
 	t.Log("Create a service account in the workspace; this SA will both create and initialize the child workspace")
-	sa, tokenSecret := authfixtures.CreateServiceAccount(t, kubeClusterClient, wsPath, "default", "issue-4038-")
+	sa, tokenSecret := authfixtures.CreateServiceAccount(t, sourceKubeClusterClient, wsPath, "default", "issue-4038-")
 	saSubjectName := "system:serviceaccount:default:" + sa.Name
 	saConfig := framework.ConfigWithToken(string(tokenSecret.Data["token"]), rest.CopyConfig(sourceConfig))
 	saKcpClient, err := kcpclientset.NewForConfig(saConfig)
 	require.NoError(t, err)
 
-	const characters = "abcdefghijklmnopqrstuvwxyz"
-	suffix := func() string {
-		b := make([]byte, 10)
-		for i := range b {
-			b[i] = characters[rand.Intn(len(characters))]
-		}
-		return string(b)
-	}
-
 	t.Log("Create a WorkspaceType with initializerPermissions so the initializer does not impersonate the SA owner")
 	wst := &tenancyv1alpha1.WorkspaceType{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "saowned" + suffix(),
+			GenerateName: "saowned-",
 		},
 		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
 			Initializer: true,
@@ -895,8 +885,9 @@ func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
 		},
 	}
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
+		created, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Create(ctx, wst, metav1.CreateOptions{})
 		require.NoError(c, err)
+		wst = created
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	source.Artifact(t, func() (runtime.Object, error) {
 		return sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).WorkspaceTypes().Get(ctx, wst.Name, metav1.GetOptions{})
@@ -931,14 +922,14 @@ func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
 		},
 	}
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		_, err := sourceKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: "sa-" + wst.Name},
 			Rules:      saRules,
 		}, metav1.CreateOptions{})
 		if !errors.IsAlreadyExists(err) {
 			require.NoError(c, err)
 		}
-		_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+		_, err = sourceKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "sa-" + wst.Name},
 			RoleRef: rbacv1.RoleRef{
 				Kind:     "ClusterRole",
