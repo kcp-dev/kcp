@@ -32,8 +32,8 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
-	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
@@ -65,8 +65,8 @@ func Register(plugins *admission.Plugins) {
 				Handler:          admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: delegated.NewDelegatedAuthorizer,
 			}
-			p.getAPIExport = func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-				return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), p.apiExportIndexer, p.cacheAPIExportIndexer, path, name)
+			p.getLogicalCluster = func(path logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return indexers.ByPathAndNameWithFallback[*corev1alpha1.LogicalCluster](corev1alpha1.Resource("logicalclusters"), p.logicalClusterIndexer, p.cacheLogicalClusterIndexer, path, corev1alpha1.LogicalClusterName)
 			}
 			return p, nil
 		})
@@ -75,10 +75,10 @@ func Register(plugins *admission.Plugins) {
 type workspacetype struct {
 	*admission.Handler
 
-	getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getLogicalCluster func(path logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
 
-	apiExportIndexer      cache.Indexer
-	cacheAPIExportIndexer cache.Indexer
+	logicalClusterIndexer      cache.Indexer
+	cacheLogicalClusterIndexer cache.Indexer
 
 	deepSARClient    kcpkubernetesclientset.ClusterInterface
 	createAuthorizer delegated.DelegatedAuthorizerFactory
@@ -192,12 +192,20 @@ func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, 
 		exportPath := ref.Path
 		exportName := ref.Export
 
-		// unified forbidden error that does not leak workspace existence
+		// Single forbidden response for both "cannot resolve the workspace"
+		// and "user lacks bind on the export". Distinguishing the two would
+		// let a caller with WorkspaceType create/update permission probe
+		// for the existence of arbitrary workspaces by reading the error.
 		forbidden := admission.NewForbidden(a, fmt.Errorf("unable to create or update WorkspaceType: no permission to bind to export %s",
 			logicalcluster.NewPath(exportPath).Join(exportName).String()))
 
 		// Resolve the APIExport's cluster. An empty path means the same cluster
-		// as the WorkspaceType being admitted (matching the reconciler's behavior).
+		// as the WorkspaceType being admitted (matching the reconciler's
+		// behavior). Otherwise resolve via LogicalCluster lookup — not via
+		// the APIExport object itself, so that forward references to
+		// not-yet-existing APIExports are accepted as long as the user has
+		// pre-granted bind permission on the named resource (RBAC's
+		// resourceNames matches names that do not yet exist). See #4145.
 		var exportClusterName logicalcluster.Name
 		switch {
 		case exportPath == "":
@@ -206,11 +214,11 @@ func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, 
 			exportClusterName = core.RootCluster
 		default:
 			path := logicalcluster.NewPath(exportPath)
-			export, err := o.getAPIExport(path, exportName)
+			lc, err := o.getLogicalCluster(path)
 			if err != nil {
 				return forbidden
 			}
-			exportClusterName = logicalcluster.From(export)
+			exportClusterName = logicalcluster.From(lc)
 		}
 
 		if err := o.checkAPIExportAccess(ctx, a, exportClusterName, exportName); err != nil {
@@ -235,11 +243,11 @@ func (o *workspacetype) ValidateInitialization() error {
 	if o.deepSARClient == nil {
 		return fmt.Errorf(PluginName + " plugin needs a deepSARClient")
 	}
-	if o.apiExportIndexer == nil {
-		return fmt.Errorf(PluginName + " plugin needs an APIExport indexer")
+	if o.logicalClusterIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a LogicalCluster indexer")
 	}
-	if o.cacheAPIExportIndexer == nil {
-		return fmt.Errorf(PluginName + " plugin needs a cache APIExport indexer")
+	if o.cacheLogicalClusterIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a cache LogicalCluster indexer")
 	}
 	return nil
 }
@@ -249,18 +257,18 @@ func (o *workspacetype) SetDeepSARClient(client kcpkubernetesclientset.ClusterIn
 }
 
 func (o *workspacetype) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	apiExportsReady := local.Apis().V1alpha2().APIExports().Informer().HasSynced
-	cacheAPIExportsReady := global.Apis().V1alpha2().APIExports().Informer().HasSynced
+	logicalClustersReady := local.Core().V1alpha1().LogicalClusters().Informer().HasSynced
+	cacheLogicalClustersReady := global.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 	o.SetReadyFunc(func() bool {
-		return apiExportsReady() && cacheAPIExportsReady()
+		return logicalClustersReady() && cacheLogicalClustersReady()
 	})
-	o.apiExportIndexer = local.Apis().V1alpha2().APIExports().Informer().GetIndexer()
-	o.cacheAPIExportIndexer = global.Apis().V1alpha2().APIExports().Informer().GetIndexer()
+	o.logicalClusterIndexer = local.Core().V1alpha1().LogicalClusters().Informer().GetIndexer()
+	o.cacheLogicalClusterIndexer = global.Core().V1alpha1().LogicalClusters().Informer().GetIndexer()
 
-	indexers.AddIfNotPresentOrDie(local.Apis().V1alpha2().APIExports().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(local.Core().V1alpha1().LogicalClusters().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
-	indexers.AddIfNotPresentOrDie(global.Apis().V1alpha2().APIExports().Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(global.Core().V1alpha1().LogicalClusters().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }

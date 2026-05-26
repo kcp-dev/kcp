@@ -32,8 +32,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
-	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
@@ -98,12 +97,11 @@ func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribut
 	return a.decision, "", a.err
 }
 
-func newPlugin(decision authorizer.Decision, exports ...*apisv1alpha2.APIExport) (*workspacetype, *logicalcluster.Name) {
-	exportMap := make(map[string]*apisv1alpha2.APIExport, len(exports))
-	for _, e := range exports {
-		exportMap[e.Name] = e
-	}
-
+// newPlugin creates a workspacetype admission plugin where knownPaths maps a
+// workspace path string (e.g. "root:some:path") to the cluster name it
+// resolves to. Lookups for paths absent from the map return NotFound,
+// simulating an unreachable workspace.
+func newPlugin(decision authorizer.Decision, knownPaths map[string]logicalcluster.Name) (*workspacetype, *logicalcluster.Name) {
 	var capturedCluster logicalcluster.Name
 	p := &workspacetype{
 		Handler: admission.NewHandler(admission.Create, admission.Update),
@@ -111,32 +109,24 @@ func newPlugin(decision authorizer.Decision, exports ...*apisv1alpha2.APIExport)
 			capturedCluster = clusterName
 			return &fakeAuthorizer{decision: decision}, nil
 		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-			if e, ok := exportMap[name]; ok {
-				return e, nil
+		getLogicalCluster: func(path logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+			cluster, ok := knownPaths[path.String()]
+			if !ok {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalclusters"), path.String())
 			}
-			return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
+			return &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        corev1alpha1.LogicalClusterName,
+					Annotations: map[string]string{logicalcluster.AnnotationKey: cluster.String()},
+				},
+			}, nil
 		},
 	}
 	p.SetReadyFunc(func() bool { return true })
 	return p, &capturedCluster
 }
 
-func newAPIExport(cluster logicalcluster.Name, name string) *apisv1alpha2.APIExport {
-	return &apisv1alpha2.APIExport{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: apisv1alpha2.SchemeGroupVersion.String(),
-			Kind:       "APIExport",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Annotations: map[string]string{logicalcluster.AnnotationKey: cluster.String()},
-		},
-	}
-}
-
 func TestValidate_DefaultAPIBindings(t *testing.T) {
-	cowboys := newAPIExport(core.RootCluster, "cowboys")
 	tenantCluster := logicalcluster.Name("root-test")
 
 	tests := []struct {
@@ -145,7 +135,7 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 		newWT                 *tenancyv1alpha1.WorkspaceType
 		oldWT                 *tenancyv1alpha1.WorkspaceType
 		decision              authorizer.Decision
-		exports               []*apisv1alpha2.APIExport
+		knownPaths            map[string]logicalcluster.Name
 		wantForbid            bool
 		wantContains          string
 		wantAuthorizerCluster logicalcluster.Name
@@ -162,7 +152,6 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 				tenancyv1alpha1.APIExportReference{Path: "root", Export: "cowboys"},
 			),
 			decision: authorizer.DecisionAllow,
-			exports:  []*apisv1alpha2.APIExport{cowboys},
 		},
 		{
 			name: "create with defaultAPIBindings denied when user lacks bind",
@@ -171,7 +160,6 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 				tenancyv1alpha1.APIExportReference{Path: "root", Export: "cowboys"},
 			),
 			decision:     authorizer.DecisionDeny,
-			exports:      []*apisv1alpha2.APIExport{cowboys},
 			wantForbid:   true,
 			wantContains: "no permission to bind to export root:cowboys",
 		},
@@ -183,7 +171,6 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 				tenancyv1alpha1.APIExportReference{Path: "root", Export: "cowboys"},
 			),
 			decision:   authorizer.DecisionDeny,
-			exports:    []*apisv1alpha2.APIExport{cowboys},
 			wantForbid: true,
 		},
 		{
@@ -197,7 +184,6 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 			),
 			// Even with deny, this should pass because the entry is preexisting.
 			decision: authorizer.DecisionDeny,
-			exports:  []*apisv1alpha2.APIExport{cowboys},
 		},
 		{
 			name: "create with empty path resolves to current cluster",
@@ -208,31 +194,50 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 			decision: authorizer.DecisionAllow,
 		},
 		{
-			name: "create denied when referenced APIExport cannot be resolved",
+			name: "create denied when referenced workspace cannot be resolved",
 			op:   admission.Create,
 			newWT: newWorkspaceType(tenantCluster, "z",
 				tenancyv1alpha1.APIExportReference{Path: "some:other:cluster", Export: "missing"},
 			),
-			decision:   authorizer.DecisionAllow,
-			wantForbid: true,
+			// Even with Allow, denied. The error must be byte-identical to
+			// the bind-denied case so admission cannot be used as a
+			// workspace-existence oracle by a caller with WST create perms.
+			decision:     authorizer.DecisionAllow,
+			wantForbid:   true,
+			wantContains: "no permission to bind to export some:other:cluster:missing",
 		},
 		{
-			name: "create with non-root path uses cluster from resolved APIExport",
+			name: "create with non-root path uses cluster from resolved LogicalCluster",
 			op:   admission.Create,
 			newWT: newWorkspaceType(tenantCluster, "remote",
 				tenancyv1alpha1.APIExportReference{Path: "some:other:path", Export: "cowboys-remote"},
 			),
 			decision: authorizer.DecisionAllow,
-			exports: []*apisv1alpha2.APIExport{
-				newAPIExport(logicalcluster.Name("actual-export-cluster"), "cowboys-remote"),
+			knownPaths: map[string]logicalcluster.Name{
+				"some:other:path": logicalcluster.Name("actual-export-cluster"),
 			},
 			wantAuthorizerCluster: logicalcluster.Name("actual-export-cluster"),
+		},
+		{
+			name: "create allowed for forward reference to APIExport when workspace exists and user has bind",
+			op:   admission.Create,
+			newWT: newWorkspaceType(tenantCluster, "forward",
+				tenancyv1alpha1.APIExportReference{Path: "root:provider", Export: "future-export"},
+			),
+			// APIExport doesn't exist yet, but the workspace at root:provider
+			// does and the user holds bind on apiexports/future-export
+			// (resourceNames in RBAC match nonexistent named resources).
+			decision: authorizer.DecisionAllow,
+			knownPaths: map[string]logicalcluster.Name{
+				"root:provider": logicalcluster.Name("provider-cluster"),
+			},
+			wantAuthorizerCluster: logicalcluster.Name("provider-cluster"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, capturedCluster := newPlugin(tt.decision, tt.exports...)
+			p, capturedCluster := newPlugin(tt.decision, tt.knownPaths)
 			attr := makeAttr(t, tt.op, tt.newWT, tt.oldWT, nil)
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tenantCluster})
 			err := p.Validate(ctx, attr, nil)

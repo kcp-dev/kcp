@@ -17,11 +17,15 @@ limitations under the License.
 package workspace
 
 import (
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 
@@ -31,6 +35,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -154,8 +159,28 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	}
 
 	t.Logf("Creating WorkspaceType parent1")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent1, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating wt parent1")
+	// parent1 references an APIExport in cowboys-provider, which lives on a
+	// different shard than universal. WorkspaceType admission resolves the
+	// path via the cache-replicated LogicalCluster of cowboys-provider, and
+	// that replication can lag by a beat. While the LC is invisible,
+	// admission cannot evaluate bind and intentionally returns the same
+	// "no permission to bind to export ..." error as a real bind denial —
+	// distinguishing the two would let WST create permission be used to
+	// probe for the existence of arbitrary workspaces. Retry on that
+	// message. The test grants bind via clusterrolebinding_cowboys.yaml,
+	// so once the LC is visible the create succeeds; a real bind regression
+	// will still surface when the Eventually deadline expires.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent1, metav1.CreateOptions{})
+		if err == nil {
+			return true, ""
+		}
+		if strings.Contains(err.Error(), "no permission to bind to export") {
+			return false, fmt.Sprintf("waiting for cross-shard LogicalCluster visibility (or bind permission): %v", err)
+		}
+		require.NoError(t, err, "error creating wt parent1")
+		return true, ""
+	}, wait.ForeverTestTimeout, 250*time.Millisecond, "expected wt parent1 create to succeed once cowboys-provider LogicalCluster is visible from universal's shard")
 
 	t.Logf("Creating WorkspaceType parent2")
 	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent2, metav1.CreateOptions{})
