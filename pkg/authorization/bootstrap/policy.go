@@ -96,6 +96,10 @@ func clusterRoles() []rbacv1.ClusterRole {
 				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
 				rbacv1helpers.NewRule("get").Groups("").Resources("serviceaccounts", "secrets").RuleOrDie(),
 				rbacv1helpers.NewRule("access").URLs("/").RuleOrDie(),
+				// Allow the in-process initializing/terminating virtual workspaces to delegate
+				// authorization checks against the workspacetype's cluster via SubjectAccessReview.
+				// The VW resolves access for the requesting user, not the SAR caller itself.
+				rbacv1helpers.NewRule("create").Groups("authorization.k8s.io").Resources("subjectaccessreviews").RuleOrDie(),
 			},
 		},
 		{
