@@ -17,11 +17,15 @@ limitations under the License.
 package workspace
 
 import (
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 
@@ -31,6 +35,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -154,8 +159,24 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 	}
 
 	t.Logf("Creating WorkspaceType parent1")
-	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent1, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating wt parent1")
+	// parent1 references an APIExport in cowboys-provider, which lives on a
+	// different shard than universal. The WorkspaceType admission resolves
+	// the path via the (cache-replicated) LogicalCluster of cowboys-provider;
+	// in a sharded setup that replication may lag by a beat, in which case
+	// admission returns a deterministic "workspace ... not found or not yet
+	// visible" error. Retry on exactly that message — any other admission
+	// error is a real bug and is surfaced immediately via require.NoError.
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent1, metav1.CreateOptions{})
+		if err == nil {
+			return true, ""
+		}
+		if strings.Contains(err.Error(), "not found or not yet visible") {
+			return false, fmt.Sprintf("waiting for cross-shard LogicalCluster visibility: %v", err)
+		}
+		require.NoError(t, err, "error creating wt parent1")
+		return true, ""
+	}, wait.ForeverTestTimeout, 250*time.Millisecond, "expected wt parent1 create to succeed once cowboys-provider LogicalCluster is visible from universal's shard")
 
 	t.Logf("Creating WorkspaceType parent2")
 	_, err = kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent2, metav1.CreateOptions{})
