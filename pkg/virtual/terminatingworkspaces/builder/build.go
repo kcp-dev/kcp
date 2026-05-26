@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -107,7 +108,11 @@ func BuildVirtualWorkspace(
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
-	cachingAuthorizer := delegated.NewCachingAuthorizer(sarKubeClusterClient, authorizerWithCache, delegated.CachingOptions{})
+	// See the matching comment in pkg/virtual/initializingworkspaces/builder/build.go
+	// for why DenyCacheTTL is shortened from the 30s default.
+	cachingAuthorizer := delegated.NewCachingAuthorizer(sarKubeClusterClient, authorizerWithCache, delegated.CachingOptions{
+		Options: delegated.Options{DenyCacheTTL: 5 * time.Second},
+	})
 	wildcardLogicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
