@@ -192,7 +192,10 @@ func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, 
 		exportPath := ref.Path
 		exportName := ref.Export
 
-		// unified forbidden error that does not leak workspace existence
+		// Single forbidden response for both "cannot resolve the workspace"
+		// and "user lacks bind on the export". Distinguishing the two would
+		// let a caller with WorkspaceType create/update permission probe
+		// for the existence of arbitrary workspaces by reading the error.
 		forbidden := admission.NewForbidden(a, fmt.Errorf("unable to create or update WorkspaceType: no permission to bind to export %s",
 			logicalcluster.NewPath(exportPath).Join(exportName).String()))
 
@@ -213,12 +216,7 @@ func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, 
 			path := logicalcluster.NewPath(exportPath)
 			lc, err := o.getLogicalCluster(path)
 			if err != nil {
-				// Distinguish "workspace not visible" from the bind denial
-				// below: the user might have permission once the workspace
-				// is reachable, but right now we cannot evaluate it.
-				return admission.NewForbidden(a, fmt.Errorf(
-					"unable to create or update WorkspaceType: workspace %q referenced in spec.defaultAPIBindings[].path is not found or not yet visible",
-					exportPath))
+				return forbidden
 			}
 			exportClusterName = logicalcluster.From(lc)
 		}

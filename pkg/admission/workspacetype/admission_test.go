@@ -199,12 +199,12 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 			newWT: newWorkspaceType(tenantCluster, "z",
 				tenancyv1alpha1.APIExportReference{Path: "some:other:cluster", Export: "missing"},
 			),
-			// Even with Allow, denied: we cannot evaluate bind against an
-			// unresolvable workspace, and failing closed avoids leaking an
-			// undefined cluster name into the SAR.
+			// Even with Allow, denied. The error must be byte-identical to
+			// the bind-denied case so admission cannot be used as a
+			// workspace-existence oracle by a caller with WST create perms.
 			decision:     authorizer.DecisionAllow,
 			wantForbid:   true,
-			wantContains: `workspace "some:other:cluster"`,
+			wantContains: "no permission to bind to export some:other:cluster:missing",
 		},
 		{
 			name: "create with non-root path uses cluster from resolved LogicalCluster",

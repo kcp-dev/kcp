@@ -160,19 +160,23 @@ func TestWorkspaceTypesAPIBindingInitialization(t *testing.T) {
 
 	t.Logf("Creating WorkspaceType parent1")
 	// parent1 references an APIExport in cowboys-provider, which lives on a
-	// different shard than universal. The WorkspaceType admission resolves
-	// the path via the (cache-replicated) LogicalCluster of cowboys-provider;
-	// in a sharded setup that replication may lag by a beat, in which case
-	// admission returns a deterministic "workspace ... not found or not yet
-	// visible" error. Retry on exactly that message — any other admission
-	// error is a real bug and is surfaced immediately via require.NoError.
+	// different shard than universal. WorkspaceType admission resolves the
+	// path via the cache-replicated LogicalCluster of cowboys-provider, and
+	// that replication can lag by a beat. While the LC is invisible,
+	// admission cannot evaluate bind and intentionally returns the same
+	// "no permission to bind to export ..." error as a real bind denial —
+	// distinguishing the two would let WST create permission be used to
+	// probe for the existence of arbitrary workspaces. Retry on that
+	// message. The test grants bind via clusterrolebinding_cowboys.yaml,
+	// so once the LC is visible the create succeeds; a real bind regression
+	// will still surface when the Eventually deadline expires.
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := kcpClusterClient.Cluster(universalPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wtParent1, metav1.CreateOptions{})
 		if err == nil {
 			return true, ""
 		}
-		if strings.Contains(err.Error(), "not found or not yet visible") {
-			return false, fmt.Sprintf("waiting for cross-shard LogicalCluster visibility: %v", err)
+		if strings.Contains(err.Error(), "no permission to bind to export") {
+			return false, fmt.Sprintf("waiting for cross-shard LogicalCluster visibility (or bind permission): %v", err)
 		}
 		require.NoError(t, err, "error creating wt parent1")
 		return true, ""
