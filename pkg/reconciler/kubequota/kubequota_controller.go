@@ -253,7 +253,8 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) (retErr error) {
+func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
+	var retErr error
 	// Label the current goroutine for the duration of this function. Goroutines
 	// spawned during this call - including the processorListener.run/pop
 	// goroutines registered inside resourcequota.NewController via the shared

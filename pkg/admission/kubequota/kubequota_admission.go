@@ -163,7 +163,11 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 }
 
 // getOrCreateDelegate creates a resourcequota.QuotaAdmission plugin for clusterName.
-func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name) (retDelegate *stoppableQuotaAdmission, retErr error) {
+func (k *KubeResourceQuota) getOrCreateDelegate(clusterName logicalcluster.Name) (*stoppableQuotaAdmission, error) {
+	var (
+		retDelegate *stoppableQuotaAdmission
+		retErr      error
+	)
 	k.lock.RLock()
 	delegate := k.delegates[clusterName]
 	k.lock.RUnlock()

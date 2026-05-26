@@ -19,6 +19,7 @@ package client
 import (
 	"net/http"
 	"sync"
+	"weak"
 
 	"k8s.io/client-go/rest"
 
@@ -41,25 +42,27 @@ type Cache[R any] interface {
 	Evict(clusterPath logicalcluster.Path)
 }
 
-// Evictor is the non-generic subset of Cache used by EvictCluster to fan
-// eviction out to every registered cache. Every cache returned by NewCache
-// is auto-registered. Callers that wrap or substitute caches may register
-// their own implementation via RegisterEvictor.
-type Evictor interface {
-	Evict(clusterPath logicalcluster.Path)
+// evictorRef is the value the registry tracks via a weak pointer. Each
+// clientCache holds its own ref as a struct field, so the ref stays alive
+// exactly as long as the cache does. Once the cache becomes unreachable
+// from outside the registry, ref dies with it and the weak entry can be
+// pruned.
+type evictorRef struct {
+	evict func(clusterPath logicalcluster.Path)
 }
 
 var (
-	evictorsMu sync.RWMutex
-	evictors   []Evictor
+	evictorsMu sync.Mutex
+	evictors   []weak.Pointer[evictorRef]
 )
 
-// RegisterEvictor adds e to the set of caches notified by EvictCluster.
-// NewCache calls this automatically.
-func RegisterEvictor(e Evictor) {
+// registerEvictor adds ref to the weak registry. The registry must not hold
+// a strong reference to ref — that would re-introduce the leak this whole
+// mechanism exists to avoid.
+func registerEvictor(ref *evictorRef) {
 	evictorsMu.Lock()
 	defer evictorsMu.Unlock()
-	evictors = append(evictors, e)
+	evictors = append(evictors, weak.Make(ref))
 }
 
 // EvictCluster notifies every registered cache that clusterPath has been
@@ -68,19 +71,34 @@ func RegisterEvictor(e Evictor) {
 // can be released. Wire this to a LogicalCluster delete handler to bound
 // retained memory per workspace lifetime. See
 // https://github.com/kcp-dev/kcp/issues/4071.
+//
+// Dead entries (caches whose only remaining reference was the weak entry
+// in this registry) are pruned in-place during the iteration.
 func EvictCluster(clusterPath logicalcluster.Path) {
-	evictorsMu.RLock()
-	snapshot := make([]Evictor, len(evictors))
-	copy(snapshot, evictors)
-	evictorsMu.RUnlock()
-	for _, e := range snapshot {
-		e.Evict(clusterPath)
+	evictorsMu.Lock()
+	live := evictors[:0]
+	alive := make([]*evictorRef, 0, len(evictors))
+	for _, wp := range evictors {
+		ref := wp.Value()
+		if ref == nil {
+			continue
+		}
+		live = append(live, wp)
+		alive = append(alive, ref)
+	}
+	evictors = live
+	evictorsMu.Unlock()
+	for _, ref := range alive {
+		ref.evict(clusterPath)
 	}
 }
 
 // NewCache creates a new client factory cache using the given constructor.
 // The cache is auto-registered with the package-level EvictCluster fan-out
 // so per-cluster entries can be released when a LogicalCluster is deleted.
+// The registry holds the cache weakly: if all references to the returned
+// Cache are dropped, it becomes eligible for GC and is pruned from the
+// registry lazily.
 func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constructor[R]) Cache[R] {
 	c := &clientCache[R]{
 		cfg:         cfg,
@@ -89,9 +107,10 @@ func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constru
 
 		RWMutex:              &sync.RWMutex{},
 		clientsByClusterPath: map[logicalcluster.Path]R{},
-		evictGen:             map[logicalcluster.Path]uint64{},
+		evicted:              map[logicalcluster.Path]struct{}{},
 	}
-	RegisterEvictor(c)
+	c.evictRef = &evictorRef{evict: c.Evict}
+	registerEvictor(c.evictRef)
 	return c
 }
 
@@ -102,16 +121,23 @@ type clientCache[R any] struct {
 
 	*sync.RWMutex
 	clientsByClusterPath map[logicalcluster.Path]R
-	// evictGen is bumped on every Evict(path). A Cluster() build whose captured
-	// generation no longer matches at write time means an eviction raced in
-	// mid-build; the freshly-built client is returned to the caller but not
-	// cached, so we don't resurrect state for a deleted cluster.
+	// evicted records cluster paths that have been signalled as gone. Once
+	// a path appears here, Cluster() returns freshly-built clients to any
+	// in-flight caller but never re-caches them — caching for a deleted
+	// cluster would reintroduce the leak this whole mechanism exists to
+	// fix.
 	//
 	// Entries are never deleted, so the map grows with the lifetime set of
-	// evicted paths. Per entry: ~16B string header + ~16-32B path bytes + 8B
-	// uint64 + ~26B map-bucket overhead ≈ ~70B. 100k churned workspaces ≈ ~7MB,
+	// evicted paths. Per entry: ~16B string header + ~16-32B path bytes +
+	// ~26B map-bucket overhead ≈ ~60B. 100k churned workspaces ≈ ~6MB,
 	// which is bounded and not worth GCing.
-	evictGen map[logicalcluster.Path]uint64
+	evicted map[logicalcluster.Path]struct{}
+
+	// evictRef anchors the entry registered in the package-level evictor
+	// registry. The registry holds it weakly, so this field is what keeps
+	// the entry alive: when the cache is GC'd, evictRef dies with it and
+	// the weak entry can be pruned lazily.
+	evictRef *evictorRef
 }
 
 // ClusterOrDie returns a new client scoped to the given logical cluster, or panics if there
@@ -129,11 +155,9 @@ func (c *clientCache[R]) ClusterOrDie(clusterPath logicalcluster.Path) R {
 
 // Cluster returns a new client scoped to the given logical cluster.
 func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
-	var cachedClient R
-	var exists bool
 	c.RLock()
-	cachedClient, exists = c.clientsByClusterPath[clusterPath]
-	genAtStart := c.evictGen[clusterPath]
+	cachedClient, exists := c.clientsByClusterPath[clusterPath]
+	_, evicted := c.evicted[clusterPath]
 	c.RUnlock()
 	if exists {
 		return cachedClient, nil
@@ -145,6 +169,12 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 		var result R
 		return result, err
 	}
+	if evicted {
+		// The cluster has been signalled as gone. Hand the freshly-built
+		// client to the in-flight caller so its request can complete, but
+		// don't resurrect cached state for a deleted cluster.
+		return instance, nil
+	}
 
 	c.Lock()
 	defer c.Unlock()
@@ -152,10 +182,9 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	if exists {
 		return cachedClient, nil
 	}
-	if c.evictGen[clusterPath] != genAtStart {
-		// An Evict raced with this build. Hand the freshly-built client to the
-		// caller so its in-flight request can complete, but do not cache it —
-		// the cluster has been signalled as gone.
+	if _, evicted := c.evicted[clusterPath]; evicted {
+		// An Evict raced with this build, or completed between our RUnlock
+		// and Lock. Same handling as above — return without caching.
 		return instance, nil
 	}
 
@@ -164,10 +193,11 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	return instance, nil
 }
 
-// Evict drops the cached client for clusterPath, if any.
+// Evict drops the cached client for clusterPath, if any, and records the
+// path so future Cluster() calls do not re-cache for it.
 func (c *clientCache[R]) Evict(clusterPath logicalcluster.Path) {
 	c.Lock()
 	defer c.Unlock()
 	delete(c.clientsByClusterPath, clusterPath)
-	c.evictGen[clusterPath]++
+	c.evicted[clusterPath] = struct{}{}
 }
