@@ -70,6 +70,9 @@ const (
 	//
 	// Deprecated: use LogicalClusterInactiveAnnotationKey.
 	LogicalClusterInactiveAnnotationKeyLegacy = "internal.kcp.io/inactive"
+
+	// LogicalClusterShardAnnotationKey is the hashed shard name the LogicalCluster is scheduled on.
+	LogicalClusterShardAnnotationKey = "core.kcp.io/shard"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.
