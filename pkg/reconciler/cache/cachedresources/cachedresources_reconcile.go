@@ -34,9 +34,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 
+	kcpcrypto "github.com/kcp-dev/apimachienry/pkg/util/crypto"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/crypto"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -231,7 +231,7 @@ func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logic
 func GenerateIdentitySecret(ctx context.Context, ns string, name string) (*corev1.Secret, error) {
 	logger := klog.FromContext(ctx)
 	start := time.Now()
-	key := crypto.Random256BitsString()
+	key := kcpcrypto.Random256BitsString()
 	if dur := time.Since(start); dur > time.Millisecond*100 {
 		logger.Info("identity key generation took a long time", "duration", dur)
 	}
