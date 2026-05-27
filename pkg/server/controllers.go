@@ -712,7 +712,7 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 	})
 }
 
-func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config) error {
+func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config, externalLogicalClusterAdminConfig *rest.Config) error {
 	logicalClusterConfig := rest.CopyConfig(config)
 	logicalClusterConfig = rest.AddUserAgent(logicalClusterConfig, logicalclusterctrl.ControllerName)
 	kcpClusterClient, err := kcpclientset.NewForConfig(logicalClusterConfig)
@@ -720,9 +720,14 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 		return err
 	}
 
+	externalAdminConfig := rest.CopyConfig(externalLogicalClusterAdminConfig)
+	externalAdminConfig = rest.AddUserAgent(externalAdminConfig, logicalclusterctrl.ControllerName)
+
 	logicalClusterController, err := logicalclusterctrl.NewController(
+		s.Options.Extra.ShardName,
 		s.CompletedConfig.ShardExternalURL,
 		kcpClusterClient,
+		externalAdminConfig,
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CompletedConfig.ClusterContextManager,
 	)

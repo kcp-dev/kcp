@@ -25,11 +25,13 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -47,8 +49,10 @@ const (
 )
 
 func NewController(
+	shardName string,
 	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
+	externalLogicalClusterAdminConfig *rest.Config,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	clusterContextManager *contextmanager.Manager[logicalcluster.Path],
 ) (*Controller, error) {
@@ -59,12 +63,14 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-		shardExternalURL:      shardExternalURL,
-		kcpClusterClient:      kcpClusterClient,
-		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
-		logicalClusterLister:  logicalClusterInformer.Lister(),
-		clusterContextManager: clusterContextManager,
-		commit:                committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
+		shardName:                         shardName,
+		shardExternalURL:                  shardExternalURL,
+		kcpClusterClient:                  kcpClusterClient,
+		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
+		logicalClusterIndexer:             logicalClusterInformer.Informer().GetIndexer(),
+		logicalClusterLister:              logicalClusterInformer.Lister(),
+		clusterContextManager:             clusterContextManager,
+		commit:                            committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
 	}
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
@@ -82,9 +88,13 @@ type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpe
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
+	shardName        string
 	shardExternalURL func() string
 
 	kcpClusterClient kcpclientset.ClusterInterface
+
+	externalLogicalClusterAdminConfig *rest.Config // for front-proxy connections used to update parent Workspaces
+	dynamicExternalClient             kcpdynamic.ClusterInterface
 
 	logicalClusterIndexer cache.Indexer
 	logicalClusterLister  corev1alpha1listers.LogicalClusterClusterLister
@@ -109,6 +119,16 @@ func (c *Controller) enqueue(obj interface{}) {
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
+
+	// create external client that goes through the front-proxy. Used to update
+	// parent Workspaces whose shard might be different from this LC's shard.
+	externalConfig := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
+	dynamicExternalClient, err := kcpdynamic.NewForConfig(externalConfig)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	c.dynamicExternalClient = dynamicExternalClient
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
