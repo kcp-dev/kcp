@@ -17,10 +17,9 @@ limitations under the License.
 package permissionclaims
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"math/big"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
@@ -40,8 +39,8 @@ func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string
 	if err != nil {
 		return "", "", err
 	}
-	claimHash := toBase62(sha256.Sum224(bytes))
-	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Path().Join(exportName).String())))
+	claimHash := kcpcrypto.Base62Sha224.Bytes(bytes)
+	exportHash := kcpcrypto.Base62Sha224.String(exportClusterName.Path().Join(exportName).String())
 
 	return apisv1alpha2.APIExportPermissionClaimLabelPrefix + exportHash, claimHash, nil
 }
@@ -49,19 +48,13 @@ func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string
 // ToReflexiveAPIBindingLabelKeyAndValue returns label key and value that is set (as fallback for filtering)
 // on APIBindings that point to the given APIExport and the binding has not accepted a claim to it.
 func ToReflexiveAPIBindingLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string) (string, string) {
-	claimHash := toBase62([28]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7})
-	exportHash := toBase62(sha256.Sum224([]byte(exportClusterName.Path().Join(exportName).String())))
+	claimHash := kcpcrypto.Base62.Bytes([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7})
+	exportHash := kcpcrypto.Base62Sha224.String(exportClusterName.Path().Join(exportName).String())
 	return apisv1alpha2.APIExportPermissionClaimLabelPrefix + exportHash, claimHash
 }
 
 // ToAPIBindingExportLabelValue returns the label value for the internal.apis.kcp.io/export label
 // on APIBindings to filter them by export.
 func ToAPIBindingExportLabelValue(clusterName logicalcluster.Name, exportName string) string {
-	return toBase62(sha256.Sum224([]byte(clusterName.Path().Join(exportName).String())))
-}
-
-func toBase62(hash [28]byte) string {
-	var i big.Int
-	i.SetBytes(hash[:])
-	return i.Text(62)
+	return kcpcrypto.Base62Sha224.String(clusterName.Path().Join(exportName).String())
 }

@@ -22,12 +22,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/martinlindhe/base36"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -61,7 +60,7 @@ func ConfigWithToken(token string, cfg *rest.Config) *rest.Config {
 // some random 8 character base36 string. suffix must start with a dot if the
 // random string should be dot-separated.
 func UniqueGroup(suffix string) string {
-	ret := strings.ToLower(base36.Encode(rand.Uint64())[:8]) + suffix
+	ret := kcpcrypto.Base36.IntPad(rand.Uint64(), kcpcrypto.Base36Uint64Width)[:8] + suffix
 	if ret[0] >= '0' && ret[0] <= '9' {
 		return "a" + ret[1:]
 	}

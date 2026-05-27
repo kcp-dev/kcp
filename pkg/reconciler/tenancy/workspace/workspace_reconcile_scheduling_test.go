@@ -18,13 +18,11 @@ package workspace
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/martinlindhe/base36"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -36,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpfakekubeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	kcpclientgotesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
@@ -591,7 +590,5 @@ func actionStrings(actions []kcpclientgotesting.Action) []string {
 }
 
 func shardNameToBase36Sha224(name string) string {
-	hash := sha256.Sum224([]byte(name))
-	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-	return base36hash[:8]
+	return kcpcrypto.Base36Sha224.StringPad(name)[:8]
 }

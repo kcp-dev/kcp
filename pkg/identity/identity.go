@@ -26,9 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
-
-	kcpcrypto "github.com/kcp-dev/apimachinery/pkg/util/crypto"
 )
 
 // GenerateIdentitySecret creates a Kubernetes Secret containing a randomly generated

@@ -19,11 +19,9 @@ package dynamicrestmapper
 import (
 	"fmt"
 	"math/rand/v2"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
@@ -35,6 +33,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 
+	"github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -53,7 +52,7 @@ func TestDynamicRestMapper(t *testing.T) {
 
 	server, kcpClientSet, _ := framework.StartTestServer(t)
 
-	name := "test-workspace-" + strings.ToLower(base36.Encode(rand.Uint64())[:8])
+	name := "test-workspace-" + crypto.Base36.IntPad(rand.Uint64(), crypto.Base36Uint64Width)[:8]
 
 	cfg, err := server.ClientConfig.ClientConfig()
 	require.NoError(t, err, "error creating client config")
