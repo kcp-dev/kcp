@@ -442,6 +442,9 @@ modules: ## Run go mod tidy to ensure modules are up to date
 verify-modules: modules  ## Verify go modules are up to date
 	hack/verify-go-modules.sh
 
+.PHONY: verify
+verify: verify-boilerplate verify-codegen verify-imports verify-go-versions verify-modules verify-k8s-deps ## Run all verify checks
+
 .PHONY: clean
 clean: clean-workdir ## Clean all
 	rm -fr $(TOOLS_DIR)
