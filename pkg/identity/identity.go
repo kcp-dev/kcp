@@ -26,9 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
-
-	"github.com/kcp-dev/kcp/pkg/crypto"
 )
 
 // GenerateIdentitySecret creates a Kubernetes Secret containing a randomly generated
@@ -42,7 +41,7 @@ func GenerateIdentitySecret(ctx context.Context, namespace, name string) (*corev
 	logger := klog.FromContext(ctx)
 
 	start := time.Now()
-	key := crypto.Random256BitsString()
+	key := kcpcrypto.Random256BitsString()
 	if dur := time.Since(start); dur > time.Millisecond*100 {
 		logger.Info("identity key generation took a long time", "duration", dur)
 	}

@@ -17,11 +17,7 @@ limitations under the License.
 package workspace
 
 import (
-	"crypto/sha256"
-	"strings"
-
-	"github.com/martinlindhe/base36"
-
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
@@ -55,12 +51,5 @@ func indexWorkspaceByLogicalCluster(obj interface{}) ([]string, error) {
 
 func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
 	s := obj.(*corev1alpha1.Shard)
-	return []string{ByBase36Sha224NameValue(s.Name)}, nil
-}
-
-func ByBase36Sha224NameValue(name string) string {
-	hash := sha256.Sum224([]byte(name))
-	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-
-	return base36hash[:8]
+	return []string{kcpcrypto.Base36Sha224.StringPad(s.Name)[:8]}, nil
 }

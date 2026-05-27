@@ -11,7 +11,6 @@ require (
 	github.com/kcp-dev/apimachinery/v2 v2.0.0-00010101000000-000000000000
 	github.com/kcp-dev/client-go v0.0.0
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
-	github.com/martinlindhe/base36 v1.1.1
 	github.com/muesli/reflow v0.3.0
 	github.com/onsi/gomega v1.38.2
 	github.com/sirupsen/logrus v1.9.3

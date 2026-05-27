@@ -19,15 +19,11 @@ package workspace
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net/url"
 	"path"
-	"strings"
-
-	"github.com/martinlindhe/base36"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
@@ -163,7 +160,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
 			logger.V(2).Info("Chose shard", "shard", shard.Name)
-			shardNameHash = ByBase36Sha224NameValue(shard.Name)
+			shardNameHash = kcpcrypto.Base36Sha224.StringPad(shard.Name)[:8]
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}
@@ -443,7 +440,5 @@ func randomClusterName(path logicalcluster.Path) (logicalcluster.Name, error) {
 	if err != nil {
 		return "", err
 	}
-	hash := sha256.Sum224(token)
-	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-	return logicalcluster.Name(base36hash[:16]), nil // 36^16 = 82 bits, P(conflict)<10^-9 for 2^26 clusters
+	return logicalcluster.Name(kcpcrypto.Base36Sha224.BytesPad(token)[:16]), nil // 36^16 = 82 bits, P(conflict)<10^-9 for 2^26 clusters
 }

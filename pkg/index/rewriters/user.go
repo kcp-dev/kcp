@@ -20,8 +20,7 @@ import (
 	"crypto/sha256"
 	"strings"
 
-	"github.com/martinlindhe/base36"
-
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
@@ -36,5 +35,5 @@ func UserRewriter(segments []string) []string {
 
 func HomeClusterName(userName string) logicalcluster.Name {
 	hash := sha256.Sum224([]byte(userName))
-	return logicalcluster.Name(strings.ToLower(base36.EncodeBytes(hash[:8])))
+	return logicalcluster.Name(kcpcrypto.Base36.BytesPad(hash[:8]))
 }

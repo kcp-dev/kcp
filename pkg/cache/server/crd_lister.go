@@ -23,8 +23,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/martinlindhe/base36"
-
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	kcpapiextensionsv1listers "github.com/kcp-dev/client-go/apiextensions/listers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -344,7 +343,7 @@ func buildSchemalessCRDVersions(versions map[string]struct{}) []apiextensionsv1.
 
 func syntheticCRDUID(identity string, gr schema.GroupResource, sortedVersions []string) types.UID {
 	h := sha256.Sum256([]byte(identity + "|" + gr.String() + "|" + strings.Join(sortedVersions, ",")))
-	return types.UID(strings.ToLower(base36.EncodeBytes(h[:])))
+	return types.UID(kcpcrypto.Base36.BytesPad(h[:]))
 }
 
 // synthesizeCRD builds a CRD from a set of CachedResources that share the same identity+GR.

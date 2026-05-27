@@ -18,15 +18,12 @@ package testing
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/martinlindhe/base36"
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
@@ -279,7 +277,7 @@ func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface
 	}
 
 	for i := range shards.Items {
-		if name := shards.Items[i].Name; base36Sha224NameValue(name) == hash {
+		if name := shards.Items[i].Name; kcpcrypto.Base36Sha224.StringPad(name)[:8] == hash {
 			return &shards.Items[i], nil
 		}
 	}
@@ -298,13 +296,6 @@ func WorkspaceShardOrDie(t TestingT, kcpClient kcpclientset.ClusterInterface, ws
 	shard, err := WorkspaceShard(ctx, kcpClient, ws)
 	require.NoError(t, err, "failed to determine shard for workspace %s", ws.Name)
 	return shard
-}
-
-func base36Sha224NameValue(name string) string {
-	hash := sha256.Sum224([]byte(name))
-	base36hash := strings.ToLower(base36.EncodeBytes(hash[:]))
-
-	return base36hash[:8]
 }
 
 // WaitForAPIReady waits until the given GroupVersion is served.
