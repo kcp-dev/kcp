@@ -34,13 +34,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
-	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpfakekubeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	kcpclientgotesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/kcp-dev/sdk/apis/core/v1alpha1/helper"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	conditionsapi "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -327,7 +327,7 @@ func TestReconcileScheduling(t *testing.T) {
 				},
 				getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
 					for _, shard := range scenario.initialShards {
-						if shardNameToBase36Sha224(shard.Name) == hash {
+						if corev1alpha1helper.ShardNameHash(shard.Name) == hash {
 							return shard, nil
 						}
 					}
@@ -587,8 +587,4 @@ func actionStrings(actions []kcpclientgotesting.Action) []string {
 		res = append(res, actionString(a))
 	}
 	return res
-}
-
-func shardNameToBase36Sha224(name string) string {
-	return kcpcrypto.Base36Sha224.StringPad(name)[:8]
 }

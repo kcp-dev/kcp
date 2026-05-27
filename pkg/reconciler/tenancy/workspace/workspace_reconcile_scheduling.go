@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/kcp-dev/sdk/apis/core/v1alpha1/helper"
 	"github.com/kcp-dev/sdk/apis/tenancy/initialization"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -160,7 +161,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 				return reconcileStatusContinue, nil // retry is automatic when new shards show up
 			}
 			logger.V(2).Info("Chose shard", "shard", shard.Name)
-			shardNameHash = kcpcrypto.Base36Sha224.StringPad(shard.Name)[:8]
+			shardNameHash = corev1alpha1helper.ShardNameHash(shard.Name)
 			if workspace.Annotations == nil {
 				workspace.Annotations = map[string]string{}
 			}

@@ -31,11 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 
-	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/kcp-dev/sdk/apis/core/v1alpha1/helper"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
@@ -277,7 +277,7 @@ func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface
 	}
 
 	for i := range shards.Items {
-		if name := shards.Items[i].Name; kcpcrypto.Base36Sha224.StringPad(name)[:8] == hash {
+		if name := shards.Items[i].Name; corev1alpha1helper.ShardNameHash(name) == hash {
 			return &shards.Items[i], nil
 		}
 	}
