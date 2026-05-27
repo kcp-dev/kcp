@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
@@ -32,4 +33,10 @@ func QualifiedObjectName(obj metav1.Object) string {
 		return fmt.Sprintf("%s|%s/%s", logicalcluster.From(obj), obj.GetNamespace(), obj.GetName())
 	}
 	return fmt.Sprintf("%s|%s", logicalcluster.From(obj), obj.GetName())
+}
+
+// ShardNameHash converts a shard name into an opaque hash.
+// This hash is annotated on relevant resources.
+func ShardNameHash(name string) string {
+	return kcpcrypto.Base36Sha224.StringPad(name)[:8]
 }

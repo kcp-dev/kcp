@@ -51,3 +51,30 @@ func TestQualifiedObjectName(t *testing.T) {
 		})
 	}
 }
+
+// TestShardNameHash ensures that ShardNameHash stays consistent as
+// these values are stored on some resources they cannot change across
+// versions without a migration.
+func TestShardNameHash(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"", "2n6a5vwp"},
+		{"root", "1pfxsevk"},
+		{"shard-1", "2e1tfbst"},
+		{"shard-2", "quyfennr"},
+		{"shard-3", "2jvdumni"},
+		{"europe-1", "32dpb82e"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ShardNameHash(tt.name); got != tt.want {
+				t.Errorf("ShardNameHash(%q) = %q, want %q", tt.name, got, tt.want)
+			}
+			if got := ShardNameHash(tt.name); len(got) != 8 {
+				t.Errorf("ShardNameHash(%q) length = %d, want 8", tt.name, len(got))
+			}
+		})
+	}
+}
