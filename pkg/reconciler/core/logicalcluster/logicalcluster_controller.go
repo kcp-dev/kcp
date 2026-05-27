@@ -32,6 +32,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/kcp-dev/sdk/apis/core/v1alpha1/helper"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
@@ -47,6 +48,7 @@ const (
 )
 
 func NewController(
+	shardName string,
 	shardExternalURL func() string,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
@@ -59,6 +61,7 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
+		shardHash:             corev1alpha1helper.ShardNameHash(shardName),
 		shardExternalURL:      shardExternalURL,
 		kcpClusterClient:      kcpClusterClient,
 		logicalClusterIndexer: logicalClusterInformer.Informer().GetIndexer(),
@@ -82,6 +85,7 @@ type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpe
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
+	shardHash        string
 	shardExternalURL func() string
 
 	kcpClusterClient kcpclientset.ClusterInterface

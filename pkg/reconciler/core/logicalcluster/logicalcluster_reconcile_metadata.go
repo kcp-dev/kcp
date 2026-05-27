@@ -32,6 +32,7 @@ import (
 )
 
 type metaDataReconciler struct {
+	shardHash string
 }
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
@@ -112,6 +113,14 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *core
 				changed = true
 			}
 		}
+	}
+
+	if got := logicalCluster.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]; got != r.shardHash {
+		if logicalCluster.Annotations == nil {
+			logicalCluster.Annotations = map[string]string{}
+		}
+		logicalCluster.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = r.shardHash
+		changed = true
 	}
 
 	if changed {

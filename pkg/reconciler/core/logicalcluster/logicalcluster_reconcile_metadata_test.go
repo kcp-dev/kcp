@@ -35,6 +35,7 @@ func TestReconcileMetadata(t *testing.T) {
 
 	for _, testCase := range []struct {
 		name       string
+		shardHash  string
 		input      *corev1alpha1.LogicalCluster
 		expected   metav1.ObjectMeta
 		wantStatus reconcileStatus
@@ -257,9 +258,79 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
+		{
+			name:      "stamps shard annotation when absent",
+			shardHash: "abcd1234",
+			input: &corev1alpha1.LogicalCluster{
+				Status: corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+				Annotations: map[string]string{
+					"core.kcp.io/shard": "abcd1234",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name:      "overwrites stale shard annotation",
+			shardHash: "abcd1234",
+			input: &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+					Annotations: map[string]string{
+						"core.kcp.io/shard": "stalehsh",
+					},
+				},
+				Status: corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+				Annotations: map[string]string{
+					"core.kcp.io/shard": "abcd1234",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name:      "no-op when shard annotation already matches",
+			shardHash: "abcd1234",
+			input: &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+					Annotations: map[string]string{
+						"core.kcp.io/shard": "abcd1234",
+					},
+				},
+				Status: corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+				Annotations: map[string]string{
+					"core.kcp.io/shard": "abcd1234",
+				},
+			},
+			wantStatus: reconcileStatusContinue,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			reconciler := metaDataReconciler{}
+			reconciler := metaDataReconciler{shardHash: testCase.shardHash}
 			status, err := reconciler.reconcile(context.Background(), testCase.input)
 
 			require.NoError(t, err)

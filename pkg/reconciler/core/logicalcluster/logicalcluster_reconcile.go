@@ -39,7 +39,7 @@ func (c *Controller) reconcile(ctx context.Context, logicalCluster *corev1alpha1
 	// reconcilers which modify Status should be last
 	// reconcilers which modify ObjectMeta, need to return reconcileStatusStopAndRequeue on change
 	reconcilers := []reconciler{
-		&metaDataReconciler{},
+		&metaDataReconciler{shardHash: c.shardHash},
 		&terminatorReconciler{},
 		&phaseReconciler{clusterContextManager: c.clusterContextManager},
 		&urlReconciler{shardExternalURL: c.shardExternalURL},
