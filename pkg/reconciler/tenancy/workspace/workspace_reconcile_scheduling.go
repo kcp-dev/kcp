@@ -55,6 +55,9 @@ import (
 const (
 	// WorkspaceShardHashAnnotationKey keeps track on which shard LogicalCluster must be scheduled. The value
 	// is a base36(sha224) hash of the Shard name.
+	//
+	// Deprecated: use corev1alpha1.LogicalClusterShardAnnotationKey instead.
+	// This key is still updated and read as a fallback for backwards compatibility but will be removed in a future release.
 	WorkspaceShardHashAnnotationKey = "internal.tenancy.kcp.io/shard"
 
 	// workspaceClusterAnnotationKey keeps track of the logical cluster on the shard.
@@ -64,6 +67,33 @@ const (
 	// The annotation is meant to be used by e2e tests that otherwise started a private instance of kcp server.
 	unschedulableAnnotationKey = "experimental.core.kcp.io/unschedulable"
 )
+
+// workspaceShardHash reads the shard hash annotation from a Workspace.
+func workspaceShardHash(ws *tenancyv1alpha1.Workspace) (string, bool) {
+	if v, ok := ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]; ok {
+		return v, true
+	}
+	v, ok := ws.Annotations[WorkspaceShardHashAnnotationKey]
+	return v, ok
+}
+
+// applyShardToWorkspaceMetadata updates a workspaces shard metadata.
+func applyShardToWorkspaceMetadata(ws *tenancyv1alpha1.Workspace, shard *corev1alpha1.Shard) {
+	hash := corev1alpha1helper.ShardNameHash(shard.Name)
+	if ws.Annotations == nil {
+		ws.Annotations = map[string]string{}
+	}
+	ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = hash
+	ws.Annotations[WorkspaceShardHashAnnotationKey] = hash
+
+	if ws.Labels == nil {
+		ws.Labels = map[string]string{}
+	}
+	delete(ws.Labels, "region")
+	if region, found := shard.Labels["region"]; found {
+		ws.Labels["region"] = region
+	}
+}
 
 type schedulingReconciler struct {
 	generateClusterName func(path logicalcluster.Path) (logicalcluster.Name, error)
@@ -96,7 +126,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		// This is bit of edge case, but nevertheless we need to check if logical cluster url still matches the workspace url.
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
-		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		shardNameHash, hasShard := workspaceShardHash(workspace)
 		if !hasShard || !hasCluster {
 			return reconcileStatusContinue, nil
 		}
@@ -110,9 +140,10 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		}
 
 		parentThis, err := r.getLogicalCluster(logicalcluster.From(workspace))
-		if err != nil && !apierrors.IsNotFound(err) {
-			return reconcileStatusStopAndRequeue, err
-		} else if apierrors.IsNotFound(err) {
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return reconcileStatusStopAndRequeue, err
+			}
 			return reconcileStatusStopAndRequeue, nil // wait for parent LogicalCluster to be created
 		}
 
@@ -139,7 +170,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceScheduled)
 		return reconcileStatusContinue, nil
 	case workspace.Spec.URL == "" || workspace.Spec.Cluster == "":
-		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		shardNameHash, hasShard := workspaceShardHash(workspace)
 		clusterNameString, hasCluster := workspace.Annotations[workspaceClusterAnnotationKey]
 		clusterName := logicalcluster.Name(clusterNameString)
 		hasFinalizer := sets.New[string](workspace.Finalizers...).Has(corev1alpha1.LogicalClusterFinalizerName)
@@ -162,13 +193,7 @@ func (r *schedulingReconciler) reconcile(ctx context.Context, workspace *tenancy
 			}
 			logger.V(2).Info("Chose shard", "shard", shard.Name)
 			shardNameHash = corev1alpha1helper.ShardNameHash(shard.Name)
-			if workspace.Annotations == nil {
-				workspace.Annotations = map[string]string{}
-			}
-			workspace.Annotations[WorkspaceShardHashAnnotationKey] = shardNameHash
-			if region, found := shard.Labels["region"]; found {
-				workspace.Labels["region"] = region
-			}
+			applyShardToWorkspaceMetadata(workspace, shard)
 		}
 		if !hasCluster {
 			cluster, err := r.generateClusterName(logicalcluster.From(workspace).Path().Join(workspace.Name))

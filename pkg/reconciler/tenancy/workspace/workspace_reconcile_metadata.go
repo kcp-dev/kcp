@@ -21,13 +21,17 @@ import (
 	"encoding/json"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
 type metaDataReconciler struct {
+	getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
+	getShardByHash    func(hash string) (*corev1alpha1.Shard, error)
 }
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
@@ -67,6 +71,40 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 				changed = true
 			} else if value != string(userOnlyValue) {
 				workspace.Annotations[tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey] = string(userOnlyValue)
+				changed = true
+			}
+		}
+	}
+
+	// If the shard annotation between the LC and the Workspace has drifted then the LC moved to another shard.
+	if workspace.DeletionTimestamp.IsZero() && workspace.Spec.Cluster != "" {
+		// Only check for drift if there is an annotation on the workspace.
+		if wsShardHash, ok := workspaceShardHash(workspace); ok {
+			lc, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
+			if err != nil {
+				if !apierrors.IsNotFound(err) {
+					return reconcileStatusContinue, nil
+				}
+				// If the annotation exists we should only proceed if we see the LC.
+				return reconcileStatusStopAndRequeue, err
+			}
+
+			lcShardHash := lc.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
+			if lcShardHash == "" {
+				// The LC is visible but the annotation is empty, can't proceed without.
+				return reconcileStatusStopAndRequeue, nil
+			}
+
+			if lcShardHash != wsShardHash {
+				newShard, err := r.getShardByHash(lcShardHash)
+				if err != nil {
+					if !apierrors.IsNotFound(err) {
+						return reconcileStatusContinue, err
+					}
+					return reconcileStatusStopAndRequeue, nil
+				}
+				logger.V(2).Info("LogicalCluster shard drift detected, retargeting workspace", "from", wsShardHash, "to", lcShardHash, "shard", newShard.Name)
+				applyShardToWorkspaceMetadata(workspace, newShard)
 				changed = true
 			}
 		}

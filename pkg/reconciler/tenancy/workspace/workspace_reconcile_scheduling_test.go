@@ -73,6 +73,7 @@ func TestReconcileScheduling(t *testing.T) {
 				t.Helper()
 
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+				initialWS.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = "1pfxsevk"
 				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(ws, initialWS) {
@@ -86,7 +87,13 @@ func TestReconcileScheduling(t *testing.T) {
 			initialShards:         []*corev1alpha1.Shard{shard("root")},
 			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
 			targetWorkspace:       wellKnownFooWSForPhaseTwo(),
-			targetLogicalCluster:  &corev1alpha1.LogicalCluster{},
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "1pfxsevk",
+					},
+				},
+			},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
@@ -119,8 +126,14 @@ func TestReconcileScheduling(t *testing.T) {
 				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
 				return thisWS
 			}()},
-			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
-			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
+			targetWorkspace: wellKnownFooWSForPhaseTwo(),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "1pfxsevk",
+					},
+				},
+			},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
@@ -182,8 +195,14 @@ func TestReconcileScheduling(t *testing.T) {
 				thisWS.Annotations["kcp.io/cluster"] = "root-foo"
 				return thisWS
 			}()},
-			targetWorkspace:      wellKnownFooWSForPhaseTwo(),
-			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
+			targetWorkspace: wellKnownFooWSForPhaseTwo(),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "1pfxsevk",
+					},
+				},
+			},
 			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
 				t.Helper()
 
@@ -245,6 +264,7 @@ func TestReconcileScheduling(t *testing.T) {
 				t.Helper()
 
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+				initialWS.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = "29hdqnv7"
 				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "29hdqnv7"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
@@ -272,6 +292,37 @@ func TestReconcileScheduling(t *testing.T) {
 					Status:   corev1.ConditionFalse,
 					Reason:   tenancyv1alpha1.WorkspaceReasonUnschedulable,
 					Message:  "No available shards to schedule the workspace",
+				})
+				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
+					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
+				}
+			},
+			expectedStatus: reconcileStatusContinue,
+		},
+		{
+			name:                  "shard hash changed: workspace URL is rebuilt from the new shard",
+			initialShards:         []*corev1alpha1.Shard{shard("root"), shard("amber")},
+			initialWorkspaceTypes: wellKnownWorkspaceTypes(),
+			targetWorkspace: func() *tenancyv1alpha1.Workspace {
+				ws := wellKnownFooWSForPhaseTwo()
+				// metaDataReconciler has already restamped the shard hash to amber,
+				// but the URL still points at the old (root) shard.
+				ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = "29hdqnv7"
+				ws.Annotations["internal.tenancy.kcp.io/shard"] = "29hdqnv7"
+				ws.Spec.URL = "https://root/clusters/root:foo"
+				ws.Spec.Cluster = "root-foo"
+				return ws
+			}(),
+			targetLogicalCluster: &corev1alpha1.LogicalCluster{},
+			validateWorkspace: func(t *testing.T, initialWS, wsAfterReconciliation *tenancyv1alpha1.Workspace) {
+				t.Helper()
+
+				clearLastTransitionTimeOnWsConditions(wsAfterReconciliation)
+				initialWS.CreationTimestamp = wsAfterReconciliation.CreationTimestamp
+				initialWS.Spec.URL = "https://amber/clusters/root:foo"
+				initialWS.Status.Conditions = append(initialWS.Status.Conditions, conditionsapi.Condition{
+					Type:   tenancyv1alpha1.WorkspaceScheduled,
+					Status: corev1.ConditionTrue,
 				})
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {
 					t.Fatalf("unexpected Workspace:\n%s", cmp.Diff(wsAfterReconciliation, initialWS))
@@ -395,6 +446,7 @@ func wellKnownFooWSForPhaseTwo() *tenancyv1alpha1.Workspace {
 	ws := workspace("foo")
 	// since this is part two we can assume the following fields are assigned
 	ws.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+	ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = "1pfxsevk"
 	ws.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
 	ws.Annotations["experimental.tenancy.kcp.io/owner"] = `{"username":"kcp-admin"}`
 	ws.Finalizers = append(ws.Finalizers, "core.kcp.io/logicalcluster")

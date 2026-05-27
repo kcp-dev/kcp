@@ -24,9 +24,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/kcp-dev/sdk/apis/core/v1alpha1/helper"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
@@ -35,10 +38,14 @@ func TestReconcileMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, testCase := range []struct {
-		name       string
-		input      *tenancyv1alpha1.Workspace
-		expected   metav1.ObjectMeta
-		wantStatus reconcileStatus
+		name              string
+		input             *tenancyv1alpha1.Workspace
+		getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
+		getShardByHash    func(hash string) (*corev1alpha1.Shard, error)
+		expected          metav1.ObjectMeta
+		expectedSpec      tenancyv1alpha1.WorkspaceSpec
+		wantStatus        reconcileStatus
+		wantErr           bool
 	}{
 		{
 			name: "removes everything but owner username when ready",
@@ -129,16 +136,195 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
+		{
+			name: "drift: LogicalCluster shard differs from workspace, restamps annotations",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "old-hash",
+						WorkspaceShardHashAnnotationKey:               "old-hash",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+						"region":               "us-east-1",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					Cluster: "test-cluster",
+					URL:     "https://old.example.com/clusters/root:ws",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			getLogicalCluster: func(_ context.Context, _ logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							corev1alpha1.LogicalClusterShardAnnotationKey: corev1alpha1helper.ShardNameHash("new-shard"),
+						},
+					},
+				}, nil
+			},
+			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+				return &corev1alpha1.Shard{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "new-shard",
+						Labels: map[string]string{"region": "us-west-2"},
+					},
+				}, nil
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: corev1alpha1helper.ShardNameHash("new-shard"),
+					WorkspaceShardHashAnnotationKey:               corev1alpha1helper.ShardNameHash("new-shard"),
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+					"region":               "us-west-2",
+				},
+			},
+			expectedSpec: tenancyv1alpha1.WorkspaceSpec{
+				Cluster: "test-cluster",
+				URL:     "https://old.example.com/clusters/root:ws",
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "no drift: LogicalCluster shard matches workspace shard",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+						WorkspaceShardHashAnnotationKey:               "hash-1",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					Cluster: "test-cluster",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			getLogicalCluster: func(_ context.Context, _ logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+						},
+					},
+				}, nil
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+					WorkspaceShardHashAnnotationKey:               "hash-1",
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+			},
+			expectedSpec: tenancyv1alpha1.WorkspaceSpec{
+				Cluster: "test-cluster",
+			},
+			wantStatus: reconcileStatusContinue,
+		},
+		{
+			name: "LogicalCluster has no shard annotation yet: requeue until stamped",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+						WorkspaceShardHashAnnotationKey:               "hash-1",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					Cluster: "test-cluster",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			getLogicalCluster: func(_ context.Context, _ logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{}, nil
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+					WorkspaceShardHashAnnotationKey:               "hash-1",
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+			},
+			expectedSpec: tenancyv1alpha1.WorkspaceSpec{
+				Cluster: "test-cluster",
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "LogicalCluster not found: requeue with error",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+						WorkspaceShardHashAnnotationKey:               "hash-1",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					Cluster: "test-cluster",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			getLogicalCluster: func(_ context.Context, _ logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalclusters"), "cluster")
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: "hash-1",
+					WorkspaceShardHashAnnotationKey:               "hash-1",
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+			},
+			expectedSpec: tenancyv1alpha1.WorkspaceSpec{
+				Cluster: "test-cluster",
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+			wantErr:    true,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			reconciler := metaDataReconciler{}
+			reconciler := metaDataReconciler{
+				getLogicalCluster: testCase.getLogicalCluster,
+				getShardByHash:    testCase.getShardByHash,
+			}
 			status, err := reconciler.reconcile(context.Background(), testCase.input)
 
-			require.NoError(t, err)
+			if testCase.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 			require.Equal(t, testCase.wantStatus, status)
 
 			if diff := cmp.Diff(testCase.input.ObjectMeta, testCase.expected); diff != "" {
 				t.Errorf("invalid output after reconciling metadata: %v", diff)
+			}
+			if diff := cmp.Diff(testCase.input.Spec, testCase.expectedSpec); diff != "" {
+				t.Errorf("invalid spec after reconciling metadata: %v", diff)
 			}
 		})
 	}

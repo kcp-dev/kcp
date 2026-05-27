@@ -62,7 +62,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			} else if apierrors.IsNotFound(err) {
 				// The LogicalCluster may not be visible through the front-proxy yet
 				// because the shard index hasn't caught up.
-				shardHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+				shardHash, hasShard := workspaceShardHash(workspace)
 				if hasShard {
 					shard, shardErr := r.getShardByHash(shardHash)
 					if shardErr == nil && shard.DeletionTimestamp.IsZero() {
@@ -103,7 +103,7 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 
 		case corev1alpha1.LogicalClusterPhaseUnavailable:
 			if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceInitialized) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceInitialized) == tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared {
-				shardHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+				shardHash, hasShard := workspaceShardHash(workspace)
 				if hasShard {
 					shard, shardErr := r.getShardByHash(shardHash)
 					if shardErr == nil && shard.DeletionTimestamp.IsZero() {

@@ -75,7 +75,7 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		// try again with a direct connection. It might be that the front-proxy
 		// does not know about the logical cluster. We don't want to leak, so
 		// try extra hard.
-		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		shardNameHash, hasShard := workspaceShardHash(workspace)
 		if !hasShard {
 			// nothing we can do beyond retrying
 			return reconcileStatusStopAndRequeue, getErr
