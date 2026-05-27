@@ -27,7 +27,6 @@ require (
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
 	github.com/kcp-dev/sdk v0.0.0
 	github.com/kcp-dev/virtual-workspace-framework v0.0.0
-	github.com/martinlindhe/base36 v1.1.1
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
