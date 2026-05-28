@@ -19,7 +19,6 @@ package client
 import (
 	"net/http"
 	"sync"
-	"weak"
 
 	"k8s.io/client-go/rest"
 
@@ -35,72 +34,16 @@ type Constructor[R any] struct {
 type Cache[R any] interface {
 	ClusterOrDie(clusterPath logicalcluster.Path) R
 	Cluster(clusterPath logicalcluster.Path) (R, error)
-	// Evict drops the cached client for clusterPath, if any. Used to release
-	// per-cluster client state (REST clients, codec factories, parsed
-	// schemas) when a logical cluster is deleted. Safe to call concurrently
-	// with Cluster / ClusterOrDie. No-op if the path is not cached.
 	Evict(clusterPath logicalcluster.Path)
 }
 
-// evictorRef is the value the registry tracks via a weak pointer. Each
-// clientCache holds its own ref as a struct field, so the ref stays alive
-// exactly as long as the cache does. Once the cache becomes unreachable
-// from outside the registry, ref dies with it and the weak entry can be
-// pruned.
-type evictorRef struct {
-	evict func(clusterPath logicalcluster.Path)
-}
-
-var (
-	evictorsMu sync.Mutex
-	evictors   []weak.Pointer[evictorRef]
-)
-
-// registerEvictor adds ref to the weak registry. The registry must not hold
-// a strong reference to ref — that would re-introduce the leak this whole
-// mechanism exists to avoid.
-func registerEvictor(ref *evictorRef) {
-	evictorsMu.Lock()
-	defer evictorsMu.Unlock()
-	evictors = append(evictors, weak.Make(ref))
-}
-
-// EvictCluster notifies every registered cache that clusterPath has been
-// deleted and its cached client (and everything that client transitively
-// pins — REST client, codec factory, JSON decoder state, OpenAPI schemas)
-// can be released. Wire this to a LogicalCluster delete handler to bound
-// retained memory per workspace lifetime. See
-// https://github.com/kcp-dev/kcp/issues/4071.
-//
-// Dead entries (caches whose only remaining reference was the weak entry
-// in this registry) are pruned in-place during the iteration.
-func EvictCluster(clusterPath logicalcluster.Path) {
-	evictorsMu.Lock()
-	live := evictors[:0]
-	alive := make([]*evictorRef, 0, len(evictors))
-	for _, wp := range evictors {
-		ref := wp.Value()
-		if ref == nil {
-			continue
-		}
-		live = append(live, wp)
-		alive = append(alive, ref)
-	}
-	evictors = live
-	evictorsMu.Unlock()
-	for _, ref := range alive {
-		ref.evict(clusterPath)
-	}
-}
-
 // NewCache creates a new client factory cache using the given constructor.
-// The cache is auto-registered with the package-level EvictCluster fan-out
-// so per-cluster entries can be released when a LogicalCluster is deleted.
-// The registry holds the cache weakly: if all references to the returned
-// Cache are dropped, it becomes eligible for GC and is pruned from the
-// registry lazily.
 func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constructor[R]) Cache[R] {
-	c := &clientCache[R]{
+	return newClientCache(cfg, client, constructor)
+}
+
+func newClientCache[R any](cfg *rest.Config, client *http.Client, constructor *Constructor[R]) *clientCache[R] {
+	return &clientCache[R]{
 		cfg:         cfg,
 		client:      client,
 		constructor: constructor,
@@ -109,9 +52,6 @@ func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constru
 		clientsByClusterPath: map[logicalcluster.Path]R{},
 		evicted:              map[logicalcluster.Path]struct{}{},
 	}
-	c.evictRef = &evictorRef{evict: c.Evict}
-	registerEvictor(c.evictRef)
-	return c
 }
 
 type clientCache[R any] struct {
@@ -132,12 +72,6 @@ type clientCache[R any] struct {
 	// ~26B map-bucket overhead ≈ ~60B. 100k churned workspaces ≈ ~6MB,
 	// which is bounded and not worth GCing.
 	evicted map[logicalcluster.Path]struct{}
-
-	// evictRef anchors the entry registered in the package-level evictor
-	// registry. The registry holds it weakly, so this field is what keeps
-	// the entry alive: when the cache is GC'd, evictRef dies with it and
-	// the weak entry can be pruned lazily.
-	evictRef *evictorRef
 }
 
 // ClusterOrDie returns a new client scoped to the given logical cluster, or panics if there
