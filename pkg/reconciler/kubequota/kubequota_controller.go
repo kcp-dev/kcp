@@ -43,6 +43,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 )
 
 const (
@@ -253,77 +254,85 @@ func (c *Controller) process(ctx context.Context, key string) error {
 }
 
 func (c *Controller) startQuotaForLogicalCluster(ctx context.Context, clusterName logicalcluster.Name) error {
-	logger := klog.FromContext(ctx)
-	resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName.Path())
+	var retErr error
+	// Label the current goroutine for the duration of this function. Goroutines
+	// spawned during this call - including the processorListener.run/pop
+	// goroutines registered inside resourcequota.NewController via the shared
+	// informer's AddEventHandler - inherit these labels for their lifetime,
+	// keeping leaked goroutines attributable in pprof dumps (see #4071, #3350).
+	pproflabels.Cluster(ctx, ControllerName, clusterName, func(ctx context.Context) {
+		logger := klog.FromContext(ctx)
+		resourceQuotaControllerClient := c.kubeClusterClient.Cluster(clusterName.Path())
 
-	// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
-	// to get support for the special evaluators for pods/services/pvcs.
-	// listerFuncForResource := generic.ListerFuncForResourceFunc(scopedInformerFactory.ForResource)
-	// quotaConfiguration := install.NewQuotaConfigurationForControllers(listerFuncForResource)
-	quotaConfiguration := generic.NewConfiguration(nil, install.DefaultIgnoredResources())
+		// TODO(ncdc): find a way to support the default configuration. For now, don't use it, because it is difficult
+		// to get support for the special evaluators for pods/services/pvcs.
+		// listerFuncForResource := generic.ListerFuncForResourceFunc(scopedInformerFactory.ForResource)
+		// quotaConfiguration := install.NewQuotaConfigurationForControllers(listerFuncForResource)
+		quotaConfiguration := generic.NewConfiguration(nil, install.DefaultIgnoredResources())
 
-	resourceQuotaControllerOptions := &resourcequota.ControllerOptions{
-		QuotaClient:           resourceQuotaControllerClient.CoreV1(),
-		ResourceQuotaInformer: c.resourceQuotaClusterInformer.ClusterWithContext(ctx, clusterName),
-		ResyncPeriod:          controller.StaticResyncPeriodFunc(c.quotaRecalculationPeriod),
-		InformerFactory:       c.scopingGenericSharedInformerFactory.ClusterWithContext(ctx, clusterName),
-		ReplenishmentResyncPeriod: func() time.Duration {
-			return c.fullResyncPeriod
-		},
-		// TODO(sttts): this discovery function is wrong. It is some aggregation of all logical clusters, but has non-deterministic
-		//              behaviour if logical clusters don't agree about REST mappings.
-		DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources,
-		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
-		InformersStarted:     c.informersStarted,
-		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
-	}
-
-	resourceQuotaController, err := resourcequota.NewController(ctx, resourceQuotaControllerOptions)
-	if err != nil {
-		return err
-	}
-
-	// Here we diverge from what upstream does. Upstream starts a goroutine that retrieves discovery every 30 seconds,
-	// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
-	// the combination of built-in types plus CRDs. We use that information to drive what quota evaluates.
-
-	quotaController := quotaController{
-		clusterName: clusterName,
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{
-				Name: "quota",
+		resourceQuotaControllerOptions := &resourcequota.ControllerOptions{
+			QuotaClient:           resourceQuotaControllerClient.CoreV1(),
+			ResourceQuotaInformer: c.resourceQuotaClusterInformer.ClusterWithContext(ctx, clusterName),
+			ResyncPeriod:          controller.StaticResyncPeriodFunc(c.quotaRecalculationPeriod),
+			InformerFactory:       c.scopingGenericSharedInformerFactory.ClusterWithContext(ctx, clusterName),
+			ReplenishmentResyncPeriod: func() time.Duration {
+				return c.fullResyncPeriod
 			},
-		),
-		work: func(ctx context.Context) {
-			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
-		},
-	}
-	go quotaController.Start(ctx)
-
-	apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("quota-" + clusterName.String())
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-apisChanged:
-				logger.V(4).Info("got API change notification")
-				quotaController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
-			}
+			// TODO(sttts): this discovery function is wrong. It is some aggregation of all logical clusters, but has non-deterministic
+			//              behaviour if logical clusters don't agree about REST mappings.
+			DiscoveryFunc:        c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources,
+			IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
+			InformersStarted:     c.informersStarted,
+			Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
 		}
-	}()
 
-	// Do this in a goroutine to avoid holding up a worker in the event UpdateMonitors stalls for whatever reason
-	go func() {
-		// Make sure the monitors are synced at least once
-		resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+		resourceQuotaController, err := resourcequota.NewController(ctx, resourceQuotaControllerOptions)
+		if err != nil {
+			retErr = err
+			return
+		}
 
-		go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
-	}()
+		// Here we diverge from what upstream does. Upstream starts a goroutine that retrieves discovery every 30 seconds,
+		// starting/stopping dynamic informers as needed based on the updated discovery data. We know that kcp contains
+		// the combination of built-in types plus CRDs. We use that information to drive what quota evaluates.
 
-	return nil
+		quotaController := quotaController{
+			clusterName: clusterName,
+			queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[string](),
+				workqueue.TypedRateLimitingQueueConfig[string]{
+					Name: "quota",
+				},
+			),
+			work: func(ctx context.Context) {
+				resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+			},
+		}
+		go quotaController.Start(ctx)
+
+		apisChanged := c.dynamicDiscoverySharedInformerFactory.Subscribe("quota-" + clusterName.String())
+
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-apisChanged:
+					logger.V(4).Info("got API change notification")
+					quotaController.queue.Add("resync") // this queue only ever has one key in it, as long as it's constant we are OK
+				}
+			}
+		}()
+
+		// Do this in a goroutine to avoid holding up a worker in the event UpdateMonitors stalls for whatever reason
+		go func() {
+			// Make sure the monitors are synced at least once
+			resourceQuotaController.UpdateMonitors(ctx, c.dynamicDiscoverySharedInformerFactory.ServerPreferredResources)
+
+			go resourceQuotaController.Run(ctx, c.workersPerLogicalCluster)
+		}()
+	})
+	return retErr
 }
 
 type quotaController struct {

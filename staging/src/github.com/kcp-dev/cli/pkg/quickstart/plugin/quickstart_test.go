@@ -315,6 +315,7 @@ func (c *cleanupScenario) EnterPath(_ map[string]string) string {
 func (c *cleanupScenario) PrintSummary(_ io.Writer, _ string, _ map[string]string) error {
 	return nil
 }
+func (c *cleanupScenario) Validate(_ string) error { return nil }
 
 type mockScenario struct{}
 
@@ -339,6 +340,7 @@ func (m *mockScenario) EnterPath(state map[string]string) string {
 	return state["consumer-path"]
 }
 func (m *mockScenario) PrintSummary(_ io.Writer, _ string, _ map[string]string) error { return nil }
+func (m *mockScenario) Validate(_ string) error                                       { return nil }
 
 type fakeClientConfig struct{}
 
