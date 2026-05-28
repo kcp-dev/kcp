@@ -2083,6 +2083,8 @@
       
         
       
+        
+      
     
     
       
@@ -2159,6 +2161,27 @@
   
   <span class="md-ellipsis">
     Logical Clusters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../developers/investigations/memory-leak-attribution/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Memory and goroutine leak attribution
   </span>
   
 
@@ -4042,7 +4065,11 @@
 <p>Scenarios:
   api-provider   Create a service provider workspace with a sample API
                  (cowboys) and a consumer workspace with a binding to it.
-                 (default)</p>
+                 (default)
+  workspaces     Create an organization workspace populated with a
+                 randomly-shaped tree of child workspaces. Useful for
+                 performance testing the workspace control plane.
+                 Tune with --tree-depth, --tree-count, --tree-seed.</p>
 <p>Use --cleanup to tear down all resources created by a previous run.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kcp quickstart [flags]
 </code></pre></div>
@@ -4060,14 +4087,17 @@
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  -n, --namespace string               If present, the namespace scope for this CLI request
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>      --password string                Password for basic authentication to the API server
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>      --proxy-url string               If provided, this URL will be used to connect via proxy
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>      --scenario string                Scenario to bootstrap (api-provider) (default &quot;api-provider&quot;)
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>      --scenario string                Scenario to bootstrap (api-provider, workspaces) (default &quot;api-provider&quot;)
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>      --server string                  The address and port of the Kubernetes API server
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>      --timeout duration               Maximum time to wait for workspaces to become ready or finish terminating (default 10m0s)
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>      --tls-server-name string         If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>      --token string                   Bearer token for authentication to the API server
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>      --user string                    The name of the kubeconfig user to use
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>      --username string                Username for basic authentication to the API server
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>      --with-samples                   Apply sample resources (Cowboys) into the consumer workspace after setup
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>      --tree-count int                 [workspaces scenario] Total number of child workspaces to create in the random tree (default 50)
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>      --tree-depth int                 [workspaces scenario] Maximum depth of the random workspace tree below the org workspace (default 3)
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>      --tree-seed int                  [workspaces scenario] Seed for the PRNG that shapes the random tree (0 = use wall clock)
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>      --user string                    The name of the kubeconfig user to use
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>      --username string                Username for basic authentication to the API server
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>      --with-samples                   Apply sample resources (Cowboys) into the consumer workspace after setup
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --add_dir_header                      If true, adds the file directory to the header of the log messages
