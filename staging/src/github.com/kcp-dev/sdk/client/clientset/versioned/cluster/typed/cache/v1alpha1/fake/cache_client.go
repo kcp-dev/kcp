@@ -40,6 +40,9 @@ func (c *CacheV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) ca
 	return &CacheV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *CacheV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *CacheV1alpha1ClusterClient) CachedResources() kcpcachev1alpha1.CachedResourceClusterInterface {
 	return newFakeCachedResourceClusterClient(c)
 }

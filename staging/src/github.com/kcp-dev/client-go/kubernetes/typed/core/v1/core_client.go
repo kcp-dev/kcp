@@ -52,6 +52,7 @@ type CoreV1ClusterInterface interface {
 
 type CoreV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) corev1.CoreV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // CoreV1ClusterClient is used to interact with features provided by the  group.
@@ -64,6 +65,12 @@ func (c *CoreV1ClusterClient) Cluster(clusterPath logicalcluster.Path) corev1.Co
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *CoreV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *CoreV1ClusterClient) ComponentStatuses() ComponentStatusClusterInterface {

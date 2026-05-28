@@ -42,6 +42,7 @@ type AdmissionregistrationV1beta1ClusterInterface interface {
 
 type AdmissionregistrationV1beta1ClusterScoper interface {
 	Cluster(logicalcluster.Path) admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface
+	Evict(logicalcluster.Path)
 }
 
 // AdmissionregistrationV1beta1ClusterClient is used to interact with features provided by the admissionregistration.k8s.io group.
@@ -54,6 +55,12 @@ func (c *AdmissionregistrationV1beta1ClusterClient) Cluster(clusterPath logicalc
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *AdmissionregistrationV1beta1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *AdmissionregistrationV1beta1ClusterClient) MutatingAdmissionPolicies() MutatingAdmissionPolicyClusterInterface {

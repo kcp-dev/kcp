@@ -41,6 +41,7 @@ type AppsV1beta2ClusterInterface interface {
 
 type AppsV1beta2ClusterScoper interface {
 	Cluster(logicalcluster.Path) appsv1beta2.AppsV1beta2Interface
+	Evict(logicalcluster.Path)
 }
 
 // AppsV1beta2ClusterClient is used to interact with features provided by the apps group.
@@ -53,6 +54,12 @@ func (c *AppsV1beta2ClusterClient) Cluster(clusterPath logicalcluster.Path) apps
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *AppsV1beta2ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *AppsV1beta2ClusterClient) ControllerRevisions() ControllerRevisionClusterInterface {

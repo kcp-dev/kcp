@@ -37,6 +37,7 @@ type SchedulingV1beta1ClusterInterface interface {
 
 type SchedulingV1beta1ClusterScoper interface {
 	Cluster(logicalcluster.Path) schedulingv1beta1.SchedulingV1beta1Interface
+	Evict(logicalcluster.Path)
 }
 
 // SchedulingV1beta1ClusterClient is used to interact with features provided by the scheduling.k8s.io group.
@@ -49,6 +50,12 @@ func (c *SchedulingV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Path
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *SchedulingV1beta1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *SchedulingV1beta1ClusterClient) PriorityClasses() PriorityClassClusterInterface {

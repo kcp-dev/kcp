@@ -39,6 +39,7 @@ type ExistinginterfacesV1ClusterInterface interface {
 
 type ExistinginterfacesV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) existinginterfacesv1.ExistinginterfacesV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // ExistinginterfacesV1ClusterClient is used to interact with features provided by the existinginterfaces.acme.corp group.
@@ -51,6 +52,12 @@ func (c *ExistinginterfacesV1ClusterClient) Cluster(clusterPath logicalcluster.P
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *ExistinginterfacesV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *ExistinginterfacesV1ClusterClient) ClusterTestTypes() ClusterTestTypeClusterInterface {

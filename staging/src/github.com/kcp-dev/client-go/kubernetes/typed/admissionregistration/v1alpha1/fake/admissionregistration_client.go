@@ -40,6 +40,9 @@ func (c *AdmissionregistrationV1alpha1ClusterClient) Cluster(clusterPath logical
 	return &AdmissionregistrationV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *AdmissionregistrationV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *AdmissionregistrationV1alpha1ClusterClient) MutatingAdmissionPolicies() kcpadmissionregistrationv1alpha1.MutatingAdmissionPolicyClusterInterface {
 	return newFakeMutatingAdmissionPolicyClusterClient(c)
 }

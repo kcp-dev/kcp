@@ -129,6 +129,9 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) clientset.In
 	}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {}
+
 // ExampleV1 retrieves the ExampleV1ClusterClient
 func (c *ClusterClientset) ExampleV1() kcpexamplev1.ExampleV1ClusterInterface {
 	return &kcpfakeexamplev1.ExampleV1ClusterClient{Fake: &c.Fake}

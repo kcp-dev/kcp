@@ -41,6 +41,7 @@ type NetworkingV1ClusterInterface interface {
 
 type NetworkingV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) networkingv1.NetworkingV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // NetworkingV1ClusterClient is used to interact with features provided by the networking.k8s.io group.
@@ -53,6 +54,12 @@ func (c *NetworkingV1ClusterClient) Cluster(clusterPath logicalcluster.Path) net
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *NetworkingV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *NetworkingV1ClusterClient) IPAddresses() IPAddressClusterInterface {

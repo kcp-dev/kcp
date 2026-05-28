@@ -86,6 +86,7 @@ import (
 
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
+	Evict(logicalcluster.Path)
 	Discovery() discovery.DiscoveryInterface
 	AdmissionregistrationV1() admissionregistrationv1.AdmissionregistrationV1ClusterInterface
 	AdmissionregistrationV1alpha1() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1ClusterInterface
@@ -480,6 +481,67 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops cached clients for clusterPath across all per-group clients
+// and the top-level cluster cache, and prevents future caching for that
+// path.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
+	c.admissionregistrationV1.Evict(clusterPath)
+	c.admissionregistrationV1alpha1.Evict(clusterPath)
+	c.admissionregistrationV1beta1.Evict(clusterPath)
+	c.internalV1alpha1.Evict(clusterPath)
+	c.appsV1.Evict(clusterPath)
+	c.appsV1beta1.Evict(clusterPath)
+	c.appsV1beta2.Evict(clusterPath)
+	c.authenticationV1.Evict(clusterPath)
+	c.authenticationV1alpha1.Evict(clusterPath)
+	c.authenticationV1beta1.Evict(clusterPath)
+	c.authorizationV1.Evict(clusterPath)
+	c.authorizationV1beta1.Evict(clusterPath)
+	c.autoscalingV1.Evict(clusterPath)
+	c.autoscalingV2.Evict(clusterPath)
+	c.batchV1.Evict(clusterPath)
+	c.batchV1beta1.Evict(clusterPath)
+	c.certificatesV1.Evict(clusterPath)
+	c.certificatesV1alpha1.Evict(clusterPath)
+	c.certificatesV1beta1.Evict(clusterPath)
+	c.coordinationV1.Evict(clusterPath)
+	c.coordinationV1alpha2.Evict(clusterPath)
+	c.coordinationV1beta1.Evict(clusterPath)
+	c.coreV1.Evict(clusterPath)
+	c.discoveryV1.Evict(clusterPath)
+	c.discoveryV1beta1.Evict(clusterPath)
+	c.eventsV1.Evict(clusterPath)
+	c.eventsV1beta1.Evict(clusterPath)
+	c.extensionsV1beta1.Evict(clusterPath)
+	c.flowcontrolV1.Evict(clusterPath)
+	c.flowcontrolV1beta1.Evict(clusterPath)
+	c.flowcontrolV1beta2.Evict(clusterPath)
+	c.flowcontrolV1beta3.Evict(clusterPath)
+	c.networkingV1.Evict(clusterPath)
+	c.networkingV1beta1.Evict(clusterPath)
+	c.nodeV1.Evict(clusterPath)
+	c.nodeV1alpha1.Evict(clusterPath)
+	c.nodeV1beta1.Evict(clusterPath)
+	c.policyV1.Evict(clusterPath)
+	c.policyV1beta1.Evict(clusterPath)
+	c.rbacV1.Evict(clusterPath)
+	c.rbacV1alpha1.Evict(clusterPath)
+	c.rbacV1beta1.Evict(clusterPath)
+	c.resourceV1.Evict(clusterPath)
+	c.resourceV1alpha3.Evict(clusterPath)
+	c.resourceV1beta1.Evict(clusterPath)
+	c.resourceV1beta2.Evict(clusterPath)
+	c.schedulingV1.Evict(clusterPath)
+	c.schedulingV1alpha2.Evict(clusterPath)
+	c.schedulingV1beta1.Evict(clusterPath)
+	c.storageV1.Evict(clusterPath)
+	c.storageV1alpha1.Evict(clusterPath)
+	c.storageV1beta1.Evict(clusterPath)
+	c.storagemigrationV1beta1.Evict(clusterPath)
+
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.

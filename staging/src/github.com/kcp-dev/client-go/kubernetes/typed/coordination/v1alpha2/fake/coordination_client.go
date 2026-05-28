@@ -40,6 +40,9 @@ func (c *CoordinationV1alpha2ClusterClient) Cluster(clusterPath logicalcluster.P
 	return &CoordinationV1alpha2Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *CoordinationV1alpha2ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *CoordinationV1alpha2ClusterClient) LeaseCandidates() kcpcoordinationv1alpha2.LeaseCandidateClusterInterface {
 	return newFakeLeaseCandidateClusterClient(c)
 }
