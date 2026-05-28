@@ -101,6 +101,7 @@ func (g *genClientset) GenerateType(c *generator.Context, _ *types.Type, w io.Wr
 		sw.Do(clientsetInterfaceImplTemplate, g)
 	}
 	sw.Do(getClusterTemplate, m)
+	sw.Do(evictTemplate, m)
 	sw.Do(newClientsetForConfigTemplate, m)
 	sw.Do(newClientsetForConfigAndClientTemplate, m)
 	sw.Do(newClientsetForConfigOrDieTemplate, m)
@@ -112,6 +113,7 @@ func (g *genClientset) GenerateType(c *generator.Context, _ *types.Type, w io.Wr
 var clientsetInterface = `
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
+	Evict(logicalcluster.Path)
 	Discovery() $.DiscoveryInterface|raw$
     $range .allGroups$$.GroupGoName$$.Version$() $.PackageAlias$.$.GroupGoName$$.Version$ClusterInterface
 	$end$
@@ -152,6 +154,17 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+`
+
+var evictTemplate = `
+// Evict drops cached clients for clusterPath across all per-group clients
+// and the top-level cluster cache, and prevents future caching for that
+// path.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
+$range .allGroups$    c.$.LowerCaseGroupGoName$$.Version$.Evict(clusterPath)
+$end$
 }
 `
 
