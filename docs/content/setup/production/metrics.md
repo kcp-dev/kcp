@@ -28,9 +28,12 @@ https://<shard>:6443/clusters/<workspace>/metrics
 https://<cache-server>:6443/services/cache/shards/<shard>/clusters/<workspace>/metrics
 ```
 
-return `501 Not Implemented`. Metrics are a shard-wide signal and have no
-per-workspace or per-shard scope; the kcp HTTP filter rejects these requests
-before authorization runs.
+return `501 Not Implemented`. Today this is a placeholder: per-workspace and
+per-shard metrics are not yet implemented, and the data the underlying
+`/metrics` handler exposes is shard-wide with no per-workspace or per-shard
+meaning. The kcp HTTP filter rejects these requests before authorization runs
+so that a future implementation can fill in real workspace-scoped metrics
+without changing the URL contract.
 
 ## Authorizing a scraper on a shard
 
