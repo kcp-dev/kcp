@@ -35,7 +35,7 @@ func TestWithShardScopePassesThroughMetrics(t *testing.T) {
 
 	h := WithShardScope(next)
 
-	req := httptest.NewRequest(http.MethodGet, "https://cache.example/metrics", nil)
+	req := httptest.NewRequest(http.MethodGet, "https://cache.example/metrics", http.NoBody)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -104,7 +104,7 @@ func TestWithCacheShardLevelPaths(t *testing.T) {
 
 			h := WithCacheShardLevelPaths(next)
 
-			req := httptest.NewRequest(http.MethodGet, "https://cache.example"+tc.path, nil)
+			req := httptest.NewRequest(http.MethodGet, "https://cache.example"+tc.path, http.NoBody)
 			ctx := req.Context()
 			if !tc.shard.Empty() {
 				ctx = request.WithShard(ctx, tc.shard)
