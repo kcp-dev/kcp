@@ -40,6 +40,12 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) discovery.Di
 	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
+}
+
 // NewForConfig creates a new ClusterClientset for the given config.
 // If config's RateLimiter is not set and QPS and Burst are acceptable,
 // NewForConfig will generate a rate-limiter in configShallowCopy.

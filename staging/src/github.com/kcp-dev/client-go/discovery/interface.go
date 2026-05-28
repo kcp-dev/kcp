@@ -24,5 +24,6 @@ import (
 
 type DiscoveryClusterInterface interface {
 	Cluster(logicalcluster.Path) discovery.DiscoveryInterface
+	Evict(logicalcluster.Path)
 	discovery.DiscoveryInterface
 }

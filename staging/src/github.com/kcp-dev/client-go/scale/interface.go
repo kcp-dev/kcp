@@ -24,4 +24,5 @@ import (
 
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) scale.ScalesGetter
+	Evict(logicalcluster.Path)
 }
