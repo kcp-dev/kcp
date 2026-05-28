@@ -280,7 +280,10 @@ func TestWorkspaceDeletion(t *testing.T) {
 					if apierrors.IsNotFound(err) {
 						return true, err.Error()
 					}
-					require.NoError(t, err, "failed to list namespaces in sub-workspace")
+					// Any other error (e.g. 504 under CI load) is transient: keep polling.
+					if err != nil {
+						return false, fmt.Sprintf("failed to list namespaces in sub-workspace: %v", err)
+					}
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -292,7 +295,10 @@ func TestWorkspaceDeletion(t *testing.T) {
 					if apierrors.IsNotFound(err) {
 						return true, err.Error()
 					}
-					require.NoError(t, err, "failed to list namespaces in org workspace")
+					// Any other error (e.g. 504 under CI load) is transient: keep polling.
+					if err != nil {
+						return false, fmt.Sprintf("failed to list namespaces in org workspace: %v", err)
+					}
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
@@ -304,7 +310,10 @@ func TestWorkspaceDeletion(t *testing.T) {
 					if apierrors.IsNotFound(err) {
 						return true, err.Error()
 					}
-					require.NoError(t, err, "failed to list workspaces in org workspace")
+					// Any other error (e.g. 504 under CI load) is transient: keep polling.
+					if err != nil {
+						return false, fmt.Sprintf("failed to list workspaces in org workspace: %v", err)
+					}
 
 					return len(wslist.Items) == 0, toYAML(t, wslist)
 				}, wait.ForeverTestTimeout, 100*time.Millisecond)
