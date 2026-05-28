@@ -29,6 +29,9 @@ import (
 //
 // ShardStatus communicates the observed state of the Shard.
 type ShardStatusApplyConfiguration struct {
+	// hash is the shard name hash, the value used as the
+	// core.kcp.io/shard annotation on LogicalClusters scheduled to this shard.
+	Hash *string `json:"hash,omitempty"`
 	// Set of integer resources that logical clusters can be scheduled into
 	Capacity *v1.ResourceList `json:"capacity,omitempty"`
 	// Current processing state of the Shard.
@@ -39,6 +42,14 @@ type ShardStatusApplyConfiguration struct {
 // apply.
 func ShardStatus() *ShardStatusApplyConfiguration {
 	return &ShardStatusApplyConfiguration{}
+}
+
+// WithHash sets the Hash field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Hash field is set to the value of the last call.
+func (b *ShardStatusApplyConfiguration) WithHash(value string) *ShardStatusApplyConfiguration {
+	b.Hash = &value
+	return b
 }
 
 // WithCapacity sets the Capacity field in the declarative configuration to the given value

@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260302-ae9fdd9c1.shards.core.kcp.io
+  name: v260528-63140f753.shards.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -25,6 +25,10 @@ spec:
     - description: The URL exposed in logical clusters created on that shard
       jsonPath: .spec.externalURL
       name: External URL
+      type: string
+    - description: The shard name hash used in the core.kcp.io/shard annotation
+      jsonPath: .status.hash
+      name: Hash
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -150,6 +154,11 @@ spec:
                 - type
                 type: object
               type: array
+            hash:
+              description: |-
+                hash is the shard name hash, the value used as the
+                core.kcp.io/shard annotation on LogicalClusters scheduled to this shard.
+              type: string
           type: object
       type: object
     served: true

@@ -4053,6 +4053,13 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 				Description: "ShardStatus communicates the observed state of the Shard.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"hash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "hash is the shard name hash, the value used as the core.kcp.io/shard annotation on LogicalClusters scheduled to this shard.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Set of integer resources that logical clusters can be scheduled into",

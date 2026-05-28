@@ -29,6 +29,10 @@ spec:
       jsonPath: .spec.externalURL
       name: External URL
       type: string
+    - description: The shard name hash used in the core.kcp.io/shard annotation
+      jsonPath: .status.hash
+      name: Hash
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -154,6 +158,11 @@ spec:
                   - type
                   type: object
                 type: array
+              hash:
+                description: |-
+                  hash is the shard name hash, the value used as the
+                  core.kcp.io/shard annotation on LogicalClusters scheduled to this shard.
+                type: string
             type: object
         type: object
     served: true
