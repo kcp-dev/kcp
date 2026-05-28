@@ -177,11 +177,19 @@ func TestPartitionSet(t *testing.T) {
 			reflect.DeepEqual(partitions.Items[1].Spec.Selector.MatchLabels, map[string]string{"partition-test-region": "partition-test-region-1"})), "selectors not as expected")
 
 	t.Logf("Moving the second shard to the same region as the first one")
-	shard2.Labels = map[string]string{
-		"partition-test-region": "partition-test-region-1",
-	}
-	_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard2, metav1.UpdateOptions{})
-	require.NoError(t, err, "error updating shard")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		shard2, err = shardClient.Cluster(core.RootCluster.Path()).Get(ctx, shard2.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error retrieving shard: %v", err)
+		}
+		shard2.Labels = map[string]string{
+			"partition-test-region": "partition-test-region-1",
+		}
+		if _, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard2, metav1.UpdateOptions{}); err != nil {
+			return false, fmt.Sprintf("error updating shard: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected shard to be updated")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
@@ -238,12 +246,20 @@ func TestPartitionSet(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 2 partitions")
 
 	t.Logf("Excluding the shard of the third region")
-	shard3.Labels = map[string]string{
-		"partition-test-region": "partition-test-region-3",
-		"excluded":              "true",
-	}
-	_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard3, metav1.UpdateOptions{})
-	require.NoError(t, err, "error updating shard")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		shard3, err = shardClient.Cluster(core.RootCluster.Path()).Get(ctx, shard3.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error retrieving shard: %v", err)
+		}
+		shard3.Labels = map[string]string{
+			"partition-test-region": "partition-test-region-3",
+			"excluded":              "true",
+		}
+		if _, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard3, metav1.UpdateOptions{}); err != nil {
+			return false, fmt.Sprintf("error updating shard: %v", err)
+		}
+		return true, ""
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected shard to be updated")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
