@@ -45,6 +45,7 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 )
@@ -200,6 +201,9 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		logger.Error(err, "unable to decode key")
 		return nil
 	}
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+	defer done()
 
 	logicalCluster, err := c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 	if err != nil {

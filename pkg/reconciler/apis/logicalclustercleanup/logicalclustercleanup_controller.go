@@ -44,6 +44,7 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	apibindingreconciler "github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
@@ -215,6 +216,9 @@ func (c *controller) process(ctx context.Context, key string) error {
 	if err != nil {
 		return fmt.Errorf("failed to split key: %w", err)
 	}
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+	defer done()
 
 	lc, err := c.getLogicalCluster(clusterName)
 	if err != nil {

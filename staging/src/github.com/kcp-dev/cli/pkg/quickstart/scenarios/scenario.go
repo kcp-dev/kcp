@@ -57,6 +57,10 @@ type Scenario interface {
 	Samples(prefix string) []Step
 	EnterPath(state map[string]string) string
 	PrintSummary(out io.Writer, prefix string, state map[string]string) error
+
+	// Validate checks scenario-specific constraints, including that all
+	// workspace names derived from prefix are valid DNS-1123 labels.
+	Validate(prefix string) error
 }
 
 type ExecutionContext struct {
@@ -72,6 +76,7 @@ type ExecutionContext struct {
 
 var registry = map[string]func() Scenario{
 	"api-provider": func() Scenario { return &apiProviderScenario{} },
+	"workspaces":   func() Scenario { return &workspacesScenario{} },
 }
 
 func Get(name string) (Scenario, error) {

@@ -57,6 +57,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	"github.com/kcp-dev/kcp/pkg/tombstone"
@@ -504,6 +505,9 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 		utilruntime.HandleError(err)
 		return false, nil
 	}
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+	defer done()
 
 	binding, err := c.getAPIBinding(clusterName, name)
 	if err != nil {

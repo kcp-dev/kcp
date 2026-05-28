@@ -46,6 +46,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
 
@@ -229,6 +230,10 @@ func (c *controller) process(ctx context.Context, key string) error {
 		logger.Error(err, "invalid key")
 		return nil
 	}
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, clusterName)
+	defer done()
+
 	apiBinding, err := c.getAPIBinding(clusterName, name)
 	if apierrors.IsNotFound(err) {
 		return nil // object deleted before we handled it

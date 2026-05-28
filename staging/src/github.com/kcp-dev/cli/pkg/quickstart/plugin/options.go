@@ -23,7 +23,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 
@@ -45,6 +44,11 @@ type QuickstartOptions struct {
 	WithSamples bool
 	Timeout     time.Duration
 
+	// workspaces scenario tuning
+	TreeDepth int
+	TreeCount int
+	TreeSeed  int64
+
 	scenario            scenarios.Scenario
 	enterWorkspace      func(ctx context.Context, path string) error
 	newUseWorkspaceOpts func(genericiooptions.IOStreams) *workspaceplugin.UseWorkspaceOptions
@@ -58,6 +62,8 @@ func NewQuickstartOptions(streams genericiooptions.IOStreams) *QuickstartOptions
 		Scenario:            "api-provider",
 		NamePrefix:          "quickstart",
 		Timeout:             defaultTimeout,
+		TreeDepth:           3,
+		TreeCount:           50,
 		newUseWorkspaceOpts: workspaceplugin.NewUseWorkspaceOptions,
 		newKCPClusterClient: defaultKCPClusterClient,
 		newKCPDynamicClient: defaultKCPDynamicClient,
@@ -78,12 +84,15 @@ func (o *QuickstartOptions) defaultEnterWorkspace(ctx context.Context, path stri
 
 func (o *QuickstartOptions) BindFlags(cmd *cobra.Command) {
 	o.Options.BindFlags(cmd)
-	cmd.Flags().StringVar(&o.Scenario, "scenario", o.Scenario, "Scenario to bootstrap (api-provider)")
+	cmd.Flags().StringVar(&o.Scenario, "scenario", o.Scenario, "Scenario to bootstrap (api-provider, workspaces)")
 	cmd.Flags().StringVar(&o.NamePrefix, "name-prefix", o.NamePrefix, "Prefix for created workspace names")
 	cmd.Flags().BoolVar(&o.Cleanup, "cleanup", o.Cleanup, "Delete all resources created by a previous quickstart run. Relies on kcp cascading deletion from the org workspace: APIResourceSchemas, APIExports, and APIBindings inside child workspaces are removed as part of the cascade, not individually")
 	cmd.Flags().BoolVar(&o.Enter, "enter", o.Enter, "Switch kubeconfig to the consumer workspace when done")
 	cmd.Flags().BoolVar(&o.WithSamples, "with-samples", o.WithSamples, "Apply sample resources (Cowboys) into the consumer workspace after setup")
 	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "Maximum time to wait for workspaces to become ready or finish terminating")
+	cmd.Flags().IntVar(&o.TreeDepth, "tree-depth", o.TreeDepth, "[workspaces scenario] Maximum depth of the random workspace tree below the org workspace")
+	cmd.Flags().IntVar(&o.TreeCount, "tree-count", o.TreeCount, "[workspaces scenario] Total number of child workspaces to create in the random tree")
+	cmd.Flags().Int64Var(&o.TreeSeed, "tree-seed", o.TreeSeed, "[workspaces scenario] Seed for the PRNG that shapes the random tree (0 = use wall clock)")
 }
 
 func (o *QuickstartOptions) Complete(args []string) error {
@@ -100,6 +109,14 @@ func (o *QuickstartOptions) Complete(args []string) error {
 		return fmt.Errorf("failed to get scenario: %w", err)
 	}
 
+	if c, ok := s.(scenarios.WorkspacesConfigurable); ok {
+		c.SetWorkspacesConfig(scenarios.WorkspacesConfig{
+			Depth: o.TreeDepth,
+			Count: o.TreeCount,
+			Seed:  o.TreeSeed,
+		})
+	}
+
 	o.scenario = s
 
 	return nil
@@ -114,10 +131,9 @@ func (o *QuickstartOptions) Validate() error {
 		return fmt.Errorf("--name-prefix must not be empty")
 	}
 
-	for _, suffix := range []string{scenarios.OrgSuffix, scenarios.ProviderSuffix, scenarios.ConsumerSuffix} {
-		name := o.NamePrefix + suffix
-		if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
-			return fmt.Errorf("--name-prefix %q produces invalid workspace name %q: %v", o.NamePrefix, name, errs)
+	if o.scenario != nil {
+		if err := o.scenario.Validate(o.NamePrefix); err != nil {
+			return err
 		}
 	}
 

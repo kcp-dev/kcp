@@ -43,6 +43,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/pproflabels"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
@@ -186,6 +187,9 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	ctx, done := pproflabels.PushCluster(ctx, ControllerName, parent)
+	defer done()
 
 	workspace, err := c.workspaceLister.Cluster(parent).Get(name)
 	if err != nil {
