@@ -40,6 +40,9 @@ func (c *ApisV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) api
 	return &ApisV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *ApisV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *ApisV1alpha1ClusterClient) APIBindings() kcpapisv1alpha1.APIBindingClusterInterface {
 	return newFakeAPIBindingClusterClient(c)
 }

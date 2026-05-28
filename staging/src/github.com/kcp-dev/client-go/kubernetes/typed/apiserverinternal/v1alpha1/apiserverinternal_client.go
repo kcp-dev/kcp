@@ -37,6 +37,7 @@ type InternalV1alpha1ClusterInterface interface {
 
 type InternalV1alpha1ClusterScoper interface {
 	Cluster(logicalcluster.Path) apiserverinternalv1alpha1.InternalV1alpha1Interface
+	Evict(logicalcluster.Path)
 }
 
 // InternalV1alpha1ClusterClient is used to interact with features provided by the internal.apiserver.k8s.io group.
@@ -49,6 +50,12 @@ func (c *InternalV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path)
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *InternalV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *InternalV1alpha1ClusterClient) StorageVersions() StorageVersionClusterInterface {

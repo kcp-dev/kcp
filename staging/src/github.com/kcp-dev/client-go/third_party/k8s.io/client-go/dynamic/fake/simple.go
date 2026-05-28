@@ -157,6 +157,9 @@ func (c *FakeDynamicClusterClientset) Cluster(clusterPath logicalcluster.Path) d
 	}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *FakeDynamicClusterClientset) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *FakeDynamicClusterClientset) Resource(resource schema.GroupVersionResource) kcpdynamic.ResourceClusterInterface {
 	return &FakeDynamicClusterClient{
 		Fake:          c.Fake,

@@ -263,6 +263,9 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) clientset.In
 	}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {}
+
 // AdmissionregistrationV1 retrieves the AdmissionregistrationV1ClusterClient
 func (c *ClusterClientset) AdmissionregistrationV1() kcpadmissionregistrationv1.AdmissionregistrationV1ClusterInterface {
 	return &kcpfakeadmissionregistrationv1.AdmissionregistrationV1ClusterClient{Fake: &c.Fake}

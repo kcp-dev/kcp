@@ -40,6 +40,9 @@ func (c *PolicyV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Path) po
 	return &PolicyV1beta1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *PolicyV1beta1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *PolicyV1beta1ClusterClient) Evictions() kcppolicyv1beta1.EvictionClusterInterface {
 	return newFakeEvictionClusterClient(c)
 }

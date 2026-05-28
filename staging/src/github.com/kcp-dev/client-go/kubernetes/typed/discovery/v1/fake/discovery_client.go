@@ -40,6 +40,9 @@ func (c *DiscoveryV1ClusterClient) Cluster(clusterPath logicalcluster.Path) disc
 	return &DiscoveryV1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *DiscoveryV1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *DiscoveryV1ClusterClient) EndpointSlices() kcpdiscoveryv1.EndpointSliceClusterInterface {
 	return newFakeEndpointSliceClusterClient(c)
 }

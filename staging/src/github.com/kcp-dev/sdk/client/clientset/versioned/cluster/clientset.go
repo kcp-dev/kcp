@@ -39,6 +39,7 @@ import (
 
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
+	Evict(logicalcluster.Path)
 	Discovery() discovery.DiscoveryInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
 	ApisV1alpha2() apisv1alpha2.ApisV1alpha2ClusterInterface
@@ -104,6 +105,20 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops cached clients for clusterPath across all per-group clients
+// and the top-level cluster cache, and prevents future caching for that
+// path.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
+	c.apisV1alpha1.Evict(clusterPath)
+	c.apisV1alpha2.Evict(clusterPath)
+	c.cacheV1alpha1.Evict(clusterPath)
+	c.coreV1alpha1.Evict(clusterPath)
+	c.tenancyV1alpha1.Evict(clusterPath)
+	c.topologyV1alpha1.Evict(clusterPath)
+
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.

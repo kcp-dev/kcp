@@ -38,6 +38,7 @@ type FlowcontrolV1beta2ClusterInterface interface {
 
 type FlowcontrolV1beta2ClusterScoper interface {
 	Cluster(logicalcluster.Path) flowcontrolv1beta2.FlowcontrolV1beta2Interface
+	Evict(logicalcluster.Path)
 }
 
 // FlowcontrolV1beta2ClusterClient is used to interact with features provided by the flowcontrol.apiserver.k8s.io group.
@@ -50,6 +51,12 @@ func (c *FlowcontrolV1beta2ClusterClient) Cluster(clusterPath logicalcluster.Pat
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *FlowcontrolV1beta2ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *FlowcontrolV1beta2ClusterClient) FlowSchemas() FlowSchemaClusterInterface {

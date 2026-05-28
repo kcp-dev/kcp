@@ -40,6 +40,7 @@ type ResourceV1ClusterInterface interface {
 
 type ResourceV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) resourcev1.ResourceV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // ResourceV1ClusterClient is used to interact with features provided by the resource.k8s.io group.
@@ -52,6 +53,12 @@ func (c *ResourceV1ClusterClient) Cluster(clusterPath logicalcluster.Path) resou
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *ResourceV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *ResourceV1ClusterClient) DeviceClasses() DeviceClassClusterInterface {

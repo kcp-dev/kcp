@@ -122,6 +122,9 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) clientset.In
 	}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *ClusterClientset) Evict(clusterPath logicalcluster.Path) {}
+
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient
 func (c *ClusterClientset) ApisV1alpha1() kcpapisv1alpha1.ApisV1alpha1ClusterInterface {
 	return &kcpfakeapisv1alpha1.ApisV1alpha1ClusterClient{Fake: &c.Fake}

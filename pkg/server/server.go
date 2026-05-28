@@ -508,6 +508,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		logger.Info("finished starting APIExport, APIBinding and LogicalCluster informers")
+		s.ClientCacheEvictor.Run(hookCtx, s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters())
 
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")

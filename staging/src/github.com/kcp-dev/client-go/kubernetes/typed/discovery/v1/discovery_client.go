@@ -37,6 +37,7 @@ type DiscoveryV1ClusterInterface interface {
 
 type DiscoveryV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) discoveryv1.DiscoveryV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // DiscoveryV1ClusterClient is used to interact with features provided by the discovery.k8s.io group.
@@ -49,6 +50,12 @@ func (c *DiscoveryV1ClusterClient) Cluster(clusterPath logicalcluster.Path) disc
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *DiscoveryV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *DiscoveryV1ClusterClient) EndpointSlices() EndpointSliceClusterInterface {

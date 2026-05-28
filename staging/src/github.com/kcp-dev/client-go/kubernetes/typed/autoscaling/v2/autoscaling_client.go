@@ -37,6 +37,7 @@ type AutoscalingV2ClusterInterface interface {
 
 type AutoscalingV2ClusterScoper interface {
 	Cluster(logicalcluster.Path) autoscalingv2.AutoscalingV2Interface
+	Evict(logicalcluster.Path)
 }
 
 // AutoscalingV2ClusterClient is used to interact with features provided by the autoscaling group.
@@ -49,6 +50,12 @@ func (c *AutoscalingV2ClusterClient) Cluster(clusterPath logicalcluster.Path) au
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *AutoscalingV2ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *AutoscalingV2ClusterClient) HorizontalPodAutoscalers() HorizontalPodAutoscalerClusterInterface {

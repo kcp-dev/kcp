@@ -40,6 +40,9 @@ func (c *TenancyV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) 
 	return &TenancyV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *TenancyV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *TenancyV1alpha1ClusterClient) Workspaces() kcptenancyv1alpha1.WorkspaceClusterInterface {
 	return newFakeWorkspaceClusterClient(c)
 }

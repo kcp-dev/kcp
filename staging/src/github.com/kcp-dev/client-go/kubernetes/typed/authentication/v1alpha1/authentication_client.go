@@ -37,6 +37,7 @@ type AuthenticationV1alpha1ClusterInterface interface {
 
 type AuthenticationV1alpha1ClusterScoper interface {
 	Cluster(logicalcluster.Path) authenticationv1alpha1.AuthenticationV1alpha1Interface
+	Evict(logicalcluster.Path)
 }
 
 // AuthenticationV1alpha1ClusterClient is used to interact with features provided by the authentication.k8s.io group.
@@ -49,6 +50,12 @@ func (c *AuthenticationV1alpha1ClusterClient) Cluster(clusterPath logicalcluster
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *AuthenticationV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *AuthenticationV1alpha1ClusterClient) SelfSubjectReviews() SelfSubjectReviewClusterInterface {

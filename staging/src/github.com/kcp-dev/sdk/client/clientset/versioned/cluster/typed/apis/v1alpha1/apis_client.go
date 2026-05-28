@@ -41,6 +41,7 @@ type ApisV1alpha1ClusterInterface interface {
 
 type ApisV1alpha1ClusterScoper interface {
 	Cluster(logicalcluster.Path) kcpv1alpha1.ApisV1alpha1Interface
+	Evict(logicalcluster.Path)
 }
 
 // ApisV1alpha1ClusterClient is used to interact with features provided by the apis.kcp.io group.
@@ -53,6 +54,12 @@ func (c *ApisV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) kcp
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *ApisV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *ApisV1alpha1ClusterClient) APIBindings() APIBindingClusterInterface {

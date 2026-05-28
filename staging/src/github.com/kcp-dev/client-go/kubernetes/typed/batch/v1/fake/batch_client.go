@@ -40,6 +40,9 @@ func (c *BatchV1ClusterClient) Cluster(clusterPath logicalcluster.Path) batchv1.
 	return &BatchV1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *BatchV1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *BatchV1ClusterClient) CronJobs() kcpbatchv1.CronJobClusterInterface {
 	return newFakeCronJobClusterClient(c)
 }

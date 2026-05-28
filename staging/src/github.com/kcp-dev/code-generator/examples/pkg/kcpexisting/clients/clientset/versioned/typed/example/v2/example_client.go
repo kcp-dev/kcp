@@ -39,6 +39,7 @@ type ExampleV2ClusterInterface interface {
 
 type ExampleV2ClusterScoper interface {
 	Cluster(logicalcluster.Path) examplev2.ExampleV2Interface
+	Evict(logicalcluster.Path)
 }
 
 // ExampleV2ClusterClient is used to interact with features provided by the example.dev group.
@@ -51,6 +52,12 @@ func (c *ExampleV2ClusterClient) Cluster(clusterPath logicalcluster.Path) exampl
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *ExampleV2ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *ExampleV2ClusterClient) ClusterTestTypes() ClusterTestTypeClusterInterface {

@@ -39,6 +39,7 @@ type ExampleDashedV1ClusterInterface interface {
 
 type ExampleDashedV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) exampledashedv1.ExampleDashedV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // ExampleDashedV1ClusterClient is used to interact with features provided by the example-dashed.some.corp group.
@@ -51,6 +52,12 @@ func (c *ExampleDashedV1ClusterClient) Cluster(clusterPath logicalcluster.Path) 
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *ExampleDashedV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *ExampleDashedV1ClusterClient) ClusterTestTypes() ClusterTestTypeClusterInterface {

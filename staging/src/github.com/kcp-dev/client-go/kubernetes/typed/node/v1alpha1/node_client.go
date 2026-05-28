@@ -37,6 +37,7 @@ type NodeV1alpha1ClusterInterface interface {
 
 type NodeV1alpha1ClusterScoper interface {
 	Cluster(logicalcluster.Path) nodev1alpha1.NodeV1alpha1Interface
+	Evict(logicalcluster.Path)
 }
 
 // NodeV1alpha1ClusterClient is used to interact with features provided by the node.k8s.io group.
@@ -49,6 +50,12 @@ func (c *NodeV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) nod
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *NodeV1alpha1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *NodeV1alpha1ClusterClient) RuntimeClasses() RuntimeClassClusterInterface {

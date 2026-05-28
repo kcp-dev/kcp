@@ -40,6 +40,9 @@ func (c *AppsV1ClusterClient) Cluster(clusterPath logicalcluster.Path) appsv1.Ap
 	return &AppsV1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+// Evict is a no-op on the fake client; it has no cluster-keyed cache to drop.
+func (c *AppsV1ClusterClient) Evict(clusterPath logicalcluster.Path) {}
+
 func (c *AppsV1ClusterClient) ControllerRevisions() kcpappsv1.ControllerRevisionClusterInterface {
 	return newFakeControllerRevisionClusterClient(c)
 }

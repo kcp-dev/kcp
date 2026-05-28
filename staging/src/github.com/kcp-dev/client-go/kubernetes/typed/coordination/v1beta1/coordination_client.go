@@ -38,6 +38,7 @@ type CoordinationV1beta1ClusterInterface interface {
 
 type CoordinationV1beta1ClusterScoper interface {
 	Cluster(logicalcluster.Path) coordinationv1beta1.CoordinationV1beta1Interface
+	Evict(logicalcluster.Path)
 }
 
 // CoordinationV1beta1ClusterClient is used to interact with features provided by the coordination.k8s.io group.
@@ -50,6 +51,12 @@ func (c *CoordinationV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Pa
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *CoordinationV1beta1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *CoordinationV1beta1ClusterClient) Leases() LeaseClusterInterface {

@@ -42,6 +42,7 @@ type StorageV1ClusterInterface interface {
 
 type StorageV1ClusterScoper interface {
 	Cluster(logicalcluster.Path) storagev1.StorageV1Interface
+	Evict(logicalcluster.Path)
 }
 
 // StorageV1ClusterClient is used to interact with features provided by the storage.k8s.io group.
@@ -54,6 +55,12 @@ func (c *StorageV1ClusterClient) Cluster(clusterPath logicalcluster.Path) storag
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *StorageV1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *StorageV1ClusterClient) CSIDrivers() CSIDriverClusterInterface {

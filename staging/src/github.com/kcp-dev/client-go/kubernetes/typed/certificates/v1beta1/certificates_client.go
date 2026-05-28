@@ -39,6 +39,7 @@ type CertificatesV1beta1ClusterInterface interface {
 
 type CertificatesV1beta1ClusterScoper interface {
 	Cluster(logicalcluster.Path) certificatesv1beta1.CertificatesV1beta1Interface
+	Evict(logicalcluster.Path)
 }
 
 // CertificatesV1beta1ClusterClient is used to interact with features provided by the certificates.k8s.io group.
@@ -51,6 +52,12 @@ func (c *CertificatesV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Pa
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *CertificatesV1beta1ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 
 func (c *CertificatesV1beta1ClusterClient) CertificateSigningRequests() CertificateSigningRequestClusterInterface {
