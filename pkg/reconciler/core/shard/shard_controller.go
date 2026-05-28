@@ -32,6 +32,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/kcp-dev/sdk/apis/core/v1alpha1/helper"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
@@ -182,6 +183,9 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-func (c *Controller) reconcile(ctx context.Context, workspaceShard *corev1alpha1.Shard) error {
+func (c *Controller) reconcile(ctx context.Context, shard *corev1alpha1.Shard) error {
+	if hash := corev1alpha1helper.ShardNameHash(shard.Name); shard.Status.Hash != hash {
+		shard.Status.Hash = hash
+	}
 	return nil
 }
