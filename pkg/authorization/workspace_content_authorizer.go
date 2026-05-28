@@ -36,6 +36,7 @@ import (
 	rbacwrapper "github.com/kcp-dev/virtual-workspace-framework/pkg/wrappers/rbac"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
 )
 
 const (
@@ -80,6 +81,15 @@ type workspaceContentAuthorizer struct {
 
 func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	cluster := genericapirequest.ClusterFrom(ctx)
+
+	// Shard-level non-resource URLs (e.g. /metrics) carry no workspace semantics.
+	// WithShardLevelPaths has either rejected the request already or scoped it to
+	// :root. Skip the verb=access gate so a minimally-privileged identity bound
+	// only to a NonResourceURLs rule (e.g. system:kcp:metrics-reader) can scrape
+	// without also being granted broader workspace access.
+	if !attr.IsResourceRequest() && shardpaths.Paths.Has(attr.GetPath()) {
+		return DelegateAuthorization("shard-level path", a.delegate).Authorize(ctx, attr)
+	}
 
 	// empty or system workspaces have no meaning in the context of authorizing workspace content.
 	// To access system workspaces, the user must be privileged such that authorization is skipped completely.

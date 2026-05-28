@@ -153,6 +153,10 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		// request context, reject any request whose cluster.Name is path-shaped
 		// so a bogus name cannot leak into etcd keys.
 		apiHandler = filters.WithClusterNameShapeInvariant(apiHandler)
+		// After WithClusterScope and WithShardScope have populated the request
+		// context, reject shard-level URLs that arrived through a workspace-
+		// or shard-scoped prefix (e.g. /services/cache/shards/X/clusters/Y/metrics).
+		apiHandler = WithCacheShardLevelPaths(apiHandler)
 		apiHandler = filters.WithClusterScope(apiHandler)
 		apiHandler = WithShardScope(apiHandler)
 		apiHandler = WithServiceScope(apiHandler)

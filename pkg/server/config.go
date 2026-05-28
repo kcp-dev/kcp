@@ -612,6 +612,10 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// path-shaped. Prevents path strings from leaking into etcd keys if the
 		// localproxy logic ever regresses.
 		apiHandler = kcpfilters.WithClusterNameShapeInvariant(apiHandler)
+		// After WithLocalProxy has set (or left empty) the cluster context, decide
+		// whether shard-wide URLs like /metrics may be served. Workspace-scoped
+		// requests are 501'd; top-level requests are evaluated against root RBAC.
+		apiHandler = kcpfilters.WithShardLevelPaths(apiHandler)
 		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
