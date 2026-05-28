@@ -165,6 +165,7 @@ func (s *Server) installClusterRoleAggregationController(ctx context.Context, co
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClient)
 	c := clusterroleaggregation.NewClusterRoleAggregation(
 		s.KubeSharedInformerFactory.Rbac().V1().ClusterRoles(),
 		kubeClient.RbacV1())
@@ -189,10 +190,12 @@ func (s *Server) installKubeNamespaceController(ctx context.Context, config *res
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClient)
 	metadata, err := kcpmetadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(metadata)
 
 	discoverResourcesFn := func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error) {
 		logicalClusterConfig := rest.CopyConfig(config)
@@ -238,6 +241,7 @@ func (s *Server) installKubeServiceAccountController(ctx context.Context, config
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClient)
 
 	c, err := serviceaccountcontroller.NewServiceAccountsController(
 		klog.FromContext(ctx).WithValues("controller", controllerName),
@@ -271,6 +275,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClient)
 
 	serviceAccountKeyFile := s.Options.Controllers.SAController.ServiceAccountKeyFile
 	if len(serviceAccountKeyFile) == 0 {
@@ -333,6 +338,7 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClient)
 
 	// TODO(jmprusi): We should make the CA loading dynamic when the file changes on disk.
 	caDataPath := s.Options.Controllers.SAController.RootCAFile
@@ -376,6 +382,7 @@ func (s *Server) installKubeValidatingAdmissionPolicyStatusController(_ context.
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClient)
 
 	schemaResolver := resolver.NewDefinitionsSchemaResolver(openapi.GetOpenAPIDefinitions, k8sscheme.Scheme, apiextensionsscheme.Scheme)
 
@@ -386,6 +393,7 @@ func (s *Server) installKubeValidatingAdmissionPolicyStatusController(_ context.
 		if err != nil {
 			return nil, err
 		}
+		s.ClientCacheEvictor.Register(kubeClient)
 
 		discoveryClient := memory.NewMemCacheClient(kubeClient.Cluster(clusterName).Discovery())
 
@@ -435,6 +443,7 @@ func (s *Server) installTenancyLogicalClusterController(ctx context.Context, con
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	controller := tenancylogicalcluster.NewController(
 		kubeClusterClient,
@@ -464,10 +473,12 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	metadataClusterClient, err := kcpmetadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(metadataClusterClient)
 	discoverResourcesFn := func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error) {
 		logicalClusterConfig := rest.CopyConfig(config)
 		logicalClusterConfig.Host += clusterName.RequestPath()
@@ -481,6 +492,7 @@ func (s *Server) installLogicalClusterDeletionController(ctx context.Context, co
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	logicalClusterDeletionController := logicalclusterdeletion.NewController(
 		kubeClusterClient,
@@ -515,10 +527,12 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(workspaceConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	logicalClusterAdminConfig = rest.CopyConfig(logicalClusterAdminConfig)
 	logicalClusterAdminConfig = rest.AddUserAgent(logicalClusterAdminConfig, workspace.ControllerName+"+"+s.Options.Extra.ShardName)
@@ -566,6 +580,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	var workspaceShardController *shard.Controller
 	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
@@ -599,6 +614,7 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	workspaceTypeController, err := workspacetype.NewController(
 		kcpClusterClient,
@@ -634,11 +650,13 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(dynamicClusterClient)
 
 	bootstrapKcpClusterClient, err := kcpclientset.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(bootstrapKcpClusterClient)
 
 	universalController, err := bootstrap.NewController(
 		dynamicClusterClient,
@@ -678,11 +696,13 @@ func (s *Server) installWorkspaceMountsScheduler(ctx context.Context, config *re
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(workspaceConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(dynamicClusterClient)
 
 	workspaceMountsController, err := workspacemounts.NewController(
 		kcpClusterClient,
@@ -719,6 +739,7 @@ func (s *Server) installLogicalCluster(ctx context.Context, config *rest.Config)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	logicalClusterController, err := logicalclusterctrl.NewController(
 		s.CompletedConfig.ShardExternalURL,
@@ -752,11 +773,13 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(apiBindingConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(crdClusterClient)
 
 	c, err := apibinding.NewController(
 		crdClusterClient,
@@ -804,10 +827,12 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(permissionClaimLabelConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(dynamicClusterClient)
 
 	permissionClaimLabelController, err := permissionclaimlabel.NewController(
 		kcpClusterClient,
@@ -844,10 +869,12 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	dynamicClusterClient, err = kcpdynamic.NewForConfig(resourceConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(dynamicClusterClient)
 	permissionClaimLabelResourceController, err := permissionclaimlabel.NewResourceController(
 		kcpClusterClient,
 		dynamicClusterClient,
@@ -883,10 +910,12 @@ func (s *Server) installAPIBindingController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	metadataClient, err := kcpmetadata.NewForConfig(deletionConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(metadataClient)
 	apibindingDeletionController := apibindingdeletion.NewController(
 		metadataClient,
 		kcpClusterClient,
@@ -933,6 +962,7 @@ func (s *Server) installDefaultAPIBindingController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := defaultapibindinglifecycle.NewDefaultAPIBindingController(
 		kcpClusterClient,
@@ -1003,10 +1033,12 @@ func (s *Server) installAPIBinderController(ctx context.Context, config *rest.Co
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(initializingWorkspacesKcpClusterClient)
 	informerClient, err := kcpclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(informerClient)
 
 	// This informer factory is created here because it is specifically against the initializing workspaces virtual
 	// workspace.
@@ -1058,6 +1090,7 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(crdClusterClient)
 
 	c, err := crdcleanup.NewController(
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
@@ -1094,6 +1127,7 @@ func (s *Server) installLogicalClusterCleanupController(ctx context.Context, con
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := logicalclustercleanup.NewController(
 		kcpClusterClient,
@@ -1127,10 +1161,12 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c, err := apiexport.NewController(
 		kcpClusterClient,
@@ -1172,6 +1208,7 @@ func (s *Server) installApisReplicateClusterRoleControllers(ctx context.Context,
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c := apisreplicateclusterrole.NewController(
 		kubeClusterClient,
@@ -1200,6 +1237,7 @@ func (s *Server) installCoreReplicateClusterRoleControllers(ctx context.Context,
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c := coresreplicateclusterrole.NewController(
 		kubeClusterClient,
@@ -1230,6 +1268,7 @@ func (s *Server) installApisReplicateClusterRoleBindingControllers(ctx context.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c := apisreplicateclusterrolebinding.NewController(
 		kubeClusterClient,
@@ -1258,6 +1297,7 @@ func (s *Server) installApisReplicateLogicalClusterControllers(ctx context.Conte
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c := apisreplicatelogicalcluster.NewController(
 		kcpClusterClient,
@@ -1286,6 +1326,7 @@ func (s *Server) installTenancyReplicateLogicalClusterControllers(ctx context.Co
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c := tenancyreplicatelogicalcluster.NewController(
 		kcpClusterClient,
@@ -1314,6 +1355,7 @@ func (s *Server) installCoreReplicateClusterRoleBindingControllers(ctx context.C
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c := corereplicateclusterrolebinding.NewController(
 		kubeClusterClient,
@@ -1344,6 +1386,7 @@ func (s *Server) installTenancyReplicateClusterRoleControllers(ctx context.Conte
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c := tenancyreplicateclusterrole.NewController(
 		kubeClusterClient,
@@ -1372,6 +1415,7 @@ func (s *Server) installTenancyReplicateClusterRoleBindingControllers(ctx contex
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	c := tenancyreplicateclusterrolebinding.NewController(
 		kubeClusterClient,
@@ -1401,6 +1445,7 @@ func (s *Server) installAPIExportEndpointSliceController(_ context.Context, conf
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := apiexportendpointslice.NewController(
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
@@ -1436,6 +1481,7 @@ func (s *Server) installAPIExportEndpointSliceURLsController(_ context.Context, 
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := apiexportendpointsliceurls.NewController(
 		s.Options.Extra.ShardName,
@@ -1476,6 +1522,7 @@ func (s *Server) installPartitionSetController(ctx context.Context, config *rest
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := partitionset.NewController(
 		s.KcpSharedInformerFactory.Topology().V1alpha1().PartitionSets(),
@@ -1509,6 +1556,7 @@ func (s *Server) installExtraAnnotationSyncController(ctx context.Context, confi
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := extraannotationsync.NewController(kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
@@ -1543,6 +1591,7 @@ func (s *Server) installKubeQuotaController(
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	// TODO(ncdc): should we make these configurable?
 	const (
@@ -1593,6 +1642,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
 	if err != nil {
 		return err
@@ -1644,11 +1694,13 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kubeClusterClient)
 
 	metadataClient, err := kcpmetadata.NewForConfig(config)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(metadataClient)
 
 	// TODO: make it configurable
 	// TODO(ntnn): would be great to scale workers by number of
@@ -1750,6 +1802,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(cacheDynClient)
 
 	// NOTE: keep `config` unaltered so there isn't cross-use between controllers installed here.
 	workspaceConfig := rest.CopyConfig(config)
@@ -1758,10 +1811,12 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	dynamicClient, err := kcpdynamic.NewForConfig(workspaceConfig)
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(dynamicClient)
 
 	cachedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources()
 	cachedResourceEndpointSliceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices()
@@ -1811,6 +1866,7 @@ func (s *Server) installCachedResourceEndpointSliceController(ctx context.Contex
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 	c, err := cachedresourceendpointslice.NewController(
 		s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResourceEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Cache().V1alpha1().CachedResources(),
@@ -1849,6 +1905,7 @@ func (s *Server) installCachedResourceEndpointSliceURLsController(_ context.Cont
 	if err != nil {
 		return err
 	}
+	s.ClientCacheEvictor.Register(kcpClusterClient)
 
 	c, err := cachedresourceendpointsliceurls.NewController(
 		s.Options.Extra.ShardName,
