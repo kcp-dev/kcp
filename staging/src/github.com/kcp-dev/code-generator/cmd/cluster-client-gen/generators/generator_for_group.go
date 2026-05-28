@@ -149,6 +149,7 @@ type $.GroupGoName$$.Version$ClusterInterface interface {
 var clusterScoperTemplate = `
 type $.GroupGoName$$.Version$ClusterScoper interface {
 	Cluster(logicalcluster.Path) $.typedInterfaceReference|raw$
+	Evict(logicalcluster.Path)
 }
 `
 
@@ -163,6 +164,12 @@ func (c *$.GroupGoName$$.Version$ClusterClient) Cluster(clusterPath logicalclust
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+// Evict drops the cached client for clusterPath and prevents re-caching
+// for it.
+func (c *$.GroupGoName$$.Version$ClusterClient) Evict(clusterPath logicalcluster.Path) {
+	c.clientCache.Evict(clusterPath)
 }
 `
 

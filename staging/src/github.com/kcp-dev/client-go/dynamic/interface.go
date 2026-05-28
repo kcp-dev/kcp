@@ -30,6 +30,7 @@ import (
 
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) dynamic.Interface
+	Evict(logicalcluster.Path)
 	Resource(resource schema.GroupVersionResource) ResourceClusterInterface
 }
 

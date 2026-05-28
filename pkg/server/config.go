@@ -113,6 +113,9 @@ type ExtraConfig struct {
 	kcpAdminToken, shardAdminToken, userToken string
 	shardAdminTokenHash                       []byte
 
+	// ClientCacheEvictor forwards LogicalCluster deletions to clients.
+	ClientCacheEvictor *clientCacheEvictor
+
 	// clients
 	DynamicClusterClient                kcpdynamic.ClusterInterface
 	KubeClusterClient                   kcpkubernetesclientset.ClusterInterface
@@ -210,6 +213,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c := &Config{
 		Options: opts,
 	}
+	c.ClientCacheEvictor = newClientCacheEvictor()
 
 	if opts.Extra.ProfilerAddress != "" {
 		//nolint:errcheck,gosec
@@ -256,6 +260,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.KubeClusterClient)
 	cacheClientConfig, err := c.Options.Cache.Client.RestConfig(rest.CopyConfig(c.GenericConfig.LoopbackClientConfig))
 	if err != nil {
 		return nil, err
@@ -266,10 +271,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		return nil, err
 	}
 	c.KcpCacheClusterClient = cacheKcpClusterClient
+	c.ClientCacheEvictor.Register(cacheKcpClusterClient)
 	cacheKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cacheClientConfig)
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(cacheKubeClusterClient)
 	c.CacheKcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
 		cacheKcpClusterClient,
 		resyncPeriod,
@@ -282,6 +289,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.CacheDynamicClient)
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
 	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
@@ -302,6 +310,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, err
 		}
+		c.ClientCacheEvictor.Register(c.RootShardKcpClusterClient)
 
 		c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)
@@ -309,6 +318,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, err
 		}
+		c.ClientCacheEvictor.Register(c.KcpClusterClient)
 	} else {
 		// The informers here are not used before the informers are actually started (i.e. no race).
 
@@ -317,6 +327,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, err
 		}
+		c.ClientCacheEvictor.Register(c.KcpClusterClient)
 		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
 
@@ -326,6 +337,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(informerKcpClient)
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactoryWithOptions(
 		informerKcpClient,
 		resyncPeriod,
@@ -334,6 +346,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.DeepSARClient)
 
 	c.LogicalClusterAdminConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 	if len(c.Options.Extra.LogicalClusterAdminKubeconfig) > 0 {
@@ -355,6 +368,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(externalKubeClient)
 	opts.Extra.ServiceAccountCache.SetKubeShardClient(externalKubeClient)
 	opts.Extra.ServiceAccountCache.SetInformers(c.KcpSharedInformerFactory)
 
@@ -363,6 +377,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.ApiExtensionsClusterClient)
 	c.ApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
 		c.ApiExtensionsClusterClient,
 		resyncPeriod,
@@ -372,6 +387,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.CacheApiExtensionsClusterClient)
 	c.CacheApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
 		c.CacheApiExtensionsClusterClient,
 		resyncPeriod,
@@ -382,6 +398,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.DynamicClusterClient)
 
 	if err := opts.Authorization.ApplyTo(ctx, c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory); err != nil {
 		return nil, err
@@ -406,11 +423,13 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.BootstrapApiExtensionsClusterClient)
 
 	c.BootstrapDynamicClusterClient, err = kcpdynamic.NewForConfig(bootstrapConfig)
 	if err != nil {
 		return nil, err
 	}
+	c.ClientCacheEvictor.Register(c.BootstrapDynamicClusterClient)
 
 	if err := opts.GenericControlPlane.Audit.ApplyTo(c.GenericConfig); err != nil {
 		return nil, err
@@ -479,6 +498,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, fmt.Errorf("failed to create external kcp client for workspace authentication: %w", err)
 		}
+		c.ClientCacheEvictor.Register(externalKcpClient)
 
 		wacCache := shardlookup.NewTTLCache[*tenancyv1alpha1.WorkspaceAuthenticationConfiguration]()
 		wacCache.StartWithContext(ctx)

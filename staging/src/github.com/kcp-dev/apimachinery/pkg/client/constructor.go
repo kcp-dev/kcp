@@ -34,10 +34,15 @@ type Constructor[R any] struct {
 type Cache[R any] interface {
 	ClusterOrDie(clusterPath logicalcluster.Path) R
 	Cluster(clusterPath logicalcluster.Path) (R, error)
+	Evict(clusterPath logicalcluster.Path)
 }
 
 // NewCache creates a new client factory cache using the given constructor.
 func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constructor[R]) Cache[R] {
+	return newClientCache(cfg, client, constructor)
+}
+
+func newClientCache[R any](cfg *rest.Config, client *http.Client, constructor *Constructor[R]) *clientCache[R] {
 	return &clientCache[R]{
 		cfg:         cfg,
 		client:      client,
@@ -45,6 +50,7 @@ func NewCache[R any](cfg *rest.Config, client *http.Client, constructor *Constru
 
 		RWMutex:              &sync.RWMutex{},
 		clientsByClusterPath: map[logicalcluster.Path]R{},
+		evicted:              map[logicalcluster.Path]struct{}{},
 	}
 }
 
@@ -55,6 +61,17 @@ type clientCache[R any] struct {
 
 	*sync.RWMutex
 	clientsByClusterPath map[logicalcluster.Path]R
+	// evicted records cluster paths that have been signalled as gone. Once
+	// a path appears here, Cluster() returns freshly-built clients to any
+	// in-flight caller but never re-caches them — caching for a deleted
+	// cluster would reintroduce the leak this whole mechanism exists to
+	// fix.
+	//
+	// Entries are never deleted, so the map grows with the lifetime set of
+	// evicted paths. Per entry: ~16B string header + ~16-32B path bytes +
+	// ~26B map-bucket overhead ≈ ~60B. 100k churned workspaces ≈ ~6MB,
+	// which is bounded and not worth GCing.
+	evicted map[logicalcluster.Path]struct{}
 }
 
 // ClusterOrDie returns a new client scoped to the given logical cluster, or panics if there
@@ -72,10 +89,9 @@ func (c *clientCache[R]) ClusterOrDie(clusterPath logicalcluster.Path) R {
 
 // Cluster returns a new client scoped to the given logical cluster.
 func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
-	var cachedClient R
-	var exists bool
 	c.RLock()
-	cachedClient, exists = c.clientsByClusterPath[clusterPath]
+	cachedClient, exists := c.clientsByClusterPath[clusterPath]
+	_, evicted := c.evicted[clusterPath]
 	c.RUnlock()
 	if exists {
 		return cachedClient, nil
@@ -87,6 +103,12 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 		var result R
 		return result, err
 	}
+	if evicted {
+		// The cluster has been signalled as gone. Hand the freshly-built
+		// client to the in-flight caller so its request can complete, but
+		// don't resurrect cached state for a deleted cluster.
+		return instance, nil
+	}
 
 	c.Lock()
 	defer c.Unlock()
@@ -94,8 +116,22 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	if exists {
 		return cachedClient, nil
 	}
+	if _, evicted := c.evicted[clusterPath]; evicted {
+		// An Evict raced with this build, or completed between our RUnlock
+		// and Lock. Same handling as above — return without caching.
+		return instance, nil
+	}
 
 	c.clientsByClusterPath[clusterPath] = instance
 
 	return instance, nil
+}
+
+// Evict drops the cached client for clusterPath, if any, and records the
+// path so future Cluster() calls do not re-cache for it.
+func (c *clientCache[R]) Evict(clusterPath logicalcluster.Path) {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.clientsByClusterPath, clusterPath)
+	c.evicted[clusterPath] = struct{}{}
 }
