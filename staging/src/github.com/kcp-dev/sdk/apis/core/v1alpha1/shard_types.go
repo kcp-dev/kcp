@@ -38,6 +38,7 @@ var RootShard = "root"
 // +kubebuilder:printcolumn:name="Region",type=string,JSONPath=`.metadata.labels['region']`,description="The region this workspace is in"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
 // +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in logical clusters created on that shard"
+// +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=`.status.hash`,description="The shard name hash used in the core.kcp.io/shard annotation"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Shard struct {
 	v1.TypeMeta `json:",inline"`
@@ -106,6 +107,11 @@ type ShardSpec struct {
 
 // ShardStatus communicates the observed state of the Shard.
 type ShardStatus struct {
+	// hash is the shard name hash, the value used as the
+	// core.kcp.io/shard annotation on LogicalClusters scheduled to this shard.
+	// +optional
+	Hash string `json:"hash,omitempty"`
+
 	// Set of integer resources that logical clusters can be scheduled into
 	// +optional
 	Capacity corev1.ResourceList `json:"capacity,omitempty"`
