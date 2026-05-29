@@ -224,7 +224,7 @@ func TestKubeQuotaCrossWorkspaceIsolation(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace A never accepted a create after freeing headroom")
 }
 
-// TestKubeQuotaNamespaceIsolation tsts that identical quotas in the same workspace in separate namespace trakc resources separately
+// TestKubeQuotaNamespaceIsolation tests that identical quotas in the same workspace in separate namespace track resources separately.
 func TestKubeQuotaNamespaceIsolation(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
