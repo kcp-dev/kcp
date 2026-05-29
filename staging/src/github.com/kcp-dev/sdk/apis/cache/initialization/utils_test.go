@@ -26,6 +26,7 @@ import (
 )
 
 func TestInitializerToLabel(t *testing.T) {
+	t.Parallel()
 	for _, testCase := range []corev1alpha1.LogicalClusterInitializer{
 		"simple:root:org:ws:whatever",
 		"QualifiedName:root:org:ws:whatever",

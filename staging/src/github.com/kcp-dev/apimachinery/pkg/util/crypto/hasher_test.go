@@ -23,6 +23,7 @@ import (
 )
 
 func TestHasherBytes(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		h    Hasher
 		in   []byte
@@ -37,12 +38,14 @@ func TestHasherBytes(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.h.Bytes(tc.in))
 		})
 	}
 }
 
 func TestHasherBytesPad(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		h    Hasher
 		in   []byte
@@ -57,12 +60,14 @@ func TestHasherBytesPad(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.h.BytesPad(tc.in))
 		})
 	}
 }
 
 func TestHasherString(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		h    Hasher
 		in   string
@@ -77,12 +82,14 @@ func TestHasherString(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.h.String(tc.in))
 		})
 	}
 }
 
 func TestHasherStringPad(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		h    Hasher
 		in   string
@@ -97,6 +104,7 @@ func TestHasherStringPad(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.h.StringPad(tc.in))
 		})
 	}

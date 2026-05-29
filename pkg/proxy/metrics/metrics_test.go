@@ -30,6 +30,8 @@ import (
 )
 
 func TestCategorizeTLSError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		err      error
@@ -84,6 +86,7 @@ func TestCategorizeTLSError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := categorizeTLSError(tt.err)
 			if got != tt.expected {
 				t.Errorf("categorizeTLSError() = %q, want %q", got, tt.expected)
@@ -93,6 +96,8 @@ func TestCategorizeTLSError(t *testing.T) {
 }
 
 func TestIsTLSError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		err      error
@@ -137,6 +142,7 @@ func TestIsTLSError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := isTLSError(tt.err)
 			if got != tt.expected {
 				t.Errorf("isTLSError() = %v, want %v", got, tt.expected)
@@ -146,6 +152,8 @@ func TestIsTLSError(t *testing.T) {
 }
 
 func TestCountingReader(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		input         string
@@ -174,6 +182,7 @@ func TestCountingReader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			reader := &countingReader{
 				ReadCloser: io.NopCloser(strings.NewReader(tt.input)),
 			}
@@ -197,6 +206,8 @@ func TestCountingReader(t *testing.T) {
 }
 
 func TestResponseWriterDelegator(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		writes        []string
@@ -221,6 +232,7 @@ func TestResponseWriterDelegator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			recorder := httptest.NewRecorder()
 			delegator := &responseWriterDelegator{ResponseWriter: recorder}
 
@@ -244,6 +256,8 @@ func TestResponseWriterDelegator(t *testing.T) {
 }
 
 func TestResponseWriterDelegator_Unwrap(t *testing.T) {
+	t.Parallel()
+
 	recorder := httptest.NewRecorder()
 	delegator := &responseWriterDelegator{ResponseWriter: recorder}
 
@@ -253,6 +267,8 @@ func TestResponseWriterDelegator_Unwrap(t *testing.T) {
 }
 
 func TestWithBodyTracking(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		requestBody  string
@@ -282,6 +298,8 @@ func TestWithBodyTracking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Create a handler that reads the request body and writes a response
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Read the entire request body
@@ -314,6 +332,8 @@ func TestWithBodyTracking(t *testing.T) {
 }
 
 func TestNewProxyErrorHandler(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		err            error
@@ -333,6 +353,7 @@ func TestNewProxyErrorHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			handler := NewProxyErrorHandler()
 			recorder := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)

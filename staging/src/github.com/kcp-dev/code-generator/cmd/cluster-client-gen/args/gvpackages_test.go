@@ -29,6 +29,7 @@ import (
 )
 
 func TestGVPackageFlag(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		args           []string
 		def            []string

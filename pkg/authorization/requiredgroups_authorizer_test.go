@@ -30,6 +30,7 @@ import (
 )
 
 func TestRequiredGroupsAuthorizer(t *testing.T) {
+	t.Parallel()
 	for name, tt := range map[string]struct {
 		requestedWorkspace    string
 		requestingUser        *user.DefaultInfo
@@ -200,6 +201,7 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx := context.Background()
 			if tt.requestedWorkspace != "" {
 				ctx = request.WithCluster(ctx, request.Cluster{

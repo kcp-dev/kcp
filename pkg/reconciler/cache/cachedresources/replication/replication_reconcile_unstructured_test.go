@@ -30,6 +30,7 @@ import (
 )
 
 func TestEnsureUnstructuredSpec(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name                    string
 		cacheObject             *unstructured.Unstructured
@@ -122,6 +123,7 @@ func TestEnsureUnstructuredSpec(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
+			tt.Parallel()
 			specChanged, err := ensureRemaining(scenario.cacheObject, scenario.localObject)
 			if specChanged != scenario.expectSpecChanged {
 				tt.Fatalf("spec changed = %v, expected spec to be changed = %v", specChanged, scenario.expectSpecChanged)
@@ -140,6 +142,7 @@ func TestEnsureUnstructuredSpec(t *testing.T) {
 }
 
 func TestEnsureUnstructuredStatus(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name                    string
 		cacheObject             *unstructured.Unstructured
@@ -232,6 +235,7 @@ func TestEnsureUnstructuredStatus(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
+			tt.Parallel()
 			statusChanged, err := ensureRemaining(scenario.cacheObject, scenario.localObject)
 			if statusChanged != scenario.expectStatusChanged {
 				tt.Fatalf("status changed = %v, expected spec to be changed = %v", statusChanged, scenario.expectStatusChanged)
@@ -250,6 +254,7 @@ func TestEnsureUnstructuredStatus(t *testing.T) {
 }
 
 func TestEnsureUnstructuredMeta(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name                    string
 		cacheObjectMeta         metav1.ObjectMeta
@@ -382,6 +387,7 @@ func TestEnsureUnstructuredMeta(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
+			tt.Parallel()
 			cacheAPIExport := &apisv1alpha2.APIExport{ObjectMeta: scenario.cacheObjectMeta}
 			unstructuredCacheApiExport, err := toUnstructured(cacheAPIExport)
 			if err != nil {

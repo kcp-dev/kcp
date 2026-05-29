@@ -19,6 +19,7 @@ package main
 import "testing"
 
 func TestEmbeddedEtcdClientPort(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		n            int
 		expectedPort int
@@ -58,6 +59,7 @@ func TestEmbeddedEtcdClientPort(t *testing.T) {
 }
 
 func TestEmbeddedEtcdPeerPort(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		n            int
 		expectedPort int

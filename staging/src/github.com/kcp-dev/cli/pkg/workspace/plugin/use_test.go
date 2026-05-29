@@ -46,6 +46,7 @@ import (
 )
 
 func TestUse(t *testing.T) {
+	t.Parallel()
 	homeWorkspace := logicalcluster.NewPath("root:users:ab:cd:user-name")
 
 	discoveryFor := func(pths ...string) map[logicalcluster.Path][]*metav1.APIResourceList {
@@ -736,6 +737,7 @@ func TestUse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var got *clientcmdapi.Config
 
 			cluster := tt.config.Clusters[tt.config.Contexts[tt.config.CurrentContext].Cluster]

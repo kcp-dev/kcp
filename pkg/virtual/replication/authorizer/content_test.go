@@ -51,6 +51,7 @@ func (*alwaysAllowAuthrizer) Authorize(ctx context.Context, attr authorizer.Attr
 }
 
 func TestContentAuthorizer(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		a    contentAuthorizer
 		ctx  context.Context //nolint:containedctx // Mock ctx needed by Authorizer().
@@ -441,6 +442,7 @@ func TestContentAuthorizer(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
+			t.Parallel()
 			dec, reason, err := tt.a.Authorize(tt.ctx, tt.attr)
 			if tt.expectedErrorStr == "" {
 				require.NoError(t, err, "was not expecting to return an error")

@@ -27,6 +27,7 @@ import (
 )
 
 func TestDigestUrl(t *testing.T) {
+	t.Parallel()
 	rootPathPrefix := "/services/replication/"
 	testCases := []struct {
 		urlPath             string
@@ -67,6 +68,7 @@ func TestDigestUrl(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.urlPath, func(t *testing.T) {
+			t.Parallel()
 			clusterName, key, logicalPath, accepted := digestURL(tc.urlPath, rootPathPrefix)
 			require.Equal(t, tc.expectedAccept, accepted, "Accepted should match expected value")
 			require.Equal(t, tc.expectedKey, key, "Key should match expected value")

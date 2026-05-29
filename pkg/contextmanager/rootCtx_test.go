@@ -26,6 +26,7 @@ import (
 )
 
 func TestRootCtx_ContextCreatesAndReturnsLive(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	ctx, _ := rc.context("k")
@@ -40,6 +41,7 @@ func TestRootCtx_ContextCreatesAndReturnsLive(t *testing.T) {
 }
 
 func TestRootCtx_CancelIsSticky(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	ctx1, _ := rc.context("k")
@@ -63,6 +65,7 @@ func TestRootCtx_CancelIsSticky(t *testing.T) {
 }
 
 func TestRootCtx_CancelBeforeContextCreatesTombstone(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	reason := errors.New("preemptive")
@@ -78,6 +81,7 @@ func TestRootCtx_CancelBeforeContextCreatesTombstone(t *testing.T) {
 }
 
 func TestRootCtx_CancelIdempotent(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	ctx, _ := rc.context("k")
@@ -91,6 +95,7 @@ func TestRootCtx_CancelIdempotent(t *testing.T) {
 }
 
 func TestRootCtx_Delete(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	ctx1, _ := rc.context("k")
@@ -117,6 +122,7 @@ func TestRootCtx_Delete(t *testing.T) {
 }
 
 func TestRootCtx_CancelAll(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	ctxA, _ := rc.context("a")
@@ -133,6 +139,7 @@ func TestRootCtx_CancelAll(t *testing.T) {
 }
 
 func TestRootCtx_ConcurrentCreateDeduplicates(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	const n = 64
@@ -159,6 +166,7 @@ func TestRootCtx_ConcurrentCreateDeduplicates(t *testing.T) {
 }
 
 func TestRootCtx_ConcurrentCancelAndContext(t *testing.T) {
+	t.Parallel()
 	rc := newRootCtx(context.Background())
 
 	// Pre-create the entry so the race is purely between cancel and

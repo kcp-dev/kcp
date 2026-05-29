@@ -32,6 +32,7 @@ import (
 )
 
 func TestSchema(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		CachedResource     *cachev1alpha1.CachedResource
 		reconciler         *validSchema
@@ -102,6 +103,7 @@ func TestSchema(t *testing.T) {
 
 	for testName, tt := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			status, err := tt.reconciler.reconcile(context.Background(), tt.CachedResource)
 
 			resetLastTransitionTime(tt.expectedConditions)

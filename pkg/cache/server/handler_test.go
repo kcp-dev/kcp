@@ -27,6 +27,7 @@ import (
 )
 
 func TestWithShardScopePassesThroughMetrics(t *testing.T) {
+	t.Parallel()
 	nextCalled := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nextCalled = true
@@ -48,6 +49,7 @@ func TestWithShardScopePassesThroughMetrics(t *testing.T) {
 }
 
 func TestWithCacheShardLevelPaths(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		path           string
@@ -96,6 +98,7 @@ func TestWithCacheShardLevelPaths(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			nextCalled := false
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true

@@ -73,6 +73,7 @@ type ConversionTests struct {
 }
 
 func TestConversion(t *testing.T) {
+	t.Parallel()
 	tests := []ConversionTests{
 		{
 			name: "APIExport",
@@ -134,6 +135,7 @@ func TestConversion(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			for range *FuzzIters {
 				testGenericConversion(t, test.v1.DeepCopyObject, test.v2.DeepCopyObject, test.toV1, test.toV2, test.v1ExpectedAnnotations, test.v2ExpectedAnnotations)
 			}

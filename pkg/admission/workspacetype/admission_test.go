@@ -127,6 +127,7 @@ func newPlugin(decision authorizer.Decision, knownPaths map[string]logicalcluste
 }
 
 func TestValidate_DefaultAPIBindings(t *testing.T) {
+	t.Parallel()
 	tenantCluster := logicalcluster.Name("root-test")
 
 	tests := []struct {
@@ -237,6 +238,7 @@ func TestValidate_DefaultAPIBindings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			p, capturedCluster := newPlugin(tt.decision, tt.knownPaths)
 			attr := makeAttr(t, tt.op, tt.newWT, tt.oldWT, nil)
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: tenantCluster})

@@ -34,6 +34,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	for _, testCase := range []struct {
 		name     string
 		shards   []*corev1alpha1.Shard
@@ -258,6 +259,7 @@ func TestReconcile(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			testCase.wts = append(testCase.wts, testCase.wt.DeepCopy())
 			c := controller{
 				listShards: func() ([]*corev1alpha1.Shard, error) {

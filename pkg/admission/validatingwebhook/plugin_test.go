@@ -31,6 +31,7 @@ import (
 const clusterName = logicalcluster.Name("test-cluster")
 
 func TestSetClusterAnnotation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		in   *corev1.ConfigMap
@@ -55,6 +56,7 @@ func TestSetClusterAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			origAnnotations := test.in.GetAnnotations()
 
 			undo := SetClusterAnnotation(test.in, clusterName)
@@ -80,6 +82,7 @@ func TestSetClusterAnnotation(t *testing.T) {
 }
 
 func TestSetClusterAnnotation_AlreadySet(t *testing.T) {
+	t.Parallel()
 	in := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{

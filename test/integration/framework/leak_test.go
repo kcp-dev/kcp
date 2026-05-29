@@ -39,6 +39,7 @@ var (
 	}
 )
 
+//nolint:paralleltest // goleak.IgnoreCurrent captures the current goroutine baseline; running in parallel with other tests would pollute it.
 func TestGoleakWithDefaults(t *testing.T) {
 	curGoroutines := goleak.IgnoreCurrent()
 	server, _, _ := StartTestServer(t)

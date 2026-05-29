@@ -50,6 +50,7 @@ func createAttr(s *apisv1alpha1.APIResourceSchema) admission.Attributes {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		attr           admission.Attributes
@@ -166,6 +167,7 @@ spec:
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			o := &apiResourceSchemaValidation{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}

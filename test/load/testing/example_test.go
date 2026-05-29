@@ -34,6 +34,7 @@ import (
 	"github.com/kcp-dev/kcp/test/load/pkg/tuningset"
 )
 
+//nolint:paralleltest // calls t.Setenv via fakeKubeconfig, incompatible with t.Parallel()
 func TestExample(t *testing.T) {
 	// note: this will be set by the test runner / user externally, it's just here for demonstration purposes
 	fakeKubeconfig(t)

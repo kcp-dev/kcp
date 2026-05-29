@@ -25,6 +25,8 @@ import (
 )
 
 func TestNewSymmetricTree(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		count         int
@@ -42,6 +44,8 @@ func TestNewSymmetricTree(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tree := NewSymmetricTree(core.RootCluster.Path(), tt.count, tt.depth)
 			require.Equal(t, tt.wantBranching, tree.BranchingFactor)
 			require.Equal(t, tt.count, tree.Count)
@@ -51,6 +55,8 @@ func TestNewSymmetricTree(t *testing.T) {
 }
 
 func TestTotalWorkspaces(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, 5, totalWorkspaces(5, 1))     // 5
 	require.Equal(t, 6, totalWorkspaces(2, 2))     // 2 + 4
 	require.Equal(t, 14, totalWorkspaces(2, 3))    // 2 + 4 + 8
@@ -60,7 +66,11 @@ func TestTotalWorkspaces(t *testing.T) {
 }
 
 func TestSymmetricTreeLevelRange(t *testing.T) {
+	t.Parallel()
+
 	t.Run("binary depth 2", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(core.RootCluster.Path(), 6, 2)
 
 		start, count := tree.LevelRange(1)
@@ -73,6 +83,8 @@ func TestSymmetricTreeLevelRange(t *testing.T) {
 	})
 
 	t.Run("binary depth 3", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(core.RootCluster.Path(), 14, 3)
 
 		start, count := tree.LevelRange(1)
@@ -89,6 +101,8 @@ func TestSymmetricTreeLevelRange(t *testing.T) {
 	})
 
 	t.Run("partial fill", func(t *testing.T) {
+		t.Parallel()
+
 		// count=5, depth=2, b=2: level 1 [1,2], level 2 [3,4,5]
 		tree := NewSymmetricTree(core.RootCluster.Path(), 5, 2)
 
@@ -102,6 +116,8 @@ func TestSymmetricTreeLevelRange(t *testing.T) {
 	})
 
 	t.Run("linear chain", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(core.RootCluster.Path(), 3, 3)
 		require.Equal(t, 1, tree.BranchingFactor)
 
@@ -114,7 +130,11 @@ func TestSymmetricTreeLevelRange(t *testing.T) {
 }
 
 func TestSymmetricTreeParentSequenceNumber(t *testing.T) {
+	t.Parallel()
+
 	t.Run("binary depth 3", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(core.RootCluster.Path(), 14, 3)
 
 		// Level 1: parent is root (0)
@@ -139,6 +159,8 @@ func TestSymmetricTreeParentSequenceNumber(t *testing.T) {
 	})
 
 	t.Run("linear chain", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(core.RootCluster.Path(), 3, 3)
 
 		require.Equal(t, 0, tree.ParentSequenceNumber(1))
@@ -148,14 +170,20 @@ func TestSymmetricTreeParentSequenceNumber(t *testing.T) {
 }
 
 func TestSymmetricTreePathForSequenceNumber(t *testing.T) {
+	t.Parallel()
+
 	root := core.RootCluster.Path()
 
 	t.Run("root for seq 0", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(root, 6, 2)
 		require.Equal(t, root, tree.PathForSequenceNumber(0))
 	})
 
 	t.Run("flat depth 1", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(root, 3, 1)
 
 		require.Equal(t, root.Join("loadtest-ws-1"), tree.PathForSequenceNumber(1))
@@ -164,6 +192,8 @@ func TestSymmetricTreePathForSequenceNumber(t *testing.T) {
 	})
 
 	t.Run("binary depth 2", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(root, 6, 2)
 
 		require.Equal(t, root.Join("loadtest-ws-1"), tree.PathForSequenceNumber(1))
@@ -175,6 +205,8 @@ func TestSymmetricTreePathForSequenceNumber(t *testing.T) {
 	})
 
 	t.Run("binary depth 3", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(root, 14, 3)
 
 		// Level 3 leaf: ws-14's parent is ws-6, whose parent is ws-2
@@ -187,6 +219,8 @@ func TestSymmetricTreePathForSequenceNumber(t *testing.T) {
 	})
 
 	t.Run("linear chain", func(t *testing.T) {
+		t.Parallel()
+
 		tree := NewSymmetricTree(root, 3, 3)
 
 		require.Equal(t, root.Join("loadtest-ws-1"), tree.PathForSequenceNumber(1))
@@ -196,6 +230,8 @@ func TestSymmetricTreePathForSequenceNumber(t *testing.T) {
 }
 
 func TestSymmetricTreeLevelOf(t *testing.T) {
+	t.Parallel()
+
 	tree := NewSymmetricTree(core.RootCluster.Path(), 14, 3)
 
 	require.Equal(t, 1, tree.levelOf(1))

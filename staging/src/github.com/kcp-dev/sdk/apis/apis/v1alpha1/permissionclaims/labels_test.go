@@ -28,6 +28,7 @@ import (
 
 // TestToLabelKeyAndValue ensures that TestToLabelKeyAndValue stays stable.
 func TestToLabelKeyAndValue(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		exportCluster logicalcluster.Name
 		exportName    string
@@ -66,6 +67,7 @@ func TestToLabelKeyAndValue(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			key, value, err := ToLabelKeyAndValue(tc.exportCluster, tc.exportName, tc.claim)
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantKey, key)
@@ -76,6 +78,7 @@ func TestToLabelKeyAndValue(t *testing.T) {
 
 // TestToReflexiveAPIBindingLabelKeyAndValue ensures that ToReflexiveAPIBindingLabelKeyAndValue stays stable.
 func TestToReflexiveAPIBindingLabelKeyAndValue(t *testing.T) {
+	t.Parallel()
 	key, value := ToReflexiveAPIBindingLabelKeyAndValue("root", "tenancy.kcp.io")
 	assert.Equal(t, "claimed.internal.apis.kcp.io/bmCdly9xXiUpEHe3ypvDwvXMTfoVZUE92mqAQf", key)
 	assert.Equal(t, "LstvmbbzVDDOn90ZbhzSQO5U3DMCf88h1pZ", value)
@@ -83,6 +86,7 @@ func TestToReflexiveAPIBindingLabelKeyAndValue(t *testing.T) {
 
 // TestToAPIBindingExportLabelValue ensures that ToAPIBindingExportLabelValue stays stable.
 func TestToAPIBindingExportLabelValue(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		cluster    logicalcluster.Name
 		exportName string
@@ -94,6 +98,7 @@ func TestToAPIBindingExportLabelValue(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, ToAPIBindingExportLabelValue(tc.cluster, tc.exportName))
 		})
 	}
@@ -101,6 +106,7 @@ func TestToAPIBindingExportLabelValue(t *testing.T) {
 
 // TestExportHashIsConsistent ensures that ToLabelKeyAndValue and ToReflexiveAPIBindingLabelKeyAndValue produce equivalent output.
 func TestExportHashIsConsistent(t *testing.T) {
+	t.Parallel()
 	cluster := logicalcluster.Name("root")
 	exportName := "tenancy.kcp.io"
 

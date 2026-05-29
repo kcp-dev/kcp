@@ -37,6 +37,7 @@ func mustPanic(t *testing.T, f func()) (recovered any) {
 }
 
 func TestObj_ReturnsObjectDirectly(t *testing.T) {
+	t.Parallel()
 	pod := &corev1.Pod{}
 	got := Obj[*corev1.Pod](pod)
 	if got != pod {
@@ -45,6 +46,7 @@ func TestObj_ReturnsObjectDirectly(t *testing.T) {
 }
 
 func TestObj_UnwrapsTombstone(t *testing.T) {
+	t.Parallel()
 	pod := &corev1.Pod{}
 	tomb := cache.DeletedFinalStateUnknown{
 		Key: "default/my-pod",
@@ -57,6 +59,7 @@ func TestObj_UnwrapsTombstone(t *testing.T) {
 }
 
 func TestObj_PanicsOnTombstoneWrongType(t *testing.T) {
+	t.Parallel()
 	tomb := cache.DeletedFinalStateUnknown{
 		Key: "default/not-a-pod",
 		Obj: &corev1.Service{},
@@ -70,6 +73,7 @@ func TestObj_PanicsOnTombstoneWrongType(t *testing.T) {
 }
 
 func TestObj_PanicsOnCompletelyWrongType(t *testing.T) {
+	t.Parallel()
 	rec := mustPanic(t, func() {
 		_ = Obj[*corev1.Pod](fmt.Stringer(nil))
 	})

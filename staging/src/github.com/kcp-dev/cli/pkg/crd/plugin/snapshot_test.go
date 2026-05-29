@@ -27,6 +27,7 @@ import (
 )
 
 func TestSnapshot(t *testing.T) {
+	t.Parallel()
 	streams, stdin, stdout, _ := genericclioptions.NewTestIOStreams()
 
 	opts := NewSnapshotOptions(streams)

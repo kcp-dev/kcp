@@ -34,6 +34,7 @@ import (
 )
 
 func TestValidImpersonation(t *testing.T) {
+	t.Parallel()
 	var systemUserGroup = "system:user:group"
 	nonExistingGroup := "non-existing-group"
 
@@ -125,6 +126,7 @@ func TestValidImpersonation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := validImpersonation(tt.userGroups, tt.requestedGroups)
 			if result != tt.expectedResult {
 				t.Errorf("checkImpersonation(%v, %v) = %v; want %v",
@@ -161,6 +163,7 @@ func (u *mockUser) GetExtra() map[string][]string {
 }
 
 func TestWithImpersonationGatekeeper(t *testing.T) {
+	t.Parallel()
 	// Define the special groups as per the original code.
 	// These should match the groups defined in the main code for accurate privilege simulation.
 	const (
@@ -310,6 +313,7 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			handlerCalledFlag := false
 
 			// Create a mock handler that sets the flag when called
@@ -373,6 +377,7 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 
 // TestWithScoping tests the WithScoping middleware.
 func TestWithScoping(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name               string
 		originalUser       user.Info
@@ -458,6 +463,7 @@ func TestWithScoping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			called := false
 
 			// Create a mock handler that sets the flag when called

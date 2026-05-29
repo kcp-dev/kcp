@@ -28,6 +28,7 @@ import (
 )
 
 func TestCreateFromFS(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		ctx     context.Context //nolint:containedctx
@@ -51,6 +52,7 @@ func TestCreateFromFS(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if err := CreateFromFS(tt.ctx, tt.client, tt.fs, tt.grs...); (err != nil) != tt.wantErr {
 				t.Errorf("CreateFromFS() error = %v, wantErr %v", err, tt.wantErr)
 			}

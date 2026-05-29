@@ -42,6 +42,7 @@ import (
 )
 
 func TestDigestUrl(t *testing.T) {
+	t.Parallel()
 	rootPathPrefix := "/services/initializingworkspaces/"
 	testCases := []struct {
 		urlPath             string
@@ -96,6 +97,7 @@ func TestDigestUrl(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.urlPath, func(t *testing.T) {
+			t.Parallel()
 			cluster, key, logicalPath, accepted := digestUrl(tc.urlPath, rootPathPrefix)
 			require.Equal(t, tc.expectedAccept, accepted, "Accepted should match expected value")
 			require.Equal(t, tc.expectedCluster, cluster, "Cluster should match expected value")
@@ -106,6 +108,7 @@ func TestDigestUrl(t *testing.T) {
 }
 
 func TestIsLogicalClusterRequest(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		path     string
 		expected bool
@@ -117,6 +120,7 @@ func TestIsLogicalClusterRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.path, func(t *testing.T) {
+			t.Parallel()
 			result := isLogicalClusterRequest(tc.path)
 			require.Equal(t, tc.expected, result, "Result should match expected value")
 		})
@@ -124,6 +128,7 @@ func TestIsLogicalClusterRequest(t *testing.T) {
 }
 
 func TestResolveInitializerWorkspaceType(t *testing.T) {
+	t.Parallel()
 	wst := func(cluster, name string) *tenancyv1alpha1.WorkspaceType {
 		return &tenancyv1alpha1.WorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
@@ -184,6 +189,7 @@ func TestResolveInitializerWorkspaceType(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			localIdx := newWSTIndexer(t, tc.local...)
 			cachedIdx := newWSTIndexer(t, tc.cached...)
 
@@ -217,6 +223,7 @@ func newWSTIndexer(t *testing.T, objs ...*tenancyv1alpha1.WorkspaceType) cache.I
 }
 
 func TestBuildVirtualWorkspace(t *testing.T) {
+	t.Parallel()
 	rootPathPrefix := "/services/initializingworkspaces/"
 	cfg := &rest.Config{
 		Host: "https://example.com",
@@ -240,6 +247,7 @@ func TestBuildVirtualWorkspace(t *testing.T) {
 
 	for _, vw := range virtualWorkspaces {
 		t.Run(vw.Name, func(t *testing.T) {
+			t.Parallel()
 			assert.NotNil(t, vw.VirtualWorkspace, "VirtualWorkspace should not be nil")
 			assert.Implements(t, (*framework.RootPathResolver)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement RootPathResolver")
 			assert.Implements(t, (*authorizer.Authorizer)(nil), vw.VirtualWorkspace, "VirtualWorkspace should implement Authorizer")

@@ -35,6 +35,7 @@ import (
 )
 
 func TestMutateResourceRemainingStatus(t *testing.T) {
+	t.Parallel()
 	now := metav1.Now()
 	apibinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -105,6 +106,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			controller := &Controller{}
 			apibindingCopy, err := controller.mutateResourceRemainingStatus(tt.resourceRemaining, apibinding.DeepCopy())
 
@@ -130,6 +132,7 @@ func TestMutateResourceRemainingStatus(t *testing.T) {
 }
 
 func TestAPIBindingTerminating(t *testing.T) {
+	t.Parallel()
 	now := metav1.Now()
 	apibinding := &apisv1alpha2.APIBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -199,6 +202,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			controller := &Controller{
 				listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 					if tt.existingObjects == nil {

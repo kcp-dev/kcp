@@ -30,6 +30,7 @@ import (
 
 // TestIndexWorkspaceByMountObject exercises the mount-reference indexer.
 func TestIndexWorkspaceByMountObject(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		ws        *tenancyv1alpha1.Workspace
@@ -101,6 +102,7 @@ func TestIndexWorkspaceByMountObject(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			dmapper := dynamicrestmapper.NewDynamicRESTMapper()
 
 			keys, err := newIndexWorkspaceByMountObject(dmapper)(tc.ws)

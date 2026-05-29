@@ -265,6 +265,7 @@ func TestRepositoryDir(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // mutates package-level osStat between subtests; subtests must run sequentially.
 func TestStatIsDirImpl(t *testing.T) {
 	origOsStat := osStat
 	defer func() { osStat = origOsStat }()

@@ -83,6 +83,7 @@ func updateAttrWithUser(ws, old *tenancyv1alpha1.Workspace, info kuser.Info) adm
 }
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		types           []*tenancyv1alpha1.WorkspaceType
@@ -298,6 +299,7 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			o := &workspace{
 				Handler:              admission.NewHandler(admission.Create, admission.Update),
 				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),
@@ -318,6 +320,7 @@ func TestAdmit(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		logicalClusters []*corev1alpha1.LogicalCluster
@@ -717,6 +720,7 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			o := &workspace{
 				Handler:              admission.NewHandler(admission.Create, admission.Update),
 				logicalClusterLister: fakeLogicalClusterClusterLister(tt.logicalClusters),

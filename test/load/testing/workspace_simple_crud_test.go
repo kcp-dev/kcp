@@ -40,6 +40,7 @@ import (
 
 const crudConfigMapQPS = 150 // equivalent to 600, see TODO comment below
 
+//nolint:paralleltest // load test against shared kcp cluster, parallel execution would conflict on workspace names and skew timing measurements
 func TestWorkspaceSimpleCRUD(t *testing.T) {
 	cfg := framework.Require(t, framework.KCPFrontProxyKubeconfig)
 

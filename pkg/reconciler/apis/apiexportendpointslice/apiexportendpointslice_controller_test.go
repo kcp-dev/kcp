@@ -36,6 +36,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		keyMissing           bool
 		apiExportMissing     bool
@@ -71,6 +72,7 @@ func TestReconcile(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			c := &controller{
 				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					if tc.apiExportMissing {

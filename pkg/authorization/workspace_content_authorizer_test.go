@@ -66,6 +66,7 @@ func (r *recordingAuthorizer) Authorize(ctx context.Context, a authorizer.Attrib
 }
 
 func TestWorkspaceContentAuthorizer(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		testName              string
 		requestedWorkspace    string
@@ -250,6 +251,7 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithCancel(context.Background())
 			t.Cleanup(cancel)
 

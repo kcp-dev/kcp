@@ -30,6 +30,7 @@ import (
 )
 
 func TestResolveWorkspaceDots(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		path    string
@@ -90,6 +91,7 @@ func TestResolveWorkspaceDots(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := resolveWorkspaceDots(tt.path)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -102,6 +104,7 @@ func TestResolveWorkspaceDots(t *testing.T) {
 }
 
 func TestWorkspaceOverrideClientConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		baseHost  string
@@ -161,6 +164,7 @@ func TestWorkspaceOverrideClientConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := &workspaceOverrideClientConfig{
 				delegate:  &fakeClientConfig{host: tt.baseHost},
 				workspace: tt.workspace,
@@ -177,6 +181,7 @@ func TestWorkspaceOverrideClientConfig(t *testing.T) {
 }
 
 func TestWorkspaceOverrideClientConfigDelegation(t *testing.T) {
+	t.Parallel()
 	streams, _, _, _ := genericclioptions.NewTestIOStreams()
 	o := NewOptions(streams)
 	o.Workspace = ":root:ws"

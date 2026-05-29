@@ -38,6 +38,7 @@ import (
 )
 
 func Test_newVirtualStorageVerbsProvider(t *testing.T) {
+	t.Parallel()
 	res := schema.GroupVersionResource{
 		Group:    "wildwest.dev",
 		Version:  "v1alpha1",
@@ -240,6 +241,7 @@ func Test_newVirtualStorageVerbsProvider(t *testing.T) {
 	}
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
+			t.Parallel()
 			p, err := newVirtualStorageVerbsProvider(context.Background(), res, "vr-identity-123", tt.apiExport, tt.opts)
 			if tt.wantErr != nil {
 				require.Equal(t, tt.wantErr.Error(), err.Error())

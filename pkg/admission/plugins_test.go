@@ -24,6 +24,7 @@ import (
 )
 
 func TestPluginDrift(t *testing.T) {
+	t.Parallel()
 	kubeOffPlugins := kubeapiserveroptions.DefaultOffAdmissionPlugins()
 	kubeOnPlugins := sets.New[string](kubeapiserveroptions.AllOrderedPlugins...).Difference(kubeOffPlugins)
 

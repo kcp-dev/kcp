@@ -26,6 +26,7 @@ import (
 
 // TestAPIBindingPermissionClaimCELValidation will validate the permission claims for an otherwise valid APIBinding.
 func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name         string
 		current, old map[string]interface{}
@@ -88,6 +89,7 @@ func TestAPIBindingPermissionClaimCELValidation(t *testing.T) {
 		require.True(t, found, "failed to find validator for %s", pth)
 
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			errs := validator(tc.current, tc.old)
 			t.Log(errs)
 

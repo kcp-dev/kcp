@@ -46,6 +46,7 @@ func TestAuthorizationOrder(t *testing.T) {
 	framework.Suite(t, "control-plane")
 	t.Parallel()
 	t.Run("Authorization order 1", func(t *testing.T) {
+		t.Parallel()
 		const webhookPort = 8080
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
@@ -74,6 +75,7 @@ func TestAuthorizationOrder(t *testing.T) {
 	})
 
 	t.Run("Authorization order 2", func(t *testing.T) {
+		t.Parallel()
 		const webhookPort = 8081
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
@@ -108,6 +110,7 @@ func TestAuthorizationOrder(t *testing.T) {
 	})
 
 	t.Run("Default authorization order", func(t *testing.T) {
+		t.Parallel()
 		const webhookPort = 8082
 
 		ctx, cancelFunc := context.WithCancel(context.Background())

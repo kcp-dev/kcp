@@ -40,7 +40,9 @@ func bindingWithPhaseAndCreation(cluster, name string, phase apisv1alpha2.APIBin
 }
 
 func TestHandleReadyDurationOnUpdate(t *testing.T) {
+	t.Parallel()
 	t.Run("transitioning to Bound records duration without panic", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		created := time.Now().Add(-5 * time.Second)
 		old := bindingWithPhaseAndCreation("root:ws", "test", apisv1alpha2.APIBindingPhaseBinding, created)
@@ -50,6 +52,7 @@ func TestHandleReadyDurationOnUpdate(t *testing.T) {
 	})
 
 	t.Run("transitioning to Binding does not record duration", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		created := time.Now().Add(-2 * time.Second)
 		old := bindingWithPhaseAndCreation("root:ws", "test", "", created)
@@ -59,6 +62,7 @@ func TestHandleReadyDurationOnUpdate(t *testing.T) {
 	})
 
 	t.Run("same phase does not record duration", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		created := time.Now().Add(-1 * time.Second)
 		b := bindingWithPhaseAndCreation("root:ws", "test", apisv1alpha2.APIBindingPhaseBound, created)

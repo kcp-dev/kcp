@@ -32,6 +32,7 @@ import (
 )
 
 func TestBoundCRDDeletion(t *testing.T) {
+	t.Parallel()
 	schemaUID := "f1249438-5c68-11ed-823e-f875a46c726b"
 
 	apiBinding := &apisv1alpha2.APIBinding{
@@ -99,6 +100,7 @@ func TestBoundCRDDeletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			deleteHappened := false
 
 			crd := &apiextensionsv1.CustomResourceDefinition{}

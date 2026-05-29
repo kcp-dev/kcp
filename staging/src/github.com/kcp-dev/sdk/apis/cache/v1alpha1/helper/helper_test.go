@@ -25,6 +25,7 @@ import (
 )
 
 func TestQualifiedObjectName(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		obj  metav1.Object
 		name string
@@ -45,6 +46,7 @@ func TestQualifiedObjectName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.obj.GetName(), func(t *testing.T) {
+			t.Parallel()
 			if got := QualifiedObjectName(tt.obj); got != tt.name {
 				t.Errorf("QualifiedObjectName(%v) = %s, want %s", tt.obj, got, tt.name)
 			}

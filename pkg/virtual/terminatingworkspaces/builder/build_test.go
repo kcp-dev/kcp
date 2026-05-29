@@ -34,6 +34,7 @@ import (
 )
 
 func TestResolveTerminatorWorkspaceType(t *testing.T) {
+	t.Parallel()
 	wst := func(cluster, name string) *tenancyv1alpha1.WorkspaceType {
 		return &tenancyv1alpha1.WorkspaceType{
 			ObjectMeta: metav1.ObjectMeta{
@@ -94,6 +95,7 @@ func TestResolveTerminatorWorkspaceType(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			localIdx := newWSTIndexer(t, tc.local...)
 			cachedIdx := newWSTIndexer(t, tc.cached...)
 
@@ -127,6 +129,7 @@ func newWSTIndexer(t *testing.T, objs ...*tenancyv1alpha1.WorkspaceType) cache.I
 }
 
 func TestIsDiscoveryRequest(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		path string
 		exp  bool
@@ -143,6 +146,7 @@ func TestIsDiscoveryRequest(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(fmt.Sprintf("%q", tc.path), func(t *testing.T) {
+			t.Parallel()
 			if res := isDiscoveryRequest(tc.path); res != tc.exp {
 				t.Errorf("Exp %t, got %t", tc.exp, res)
 			}

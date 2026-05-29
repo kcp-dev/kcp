@@ -38,6 +38,7 @@ import (
 )
 
 func TestPathAnnotationAdmit(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name              string
 		admissionObject   runtime.Object
@@ -157,6 +158,7 @@ func TestPathAnnotationAdmit(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			target := &pathAnnotationPlugin{getLogicalCluster: scenario.getLogicalCluster}
 			attr := admission.NewAttributesRecord(
 				scenario.admissionObject,
@@ -188,6 +190,7 @@ func TestPathAnnotationAdmit(t *testing.T) {
 }
 
 func TestPathAnnotationValidate(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name              string
 		admissionObject   runtime.Object
@@ -262,6 +265,7 @@ func TestPathAnnotationValidate(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			target := &pathAnnotationPlugin{getLogicalCluster: scenario.getLogicalCluster}
 			attr := admission.NewAttributesRecord(
 				scenario.admissionObject,

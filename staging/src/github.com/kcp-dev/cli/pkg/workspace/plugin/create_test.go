@@ -42,6 +42,7 @@ import (
 )
 
 func TestCreate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		config clientcmdapi.Config

@@ -43,6 +43,7 @@ import (
 )
 
 func TestWorkspaceOIDC(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, "control-plane")
 
 	// start kcp and setup clients
@@ -250,6 +251,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 }
 
 func TestUserScope(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, "control-plane")
 
 	// start kcp and setup clients
@@ -337,6 +339,7 @@ func TestUserScope(t *testing.T) {
 }
 
 func TestForbiddenSystemAccess(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, "control-plane")
 
 	// start kcp and setup clients
@@ -434,6 +437,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 }
 
 func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, "control-plane")
 
 	// start kcp and setup clients
@@ -563,6 +567,7 @@ func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 }
 
 func TestWorkspaceOIDCTokenReview(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, "control-plane")
 
 	// start kcp and setup clients

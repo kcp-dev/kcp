@@ -27,6 +27,7 @@ import (
 )
 
 func TestCompatibility(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		desc                   string
 		existing, new, wantLCD *apiextensionsv1.JSONSchemaProps
@@ -474,6 +475,7 @@ func TestCompatibility(t *testing.T) {
 		),
 	}} {
 		t.Run(c.desc, func(t *testing.T) {
+			t.Parallel()
 			gotLCD, err := EnsureStructuralSchemaCompatibility(field.NewPath("schema", "openAPISchema"), c.existing, c.new, c.narrowExisting)
 			if c.wantErr != nil {
 				if err == nil {

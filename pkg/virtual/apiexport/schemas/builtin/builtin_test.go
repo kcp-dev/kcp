@@ -25,6 +25,7 @@ import (
 )
 
 func TestInit(t *testing.T) {
+	t.Parallel()
 	// Note: This test previously checked len(BuiltInAPIs) == len(builtInAPIResourceSchemas).
 	// testing for equal length in BuiltInAPIs and builtInAPIResourceSchemas is not enough because
 	// BuiltInAPIs has an entry per API version. If a resource is served from multiple API group versions,

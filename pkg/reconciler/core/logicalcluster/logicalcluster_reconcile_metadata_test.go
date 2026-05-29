@@ -30,6 +30,7 @@ import (
 )
 
 func TestReconcileMetadata(t *testing.T) {
+	t.Parallel()
 	date, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	require.NoError(t, err)
 
@@ -259,6 +260,7 @@ func TestReconcileMetadata(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			reconciler := metaDataReconciler{}
 			status, err := reconciler.reconcile(context.Background(), testCase.input)
 

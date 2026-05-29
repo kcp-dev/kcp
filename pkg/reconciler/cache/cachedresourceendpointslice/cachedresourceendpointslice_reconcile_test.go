@@ -38,6 +38,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	const workspacePath = "root:org:ws"
 	tests := map[string]struct {
 		keyMissing                bool
@@ -88,6 +89,7 @@ func TestReconcile(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			var gotCachedResourcePath string
 			c := &controller{
 				getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {

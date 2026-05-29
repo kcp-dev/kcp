@@ -25,6 +25,7 @@ import (
 )
 
 func TestGroupObjectsByHierarchy(t *testing.T) {
+	t.Parallel()
 	crd := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "test-crd")
 	crd2 := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "test-crd2")
 	apiExport := newUnstructured("apis.kcp.io/v1alpha1", "APIExport", "test-export")
@@ -138,6 +139,7 @@ func TestGroupObjectsByHierarchy(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			groups := GroupObjectsByDefaultHierarchy(tt.input)
 
 			assert.Len(t, groups, len(tt.expected), "Expected %d groups, got %d", len(tt.expected), len(groups))
@@ -150,6 +152,7 @@ func TestGroupObjectsByHierarchy(t *testing.T) {
 }
 
 func TestSortObjectsByDefaultHierarchy(t *testing.T) {
+	t.Parallel()
 	crd := newUnstructured("apiextensions.k8s.io/v1", "CustomResourceDefinition", "test-crd")
 	apiExport := newUnstructured("apis.kcp.io/v1alpha1", "APIExport", "test-export")
 	apiBinding := newUnstructured("apis.kcp.io/v1alpha1", "APIBinding", "test-binding")
@@ -202,6 +205,7 @@ func TestSortObjectsByDefaultHierarchy(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			SortObjectsByDefaultHierarchy(tt.input)
 			assert.ElementsMatch(t, tt.expected, tt.input)
 		})

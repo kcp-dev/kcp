@@ -42,7 +42,9 @@ func exportWithCreation(cluster, name string, created time.Time, conds ...condit
 }
 
 func TestIsAPIExportReady(t *testing.T) {
+	t.Parallel()
 	t.Run("ready when both conditions are True", func(t *testing.T) {
+		t.Parallel()
 		e := exportWithCreation("root:ws", "test", time.Now(),
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
 			cond(apisv1alpha2.APIExportVirtualWorkspaceURLsReady, corev1.ConditionTrue),
@@ -51,6 +53,7 @@ func TestIsAPIExportReady(t *testing.T) {
 	})
 
 	t.Run("not ready when identity is False", func(t *testing.T) {
+		t.Parallel()
 		e := exportWithCreation("root:ws", "test", time.Now(),
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionFalse),
 			cond(apisv1alpha2.APIExportVirtualWorkspaceURLsReady, corev1.ConditionTrue),
@@ -59,6 +62,7 @@ func TestIsAPIExportReady(t *testing.T) {
 	})
 
 	t.Run("not ready when URLs not ready", func(t *testing.T) {
+		t.Parallel()
 		e := exportWithCreation("root:ws", "test", time.Now(),
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
 			cond(apisv1alpha2.APIExportVirtualWorkspaceURLsReady, corev1.ConditionFalse),
@@ -67,13 +71,16 @@ func TestIsAPIExportReady(t *testing.T) {
 	})
 
 	t.Run("not ready with no conditions", func(t *testing.T) {
+		t.Parallel()
 		e := exportWithCreation("root:ws", "test", time.Now())
 		require.False(t, isAPIExportReady(e))
 	})
 }
 
 func TestHandleReadyDurationMetricOnUpdate(t *testing.T) {
+	t.Parallel()
 	t.Run("first transition to ready records duration without panic", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		created := time.Now().Add(-3 * time.Second)
 		e := exportWithCreation("root:ws", "test", created,
@@ -85,6 +92,7 @@ func TestHandleReadyDurationMetricOnUpdate(t *testing.T) {
 	})
 
 	t.Run("second update when already ready does not double-record", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		created := time.Now().Add(-3 * time.Second)
 		e := exportWithCreation("root:ws", "test", created,
@@ -97,6 +105,7 @@ func TestHandleReadyDurationMetricOnUpdate(t *testing.T) {
 	})
 
 	t.Run("not-ready update does not record", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithCreation("root:ws", "test", time.Now(),
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionFalse),
@@ -108,7 +117,9 @@ func TestHandleReadyDurationMetricOnUpdate(t *testing.T) {
 }
 
 func TestHandleReadyDurationMetricOnDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("delete removes ready tracking", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		created := time.Now().Add(-1 * time.Second)
 		e := exportWithCreation("root:ws", "test", created,
@@ -122,6 +133,7 @@ func TestHandleReadyDurationMetricOnDelete(t *testing.T) {
 	})
 
 	t.Run("delete of untracked export is a no-op", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithCreation("root:ws", "unknown", time.Now())
 		require.NotPanics(t, func() { c.handleReadyDurationMetricOnDelete(e) })

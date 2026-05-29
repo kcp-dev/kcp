@@ -40,6 +40,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	// Save original feature gate value
 	originalFeatureGate := kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.EnableDeprecatedAPIExportVirtualWorkspacesUrls)
 
@@ -170,6 +171,7 @@ func TestReconcile(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			// Skip virtual workspace URL tests if feature gate is not enabled
 			if tc.wantVirtualWorkspaceURLs && !originalFeatureGate {
 				t.Skip("Skipping test that requires EnableDeprecatedAPIExportVirtualWorkspacesUrls feature gate")

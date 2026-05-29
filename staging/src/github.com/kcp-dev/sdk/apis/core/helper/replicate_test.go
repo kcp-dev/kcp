@@ -24,6 +24,7 @@ import (
 )
 
 func TestReplicateForValue(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		replicateValue  string
 		controller      string
@@ -46,6 +47,7 @@ func TestReplicateForValue(t *testing.T) {
 }
 
 func TestDontReplicateForValue(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		replicateValue  string
 		controller      string
@@ -68,6 +70,7 @@ func TestDontReplicateForValue(t *testing.T) {
 }
 
 func TestReplicateFor(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		labels          map[string]string
@@ -119,6 +122,7 @@ func TestReplicateFor(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			result, changed := ReplicateFor(test.labels, test.controller)
 			if !reflect.DeepEqual(result, test.expected) {
 				t.Errorf("Expected result: %v, got: %v", test.expected, result)
@@ -131,6 +135,7 @@ func TestReplicateFor(t *testing.T) {
 }
 
 func TestDontReplicateFor(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		labels          map[string]string
@@ -180,6 +185,7 @@ func TestDontReplicateFor(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			result, changed := DontReplicateFor(test.labels, test.controller)
 			if !reflect.DeepEqual(result, test.expected) {
 				t.Errorf("Expected result: %v, got: %v", test.expected, result)

@@ -28,6 +28,7 @@ import (
 )
 
 func TestDecorator(t *testing.T) {
+	t.Parallel()
 	alwaysAllow := authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 		return authorizer.DecisionAllow, "unanonymized allow", nil
 	})
@@ -216,6 +217,7 @@ func TestDecorator(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx := audit.WithAuditContext(context.Background())
 
 			attr := authorizer.AttributesRecord{}

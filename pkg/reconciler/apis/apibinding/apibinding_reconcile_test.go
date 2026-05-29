@@ -45,6 +45,7 @@ import (
 )
 
 func TestReconcileNew(t *testing.T) {
+	t.Parallel()
 	apiBinding := newBindingBuilder().
 		WithClusterName("org:ws").
 		WithName("my-binding").
@@ -73,6 +74,7 @@ func TestReconcileNew(t *testing.T) {
 }
 
 func TestReconcileBinding(t *testing.T) {
+	t.Parallel()
 	var (
 		unbound = newBindingBuilder().
 			WithCondition(&conditionsv1alpha1.Condition{
@@ -547,6 +549,7 @@ func TestReconcileBinding(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			createCRDCalled := false
 			updateLogicalClusterCalled := false
 
@@ -878,6 +881,7 @@ func TestReconcileBinding(t *testing.T) {
 }
 
 func TestCRDFromAPIResourceSchema(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		schema  *apisv1alpha1.APIResourceSchema
 		want    *apiextensionsv1.CustomResourceDefinition
@@ -1175,6 +1179,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 	}
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			got, err := generateCRD(tc.schema)
 
 			if tc.wantErr != (err != nil) {

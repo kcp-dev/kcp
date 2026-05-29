@@ -38,6 +38,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		input               *apisv1alpha1.APIExportEndpointSlice
 		endpointsReconciler *endpointsReconciler
@@ -318,6 +319,7 @@ func TestReconcile(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			c := &controller{
 				getMyShard:                  tc.endpointsReconciler.getMyShard,
 				getAPIExport:                tc.endpointsReconciler.getAPIExport,

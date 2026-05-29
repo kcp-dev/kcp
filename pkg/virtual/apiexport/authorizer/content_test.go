@@ -29,6 +29,7 @@ import (
 )
 
 func TestContentAuthorizer(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name                              string
 		contentDecision, expectedDecision authorizer.Decision
@@ -50,6 +51,7 @@ func TestContentAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			auth := &apiExportsContentAuthorizer{
 				newDelegatedAuthorizer: func(clusterName string) (authorizer.Authorizer, error) {
 					return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {

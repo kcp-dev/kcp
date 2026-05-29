@@ -45,6 +45,7 @@ var (
 )
 
 func Test_isPartialMetadataHeader(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		accept string
 		want   bool
@@ -60,6 +61,7 @@ func Test_isPartialMetadataHeader(t *testing.T) {
 	}
 	for testName, test := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			got := isPartialMetadataHeader(test.accept)
 			require.Equal(t, test.want, got)
 		})
@@ -67,6 +69,7 @@ func Test_isPartialMetadataHeader(t *testing.T) {
 }
 
 func TestWorkspaceNamePattern(t *testing.T) {
+	t.Parallel()
 	_, fileName, _, _ := runtime.Caller(0)
 	bs, err := os.ReadFile(filepath.Join(filepath.Dir(fileName), "..", "..", "..", "config", "crds", "tenancy.kcp.io_workspaces.yaml"))
 	require.NoError(t, err)
@@ -84,6 +87,7 @@ func TestWorkspaceNamePattern(t *testing.T) {
 }
 
 func TestReCluster(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		cluster string
 		valid   bool
@@ -123,6 +127,7 @@ func TestReCluster(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.cluster, func(t *testing.T) {
+			t.Parallel()
 			if got := reClusterName.MatchString(tt.cluster); got != tt.valid {
 				t.Errorf("reCluster.MatchString(%q) = %v, want %v", tt.cluster, got, tt.valid)
 			}
@@ -137,6 +142,7 @@ func TestReCluster(t *testing.T) {
 // bare names, system:* names, wildcard requests, and unset-cluster requests
 // alone.
 func TestWithClusterNameShapeInvariant(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		cluster    *request.Cluster
 		wantStatus int
@@ -191,6 +197,7 @@ func TestWithClusterNameShapeInvariant(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			called := false
 			downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				called = true

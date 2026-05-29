@@ -32,6 +32,7 @@ import (
 )
 
 func TestIndexWorkspaceByLogicalCluster(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		obj  *tenancyv1alpha1.Workspace
@@ -53,6 +54,7 @@ func TestIndexWorkspaceByLogicalCluster(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := indexWorkspaceByLogicalCluster(tc.obj)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)
@@ -61,6 +63,7 @@ func TestIndexWorkspaceByLogicalCluster(t *testing.T) {
 }
 
 func TestEnqueueLogicalCluster(t *testing.T) {
+	t.Parallel()
 	const (
 		parentCluster  = "root:foo"
 		childCluster   = "root-foo-bar"
@@ -118,6 +121,7 @@ func TestEnqueueLogicalCluster(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 				workqueue.DefaultTypedControllerRateLimiter[string](),
 				workqueue.TypedRateLimitingQueueConfig[string]{Name: "test"},

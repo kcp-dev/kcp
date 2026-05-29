@@ -145,6 +145,7 @@ func createResource(namespace, name string) *unstructured.Unstructured {
 }
 
 func TestGet(t *testing.T) {
+	t.Parallel()
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
@@ -163,6 +164,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
+	t.Parallel()
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
 	storage, _ := newStorage(t, fakeClient, "", nil)
@@ -184,6 +186,7 @@ func TestList(t *testing.T) {
 }
 
 func TestWildcardListWithAPIExportIdentity(t *testing.T) {
+	t.Parallel()
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	noxusGVRWithHash := noxusGVR.GroupVersion().WithResource("noxus:" + "apiExportIdentityHash")
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClientWithCustomListKinds(
@@ -242,6 +245,7 @@ func checkWatchEvents(t *testing.T, addEvents func(), watchCall func() (watch.In
 }
 
 func TestWatch(t *testing.T) {
+	t.Parallel()
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeWatcher := watch.NewFake()
@@ -280,6 +284,7 @@ func TestWatch(t *testing.T) {
 }
 
 func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
+	t.Parallel()
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	noxusGVRWithHash := noxusGVR.GroupVersion().WithResource("noxus:apiExportIdentityHash")
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClientWithCustomListKinds(
@@ -346,6 +351,7 @@ func updateReactor(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) kcpte
 }
 
 func TestUpdate(t *testing.T) {
+	t.Parallel()
 	resource := createResource("default", "foo")
 	resource.SetGeneration(1)
 	resource.SetResourceVersion("100")
@@ -392,6 +398,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestUpdateWithForceAllowCreate(t *testing.T) {
+	t.Parallel()
 	resource := createResource("default", "foo")
 	resource.SetGeneration(1)
 	resource.SetResourceVersion("100")
@@ -434,6 +441,7 @@ func TestUpdateWithForceAllowCreate(t *testing.T) {
 }
 
 func TestStatusUpdate(t *testing.T) {
+	t.Parallel()
 	resource := createResource("default", "foo")
 	resource.SetGeneration(1)
 	resource.SetResourceVersion("100")
@@ -461,6 +469,7 @@ func TestStatusUpdate(t *testing.T) {
 }
 
 func TestPatch(t *testing.T) {
+	t.Parallel()
 	resource := createResource("default", "foo")
 	resource.SetGeneration(1)
 	resource.SetResourceVersion("100")

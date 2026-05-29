@@ -22,6 +22,7 @@ import (
 )
 
 func TestWorkspacesValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		prefix  string
@@ -59,6 +60,7 @@ func TestWorkspacesValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			s := &workspacesScenario{}
 			s.SetWorkspacesConfig(tt.cfg)
 			err := s.Validate(tt.prefix)
@@ -76,6 +78,7 @@ func TestWorkspacesValidate(t *testing.T) {
 }
 
 func TestWorkspacesGenerateTree(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		depth  int
@@ -89,6 +92,7 @@ func TestWorkspacesGenerateTree(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			s := &workspacesScenario{}
 			s.SetWorkspacesConfig(WorkspacesConfig{Depth: tt.depth, Count: tt.count, Seed: 42})
 
@@ -134,6 +138,7 @@ func TestWorkspacesGenerateTree(t *testing.T) {
 }
 
 func TestWorkspacesGenerateTreeDeterministic(t *testing.T) {
+	t.Parallel()
 	cfg := WorkspacesConfig{Depth: 3, Count: 50, Seed: 1234}
 
 	s1 := &workspacesScenario{}
@@ -155,6 +160,7 @@ func TestWorkspacesGenerateTreeDeterministic(t *testing.T) {
 }
 
 func TestWorkspacesGenerateTreeCached(t *testing.T) {
+	t.Parallel()
 	s := &workspacesScenario{}
 	s.SetWorkspacesConfig(WorkspacesConfig{Depth: 3, Count: 10, Seed: 0})
 
@@ -170,6 +176,7 @@ func TestWorkspacesGenerateTreeCached(t *testing.T) {
 }
 
 func TestWorkspacesSteps(t *testing.T) {
+	t.Parallel()
 	s := &workspacesScenario{}
 	s.SetWorkspacesConfig(WorkspacesConfig{Depth: 2, Count: 5, Seed: 1})
 

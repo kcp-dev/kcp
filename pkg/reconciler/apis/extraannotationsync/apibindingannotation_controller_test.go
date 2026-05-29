@@ -26,6 +26,7 @@ import (
 )
 
 func TestSyncExtraAnnotationPatch(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name                  string
 		apiExportAnnotations  map[string]string
@@ -60,6 +61,7 @@ func TestSyncExtraAnnotationPatch(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			patch, err := syncExtraAnnotationPatch(scenario.apiExportAnnotations, scenario.apiBindingAnnotations)
 			require.NoError(t, err)
 			require.Equal(t, scenario.wantPatch, string(patch))

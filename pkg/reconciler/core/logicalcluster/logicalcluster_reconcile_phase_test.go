@@ -24,6 +24,7 @@ import (
 )
 
 func TestPhaseReconcile(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		logicalCluster *corev1alpha1.LogicalCluster
@@ -87,6 +88,7 @@ func TestPhaseReconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			r := &phaseReconciler{}
 			if _, err := r.reconcile(context.Background(), tt.logicalCluster); err != nil {
 				t.Fatalf("unexpected reconcile error: %v", err)

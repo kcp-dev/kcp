@@ -26,6 +26,7 @@ import (
 )
 
 func TestUpdateToCreateOptions(t *testing.T) {
+	t.Parallel()
 	updateOptions := reflect.TypeOf(metav1.UpdateOptions{})
 	numField := updateOptions.NumField()
 	require.Equalf(t, 4, numField, "UpdateOptions is expected to have 4 fields")

@@ -110,6 +110,7 @@ func updateAttrV1Alpha1(newAPIBinding, oldAPIBinding *apisv1alpha1.APIBinding) a
 }
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		attr           admission.Attributes
@@ -220,6 +221,7 @@ func TestAdmit(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {
@@ -265,6 +267,7 @@ func TestAdmit(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		attr           admission.Attributes
@@ -529,6 +532,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			o := &apiBindingAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {
@@ -694,6 +698,7 @@ func newExport(path logicalcluster.Path, name string) apiExportBuilder {
 }
 
 func TestValidateOverhangingPermissionClaims(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		annotations      func() map[string]string
 		permissionClaims []apisv1alpha1.AcceptablePermissionClaim
@@ -823,6 +828,7 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ae := &apisv1alpha1.APIBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations(),

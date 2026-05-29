@@ -31,6 +31,7 @@ import (
 )
 
 func TestReconcileCachedResourceEndpointSlice(t *testing.T) {
+	t.Parallel()
 	var createEndpointSliceCalled bool
 	tests := []struct {
 		endpointSliceReconciler endpointSlice

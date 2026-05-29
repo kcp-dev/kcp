@@ -74,6 +74,7 @@ func updateAttr(newSlice, oldSlice *apisv1alpha1.APIExportEndpointSlice) admissi
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		attr           admission.Attributes
@@ -186,6 +187,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			o := &apiExportEndpointSliceAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 				createAuthorizer: func(clusterName logicalcluster.Name, client kcpkubernetesclientset.ClusterInterface, opts delegated.Options) (authorizer.Authorizer, error) {

@@ -27,6 +27,7 @@ import (
 )
 
 func TestGeneratePatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) {
+	t.Parallel()
 	// if we change status + either spec or objectmeta, we expect a panic
 	tt := []struct {
 		name string
@@ -59,6 +60,7 @@ func TestGeneratePatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			require.Panics(t, func() {
 				_, _, _ = generatePatchAndSubResources(tc.old, tc.new)
 			})
@@ -67,6 +69,7 @@ func TestGeneratePatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) {
 }
 
 func TestGeneratePatchAndSubResources(t *testing.T) {
+	t.Parallel()
 	{
 		tt := []struct {
 			name                 string
@@ -135,6 +138,7 @@ func TestGeneratePatchAndSubResources(t *testing.T) {
 }
 
 func TestGenerateSSAPatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) {
+	t.Parallel()
 	// if we change status + either spec or objectmeta, we expect a panic for SSA as well
 	tt := []struct {
 		name string
@@ -177,6 +181,7 @@ func TestGenerateSSAPatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) 
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			require.Panics(t, func() {
 				_, _, _ = generateSSAPatchAndSubResources(tc.old, tc.new)
 			})
@@ -185,6 +190,7 @@ func TestGenerateSSAPatchAndSubResourcesMultipleSubresourcesPanic(t *testing.T) 
 }
 
 func TestGenerateSSAPatchAndSubResources(t *testing.T) {
+	t.Parallel()
 	{
 		tt := []struct {
 			name                 string

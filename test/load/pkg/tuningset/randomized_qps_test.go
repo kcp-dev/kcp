@@ -57,6 +57,8 @@ func TestRandomizedQPS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			synctest.Test(t, func(t *testing.T) {
 				maxSleep := time.Duration(2.0 / tt.averageQPS * float64(time.Second))
 				lowerBound := tt.actionDuration

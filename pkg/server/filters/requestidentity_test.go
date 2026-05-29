@@ -28,6 +28,7 @@ import (
 )
 
 func TestProcessResourceIdentity(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		path             string
 		expectError      bool
@@ -113,6 +114,7 @@ func TestProcessResourceIdentity(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			u, err := url.Parse(test.path)
 			require.NoError(t, err, "error parsing path %q to URL", test.path)
 

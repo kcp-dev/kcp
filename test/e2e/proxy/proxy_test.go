@@ -41,6 +41,7 @@ import (
 )
 
 func TestMappingWithClusterContext(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, "control-plane")
 
 	// start kcp and setup clients;

@@ -200,6 +200,7 @@ func updateAttr(obj runtime.Object, resource schema.GroupVersionResource) admiss
 }
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		apidomainKey          string
 		resource              schema.GroupVersionResource
@@ -425,6 +426,7 @@ func TestAdmit(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			lc, _ := logicalcluster.NewPath(tc.apidomainKey).Name()
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: lc})
 			ctx = dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(tc.apidomainKey))
@@ -456,6 +458,7 @@ func TestAdmit(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		apidomainKey          string
 		resource              schema.GroupVersionResource
@@ -710,6 +713,7 @@ func TestValidate(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			lc, _ := logicalcluster.NewPath(tc.apidomainKey).Name()
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: lc})
 			ctx = dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(tc.apidomainKey))
