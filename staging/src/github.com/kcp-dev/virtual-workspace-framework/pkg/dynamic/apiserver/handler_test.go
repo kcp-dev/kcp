@@ -118,7 +118,7 @@ func (l *lister) ConvertToTable(ctx context.Context, object runtime.Object, tabl
 var _ rest.Lister = &lister{}
 
 func TestRouting(t *testing.T) {
-	hasSynced := false
+	t.Parallel()
 
 	apiSetRetriever := mockedAPISetRetriever{
 		schema.GroupVersionResource{
@@ -185,44 +185,6 @@ func TestRouting(t *testing.T) {
 				}{},
 			},
 		},
-	}
-
-	// note that in production we delegate to the special handler that is attached at the end of the delegation chain that checks if the server has installed all known HTTP paths before replying to the client.
-	// it returns http.StatusServiceUnavailable if not all registered signals have been ready (closed) otherwise it simply replies with 404.
-	// the apiextentionserver is considered to be initialized once hasCRDInformerSyncedSignal is closed.
-	//
-	// here, in this test the delegate represent the special handler and hasSync represents the signal.
-	// primarily we just want to make sure that the delegate has been called.
-	// the behaviour of the real delegate is tested elsewhere.
-	delegateCalled := false
-	delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		delegateCalled = true
-		if !hasSynced {
-			http.Error(w, "", http.StatusServiceUnavailable)
-			return
-		}
-		http.Error(w, "", http.StatusTeapot)
-	})
-
-	versionDiscoveryHandler := &versionDiscoveryHandler{
-		apiSetRetriever: apiSetRetriever,
-		delegate:        delegate,
-	}
-	groupDiscoveryHandler := &groupDiscoveryHandler{
-		apiSetRetriever: apiSetRetriever,
-		delegate:        delegate,
-	}
-	rootDiscoveryHandler := &rootDiscoveryHandler{
-		apiSetRetriever: apiSetRetriever,
-		delegate:        delegate,
-	}
-
-	handler := &resourceHandler{
-		apiSetRetriever:         apiSetRetriever,
-		delegate:                delegate,
-		versionDiscoveryHandler: versionDiscoveryHandler,
-		groupDiscoveryHandler:   groupDiscoveryHandler,
-		rootDiscoveryHandler:    rootDiscoveryHandler,
 	}
 
 	testcases := []struct {
@@ -734,6 +696,47 @@ func TestRouting(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// note that in production we delegate to the special handler that is attached at the end of the delegation chain that checks if the server has installed all known HTTP paths before replying to the client.
+			// it returns http.StatusServiceUnavailable if not all registered signals have been ready (closed) otherwise it simply replies with 404.
+			// the apiextentionserver is considered to be initialized once hasCRDInformerSyncedSignal is closed.
+			//
+			// here, in this test the delegate represent the special handler and hasSync represents the signal.
+			// primarily we just want to make sure that the delegate has been called.
+			// the behaviour of the real delegate is tested elsewhere.
+			delegateCalled := false
+			hasSynced := false
+			delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				delegateCalled = true
+				if !hasSynced {
+					http.Error(w, "", http.StatusServiceUnavailable)
+					return
+				}
+				http.Error(w, "", http.StatusTeapot)
+			})
+
+			versionDiscoveryHandler := &versionDiscoveryHandler{
+				apiSetRetriever: apiSetRetriever,
+				delegate:        delegate,
+			}
+			groupDiscoveryHandler := &groupDiscoveryHandler{
+				apiSetRetriever: apiSetRetriever,
+				delegate:        delegate,
+			}
+			rootDiscoveryHandler := &rootDiscoveryHandler{
+				apiSetRetriever: apiSetRetriever,
+				delegate:        delegate,
+			}
+
+			handler := &resourceHandler{
+				apiSetRetriever:         apiSetRetriever,
+				delegate:                delegate,
+				versionDiscoveryHandler: versionDiscoveryHandler,
+				groupDiscoveryHandler:   groupDiscoveryHandler,
+				rootDiscoveryHandler:    rootDiscoveryHandler,
+			}
+
 			for _, contentType := range []string{"json", "yaml", "proto", "unknown"} {
 				t.Run(contentType, func(t *testing.T) {
 					delegateCalled = false
