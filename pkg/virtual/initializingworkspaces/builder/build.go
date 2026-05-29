@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -107,7 +108,20 @@ func BuildVirtualWorkspace(
 		v.Schema.Raw = bs // wipe schemas. We don't want validation here.
 	}
 
-	cachingAuthorizer := delegated.NewCachingAuthorizer(sarKubeClusterClient, authorizerWithCache, delegated.CachingOptions{})
+	// The inner DelegatedAuthorizer caches SAR decisions. Its default
+	// DenyCacheTTL is 30s, which is the same as wait.ForeverTestTimeout and
+	// — more importantly — far longer than the moment between a user being
+	// granted the "initialize" verb and using it. A just-in-time RBAC grant
+	// followed by an immediate request through the VW would otherwise be
+	// rejected for 30s after the first racing SAR returned Deny (e.g. the
+	// shard's RBAC informer hadn't observed the new ClusterRoleBinding yet),
+	// because every subsequent SAR within that window hits the cached Deny.
+	// 5s leaves room to absorb a brief denial loop without hammering the SAR
+	// endpoint on a genuine denial, while keeping fresh grants effective
+	// within one or two poll intervals of typical test/operator workflows.
+	cachingAuthorizer := delegated.NewCachingAuthorizer(sarKubeClusterClient, authorizerWithCache, delegated.CachingOptions{
+		Options: delegated.Options{DenyCacheTTL: 5 * time.Second},
+	})
 	wildcardLogicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
