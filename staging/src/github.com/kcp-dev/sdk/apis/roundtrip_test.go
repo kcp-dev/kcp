@@ -51,6 +51,8 @@ var groups = []runtime.SchemeBuilder{
 }
 
 // external -> json/protobuf -> external.
+//
+//nolint:paralleltest // shares stdlib lazy time.Local init with TestConversion's fuzzing, running both in parallel triggers the race-detector
 func TestRoundTripTypes(t *testing.T) {
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
