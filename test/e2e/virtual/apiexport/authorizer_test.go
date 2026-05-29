@@ -856,10 +856,17 @@ func apply(t *testing.T, workspace logicalcluster.Path, cfg *rest.Config, manife
 			}
 		}()
 
-		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		if err != nil {
-			return fmt.Errorf("error getting REST mapping for %s/%s: %w", gvk.GroupKind(), gvk.Version, err)
-		}
+		// While warming up and under load discovery can be slow and fail.
+		var mapping *meta.RESTMapping
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			var mErr error
+			mapping, mErr = mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if mErr != nil {
+				mapper.Reset()
+				return false, fmt.Sprintf("error getting REST mapping for %s/%s: %v", gvk.GroupKind(), gvk.Version, mErr)
+			}
+			return true, ""
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected REST mapping for %s/%s", gvk.GroupKind(), gvk.Version)
 
 		dynamicClient, err := kcpdynamic.NewForConfig(cfg)
 		require.NoError(t, err)
