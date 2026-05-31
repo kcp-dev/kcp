@@ -39,10 +39,12 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments(
-		"--token-auth-file", framework.DefaultTokenAuthFile,
-		"--home-workspaces-home-creator-groups=team-1",
-	))
+	server := kcptesting.PrivateKcpServer(t,
+		kcptesting.WithDefaultTokenAuthFile(t),
+		kcptestingserver.WithCustomArguments(
+			"--home-workspaces-home-creator-groups=team-1",
+		),
+	)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

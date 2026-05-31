@@ -475,7 +475,7 @@ func TestReplicationDisruptive(t *testing.T) {
 			t.Parallel()
 
 			server := kcptesting.PrivateKcpServer(t,
-				kcptestingserver.WithCustomArguments("--token-auth-file", framework.DefaultTokenAuthFile),
+				kcptesting.WithDefaultTokenAuthFile(t),
 			)
 
 			kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
