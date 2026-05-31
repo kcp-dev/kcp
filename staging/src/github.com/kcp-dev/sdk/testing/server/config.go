@@ -105,7 +105,7 @@ func WithScratchDirectories(artifactDir, dataDir string) Option {
 // WithCustomArguments applies provided arguments to a given kcp configuration.
 func WithCustomArguments(args ...string) Option {
 	return func(cfg *Config) {
-		cfg.Args = args
+		cfg.Args = append(cfg.Args, args...)
 	}
 }
 
