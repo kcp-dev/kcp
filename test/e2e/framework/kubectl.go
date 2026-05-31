@@ -29,18 +29,21 @@ import (
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	"github.com/kcp-dev/sdk/testing/env"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 )
 
 // KcpCliPluginCommand returns the expected workdir and cli args to run
 // a plugin via go run.
 func KcpCliPluginCommand(plugin string) (string, []string, error) {
+	if env.NoGoRunEnvSet() {
+		// If NO_GORUN is set use kcptestingserver for the env lookup
+		workdir, cmd := kcptestingserver.Command("kubectl-"+plugin, plugin)
+		return workdir, cmd, nil
+	}
+
 	repo, err := kcptestinghelpers.RepositoryDir()
 	if err != nil {
 		return "", nil, err
-	}
-
-	if env.NoGoRunEnvSet() {
-		return repo, []string{filepath.Join("bin", "kubectl-"+plugin)}, nil
 	}
 
 	workdir := filepath.Join(repo, "staging", "src", "github.com", "kcp-dev", "cli")
