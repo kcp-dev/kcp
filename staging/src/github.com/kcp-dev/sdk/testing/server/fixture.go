@@ -204,6 +204,13 @@ func StartKcpCommand(identity string) (string, []string) {
 // run`).
 func Command(executableName, identity string) (string, []string) {
 	if env.NoGoRunEnvSet() {
+		// kcp -> KCP_ASSET_KCP
+		// kcp-front-proxy -> KCP_ASSET_KCP_FRONT_PROXY
+		// cache-server -> KCP_ASSET_CACHE_SERVER
+		envExeName := "KCP_ASSET_" + strings.ToUpper(strings.ReplaceAll(executableName, "-", "_"))
+		if val, ok := os.LookupEnv(envExeName); ok {
+			return "", []string{val}
+		}
 		return "", []string{executableName}
 	}
 
