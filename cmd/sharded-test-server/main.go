@@ -34,6 +34,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/sdk/apis/core"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -44,6 +45,7 @@ import (
 )
 
 func main() {
+	klog.InitFlags(flag.CommandLine)
 	logDirPath := flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
 	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
