@@ -33,15 +33,10 @@ https://<cache-server>:6443/services/cache/shards/<shard>/metrics
 
 return `501 Not Implemented`. The kcp HTTP filter rejects these requests before
 authorization runs, so a workspace-local `ClusterRole` with
-`nonResourceURLs: ["/metrics"]` can no longer grant access to shard-wide data.
-
-!!! warning
-    Earlier kcp releases accidentally allowed a workspace administrator to grant
-    themselves access to shard metrics by creating a `ClusterRole` with
-    `nonResourceURLs: ["/metrics"]` and a binding inside their own workspace.
-    This was a privilege escalation: the data exposed is shard-wide, not
-    workspace content. The path is now rejected at any non-root scope and the
-    only authoritative binding is one created in `:root` (see below).
+`nonResourceURLs: ["/metrics"]` can't access metrics. This is a deliberate design choice
+ to avoid the complexity of per-workspace for time being. This is placeholder for a future 
+ implementation that may add real workspace-scoped metrics under these paths without breaking 
+ existing scrapers.
 
 ### What the shard / cache server `/metrics` actually returns
 
