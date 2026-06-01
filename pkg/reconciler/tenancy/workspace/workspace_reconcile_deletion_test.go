@@ -57,8 +57,8 @@ func (f *fakeDeletionReconciler) deleteLogicalCluster() func(ctx context.Context
 	}
 }
 
-func (f *fakeDeletionReconciler) getShardByHash() func(hash string) (*corev1alpha1.Shard, error) {
-	return func(hash string) (*corev1alpha1.Shard, error) {
+func (f *fakeDeletionReconciler) getShard() func(name string) (*corev1alpha1.Shard, error) {
+	return func(name string) (*corev1alpha1.Shard, error) {
 		// for now we can work with a fixed shard
 		s := &corev1alpha1.Shard{}
 		return s, nil
@@ -183,7 +183,7 @@ func TestReconcile(t *testing.T) {
 			}
 			fdr.deletionReconciler.getLogicalCluster = fdr.getLogicalCluster()
 			fdr.deletionReconciler.deleteLogicalCluster = fdr.deleteLogicalCluster()
-			fdr.deletionReconciler.getShardByHash = fdr.getShardByHash()
+			fdr.deletionReconciler.getShard = fdr.getShard()
 			fdr.deletionReconciler.kcpLogicalClusterAdminClientFor = fdr.kcpLogicalClusterAdminClientFor()
 
 			status, err := fdr.deletionReconciler.reconcile(ctx, tc.workspace)
