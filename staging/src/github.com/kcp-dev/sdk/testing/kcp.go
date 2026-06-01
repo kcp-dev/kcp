@@ -18,6 +18,7 @@ package testing
 
 import (
 	"embed"
+	"os"
 	"path/filepath"
 
 	"github.com/stretchr/testify/require"
@@ -28,8 +29,33 @@ import (
 	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 )
 
-//go:embed *.yaml
+//go:embed *.yaml *.csv
 var fs embed.FS
+
+// WriteDefaultTokenAuthFile writes a default auth token CSV into dir and returns the absolute path.
+func WriteDefaultTokenAuthFile(dir string) (string, error) {
+	data, err := fs.ReadFile("auth-tokens.csv")
+	if err != nil {
+		return "", err
+	}
+	p := filepath.Join(dir, "auth-tokens.csv")
+	p, err = filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(p, data, 0o600); err != nil {
+		return "", err
+	}
+	return p, nil
+}
+
+// WithDefaultTokenAuthFile writes a default auth token file into a temporary dir
+// and adds --token-auth-file to the arguments.
+func WithDefaultTokenAuthFile(t TestingT) kcptestingserver.Option {
+	return func(cfg *kcptestingserver.Config) {
+		cfg.Args = append(cfg.Args, "--token-auth-file", copyEmbeddedToTempDir(t, fs, "auth-tokens.csv"))
+	}
+}
 
 // PrivateKcpServer returns a new kcp server fixture managing a new
 // server process that is not intended to be shared between tests.

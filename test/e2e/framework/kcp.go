@@ -33,7 +33,7 @@ func init() {
 		panic(err)
 	}
 
-	DefaultTokenAuthFile = filepath.Join(repo, "test", "e2e", "framework", "auth-tokens.csv")
+	DefaultTokenAuthFile = filepath.Join(repo, "staging", "src", "github.com", "kcp-dev", "sdk", "testing", "auth-tokens.csv")
 
 	kcptesting.InitSharedKcpServer(kcptestingserver.WithCustomArguments(
 		"--token-auth-file", DefaultTokenAuthFile,

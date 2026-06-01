@@ -37,10 +37,10 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
-	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
 //go:embed *.yaml
@@ -94,13 +94,18 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 		return err
 	}
 
+	tokenAuthFile, err := kcptesting.WriteDefaultTokenAuthFile(s.runtimeDir)
+	if err != nil {
+		return err
+	}
+
 	// setup command
 	workdir, commandLine := kcptestingserver.StartKcpCommand(s.name)
 	commandLine = append(commandLine, s.args...)
 	commandLine = append(commandLine,
 		"--root-directory", s.runtimeDir,
 		"--bind-address=127.0.0.1",
-		"--token-auth-file", framework.DefaultTokenAuthFile,
+		"--token-auth-file", tokenAuthFile,
 		"--audit-log-maxsize", "1024",
 		"--audit-log-mode=batch",
 		"--audit-log-batch-max-wait=1s",
