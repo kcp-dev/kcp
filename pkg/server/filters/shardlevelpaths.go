@@ -34,9 +34,11 @@ import (
 // It must run AFTER WithLocalProxy so the cluster context reflects whether the
 // request was made through a /clusters/<ws>/ prefix.
 //
-//   - workspace-scoped requests (cluster context already set to a non-root
-//     logical cluster) are rejected with 501 Not Implemented: the data exposed
-//     at these paths is shard-wide and has no per-workspace meaning.
+//   - any workspace-scoped form, including /clusters/root/<path>, is rejected
+//     with 501 Not Implemented. The data exposed is shard-wide and has no
+//     per-workspace meaning; rejecting the /clusters/root/ form too keeps the
+//     contract simple ("only the bare URL is valid") and avoids two ways of
+//     spelling the same thing.
 //   - top-level requests (no cluster context) are rewritten to evaluate
 //     authorization against the root workspace. A kcp-admin can therefore grant
 //     scrape access via a ClusterRoleBinding in :root referring to the
@@ -50,7 +52,7 @@ func WithShardLevelPaths(handler http.Handler) http.HandlerFunc {
 		}
 
 		cluster := request.ClusterFrom(req.Context())
-		if cluster != nil && !cluster.Name.Empty() && cluster.Name != core.RootCluster {
+		if cluster != nil && !cluster.Name.Empty() {
 			audit.AddAuditAnnotation(req.Context(), "shardpaths.kcp.io/rejected", req.URL.Path)
 			http.Error(w, "shard-level endpoint not available at workspace scope", http.StatusNotImplemented)
 			return

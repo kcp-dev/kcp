@@ -26,24 +26,28 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
-func TestWithShardScopePassesThroughMetrics(t *testing.T) {
-	nextCalled := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nextCalled = true
-		w.WriteHeader(http.StatusOK)
-	})
+func TestWithShardScopePassesThroughShardLevelPaths(t *testing.T) {
+	for _, path := range []string{"/metrics", "/livez", "/readyz", "/healthz"} {
+		t.Run(path, func(t *testing.T) {
+			nextCalled := false
+			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				nextCalled = true
+				w.WriteHeader(http.StatusOK)
+			})
 
-	h := WithShardScope(next)
+			h := WithShardScope(next)
 
-	req := httptest.NewRequest(http.MethodGet, "https://cache.example/metrics", http.NoBody)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
+			req := httptest.NewRequest(http.MethodGet, "https://cache.example"+path, http.NoBody)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
 
-	if !nextCalled {
-		t.Fatalf("next handler should be called for top-level /metrics on cache server")
-	}
-	if rec.Code != http.StatusOK {
-		t.Errorf("status: got %d, want %d", rec.Code, http.StatusOK)
+			if !nextCalled {
+				t.Fatalf("next handler should be called for top-level %s on cache server", path)
+			}
+			if rec.Code != http.StatusOK {
+				t.Errorf("status: got %d, want %d", rec.Code, http.StatusOK)
+			}
+		})
 	}
 }
 
@@ -91,6 +95,19 @@ func TestWithCacheShardLevelPaths(t *testing.T) {
 			cluster:        &request.Cluster{Name: logicalcluster.Name("ws-1234")},
 			wantStatus:     http.StatusNotImplemented,
 			wantNextCalled: false,
+		},
+		{
+			name:           "livez with shard set is rejected with 501",
+			path:           "/livez",
+			shard:          request.Shard("amber"),
+			wantStatus:     http.StatusNotImplemented,
+			wantNextCalled: false,
+		},
+		{
+			name:           "readyz top-level passes through",
+			path:           "/readyz",
+			wantStatus:     http.StatusOK,
+			wantNextCalled: true,
 		},
 	}
 

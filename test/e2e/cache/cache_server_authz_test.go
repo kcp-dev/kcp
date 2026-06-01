@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"net/http"
 	"path"
 	"testing"
 
@@ -76,6 +77,10 @@ func TestCacheServerAuthz(t *testing.T) {
 		t.Parallel()
 		testPrivilegedCertAllowed(t, adminRestConfig)
 	})
+	t.Run("MetricsAtShardOrWorkspaceScopeIsRejected", func(t *testing.T) {
+		t.Parallel()
+		testMetricsAtShardOrWorkspaceScopeRejected(t, adminRestConfig)
+	})
 }
 
 // testHealthEndpointsWithoutAuth verifies that health endpoints are accessible without any client certificate.
@@ -93,6 +98,36 @@ func testHealthEndpointsWithoutAuth(t *testing.T, adminCfg *rest.Config) {
 			body, err := rest.NewRequest(client).RequestURI(endpoint).Do(t.Context()).Raw()
 			require.NoError(t, err, "expected %s to be accessible without auth, got error", endpoint)
 			t.Logf("%s returned: %s", endpoint, string(body))
+		})
+	}
+}
+
+// testMetricsAtShardOrWorkspaceScopeRejected verifies that the cache server's
+// shard-level /metrics endpoint is not reachable via a shard- or workspace-
+// scoped URL (kcp#4062). The bare /metrics is still served by the apiserver,
+// but anything that pretends /metrics has per-shard or per-workspace meaning
+// must come back with 501 Not Implemented.
+func testMetricsAtShardOrWorkspaceScopeRejected(t *testing.T, adminCfg *rest.Config) {
+	t.Helper()
+
+	cfg := rest.CopyConfig(adminCfg)
+	cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
+	client, err := rest.UnversionedRESTClientFor(cfg)
+	require.NoError(t, err)
+
+	scoped := []string{
+		"/services/cache/shards/amber/metrics",
+		"/services/cache/shards/amber/clusters/root/metrics",
+		"/services/cache/shards/amber/clusters/some-ws/metrics",
+	}
+	for _, endpoint := range scoped {
+		t.Run(endpoint, func(t *testing.T) {
+			t.Parallel()
+			var code int
+			_, err := rest.NewRequest(client).RequestURI(endpoint).Do(t.Context()).StatusCode(&code).Raw()
+			require.Equalf(t, http.StatusNotImplemented, code,
+				"expected 501 for shard/workspace-scoped %s on cache server, got %d (err=%v)",
+				endpoint, code, err)
 		})
 	}
 }

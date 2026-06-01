@@ -26,6 +26,15 @@ import "k8s.io/apimachinery/pkg/util/sets"
 // pkg/server/filters and pkg/cache/server reject any workspace-scoped request
 // targeting one of these paths, and scope a top-level request to the root
 // workspace for RBAC evaluation.
+//
+// The set includes /metrics and the standard kube health probes
+// (/livez, /readyz, /healthz). All of these expose process-level state for
+// the running shard or cache server with no per-workspace or per-shard
+// meaning, so the workspace-scoped forms (/clusters/<ws>/livez,
+// /services/cache/shards/<sh>/livez, ...) must not resolve.
 var Paths = sets.New(
 	"/metrics",
+	"/livez",
+	"/readyz",
+	"/healthz",
 )

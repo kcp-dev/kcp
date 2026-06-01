@@ -61,12 +61,11 @@ func TestWithShardLevelPaths(t *testing.T) {
 			wantClusterIn:  core.RootCluster,
 		},
 		{
-			name:           "metrics with explicit root cluster passes through",
+			name:           "metrics with explicit root cluster is rejected (use the bare URL)",
 			path:           "/metrics",
 			cluster:        &request.Cluster{Name: core.RootCluster},
-			wantStatus:     http.StatusOK,
-			wantNextCalled: true,
-			wantClusterIn:  core.RootCluster,
+			wantStatus:     http.StatusNotImplemented,
+			wantNextCalled: false,
 		},
 		{
 			name:           "metrics with workspace cluster is rejected with 501",
@@ -74,6 +73,21 @@ func TestWithShardLevelPaths(t *testing.T) {
 			cluster:        &request.Cluster{Name: logicalcluster.Name("ws-1234")},
 			wantStatus:     http.StatusNotImplemented,
 			wantNextCalled: false,
+		},
+		{
+			name:           "livez with workspace cluster is rejected with 501",
+			path:           "/livez",
+			cluster:        &request.Cluster{Name: logicalcluster.Name("ws-1234")},
+			wantStatus:     http.StatusNotImplemented,
+			wantNextCalled: false,
+		},
+		{
+			name:           "readyz top-level scopes to root",
+			path:           "/readyz",
+			cluster:        nil,
+			wantStatus:     http.StatusOK,
+			wantNextCalled: true,
+			wantClusterIn:  core.RootCluster,
 		},
 	}
 

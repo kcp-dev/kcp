@@ -1,6 +1,6 @@
 # Scraping kcp metrics
 
-kcp exposes Prometheus metrics on the `/metrics` endpoint of every shard and of
+kcp exposes Prometheus metrics on the `/metrics` endpoint of every shard and on
 the cache server. These are **shard-wide** resources: a single scrape returns
 process-level data for the entire shard, not for any particular workspace.
 
@@ -21,26 +21,49 @@ For the cache server:
 https://<cache-server>:6443/metrics
 ```
 
-Workspace- or shard-scoped variants such as
+## Workspace- and shard-scoped variants are rejected
+
+Requests such as
 
 ```
 https://<shard>:6443/clusters/<workspace>/metrics
 https://<cache-server>:6443/services/cache/shards/<shard>/clusters/<workspace>/metrics
+https://<cache-server>:6443/services/cache/shards/<shard>/metrics
 ```
 
-return `501 Not Implemented`. Today this is a placeholder: per-workspace and
-per-shard metrics are not yet implemented, and the data the underlying
-`/metrics` handler exposes is shard-wide with no per-workspace or per-shard
-meaning. The kcp HTTP filter rejects these requests before authorization runs
-so that a future implementation can fill in real workspace-scoped metrics
-without changing the URL contract.
+return `501 Not Implemented`. The kcp HTTP filter rejects these requests before
+authorization runs, so a workspace-local `ClusterRole` with
+`nonResourceURLs: ["/metrics"]` can no longer grant access to shard-wide data.
+
+!!! warning
+    Earlier kcp releases accidentally allowed a workspace administrator to grant
+    themselves access to shard metrics by creating a `ClusterRole` with
+    `nonResourceURLs: ["/metrics"]` and a binding inside their own workspace.
+    This was a privilege escalation: the data exposed is shard-wide, not
+    workspace content. The path is now rejected at any non-root scope and the
+    only authoritative binding is one created in `:root` (see below).
+
+### What the shard / cache server `/metrics` actually returns
+
+The bare top-level `/metrics` is the standard Prometheus exposition produced by
+the underlying apiserver process. It aggregates counters and histograms across
+every workspace served by the shard (or cached by the cache server) and there
+is no per-workspace breakdown.
+
+### Future per-workspace metrics
+
+Per-workspace and per-shard metrics are not implemented today. The 501 status
+is a deliberate placeholder so that a future implementation can fill in real
+workspace-scoped metrics under the same URL contract without forcing scrapers
+to migrate paths.
 
 ## Authorizing a scraper on a shard
 
 kcp ships a bootstrap `ClusterRole` named `system:kcp:metrics-reader` that grants
 `GET` on `/metrics`. To allow an identity to scrape every shard, create a
-`ClusterRoleBinding` in the `:root` workspace. The binding is replicated to all
-shards via the cache server, so a single binding is enough.
+`ClusterRoleBinding` in the `:root` workspace. The root workspace lives on the
+root shard, and the binding is replicated to all shards via the cache server,
+so a single binding in `:root` is sufficient to cover the entire deployment.
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -57,7 +80,7 @@ subjects:
     name: prometheus
 ```
 
-Apply it against the root workspace:
+Apply it to the root workspace:
 
 ```bash
 kubectl --kubeconfig=admin.kubeconfig --context root ws use :root
@@ -74,15 +97,6 @@ curl -k --cert prometheus.crt --key prometheus.key \
 
 Substitute `kind: Group` or `kind: ServiceAccount` in the binding to suit your
 identity provider.
-
-### Note: workspace-local `nonResourceURLs: /metrics` no longer works
-
-Earlier kcp releases accidentally allowed a workspace administrator to grant
-themselves access to shard metrics by creating a `ClusterRole` with
-`nonResourceURLs: ["/metrics"]` and a binding inside their own workspace. This
-was a privilege escalation: the data exposed is shard-wide, not workspace
-content. The path is now rejected at the workspace scope and the only
-authoritative binding is one created in `:root`.
 
 ## Authorizing a scraper on the cache server
 
