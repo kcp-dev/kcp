@@ -72,6 +72,7 @@ func TestReconcileScheduling(t *testing.T) {
 				t.Helper()
 
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "1pfxsevk"
 				initialWS.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = "root"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(ws, initialWS) {
@@ -262,6 +263,7 @@ func TestReconcileScheduling(t *testing.T) {
 				t.Helper()
 
 				initialWS.Annotations["internal.tenancy.kcp.io/cluster"] = "root-foo"
+				initialWS.Annotations["internal.tenancy.kcp.io/shard"] = "29hdqnv7"
 				initialWS.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = "amber"
 				initialWS.Finalizers = append(initialWS.Finalizers, "core.kcp.io/logicalcluster")
 				if !equality.Semantic.DeepEqual(wsAfterReconciliation, initialWS) {

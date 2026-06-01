@@ -70,7 +70,9 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspac
 	}
 
 	reconcilers := []reconciler{
-		&metaDataReconciler{},
+		&metaDataReconciler{
+			listShards: c.globalShardLister.List,
+		},
 		&deletionReconciler{
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
