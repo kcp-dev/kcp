@@ -17,13 +17,16 @@ limitations under the License.
 package workspacetype
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
 	"path"
+	"slices"
 
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/tenancy/initialization"
 	"github.com/kcp-dev/sdk/apis/tenancy/termination"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -62,7 +65,11 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 		return fmt.Errorf("error listing Shards: %w", err)
 	}
 
-	desiredURLs := make(map[string]tenancyv1alpha1.VirtualWorkspaceType)
+	slices.SortFunc(shards, func(a, b *corev1alpha1.Shard) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
+	wt.Status.VirtualWorkspaces = make([]tenancyv1alpha1.VirtualWorkspace, 0, len(shards)*2)
 	for _, shard := range shards {
 		if shard.Spec.VirtualWorkspaceURL == "" {
 			continue
@@ -84,7 +91,10 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			string(initialization.InitializerForType(wt)),
 		)
 
-		desiredURLs[u.String()] = tenancyv1alpha1.VirtualWorkspaceTypeInitializing
+		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
+			URL:  u.String(),
+			Type: tenancyv1alpha1.VirtualWorkspaceTypeInitializing,
+		})
 
 		// add terminating workspace URLs
 		u.Path = path.Join(
@@ -94,15 +104,9 @@ func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, wt *tenancy
 			string(termination.TerminatorForType(wt)),
 		)
 
-		desiredURLs[u.String()] = tenancyv1alpha1.VirtualWorkspaceTypeTerminating
-	}
-
-	wt.Status.VirtualWorkspaces = nil
-
-	for url, vwType := range desiredURLs {
 		wt.Status.VirtualWorkspaces = append(wt.Status.VirtualWorkspaces, tenancyv1alpha1.VirtualWorkspace{
-			URL:  url,
-			Type: vwType,
+			URL:  u.String(),
+			Type: tenancyv1alpha1.VirtualWorkspaceTypeTerminating,
 		})
 	}
 

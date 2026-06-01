@@ -61,6 +61,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				Status: tenancyv1alpha1.WorkspaceTypeStatus{
+					VirtualWorkspaces: []tenancyv1alpha1.VirtualWorkspace{},
 					Conditions: conditionsv1alpha1.Conditions{
 						{
 							Type:   "Ready",
