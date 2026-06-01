@@ -1548,19 +1548,17 @@ func (s *Server) installKubeQuotaController(
 
 	// TODO(ncdc): should we make these configurable?
 	const (
-		quotaResyncPeriod        = 5 * time.Minute
-		replenishmentPeriod      = 12 * time.Hour
-		workersPerLogicalCluster = 1
+		quotaResyncPeriod   = 5 * time.Minute
+		replenishmentPeriod = 12 * time.Hour
+		workers             = 4
 	)
 
 	c, err := kubequota.NewController(
-		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory,
 		s.PartialMetadataDDSIF,
 		quotaResyncPeriod,
 		replenishmentPeriod,
-		workersPerLogicalCluster,
 		s.syncedCh,
 	)
 	if err != nil {
@@ -1575,12 +1573,11 @@ func (s *Server) installKubeQuotaController(
 				if len(notSynced) > 0 {
 					return false, nil
 				}
-				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
-					s.KubeSharedInformerFactory.Core().V1().ResourceQuotas().Informer().HasSynced(), nil
+				return s.KubeSharedInformerFactory.Core().V1().ResourceQuotas().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
-			c.Start(ctx, 2)
+			c.Start(ctx, workers)
 		},
 	})
 }
