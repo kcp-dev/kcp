@@ -110,9 +110,7 @@ func testHealthEndpointsWithoutAuth(t *testing.T, adminCfg *rest.Config) {
 func testMetricsAtShardOrWorkspaceScopeRejected(t *testing.T, adminCfg *rest.Config) {
 	t.Helper()
 
-	cfg := rest.CopyConfig(adminCfg)
-	cfg.NegotiatedSerializer = kubernetesscheme.Codecs.WithoutConversion()
-	client, err := rest.UnversionedRESTClientFor(cfg)
+	httpClient, err := rest.HTTPClientFor(adminCfg)
 	require.NoError(t, err)
 
 	scoped := []string{
@@ -123,11 +121,13 @@ func testMetricsAtShardOrWorkspaceScopeRejected(t *testing.T, adminCfg *rest.Con
 	for _, endpoint := range scoped {
 		t.Run(endpoint, func(t *testing.T) {
 			t.Parallel()
-			var code int
-			_, err := rest.NewRequest(client).RequestURI(endpoint).Do(t.Context()).StatusCode(&code).Raw()
-			require.Equalf(t, http.StatusNotImplemented, code,
-				"expected 501 for shard/workspace-scoped %s on cache server, got %d (err=%v)",
-				endpoint, code, err)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, adminCfg.Host+endpoint, http.NoBody)
+			require.NoError(t, err)
+			resp, err := httpClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			require.Equalf(t, http.StatusNotImplemented, resp.StatusCode,
+				"expected 501 for shard/workspace-scoped %s on cache server", endpoint)
 		})
 	}
 }

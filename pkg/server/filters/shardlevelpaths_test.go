@@ -75,19 +75,14 @@ func TestWithShardLevelPaths(t *testing.T) {
 			wantNextCalled: false,
 		},
 		{
-			name:           "livez with workspace cluster is rejected with 501",
+			// Probes are intentionally NOT in shardpaths so workspace-scoped
+			// liveness probing keeps working.
+			name:           "livez with workspace cluster passes through unchanged",
 			path:           "/livez",
 			cluster:        &request.Cluster{Name: logicalcluster.Name("ws-1234")},
-			wantStatus:     http.StatusNotImplemented,
-			wantNextCalled: false,
-		},
-		{
-			name:           "readyz top-level scopes to root",
-			path:           "/readyz",
-			cluster:        nil,
 			wantStatus:     http.StatusOK,
 			wantNextCalled: true,
-			wantClusterIn:  core.RootCluster,
+			wantClusterIn:  logicalcluster.Name("ws-1234"),
 		},
 	}
 

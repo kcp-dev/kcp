@@ -64,14 +64,14 @@ func init() {
 // /shards/amber/clusters/system:amber/apis/apis.kcp.io/v1alpha1/apiexports
 //
 // Note:
-// not all paths require to have a valid shard name. Any path declared
-// shard-level in pkg/authorization/shardpaths (e.g. /metrics and the standard
-// /livez, /readyz, /healthz probes) passes through so that prometheus-style
-// scrapers and liveness probes can hit the cache server directly without
+// not all paths require to have a valid shard name,
+// as of today the following paths pass through: "/livez", "/readyz", "/healthz",
+// and any path declared shard-level in pkg/authorization/shardpaths (e.g. /metrics)
+// so that prometheus-style scrapers can hit the cache server directly without
 // constructing a /shards/<sh>/ prefix.
 func WithShardScope(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if shardpaths.Paths.Has(req.URL.Path) {
+		if path := req.URL.Path; path == "/livez" || path == "/readyz" || path == "/healthz" || shardpaths.Paths.Has(path) {
 			handler.ServeHTTP(w, req)
 			return
 		}
