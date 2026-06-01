@@ -455,6 +455,7 @@ func wellKnownLogicalClusterForFooWS() *corev1alpha1.LogicalCluster {
 				tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey: `{"username":"kcp-admin"}`,
 				tenancyv1alpha1.LogicalClusterTypeAnnotationKey:         "root:universal",
 				core.LogicalClusterPathAnnotationKey:                    "root:foo",
+				corev1alpha1.LogicalClusterShardAnnotationKey:           "root",
 			},
 		},
 		Spec: corev1alpha1.LogicalClusterSpec{

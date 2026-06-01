@@ -305,7 +305,15 @@ func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *
 			Name: corev1alpha1.LogicalClusterName,
 			Annotations: map[string]string{
 				tenancyv1alpha1.LogicalClusterTypeAnnotationKey: logicalcluster.NewPath(workspace.Spec.Type.Path).Join(string(workspace.Spec.Type.Name)).String(),
-				core.LogicalClusterPathAnnotationKey:            canonicalPath.String(),
+				// The shard must be set in the annotation when
+				// scheduling the LC, otherwise the LC metadata
+				// reconciler will detect this is a drift and try to set
+				// the annotation on the LC and the workspace, which
+				// will trigger another reconcile here.
+				// Not a problem, but doing this prevents a few
+				// reconcile cycles.
+				corev1alpha1.LogicalClusterShardAnnotationKey: shard.Name,
+				core.LogicalClusterPathAnnotationKey:          canonicalPath.String(),
 			},
 		},
 		Spec: corev1alpha1.LogicalClusterSpec{
