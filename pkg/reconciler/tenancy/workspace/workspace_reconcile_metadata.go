@@ -23,6 +23,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/klog/v2"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
@@ -50,6 +51,18 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 		workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
 		changed = true
+	}
+
+	// update deprecated internal shard hash annotation
+	if shard := workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]; shard != "" {
+		expectedHash := kcpcrypto.Base36Sha224.StringPad(shard)[:8]
+		if got := workspace.Annotations[WorkspaceShardHashAnnotationKey]; got != expectedHash {
+			if workspace.Annotations == nil {
+				workspace.Annotations = map[string]string{}
+			}
+			workspace.Annotations[WorkspaceShardHashAnnotationKey] = expectedHash
+			changed = true
+		}
 	}
 
 	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {

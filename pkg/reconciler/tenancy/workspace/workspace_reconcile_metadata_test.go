@@ -35,10 +35,12 @@ func TestReconcileMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, testCase := range []struct {
-		name       string
-		input      *tenancyv1alpha1.Workspace
-		expected   metav1.ObjectMeta
-		wantStatus reconcileStatus
+		name         string
+		input        *tenancyv1alpha1.Workspace
+		expected     metav1.ObjectMeta
+		expectedSpec tenancyv1alpha1.WorkspaceSpec
+		wantStatus   reconcileStatus
+		wantErr      bool
 	}{
 		{
 			name: "removes everything but owner username when ready",
@@ -129,16 +131,103 @@ func TestReconcileMetadata(t *testing.T) {
 			},
 			wantStatus: reconcileStatusStopAndRequeue,
 		},
+		{
+			name: "derives deprecated hash from canonical shard annotation when missing",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
+					WorkspaceShardHashAnnotationKey:               "2e1tfbst",
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "rewrites stale deprecated hash when canonical shard changes",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
+						WorkspaceShardHashAnnotationKey:               "stale123",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
+					WorkspaceShardHashAnnotationKey:               "2e1tfbst",
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+			},
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "no-op when canonical and hash already in sync",
+			input: &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
+						WorkspaceShardHashAnnotationKey:               "2e1tfbst",
+					},
+					Labels: map[string]string{
+						"tenancy.kcp.io/phase": "Ready",
+					},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				},
+			},
+			expected: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
+					WorkspaceShardHashAnnotationKey:               "2e1tfbst",
+				},
+				Labels: map[string]string{
+					"tenancy.kcp.io/phase": "Ready",
+				},
+			},
+			wantStatus: reconcileStatusContinue,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			reconciler := metaDataReconciler{}
 			status, err := reconciler.reconcile(context.Background(), testCase.input)
 
-			require.NoError(t, err)
+			if testCase.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 			require.Equal(t, testCase.wantStatus, status)
 
 			if diff := cmp.Diff(testCase.input.ObjectMeta, testCase.expected); diff != "" {
 				t.Errorf("invalid output after reconciling metadata: %v", diff)
+			}
+			if diff := cmp.Diff(testCase.input.Spec, testCase.expectedSpec); diff != "" {
+				t.Errorf("invalid spec after reconciling metadata: %v", diff)
 			}
 		})
 	}
