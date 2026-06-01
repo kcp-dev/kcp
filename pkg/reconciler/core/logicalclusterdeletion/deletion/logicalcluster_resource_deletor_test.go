@@ -35,24 +35,10 @@ import (
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 )
 
-var scheme *runtime.Scheme
-
-func init() {
-	scheme = runtime.NewScheme()
-	utilruntime.Must(metav1.AddMetaToScheme(scheme))
-}
-
 // TODO:(p0lyn0mial, sttts) rework this test to use Workspace.
 func TestWorkspaceTerminating(t *testing.T) {
+	t.Parallel()
 	now := metav1.Now()
-	ws := &corev1alpha1.LogicalCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test",
-			DeletionTimestamp: &now,
-			Finalizers:        []string{LogicalClusterDeletionFinalizer},
-			Annotations:       map[string]string{logicalcluster.AnnotationKey: "root"},
-		},
-	}
 	resources := testResources()
 
 	tests := []struct {
@@ -118,6 +104,17 @@ func TestWorkspaceTerminating(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			scheme := runtime.NewScheme()
+			utilruntime.Must(metav1.AddMetaToScheme(scheme))
+			ws := &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test",
+					DeletionTimestamp: &now,
+					Finalizers:        []string{LogicalClusterDeletionFinalizer},
+					Annotations:       map[string]string{logicalcluster.AnnotationKey: "root"},
+				},
+			}
 			fn := func(clusterName logicalcluster.Path) ([]*metav1.APIResourceList, error) {
 				return resources, tt.gvrError
 			}

@@ -289,7 +289,7 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("A service account is allowed to escalate permissions implicitly", func(t *testing.T) {
 				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
-				_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+				_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("implicit-escalation-%d", i),
 					},
@@ -351,7 +351,7 @@ func TestServiceAccounts(t *testing.T) {
 
 			t.Run("A service account is allowed to escalate permissions explicitly", func(t *testing.T) {
 				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
-				_, err = kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+				_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: fmt.Sprintf("explicit-clusterrole-%d", i),
 					},
@@ -387,7 +387,7 @@ func TestServiceAccounts(t *testing.T) {
 
 				t.Log("Verifying if service account is allowed to escalate")
 				kcptestinghelpers.Eventually(t, func() (bool, string) { // authz makes this eventually succeed
-					_, err = saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+					_, err := saKubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("explicit-escalating-clusterrole-%d", i),
 						},
