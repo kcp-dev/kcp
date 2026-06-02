@@ -227,33 +227,45 @@ func NewScopedDiscoveringDynamicSharedInformerFactory(
 // shared informers that discovers new types and informs on updates to resources of
 // those types.
 // It receives the GVR-related information by delegating to a GVRSource.
+//
+// The filterFunc filters events going to handlers.
+// The ignoreFunc is passed to .SetIgnoreFunc on each informer,
+// filtering objects from being processed and stored at all.
 func NewDiscoveringDynamicSharedInformerFactory(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	filterFunc func(obj interface{}) bool,
+	ignoreFunc func(obj interface{}) bool,
 	tweakListOptions dynamicinformer.TweakListOptionsFunc,
 	gvrSource GVRSource,
 	indexers cache.Indexers,
 ) (*DiscoveringDynamicSharedInformerFactory, error) {
+	ddsif := &DiscoveringDynamicSharedInformerFactory{}
+
 	f, err := NewGenericDiscoveringDynamicSharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister](
 		func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
 			indexers[kcpcache.ClusterIndexName] = kcpcache.ClusterIndexFunc
 			indexers[kcpcache.ClusterAndNamespaceIndexName] = kcpcache.ClusterAndNamespaceIndexFunc
-			return kcpdynamicinformer.NewFilteredDynamicInformer(
+			inf := kcpdynamicinformer.NewFilteredDynamicInformer(
 				dynamicClusterClient,
 				gvr,
 				resyncPeriod,
 				indexers,
 				tweakListOptions,
 			)
+			if err := inf.Informer().SetIgnoreFunc(ignoreFunc); err != nil {
+				// This should never happen - .SetIgnoreFunc only errors when the informer
+				// is already running which shouldn't be the case here.
+				panic(fmt.Errorf("failed to set ignore func for %v: %w", gvr, err))
+			}
+			return inf
 		},
 		filterFunc,
 		gvrSource,
 		indexers,
 	)
 
-	return &DiscoveringDynamicSharedInformerFactory{
-		GenericDiscoveringDynamicSharedInformerFactory: f,
-	}, err
+	ddsif.GenericDiscoveringDynamicSharedInformerFactory = f
+	return ddsif, err
 }
 
 // DiscoveringDynamicSharedInformerFactory is a factory for cluster-aware
@@ -280,6 +292,26 @@ func (d *DiscoveringDynamicSharedInformerFactory) ClusterWithContext(ctx context
 	}
 
 	return informer
+}
+
+// PurgeCluster removes all objects belonging to the given logical cluster from all informer stores.
+func (d *DiscoveringDynamicSharedInformerFactory) PurgeCluster(cluster logicalcluster.Name) {
+	d.informersLock.RLock()
+	defer d.informersLock.RUnlock()
+
+	for _, inf := range d.informers {
+		store := inf.Informer().GetIndexer()
+		objs, err := store.ByIndex(kcpcache.ClusterIndexName, kcpcache.ClusterIndexKey(cluster))
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("failed to list objects for cluster %v: %w", cluster, err))
+			continue
+		}
+		for _, obj := range objs {
+			if err := store.Delete(obj); err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to delete object from store for cluster %v: %w", cluster, err))
+			}
+		}
+	}
 }
 
 type scopedDiscoveringDynamicSharedInformerFactory struct {
