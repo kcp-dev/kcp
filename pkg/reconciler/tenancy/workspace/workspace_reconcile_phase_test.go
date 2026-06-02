@@ -38,7 +38,7 @@ func TestReconcilePhase(t *testing.T) {
 		name              string
 		input             *tenancyv1alpha1.Workspace
 		getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
-		getShardByHash    func(hash string) (*corev1alpha1.Shard, error)
+		getShard          func(name string) (*corev1alpha1.Shard, error)
 
 		wantPhase     corev1alpha1.LogicalClusterPhaseType
 		wantStatus    reconcileStatus
@@ -78,7 +78,7 @@ func TestReconcilePhase(t *testing.T) {
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
@@ -92,7 +92,7 @@ func TestReconcilePhase(t *testing.T) {
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
 			},
-			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+			getShard: func(name string) (*corev1alpha1.Shard, error) {
 				return &corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "shard-1"}}, nil
 			},
 			wantPhase:   corev1alpha1.LogicalClusterPhaseInitializing,
@@ -104,7 +104,7 @@ func TestReconcilePhase(t *testing.T) {
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
@@ -118,8 +118,8 @@ func TestReconcilePhase(t *testing.T) {
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
 			},
-			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
-				return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), "shard-hash-1")
+			getShard: func(name string) (*corev1alpha1.Shard, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), "shard-1")
 			},
 			wantPhase:  corev1alpha1.LogicalClusterPhaseInitializing,
 			wantStatus: reconcileStatusContinue,
@@ -307,7 +307,7 @@ func TestReconcilePhase(t *testing.T) {
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
@@ -334,7 +334,7 @@ func TestReconcilePhase(t *testing.T) {
 					},
 				}, nil
 			},
-			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+			getShard: func(name string) (*corev1alpha1.Shard, error) {
 				return &corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "shard-1"}}, nil
 			},
 			wantPhase:  corev1alpha1.LogicalClusterPhaseReady,
@@ -350,7 +350,7 @@ func TestReconcilePhase(t *testing.T) {
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
@@ -373,7 +373,7 @@ func TestReconcilePhase(t *testing.T) {
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
 			},
-			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
+			getShard: func(name string) (*corev1alpha1.Shard, error) {
 				return &corev1alpha1.Shard{ObjectMeta: metav1.ObjectMeta{Name: "shard-1"}}, nil
 			},
 			wantPhase:  corev1alpha1.LogicalClusterPhaseUnavailable,
@@ -384,7 +384,7 @@ func TestReconcilePhase(t *testing.T) {
 			input: &tenancyv1alpha1.Workspace{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						WorkspaceShardHashAnnotationKey: "shard-hash-1",
+						corev1alpha1.LogicalClusterShardAnnotationKey: "shard-1",
 					},
 				},
 				Spec: tenancyv1alpha1.WorkspaceSpec{
@@ -407,8 +407,8 @@ func TestReconcilePhase(t *testing.T) {
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalcluster"), "cluster-1")
 			},
-			getShardByHash: func(hash string) (*corev1alpha1.Shard, error) {
-				return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), "shard-hash-1")
+			getShard: func(name string) (*corev1alpha1.Shard, error) {
+				return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), "shard-1")
 			},
 			wantPhase:  corev1alpha1.LogicalClusterPhaseUnavailable,
 			wantStatus: reconcileStatusContinue,
@@ -518,7 +518,7 @@ func TestReconcilePhase(t *testing.T) {
 			requeued := false
 			reconciler := phaseReconciler{
 				getLogicalCluster: testCase.getLogicalCluster,
-				getShardByHash:    testCase.getShardByHash,
+				getShard:          testCase.getShard,
 				requeueAfter: func(workspace *tenancyv1alpha1.Workspace, after time.Duration) {
 					requeued = true
 				},

@@ -34,7 +34,7 @@ import (
 
 type phaseReconciler struct {
 	getLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
-	getShardByHash    func(hash string) (*corev1alpha1.Shard, error)
+	getShard          func(name string) (*corev1alpha1.Shard, error)
 
 	requeueAfter func(workspace *tenancyv1alpha1.Workspace, after time.Duration)
 }
@@ -62,9 +62,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			} else if apierrors.IsNotFound(err) {
 				// The LogicalCluster may not be visible through the front-proxy yet
 				// because the shard index hasn't caught up.
-				shardHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+				shardName, hasShard := workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
 				if hasShard {
-					shard, shardErr := r.getShardByHash(shardHash)
+					shard, shardErr := r.getShard(shardName)
 					if shardErr == nil && shard.DeletionTimestamp.IsZero() {
 						if workspace.CreationTimestamp.IsZero() || time.Since(workspace.CreationTimestamp.Time) < logicalClusterTimeout {
 							logger.V(3).Info("LogicalCluster not found but shard is alive, requeueing", "shard", shard.Name)
@@ -103,9 +103,9 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 
 		case corev1alpha1.LogicalClusterPhaseUnavailable:
 			if conditions.IsFalse(workspace, tenancyv1alpha1.WorkspaceInitialized) && conditions.GetReason(workspace, tenancyv1alpha1.WorkspaceInitialized) == tenancyv1alpha1.WorkspaceInitializedWorkspaceDisappeared {
-				shardHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+				shardName, hasShard := workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
 				if hasShard {
-					shard, shardErr := r.getShardByHash(shardHash)
+					shard, shardErr := r.getShard(shardName)
 					if shardErr == nil && shard.DeletionTimestamp.IsZero() {
 						_, err := r.getLogicalCluster(ctx, logicalcluster.NewPath(workspace.Spec.Cluster))
 						if apierrors.IsNotFound(err) {

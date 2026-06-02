@@ -35,7 +35,7 @@ type deletionReconciler struct {
 	getLogicalCluster    func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
 	deleteLogicalCluster func(ctx context.Context, cluster logicalcluster.Path) error
 
-	getShardByHash func(hash string) (*corev1alpha1.Shard, error)
+	getShard func(name string) (*corev1alpha1.Shard, error)
 
 	kcpLogicalClusterAdminClientFor func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
 }
@@ -75,13 +75,13 @@ func (r *deletionReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		// try again with a direct connection. It might be that the front-proxy
 		// does not know about the logical cluster. We don't want to leak, so
 		// try extra hard.
-		shardNameHash, hasShard := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		shardName, hasShard := workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
 		if !hasShard {
 			// nothing we can do beyond retrying
 			return reconcileStatusStopAndRequeue, getErr
 		}
 
-		shard, err := r.getShardByHash(shardNameHash)
+		shard, err := r.getShard(shardName)
 		if err != nil {
 			return reconcileStatusStopAndRequeue, err
 		}

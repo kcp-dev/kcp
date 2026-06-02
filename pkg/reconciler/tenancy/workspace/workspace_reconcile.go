@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilserrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -48,15 +47,8 @@ type reconciler interface {
 }
 
 func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspace) (bool, error) {
-	getShardByName := func(hash string) (*corev1alpha1.Shard, error) {
-		shards, err := c.globalShardIndexer.ByIndex(byBase36Sha224Name, hash)
-		if err != nil {
-			return nil, err
-		}
-		if len(shards) == 0 {
-			return nil, apierrors.NewNotFound(corev1alpha1.Resource("shard"), hash)
-		}
-		return shards[0].(*corev1alpha1.Shard), nil
+	getShard := func(name string) (*corev1alpha1.Shard, error) {
+		return c.globalShardLister.Cluster(core.RootCluster).Get(name)
 	}
 
 	kcpDirectClientFor := func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
@@ -78,7 +70,9 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspac
 	}
 
 	reconcilers := []reconciler{
-		&metaDataReconciler{},
+		&metaDataReconciler{
+			listShards: c.globalShardLister.List,
+		},
 		&deletionReconciler{
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
@@ -86,17 +80,14 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspac
 			deleteLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) error {
 				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Delete(ctx, corev1alpha1.LogicalClusterName, metav1.DeleteOptions{})
 			},
-			getShardByHash:                  getShardByName,
+			getShard:                        getShard,
 			kcpLogicalClusterAdminClientFor: kcpDirectClientFor,
 		},
 		&schedulingReconciler{
 			generateClusterName: randomClusterName,
-			getShard: func(name string) (*corev1alpha1.Shard, error) {
-				return c.globalShardLister.Cluster(core.RootCluster).Get(name)
-			},
-			getShardByHash:   getShardByName,
-			listShards:       c.globalShardLister.List,
-			getWorkspaceType: getType,
+			getShard:            getShard,
+			listShards:          c.globalShardLister.List,
+			getWorkspaceType:    getType,
 			getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 				return c.logicalClusterLister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
 			},
@@ -108,7 +99,7 @@ func (c *Controller) reconcile(ctx context.Context, ws *tenancyv1alpha1.Workspac
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return c.kcpExternalClient.Cluster(cluster).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 			},
-			getShardByHash: getShardByName,
+			getShard: getShard,
 			requeueAfter: func(workspace *tenancyv1alpha1.Workspace, after time.Duration) {
 				c.queue.AddAfter(kcpcache.ToClusterAwareKey(logicalcluster.From(workspace).String(), "", workspace.Name), after)
 			},

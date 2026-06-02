@@ -31,8 +31,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
-type metaDataReconciler struct {
-}
+type metaDataReconciler struct{}
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)

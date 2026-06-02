@@ -19,15 +19,19 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
+	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
 type metaDataReconciler struct {
+	listShards func(selector labels.Selector) ([]*corev1alpha1.Shard, error)
 }
 
 func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1alpha1.Workspace) (reconcileStatus, error) {
@@ -50,6 +54,40 @@ func (r *metaDataReconciler) reconcile(ctx context.Context, workspace *tenancyv1
 		}
 		workspace.Labels[tenancyv1alpha1.WorkspacePhaseLabel] = expected
 		changed = true
+	}
+
+	shardName := workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
+	switch {
+	case shardName != "":
+		// shard is set on new annotation, ensure the deprecated annotation matches
+		expectedHash := kcpcrypto.Base36Sha224.StringPad(shardName)[:8]
+		if got := workspace.Annotations[WorkspaceShardHashAnnotationKey]; got != expectedHash {
+			if workspace.Annotations == nil {
+				workspace.Annotations = map[string]string{}
+			}
+			workspace.Annotations[WorkspaceShardHashAnnotationKey] = expectedHash
+			changed = true
+		}
+	default:
+		// new annotation is not set, set it based on the deprecated annotation
+		shardHash, hasShardHash := workspace.Annotations[WorkspaceShardHashAnnotationKey]
+		if hasShardHash {
+			shards, err := r.listShards(labels.Everything())
+			if err != nil {
+				return reconcileStatusStopAndRequeue, fmt.Errorf("could not list shards: %w", err)
+			}
+			// iterate over the shards, calculate each hash and compare
+			// to set the new annotation
+			for _, shard := range shards {
+				hashed := kcpcrypto.Base36Sha224.StringPad(shard.Name)[:8]
+				if hashed != shardHash {
+					continue
+				}
+				workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey] = shard.Name
+				changed = true
+				break
+			}
+		}
 	}
 
 	if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {

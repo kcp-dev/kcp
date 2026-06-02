@@ -285,7 +285,7 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		if err := s.installLogicalClusterDeletionController(ctx, controllerConfig, s.LogicalClusterAdminConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
 			return err
 		}
-		if err := s.installLogicalCluster(ctx, controllerConfig); err != nil {
+		if err := s.installLogicalCluster(ctx, controllerConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
 			return err
 		}
 	}

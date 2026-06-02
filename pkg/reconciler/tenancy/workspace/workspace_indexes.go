@@ -17,16 +17,13 @@ limitations under the License.
 package workspace
 
 import (
-	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
-	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 )
 
 const (
-	byBase36Sha224Name = "byBase36Sha224Name"
-	unschedulable      = "unschedulable"
-	byLogicalCluster   = "byLogicalCluster"
+	unschedulable    = "unschedulable"
+	byLogicalCluster = "byLogicalCluster"
 )
 
 func indexUnschedulable(obj interface{}) ([]string, error) {
@@ -47,9 +44,4 @@ func indexWorkspaceByLogicalCluster(obj interface{}) ([]string, error) {
 		return []string{}, nil
 	}
 	return []string{workspace.Spec.Cluster}, nil
-}
-
-func indexByBase36Sha224Name(obj interface{}) ([]string, error) {
-	s := obj.(*corev1alpha1.Shard)
-	return []string{kcpcrypto.Base36Sha224.StringPad(s.Name)[:8]}, nil
 }

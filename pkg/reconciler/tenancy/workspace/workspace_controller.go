@@ -153,8 +153,7 @@ func NewController(
 		workspaceIndexer: workspaceInformer.Informer().GetIndexer(),
 		workspaceLister:  workspaceInformer.Lister(),
 
-		globalShardIndexer: globalShardInformer.Informer().GetIndexer(),
-		globalShardLister:  globalShardInformer.Lister(),
+		globalShardLister: globalShardInformer.Lister(),
 
 		globalWorkspaceTypeIndexer: globalWorkspaceTypeInformer.Informer().GetIndexer(),
 		globalWorkspaceTypeLister:  globalWorkspaceTypeInformer.Lister(),
@@ -229,8 +228,7 @@ type Controller struct {
 	workspaceIndexer cache.Indexer
 	workspaceLister  tenancyv1alpha1listers.WorkspaceClusterLister
 
-	globalShardIndexer cache.Indexer
-	globalShardLister  corev1alpha1listers.ShardClusterLister
+	globalShardLister corev1alpha1listers.ShardClusterLister
 
 	globalWorkspaceTypeIndexer cache.Indexer
 	globalWorkspaceTypeLister  tenancyv1alpha1listers.WorkspaceTypeClusterLister
@@ -428,9 +426,6 @@ func InstallIndexers(
 	indexers.AddIfNotPresentOrDie(workspaceInformer.Informer().GetIndexer(), cache.Indexers{
 		unschedulable:    indexUnschedulable,
 		byLogicalCluster: indexWorkspaceByLogicalCluster,
-	})
-	indexers.AddIfNotPresentOrDie(globalShardInformer.Informer().GetIndexer(), cache.Indexers{
-		byBase36Sha224Name: indexByBase36Sha224Name,
 	})
 	indexers.AddIfNotPresentOrDie(globalWorkspaceTypeInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,

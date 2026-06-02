@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 
-	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
@@ -270,15 +269,14 @@ func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface
 		return nil, err
 	}
 
-	// best effort to get a shard name from the hash in the annotation
-	hash := ws.Annotations["internal.tenancy.kcp.io/shard"]
-	if hash == "" {
-		return nil, fmt.Errorf("workspace %s does not have a shard hash annotation", logicalcluster.From(ws).Path().Join(ws.Name))
+	shardName := ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
+	if shardName == "" {
+		return nil, fmt.Errorf("workspace %s does not have a shard name annotation", logicalcluster.From(ws).Path().Join(ws.Name))
 	}
 
-	for i := range shards.Items {
-		if name := shards.Items[i].Name; kcpcrypto.Base36Sha224.StringPad(name)[:8] == hash {
-			return &shards.Items[i], nil
+	for _, shard := range shards.Items {
+		if shardName == shard.Name {
+			return &shard, nil
 		}
 	}
 
