@@ -269,6 +269,6 @@ rules:
     library: true
 recursive-delete-patterns:
   - '*/.gitattributes'
-default-go-version: 1.25.10
+default-go-version: 1.26.4
 skip-tags: false
 skip-non-semver-tags: true
