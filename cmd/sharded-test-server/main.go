@@ -52,6 +52,7 @@ func main() {
 	cacheSyntheticDelay := flag.Duration("cache-synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
 	cacheServerKubeconfig := flag.String("cache-kubeconfig", "", "Path to a kubeconfig of an external cache-server. If empty, a dedicated cache-server is started.")
+	externalEtcdServers := flag.String("external-etcd-servers", "", "Comma-separated list of etcd server URLs to use for shards and the cache-server instead of starting embedded etcds. Each component gets its own --etcd-prefix.")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
 	// passed to the respective components.
@@ -67,13 +68,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, *cacheServerKubeconfig); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, *cacheServerKubeconfig, *externalEtcdServers); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPath string) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPath, externalEtcdServers string) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -201,7 +202,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	cacheServerErrCh := make(chan indexErrTuple)
 	if cacheServerConfigPath == "" {
-		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"))
+		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"), externalEtcdServers)
 		if err != nil {
 			return fmt.Errorf("error starting the cache server: %w", err)
 		}
@@ -223,7 +224,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start shards
 	shards := make([]*testshard.Shard, numberOfShards)
 	for i := range numberOfShards {
-		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA)
+		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA, externalEtcdServers)
 		if err != nil {
 			return err
 		}

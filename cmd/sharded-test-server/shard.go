@@ -33,7 +33,7 @@ import (
 	shard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
 )
 
-func newShard(ctx context.Context, n int, args []string, standaloneVW bool, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string, clientCA *crypto.CA) (*shard.Shard, error) {
+func newShard(ctx context.Context, n int, args []string, standaloneVW bool, servingCA *crypto.CA, hostIP string, logDirPath, workDirPath, cacheServerConfigPath string, clientCA *crypto.CA, externalEtcdServers string) (*shard.Shard, error) {
 	logger := klog.FromContext(ctx).WithValues("shard", n)
 	kcpDir := filepath.Join(workDirPath, ".kcp")
 	shardDir := filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))
@@ -74,14 +74,31 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		auditFilePath = filepath.Join(logDirPath, fmt.Sprintf("audit-%d.log", n))
 	}
 
+	shardName := "root"
 	if n > 0 {
+		shardName = fmt.Sprintf("shard-%d", n)
+	}
+
+	args = append(args, "--shard-name="+shardName)
+
+	if externalEtcdServers == "" {
 		args = append(args,
-			fmt.Sprintf("--shard-name=shard-%d", n),
-			fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0", "admin.kubeconfig")),
 			fmt.Sprintf("--embedded-etcd-client-port=%d", embeddedEtcdClientPort(n)),
 			fmt.Sprintf("--embedded-etcd-peer-port=%d", embeddedEtcdPeerPort(n)),
 		)
+	} else {
+		args = append(args,
+			fmt.Sprintf("--etcd-servers=%s", externalEtcdServers),
+			fmt.Sprintf("--etcd-prefix=/shard/%s", shardName),
+		)
 	}
+
+	if n > 0 {
+		args = append(args,
+			fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0", "admin.kubeconfig")),
+		)
+	}
+
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))),
