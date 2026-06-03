@@ -42,7 +42,7 @@ import (
 	"github.com/kcp-dev/kcp/cmd/test-server/helpers"
 )
 
-func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string, syntheticDelay time.Duration, clientCA *crypto.CA, clientCAPath string) (<-chan error, string, error) {
+func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string, syntheticDelay time.Duration, clientCA *crypto.CA, clientCAPath, externalEtcdServers string) (<-chan error, string, error) {
 	cyan := color.New(color.BgHiCyan, color.FgHiWhite).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgHiCyan).SprintFunc()
 	out := lineprefix.New(
@@ -86,12 +86,21 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 		commandLine,
 		fmt.Sprintf("--root-directory=%s", cacheWorkingDir),
 		"--bind-address="+hostIP,
-		"--embedded-etcd-client-port=8010",
-		"--embedded-etcd-peer-port=8011",
 		fmt.Sprintf("--secure-port=%d", cachePort),
 		fmt.Sprintf("--synthetic-delay=%s", syntheticDelay.String()),
 		fmt.Sprintf("--client-ca-file=%s", clientCAPath),
 	)
+	if externalEtcdServers != "" {
+		commandLine = append(commandLine,
+			fmt.Sprintf("--etcd-servers=%s", externalEtcdServers),
+			"--etcd-prefix=/cache",
+		)
+	} else {
+		commandLine = append(commandLine,
+			"--embedded-etcd-client-port=8010",
+			"--embedded-etcd-peer-port=8011",
+		)
+	}
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	cmd.Dir = workdir
