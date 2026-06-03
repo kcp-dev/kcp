@@ -7,3 +7,4 @@ nav:
   - kcp-vespucci.md
   - kcp-comer.md
   - audit-logging.md
+  - metrics.md

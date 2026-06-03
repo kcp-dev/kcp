@@ -47,6 +47,12 @@ const (
 	SystemExternalLogicalClusterAdmin = "system:kcp:external-logical-cluster-admin"
 	// SystemKcpWorkspaceAccessGroup is a group that gives a user system:authenticated access to a workspace.
 	SystemKcpWorkspaceAccessGroup = "system:kcp:workspace:access"
+	// SystemKcpMetricsReader is a ClusterRole that grants read access to the
+	// shard-wide /metrics endpoint. A kcp-admin binds it inside :root to an
+	// identity (User, Group, or ServiceAccount) used by prometheus or similar
+	// scrapers. The binding is replicated to every shard via the cache server,
+	// so a single :root binding authorizes scraping on all shards.
+	SystemKcpMetricsReader = "system:kcp:metrics-reader"
 	// SystemKcpInitializerGroupPrefix is the group prefix used by the initializing virtual workspace's
 	// content proxy to mark a request as already authorized against the WorkspaceType's
 	// initializerPermissions. Concrete groups are formed as
@@ -119,6 +125,12 @@ func clusterRoles() []rbacv1.ClusterRole {
 			ObjectMeta: metav1.ObjectMeta{Name: SystemKcpWorkspaceAccessGroup},
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("access").URLs("/").RuleOrDie(),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: SystemKcpMetricsReader},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("get").URLs("/metrics").RuleOrDie(),
 			},
 		},
 		{

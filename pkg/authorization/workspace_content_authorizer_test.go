@@ -73,6 +73,8 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 		wantReason, wantError string
 		wantDecision          authorizer.Decision
 		deepSARHeader         bool
+		path                  string
+		resourceRequest       bool
 	}{
 		{
 			testName: "unknown requested workspace",
@@ -226,6 +228,26 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			wantDecision:       authorizer.DecisionAllow,
 			wantReason:         "delegating due to deep SAR request",
 		},
+		{
+			testName: "shard-level /metrics path bypasses verb=access gate",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     &user.DefaultInfo{Name: "metrics-scraper"},
+			path:               "/metrics",
+			resourceRequest:    false,
+			wantDecision:       authorizer.DecisionAllow,
+			wantReason:         "delegating due to shard-level path",
+		},
+		{
+			testName: "resource request to /metrics does NOT bypass (defense in depth)",
+
+			requestedWorkspace: "root:ready",
+			requestingUser:     &user.DefaultInfo{Name: "user-unknown"},
+			path:               "/metrics",
+			resourceRequest:    true,
+			wantDecision:       authorizer.DecisionNoOpinion,
+			wantReason:         "no verb=access permission on /",
+		},
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -378,7 +400,9 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			}
 			ctx = request.WithCluster(ctx, requestedCluster)
 			attr := authorizer.AttributesRecord{
-				User: tt.requestingUser,
+				User:            tt.requestingUser,
+				Path:            tt.path,
+				ResourceRequest: tt.resourceRequest,
 			}
 			if tt.deepSARHeader {
 				ctx = context.WithValue(ctx, deepSARKey, true)
