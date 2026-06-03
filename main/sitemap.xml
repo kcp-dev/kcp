@@ -607,6 +607,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/production/kcp-zheng/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/setup/production/metrics/</loc>
+        <lastmod>2026-06-03</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/setup/production/metrics/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/setup/production/overview/</loc>
         <lastmod>2026-06-03</lastmod>
         <changefreq>daily</changefreq>
