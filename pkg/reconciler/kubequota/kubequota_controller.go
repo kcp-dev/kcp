@@ -84,6 +84,16 @@ func NewController(
 		IgnoredResourcesFunc: quotaConfiguration.IgnoredResources,
 		InformersStarted:     informersStarted,
 		Registry:             generic.NewRegistry(quotaConfiguration.Evaluators()),
+		UpdateFilter: func(_ schema.GroupVersionResource, oldObj, newObj interface{}) bool {
+			// Skip update events unless they are quota-relevant to save
+			// some cycles.
+			//
+			// The only quota-relevant events are synthetic events
+			// enqueued by the transformingHandler, where .OnAdd
+			// enqueues as .OnUpdate to not miss quota status updates.
+			// See the comment in transformingHandler.OnAdd for more details.
+			return oldObj == newObj
+		},
 	})
 	if err != nil {
 		cancel()

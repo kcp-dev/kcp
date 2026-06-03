@@ -118,7 +118,31 @@ type transformingHandler struct {
 }
 
 func (h *transformingHandler) OnAdd(obj any, isInInitialList bool) {
-	h.delegate.OnAdd(transformForHandler(obj), isInInitialList)
+	transformed := transformForHandler(obj)
+	h.delegate.OnAdd(transformed, isInInitialList)
+	// Upstream's QuotaMonitor only registers UpdateFunc/DeleteFunc and
+	// relies entirely on admission to update the quota status.
+	// For kcp admission and quota controller use different caches, so
+	// there can be a drift between what the admission sees and what the
+	// quota controller sees.
+	//
+	// The exact error is that if a quota and objects for the quota are
+	// created at the same time the admission might not see the quota
+	// yet, leading to the quota's .status.used not being correct.
+	//
+	// Quotas are still enforced as soon as the admission sees the quota object.
+	//
+	// Skipping the initial list from controller startup to prevent
+	// doubling the workload when the .status.used from storage should
+	// already be correct and match the stored objects _and_ on startup
+	// `.ResyncMonitors` is called to ensure the stati are correct.
+	//
+	// TODO(ntnn): It might be worth it to rewrite the admission at some
+	// so this hack isn't needed - but in reality it doesn't matter.
+	// This drift is only affecting CI.
+	if !isInInitialList {
+		h.delegate.OnUpdate(transformed, transformed)
+	}
 }
 
 func (h *transformingHandler) OnUpdate(oldObj, newObj any) {
