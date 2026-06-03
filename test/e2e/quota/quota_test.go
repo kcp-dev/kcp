@@ -191,6 +191,20 @@ func TestKubeQuotaCrossWorkspaceIsolation(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "could not patch workspace A quota Hard to 4")
 
+	// The admission works off of status.hard, hence the kubequota
+	// controller has to process the updated limits before the limits
+	// take hold in the admission.
+	// If this doesn't wait the test trying to create beyong the limit
+	// will create configmaps that will stay around and cause later
+	// tests to fail.
+	t.Logf("Waiting for workspace A quota Status.Hard to reflect the lowered limit")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		qa, err := kubeClusterClient.Cluster(wsAPath).CoreV1().ResourceQuotas("default").Get(t.Context(), "quota", metav1.GetOptions{})
+		require.NoError(t, err)
+		hard, ok := qa.Status.Hard["count/configmaps"]
+		return ok && hard.Equal(resource.MustParse("4")), fmt.Sprintf("ok=%t, status.hard=%s", ok, hard.String())
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace A Status.Hard never converged on 4")
+
 	t.Logf("Confirming workspace A is now at its hard limit and rejects creates")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "blocked-"}}
