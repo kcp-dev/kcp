@@ -8,6 +8,9 @@ spec:
       name: root
   # no image override: the kcp-operator defaults to its version-matched
   # upstream kcp image (static install, no locally built images).
+  extraArgs:
+    # Match RootShard above — see shard-root.static.yaml for rationale.
+    - --feature-gates=CacheAPIs=true,WorkspaceMounts=true
   shardBaseURL: https://theseus.kcp.localhost:8443
   external:
     hostname: kcp.localhost
