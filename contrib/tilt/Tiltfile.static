@@ -53,17 +53,42 @@ k8s_yaml(kustomize('./kcp-operator'))
 # registrations here. The static manifests below omit the .spec.image fields so
 # the kcp-operator deploys its own version-matched upstream kcp images.
 
+# Optional image-tag pin. When KCP_IMAGE_TAG is set (e.g. by a parent Tiltfile
+# that includes this one), pin every kcp component to that tag while keeping the
+# operator's default repositories — we set only .spec.image.tag (and the
+# RootShard proxy's), leaving .repository unset so the operator fills its
+# default. Unset → the operator's version-matched defaults (original behavior).
+kcp_image_tag = os.getenv('KCP_IMAGE_TAG', '')
+
+def _kcp_static_yaml(path):
+    if not kcp_image_tag:
+        return path  # unchanged: operator defaults
+    docs = read_yaml_stream(path)
+    for d in docs:
+        kind = d.get('kind', '')
+        if kind in ('RootShard', 'Shard', 'FrontProxy'):
+            img = d['spec'].get('image', {})
+            img['tag'] = kcp_image_tag
+            d['spec']['image'] = img
+        if kind == 'RootShard':
+            proxy = d['spec'].get('proxy', {})
+            pimg = proxy.get('image', {})
+            pimg['tag'] = kcp_image_tag
+            proxy['image'] = pimg
+            d['spec']['proxy'] = proxy
+    return encode_yaml_stream(docs)
+
 # Unlike the default Tiltfile, we do not register the RootShard/Shard/FrontProxy
 # kinds as workloads (no image injection), so Tilt groups each CR with its
 # same-named TLSRoute and Kubeconfig into a single resource named after the CR
 # (e.g. "root") rather than disambiguating with a "root:rootshard" suffix.
-k8s_yaml('./shard-root.static.yaml')
+k8s_yaml(_kcp_static_yaml('./shard-root.static.yaml'))
 k8s_resource('root', labels='kcp')
 
-k8s_yaml('./shard-theseus.static.yaml')
+k8s_yaml(_kcp_static_yaml('./shard-theseus.static.yaml'))
 k8s_resource('theseus', labels='kcp')
 
-k8s_yaml('./front-proxy.static.yaml')
+k8s_yaml(_kcp_static_yaml('./front-proxy.static.yaml'))
 k8s_resource('frontproxy', labels='kcp')
 
 k8s_kind('Kubeconfig')
