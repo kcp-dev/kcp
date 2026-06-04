@@ -46,6 +46,38 @@ v0.33.6, built 2023-09-29
 Once the tilt starts, press `space` and track the progress. The first boot might take
 a while as it needs to build all the images, run Prometheus, Grafana, loki, etc.
 
+## Static install (upstream images, no hot reload)
+
+The default `Tiltfile` builds the `kcp` and `kcp-front-proxy` images from your local
+sources and hot-reloads on code changes — use it when developing kcp itself.
+
+If you instead just want a working kcp to develop *against*, use `Tiltfile.static`.
+It installs the upstream kcp-operator and lets it deploy the upstream,
+version-matched kcp images. Nothing is built locally and code changes are not
+reloaded.
+
+```bash
+./contrib/tilt/kind-static.sh
+```
+or
+```bash
+make tilt-kind-up-static
+```
+
+Both variants share the same cluster name and URLs, so run only one at a time. The
+admin kubeconfigs are written to the repository root as `tilt-frontproxy.kubeconfig`,
+`tilt-root.kubeconfig` and `tilt-theseus.kubeconfig`.
+
+### Host resolution
+
+The kcp hostnames must resolve to `127.0.0.1` so the Tilt port-forward (on
+`:8443`) can be reached. The `.localhost` TLD is **not** auto-resolved on macOS,
+so add this line to `/etc/hosts`:
+
+```
+127.0.0.1 kcp.localhost root.kcp.localhost theseus.kcp.localhost
+```
+
 
 # Login using IDP:
 
