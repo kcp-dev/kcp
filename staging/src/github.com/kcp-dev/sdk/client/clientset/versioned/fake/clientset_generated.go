@@ -36,6 +36,8 @@ import (
 	fakecachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1/fake"
 	corev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	fakecorev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1/fake"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
+	fakemigrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1/fake"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	faketenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/tenancy/v1alpha1/fake"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/topology/v1alpha1"
@@ -165,6 +167,11 @@ func (c *Clientset) CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface {
 // CoreV1alpha1 retrieves the CoreV1alpha1Client
 func (c *Clientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface {
 	return &fakecorev1alpha1.FakeCoreV1alpha1{Fake: &c.Fake}
+}
+
+// MigrationV1alpha1 retrieves the MigrationV1alpha1Client
+func (c *Clientset) MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1Interface {
+	return &fakemigrationv1alpha1.FakeMigrationV1alpha1{Fake: &c.Fake}
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client

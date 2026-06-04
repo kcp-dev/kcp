@@ -30,6 +30,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 )
@@ -40,6 +41,7 @@ type Interface interface {
 	ApisV1alpha2() apisv1alpha2.ApisV1alpha2Interface
 	CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface
+	MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1Interface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1Interface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1Interface
 }
@@ -47,12 +49,13 @@ type Interface interface {
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	apisV1alpha1     *apisv1alpha1.ApisV1alpha1Client
-	apisV1alpha2     *apisv1alpha2.ApisV1alpha2Client
-	cacheV1alpha1    *cachev1alpha1.CacheV1alpha1Client
-	coreV1alpha1     *corev1alpha1.CoreV1alpha1Client
-	tenancyV1alpha1  *tenancyv1alpha1.TenancyV1alpha1Client
-	topologyV1alpha1 *topologyv1alpha1.TopologyV1alpha1Client
+	apisV1alpha1      *apisv1alpha1.ApisV1alpha1Client
+	apisV1alpha2      *apisv1alpha2.ApisV1alpha2Client
+	cacheV1alpha1     *cachev1alpha1.CacheV1alpha1Client
+	coreV1alpha1      *corev1alpha1.CoreV1alpha1Client
+	migrationV1alpha1 *migrationv1alpha1.MigrationV1alpha1Client
+	tenancyV1alpha1   *tenancyv1alpha1.TenancyV1alpha1Client
+	topologyV1alpha1  *topologyv1alpha1.TopologyV1alpha1Client
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
@@ -73,6 +76,11 @@ func (c *Clientset) CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface {
 // CoreV1alpha1 retrieves the CoreV1alpha1Client
 func (c *Clientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface {
 	return c.coreV1alpha1
+}
+
+// MigrationV1alpha1 retrieves the MigrationV1alpha1Client
+func (c *Clientset) MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1Interface {
+	return c.migrationV1alpha1
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client
@@ -145,6 +153,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.migrationV1alpha1, err = migrationv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -178,6 +190,7 @@ func New(c rest.Interface) *Clientset {
 	cs.apisV1alpha2 = apisv1alpha2.New(c)
 	cs.cacheV1alpha1 = cachev1alpha1.New(c)
 	cs.coreV1alpha1 = corev1alpha1.New(c)
+	cs.migrationV1alpha1 = migrationv1alpha1.New(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.New(c)
 	cs.topologyV1alpha1 = topologyv1alpha1.New(c)
 

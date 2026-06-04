@@ -29,6 +29,7 @@ import (
 	v1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
@@ -39,6 +40,7 @@ import (
 	applyconfigurationcorev1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/core/v1alpha1"
 	internal "github.com/kcp-dev/sdk/client/applyconfiguration/internal"
 	applyconfigurationmetav1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
+	applyconfigurationmigrationv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/migration/v1alpha1"
 	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	applyconfigurationtopologyv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/topology/v1alpha1"
 )
@@ -220,6 +222,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationmetav1.OwnerReferenceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("TypeMeta"):
 		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
+
+		// Group=migration.kcp.io, Version=v1alpha1
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigration"):
+		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigrationSpec"):
+		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationSpecApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigrationStatus"):
+		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationStatusApplyConfiguration{}
 
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):

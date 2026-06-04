@@ -1,0 +1,82 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: v260604-70219e163.logicalclusterdumps.migration.kcp.io
+spec:
+  group: migration.kcp.io
+  names:
+    kind: LogicalClusterDump
+    listKind: LogicalClusterDumpList
+    plural: logicalclusterdumps
+    singular: logicalclusterdump
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      description: |-
+        LogicalClusterDump is an ephemeral request/response type used by the
+        destination shard during a logical cluster migration to fetch the raw
+        etcd contents of the migration logical cluster from the origin shard.
+
+        The server populates Status.Entries on Create. The object is not
+        persisted.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: |
+            LogicalClusterDumpSpec is the desired state for a dump request.
+
+            The logical cluster to dump is taken from the request's cluster context
+            (i.e. the URL the request arrived on). No fields are required today.
+          type: object
+        status:
+          description: LogicalClusterDumpStatus carries the dump payload populated
+            by the server.
+          properties:
+            entries:
+              description: |-
+                entries is the full set of etcd key/value pairs belonging to the
+                logical cluster, in the origin shard's etcd encoding (proto for
+                built-ins, JSON for CRs).
+
+                becomes a concern.
+              items:
+                description: EtcdEntry is a single etcd key/value pair from the origin
+                  shard.
+                properties:
+                  key:
+                    description: |-
+                      key is the etcd key with the origin shard's storage prefix stripped.
+                      The destination shard prepends its own storage prefix before writing.
+                    type: string
+                  value:
+                    description: value is the raw etcd value bytes. JSON-encoded as
+                      base64 on the wire.
+                    format: byte
+                    type: string
+                required:
+                - key
+                - value
+                type: object
+              type: array
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources: {}
