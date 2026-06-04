@@ -140,6 +140,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = kcpfilters.WithInClusterServiceAccountRequestRewrite(handler)
 	handler = genericapifilters.WithRequestInfo(handler, requestInfoFactory)
 	handler = genericfilters.WithHTTPLogging(handler)
+	handler = metrics.WithBodyTracking(handler)
 	handler = metrics.WithLatencyTracking(handler)
 	handler = genericfilters.WithPanicRecovery(handler, requestInfoFactory)
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")

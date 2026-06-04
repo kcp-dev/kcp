@@ -195,6 +195,7 @@ func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyind
 
 	ctx = WithClusterName(ctx, result.Cluster)
 	ctx = WithWorkspaceType(ctx, result.Type)
+	ctx = WithShardName(ctx, result.Shard)
 
 	return req.WithContext(ctx), &result
 }
@@ -203,6 +204,8 @@ type lookupKey int
 
 const (
 	shardContextKey lookupKey = iota
+	shardNameContextKey
+	shardNameHolderContextKey
 	clusterContextKey
 	workspaceTypeContextKey
 )
@@ -217,6 +220,38 @@ func ShardURLFrom(ctx context.Context) *url.URL {
 		return nil
 	}
 	return shardURL
+}
+
+func WithShardName(parent context.Context, shardName string) context.Context {
+	// Also update the holder if one exists, so outer middleware can access the shard name
+	// even though they only have access to the original request's context.
+	if holder, ok := parent.Value(shardNameHolderContextKey).(*ShardNameHolder); ok {
+		holder.Name = shardName
+	}
+	return context.WithValue(parent, shardNameContextKey, shardName)
+}
+
+func ShardNameFrom(ctx context.Context) string {
+	shardName, ok := ctx.Value(shardNameContextKey).(string)
+	if !ok {
+		return ""
+	}
+	return shardName
+}
+
+// ShardNameHolder is a mutable container for the shard name that can be stored
+// in context before the shard is known, then updated later. This allows outer
+// middleware to access the shard name even when inner handlers create new
+// request objects with WithContext().
+type ShardNameHolder struct {
+	Name string
+}
+
+// WithShardNameHolder stores a ShardNameHolder in the context. The holder can
+// be updated later when WithShardName is called.
+func WithShardNameHolder(parent context.Context) (context.Context, *ShardNameHolder) {
+	holder := &ShardNameHolder{}
+	return context.WithValue(parent, shardNameHolderContextKey, holder), holder
 }
 
 func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
