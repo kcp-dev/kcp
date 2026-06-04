@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	"github.com/kcp-dev/sdk/apis/migrating/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 )
 
 // Install registers the API group and adds types to a scheme.

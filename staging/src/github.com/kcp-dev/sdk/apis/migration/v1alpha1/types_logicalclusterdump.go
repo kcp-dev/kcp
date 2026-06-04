@@ -22,7 +22,7 @@ import (
 
 // LogicalClusterDump is an ephemeral request/response type used by the
 // destination shard during a logical cluster migration to fetch the raw
-// etcd contents of the migrating logical cluster from the origin shard.
+// etcd contents of the migration logical cluster from the origin shard.
 //
 // The server populates Status.Entries on Create. The object is not
 // persisted.

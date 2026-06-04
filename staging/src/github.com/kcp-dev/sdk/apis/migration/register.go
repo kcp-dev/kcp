@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package,register
-// +groupName=migration.kcp.io
-// +k8s:openapi-gen=true
-// +k8s:openapi-model-package=com.github.kcp-dev.sdk.apis.migrating.v1alpha1
-package v1alpha1
+package migration
+
+const (
+	GroupName = "migration.kcp.io"
+)

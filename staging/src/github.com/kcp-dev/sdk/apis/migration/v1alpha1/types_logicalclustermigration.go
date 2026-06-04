@@ -111,7 +111,7 @@ const (
 	LCMigrationDataCopied conditionsv1alpha1.ConditionType = "DataCopied"
 
 	// LCMigrationOriginCleaned indicates the origin shard has deleted all objects
-	// belonging to the migrating logical cluster.
+	// belonging to the migration logical cluster.
 	LCMigrationOriginCleaned conditionsv1alpha1.ConditionType = "OriginCleaned"
 
 	// LCMigrationCompleted indicates the migration has fully completed and the
