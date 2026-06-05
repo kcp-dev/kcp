@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -84,6 +85,13 @@ type Server struct {
 	rootPhase1FinishedCh chan struct{}
 
 	controllers map[string]*controllerWrapper
+
+	// dynamicRESTMapperOnce guards wiring of the DynamicRESTMapper controllers, which run
+	// per-replica (not under leader election) and must be started exactly once per process,
+	// even though installControllers can be invoked again on leadership re-acquisition.
+	// dynamicRESTMapperErr caches the setup result so every caller observes the same error.
+	dynamicRESTMapperOnce sync.Once
+	dynamicRESTMapperErr  error
 }
 
 func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) error {

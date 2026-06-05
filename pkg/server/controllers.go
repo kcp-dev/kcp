@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	pluginvalidatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
+	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -1685,27 +1686,24 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 }
 
 func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
+	// installControllers (and thus this function) can be called again when a replica
+	// (re-)acquires leadership. The DynamicRESTMapper controllers are not leader-elected and
+	// are wired through a post-start hook, which must only be registered once and only before
+	// the server starts serving, so guard the whole setup with a sync.Once. The first call
+	// happens at server bootstrap, before serving begins.
+	s.dynamicRESTMapperOnce.Do(func() {
+		s.dynamicRESTMapperErr = s.setupDynamicRESTMapperControllers(ctx)
+	})
+	return s.dynamicRESTMapperErr
+}
+
+func (s *Server) setupDynamicRESTMapperControllers(ctx context.Context) error {
 	builtinTypesController, err := dynamicrestmapper.NewBuiltinTypesController(ctx, s.completedConfig.DynamicRESTMapper,
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
 		return err
 	}
-	err = s.registerController(&controllerWrapper{
-		Name: dynamicrestmapper.BuiltinTypesControllerName,
-		Wait: func(ctx context.Context, s *Server) error {
-			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
-			})
-		},
-		Runner: func(ctx context.Context) {
-			builtinTypesController.Start(ctx, 2)
-		},
-	})
-	if err != nil {
-		return err
-	}
-
 	dynamicTypesController, err := dynamicrestmapper.NewDynamicTypesController(ctx, s.completedConfig.DynamicRESTMapper,
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
@@ -1719,22 +1717,52 @@ func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
 		return err
 	}
 
-	return s.registerController(&controllerWrapper{
-		Name: dynamicrestmapper.DynamicTypesControllerName,
-		Wait: func(ctx context.Context, s *Server) error {
-			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
-					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
-					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
-			})
+	controllers := []*controllerWrapper{
+		{
+			Name: dynamicrestmapper.BuiltinTypesControllerName,
+			Wait: func(ctx context.Context, s *Server) error {
+				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+					return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+				})
+			},
+			Runner: func(ctx context.Context) {
+				builtinTypesController.Start(ctx, 2)
+			},
 		},
-		Runner: func(ctx context.Context) {
-			dynamicTypesController.Start(ctx, 2)
+		{
+			Name: dynamicrestmapper.DynamicTypesControllerName,
+			Wait: func(ctx context.Context, s *Server) error {
+				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+					return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+						s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
+						s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+						s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+						s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+						s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+						s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+				})
+			},
+			Runner: func(ctx context.Context) {
+				dynamicTypesController.Start(ctx, 2)
+			},
 		},
+	}
+
+	// The DynamicRESTMapper is per-process, in-memory state that THIS shard replica's own
+	// API server reads (the aggregating CRD-version discovery server and the virtual resources
+	// server) to resolve GroupKinds to resources. Both controllers only mutate that in-memory
+	// mapper and never write to storage, so — unlike the leader-elected controllers started by
+	// kcp-start-controllers — they MUST run on every replica. If they only ran on the leader, a
+	// non-leader replica would serve requests against an empty mapper, making built-in/system
+	// types such as cache.kcp.io/CachedResourceEndpointSlice unresolvable and breaking discovery
+	// and serving of virtual-storage (CachedResource-backed) resources on that replica. Start
+	// them from a post-start hook that is not gated by leader election.
+	return s.AddPostStartHook("kcp-start-dynamicrestmapper-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
+		controllerCtx := klog.NewContext(hookContext, klog.FromContext(hookContext).WithValues("postStartHook", "kcp-start-dynamicrestmapper-controllers"))
+		for _, controller := range controllers {
+			go s.runController(controllerCtx, controller)
+		}
+		return nil
 	})
 }
 
