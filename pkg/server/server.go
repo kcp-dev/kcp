@@ -26,6 +26,7 @@ import (
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -183,10 +184,22 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return nil, err
 	}
 
+	isFromMigratingLogicalCluster := func(obj any) bool {
+		if d, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+			obj = d.Obj
+		}
+		accessor, err := meta.Accessor(obj)
+		if err != nil {
+			return false
+		}
+		clusterName := logicalcluster.From(accessor)
+		return c.MigratingLogicalClusters.IsMigrating(clusterName)
+	}
+
 	s.PartialMetadataDDSIF, err = informer.NewDiscoveringDynamicSharedInformerFactory(
 		metadataClusterClient,
 		func(obj any) bool { return true },
-		func(obj any) bool { return false },
+		isFromMigratingLogicalCluster,
 		nil,
 		crdGVRSource,
 		cache.Indexers{},
@@ -210,7 +223,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 	s.CachePartialMetadataDDSIF, err = informer.NewDiscoveringDynamicSharedInformerFactory(
 		cacheMetadataClusterClient,
 		func(obj interface{}) bool { return true },
-		func(obj any) bool { return false },
+		isFromMigratingLogicalCluster,
 		nil,
 		cacheCrdGVRSource,
 		cache.Indexers{},

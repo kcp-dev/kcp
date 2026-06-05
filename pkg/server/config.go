@@ -74,6 +74,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
+	"github.com/kcp-dev/kcp/pkg/reconciler/migration/logicalclustermigration"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
@@ -134,6 +135,7 @@ type ExtraConfig struct {
 	preHandlerChainMux    *handlerChainMuxes
 	quotaAdmissionStopCh  chan struct{}
 	ClusterContextManager *contextmanager.Manager[logicalcluster.Path]
+	MigratingLogicalClusters *logicalclustermigration.MigratingLogicalClusters
 	openAPIv3Controller   *openapiv3.Controller
 	openAPIv3ServiceCache *openapiv3.ServiceCache
 
@@ -633,6 +635,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	quotaConfiguration := generic.NewConfiguration(nil, quotainstall.DefaultIgnoredResources())
 
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
+	c.ExtraConfig.MigratingLogicalClusters = logicalclustermigration.NewMigratingLogicalClusters()
 
 	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
 	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
