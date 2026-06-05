@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	pluginvalidatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
-	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -127,6 +126,15 @@ func (s *Server) startControllers(ctx context.Context) {
 	}
 }
 
+// startControllersWithoutLeaderElection starts the controllers that must run on every replica,
+// regardless of leader election. It is called once per process from the kcp-start-controllers
+// post-start hook.
+func (s *Server) startControllersWithoutLeaderElection(ctx context.Context) {
+	for _, controller := range s.controllersWithoutLeaderElection {
+		go s.runController(ctx, controller)
+	}
+}
+
 func (s *Server) runController(ctx context.Context, controller *controllerWrapper) {
 	log := klog.FromContext(ctx).WithValues("controller", controller.Name)
 	log.Info("waiting for sync")
@@ -155,6 +163,20 @@ func (s *Server) registerController(controller *controllerWrapper) error {
 	}
 
 	s.controllers[controller.Name] = controller
+
+	return nil
+}
+
+// registerControllerWithoutLeaderElection registers a controller that runs on every replica,
+// independent of leader election (see startControllersWithoutLeaderElection). It is reserved
+// for controllers that only maintain per-process, in-memory state which that replica's own API
+// server depends on, and that never write to storage.
+func (s *Server) registerControllerWithoutLeaderElection(controller *controllerWrapper) error {
+	if s.controllersWithoutLeaderElection[controller.Name] != nil {
+		return fmt.Errorf("controller %s is already registered", controller.Name)
+	}
+
+	s.controllersWithoutLeaderElection[controller.Name] = controller
 
 	return nil
 }
@@ -1686,18 +1708,23 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 }
 
 func (s *Server) installDynamicRESTMapper(ctx context.Context) error {
+	// The DynamicRESTMapper is per-process, in-memory state that THIS shard replica's own API
+	// server reads (the aggregating CRD-version discovery server and the virtual resources
+	// server) to resolve GroupKinds to resources. Both controllers only mutate that in-memory
+	// mapper and never write to storage, so — unlike the leader-elected controllers — they must
+	// run on every replica: otherwise a non-leader replica would serve requests against an empty
+	// mapper, making built-in/system types such as cache.kcp.io/CachedResourceEndpointSlice
+	// unresolvable and breaking discovery and serving of virtual-storage (CachedResource-backed)
+	// resources on that replica. They are therefore registered without leader election.
+	//
 	// installControllers (and thus this function) can be called again when a replica
-	// (re-)acquires leadership. The DynamicRESTMapper controllers are not leader-elected and
-	// are wired through a post-start hook, which must only be registered once and only before
-	// the server starts serving, so guard the whole setup with a sync.Once. The first call
-	// happens at server bootstrap, before serving begins.
-	s.dynamicRESTMapperOnce.Do(func() {
-		s.dynamicRESTMapperErr = s.setupDynamicRESTMapperControllers(ctx)
-	})
-	return s.dynamicRESTMapperErr
-}
+	// (re-)acquires leadership; the controllers are registered (and started) exactly once per
+	// process, so do nothing if they already exist. Re-running would also re-register the
+	// controllers' informer event handlers.
+	if s.controllersWithoutLeaderElection[dynamicrestmapper.BuiltinTypesControllerName] != nil {
+		return nil
+	}
 
-func (s *Server) setupDynamicRESTMapperControllers(ctx context.Context) error {
 	builtinTypesController, err := dynamicrestmapper.NewBuiltinTypesController(ctx, s.completedConfig.DynamicRESTMapper,
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
@@ -1717,52 +1744,36 @@ func (s *Server) setupDynamicRESTMapperControllers(ctx context.Context) error {
 		return err
 	}
 
-	controllers := []*controllerWrapper{
-		{
-			Name: dynamicrestmapper.BuiltinTypesControllerName,
-			Wait: func(ctx context.Context, s *Server) error {
-				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-					return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
-				})
-			},
-			Runner: func(ctx context.Context) {
-				builtinTypesController.Start(ctx, 2)
-			},
+	if err := s.registerControllerWithoutLeaderElection(&controllerWrapper{
+		Name: dynamicrestmapper.BuiltinTypesControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced(), nil
+			})
 		},
-		{
-			Name: dynamicrestmapper.DynamicTypesControllerName,
-			Wait: func(ctx context.Context, s *Server) error {
-				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-					return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
-						s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
-						s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
-						s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
-						s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
-						s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
-						s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
-				})
-			},
-			Runner: func(ctx context.Context) {
-				dynamicTypesController.Start(ctx, 2)
-			},
+		Runner: func(ctx context.Context) {
+			builtinTypesController.Start(ctx, 2)
 		},
+	}); err != nil {
+		return err
 	}
 
-	// The DynamicRESTMapper is per-process, in-memory state that THIS shard replica's own
-	// API server reads (the aggregating CRD-version discovery server and the virtual resources
-	// server) to resolve GroupKinds to resources. Both controllers only mutate that in-memory
-	// mapper and never write to storage, so — unlike the leader-elected controllers started by
-	// kcp-start-controllers — they MUST run on every replica. If they only ran on the leader, a
-	// non-leader replica would serve requests against an empty mapper, making built-in/system
-	// types such as cache.kcp.io/CachedResourceEndpointSlice unresolvable and breaking discovery
-	// and serving of virtual-storage (CachedResource-backed) resources on that replica. Start
-	// them from a post-start hook that is not gated by leader election.
-	return s.AddPostStartHook("kcp-start-dynamicrestmapper-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
-		controllerCtx := klog.NewContext(hookContext, klog.FromContext(hookContext).WithValues("postStartHook", "kcp-start-dynamicrestmapper-controllers"))
-		for _, controller := range controllers {
-			go s.runController(controllerCtx, controller)
-		}
-		return nil
+	return s.registerControllerWithoutLeaderElection(&controllerWrapper{
+		Name: dynamicrestmapper.DynamicTypesControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			dynamicTypesController.Start(ctx, 2)
+		},
 	})
 }
 
