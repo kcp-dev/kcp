@@ -741,15 +741,40 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.ApiExtensions.ExtraConfig.TableConverterProvider = NewTableConverterProvider()
 
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
-		// vwClientConfig is used by the proxy handler to proxy the client requests to the virtual workspace.
+		// vwClientConfig is used by the aggregating CRD-version discovery server and the virtual
+		// resources server to forward requests to the virtual workspace endpoint URLs advertised
+		// in CachedResourceEndpointSlices.
 		vwClientConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-		if !opts.Virtual.Enabled {
+		if opts.Extra.ShardClientCertFile != "" && opts.Extra.ShardClientKeyFile != "" {
+			// On a real, multi-component deployment the advertised endpoint URL is the serving
+			// shard's own external virtual-workspace URL (Shard.Spec.VirtualWorkspaceURL, e.g.
+			// https://shard.example:8443/services/replication/...), which is reached through the
+			// cluster ingress that routes by TLS SNI directly to that shard — not the in-cluster
+			// Service address and not loopback, even when the virtual workspace runs embedded in
+			// this shard.
+			//
+			// The loopback config therefore cannot be used: its bearer token is only valid on the
+			// loopback listener (the forwarded request would authenticate as anonymous and be
+			// denied) and its ServerName is the loopback name (so the ingress cannot SNI-route the
+			// connection and resets it). Authenticate with the shard client certificate against a
+			// CA that trusts the shard serving certificate, drop the loopback bearer token, and
+			// leave ServerName empty so the SNI is derived from the target host.
+			virtualWorkspaceCAFile := opts.Extra.ShardVirtualWorkspaceCAFile
+			if virtualWorkspaceCAFile == "" {
+				// With embedded virtual workspaces --shard-virtual-workspace-ca-file is typically
+				// not set; fall back to the root CA, which signs the shard serving certificate.
+				virtualWorkspaceCAFile = opts.Controllers.SAController.RootCAFile
+			}
+			vwClientConfig.BearerToken = ""
+			vwClientConfig.BearerTokenFile = ""
 			vwClientConfig.TLSClientConfig = rest.TLSClientConfig{
-				CAFile:   opts.Extra.ShardVirtualWorkspaceCAFile,
+				CAFile:   virtualWorkspaceCAFile,
 				CertFile: opts.Extra.ShardClientCertFile,
 				KeyFile:  opts.Extra.ShardClientKeyFile,
 			}
 		}
+		// Otherwise (no shard client certificate, e.g. an in-process test server) the endpoint URL
+		// points back at this same server, so the loopback config is correct and is kept as-is.
 
 		// We need an aggregating version discovery for CRDs that is RESTstorage-aware.
 		// The apiextensions apiserver sources its data from the apiBindingAwareCRDClusterLister.
