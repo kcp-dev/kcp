@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sync"
 	"time"
 
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -84,14 +83,13 @@ type Server struct {
 	syncedCh             chan struct{}
 	rootPhase1FinishedCh chan struct{}
 
+	// controllers are leader-elected: on a multi-replica shard only the elected leader runs
+	// them, and they are (re-)installed and started on every leadership acquisition.
 	controllers map[string]*controllerWrapper
-
-	// dynamicRESTMapperOnce guards wiring of the DynamicRESTMapper controllers, which run
-	// per-replica (not under leader election) and must be started exactly once per process,
-	// even though installControllers can be invoked again on leadership re-acquisition.
-	// dynamicRESTMapperErr caches the setup result so every caller observes the same error.
-	dynamicRESTMapperOnce sync.Once
-	dynamicRESTMapperErr  error
+	// controllersWithoutLeaderElection run on every replica, independent of leader election.
+	// They are reserved for controllers that only maintain per-process, in-memory state (and
+	// never write to storage) which that replica's own API server depends on.
+	controllersWithoutLeaderElection map[string]*controllerWrapper
 }
 
 func (s *Server) AddPostStartHook(name string, hook genericapiserver.PostStartHookFunc) error {
@@ -104,10 +102,11 @@ func (s *Server) AddPreShutdownHook(name string, hook genericapiserver.PreShutdo
 
 func NewServer(c CompletedConfig) (*Server, error) {
 	s := &Server{
-		CompletedConfig:      c,
-		syncedCh:             make(chan struct{}),
-		rootPhase1FinishedCh: make(chan struct{}),
-		controllers:          make(map[string]*controllerWrapper),
+		CompletedConfig:                  c,
+		syncedCh:                         make(chan struct{}),
+		rootPhase1FinishedCh:             make(chan struct{}),
+		controllers:                      make(map[string]*controllerWrapper),
+		controllersWithoutLeaderElection: make(map[string]*controllerWrapper),
 	}
 
 	notFoundHandler := notfoundhandler.New(c.GenericConfig.Serializer, genericapifilters.NoMuxAndDiscoveryIncompleteKey)
@@ -721,6 +720,10 @@ func (s *Server) Run(ctx context.Context) error {
 	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
 		controllerCtx := klog.NewContext(hookContext, logger)
+
+		// Controllers registered without leader election run on every replica, independent of
+		// the leader-election machinery below.
+		s.startControllersWithoutLeaderElection(controllerCtx)
 
 		if s.Options.Controllers.EnableLeaderElection {
 			hostname, err := os.Hostname()
