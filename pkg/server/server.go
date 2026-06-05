@@ -312,6 +312,12 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
+		if err := s.installLogicalClusterMigrationController(ctx); err != nil {
+			return err
+		}
+	}
+
 	if s.Options.Controllers.EnableAll || enabled.Has("apibinding") {
 		if err := s.installAPIBindingController(ctx, controllerConfig, s.PartialMetadataDDSIF); err != nil {
 			return err
