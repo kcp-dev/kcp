@@ -27,6 +27,7 @@ import (
 	"github.com/kcp-dev/sdk/apis/apis"
 	"github.com/kcp-dev/sdk/apis/cache"
 	"github.com/kcp-dev/sdk/apis/core"
+	"github.com/kcp-dev/sdk/apis/migration"
 	"github.com/kcp-dev/sdk/apis/tenancy"
 )
 
@@ -152,6 +153,16 @@ func clusterRoles() []rbacv1.ClusterRole {
 			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("get").Groups(tenancy.GroupName).Resources("workspaceauthenticationconfigurations").RuleOrDie(),
+			},
+		},
+		{
+			// logical cluster migration
+			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				// pull data from origin to destination shard during migration
+				rbacv1helpers.NewRule("create").Groups(migration.GroupName).Resources("logicalclusterdumps").RuleOrDie(),
+				// allows shards to update LogicalClusterMigrations wherever it is placed
+				rbacv1helpers.NewRule("get", "update", "patch").Groups(migration.GroupName).Resources("logicalclustermigrations", "logicalclustermigrations/status").RuleOrDie(),
 			},
 		},
 	}
