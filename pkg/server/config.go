@@ -78,6 +78,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
+	"github.com/kcp-dev/kcp/pkg/server/migrationdump"
 	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
@@ -132,12 +133,13 @@ type ExtraConfig struct {
 	ExternalLogicalClusterAdminConfig *rest.Config // client config connecting to the front proxy
 
 	// misc
-	preHandlerChainMux    *handlerChainMuxes
-	quotaAdmissionStopCh  chan struct{}
-	ClusterContextManager *contextmanager.Manager[logicalcluster.Path]
+	preHandlerChainMux       *handlerChainMuxes
+	quotaAdmissionStopCh     chan struct{}
+	ClusterContextManager    *contextmanager.Manager[logicalcluster.Path]
 	MigratingLogicalClusters *logicalclustermigration.MigratingLogicalClusters
-	openAPIv3Controller   *openapiv3.Controller
-	openAPIv3ServiceCache *openapiv3.ServiceCache
+	MigrationDumpHandler     *migrationdump.Handler
+	openAPIv3Controller      *openapiv3.Controller
+	openAPIv3ServiceCache    *openapiv3.ServiceCache
 
 	// URL getters depending on genericspiserver.ExternalAddress which is initialized on server run
 	ShardBaseURL             func() string
@@ -580,6 +582,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// 3. Scoping handlers to ensure that the request is scoped to the user's clusters before authz is done.
 		// 4. Rest of the handlers.
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
+			apiHandler = kcpfilters.WithMigrationDumpHandler(apiHandler, c.MigrationDumpHandler)
 			apiHandler = kcpfilters.WithBlockMigratingLogicalClusters(apiHandler, c.MigratingLogicalClusters.IsMigrating)
 		}
 		apiHandler = kcpfilters.WithImpersonationScoping(apiHandler)
@@ -825,6 +828,18 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config for virtual resources server: %v", err)
 		}
+	}
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
+		etcdClient, err := newEtcdClient(c.Options.GenericControlPlane.Etcd.StorageConfig.Transport)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create etcd client for migration dump handler: %w", err)
+		}
+		c.ExtraConfig.MigrationDumpHandler = migrationdump.NewHandler(
+			etcdClient,
+			c.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+			c.ExtraConfig.MigratingLogicalClusters,
+		)
 	}
 
 	c.openAPIv3Controller = openapiv3.NewController(c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions())
