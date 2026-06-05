@@ -36,8 +36,6 @@ import (
 // This is used e.g. to cancel active connections when a logical cluster
 // is being migrated.
 func WithPerClusterContext(handler http.Handler, mgr *contextmanager.Manager[logicalcluster.Path]) http.HandlerFunc {
-	// TODO(ntnn): THis is the same list as for inactive logical clusters.
-	// Will look into deduplicating this when implementing lc migration.
 	// exemptPathPrefixes allows some paths to pass without adding a context.
 	exemptPathPrefixes := []string{
 		// Kube clients expect the /openapi endpoint to be available to
