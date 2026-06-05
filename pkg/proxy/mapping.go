@@ -29,6 +29,7 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
 	"github.com/kcp-dev/kcp/pkg/server/proxy"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
@@ -80,11 +81,13 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 		if isShardMapping(m) {
 			clusterProxy := newShardReverseProxy()
 			clusterProxy.Transport = transport
+			clusterProxy.ErrorHandler = metrics.NewProxyErrorHandler()
 			handler = clusterProxy
 		} else {
 			// TODO: handle virtual workspace apiservers per shard
 			proxy := httputil.NewSingleHostReverseProxy(u)
 			proxy.Transport = transport
+			proxy.ErrorHandler = metrics.NewProxyErrorHandler()
 			handler = proxy
 		}
 
