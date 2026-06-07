@@ -2,6 +2,13 @@
 
 set -xeo pipefail
 
+# Directory the extracted tilt-<name>.kubeconfig files are written to. Defaults
+# to the kcp repo root (../.. from contrib/tilt), preserving standalone
+# behavior. Consumers that include this Tiltfile from another repo can override
+# it (e.g. to land the kubeconfigs in their own project dir).
+KCP_KUBECONFIG_DIR="${KCP_KUBECONFIG_DIR:-../..}"
+mkdir -p "$KCP_KUBECONFIG_DIR"
+
 while [[ "$(kubectl api-resources --api-group operator.kcp.io | wc -l)" -lt 2 ]] ; do
     echo "Waiting for kcp-operator API to be available..."
     sleep 1
@@ -14,7 +21,7 @@ _extract() {
     kubectl wait "kubeconfig/$kubeconfig" --for=condition=Available --timeout=5m
     kubectl wait "secret/kcp-$kubeconfig-kubeconfig" --for=create --timeout=5m
     kubectl get "secret/kcp-$kubeconfig-kubeconfig" -o jsonpath='{.data.kubeconfig}' \
-        | base64 -d > "../../tilt-$kubeconfig.kubeconfig"
+        | base64 -d > "$KCP_KUBECONFIG_DIR/tilt-$kubeconfig.kubeconfig"
 }
 
 _extract frontproxy
