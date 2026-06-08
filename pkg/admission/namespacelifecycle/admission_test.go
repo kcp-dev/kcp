@@ -32,6 +32,7 @@ import (
 )
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	now := metav1.Now()
 
 	tests := []struct {
@@ -75,6 +76,7 @@ func TestAdmit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			handler, err := newWorkspaceNamespaceLifecycle()
 			require.NoError(t, err, "error creating admission plugin")
 			handler.getLogicalCluster = func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {

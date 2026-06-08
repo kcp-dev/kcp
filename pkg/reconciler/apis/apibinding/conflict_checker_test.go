@@ -32,6 +32,7 @@ import (
 )
 
 func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
+	t.Parallel()
 	newAPIBinding := new(bindingBuilder).
 		WithClusterName("root:org:ws").
 		WithName("newBinding").
@@ -109,6 +110,7 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 }
 
 func TestNamesConflict(t *testing.T) {
+	t.Parallel()
 	existingCRDFn := func(group, plural, singular, shortName, kind, listKind string) *apiextensionsv1.CustomResourceDefinition {
 		return &apiextensionsv1.CustomResourceDefinition{
 			Spec: apiextensionsv1.CustomResourceDefinitionSpec{Group: group},
@@ -211,6 +213,7 @@ func TestNamesConflict(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			actualConflict, _ := namesConflict(scenario.existingCrd, scenario.schema)
 			if actualConflict != scenario.wantConflict {
 				t.Fatal("didn't expect to hit name conflict")
@@ -220,6 +223,7 @@ func TestNamesConflict(t *testing.T) {
 }
 
 func TestCRDs(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name        string
 		initialCRDs []*apiextensionsv1.CustomResourceDefinition
@@ -252,6 +256,7 @@ func TestCRDs(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			c, err := newConflictChecker(logicalcluster.From(scenario.binding),
 				func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 					return nil, nil

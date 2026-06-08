@@ -58,6 +58,8 @@ func TestSteppedLoad(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			synctest.Test(t, func(t *testing.T) {
 				ts := NewSteppedLoad(tt.burstSize, tt.stepDelay, tt.count, 0)
 

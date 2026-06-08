@@ -28,14 +28,15 @@ linters:
     - noctx
     - nolintlint
     - nosprintfhostport
+    - paralleltest
     - prealloc
     - revive
     - staticcheck
+    - testifylint
     - unconvert
     - unused
     - usestdlibvars
     - whitespace
-    - testifylint
   # TODO(vincepri): Figure out if we want to enable or remove the following linters:
   # - predeclared
   # - goconst
@@ -113,6 +114,8 @@ linters:
       # - name: indent-error-flow # I think @ncdc prefers explicit else statements, remove?
       # - name: redefines-builtin-id
       # - name: dot-imports
+    paralleltest:
+      check-cleanup: true
   exclusions:
     generated: lax
     presets:

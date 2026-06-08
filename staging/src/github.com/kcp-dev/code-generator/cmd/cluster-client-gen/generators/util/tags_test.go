@@ -23,6 +23,7 @@ import (
 )
 
 func TestParseTags(t *testing.T) {
+	t.Parallel()
 	testCases := map[string]struct {
 		lines       []string
 		expectTags  Tags
@@ -85,6 +86,7 @@ func TestParseTags(t *testing.T) {
 }
 
 func TestParseTagsExtension(t *testing.T) {
+	t.Parallel()
 	testCases := map[string]struct {
 		lines              []string
 		expectedExtensions []extension

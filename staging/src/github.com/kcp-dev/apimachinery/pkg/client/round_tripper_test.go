@@ -23,6 +23,7 @@ import (
 )
 
 func TestRoundTripper_generatePath(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		originalPath string
 		desired      string
@@ -77,6 +78,7 @@ func TestRoundTripper_generatePath(t *testing.T) {
 	}
 	for testName, tt := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			result := generatePath(tt.originalPath, logicalcluster.NewPath("root:org:ws"))
 			if result != tt.desired {
 				t.Errorf("got %v, want %v", result, tt.desired)

@@ -26,6 +26,7 @@ import (
 )
 
 func TestNamedFlagSetOrder(t *testing.T) {
+	t.Parallel()
 	fss := flag.NamedFlagSets{}
 	NewOptions(".kcp").AddFlags(&fss)
 

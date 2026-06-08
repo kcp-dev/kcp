@@ -24,6 +24,7 @@ import (
 
 // TestHomeClusterName ensures that HomeClusterName stays stable.
 func TestHomeClusterName(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"":                 "36ks9xj4a2n61",
 		"alice":            "v1u4alow0iv9",
@@ -36,6 +37,7 @@ func TestHomeClusterName(t *testing.T) {
 
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			got := HomeClusterName(name).String()
 			assert.Equal(t, want, got)
 		})
@@ -43,6 +45,7 @@ func TestHomeClusterName(t *testing.T) {
 }
 
 func TestUserRewriter(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		in   []string
 		want []string
@@ -67,6 +70,7 @@ func TestUserRewriter(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, UserRewriter(tc.in))
 		})
 	}

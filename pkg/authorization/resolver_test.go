@@ -41,6 +41,7 @@ import (
 // Everything of this is already tested in the kube carry patch. But as this
 // is important functionality, we want to make sure it is not broken.
 func TestResolverWithWarrants(t *testing.T) {
+	t.Parallel()
 	getPods := &authorizer.DefaultResourceRuleInfo{
 		Verbs:     []string{"get"},
 		APIGroups: []string{""},
@@ -185,6 +186,7 @@ func TestResolverWithWarrants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_, sr := rbacregistryvalidation.NewTestRuleResolver(nil, nil,
 				[]*rbacv1.ClusterRole{{
 					ObjectMeta: metav1.ObjectMeta{Name: "get-pods"},

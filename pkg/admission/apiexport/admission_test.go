@@ -69,6 +69,7 @@ func updateAttr(name string, obj runtime.Object, kind, resource string) admissio
 }
 
 func TestAdmission(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		attr         admission.Attributes
 		update       bool
@@ -230,6 +231,7 @@ func TestAdmission(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ae := &apisv1alpha2.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cool-something",
@@ -272,6 +274,7 @@ func TestAdmission(t *testing.T) {
 }
 
 func TestValidateOverhangingResourceSchemas(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		annotations   func() map[string]string
 		latestSchemas []string // LatestResourceSchemas
@@ -375,6 +378,7 @@ func TestValidateOverhangingResourceSchemas(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ae := &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations(),
@@ -394,6 +398,7 @@ func TestValidateOverhangingResourceSchemas(t *testing.T) {
 }
 
 func TestValidateOverhangingPermissionClaims(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		annotations      func() map[string]string
 		permissionClaims []apisv1alpha1.PermissionClaim
@@ -517,6 +522,7 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ae := &apisv1alpha1.APIExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: tc.annotations(),

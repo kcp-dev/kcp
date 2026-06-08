@@ -46,7 +46,9 @@ func binding(cluster, name string, phase apisv1alpha2.APIBindingPhaseType) *apis
 }
 
 func TestHandlePhaseMetricsOnAdd(t *testing.T) {
+	t.Parallel()
 	t.Run("new binding with non-empty phase is tracked", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		b := binding("root:ws", "test", apisv1alpha2.APIBindingPhaseBound)
 		c.handlePhaseMetricsOnAdd(b)
@@ -57,6 +59,7 @@ func TestHandlePhaseMetricsOnAdd(t *testing.T) {
 	})
 
 	t.Run("new binding with empty phase is tracked but metric not emitted", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		b := binding("root:ws", "test", "")
 		c.handlePhaseMetricsOnAdd(b)
@@ -67,6 +70,7 @@ func TestHandlePhaseMetricsOnAdd(t *testing.T) {
 	})
 
 	t.Run("duplicate add is ignored", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		b := binding("root:ws", "test", apisv1alpha2.APIBindingPhaseBinding)
 		c.handlePhaseMetricsOnAdd(b)
@@ -76,7 +80,9 @@ func TestHandlePhaseMetricsOnAdd(t *testing.T) {
 }
 
 func TestHandlePhaseMetricsOnUpdate(t *testing.T) {
+	t.Parallel()
 	t.Run("phase change updates tracked state", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		old := binding("root:ws", "test", apisv1alpha2.APIBindingPhaseBinding)
 		new := binding("root:ws", "test", apisv1alpha2.APIBindingPhaseBound)
@@ -88,6 +94,7 @@ func TestHandlePhaseMetricsOnUpdate(t *testing.T) {
 	})
 
 	t.Run("no-op when phase unchanged", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		b := binding("root:ws", "test", apisv1alpha2.APIBindingPhaseBound)
 		c.handlePhaseMetricsOnAdd(b)
@@ -99,7 +106,9 @@ func TestHandlePhaseMetricsOnUpdate(t *testing.T) {
 }
 
 func TestHandlePhaseMetricsOnDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("delete removes tracked binding", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		b := binding("root:ws", "test", apisv1alpha2.APIBindingPhaseBound)
 		c.handlePhaseMetricsOnAdd(b)
@@ -109,6 +118,7 @@ func TestHandlePhaseMetricsOnDelete(t *testing.T) {
 	})
 
 	t.Run("delete of unknown binding is a no-op", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		b := binding("root:ws", "unknown", apisv1alpha2.APIBindingPhaseBound)
 		require.NotPanics(t, func() { c.handlePhaseMetricsOnDelete(b) })
@@ -117,6 +127,7 @@ func TestHandlePhaseMetricsOnDelete(t *testing.T) {
 }
 
 func TestHandlePhaseMetricsConcurrency(t *testing.T) {
+	t.Parallel()
 	c := newTestController()
 	var wg sync.WaitGroup
 	for i := range 50 {

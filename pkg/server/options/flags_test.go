@@ -28,6 +28,7 @@ import (
 )
 
 func TestAllowedFlagList(t *testing.T) {
+	t.Parallel()
 	o := NewOptions(".kcp")
 	var fss cliflag.NamedFlagSets
 	o.GenericControlPlane.AddFlags(&fss)
@@ -56,6 +57,7 @@ func TestAllowedFlagList(t *testing.T) {
 }
 
 func TestAllowedFlagListCleanup(t *testing.T) {
+	t.Parallel()
 	o := NewOptions(".kcp")
 	var fss cliflag.NamedFlagSets
 	o.GenericControlPlane.AddFlags(&fss)

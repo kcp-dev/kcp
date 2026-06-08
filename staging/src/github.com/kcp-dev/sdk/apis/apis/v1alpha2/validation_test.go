@@ -26,6 +26,7 @@ import (
 )
 
 func TestValidateAPIBindingPermissionClaims(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		permissionClaims []AcceptablePermissionClaim
 		wantErrs         []string
@@ -165,6 +166,7 @@ func TestValidateAPIBindingPermissionClaims(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			got := ValidateAPIBindingPermissionClaims(tc.permissionClaims, field.NewPath("spec", "permissionClaims"))
 
 			// Convert FieldErrors into a string slice

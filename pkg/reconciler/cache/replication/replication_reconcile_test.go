@@ -35,6 +35,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	gr := schema.GroupResource{Group: "example.com", Resource: "elephants"}
 	elephant := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -148,6 +149,7 @@ func TestReconcile(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(tt *testing.T) {
+			tt.Parallel()
 			var created *unstructured.Unstructured
 			var updated *unstructured.Unstructured
 			var deletedNamespace, deletedName string

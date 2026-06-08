@@ -124,6 +124,7 @@ var (
 	}
 )
 
+//nolint:paralleltest // goleak.IgnoreCurrent captures the current goroutine baseline; running in parallel would pollute it.
 func TestWorkspaceDeletionLeak(t *testing.T) {
 	_, kcpClient, _ := framework.StartTestServer(t)
 

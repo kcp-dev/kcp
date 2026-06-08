@@ -22,6 +22,7 @@ import (
 )
 
 func TestSortMappings(t *testing.T) {
+	t.Parallel()
 	mappings := HttpHandlerMappings{
 		{Weight: 3},
 		{Weight: 1},

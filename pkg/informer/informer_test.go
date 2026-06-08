@@ -35,6 +35,7 @@ import (
 // TestBuiltInInformableTypes tests that there is no drift between actual built-in types and the list that is hard-coded
 // in builtInInformableTypes.
 func TestBuiltInInformableTypes(t *testing.T) {
+	t.Parallel()
 	builtInGVRs := map[schema.GroupVersionResource]struct{}{}
 
 	// In the scheme, but not actual resources
@@ -149,6 +150,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 }
 
 func TestGVRsToDiscoveryData(t *testing.T) {
+	t.Parallel()
 	input := map[schema.GroupVersionResource]GVRPartialMetadata{
 		{Group: "g1", Version: "v1", Resource: "g1-v1-r1"}: {
 			Scope: apiextensionsv1.ClusterScoped,

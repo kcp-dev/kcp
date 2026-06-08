@@ -40,6 +40,7 @@ import (
 // The fix rejects such requests with 404 before they ever reach the
 // downstream handler chain.
 func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
+	t.Parallel()
 	called := false
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		called = true
@@ -78,6 +79,7 @@ func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 // unchanged: a single-segment cluster name (a hash) is forwarded through to
 // the downstream handler with cluster.Name set to that name.
 func TestWithLocalProxy_BareNameIsForwarded(t *testing.T) {
+	t.Parallel()
 	var gotName string
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if cluster := request.ClusterFrom(req.Context()); cluster != nil {

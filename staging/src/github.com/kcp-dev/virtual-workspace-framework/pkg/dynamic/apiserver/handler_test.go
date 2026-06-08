@@ -864,6 +864,7 @@ func exampleAPIResourceSchema() *apisv1alpha1.APIResourceSchema {
 }
 
 func TestBuildOpenAPIModelsForApply(t *testing.T) {
+	t.Parallel()
 	// This is a list of validation that we expect to work.
 	tests := []apiextensionsv1.CustomResourceValidation{
 		{

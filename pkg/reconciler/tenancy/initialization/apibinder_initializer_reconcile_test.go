@@ -51,6 +51,7 @@ func TestGenerateAPIBindingName(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			clusterName := logicalcluster.Name("root:some:ws")
 			exportPath := "root:some:export:ws"
 

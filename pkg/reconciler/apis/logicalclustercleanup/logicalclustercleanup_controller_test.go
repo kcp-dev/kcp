@@ -36,6 +36,7 @@ import (
 )
 
 func TestReconciler(t *testing.T) {
+	t.Parallel()
 	expired := time.Now().Add(-1).UTC().Format(time.RFC3339)
 	notExpired := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
 
@@ -117,6 +118,7 @@ func TestReconciler(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			var got *corev1alpha1.LogicalCluster
 			c := &controller{
 				getLogicalCluster: func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {

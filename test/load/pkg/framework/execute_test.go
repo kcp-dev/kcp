@@ -30,6 +30,8 @@ import (
 
 // TestExecuteWait verifies that Execute is blocking and waits for all actions to complete before returning.
 func TestExecuteWait(t *testing.T) {
+	t.Parallel()
+
 	ts := tuningset.NewUniformQPS(100, 5, 0)
 
 	var completed int64

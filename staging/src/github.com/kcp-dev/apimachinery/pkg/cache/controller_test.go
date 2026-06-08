@@ -27,6 +27,7 @@ import (
 )
 
 func TestClusterIndexFunc(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		obj     *metav1.ObjectMeta
 		desired string
@@ -58,6 +59,7 @@ func TestClusterIndexFunc(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ClusterIndexFunc(tt.obj)
 			require.NoError(t, err, "unexpected error calling ClusterIndexFunc")
 			require.Len(t, result, 1, "ClusterIndexFunc should return one result")
@@ -71,6 +73,7 @@ func TestClusterIndexFunc(t *testing.T) {
 }
 
 func TestClusterAndNamespaceIndexFunc(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		obj     *metav1.ObjectMeta
 		desired string
@@ -94,6 +97,7 @@ func TestClusterAndNamespaceIndexFunc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desired, func(t *testing.T) {
+			t.Parallel()
 			result, err := ClusterAndNamespaceIndexFunc(tt.obj)
 			require.NoError(t, err, "unexpected error calling ClusterAndNamespaceIndexFunc")
 			require.Len(t, result, 1, "ClusterIndexFunc should return one result")

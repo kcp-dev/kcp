@@ -45,6 +45,7 @@ func newAttr(obj, oldObject runtime.Object, op admission.Operation, user user.In
 }
 
 func TestAdmission(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		testName string
 		attr     admission.Attributes
@@ -606,6 +607,7 @@ func TestAdmission(t *testing.T) {
 		},
 	} {
 		t.Run(tc.testName, func(t *testing.T) {
+			t.Parallel()
 			plugin := &reservedMetadata{
 				Handler:             admission.NewHandler(admission.Create, admission.Update),
 				annotationAllowList: []string{"foo.kcp.io/allowed"},

@@ -32,6 +32,7 @@ import (
 )
 
 func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name                    string
 		attr                    authorizer.Attributes
@@ -314,6 +315,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := dynamiccontext.WithAPIDomainKey(context.Background(), dynamiccontext.APIDomainKey(tc.apidomainKey))
 			auth := &maximalPermissionAuthorizer{
 				getAPIExport:            tc.getAPIExport,

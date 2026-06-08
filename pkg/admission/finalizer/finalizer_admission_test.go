@@ -72,6 +72,7 @@ func updateAttrWithUserInfo(newAPIBinding, oldAPIBinding *apisv1alpha2.APIBindin
 }
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		attr           admission.Attributes
@@ -105,6 +106,7 @@ func TestAdmit(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			o := &FinalizerPlugin{
 				Handler: admission.NewHandler(admission.Create, admission.Update),
 
@@ -132,6 +134,7 @@ func TestAdmit(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		attr           admission.Attributes
@@ -172,6 +175,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			o := &FinalizerPlugin{
 				Handler:       admission.NewHandler(admission.Create, admission.Update),
 				FinalizerName: apibindingdeletion.APIBindingFinalizer,

@@ -29,6 +29,7 @@ import (
 // bucket. This is the back-stop for missed CRD delete events: if a
 // LogicalCluster is gone, every cached spec under it must go too.
 func TestEvictCluster(t *testing.T) {
+	t.Parallel()
 	c := &Controller{
 		byClusterNameVersion: map[logicalcluster.Name]map[string]map[string]cached.Value[*spec3.OpenAPI]{
 			"target":  {"crd-a": {"v1": cached.Static(&spec3.OpenAPI{}, "etag")}},

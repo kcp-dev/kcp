@@ -30,6 +30,7 @@ import (
 )
 
 func TestClaimSetKeys(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		claim apisv1alpha2.PermissionClaim
 		key   string
@@ -68,6 +69,7 @@ func TestClaimSetKeys(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			encoded := setKeyForClaim(tc.claim)
 			require.Equal(t, tc.key, encoded)
 
@@ -78,6 +80,7 @@ func TestClaimSetKeys(t *testing.T) {
 }
 
 func TestSelectorChangeDetection(t *testing.T) {
+	t.Parallel()
 	baseClaim := apisv1alpha2.PermissionClaim{
 		GroupResource: apisv1alpha2.GroupResource{
 			Group:    "",
@@ -129,6 +132,7 @@ func TestSelectorChangeDetection(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			expectedClaims := sets.New(key)
 			acceptedClaims := sets.New(key)
 			appliedClaims := sets.New(key)
@@ -161,6 +165,7 @@ func TestSelectorChangeDetection(t *testing.T) {
 }
 
 func TestDetectClaimMismatches(t *testing.T) {
+	t.Parallel()
 	baseClaim := apisv1alpha2.PermissionClaim{
 		GroupResource: apisv1alpha2.GroupResource{
 			Group:    "",
@@ -257,6 +262,7 @@ func TestDetectClaimMismatches(t *testing.T) {
 
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			expectedClaims := sets.New(key)
 
 			acceptedClaim := baseClaim

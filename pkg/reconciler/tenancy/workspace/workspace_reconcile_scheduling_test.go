@@ -50,6 +50,7 @@ import (
 )
 
 func TestReconcileScheduling(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name                     string
 		initialShards            []*corev1alpha1.Shard
@@ -332,6 +333,7 @@ func TestReconcileScheduling(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			fakeKubeClient := kcpfakekubeclient.NewSimpleClientset(scenario.initialKubeClientObjects...) //nolint:staticcheck
 			fakeKcpClient := kcpfakeclient.NewSimpleClientset(scenario.initialKcpClientObjects...)       //nolint:staticcheck
 

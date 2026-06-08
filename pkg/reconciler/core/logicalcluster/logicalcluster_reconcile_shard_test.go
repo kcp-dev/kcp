@@ -33,6 +33,7 @@ import (
 )
 
 func TestShardAnnotationReconciler(t *testing.T) {
+	t.Parallel()
 	const shardName = "shard-A"
 	workspacesResource := schema.GroupResource{Group: tenancyv1alpha1.SchemeGroupVersion.Group, Resource: "workspaces"}
 
@@ -220,6 +221,7 @@ func TestShardAnnotationReconciler(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			var gotGets []getCall
 			var gotPatches []patchCall
 

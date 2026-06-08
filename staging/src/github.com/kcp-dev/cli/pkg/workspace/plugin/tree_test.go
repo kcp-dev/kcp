@@ -62,6 +62,7 @@ func newTreeOptions(streams genericclioptions.IOStreams, serverURL string, objs 
 // be parsed as a /clusters/ path AND whose Spec.Mount is non-nil is rendered
 // as a "<name> [m]" leaf instead of causing an error.
 func TestPopulateBranch_MountWorkspace(t *testing.T) {
+	t.Parallel()
 	nonStandardURL := "https://proxy.example.com/services/site-proxy/foo"
 
 	mountWS := &tenancyv1alpha1.Workspace{
@@ -99,6 +100,7 @@ func TestPopulateBranch_MountWorkspace(t *testing.T) {
 // non-standard URL but a nil Mount causes populateBranch to return an error
 // (preserving the existing error-surfacing behaviour for non-mount URLs).
 func TestPopulateBranch_NonMountURLError(t *testing.T) {
+	t.Parallel()
 	nonStandardURL := "https://proxy.example.com/services/site-proxy/foo"
 
 	regularWS := &tenancyv1alpha1.Workspace{
@@ -130,6 +132,7 @@ func TestPopulateBranch_NonMountURLError(t *testing.T) {
 // TestPopulateBranch_NormalWorkspace verifies that a well-formed workspace URL
 // is traversed normally without error.
 func TestPopulateBranch_NormalWorkspace(t *testing.T) {
+	t.Parallel()
 	child := &tenancyv1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "child",
@@ -167,6 +170,7 @@ func TestPopulateBranch_NormalWorkspace(t *testing.T) {
 // often look like /services/<provider>/clusters/<parent>/... — that segment
 // resolves back to the parent cluster, so recursing would loop forever.
 func TestPopulateBranch_MountWorkspaceWithClustersURL(t *testing.T) {
+	t.Parallel()
 	// URL contains /clusters/root/, which would otherwise cause populateBranch
 	// to recurse into "root" (the same cluster it was just listing).
 	mountURLWithClusters := "https://localhost:9443/services/edges-proxy/clusters/root/apis/example.io/v1/edges/mounted-ws/k8s"
@@ -205,6 +209,7 @@ func TestPopulateBranch_MountWorkspaceWithClustersURL(t *testing.T) {
 // non-standard (mount) URL, Run does not return an error; instead it prints a
 // message to Out and returns immediately (no fallback to root).
 func TestRun_MountContextURL(t *testing.T) {
+	t.Parallel()
 	mountHostURL := "https://proxy.example.com/services/site-proxy/foo"
 
 	out := &bytes.Buffer{}

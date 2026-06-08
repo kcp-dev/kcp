@@ -52,6 +52,8 @@ import (
 // WorkspaceTypes and Workspaces could cause the default-apibinding-controller
 // (which runs with system credentials) to create APIBindings to APIExports the
 // user has no "bind" permission on. See pkg/admission/workspacetype.
+//
+//nolint:paralleltest // subtests check the state of the same objects so they cannot run in parallel
 func TestDefaultAPIBindingsBindPermission(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")

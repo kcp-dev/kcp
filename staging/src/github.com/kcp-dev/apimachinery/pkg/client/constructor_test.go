@@ -39,6 +39,7 @@ func newFakeCache(t *testing.T, builds *atomic.Int64) Cache[*fakeClient] {
 	})
 }
 
+//nolint:paralleltest // these tests share a global cache registry (evictors) and force GC; running in parallel would race on the shared state and registrySize assertions.
 func TestClientCache_CachesAcrossCalls(t *testing.T) {
 	var builds atomic.Int64
 	cache := newFakeCache(t, &builds)
@@ -60,6 +61,7 @@ func TestClientCache_CachesAcrossCalls(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // shares the global cache registry with other tests in this file; see TestClientCache_CachesAcrossCalls.
 func TestClientCache_EvictDropsAndStopsCaching(t *testing.T) {
 	var builds atomic.Int64
 	cache := newFakeCache(t, &builds)
@@ -84,6 +86,7 @@ func TestClientCache_EvictDropsAndStopsCaching(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // shares the global cache registry with other tests in this file; see TestClientCache_CachesAcrossCalls.
 func TestEvictCluster_FansOutToAllRegisteredCaches(t *testing.T) {
 	var buildsA, buildsB atomic.Int64
 	cacheA := newFakeCache(t, &buildsA)
@@ -118,6 +121,8 @@ func TestEvictCluster_FansOutToAllRegisteredCaches(t *testing.T) {
 // weak pointer to nil, so we drop the strong references, force GC, trigger
 // EvictCluster to compact, and assert the registry no longer holds the
 // dropped caches.
+//
+//nolint:paralleltest // asserts on the global registry size; cannot tolerate other tests running concurrently.
 func TestRegistry_PrunesGCdCaches(t *testing.T) {
 	// Drop any caches retained by previous tests in this binary so we start
 	// from a known floor.

@@ -44,6 +44,7 @@ const workspaceCount = 10000
 const workspaceDepth = 5
 const createWorkspaceQPS = 8.0
 
+//nolint:paralleltest // load test against shared kcp cluster, parallel execution would conflict on workspace names and skew timing measurements
 func TestWorkspaceCreation(t *testing.T) {
 	cfg := framework.Require(t, framework.KCPFrontProxyKubeconfig)
 

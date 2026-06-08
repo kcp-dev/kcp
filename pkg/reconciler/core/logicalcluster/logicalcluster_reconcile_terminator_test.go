@@ -28,6 +28,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name               string
 		logicalCluster     *corev1alpha1.LogicalCluster
@@ -85,6 +86,7 @@ func TestReconcile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			reconciler := &terminatorReconciler{}
 			_, err := reconciler.reconcile(context.Background(), tt.logicalCluster)
 			if err != nil {

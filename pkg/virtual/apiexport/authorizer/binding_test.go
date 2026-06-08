@@ -46,6 +46,7 @@ var (
 )
 
 func TestBoundAPIAuthorizer(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name                  string
 		attr                  authorizer.Attributes
@@ -696,6 +697,7 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			lc, _ := logicalcluster.NewPath(tc.apidomainKey).Name()
 			ctx := request.WithCluster(context.Background(), request.Cluster{Name: lc})
 			ctx = dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(tc.apidomainKey))

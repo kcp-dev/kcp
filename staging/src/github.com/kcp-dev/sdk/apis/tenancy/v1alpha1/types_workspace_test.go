@@ -26,6 +26,7 @@ import (
 )
 
 func TestWorkspaceCELValidation(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name         string
 		current, old string
@@ -71,6 +72,7 @@ func TestWorkspaceCELValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			var current interface{}
 			err := yaml.Unmarshal([]byte(tc.current), &current)
 			require.NoError(t, err)

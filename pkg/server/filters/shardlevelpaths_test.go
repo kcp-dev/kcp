@@ -28,6 +28,7 @@ import (
 )
 
 func TestWithShardLevelPaths(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		path           string
@@ -88,6 +89,7 @@ func TestWithShardLevelPaths(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			nextCalled := false
 			var seenCluster logicalcluster.Name
 			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

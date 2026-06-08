@@ -177,16 +177,19 @@ func TestServiceAccounts(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("Access workspace with the service account", func(t *testing.T) {
+				t.Parallel()
 				_, err := saKubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 			})
 
 			t.Run("Access workspace with the service account, but without /clusters path like InCluster clients", func(t *testing.T) {
+				t.Parallel()
 				_, err := saKubeClient.CoreV1().ConfigMaps(namespace.Name).List(ctx, metav1.ListOptions{})
 				require.NoError(t, err)
 			})
 
 			t.Run("Access another workspace in the same org", func(t *testing.T) {
+				t.Parallel()
 				t.Log("Create workspace with the same name")
 				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
 				_, err := kubeClusterClient.Cluster(otherPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
@@ -272,6 +275,7 @@ func TestServiceAccounts(t *testing.T) {
 			})
 
 			t.Run("Access an equally named workspace in another org", func(t *testing.T) {
+				t.Parallel()
 				t.Log("Create namespace with the same name")
 				otherOrgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 				otherPath, _ := kcptesting.NewWorkspaceFixture(t, server, otherOrgPath)
@@ -288,6 +292,7 @@ func TestServiceAccounts(t *testing.T) {
 			})
 
 			t.Run("A service account is allowed to escalate permissions implicitly", func(t *testing.T) {
+				t.Parallel()
 				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
 				_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
@@ -350,6 +355,7 @@ func TestServiceAccounts(t *testing.T) {
 			})
 
 			t.Run("A service account is allowed to escalate permissions explicitly", func(t *testing.T) {
+				t.Parallel()
 				t.Log("Creating cluster role that allows service account to get secrets and create cluster roles")
 				_, err := kubeClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{

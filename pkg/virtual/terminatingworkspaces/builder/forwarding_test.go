@@ -29,6 +29,7 @@ import (
 )
 
 func TestValidateOnlyTerminatorChanged(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		expErr     bool
@@ -110,6 +111,7 @@ func TestValidateOnlyTerminatorChanged(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// mimic the real unstructured.Unstructured objects which are coming into the validateTerminatorsUpdate funcs
 			oldMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tc.old)
 			if err != nil {

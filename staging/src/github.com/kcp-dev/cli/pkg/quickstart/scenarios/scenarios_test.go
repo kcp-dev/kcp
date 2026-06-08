@@ -22,6 +22,7 @@ import (
 )
 
 func TestScenariosGet(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		scenario string
@@ -43,6 +44,7 @@ func TestScenariosGet(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := Get(tt.scenario)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {

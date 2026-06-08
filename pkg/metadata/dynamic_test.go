@@ -25,6 +25,7 @@ import (
 )
 
 func TestPartialType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		method  string
 		url     string
@@ -61,6 +62,7 @@ func TestPartialType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.url, func(t *testing.T) {
+			t.Parallel()
 			url, err := url2.Parse(tt.url)
 			require.NoError(t, err)
 

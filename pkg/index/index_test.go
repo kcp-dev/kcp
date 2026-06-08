@@ -33,6 +33,7 @@ type shardStub struct {
 }
 
 func TestLookup(t *testing.T) {
+	t.Parallel()
 	scenarios := []struct {
 		name                           string
 		targetPath                     logicalcluster.Path
@@ -308,6 +309,7 @@ func TestLookup(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
 			target := New(nil)
 			for _, shard := range scenario.initialShardsToUpsert {
 				target.UpsertShard(shard.name, shard.url)
@@ -350,6 +352,7 @@ func TestLookup(t *testing.T) {
 }
 
 func TestDeleteShard(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	// ensure deleting not existing shard won't blow up
@@ -376,6 +379,7 @@ func TestDeleteShard(t *testing.T) {
 }
 
 func TestDeleteLogicalCluster(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	// ensure deleting not existent logical cluster won't blow up
@@ -404,6 +408,7 @@ func TestDeleteLogicalCluster(t *testing.T) {
 // entries whenever the LogicalCluster delete event arrived before (or
 // without) the matching Workspace delete event.
 func TestDeleteLogicalClusterScrubsAllMaps(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
@@ -461,6 +466,7 @@ func TestDeleteLogicalClusterScrubsAllMaps(t *testing.T) {
 // the Workspace event may be missed entirely on the front proxy informer), in
 // which case the per-cluster maps would otherwise retain entries indefinitely.
 func TestDeleteLogicalCluster_ScrubsAllMaps(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 	target.UpsertShard("root", "https://root.io")
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
@@ -524,6 +530,7 @@ func TestDeleteLogicalCluster_ScrubsAllMaps(t *testing.T) {
 }
 
 func TestDeleteWorkspace(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	// ensure deleting not existent workspace won't blow up
@@ -549,6 +556,7 @@ func TestDeleteWorkspace(t *testing.T) {
 }
 
 func TestUpsertLogicalCluster(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
@@ -567,6 +575,7 @@ func TestUpsertLogicalCluster(t *testing.T) {
 
 // Since LookupURL uses Lookup method the following test is just a smoke tests.
 func TestLookupURL(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
@@ -592,6 +601,7 @@ func TestLookupURL(t *testing.T) {
 }
 
 func TestUpsertShard(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
@@ -618,6 +628,7 @@ func TestUpsertShard(t *testing.T) {
 }
 
 func TestUpsertWorkspace(t *testing.T) {
+	t.Parallel()
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")

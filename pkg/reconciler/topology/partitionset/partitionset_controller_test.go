@@ -36,6 +36,7 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		existingValidPartition   bool
 		existingInvalidPartition bool
@@ -95,6 +96,7 @@ func TestReconcile(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			nbPartitionsCreated := 0
 			nbPartitionsDeleted := 0
 

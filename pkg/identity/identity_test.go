@@ -30,6 +30,7 @@ import (
 // TestGenerateIdentitySecret verifies that GenerateIdentitySecret creates a Secret
 // with the expected metadata and a non-empty identity key.
 func TestGenerateIdentitySecret(t *testing.T) {
+	t.Parallel()
 	namespace := "test-namespace"
 	name := "test-name"
 
@@ -50,6 +51,7 @@ func TestGenerateIdentitySecret(t *testing.T) {
 // TestIdentityHash verifies that IdentityHash correctly computes the SHA-256
 // hash of the identity key stored in a Secret, and returns an error when the key is missing.
 func TestIdentityHash(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		secret        *corev1.Secret
 		expectedHash  string
@@ -81,6 +83,7 @@ func TestIdentityHash(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			hash, err := IdentityHash(tt.secret)
 
 			if tt.expectError {

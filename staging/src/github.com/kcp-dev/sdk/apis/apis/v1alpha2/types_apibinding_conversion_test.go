@@ -28,6 +28,7 @@ import (
 )
 
 func TestConvertV1Alpha1APIBinding(t *testing.T) {
+	t.Parallel()
 	testcases := []apisv1alpha1.APIBinding{
 		{
 			Spec: apisv1alpha1.APIBindingSpec{},
@@ -97,6 +98,7 @@ func TestConvertV1Alpha1APIBinding(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			v2, err := scheme.ConvertToVersion(&testcase, SchemeGroupVersion)
 			if err != nil {
 				t.Fatalf("Failed to convert v1alpha1 to v1alpha2: %v", err)
@@ -117,6 +119,7 @@ func TestConvertV1Alpha1APIBinding(t *testing.T) {
 }
 
 func TestConvertV1Alpha2APIBindings(t *testing.T) {
+	t.Parallel()
 	testcases := []APIBinding{
 		{
 			Spec: APIBindingSpec{},
@@ -227,6 +230,7 @@ func TestConvertV1Alpha2APIBindings(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			v1, err := scheme.ConvertToVersion(&testcase, apisv1alpha1.SchemeGroupVersion)
 			if err != nil {
 				t.Fatalf("Failed to convert v1alpha2 to v1alpha1: %v", err)

@@ -84,6 +84,7 @@ func createCachedResource(name string, gvr schema.GroupVersionResource) *cachev1
 }
 
 func TestAdmission(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		attr    admission.Attributes
 		index   map[logicalcluster.Name]map[schema.GroupVersionResource][]*cachev1alpha1.CachedResource
@@ -207,6 +208,7 @@ func TestAdmission(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx := genericapirequest.WithCluster(context.Background(), genericapirequest.Cluster{Name: tc.cluster})
 			plugin := CachedResourceAdmission{
 				listCachedResourcesByGVR: func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) ([]*cachev1alpha1.CachedResource, error) {

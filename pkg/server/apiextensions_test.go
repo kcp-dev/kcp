@@ -32,10 +32,12 @@ import (
 )
 
 func TestSystemCRDsLogicalClusterName(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, reservedcrdgroups.SystemCRDLogicalClusterName, SystemCRDClusterName.String(), "reservedcrdgroups admission check should match SystemCRDLogicalCluster")
 }
 
 func TestDecorateCRDWithBinding(t *testing.T) {
+	t.Parallel()
 	now := metav1.Now()
 
 	tests := []struct {
@@ -99,6 +101,7 @@ func TestDecorateCRDWithBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			crdCopy := tt.crd.DeepCopy()
 
 			newCrd := decorateCRDWithBinding(crdCopy, tt.identity, tt.deleteTime)
@@ -134,6 +137,7 @@ func TestDecorateCRDWithBinding(t *testing.T) {
 }
 
 func TestShallowCopyAndMakePartialMetadataCRD(t *testing.T) {
+	t.Parallel()
 	original := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},

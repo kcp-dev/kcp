@@ -65,6 +65,7 @@ func createAttr(obj *tenancyv1alpha1.Workspace) admission.Attributes {
 }
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		types           []*tenancyv1alpha1.WorkspaceType
@@ -196,6 +197,7 @@ func TestAdmit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			typeLister := fakeWorkspaceTypeClusterLister(tt.types)
 
 			o := &workspacetypeExists{
@@ -220,6 +222,7 @@ func TestAdmit(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		types           []*tenancyv1alpha1.WorkspaceType
@@ -440,6 +443,7 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			typeLister := fakeWorkspaceTypeClusterLister(tt.types)
 			o := &workspacetypeExists{
 				Handler:              admission.NewHandler(admission.Create, admission.Update),
@@ -550,6 +554,7 @@ func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribut
 }
 
 func TestTransitiveTypeResolverResolve(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		types   map[string]*tenancyv1alpha1.WorkspaceType
@@ -641,6 +646,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			r := &transitiveTypeResolver{
 				getter: func(cluster logicalcluster.Path, name string) (*tenancyv1alpha1.WorkspaceType, error) {
 					if t, found := tt.types[cluster.Join(name).String()]; found {
@@ -668,6 +674,7 @@ func TestTransitiveTypeResolverResolve(t *testing.T) {
 }
 
 func TestValidateAllowedParents(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		parentAliases []*tenancyv1alpha1.WorkspaceType
@@ -739,6 +746,7 @@ func TestValidateAllowedParents(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if err := validateAllowedParents(tt.parentAliases, tt.childAliases, tt.parentType, tt.childType); (err != nil) != (tt.wantErr != "") {
 				t.Errorf("validateAllowedParents() error = %v, wantErr %q", err, tt.wantErr)
 			} else if tt.wantErr != "" {
@@ -770,6 +778,7 @@ func TestValidateAllowedParents(t *testing.T) {
 }
 
 func TestValidateAllowedChildren(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		parentAliases []*tenancyv1alpha1.WorkspaceType
@@ -796,6 +805,7 @@ func TestValidateAllowedChildren(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if err := validateAllowedParents(tt.parentAliases, tt.childAliases, tt.parentType, tt.childType); (err != nil) != (tt.wantErr != "") {
 				t.Errorf("validateAllowedParents() error = %v, wantErr %q", err, tt.wantErr)
 			} else if tt.wantErr != "" {

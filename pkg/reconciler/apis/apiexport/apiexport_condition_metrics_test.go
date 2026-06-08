@@ -52,7 +52,9 @@ func cond(condType conditionsv1alpha1.ConditionType, status corev1.ConditionStat
 }
 
 func TestHandleConditionMetricsOnAdd(t *testing.T) {
+	t.Parallel()
 	t.Run("conditions are tracked on add", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithConditions("root:ws", "test",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
@@ -67,6 +69,7 @@ func TestHandleConditionMetricsOnAdd(t *testing.T) {
 	})
 
 	t.Run("export with no conditions stores empty snapshot", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithConditions("root:ws", "test")
 		c.handleConditionMetricsOnAdd(e)
@@ -77,6 +80,7 @@ func TestHandleConditionMetricsOnAdd(t *testing.T) {
 	})
 
 	t.Run("duplicate add is a no-op", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithConditions("root:ws", "test",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
@@ -88,7 +92,9 @@ func TestHandleConditionMetricsOnAdd(t *testing.T) {
 }
 
 func TestHandleConditionMetricsOnUpdate(t *testing.T) {
+	t.Parallel()
 	t.Run("condition status change is tracked", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		old := exportWithConditions("root:ws", "test",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionFalse),
@@ -104,6 +110,7 @@ func TestHandleConditionMetricsOnUpdate(t *testing.T) {
 	})
 
 	t.Run("new condition added on update", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		old := exportWithConditions("root:ws", "test",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
@@ -120,6 +127,7 @@ func TestHandleConditionMetricsOnUpdate(t *testing.T) {
 	})
 
 	t.Run("removed condition is cleaned up on update", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		old := exportWithConditions("root:ws", "test",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
@@ -138,7 +146,9 @@ func TestHandleConditionMetricsOnUpdate(t *testing.T) {
 }
 
 func TestHandleConditionMetricsOnDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("delete removes all condition tracking", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithConditions("root:ws", "test",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
@@ -150,6 +160,7 @@ func TestHandleConditionMetricsOnDelete(t *testing.T) {
 	})
 
 	t.Run("delete of unknown export is a no-op", func(t *testing.T) {
+		t.Parallel()
 		c := newTestController()
 		e := exportWithConditions("root:ws", "unknown",
 			cond(apisv1alpha2.APIExportIdentityValid, corev1.ConditionTrue),
@@ -159,6 +170,7 @@ func TestHandleConditionMetricsOnDelete(t *testing.T) {
 }
 
 func TestHandleConditionMetricsConcurrency(t *testing.T) {
+	t.Parallel()
 	c := newTestController()
 	var wg sync.WaitGroup
 	for i := range 50 {

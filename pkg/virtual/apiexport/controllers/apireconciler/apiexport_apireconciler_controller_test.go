@@ -32,6 +32,7 @@ import (
 )
 
 func TestEnqueueAPIResourceSchema(t *testing.T) {
+	t.Parallel()
 	c := &APIReconciler{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),

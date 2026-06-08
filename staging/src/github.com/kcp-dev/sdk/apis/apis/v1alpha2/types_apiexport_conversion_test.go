@@ -30,6 +30,7 @@ import (
 )
 
 func TestConvertV1Alpha2APIExports(t *testing.T) {
+	t.Parallel()
 	testcases := []APIExport{
 		{
 			Spec: APIExportSpec{},
@@ -158,6 +159,7 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			v1, err := scheme.ConvertToVersion(&testcase, apisv1alpha1.SchemeGroupVersion)
 			if err != nil {
 				t.Fatalf("Failed to convert v1alpha2 to v1alpha1: %v", err)
@@ -184,6 +186,7 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 }
 
 func TestConvertV1Alpha1APIExports(t *testing.T) {
+	t.Parallel()
 	testcases := []apisv1alpha1.APIExport{
 		{
 			Spec: apisv1alpha1.APIExportSpec{},
@@ -222,6 +225,7 @@ func TestConvertV1Alpha1APIExports(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run("", func(t *testing.T) {
+			t.Parallel()
 			v2, err := scheme.ConvertToVersion(&testcase, SchemeGroupVersion)
 			if err != nil {
 				t.Fatalf("Failed to convert v1alpha2 to v1alpha1: %v", err)

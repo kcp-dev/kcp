@@ -72,6 +72,7 @@ func (f *fakeDeletionReconciler) kcpLogicalClusterAdminClientFor() func(shard *c
 }
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		name               string
 		expStatus          reconcileStatus
@@ -178,6 +179,7 @@ func TestReconcile(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fdr := fakeDeletionReconciler{
 				clusters: tc.logicalclusters,
 			}

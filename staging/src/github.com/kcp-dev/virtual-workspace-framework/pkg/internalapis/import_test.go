@@ -44,6 +44,7 @@ import (
 var embeddedResources embed.FS
 
 func TestImportInternalAPIs(t *testing.T) {
+	t.Parallel()
 	apisToImport := []InternalAPI{
 		{
 			Names: apiextensionsv1.CustomResourceDefinitionNames{

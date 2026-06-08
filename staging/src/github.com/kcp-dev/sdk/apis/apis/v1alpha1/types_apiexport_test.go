@@ -25,6 +25,7 @@ import (
 )
 
 func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name         string
 		current, old map[string]interface{}
@@ -134,6 +135,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 		require.True(t, found, "failed to find validator for %s", pth)
 
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			errs := validator(tc.current, tc.old)
 			t.Log(errs)
 
@@ -153,6 +155,7 @@ func TestAPIExportPermissionClaimCELValidation(t *testing.T) {
 }
 
 func TestResourceSelectorCELValidation(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name         string
 		current, old map[string]interface{}
@@ -199,6 +202,7 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 		require.True(t, found, "failed to find validator for %s", pth)
 
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			errs := validator(tc.current, tc.old)
 			t.Log(errs)
 
@@ -218,6 +222,7 @@ func TestResourceSelectorCELValidation(t *testing.T) {
 }
 
 func TestAPIExportPermissionClaimPattern(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name      string
 		value     string
@@ -280,6 +285,7 @@ func TestAPIExportPermissionClaimPattern(t *testing.T) {
 		require.True(t, found, "failed to find validator for %s", pth)
 
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := validator(tc.value)
 			got := ""
 			if err != nil {

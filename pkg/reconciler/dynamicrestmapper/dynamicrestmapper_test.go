@@ -58,6 +58,7 @@ func newDefaultRESTMapperWith(gvkrs []typeMeta) *DefaultRESTMapper {
 }
 
 func TestClusterRESTMapping(t *testing.T) {
+	t.Parallel()
 	type applyPair struct {
 		toRemove []typeMeta
 		toAdd    []typeMeta
@@ -232,6 +233,7 @@ func TestClusterRESTMapping(t *testing.T) {
 
 	for testName, s := range scenarios {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			for clusterName, apply := range s.applyPairs {
 				s.dmapper.ForCluster(clusterName).apply(apply.toRemove, apply.toAdd)
 			}
@@ -274,6 +276,7 @@ func TestClusterRESTMapping(t *testing.T) {
 }
 
 func TestDiffResourceBindingsAnn(t *testing.T) {
+	t.Parallel()
 	scenarios := map[string]struct {
 		oldAnn apibinding.ResourceBindingsAnnotation
 		newAnn apibinding.ResourceBindingsAnnotation
@@ -361,6 +364,7 @@ func TestDiffResourceBindingsAnn(t *testing.T) {
 
 	for testName, s := range scenarios {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			toRemove, toAdd :=
 				diffResourceBindingsAnn(s.oldAnn, s.newAnn)
 			require.Equal(t, s.expectedToRemove, toRemove,

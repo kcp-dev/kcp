@@ -31,6 +31,7 @@ import (
 )
 
 func TestCreateContext(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		config    clientcmdapi.Config
@@ -197,6 +198,7 @@ func TestCreateContext(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var got *clientcmdapi.Config
 
 			clusterName := tt.config.Contexts[tt.config.CurrentContext].Cluster

@@ -28,12 +28,14 @@ import (
 )
 
 func TestGroup_NoContext_NoRunners(t *testing.T) {
+	t.Parallel()
 	var g Group
 	err := g.Wait()
 	require.NoError(t, err)
 }
 
 func TestGroup_WithContext_NoRunners(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	require.NotNil(t, g)
 	err := g.Wait()
@@ -41,6 +43,7 @@ func TestGroup_WithContext_NoRunners(t *testing.T) {
 }
 
 func TestGroup_NoContext_NilRunner(t *testing.T) {
+	t.Parallel()
 	var g Group
 	g.Go(nil)
 	err := g.Wait()
@@ -48,6 +51,7 @@ func TestGroup_NoContext_NilRunner(t *testing.T) {
 }
 
 func TestGroup_WithContext_NilRunner(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	g.Go(nil)
 	err := g.Wait()
@@ -55,6 +59,7 @@ func TestGroup_WithContext_NilRunner(t *testing.T) {
 }
 
 func TestGroup_NoContext_SuccessfulRunners(t *testing.T) {
+	t.Parallel()
 	var g Group
 	var count atomic.Int32
 
@@ -71,6 +76,7 @@ func TestGroup_NoContext_SuccessfulRunners(t *testing.T) {
 }
 
 func TestGroup_WithContext_SuccessfulRunners(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	var count atomic.Int32
 
@@ -87,6 +93,7 @@ func TestGroup_WithContext_SuccessfulRunners(t *testing.T) {
 }
 
 func TestGroup_NoContext_SingleError(t *testing.T) {
+	t.Parallel()
 	var g Group
 	expected := errors.New("test error")
 
@@ -100,6 +107,7 @@ func TestGroup_NoContext_SingleError(t *testing.T) {
 }
 
 func TestGroup_WithContext_SingleError(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	expected := errors.New("test error")
 
@@ -113,6 +121,7 @@ func TestGroup_WithContext_SingleError(t *testing.T) {
 }
 
 func TestGroup_NoContext_MultipleErrors(t *testing.T) {
+	t.Parallel()
 	var g Group
 	err1 := errors.New("error one")
 	err2 := errors.New("error two")
@@ -127,6 +136,7 @@ func TestGroup_NoContext_MultipleErrors(t *testing.T) {
 }
 
 func TestGroup_WithContext_MultipleErrors(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	err1 := errors.New("error one")
 	err2 := errors.New("error two")
@@ -141,6 +151,7 @@ func TestGroup_WithContext_MultipleErrors(t *testing.T) {
 }
 
 func TestGroup_NoContext_MixedResults(t *testing.T) {
+	t.Parallel()
 	var g Group
 	expected := errors.New("some error")
 	var okCount atomic.Int32
@@ -164,6 +175,7 @@ func TestGroup_NoContext_MixedResults(t *testing.T) {
 }
 
 func TestGroup_WithContext_MixedResults(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	expected := errors.New("some error")
 	var okCount atomic.Int32
@@ -187,6 +199,7 @@ func TestGroup_WithContext_MixedResults(t *testing.T) {
 }
 
 func TestGroup_WithContext_ContextPassedToRunners(t *testing.T) {
+	t.Parallel()
 	type key struct{}
 	ctx := context.WithValue(context.Background(), key{}, "hello")
 	g := WithContext(ctx)
@@ -203,6 +216,7 @@ func TestGroup_WithContext_ContextPassedToRunners(t *testing.T) {
 }
 
 func TestGroup_NoContext_RunnersGetBackgroundDerivedContext(t *testing.T) {
+	t.Parallel()
 	var g Group
 
 	var gotCtx atomic.Value
@@ -217,6 +231,7 @@ func TestGroup_NoContext_RunnersGetBackgroundDerivedContext(t *testing.T) {
 }
 
 func TestGroup_WithContext_CancelledParentContext(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
@@ -235,6 +250,7 @@ func TestGroup_WithContext_CancelledParentContext(t *testing.T) {
 }
 
 func TestGroup_NoContext_FailFast(t *testing.T) {
+	t.Parallel()
 	var g Group
 	g.FailFast = true
 
@@ -257,6 +273,7 @@ func TestGroup_NoContext_FailFast(t *testing.T) {
 }
 
 func TestGroup_WithContext_FailFast(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	g.FailFast = true
 
@@ -279,6 +296,7 @@ func TestGroup_WithContext_FailFast(t *testing.T) {
 }
 
 func TestGroup_WithContext_FailFastCancelsContext(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	g.FailFast = true
 
@@ -307,6 +325,7 @@ func TestGroup_WithContext_FailFastCancelsContext(t *testing.T) {
 }
 
 func TestGroup_NoContext_FailFastFalseDoesNotCancel(t *testing.T) {
+	t.Parallel()
 	var g Group
 	g.FailFast = false
 
@@ -328,6 +347,7 @@ func TestGroup_NoContext_FailFastFalseDoesNotCancel(t *testing.T) {
 }
 
 func TestGroup_WithContext_FailFastFalseDoesNotCancel(t *testing.T) {
+	t.Parallel()
 	g := WithContext(context.Background())
 	g.FailFast = false
 
@@ -349,6 +369,7 @@ func TestGroup_WithContext_FailFastFalseDoesNotCancel(t *testing.T) {
 }
 
 func TestGroup_WaitCalledMultipleTimes(t *testing.T) {
+	t.Parallel()
 	var g Group
 	g.Go(func(_ context.Context) error {
 		return errors.New("err")
@@ -361,6 +382,7 @@ func TestGroup_WaitCalledMultipleTimes(t *testing.T) {
 }
 
 func TestGroup_NilGroup_Wait(t *testing.T) {
+	t.Parallel()
 	// A zero-value Group should work without explicit initialization.
 	g := &Group{}
 	err := g.Wait()
@@ -368,6 +390,7 @@ func TestGroup_NilGroup_Wait(t *testing.T) {
 }
 
 func TestGroup_NilGroup_GoNil(t *testing.T) {
+	t.Parallel()
 	g := &Group{}
 	g.Go(nil)
 	err := g.Wait()
@@ -375,6 +398,7 @@ func TestGroup_NilGroup_GoNil(t *testing.T) {
 }
 
 func TestGroup_WithContext_WaitCancelsContext(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	g := WithContext(ctx)
 

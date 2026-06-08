@@ -95,6 +95,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 	workspaceMetricsPath := fmt.Sprintf("/clusters/%s/metrics", wsPath.String())
 
 	t.Run("workspace-scoped /metrics is rejected with 501 even with matching workspace RBAC", func(t *testing.T) {
+		t.Parallel()
 		// Authorization is permission-cache-driven; wait until user-1's binding
 		// is observable inside the workspace, otherwise the test could pass
 		// for the wrong reason (403 from RBAC, not 501 from the filter).
@@ -110,6 +111,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 	})
 
 	t.Run("workspace-scoped /metrics is rejected for system:masters too", func(t *testing.T) {
+		t.Parallel()
 		var code int
 		_, err := adminKubeClusterClient.RESTClient().
 			Get().AbsPath(workspaceMetricsPath).Do(ctx).StatusCode(&code).Raw()
@@ -118,6 +120,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 	})
 
 	t.Run("top-level /metrics for an unbound user is forbidden", func(t *testing.T) {
+		t.Parallel()
 		// user-2 has no binding anywhere.
 		user2Client, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-2", rootShardCfg))
 		require.NoError(t, err)
@@ -128,6 +131,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 	})
 
 	t.Run("top-level /metrics with system:kcp:metrics-reader binding in :root succeeds", func(t *testing.T) {
+		t.Parallel()
 		// Bind user-3 to the bootstrap metrics-reader role inside :root.
 		_, err := adminKubeClusterClient.Cluster(core.RootCluster.Path()).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{GenerateName: "metrics-reader-user-3-"},
@@ -166,6 +170,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 	})
 
 	t.Run("top-level /metrics for system:masters succeeds", func(t *testing.T) {
+		t.Parallel()
 		var code int
 		body, err := adminKubeClusterClient.RESTClient().Get().AbsPath("/metrics").Do(ctx).StatusCode(&code).Raw()
 		require.NoError(t, err)

@@ -97,6 +97,7 @@ func (b *shardBuilder) virtualWorkspaceURL(u string) *shardBuilder {
 }
 
 func TestAdmitIgnoresOtherResources(t *testing.T) {
+	t.Parallel()
 	o := &shard{
 		Handler: admission.NewHandler(admission.Create, admission.Update),
 	}
@@ -123,6 +124,7 @@ func TestAdmitIgnoresOtherResources(t *testing.T) {
 }
 
 func TestAdmit(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		shard    *corev1alpha1.Shard
@@ -157,6 +159,7 @@ func TestAdmit(t *testing.T) {
 
 		for aType, a := range attrs {
 			t.Run(tt.name+" "+aType, func(t *testing.T) {
+				t.Parallel()
 				o := &shard{
 					Handler: admission.NewHandler(admission.Create, admission.Update),
 				}

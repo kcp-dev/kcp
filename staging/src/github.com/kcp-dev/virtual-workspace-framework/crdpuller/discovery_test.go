@@ -29,6 +29,7 @@ import (
 )
 
 func TestPuller(t *testing.T) {
+	t.Parallel()
 	getCRDCount := 0
 	getCRDName := ""
 

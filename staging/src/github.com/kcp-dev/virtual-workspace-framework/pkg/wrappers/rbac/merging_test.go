@@ -24,6 +24,7 @@ import (
 )
 
 func Test_copyAndMergeRoles(t *testing.T) {
+	t.Parallel()
 	cache := []*rbacv1.Role{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -109,6 +110,7 @@ func Test_copyAndMergeRoles(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := shallowCopyAndMergeRoles(tt.current, cache)
 			tt.validate(t, result)
 		})
@@ -116,6 +118,7 @@ func Test_copyAndMergeRoles(t *testing.T) {
 }
 
 func Test_copyAndMergeClusterRoles(t *testing.T) {
+	t.Parallel()
 	cache := []*rbacv1.ClusterRole{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -201,6 +204,7 @@ func Test_copyAndMergeClusterRoles(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := shallowCopyAndMergeClusterRoles(tt.current, cache)
 			tt.validate(t, result)
 		})

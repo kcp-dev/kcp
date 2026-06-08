@@ -36,6 +36,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		namePrefix   string
@@ -74,6 +75,7 @@ func TestValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			streams, _, _, _ := genericclioptions.NewTestIOStreams()
 			o := NewQuickstartOptions(streams)
 			o.NamePrefix = tt.namePrefix
@@ -99,6 +101,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestComplete(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		scenario string
@@ -116,6 +119,7 @@ func TestComplete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			streams, _, _, _ := genericclioptions.NewTestIOStreams()
 			o := NewQuickstartOptions(streams)
 			o.Scenario = tt.scenario
@@ -143,6 +147,7 @@ func TestComplete(t *testing.T) {
 }
 
 func TestStepNaming(t *testing.T) {
+	t.Parallel()
 	s, err := scenarios.Get("api-provider")
 	if err != nil {
 		t.Fatalf("Get(api-provider): %v", err)
@@ -180,6 +185,7 @@ func stepDescriptions(steps []scenarios.Step) []string {
 }
 
 func TestRunCleanup(t *testing.T) {
+	t.Parallel()
 	makeCleanupScenario := func(callOrder *[]string, stepErrors map[string]error) *cleanupScenario {
 		return &cleanupScenario{
 			steps: []scenarios.Step{
@@ -227,6 +233,7 @@ func TestRunCleanup(t *testing.T) {
 	}
 
 	t.Run("calls cleanup in reverse order", func(t *testing.T) {
+		t.Parallel()
 		var callOrder []string
 		o := newOpts(t)
 		o.scenario = makeCleanupScenario(&callOrder, nil)
@@ -241,6 +248,7 @@ func TestRunCleanup(t *testing.T) {
 	})
 
 	t.Run("continues past errors and returns all failures", func(t *testing.T) {
+		t.Parallel()
 		var callOrder []string
 		o := newOpts(t)
 		o.scenario = makeCleanupScenario(&callOrder, map[string]error{
@@ -264,6 +272,7 @@ func TestRunCleanup(t *testing.T) {
 	})
 
 	t.Run("switches kubeconfig to root after cleanup", func(t *testing.T) {
+		t.Parallel()
 		var callOrder []string
 		o := newOpts(t)
 		o.scenario = makeCleanupScenario(&callOrder, nil)
@@ -283,6 +292,7 @@ func TestRunCleanup(t *testing.T) {
 	})
 
 	t.Run("skips steps without Cleanup func", func(t *testing.T) {
+		t.Parallel()
 		var callOrder []string
 		o := newOpts(t)
 		o.scenario = makeCleanupScenario(&callOrder, nil)
@@ -358,6 +368,7 @@ func (f *fakeClientConfig) ConfigAccess() clientcmd.ConfigAccess {
 }
 
 func TestRunEnter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		enter         bool
@@ -376,6 +387,7 @@ func TestRunEnter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			streams, _, _, _ := genericclioptions.NewTestIOStreams()
 			o := NewQuickstartOptions(streams)
 			o.Enter = tt.enter
@@ -412,6 +424,7 @@ func TestRunEnter(t *testing.T) {
 }
 
 func TestRunEnterError(t *testing.T) {
+	t.Parallel()
 	streams, _, _, _ := genericclioptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.Enter = true
@@ -434,6 +447,7 @@ func TestRunEnterError(t *testing.T) {
 }
 
 func TestDefaultEnterWorkspaceForwardsOptions(t *testing.T) {
+	t.Parallel()
 	streams, _, _, _ := genericclioptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.KubectlOverrides.CurrentContext = "my-context"

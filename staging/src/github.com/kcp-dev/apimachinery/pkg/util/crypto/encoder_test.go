@@ -24,6 +24,7 @@ import (
 )
 
 func TestEncoderBytes(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		enc  Encoder
 		in   []byte
@@ -41,12 +42,14 @@ func TestEncoderBytes(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.enc.Bytes(tc.in))
 		})
 	}
 }
 
 func TestEncoderBytesPad(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		enc  Encoder
 		in   []byte
@@ -64,12 +67,14 @@ func TestEncoderBytesPad(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.enc.BytesPad(tc.in))
 		})
 	}
 }
 
 func TestEncoderInt(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		enc  Encoder
 		in   uint64
@@ -84,12 +89,14 @@ func TestEncoderInt(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.enc.Int(tc.in))
 		})
 	}
 }
 
 func TestEncoderIntPad(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		enc   Encoder
 		in    uint64
@@ -105,6 +112,7 @@ func TestEncoderIntPad(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			got := tc.enc.IntPad(tc.in, tc.width)
 			assert.Equal(t, tc.want, got)
 			assert.Len(t, got, tc.width)

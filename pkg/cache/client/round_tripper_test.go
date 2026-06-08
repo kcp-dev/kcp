@@ -23,6 +23,7 @@ import (
 )
 
 func TestShardRoundTripper(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		originalPath string
 		desired      string
@@ -69,6 +70,7 @@ func TestShardRoundTripper(t *testing.T) {
 	}
 	for testName, tt := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			result := generatePath(tt.originalPath, shard.New("amber"))
 			if result != tt.desired {
 				t.Errorf("got %v, want %v", result, tt.desired)

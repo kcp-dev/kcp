@@ -30,6 +30,7 @@ import (
 )
 
 func TestDeletionHandlingMetaClusterNamespaceKeyFunc(t *testing.T) {
+	t.Parallel()
 	var testCases = []struct {
 		name        string
 		obj         interface{}
@@ -62,6 +63,7 @@ func TestDeletionHandlingMetaClusterNamespaceKeyFunc(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			actual, actualErr := DeletionHandlingMetaClusterNamespaceKeyFunc(testCase.obj)
 			if diff := cmp.Diff(actualErr, testCase.expectedErr, equateErrorMessage); diff != "" {
 				t.Errorf("%s: invalid error: %v", testCase.name, diff)
@@ -75,6 +77,7 @@ func TestDeletionHandlingMetaClusterNamespaceKeyFunc(t *testing.T) {
 }
 
 func TestMetaClusterNamespaceKeyFunc(t *testing.T) {
+	t.Parallel()
 	var testCases = []struct {
 		name        string
 		obj         interface{}
@@ -134,6 +137,7 @@ func TestMetaClusterNamespaceKeyFunc(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			actual, actualErr := MetaClusterNamespaceKeyFunc(testCase.obj)
 			if diff := cmp.Diff(actualErr, testCase.expectedErr, equateErrorMessage); diff != "" {
 				t.Errorf("%s: invalid error: %v", testCase.name, diff)
@@ -147,6 +151,7 @@ func TestMetaClusterNamespaceKeyFunc(t *testing.T) {
 }
 
 func TestSplitMetaClusterNamespaceKey(t *testing.T) {
+	t.Parallel()
 	var testCases = []struct {
 		name              string
 		key               string
@@ -193,6 +198,7 @@ func TestSplitMetaClusterNamespaceKey(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			actualCluster, actualNamespace, actualName, actualErr := SplitMetaClusterNamespaceKey(testCase.key)
 			if diff := cmp.Diff(actualErr, testCase.expectedErr, equateErrorMessage); diff != "" {
 				t.Errorf("%s: invalid error: %v", testCase.name, diff)

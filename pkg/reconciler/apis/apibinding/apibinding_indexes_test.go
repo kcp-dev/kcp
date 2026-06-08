@@ -30,6 +30,7 @@ import (
 )
 
 func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		obj     interface{}
 		want    []string
@@ -79,6 +80,7 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			got, err := indexers.IndexAPIExportByAPIResourceSchema(tt.obj)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("indexers.IndexAPIExportByAPIResourceSchema() error = %v, wantErr %v", err, tt.wantErr)

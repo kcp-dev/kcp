@@ -34,6 +34,7 @@ import (
 )
 
 func TestReconcilePhase(t *testing.T) {
+	t.Parallel()
 	for _, testCase := range []struct {
 		name              string
 		input             *tenancyv1alpha1.Workspace
@@ -515,6 +516,7 @@ func TestReconcilePhase(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			requeued := false
 			reconciler := phaseReconciler{
 				getLogicalCluster: testCase.getLogicalCluster,

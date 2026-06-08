@@ -42,6 +42,7 @@ func newCRD(versions ...string) *apiextensionsv1.CustomResourceDefinition {
 }
 
 func TestResolveVersion_EmptyNameReturnsFirst(t *testing.T) {
+	t.Parallel()
 	crd := newCRD("v1", "v2")
 
 	ver, err := resolveVersion(crd, "")
@@ -54,6 +55,7 @@ func TestResolveVersion_EmptyNameReturnsFirst(t *testing.T) {
 }
 
 func TestResolveVersion_MatchByName(t *testing.T) {
+	t.Parallel()
 	crd := newCRD("v1alpha1", "v1", "v2")
 
 	for _, name := range []string{"v1alpha1", "v1", "v2"} {
@@ -71,6 +73,7 @@ func TestResolveVersion_MatchByName(t *testing.T) {
 }
 
 func TestResolveVersion_NotFound(t *testing.T) {
+	t.Parallel()
 	crd := newCRD("v1", "v2")
 
 	_, err := resolveVersion(crd, "v3")
@@ -80,6 +83,7 @@ func TestResolveVersion_NotFound(t *testing.T) {
 }
 
 func TestResolveVersion_ReturnsSamePointer(t *testing.T) {
+	t.Parallel()
 	crd := newCRD("v1", "v2")
 
 	ver, err := resolveVersion(crd, "v2")

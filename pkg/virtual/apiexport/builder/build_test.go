@@ -28,6 +28,7 @@ import (
 // on the Extra map. This is a regression test for
 // https://github.com/kcp-dev/kcp/issues/3855.
 func TestNewImpersonationConfigConcurrency(t *testing.T) {
+	t.Parallel()
 	sharedUser := &user.DefaultInfo{
 		Name:   "testuser",
 		Groups: []string{"group1", "group2"},
