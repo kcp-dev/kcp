@@ -6,6 +6,9 @@ spec:
   rootShard:
     ref:
       name: root
+  auth:
+    serviceAccount:
+      enabled: true
   # no image override: the kcp-operator defaults to its version-matched
   # upstream kcp image (static install, no locally built images).
   extraArgs:

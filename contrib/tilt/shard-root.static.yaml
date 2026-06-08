@@ -5,6 +5,9 @@ metadata:
 spec:
   # no image override: the kcp-operator defaults to its version-matched
   # upstream kcp image (static install, no locally built images).
+  auth:
+    serviceAccount:
+      enabled: true
   extraArgs:
     # Enable alpha feature gates required by downstream consumers (kedge,
     # kro-multicluster). Operator appends these to the shard's container
