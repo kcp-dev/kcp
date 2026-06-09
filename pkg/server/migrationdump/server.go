@@ -39,11 +39,8 @@ import (
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
 )
-
-// etcdScanPageSize is the number of keys fetched per etcd Range request when
-// scanning the storage for the keys of a logical cluster.
-const etcdScanPageSize int64 = 1000
 
 var (
 	errorScheme = runtime.NewScheme()
@@ -179,7 +176,7 @@ func scanEtcdEntries(ctx context.Context, etcdClient *clientv3.Client, storagePr
 	for {
 		resp, err := etcdClient.Get(ctx, key,
 			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
-			clientv3.WithLimit(etcdScanPageSize),
+			clientv3.WithLimit(kcpetcd.ScanPageSize),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list etcd keys: %w", err)
@@ -196,7 +193,7 @@ func scanEtcdEntries(ctx context.Context, etcdClient *clientv3.Client, storagePr
 			// pagination or streaming it seems like premature
 			// optimization. Just something to keep in mind when working
 			// on this.
-			if !belongsToLogicalCluster(prefix, string(kv.Key), target) {
+			if !kcpetcd.BelongsToCluster(prefix, string(kv.Key), target) {
 				continue
 			}
 			entries = append(entries, migrationv1alpha1.EtcdEntry{
@@ -210,27 +207,6 @@ func scanEtcdEntries(ctx context.Context, etcdClient *clientv3.Client, storagePr
 		}
 		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 	}
-}
-
-// belongsToLogicalCluster reports whether an etcd key belongs to the given logical cluster.
-func belongsToLogicalCluster(prefix, key string, target logicalcluster.Name) bool {
-	rest := strings.TrimPrefix(key, prefix)
-	if rest == key {
-		return false
-	}
-	parts := strings.SplitN(rest, "/", 5)
-	if len(parts) < 3 {
-		return false
-	}
-	//	<prefix>/<group>/<resource>/customresources/<lc>/...
-	if parts[2] == "customresources" {
-		if len(parts) < 4 {
-			return false
-		}
-		return logicalcluster.Name(parts[3]) == target
-	}
-	//	<prefix>/<group>/<resource>/<lc>/...
-	return logicalcluster.Name(parts[2]) == target
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {

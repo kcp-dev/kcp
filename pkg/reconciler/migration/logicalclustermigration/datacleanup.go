@@ -26,9 +26,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-)
 
-const etcdPageSize int64 = 1000
+	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
+)
 
 // deleteOriginData removes all etcd data belonging to the given logical cluster.
 func (c *Controller) deleteOriginData(ctx context.Context, lcName logicalcluster.Name) error {
@@ -70,17 +70,24 @@ func (c *Controller) deleteOriginData(ctx context.Context, lcName logicalcluster
 	return nil
 }
 
+// scanEtcdKeys scans etcd and emits per-cluster deletion prefixes for all keys belonging to targetLogicalCluster.
 func (c *Controller) scanEtcdKeys(ctx context.Context, prefix string, targetLogicalCluster logicalcluster.Name, out chan<- string) error {
 	defer close(out)
 
-	seen := make(map[string]struct{})
-
 	key := prefix
 	for {
+		// While this logic is pulling batches of keys it only processes
+		// a batch until it found a matching key; then the prefix for
+		// this "tree" is written to the channel for the consumer to
+		// delete the key.
+		// That means in small trees we might retrieve the same keys
+		// a few times.
+		// TODO(ntnn): Arguably it would be better to process the
+		// full batch but this is simpler for now.
 		resp, err := c.etcdClient.Get(ctx, key,
 			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
 			clientv3.WithKeysOnly(),
-			clientv3.WithLimit(etcdPageSize),
+			clientv3.WithLimit(kcpetcd.ScanPageSize),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to list etcd keys: %w", err)
@@ -91,46 +98,35 @@ func (c *Controller) scanEtcdKeys(ctx context.Context, prefix string, targetLogi
 				return err
 			}
 
-			etcdKeyPrefix, logicalClusterName := parseKey(prefix, string(kv.Key))
-			if logicalClusterName != targetLogicalCluster+"/" {
+			k := string(kv.Key)
+			split, ok := kcpetcd.SplitKey(prefix, k, targetLogicalCluster)
+			if !ok {
+				// not a relevant etcd key
 				continue
 			}
-			if _, exists := seen[etcdKeyPrefix]; exists {
-				continue
-			}
-			seen[etcdKeyPrefix] = struct{}{}
 
-			out <- etcdKeyPrefix
+			builtPrefix := split.ClusterPrefix(prefix)
+
+			if split.Cluster == targetLogicalCluster {
+				// key belongs to this cluster, pass the prefix into the channel
+				out <- builtPrefix
+			}
+
+			// skip to the next subtree
+			key = split.ClusterPrefix(builtPrefix) + "\x00"
+			break
 		}
 
 		if !resp.More {
 			return nil
 		}
-		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
-	}
-}
 
-// parseKey parses an etcd key and returns the deletion prefix that scopes
-// to a single logical cluster, plus the logical cluster name itself.
-func parseKey(prefix, key string) (string, logicalcluster.Name) {
-	// /prefix/group/resource/[customresources/]lc/something
-	// -> [/]group/resource/[customresources/]lc/something
-	key = strings.TrimPrefix(key, prefix)
-	// -> group/resource/[customresources/]lc/something
-	key = strings.TrimPrefix(key, "/")
-	// -> group, resource, [customresources,] lc, something...
-	parts := strings.SplitN(key, "/", 5)
-	if len(parts) < 3 {
-		// Too short to be a resource key
-		return "", ""
-	}
-	//	<prefix>/<group>/<resource>/customresources/<lc>/...
-	if parts[2] == "customresources" {
-		if len(parts) < 4 {
-			return "", ""
+		if !strings.HasSuffix(key, "\x00") {
+			// Didn't instruct to skip any keys, continue from last key
+			// in the batch
+			key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 		}
-		return prefix + parts[0] + "/" + parts[1] + "/customresources/" + parts[3], logicalcluster.Name(parts[3]) + "/"
+
+		continue
 	}
-	//	<prefix>/<group>/<resource>/<lc>/...
-	return prefix + parts[0] + "/" + parts[1] + "/" + parts[2], logicalcluster.Name(parts[2]) + "/"
 }
