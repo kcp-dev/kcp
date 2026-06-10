@@ -79,10 +79,9 @@ func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 
 	ts := tuningset.NewUniformQPS(qps, count, 1)
 	section.Start()
-	action := func(seq int, s measurement.Sink) error {
+	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		ctx := context.Background()
 		wsName := wt.WorkspaceName(seq)
 
 		ws := &tenancyv1alpha1.Workspace{
@@ -116,7 +115,7 @@ func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 		return nil
 	}
 
-	section.Errors = framework.Execute(ts, action, section.Sink)
+	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
 	section.End()
 
 	return section

@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -29,14 +30,14 @@ import (
 // Execute runs the given action for every sequence number yielded by the
 // TuningSet. Execute blocks until all actions complete and returns all
 // collected errors.
-func Execute(ts tuningset.TuningSet, action tuningset.Action, sink measurement.Sink) []error {
+func Execute(ctx context.Context, ts tuningset.TuningSet, action tuningset.Action, sink measurement.Sink) []error {
 	var mu sync.Mutex
 	var errs []error
 
 	var wg wait.Group
 	for seq := range ts {
 		wg.Start(func() {
-			if err := action(seq, sink); err != nil {
+			if err := action(ctx, seq, sink); err != nil {
 				mu.Lock()
 				errs = append(errs, fmt.Errorf("seq %d: %w", seq, err))
 				mu.Unlock()

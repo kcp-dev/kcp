@@ -110,10 +110,9 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 
 	ts := tuningset.NewUniformQPS(qps, providerCount, 1)
 	section.Start()
-	action := func(seq int, s measurement.Sink) error {
+	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		ctx := context.Background()
 		wsPath := wt.PathForSequenceNumber(seq)
 
 		schemaName := fmt.Sprintf("v1alpha1.loadtestresources%d.loadtest.kcp.io", seq)
@@ -197,7 +196,7 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 		return nil
 	}
 
-	section.Errors = framework.Execute(ts, action, section.Sink)
+	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
 	section.End()
 
 	return section
@@ -225,10 +224,9 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 	consumerStart := providerCount + 1
 	ts := tuningset.NewUniformQPS(qps, consumerCount, consumerStart)
 	section.Start()
-	action := func(seq int, s measurement.Sink) error {
+	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		ctx := context.Background()
 		consumerPath := wt.PathForSequenceNumber(seq)
 
 		// Round-robin: map consumer index to provider sequence number (1-based).
@@ -276,7 +274,7 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 		return nil
 	}
 
-	section.Errors = framework.Execute(ts, action, section.Sink)
+	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
 	section.End()
 
 	return section
@@ -302,10 +300,9 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 	consumerStart := providerCount + 1
 	ts := tuningset.NewUniformQPS(qps, consumerCount, consumerStart)
 	section.Start()
-	action := func(seq int, s measurement.Sink) error {
+	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		ctx := context.Background()
 		consumerPath := wt.PathForSequenceNumber(seq)
 
 		// Determine which provider resource this consumer is bound to.
@@ -374,7 +371,7 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 		return nil
 	}
 
-	section.Errors = framework.Execute(ts, action, section.Sink)
+	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
 	section.End()
 
 	return section

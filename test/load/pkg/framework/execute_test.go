@@ -17,6 +17,7 @@ limitations under the License.
 package framework
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -35,7 +36,7 @@ func TestExecuteWait(t *testing.T) {
 	ts := tuningset.NewUniformQPS(100, 5, 0)
 
 	var completed int64
-	action := func(seq int, sink measurement.Sink) error {
+	action := func(_ context.Context, seq int, sink measurement.Sink) error {
 		time.Sleep(500 * time.Millisecond)
 		atomic.AddInt64(&completed, 1)
 		// ensure that errors are not messing with waiting behavior
@@ -45,7 +46,7 @@ func TestExecuteWait(t *testing.T) {
 		return nil
 	}
 
-	errs := Execute(ts, action, nil)
+	errs := Execute(context.Background(), ts, action, nil)
 
 	require.Len(t, errs, 3) // 0, 2, 4
 	require.Equal(t, int64(5), atomic.LoadInt64(&completed), "Execute must wait for all actions to complete before returning")
