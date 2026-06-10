@@ -61,7 +61,7 @@ func TestAPISharing(t *testing.T) {
 	wt := params.WorkspaceTree()
 
 	// Ensure workspaces exist, creating them if necessary.
-	exist, err := workspacesExist(wt, client, params.WorkspaceCount)
+	exist, err := workspacesExist(t.Context(), wt, client, params.WorkspaceCount)
 	require.NoError(t, err)
 	if exist {
 		t.Logf("workspaces already exist, skipping creation")
@@ -83,7 +83,7 @@ func TestAPISharing(t *testing.T) {
 	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount)
 	sections = append(sections, crudSection)
 
-	report := NewKCPReport(t, "API Sharing", cfg.FrontProxyKubeconfig)
+	report := NewKCPReport(t.Context(), t, "API Sharing", cfg.FrontProxyKubeconfig)
 	report.Sections = sections
 	report.PrettyPrint(os.Stdout)
 
@@ -196,7 +196,7 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 		return nil
 	}
 
-	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
+	section.Errors = framework.Execute(t.Context(), ts, action, section.Sink)
 	section.End()
 
 	return section
@@ -274,7 +274,7 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 		return nil
 	}
 
-	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
+	section.Errors = framework.Execute(t.Context(), ts, action, section.Sink)
 	section.End()
 
 	return section
@@ -371,7 +371,7 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 		return nil
 	}
 
-	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
+	section.Errors = framework.Execute(t.Context(), ts, action, section.Sink)
 	section.End()
 
 	return section

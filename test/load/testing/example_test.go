@@ -62,7 +62,7 @@ func TestExample(t *testing.T) {
 	ts := tuningset.NewUniformQPS(15, 30, 0)
 	// this helper can be used as a control variable for section timing
 	section.Start()
-	section.Errors = framework.Execute(context.Background(), ts, func(_ context.Context, seq int, s measurement.Sink) error {
+	section.Errors = framework.Execute(t.Context(), ts, func(_ context.Context, seq int, s measurement.Sink) error {
 		// automatically measure how long each action took
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 

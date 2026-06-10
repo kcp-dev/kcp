@@ -46,7 +46,7 @@ func TestExecuteWait(t *testing.T) {
 		return nil
 	}
 
-	errs := Execute(context.Background(), ts, action, nil)
+	errs := Execute(t.Context(), ts, action, nil)
 
 	require.Len(t, errs, 3) // 0, 2, 4
 	require.Equal(t, int64(5), atomic.LoadInt64(&completed), "Execute must wait for all actions to complete before returning")

@@ -52,7 +52,7 @@ func TestWorkspaceCreation(t *testing.T) {
 	createSection := createWorkspaces(t, client, params.WorkspaceTree(), params.CreateWorkspaceQPS, params.WorkspaceCount)
 	sections = append(sections, createSection)
 
-	report := NewKCPReport(t, "Workspace Creation", cfg.FrontProxyKubeconfig)
+	report := NewKCPReport(t.Context(), t, "Workspace Creation", cfg.FrontProxyKubeconfig)
 	report.Sections = sections
 	report.PrettyPrint(os.Stdout)
 
@@ -115,7 +115,7 @@ func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 		return nil
 	}
 
-	section.Errors = framework.Execute(context.Background(), ts, action, section.Sink)
+	section.Errors = framework.Execute(t.Context(), ts, action, section.Sink)
 	section.End()
 
 	return section

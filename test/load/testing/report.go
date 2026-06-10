@@ -31,7 +31,7 @@ import (
 )
 
 // NewKCPReport creates a new Report and adds metadata about kcp its running against.
-func NewKCPReport(t *testing.T, title string, cfg *rest.Config) *measurement.Report {
+func NewKCPReport(ctx context.Context, t *testing.T, title string, cfg *rest.Config) *measurement.Report {
 	t.Helper()
 
 	report := measurement.NewReport(title)
@@ -49,7 +49,7 @@ func NewKCPReport(t *testing.T, title string, cfg *rest.Config) *measurement.Rep
 
 	report.Metadata = append(report.Metadata, measurement.Parameter{Key: "kcp Version", Value: sv.GitVersion})
 
-	shards, err := rootclient.CoreV1alpha1().Shards().List(context.Background(), metav1.ListOptions{})
+	shards, err := rootclient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("Could not list kcp shards: %v", err)
 	}

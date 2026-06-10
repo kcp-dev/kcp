@@ -30,10 +30,10 @@ import (
 // workspacesExist checks whether count workspaces already exist by
 // verifying that the last workspace name is present. This is a cheap heuristic
 // that avoids listing all workspaces.
-func workspacesExist(wt tree.WorkspaceTree, client kcpclientset.ClusterInterface, count int) (bool, error) {
+func workspacesExist(ctx context.Context, wt tree.WorkspaceTree, client kcpclientset.ClusterInterface, count int) (bool, error) {
 	lastName := wt.WorkspaceName(count)
 	parentPath := wt.PathForSequenceNumber(wt.ParentSequenceNumber(count))
-	_, err := client.Cluster(parentPath).TenancyV1alpha1().Workspaces().Get(context.Background(), lastName, metav1.GetOptions{})
+	_, err := client.Cluster(parentPath).TenancyV1alpha1().Workspaces().Get(ctx, lastName, metav1.GetOptions{})
 	if err != nil {
 		// we also need IsForbidden here in case we are requesting a child ws whose
 		// parent does not exist either.
