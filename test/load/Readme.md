@@ -38,6 +38,12 @@ ensures that all files get generated using unified timestamps in a `.loadtest-re
 ./suite.sh TestExample
 ```
 
+Additionally you can also overwrite default parameters, by supplying a custom config file:
+
+```sh
+./suite.sh --config config.example.json TestExample
+```
+
 The script will show live output and is safe to run in jumphost environments where connectivity might
 break.
 

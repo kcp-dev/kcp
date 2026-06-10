@@ -38,11 +38,10 @@ import (
 	"github.com/kcp-dev/kcp/test/load/pkg/tuningset"
 )
 
-const crudConfigMapQPS = 150 // equivalent to 600, see TODO comment below
-
 //nolint:paralleltest // load test against shared kcp cluster, parallel execution would conflict on workspace names and skew timing measurements
 func TestWorkspaceSimpleCRUD(t *testing.T) {
 	cfg := framework.Require(t, framework.KCPFrontProxyKubeconfig)
+	params := testConfig.Params
 
 	client, err := kcpclientset.NewForConfig(cfg.FrontProxyKubeconfig)
 	require.NoError(t, err)
@@ -52,21 +51,21 @@ func TestWorkspaceSimpleCRUD(t *testing.T) {
 
 	var sections []measurement.Section
 
-	wt := defaultTree()
+	wt := params.WorkspaceTree()
 
 	// Ensure workspaces exist, creating them if necessary.
-	exist, err := workspacesExist(wt, client, workspaceCount)
+	exist, err := workspacesExist(wt, client, params.WorkspaceCount)
 	require.NoError(t, err)
 	if exist {
 		t.Logf("workspaces already exist, skipping creation")
 	} else {
 		t.Logf("Creating required workspaces")
-		createSection := createWorkspaces(t, client, createWorkspaceQPS)
+		createSection := createWorkspaces(t, client, wt, params.CreateWorkspaceQPS, params.WorkspaceCount)
 		sections = append(sections, createSection)
 	}
 
 	t.Logf("Running configmap CRUD operations")
-	crudSection := crudConfigMaps(t, wt, kubeClusterClient, crudConfigMapQPS)
+	crudSection := crudConfigMaps(t, wt, kubeClusterClient, params.CRUDConfigMapQPS, params.WorkspaceCount)
 	sections = append(sections, crudSection)
 
 	report := NewKCPReport(t, "Workspace Simple Configmap CRUD", cfg.FrontProxyKubeconfig)
@@ -80,13 +79,13 @@ func TestWorkspaceSimpleCRUD(t *testing.T) {
 
 // crudConfigMaps performs a Create/Update/Delete cycle for a ConfigMap in each
 // of the workspaces.
-func crudConfigMaps(t *testing.T, wt tree.WorkspaceTree, kubeClusterClient kcpkubernetesclientset.ClusterInterface, qps float64) measurement.Section {
+func crudConfigMaps(t *testing.T, wt tree.WorkspaceTree, kubeClusterClient kcpkubernetesclientset.ClusterInterface, qps float64, count int) measurement.Section {
 	t.Helper()
 
 	section := measurement.Section{
 		Title: "ConfigMap CRUD",
 		Parameters: []measurement.Parameter{
-			{Key: "Workspaces", Value: fmt.Sprintf("%d", workspaceCount)},
+			{Key: "Workspaces", Value: fmt.Sprintf("%d", count)},
 			{Key: "QPS", Value: fmt.Sprintf("%f", qps*4)}, // TODO: for now multiply by 4 because we are doing 4 network calls per action, but this needs to be changed inside the framework next to be precise
 		},
 		Sink: &measurement.Memory{
@@ -94,7 +93,7 @@ func crudConfigMaps(t *testing.T, wt tree.WorkspaceTree, kubeClusterClient kcpku
 		},
 	}
 
-	ts := tuningset.NewUniformQPS(qps, workspaceCount, 1)
+	ts := tuningset.NewUniformQPS(qps, count, 1)
 	section.Start()
 	action := func(seq int, s measurement.Sink) error {
 		cmClient := kubeClusterClient.Cluster(wt.PathForSequenceNumber(seq)).CoreV1().ConfigMaps("default")

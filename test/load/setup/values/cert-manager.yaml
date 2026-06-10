@@ -2,3 +2,6 @@ crds:
   enabled: true
 nodeSelector:
   $NODEPOOL_SELECTOR: auxiliary
+# set webhook timeout to 5s, since some cloud providers are not happy with the default 15s
+webhook:
+  timeoutSeconds: 5

@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1kcp "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -40,20 +39,17 @@ import (
 	"github.com/kcp-dev/kcp/test/load/pkg/tuningset"
 )
 
-const workspaceCount = 10000
-const workspaceDepth = 5
-const createWorkspaceQPS = 8.0
-
 //nolint:paralleltest // load test against shared kcp cluster, parallel execution would conflict on workspace names and skew timing measurements
 func TestWorkspaceCreation(t *testing.T) {
 	cfg := framework.Require(t, framework.KCPFrontProxyKubeconfig)
+	params := testConfig.Params
 
 	client, err := kcpclientset.NewForConfig(cfg.FrontProxyKubeconfig)
 	require.NoError(t, err)
 
 	sections := []measurement.Section{} //nolint:prealloc
 
-	createSection := createWorkspaces(t, client, createWorkspaceQPS)
+	createSection := createWorkspaces(t, client, params.WorkspaceTree(), params.CreateWorkspaceQPS, params.WorkspaceCount)
 	sections = append(sections, createSection)
 
 	report := NewKCPReport(t, "Workspace Creation", cfg.FrontProxyKubeconfig)
@@ -65,11 +61,10 @@ func TestWorkspaceCreation(t *testing.T) {
 	}
 }
 
-// createWorkspaces creates workspaceCount workspaces under the root workspace
+// createWorkspaces creates workspaces under the root workspace
 // and waits for each to become Ready.
-func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, qps float64) measurement.Section {
+func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, count int) measurement.Section {
 	t.Helper()
-	wt := defaultTree()
 
 	section := measurement.Section{
 		Title: "Workspace Creation",
@@ -82,7 +77,7 @@ func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, qps fl
 		},
 	}
 
-	ts := tuningset.NewUniformQPS(qps, workspaceCount, 1)
+	ts := tuningset.NewUniformQPS(qps, count, 1)
 	section.Start()
 	action := func(seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
@@ -125,8 +120,4 @@ func createWorkspaces(t *testing.T, client kcpclientset.ClusterInterface, qps fl
 	section.End()
 
 	return section
-}
-
-func defaultTree() tree.WorkspaceTree {
-	return tree.NewSymmetricTree(core.RootCluster.Path(), workspaceCount, workspaceDepth)
 }
