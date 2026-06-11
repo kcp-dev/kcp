@@ -54,7 +54,7 @@ func TestWorkspaceSimpleCRUD(t *testing.T) {
 	wt := params.WorkspaceTree()
 
 	// Ensure workspaces exist, creating them if necessary.
-	exist, err := workspacesExist(wt, client, params.WorkspaceCount)
+	exist, err := workspacesExist(t.Context(), wt, client, params.WorkspaceCount)
 	require.NoError(t, err)
 	if exist {
 		t.Logf("workspaces already exist, skipping creation")
@@ -68,7 +68,7 @@ func TestWorkspaceSimpleCRUD(t *testing.T) {
 	crudSection := crudConfigMaps(t, wt, kubeClusterClient, params.CRUDConfigMapQPS, params.WorkspaceCount)
 	sections = append(sections, crudSection)
 
-	report := NewKCPReport(t, "Workspace Simple Configmap CRUD", cfg.FrontProxyKubeconfig)
+	report := NewKCPReport(t.Context(), t, "Workspace Simple Configmap CRUD", cfg.FrontProxyKubeconfig)
 	report.Sections = sections
 	report.PrettyPrint(os.Stdout)
 
@@ -95,12 +95,11 @@ func crudConfigMaps(t *testing.T, wt tree.WorkspaceTree, kubeClusterClient kcpku
 
 	ts := tuningset.NewUniformQPS(qps, count, 1)
 	section.Start()
-	action := func(seq int, s measurement.Sink) error {
+	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		cmClient := kubeClusterClient.Cluster(wt.PathForSequenceNumber(seq)).CoreV1().ConfigMaps("default")
 
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		ctx := context.Background()
 		cmName := fmt.Sprintf("loadtest-cm-%d", seq)
 
 		// Create
@@ -154,7 +153,7 @@ func crudConfigMaps(t *testing.T, wt tree.WorkspaceTree, kubeClusterClient kcpku
 		return nil
 	}
 
-	section.Errors = framework.Execute(ts, action, section.Sink)
+	section.Errors = framework.Execute(t.Context(), ts, action, section.Sink)
 	section.End()
 
 	return section

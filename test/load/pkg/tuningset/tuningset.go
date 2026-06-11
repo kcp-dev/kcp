@@ -17,15 +17,17 @@ limitations under the License.
 package tuningset
 
 import (
+	"context"
 	"iter"
 
 	"github.com/kcp-dev/kcp/test/load/pkg/measurement"
 )
 
 // Action is a function that performs a single load test operation.
+// ctx is the context for cancellation and deadlines.
 // seq is the sequence number of the action.
 // sink is the measurement sink for recording metrics.
-type Action func(seq int, sink measurement.Sink) error
+type Action func(ctx context.Context, seq int, sink measurement.Sink) error
 
 // TuningSet is an iterator that yields sequence numbers according to a
 // timing pattern. It controls when each action is started by blocking
