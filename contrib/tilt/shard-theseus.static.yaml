@@ -14,6 +14,8 @@ spec:
   extraArgs:
     # Match RootShard above — see shard-root.static.yaml for rationale.
     - --feature-gates=CacheAPIs=true,WorkspaceMounts=true
+    # Shared single etcd: isolate this shard's keyspace with a distinct prefix.
+    - --etcd-prefix=/shard/theseus
   shardBaseURL: https://theseus.kcp.localhost:8443
   external:
     hostname: kcp.localhost
@@ -28,7 +30,7 @@ spec:
       enabled: true
   etcd:
     endpoints:
-      - http://etcd.kcp-theseus.svc.cluster.local:2379
+      - http://etcd.kcp-etcd.svc.cluster.local:2379
   deploymentTemplate:
     spec:
       template:

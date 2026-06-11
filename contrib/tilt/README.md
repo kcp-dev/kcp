@@ -46,6 +46,30 @@ v0.33.6, built 2023-09-29
 Once the tilt starts, press `space` and track the progress. The first boot might take
 a while as it needs to build all the images, run Prometheus, Grafana, loki, etc.
 
+### Shared etcd
+
+All kcp components (the root shard, the theseus shard and their embedded cache
+servers) share a single etcd instance deployed in the `kcp-etcd` namespace. Each
+component is isolated by a distinct etcd key prefix rather than running its own
+etcd:
+
+- root shard: `--etcd-prefix=/shard/root`
+- theseus shard: `--etcd-prefix=/shard/theseus`
+- embedded cache servers: fixed `/cache` prefix (keys are shard-scoped)
+
+### Disabling the observability stack
+
+The observability stack (Grafana, Loki, Prometheus, Promtail) is deployed by
+default. To skip it — e.g. on a resource-constrained machine or when you only need
+kcp itself — set `KCP_OBSERVABILITY_ENABLED=false` before starting Tilt. This works
+for both the default and the static install:
+
+```bash
+KCP_OBSERVABILITY_ENABLED=false make tilt-kind-up
+```
+
+(`0`, `no` and `off` are also accepted as disabling values.)
+
 ## Static install (upstream images, no hot reload)
 
 The default `Tiltfile` builds the `kcp` and `kcp-front-proxy` images from your local
