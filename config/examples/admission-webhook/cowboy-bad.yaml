@@ -1,0 +1,9 @@
+# Applied in the CONSUMER workspace. Should be REJECTED by the webhook/policy that
+# lives in the PROVIDER workspace.
+apiVersion: wildwest.dev/v1alpha1
+kind: Cowboy
+metadata:
+  name: bad-bart
+  namespace: default
+spec:
+  intent: bad
