@@ -40,7 +40,13 @@ helm_remote(
 k8s_yaml('gateway.yaml')
 local_resource('ingress', serve_cmd="./port-forward.bash", allow_parallel=True)
 
-include('./observability/Tiltfile')
+# Observability stack (Grafana, Loki, Prometheus, Promtail) is deployed by
+# default. External users who don't need it can skip it to save resources and
+# startup time by setting KCP_OBSERVABILITY_ENABLED=false (also accepts 0/no/off).
+if os.getenv('KCP_OBSERVABILITY_ENABLED', 'true').lower() not in ('false', '0', 'no', 'off'):
+    include('./observability/Tiltfile')
+else:
+    print('Observability stack disabled (KCP_OBSERVABILITY_ENABLED=false)')
 
 # etcd
 # builtin kustomize does not support remote urls, see https://github.com/tilt-dev/tilt/issues/2383

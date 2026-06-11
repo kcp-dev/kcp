@@ -9,6 +9,9 @@ spec:
   image:
     repository: kcp
     tag: latest
+  extraArgs:
+    # Shared single etcd: isolate this shard's keyspace with a distinct prefix.
+    - --etcd-prefix=/shard/theseus
   shardBaseURL: https://theseus.kcp.localhost:8443
   external:
     hostname: kcp.localhost
@@ -23,7 +26,7 @@ spec:
       enabled: true
   etcd:
     endpoints:
-      - http://etcd.kcp-theseus.svc.cluster.local:2379
+      - http://etcd.kcp-etcd.svc.cluster.local:2379
   deploymentTemplate:
     spec:
       template:

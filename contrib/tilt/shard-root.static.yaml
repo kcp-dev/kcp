@@ -15,6 +15,10 @@ spec:
     #   CacheAPIs       — exposes cache.kcp.io/v1alpha1 CachedResource etc.
     #   WorkspaceMounts — exposes the mount/claim mechanism on Workspace.
     - --feature-gates=CacheAPIs=true,WorkspaceMounts=true
+    # All shards share a single etcd (see etcd/kustomization.yaml). Isolate this
+    # shard's keyspace with a distinct prefix so it does not collide with other
+    # shards. The embedded cache uses its own fixed /cache prefix.
+    - --etcd-prefix=/shard/root
   proxy:
     deploymentTemplate:
       spec:
@@ -40,7 +44,7 @@ spec:
       enabled: true
   etcd:
     endpoints:
-      - http://etcd.kcp-root.svc.cluster.local:2379
+      - http://etcd.kcp-etcd.svc.cluster.local:2379
   deploymentTemplate:
     spec:
       template:

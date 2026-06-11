@@ -459,8 +459,13 @@ clean-workdir: ## Clean workdir
 download-e2e-logs: ## Download e2e logs from a given URL
 	OUT=$(OUT) URL=$(URL) hack/download-e2e-logs.sh
 
+.PHONY: tilt-kind-up
 tilt-kind-up:
 	./contrib/tilt/kind.sh
+
+.PHONY: tilt-kind-up-static
+tilt-kind-up-static:
+	./contrib/tilt/kind-static.sh
 
 .PHONY: help
 help: ## Show this help

@@ -42,5 +42,5 @@ spec:
   rules:
   - backendRefs:
     - name: frontproxy-front-proxy
-      port: 6443
+      port: 8443
       namespace: default

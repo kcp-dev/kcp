@@ -1,4 +1,29 @@
+# A single, shared etcd instance for all kcp components (root shard, theseus
+# shard, embedded cache servers). Every component connects to the same etcd
+# endpoint and is isolated by a distinct --etcd-prefix instead of running its
+# own etcd:
+#   root shard            --etcd-prefix=/shard/root
+#   theseus shard         --etcd-prefix=/shard/theseus
+#   embedded cache server (fixed /cache prefix, shard-scoped keys; see
+#                          pkg/cache/server/config.go)
+namespace: kcp-etcd
 resources:
-  - ./root
-  - ./theseus
+  - namespace.yaml
+  - https://github.com/ntnn/kustomize-etcd?ref=main
 
+# This is a development cluster, so run a single-member etcd instead of the
+# upstream 3-node cluster. Scaling replicas alone is not enough: the static
+# --initial-cluster flag still lists etcd-0/1/2, so the lone member would block
+# forever waiting for quorum. We therefore also rewrite --initial-cluster
+# (container args index 8) to reference only etcd-0.
+patches:
+  - target:
+      kind: StatefulSet
+      name: etcd
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/args/8
+        value: --initial-cluster=etcd-0=$(URI_SCHEME)://etcd-0.$(SERVICE_NAME).$(K8S_NAMESPACE).svc.$(CLUSTER_DOMAIN):2380
