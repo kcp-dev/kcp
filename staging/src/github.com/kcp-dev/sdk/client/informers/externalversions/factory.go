@@ -36,6 +36,7 @@ import (
 	kcpexternalversionscache "github.com/kcp-dev/sdk/client/informers/externalversions/cache"
 	kcpcore "github.com/kcp-dev/sdk/client/informers/externalversions/core"
 	kcpinternalinterfaces "github.com/kcp-dev/sdk/client/informers/externalversions/internalinterfaces"
+	kcpmigration "github.com/kcp-dev/sdk/client/informers/externalversions/migration"
 	kcptenancy "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy"
 	kcptopology "github.com/kcp-dev/sdk/client/informers/externalversions/topology"
 )
@@ -283,6 +284,7 @@ type SharedInformerFactory interface {
 	Apis() kcpapis.ClusterInterface
 	Cache() kcpexternalversionscache.ClusterInterface
 	Core() kcpcore.ClusterInterface
+	Migration() kcpmigration.ClusterInterface
 	Tenancy() kcptenancy.ClusterInterface
 	Topology() kcptopology.ClusterInterface
 }
@@ -297,6 +299,10 @@ func (f *sharedInformerFactory) Cache() kcpexternalversionscache.ClusterInterfac
 
 func (f *sharedInformerFactory) Core() kcpcore.ClusterInterface {
 	return kcpcore.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Migration() kcpmigration.ClusterInterface {
+	return kcpmigration.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Tenancy() kcptenancy.ClusterInterface {
@@ -454,6 +460,7 @@ type SharedScopedInformerFactory interface {
 	Apis() kcpapis.Interface
 	Cache() kcpexternalversionscache.Interface
 	Core() kcpcore.Interface
+	Migration() kcpmigration.Interface
 	Tenancy() kcptenancy.Interface
 	Topology() kcptopology.Interface
 }
@@ -468,6 +475,10 @@ func (f *sharedScopedInformerFactory) Cache() kcpexternalversionscache.Interface
 
 func (f *sharedScopedInformerFactory) Core() kcpcore.Interface {
 	return kcpcore.NewScoped(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedScopedInformerFactory) Migration() kcpmigration.Interface {
+	return kcpmigration.NewScoped(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedScopedInformerFactory) Tenancy() kcptenancy.Interface {

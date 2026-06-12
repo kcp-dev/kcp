@@ -37,6 +37,8 @@ import (
 	kcpfakecachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/cache/v1alpha1/fake"
 	kcpcorev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
 	kcpfakecorev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1/fake"
+	kcpmigrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/migration/v1alpha1"
+	kcpfakemigrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/migration/v1alpha1/fake"
 	kcptenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	kcpfaketenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1/fake"
 	kcptopologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
@@ -45,6 +47,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/topology/v1alpha1"
 )
@@ -142,6 +145,11 @@ func (c *ClusterClientset) CoreV1alpha1() kcpcorev1alpha1.CoreV1alpha1ClusterInt
 	return &kcpfakecorev1alpha1.CoreV1alpha1ClusterClient{Fake: &c.Fake}
 }
 
+// MigrationV1alpha1 retrieves the MigrationV1alpha1ClusterClient
+func (c *ClusterClientset) MigrationV1alpha1() kcpmigrationv1alpha1.MigrationV1alpha1ClusterInterface {
+	return &kcpfakemigrationv1alpha1.MigrationV1alpha1ClusterClient{Fake: &c.Fake}
+}
+
 // TenancyV1alpha1 retrieves the TenancyV1alpha1ClusterClient
 func (c *ClusterClientset) TenancyV1alpha1() kcptenancyv1alpha1.TenancyV1alpha1ClusterInterface {
 	return &kcpfaketenancyv1alpha1.TenancyV1alpha1ClusterClient{Fake: &c.Fake}
@@ -213,6 +221,11 @@ func (c *Clientset) CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface {
 // CoreV1alpha1 retrieves the CoreV1alpha1Client
 func (c *Clientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1Interface {
 	return &kcpfakecorev1alpha1.CoreV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
+}
+
+// MigrationV1alpha1 retrieves the MigrationV1alpha1Client
+func (c *Clientset) MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1Interface {
+	return &kcpfakemigrationv1alpha1.MigrationV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1Client

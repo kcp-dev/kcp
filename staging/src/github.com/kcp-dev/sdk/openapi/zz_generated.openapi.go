@@ -32,6 +32,7 @@ import (
 	v1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
@@ -126,6 +127,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1alpha1.ShardList{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
 		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		corev1alpha1.ShardStatus{}.OpenAPIModelName():                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
+		migrationv1alpha1.EtcdEntry{}.OpenAPIModelName():                              schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref),
+		migrationv1alpha1.LogicalClusterDump{}.OpenAPIModelName():                     schema_sdk_apis_migration_v1alpha1_LogicalClusterDump(ref),
+		migrationv1alpha1.LogicalClusterDumpSpec{}.OpenAPIModelName():                 schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref),
+		migrationv1alpha1.LogicalClusterDumpStatus{}.OpenAPIModelName():               schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref),
+		migrationv1alpha1.LogicalClusterMigration{}.OpenAPIModelName():                schema_sdk_apis_migration_v1alpha1_LogicalClusterMigration(ref),
+		migrationv1alpha1.LogicalClusterMigrationList{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationList(ref),
+		migrationv1alpha1.LogicalClusterMigrationSpec{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationSpec(ref),
+		migrationv1alpha1.LogicalClusterMigrationStatus{}.OpenAPIModelName():          schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref),
 		tenancyv1alpha1.APIExportReference{}.OpenAPIModelName():                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
 		tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName():     schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref),
 		tenancyv1alpha1.ClaimMappings{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
@@ -4086,6 +4095,291 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 		},
 		Dependencies: []string{
 			conditionsv1alpha1.Condition{}.OpenAPIModelName(), "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EtcdEntry is a single etcd key/value pair from the origin shard.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "key is the etcd key with the origin shard's storage prefix stripped. The destination shard prepends its own storage prefix before writing.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "value is the raw etcd value bytes. JSON-encoded as base64 on the wire.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"key", "value"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterDump(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterDump is an ephemeral request/response type used by the destination shard during a logical cluster migration to fetch the raw etcd contents of the migration logical cluster from the origin shard.\n\nThe server populates Status.Entries on Create. The object is not persisted.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.LogicalClusterDumpSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.LogicalClusterDumpStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.LogicalClusterDumpSpec{}.OpenAPIModelName(), migrationv1alpha1.LogicalClusterDumpStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterDumpSpec is the desired state for a dump request.\n\nThe logical cluster to dump is taken from the request's cluster context (i.e. the URL the request arrived on). No fields are required today.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterDumpStatus carries the dump payload populated by the server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"entries": {
+						SchemaProps: spec.SchemaProps{
+							Description: "entries is the full set of etcd key/value pairs belonging to the logical cluster, in the origin shard's etcd encoding (proto for built-ins, JSON for CRs).\n\nbecomes a concern.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(migrationv1alpha1.EtcdEntry{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.EtcdEntry{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterMigration describes a migration of a logical cluster from one shard to another.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.LogicalClusterMigrationSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.LogicalClusterMigrationStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.LogicalClusterMigrationSpec{}.OpenAPIModelName(), migrationv1alpha1.LogicalClusterMigrationStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterMigrationList is a list of LogicalClusterMigration resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(migrationv1alpha1.LogicalClusterMigration{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.LogicalClusterMigration{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterMigrationSpec holds the desired state of the migration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"logicalCluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "logicalCluster is the name of the logical cluster to migrate.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"destinationShard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "destinationShard is the name of the shard to migrate the logical cluster to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"logicalCluster", "destinationShard"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterMigrationStatus communicates the observed state of the migration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "phase is the current phase of the migration.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"originShard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "originShard is the name of the shard to migrate the logical cluster from. Set by the origin shard controller during preparation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current processing state of the migration.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 

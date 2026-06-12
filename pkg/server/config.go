@@ -74,9 +74,11 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
+	"github.com/kcp-dev/kcp/pkg/reconciler/migration/logicalclustermigration"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
+	"github.com/kcp-dev/kcp/pkg/server/migrationdump"
 	"github.com/kcp-dev/kcp/pkg/server/openapiv3"
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
@@ -131,11 +133,13 @@ type ExtraConfig struct {
 	ExternalLogicalClusterAdminConfig *rest.Config // client config connecting to the front proxy
 
 	// misc
-	preHandlerChainMux    *handlerChainMuxes
-	quotaAdmissionStopCh  chan struct{}
-	ClusterContextManager *contextmanager.Manager[logicalcluster.Path]
-	openAPIv3Controller   *openapiv3.Controller
-	openAPIv3ServiceCache *openapiv3.ServiceCache
+	preHandlerChainMux       *handlerChainMuxes
+	quotaAdmissionStopCh     chan struct{}
+	ClusterContextManager    *contextmanager.Manager[logicalcluster.Path]
+	MigratingLogicalClusters *logicalclustermigration.MigratingLogicalClusters
+	MigrationDumpHandler     *migrationdump.Handler
+	openAPIv3Controller      *openapiv3.Controller
+	openAPIv3ServiceCache    *openapiv3.ServiceCache
 
 	// URL getters depending on genericspiserver.ExternalAddress which is initialized on server run
 	ShardBaseURL             func() string
@@ -577,6 +581,10 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// 2. Rest of the handlers up to Authz
 		// 3. Scoping handlers to ensure that the request is scoped to the user's clusters before authz is done.
 		// 4. Rest of the handlers.
+		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
+			apiHandler = kcpfilters.WithMigrationDumpHandler(apiHandler, c.MigrationDumpHandler)
+			apiHandler = kcpfilters.WithBlockMigratingLogicalClusters(apiHandler, c.MigratingLogicalClusters.IsMigrating)
+		}
 		apiHandler = kcpfilters.WithImpersonationScoping(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromImpersonationToAuthz(apiHandler, genericConfig)
 		apiHandler = kcpfilters.WithImpersonationGatekeeper(apiHandler)
@@ -633,6 +641,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	quotaConfiguration := generic.NewConfiguration(nil, quotainstall.DefaultIgnoredResources())
 
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
+	c.ExtraConfig.MigratingLogicalClusters = logicalclustermigration.NewMigratingLogicalClusters()
 
 	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
 	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
@@ -819,6 +828,18 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config for virtual resources server: %v", err)
 		}
+	}
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
+		etcdClient, err := newEtcdClient(c.Options.GenericControlPlane.Etcd.StorageConfig.Transport)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create etcd client for migration dump handler: %w", err)
+		}
+		c.ExtraConfig.MigrationDumpHandler = migrationdump.NewHandler(
+			etcdClient,
+			c.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+			c.ExtraConfig.MigratingLogicalClusters,
+		)
 	}
 
 	c.openAPIv3Controller = openapiv3.NewController(c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions())

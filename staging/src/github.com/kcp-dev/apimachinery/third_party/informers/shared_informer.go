@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -240,6 +241,10 @@ type sharedIndexInformer struct {
 
 	// keyFunc is called when processing deltas by the underlying process function.
 	keyFunc cache.KeyFunc
+
+	// ignoreFunc is called for each object to be processed. If it
+	// returns true the object is skipped entirely.
+	ignoreFunc func(interface{}) bool
 }
 
 func (s *sharedIndexInformer) Cluster(cluster logicalcluster.Name) cache.SharedIndexInformer {
@@ -323,6 +328,42 @@ func (s *sharedIndexInformer) SetTransform(handler cache.TransformFunc) error {
 
 	s.transform = handler
 	return nil
+}
+
+func (s *sharedIndexInformer) SetIgnoreFunc(fn func(interface{}) bool) error {
+	s.startedLock.Lock()
+	defer s.startedLock.Unlock()
+
+	if s.started {
+		return fmt.Errorf("informer has already started")
+	}
+
+	s.ignoreFunc = fn
+	return nil
+}
+
+// ForceRelist causes the underlying reflector to perform a full relist
+// on the next list/watch cycle if it supports it.
+//
+// The relist forces all informers to be consistent with the objects as
+// they are stored in etcd.
+//
+// This method is a kcp addition and forwards the request to the forked
+// controller, which in turn forwards it to the forked reflector.
+func (s *sharedIndexInformer) ForceRelist() {
+	s.startedLock.Lock()
+	defer s.startedLock.Unlock()
+
+	if !s.started {
+		return
+	}
+
+	type forceRelister interface {
+		ForceRelist()
+	}
+	if r, ok := s.controller.(forceRelister); ok {
+		r.ForceRelist()
+	}
 }
 
 func (s *sharedIndexInformer) Run(stopCh <-chan struct{}) {
@@ -592,6 +633,23 @@ func (s *sharedIndexInformer) handleDeltas(logger klog.Logger, obj interface{}, 
 	defer s.blockDeltas.Unlock()
 
 	if deltas, ok := obj.(cache.Deltas); ok {
+		if s.ignoreFunc != nil {
+			deltas = slices.DeleteFunc(
+				deltas,
+				func(d cache.Delta) bool {
+					return s.ignoreFunc(d.Object)
+				},
+			)
+			// ignoreFunc cannot act on ReplacedAllInfo, so filter the individual objects inside each ReplacedAll delta separately.
+			for i, d := range deltas {
+				if d.Type == cache.ReplacedAll {
+					if info, ok := d.Object.(cache.ReplacedAllInfo); ok {
+						info.Objects = slices.DeleteFunc(info.Objects, s.ignoreFunc)
+						deltas[i].Object = info
+					}
+				}
+			}
+		}
 		return processDeltas(logger, s, s.indexer, deltas, isInInitialList, s.keyFunc)
 	}
 	return errors.New("object given as Process argument is not Deltas")
@@ -600,6 +658,18 @@ func (s *sharedIndexInformer) handleDeltas(logger klog.Logger, obj interface{}, 
 func (s *sharedIndexInformer) handleBatchDeltas(logger klog.Logger, deltas []cache.Delta, isInInitialList bool) error {
 	s.blockDeltas.Lock()
 	defer s.blockDeltas.Unlock()
+
+	if s.ignoreFunc != nil {
+		deltas = slices.DeleteFunc(
+			deltas,
+			func(d cache.Delta) bool {
+				return s.ignoreFunc(d.Object)
+			},
+		)
+		// No special handling for ReplacedAllInfo as it isn't
+		// a batchable type and a batch operation itself.
+	}
+
 	return processDeltasInBatch(logger, s, s.indexer, deltas, isInInitialList, s.keyFunc)
 }
 

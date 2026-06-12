@@ -30,6 +30,7 @@ import (
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	apiresourceschemaoptions "github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema/options"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
+	migratingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces/options"
 	replicationoptions "github.com/kcp-dev/kcp/pkg/virtual/replication/options"
 	terminatingworkspaceoptions "github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces/options"
 )
@@ -40,6 +41,7 @@ type Options struct {
 	APIExport              *apiexportoptions.APIExport
 	APIResourceSchema      *apiresourceschemaoptions.APIResourceSchema
 	InitializingWorkspaces *initializingworkspacesoptions.InitializingWorkspaces
+	MigratingWorkspaces    *migratingworkspacesoptions.MigratingWorkspaces
 	TerminatingWorkspaces  *terminatingworkspaceoptions.TerminatingWorkspaces
 }
 
@@ -48,6 +50,7 @@ func NewOptions() *Options {
 		APIExport:              apiexportoptions.New(),
 		APIResourceSchema:      apiresourceschemaoptions.New(),
 		InitializingWorkspaces: initializingworkspacesoptions.New(),
+		MigratingWorkspaces:    migratingworkspacesoptions.New(),
 		TerminatingWorkspaces:  terminatingworkspaceoptions.New(),
 	}
 }
@@ -58,6 +61,7 @@ func (o *Options) Validate() []error {
 	errs = append(errs, o.APIExport.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.APIResourceSchema.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.InitializingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
+	errs = append(errs, o.MigratingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 	errs = append(errs, o.TerminatingWorkspaces.Validate(virtualWorkspacesFlagPrefix)...)
 
 	return errs
@@ -65,6 +69,7 @@ func (o *Options) Validate() []error {
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.InitializingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
+	o.MigratingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 	o.TerminatingWorkspaces.AddFlags(fs, virtualWorkspacesFlagPrefix)
 	o.APIExport.AddFlags(fs, virtualWorkspacesFlagPrefix)
 	o.APIResourceSchema.AddFlags(fs, virtualWorkspacesFlagPrefix)
@@ -116,7 +121,12 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, apiresourceschemas, initializingworkspaces, replications, terminatingworkspaces)
+	migratingworkspaces, err := o.MigratingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config)
+	if err != nil {
+		return nil, err
+	}
+
+	all, err := Merge(apiexports, apiresourceschemas, initializingworkspaces, replications, terminatingworkspaces, migratingworkspaces)
 	if err != nil {
 		return nil, err
 	}

@@ -33,6 +33,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/cache/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
 )
@@ -44,6 +45,7 @@ type ClusterInterface interface {
 	ApisV1alpha2() apisv1alpha2.ApisV1alpha2ClusterInterface
 	CacheV1alpha1() cachev1alpha1.CacheV1alpha1ClusterInterface
 	CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface
+	MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1ClusterInterface
 	TenancyV1alpha1() tenancyv1alpha1.TenancyV1alpha1ClusterInterface
 	TopologyV1alpha1() topologyv1alpha1.TopologyV1alpha1ClusterInterface
 }
@@ -51,13 +53,14 @@ type ClusterInterface interface {
 // ClusterClientset contains the cluster clients for groups.
 type ClusterClientset struct {
 	*discovery.DiscoveryClient
-	clientCache      kcpclient.Cache[*client.Clientset]
-	apisV1alpha1     *apisv1alpha1.ApisV1alpha1ClusterClient
-	apisV1alpha2     *apisv1alpha2.ApisV1alpha2ClusterClient
-	cacheV1alpha1    *cachev1alpha1.CacheV1alpha1ClusterClient
-	coreV1alpha1     *corev1alpha1.CoreV1alpha1ClusterClient
-	tenancyV1alpha1  *tenancyv1alpha1.TenancyV1alpha1ClusterClient
-	topologyV1alpha1 *topologyv1alpha1.TopologyV1alpha1ClusterClient
+	clientCache       kcpclient.Cache[*client.Clientset]
+	apisV1alpha1      *apisv1alpha1.ApisV1alpha1ClusterClient
+	apisV1alpha2      *apisv1alpha2.ApisV1alpha2ClusterClient
+	cacheV1alpha1     *cachev1alpha1.CacheV1alpha1ClusterClient
+	coreV1alpha1      *corev1alpha1.CoreV1alpha1ClusterClient
+	migrationV1alpha1 *migrationv1alpha1.MigrationV1alpha1ClusterClient
+	tenancyV1alpha1   *tenancyv1alpha1.TenancyV1alpha1ClusterClient
+	topologyV1alpha1  *topologyv1alpha1.TopologyV1alpha1ClusterClient
 }
 
 // Discovery retrieves the DiscoveryClient.
@@ -86,6 +89,11 @@ func (c *ClusterClientset) CacheV1alpha1() cachev1alpha1.CacheV1alpha1ClusterInt
 // CoreV1alpha1 retrieves the CoreV1alpha1ClusterClient.
 func (c *ClusterClientset) CoreV1alpha1() corev1alpha1.CoreV1alpha1ClusterInterface {
 	return c.coreV1alpha1
+}
+
+// MigrationV1alpha1 retrieves the MigrationV1alpha1ClusterClient.
+func (c *ClusterClientset) MigrationV1alpha1() migrationv1alpha1.MigrationV1alpha1ClusterInterface {
+	return c.migrationV1alpha1
 }
 
 // TenancyV1alpha1 retrieves the TenancyV1alpha1ClusterClient.
@@ -166,6 +174,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	if err != nil {
 		return nil, err
 	}
+	cs.migrationV1alpha1, err = migrationv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.tenancyV1alpha1, err = tenancyv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -199,6 +211,7 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.apisV1alpha2 = apisv1alpha2.NewForConfigOrDie(c)
 	cs.cacheV1alpha1 = cachev1alpha1.NewForConfigOrDie(c)
 	cs.coreV1alpha1 = corev1alpha1.NewForConfigOrDie(c)
+	cs.migrationV1alpha1 = migrationv1alpha1.NewForConfigOrDie(c)
 	cs.tenancyV1alpha1 = tenancyv1alpha1.NewForConfigOrDie(c)
 	cs.topologyV1alpha1 = topologyv1alpha1.NewForConfigOrDie(c)
 

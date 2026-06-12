@@ -238,6 +238,7 @@ func TestCRDCrossLogicalClusterListPartialObjectMetadata(t *testing.T) {
 	informerFactory, err := informer.NewDiscoveringDynamicSharedInformerFactory(
 		metadataClusterClient,
 		func(obj interface{}) bool { return true },
+		func(obj interface{}) bool { return false },
 		nil,
 		crdGVRSource,
 		cache.Indexers{},
