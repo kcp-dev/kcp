@@ -50,9 +50,8 @@ type ExtraConfig struct {
 	RootShardConfig   *rest.Config
 	ShardsConfig      *rest.Config
 
-	AuthenticationInfo    genericapiserver.AuthenticationInfo
-	ServingInfo           *genericapiserver.SecureServingInfo
-	AdditionalAuthEnabled bool
+	AuthenticationInfo genericapiserver.AuthenticationInfo
+	ServingInfo        *genericapiserver.SecureServingInfo
 }
 
 type CompletedConfig struct {
@@ -102,8 +101,6 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		return nil, fmt.Errorf("failed to load shard kubeconfig: %w", err)
 	}
 	c.ShardsConfig.Wrap(kcpShardIdentityRoundTripper)
-
-	c.AdditionalAuthEnabled = c.Options.Authentication.AdditionalAuthEnabled()
 
 	return c, nil
 }
