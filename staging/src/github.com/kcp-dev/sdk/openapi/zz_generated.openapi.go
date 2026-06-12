@@ -4943,7 +4943,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeExtension(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"with": {
 						SchemaProps: spec.SchemaProps{
-							Description: "with are WorkspaceTypes whose initializers are added to the list for the owning type, and for whom the owning type becomes an alias, as long as all of their required types are not mentioned in without.",
+							Description: "with are WorkspaceTypes whose initializers are added to the list for the owning type, and for whom the owning type becomes an alias.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -5099,7 +5099,7 @@ func schema_sdk_apis_tenancy_v1alpha1_WorkspaceTypeSpec(ref common.ReferenceCall
 					},
 					"extend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending another WorkspaceType, this WorkspaceType will be considered as that other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.",
+							Description: "extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren and limitAllowedParents this WorkspaceType inherits. Extension is additive: by (transitively) extending another WorkspaceType, this WorkspaceType is considered to be that other type when evaluating limitAllowedChildren and limitAllowedParents constraints. As a result, a type that extends multiple types satisfies a constraint that allows any one of those types, so the effective allowed set is the union of the extended types and not their intersection.\n\nA dependency cycle stop this WorkspaceType from being admitted as the type of a Workspace.\n\nA non-existing dependency stop this WorkspaceType from being admitted as the type of a Workspace.",
 							Default:     map[string]interface{}{},
 							Ref:         ref(tenancyv1alpha1.WorkspaceTypeExtension{}.OpenAPIModelName()),
 						},
