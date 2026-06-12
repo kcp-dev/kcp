@@ -35,6 +35,17 @@ func ToLabelKeyAndValue(exportClusterName logicalcluster.Name, exportName string
 	// (identification) key as that would require (some sort of) migration.
 	permissionClaim.Verbs = nil
 
+	// DefaultSelector and the binding-time Selector scope down which objects are
+	// claimed; they are not part of a claim's identity. They must not contribute
+	// to the hash: the APIExport reconciler hashes the APIExport's claim (which may
+	// carry a defaultSelector) to build the virtual workspace LIST/WATCH filter,
+	// while the permissionclaim labeler hashes the APIBinding's accepted claim
+	// (which never carries a defaultSelector) to label the claimed objects. If
+	// defaultSelector contributed to the hash the two would diverge and claimed
+	// resources would be invisible through the APIExport endpoint. See
+	// https://github.com/kcp-dev/kcp/issues/4198.
+	permissionClaim.DefaultSelector = nil
+
 	bytes, err := json.Marshal(permissionClaim)
 	if err != nil {
 		return "", "", err

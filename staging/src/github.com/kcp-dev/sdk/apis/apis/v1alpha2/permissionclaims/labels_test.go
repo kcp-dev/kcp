@@ -95,6 +95,33 @@ func TestToLabelKeyAndValueIgnoresVerbs(t *testing.T) {
 	assert.Equal(t, valueA, valueB)
 }
 
+// TestToLabelKeyAndValueIgnoresDefaultSelector is a regression test for
+// https://github.com/kcp-dev/kcp/issues/4198. The APIExport reconciler hashes
+// the APIExport's claim (which may carry a defaultSelector) to build the virtual
+// workspace LIST/WATCH filter, while the permissionclaim labeler hashes the
+// APIBinding's accepted claim (which never carries a defaultSelector) to label
+// the claimed objects. If defaultSelector contributed to the hash, the two would
+// diverge and claimed resources (e.g. workspacetypes) would be invisible through
+// the APIExport endpoint.
+func TestToLabelKeyAndValueIgnoresDefaultSelector(t *testing.T) {
+	t.Parallel()
+	base := apisv1alpha2.PermissionClaim{
+		GroupResource: apisv1alpha2.GroupResource{Group: "tenancy.kcp.io", Resource: "workspacetypes"},
+		IdentityHash:  "a83e47a180b6e88edde2f42a9f2cd5740ea0bdc3d271d926374f0ce7204e5c17",
+		Verbs:         []string{"*"},
+	}
+	withDefaultSelector := base
+	withDefaultSelector.DefaultSelector = &apisv1alpha2.PermissionClaimSelector{MatchAll: true}
+
+	keyA, valueA, err := ToLabelKeyAndValue("root", "workspaces", base)
+	require.NoError(t, err)
+	keyB, valueB, err := ToLabelKeyAndValue("root", "workspaces", withDefaultSelector)
+	require.NoError(t, err)
+
+	assert.Equal(t, keyA, keyB)
+	assert.Equal(t, valueA, valueB, "defaultSelector must not change the claim hash (issue #4198)")
+}
+
 // TestToReflexiveAPIBindingLabelKeyAndValue ensures that ToReflexiveAPIBindingLabelKeyAndValue stays stable.
 func TestToReflexiveAPIBindingLabelKeyAndValue(t *testing.T) {
 	t.Parallel()

@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -837,6 +838,98 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	}
 	_, err = kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer1.Spec.Cluster)).AuthorizationV1().LocalSubjectAccessReviews("default").Create(t.Context(), lsar, metav1.CreateOptions{})
 	require.NoError(t, err)
+}
+
+// TestAPIExportPermissionClaimsDefaultSelector is a regression test for
+// https://github.com/kcp-dev/kcp/issues/4198. When an APIExport's permission
+// claim carries a defaultSelector, the claimed resources used to become invisible
+// through the APIExport virtual workspace, because the virtual workspace LIST
+// filter hashed the APIExport's claim (with defaultSelector) while the
+// permissionclaim labeler hashed the APIBinding's accepted claim (without
+// defaultSelector). The two hashes diverged, so the filter never matched the
+// labeled objects. Dropping defaultSelector "fixed" it for the reporter; this
+// test ensures a defaultSelector no longer hides claimed resources.
+func TestAPIExportPermissionClaimsDefaultSelector(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
+	claimerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("claimer"))
+	consumerPath, consumer := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer"))
+
+	cfg := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kcp cluster client for server")
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct dynamic cluster client for server")
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err, "failed to construct kube cluster client for server")
+
+	t.Logf("Create cowboys APIExport in %v claiming configmaps WITH a defaultSelector", claimerPath)
+	claims := []apisv1alpha2.PermissionClaim{
+		{
+			GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
+			Verbs:         []string{"*"},
+			// This defaultSelector is the trigger for issue #4198.
+			DefaultSelector: &apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+		},
+	}
+	setUpServiceProvider(t, dynamicClusterClient, kcpClusterClient, false, claimerPath, cfg, claims)
+
+	t.Logf("Bind cowboys from %v to %v, accepting the configmaps claim WITHOUT a defaultSelector (as a user-authored APIBinding would)", claimerPath, consumerPath)
+	bindConsumerToProvider(t, consumerPath, claimerPath, kcpClusterClient, cfg, apisv1alpha2.AcceptablePermissionClaim{
+		ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+			PermissionClaim: apisv1alpha2.PermissionClaim{
+				GroupResource: apisv1alpha2.GroupResource{Group: "", Resource: "configmaps"},
+				Verbs:         []string{"*"},
+			},
+			Selector: apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+		},
+		State: apisv1alpha2.ClaimAccepted,
+	})
+
+	t.Logf("Create a configmap in consumer workspace %v", consumerPath)
+	const configMapName = "claimed-cm"
+	_, err = kubeClusterClient.Cluster(consumerPath).CoreV1().ConfigMaps("default").Create(t.Context(), &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+		Data:       map[string]string{"hello": "world"},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create configmap in consumer workspace")
+
+	t.Logf("Waiting for the cowboys APIExport to have a virtual workspace URL for %q", consumerPath)
+	consumerVWCfg := rest.CopyConfig(cfg)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		apiExportEndpointSlice, err := kcpClusterClient.Cluster(claimerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		var found bool
+		consumerVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumer, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		require.NoError(t, err)
+		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	dynamicVWClusterClient, err := kcpdynamic.NewForConfig(consumerVWCfg)
+	require.NoError(t, err)
+	configMapsGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+	t.Logf("Verify the claimed configmap is visible through the APIExport virtual workspace despite the defaultSelector")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		list, err := dynamicVWClusterClient.Resource(configMapsGVR).List(t.Context(), metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Sprintf("error listing configmaps through virtual workspace: %v", err)
+		}
+		for _, item := range list.Items {
+			if item.GetName() == configMapName {
+				return true, ""
+			}
+		}
+		var names []string
+		for _, item := range list.Items {
+			names = append(names, item.GetName())
+		}
+		return false, fmt.Sprintf("claimed configmap %q not yet visible through virtual workspace; saw %v", configMapName, names)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "claimed configmap never became visible through the APIExport virtual workspace (issue #4198)")
 }
 
 func TestAPIExportClaimableBuiltInAPIsDrift(t *testing.T) {
