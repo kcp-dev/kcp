@@ -31,27 +31,29 @@ import (
 )
 
 type Options struct {
-	ServerRunOptions *genericoptions.ServerRunOptions
-	Etcd             *genericoptions.EtcdOptions
-	SecureServing    *genericoptions.SecureServingOptionsWithLoopback
-	Authentication   *Authentication
-	Authorization    *Authorization
-	APIEnablement    *genericoptions.APIEnablementOptions
-	EmbeddedEtcd     etcdoptions.Options
-	Logs             *logs.Options
-	SyntheticDelay   time.Duration
+	ServerRunOptions                   *genericoptions.ServerRunOptions
+	Etcd                               *genericoptions.EtcdOptions
+	SecureServing                      *genericoptions.SecureServingOptionsWithLoopback
+	Authentication                     *Authentication
+	Authorization                      *Authorization
+	APIEnablement                      *genericoptions.APIEnablementOptions
+	EmbeddedEtcd                       etcdoptions.Options
+	Logs                               *logs.Options
+	SyntheticDelay                     time.Duration
+	ConversionCELTransformationTimeout time.Duration
 }
 
 type completedOptions struct {
-	ServerRunOptions *genericoptions.ServerRunOptions
-	Etcd             *genericoptions.EtcdOptions
-	SecureServing    *genericoptions.SecureServingOptionsWithLoopback
-	Authentication   *Authentication
-	Authorization    *Authorization
-	APIEnablement    *genericoptions.APIEnablementOptions
-	EmbeddedEtcd     etcdoptions.CompletedOptions
-	Logs             *logs.Options
-	SyntheticDelay   time.Duration
+	ServerRunOptions                   *genericoptions.ServerRunOptions
+	Etcd                               *genericoptions.EtcdOptions
+	SecureServing                      *genericoptions.SecureServingOptionsWithLoopback
+	Authentication                     *Authentication
+	Authorization                      *Authorization
+	APIEnablement                      *genericoptions.APIEnablementOptions
+	EmbeddedEtcd                       etcdoptions.CompletedOptions
+	Logs                               *logs.Options
+	SyntheticDelay                     time.Duration
+	ConversionCELTransformationTimeout time.Duration
 }
 
 type CompletedOptions struct {
@@ -73,14 +75,15 @@ func (o *CompletedOptions) Validate() []error {
 // NewOptions creates a new Options with default parameters.
 func NewOptions(rootDir string) *Options {
 	o := &Options{
-		ServerRunOptions: genericoptions.NewServerRunOptions(),
-		Etcd:             genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, nil)),
-		SecureServing:    genericoptions.NewSecureServingOptions().WithLoopback(),
-		Authentication:   NewAuthentication(),
-		Authorization:    NewAuthorization(),
-		APIEnablement:    genericoptions.NewAPIEnablementOptions(),
-		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
-		Logs:             logs.NewOptions(),
+		ServerRunOptions:                   genericoptions.NewServerRunOptions(),
+		Etcd:                               genericoptions.NewEtcdOptions(storagebackend.NewDefaultConfig(kubeoptions.DefaultEtcdPathPrefix, nil)),
+		SecureServing:                      genericoptions.NewSecureServingOptions().WithLoopback(),
+		Authentication:                     NewAuthentication(),
+		Authorization:                      NewAuthorization(),
+		APIEnablement:                      genericoptions.NewAPIEnablementOptions(),
+		EmbeddedEtcd:                       *etcdoptions.NewOptions(rootDir),
+		Logs:                               logs.NewOptions(),
+		ConversionCELTransformationTimeout: time.Second,
 	}
 
 	o.SecureServing.ServerCert.CertDirectory = rootDir
@@ -104,14 +107,15 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 	}
 
 	return &CompletedOptions{&completedOptions{
-		ServerRunOptions: o.ServerRunOptions,
-		Etcd:             o.Etcd,
-		SecureServing:    o.SecureServing,
-		Authentication:   o.Authentication,
-		Authorization:    o.Authorization,
-		APIEnablement:    o.APIEnablement,
-		EmbeddedEtcd:     o.EmbeddedEtcd.Complete(o.Etcd),
-		Logs:             o.Logs,
+		ServerRunOptions:                   o.ServerRunOptions,
+		Etcd:                               o.Etcd,
+		SecureServing:                      o.SecureServing,
+		Authentication:                     o.Authentication,
+		Authorization:                      o.Authorization,
+		APIEnablement:                      o.APIEnablement,
+		EmbeddedEtcd:                       o.EmbeddedEtcd.Complete(o.Etcd),
+		Logs:                               o.Logs,
+		ConversionCELTransformationTimeout: o.ConversionCELTransformationTimeout,
 	}}, nil
 }
 
