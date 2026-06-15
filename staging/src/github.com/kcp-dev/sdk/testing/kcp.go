@@ -108,7 +108,17 @@ func SharedKcpServer(t TestingT) kcptestingserver.RunningServer {
 		// Use a pre-existing external server
 
 		t.Logf("Shared kcp server will target configuration %q", externalConfig.kubeconfigPath)
-		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, filepath.Dir(KubeconfigPath()))
+
+		// Determine the client CA directory. If KCP_CLIENT_CA_DIR is set, use that;
+		// otherwise fall back to the directory containing the kubeconfig.
+		// This allows external test environments to provide a writable directory
+		// for tests that need to generate additional CA certificates (e.g., OIDC tests).
+		clientCADir := os.Getenv("KCP_CLIENT_CA_DIR")
+		if clientCADir == "" {
+			clientCADir = filepath.Dir(KubeconfigPath())
+		}
+
+		s, err := kcptestingserver.NewExternalKCPServer(sharedConfig.Name, externalConfig.kubeconfigPath, externalConfig.shardKubeconfigPaths, clientCADir)
 		require.NoError(t, err, "failed to create persistent server fixture")
 
 		rootCfg := s.RootShardSystemMasterBaseConfig(t)
