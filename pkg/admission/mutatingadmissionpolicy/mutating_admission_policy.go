@@ -18,6 +18,7 @@ package mutatingadmissionpolicy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -36,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
@@ -87,6 +89,8 @@ type KubeMutatingAdmissionPolicy struct {
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 
+	featureGates featuregate.FeatureGate
+
 	delegatesLock sync.RWMutex
 	delegates     map[delegateKey]*stoppableMutatingAdmissionPolicy
 
@@ -100,6 +104,7 @@ var _ = initializers.WantsKcpInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeMutatingAdmissionPolicy{})
+var _ = initializer.WantsFeatures(&KubeMutatingAdmissionPolicy{})
 var _ = admission.InitializationValidator(&KubeMutatingAdmissionPolicy{})
 
 func (k *KubeMutatingAdmissionPolicy) SetKubeClusterClient(kubeClusterClient kcpkubernetesclientset.ClusterInterface) {
@@ -152,6 +157,10 @@ func (k *KubeMutatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.Clust
 
 func (k *KubeMutatingAdmissionPolicy) SetAuthorizer(authz authorizer.Authorizer) {
 	k.authorizer = authz
+}
+
+func (k *KubeMutatingAdmissionPolicy) InspectFeatureGates(featureGates featuregate.FeatureGate) {
+	k.featureGates = featureGates
 }
 
 func (k *KubeMutatingAdmissionPolicy) ValidateInitialization() error {
@@ -239,13 +248,19 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 		return nil, err
 	}
 
+	// Default to enable MAP, but honour the feature gate if available.
+	plugin.SetEnabled(true)
+	if k.featureGates != nil {
+		plugin.InspectFeatureGates(k.featureGates)
+	}
+
 	delegate = &stoppableMutatingAdmissionPolicy{
 		Plugin: plugin,
 		stop:   cancel,
 	}
 
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(targetClusterName))
-	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(policyClusterName.Path()))
+	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(targetClusterName.Path()))
 
 	discoveryClient := memory.NewMemCacheClient(k.kubeClusterClient.Cluster(policyClusterName.Path()).Discovery())
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
@@ -262,7 +277,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 			mutating.NewMutatingAdmissionPolicyAccessor,
 			mutating.NewMutatingAdmissionPolicyBindingAccessor,
 			mutating.CompilePolicy,
-			nil,
+			&deferredInformerFactory{},
 			dynamicClient,
 			restMapper,
 			cn,
@@ -304,4 +319,13 @@ func (k *KubeMutatingAdmissionPolicy) logicalClusterDeleted(clusterName logicalc
 type stoppableMutatingAdmissionPolicy struct {
 	*mutating.Plugin
 	stop func()
+}
+
+// deferredInformerFactory is exactly the same as in the validating admission policy.
+type deferredInformerFactory struct {
+	informers.SharedInformerFactory
+}
+
+func (d *deferredInformerFactory) ForResource(resource schema.GroupVersionResource) (informers.GenericInformer, error) {
+	return nil, fmt.Errorf("deferring creation to dynamic informer. This is expected")
 }
