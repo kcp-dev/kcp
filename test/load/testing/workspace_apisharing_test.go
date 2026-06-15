@@ -76,11 +76,11 @@ func TestAPISharing(t *testing.T) {
 	sections = append(sections, exportSection)
 
 	t.Logf("Creating APIBindings in consumer workspaces")
-	bindingSection := createAPIBindings(t, client, wt, params.CreateAPIBindingQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount)
+	bindingSection := createAPIBindings(t, client, wt, params.CreateAPIBindingQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer)
 	sections = append(sections, bindingSection)
 
 	t.Logf("Running custom resource CRUD operations")
-	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount)
+	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer)
 	sections = append(sections, crudSection)
 
 	report := NewKCPReport(t.Context(), t, "API Sharing", cfg.FrontProxyKubeconfig)
@@ -202,36 +202,37 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 	return section
 }
 
-// createAPIBindings creates an APIBinding in each consumer workspace (sequence
-// numbers providerCount+1 through providerCount+consumerCount) that binds to
-// the provider workspaces in a round-robin fashion.
-func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount int) measurement.Section {
+// createAPIBindings creates APIBindings in each consumer workspace (sequence
+// numbers providerCount+1 through providerCount+consumerCount). Each consumer
+// gets bindingsPerConsumer bindings. Providers are assigned via a global
+// round-robin across all binding slots (consumerCount * bindingsPerConsumer).
+func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount, bindingsPerConsumer int) measurement.Section {
 	t.Helper()
+
+	totalBindings := consumerCount * bindingsPerConsumer
 
 	section := measurement.Section{
 		Title: "APIBinding Creation",
 		Parameters: []measurement.Parameter{
 			{Key: "ConsumerWorkspaces", Value: fmt.Sprintf("%d", consumerCount)},
 			{Key: "ProviderWorkspaces", Value: fmt.Sprintf("%d", providerCount)},
-			{Key: "CRUD-QPS", Value: fmt.Sprintf("%f", qps)},
+			{Key: "BindingsPerConsumer", Value: fmt.Sprintf("%d", bindingsPerConsumer)},
+			{Key: "TotalBindings", Value: fmt.Sprintf("%d", totalBindings)},
+			{Key: "QPS", Value: fmt.Sprintf("%f", qps)},
 		},
 		Sink: &measurement.Memory{
 			Stats: []stats.NamedStat{stats.P99(), stats.Avg()},
 		},
 	}
 
-	// Consumer workspaces start after the provider workspaces.
-	consumerStart := providerCount + 1
-	ts := tuningset.NewUniformQPS(qps, consumerCount, consumerStart)
+	// Iterate over all binding slots, starting sequence at 0.
+	ts := tuningset.NewUniformQPS(qps, totalBindings, 0)
 	section.Start()
 	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		consumerPath := wt.PathForSequenceNumber(seq)
-
-		// Round-robin: map consumer index to provider sequence number (1-based).
-		consumerIndex := seq - consumerStart
-		providerSeq := (consumerIndex % providerCount) + 1
+		consumerSeq, providerSeq := bindingSlot(seq, providerCount, bindingsPerConsumer)
+		consumerPath := wt.PathForSequenceNumber(consumerSeq)
 		providerPath := wt.PathForSequenceNumber(providerSeq)
 		exportName := fmt.Sprintf("loadtest-export-%d", providerSeq)
 		bindingName := fmt.Sprintf("loadtest-binding-%d", providerSeq)
@@ -281,15 +282,20 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 }
 
 // crudCustomResources performs a Create/Get/Update/Delete cycle for a custom
-// resource in each consumer workspace. The resource type is determined by the
-// round-robin provider assignment.
-func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount int) measurement.Section {
+// resource in each consumer workspace for each of its bindings. The resource
+// type is determined by the provider assignment (same global round-robin as
+// createAPIBindings).
+func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount, bindingsPerConsumer int) measurement.Section {
 	t.Helper()
+
+	totalBindings := consumerCount * bindingsPerConsumer
 
 	section := measurement.Section{
 		Title: "Custom Resource CRUD",
 		Parameters: []measurement.Parameter{
 			{Key: "ConsumerWorkspaces", Value: fmt.Sprintf("%d", consumerCount)},
+			{Key: "BindingsPerConsumer", Value: fmt.Sprintf("%d", bindingsPerConsumer)},
+			{Key: "TotalCRUDOps", Value: fmt.Sprintf("%d", totalBindings)},
 			{Key: "QPS", Value: fmt.Sprintf("%f", qps*4)},
 		},
 		Sink: &measurement.Memory{
@@ -297,17 +303,13 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 		},
 	}
 
-	consumerStart := providerCount + 1
-	ts := tuningset.NewUniformQPS(qps, consumerCount, consumerStart)
+	ts := tuningset.NewUniformQPS(qps, totalBindings, 0)
 	section.Start()
 	action := func(ctx context.Context, seq int, s measurement.Sink) error {
 		defer measurement.RecordElapsedDurationMS(time.Now(), s)
 
-		consumerPath := wt.PathForSequenceNumber(seq)
-
-		// Determine which provider resource this consumer is bound to.
-		consumerIndex := seq - consumerStart
-		providerSeq := (consumerIndex % providerCount) + 1
+		consumerSeq, providerSeq := bindingSlot(seq, providerCount, bindingsPerConsumer)
+		consumerPath := wt.PathForSequenceNumber(consumerSeq)
 		resourceName := fmt.Sprintf("loadtestresources%d", providerSeq)
 
 		gvr := schema.GroupVersionResource{
@@ -317,7 +319,7 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 		}
 
 		resClient := dynamicClient.Cluster(consumerPath).Resource(gvr).Namespace("default")
-		objName := fmt.Sprintf("loadtest-cr-%d", seq)
+		objName := fmt.Sprintf("loadtest-cr-%d-%d", consumerSeq, providerSeq)
 
 		// Create
 		obj := &unstructured.Unstructured{
@@ -375,4 +377,15 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 	section.End()
 
 	return section
+}
+
+// bindingSlot maps a global slot index to the consumer sequence number and
+// provider sequence number. Providers are distributed via round-robin across
+// all slots (consumerCount * bindingsPerConsumer) so that each provider gets
+// an approximately equal share of bindings.
+func bindingSlot(globalSeq, providerCount, bindingsPerConsumer int) (consumerSeq, providerSeq int) {
+	// +1 because sequence numbers are 1-based: providers occupy 1..providerCount,
+	consumerSeq = providerCount + 1 + (globalSeq / bindingsPerConsumer)
+	providerSeq = (globalSeq % providerCount) + 1
+	return consumerSeq, providerSeq
 }

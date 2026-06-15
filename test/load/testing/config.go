@@ -49,6 +49,7 @@ func defaultParams() Params {
 		CRUDConfigMapQPS:        150,
 		ProviderWorkspacesCount: 1000,
 		ConsumerWorkspacesCount: 9000,
+		BindingsPerConsumer:     1,
 		CreateAPIExportQPS:      4.0,
 		CreateAPIBindingQPS:     4.0,
 		CRUDSharedAPIQPS:        150,
@@ -79,6 +80,11 @@ type Params struct {
 
 	// ConsumerWorkspacesCount is the number of consumer workspaces for API sharing tests.
 	ConsumerWorkspacesCount int `json:"consumerWorkspacesCount"`
+
+	// BindingsPerConsumer is the number of APIBindings each consumer workspace creates.
+	// Providers are assigned via round-robin across the total binding slots
+	// (consumerWorkspacesCount * bindingsPerConsumer)
+	BindingsPerConsumer int `json:"bindingsPerConsumer"`
 
 	// CreateAPIExportQPS is the rate at which APIExport creation requests are sent.
 	CreateAPIExportQPS float64 `json:"createAPIExportQPS"`
@@ -116,6 +122,11 @@ func parseConfig(configFile string) error {
 
 	if err := json.Unmarshal(data, &testConfig); err != nil {
 		return fmt.Errorf("failed to parse config file %q: %w", configFile, err)
+	}
+
+	if testConfig.Params.BindingsPerConsumer > testConfig.Params.ProviderWorkspacesCount {
+		return fmt.Errorf("bindingsPerConsumer (%d) must not exceed providerWorkspacesCount (%d) — a consumer cannot bind to the same provider twice",
+			testConfig.Params.BindingsPerConsumer, testConfig.Params.ProviderWorkspacesCount)
 	}
 
 	return nil
