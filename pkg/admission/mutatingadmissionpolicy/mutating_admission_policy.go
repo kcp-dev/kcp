@@ -30,6 +30,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/features"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -49,6 +50,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 const PluginName = "KCPMutatingAdmissionPolicy"
@@ -56,6 +58,9 @@ const PluginName = "KCPMutatingAdmissionPolicy"
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(config io.Reader) (admission.Interface, error) {
+			if !kcpfeatures.DefaultFeatureGate.Enabled(features.MutatingAdmissionPolicy) {
+				return nil, nil
+			}
 			return NewKubeMutatingAdmissionPolicy(), nil
 		},
 	)

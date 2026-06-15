@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	genericfeatures "k8s.io/apiserver/pkg/features"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -45,6 +46,7 @@ import (
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
@@ -227,16 +229,6 @@ func InstallIndexers(
 			Local:  localKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
 			Global: globalKubeInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
 		},
-		admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingadmissionpolicies"): {
-			Kind:   "MutatingAdmissionPolicy",
-			Local:  localKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicies().Informer(),
-			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicies().Informer(),
-		},
-		admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingadmissionpolicybindings"): {
-			Kind:   "MutatingAdmissionPolicyBinding",
-			Local:  localKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
-			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
-		},
 		admissionregistrationv1.SchemeGroupVersion.WithResource("validatingwebhookconfigurations"): {
 			Kind:   "ValidatingWebhookConfiguration",
 			Local:  localKubeInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
@@ -296,6 +288,18 @@ func InstallIndexers(
 			Local:  localKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
 			Global: globalKubeInformers.Rbac().V1().ClusterRoleBindings().Informer(),
 		},
+	}
+	if kcpfeatures.DefaultFeatureGate.Enabled(genericfeatures.MutatingAdmissionPolicy) {
+		gvrs[admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingadmissionpolicies")] = ReplicatedGVR{
+			Kind:   "MutatingAdmissionPolicy",
+			Local:  localKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicies().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicies().Informer(),
+		}
+		gvrs[admissionregistrationv1.SchemeGroupVersion.WithResource("mutatingadmissionpolicybindings")] = ReplicatedGVR{
+			Kind:   "MutatingAdmissionPolicyBinding",
+			Local:  localKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
+			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
+		}
 	}
 	for _, info := range gvrs {
 		indexers.AddIfNotPresentOrDie(
