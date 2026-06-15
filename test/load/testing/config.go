@@ -53,6 +53,9 @@ func defaultParams() Params {
 		CreateAPIExportQPS:      4.0,
 		CreateAPIBindingQPS:     4.0,
 		CRUDSharedAPIQPS:        150,
+		CRLeafFields:            160,
+		CRListItems:             30,
+		CRTargetSizeBytes:       6000,
 	}
 }
 
@@ -94,6 +97,19 @@ type Params struct {
 
 	// CRUDSharedAPIQPS is the rate at which custom resource CRUD operations are sent.
 	CRUDSharedAPIQPS float64 `json:"crudSharedAPIQPS"`
+
+	// CRLeafFields is the number of scalar string properties under spec.
+	// The first field is always "data" and is used for the CRUD update path.
+	CRLeafFields int `json:"crLeafFields"`
+
+	// CRListItems is the number of items in a spec.items[] array.
+	// Each item has 3 string sub-fields (name, value, description).
+	// 0 means no list field is generated.
+	CRListItems int `json:"crListItems"`
+
+	// CRTargetSizeBytes pads spec.data to reach this approximate total CR JSON size.
+	// 0 means no padding is applied.
+	CRTargetSizeBytes int `json:"crTargetSizeBytes"`
 }
 
 // WorkspaceTree returns a workspace tree built from the configured parameters.
@@ -127,6 +143,16 @@ func parseConfig(configFile string) error {
 	if testConfig.Params.BindingsPerConsumer > testConfig.Params.ProviderWorkspacesCount {
 		return fmt.Errorf("bindingsPerConsumer (%d) must not exceed providerWorkspacesCount (%d) — a consumer cannot bind to the same provider twice",
 			testConfig.Params.BindingsPerConsumer, testConfig.Params.ProviderWorkspacesCount)
+	}
+
+	if testConfig.Params.CRLeafFields < 1 {
+		return fmt.Errorf("crLeafFields must be >= 1, got %d", testConfig.Params.CRLeafFields)
+	}
+	if testConfig.Params.CRListItems < 0 {
+		return fmt.Errorf("crListItems must be >= 0, got %d", testConfig.Params.CRListItems)
+	}
+	if testConfig.Params.CRTargetSizeBytes < 0 {
+		return fmt.Errorf("crTargetSizeBytes must be >= 0, got %d", testConfig.Params.CRTargetSizeBytes)
 	}
 
 	return nil

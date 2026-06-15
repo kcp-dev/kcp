@@ -20,24 +20,22 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
+	"github.com/kcp-dev/kcp/test/load/pkg/crgen"
 	"github.com/kcp-dev/kcp/test/load/pkg/framework"
 	"github.com/kcp-dev/kcp/test/load/pkg/measurement"
 	"github.com/kcp-dev/kcp/test/load/pkg/stats"
@@ -72,15 +70,16 @@ func TestAPISharing(t *testing.T) {
 	}
 
 	t.Logf("Creating APIExports in provider workspaces")
-	exportSection := createAPIExports(t, client, wt, params.CreateAPIExportQPS, params.ProviderWorkspacesCount)
+	dummy := crgen.NewDummy(params.CRLeafFields, params.CRListItems, params.CRTargetSizeBytes)
+	exportSection := createAPIExports(t, client, wt, params.CreateAPIExportQPS, params.ProviderWorkspacesCount, dummy)
 	sections = append(sections, exportSection)
 
 	t.Logf("Creating APIBindings in consumer workspaces")
-	bindingSection := createAPIBindings(t, client, wt, params.CreateAPIBindingQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer)
+	bindingSection := createAPIBindings(t, client, wt, params.CreateAPIBindingQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer, dummy)
 	sections = append(sections, bindingSection)
 
 	t.Logf("Running custom resource CRUD operations")
-	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer)
+	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer, dummy)
 	sections = append(sections, crudSection)
 
 	report := NewKCPReport(t.Context(), t, "API Sharing", cfg.FrontProxyKubeconfig)
@@ -94,7 +93,7 @@ func TestAPISharing(t *testing.T) {
 
 // createAPIExports creates an APIResourceSchema and APIExport in each of the
 // first providerCount workspaces in the tree.
-func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount int) measurement.Section {
+func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount int, dummy crgen.Dummy) measurement.Section {
 	t.Helper()
 
 	section := measurement.Section{
@@ -115,63 +114,17 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 
 		wsPath := wt.PathForSequenceNumber(seq)
 
-		schemaName := fmt.Sprintf("v1alpha1.loadtestresources%d.loadtest.kcp.io", seq)
-		resourceName := fmt.Sprintf("loadtestresources%d", seq)
-		exportName := fmt.Sprintf("loadtest-export-%d", seq)
-
 		// Create the APIResourceSchema.
-		schema := &apisv1alpha1.APIResourceSchema{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: schemaName,
-			},
-			Spec: apisv1alpha1.APIResourceSchemaSpec{
-				Group: "loadtest.kcp.io",
-				Names: apiextensionsv1.CustomResourceDefinitionNames{
-					Kind:     fmt.Sprintf("LoadTestResource%d", seq),
-					ListKind: fmt.Sprintf("LoadTestResource%dList", seq),
-					Plural:   resourceName,
-					Singular: fmt.Sprintf("loadtestresource%d", seq),
-				},
-				Scope: "Namespaced",
-				Versions: []apisv1alpha1.APIResourceVersion{
-					{
-						Name:    "v1alpha1",
-						Served:  true,
-						Storage: true,
-						Schema: runtime.RawExtension{
-							Raw: []byte(`{"type":"object","properties":{"apiVersion":{"type":"string"},"kind":{"type":"string"},"metadata":{"type":"object"},"spec":{"type":"object","properties":{"data":{"type":"string"}}}}}`),
-						},
-					},
-				},
-			},
-		}
-
+		apiSchema := dummy.GenerateAPIResourceSchema(strconv.Itoa(seq))
 		opStart := time.Now()
-		_, err := client.Cluster(wsPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, schema, metav1.CreateOptions{})
+		_, err := client.Cluster(wsPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, apiSchema, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create APIResourceSchema in %s: %w", wsPath, err)
 		}
 		s.Drop(measurement.Measurement{Name: "schema_create_duration_ms", Value: time.Since(opStart).Seconds() * 1000})
 
 		// Create the APIExport referencing the schema.
-		export := &apisv1alpha2.APIExport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: exportName,
-			},
-			Spec: apisv1alpha2.APIExportSpec{
-				Resources: []apisv1alpha2.ResourceSchema{
-					{
-						Name:   resourceName,
-						Group:  "loadtest.kcp.io",
-						Schema: schemaName,
-						Storage: apisv1alpha2.ResourceSchemaStorage{
-							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
-						},
-					},
-				},
-			},
-		}
-
+		export := dummy.GenerateAPIExport(strconv.Itoa(seq))
 		opStart = time.Now()
 		_, err = client.Cluster(wsPath).ApisV1alpha2().APIExports().Create(ctx, export, metav1.CreateOptions{})
 		if err != nil {
@@ -182,7 +135,7 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 		// Wait for the APIExport identity to become valid.
 		opStart = time.Now()
 		err = wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-			got, err := client.Cluster(wsPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+			got, err := client.Cluster(wsPath).ApisV1alpha2().APIExports().Get(ctx, export.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil //nolint:nilerr
 			}
@@ -206,7 +159,7 @@ func createAPIExports(t *testing.T, client kcpclientset.ClusterInterface, wt tre
 // numbers providerCount+1 through providerCount+consumerCount). Each consumer
 // gets bindingsPerConsumer bindings. Providers are assigned via a global
 // round-robin across all binding slots (consumerCount * bindingsPerConsumer).
-func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount, bindingsPerConsumer int) measurement.Section {
+func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount, bindingsPerConsumer int, dummy crgen.Dummy) measurement.Section {
 	t.Helper()
 
 	totalBindings := consumerCount * bindingsPerConsumer
@@ -234,23 +187,8 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 		consumerSeq, providerSeq := bindingSlot(seq, providerCount, bindingsPerConsumer)
 		consumerPath := wt.PathForSequenceNumber(consumerSeq)
 		providerPath := wt.PathForSequenceNumber(providerSeq)
-		exportName := fmt.Sprintf("loadtest-export-%d", providerSeq)
-		bindingName := fmt.Sprintf("loadtest-binding-%d", providerSeq)
 
-		binding := &apisv1alpha2.APIBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: bindingName,
-			},
-			Spec: apisv1alpha2.APIBindingSpec{
-				Reference: apisv1alpha2.BindingReference{
-					Export: &apisv1alpha2.ExportBindingReference{
-						Path: providerPath.String(),
-						Name: exportName,
-					},
-				},
-			},
-		}
-
+		binding := dummy.GenerateAPIBinding(strconv.Itoa(providerSeq), providerPath.String())
 		opStart := time.Now()
 		_, err := client.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(ctx, binding, metav1.CreateOptions{})
 		if err != nil {
@@ -261,7 +199,7 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 		// Wait for the binding to become bound.
 		opStart = time.Now()
 		err = wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-			got, err := client.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, bindingName, metav1.GetOptions{})
+			got, err := client.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil //nolint:nilerr
 			}
@@ -285,7 +223,7 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 // resource in each consumer workspace for each of its bindings. The resource
 // type is determined by the provider assignment (same global round-robin as
 // createAPIBindings).
-func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount, bindingsPerConsumer int) measurement.Section {
+func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface, wt tree.WorkspaceTree, qps float64, providerCount, consumerCount, bindingsPerConsumer int, dummy crgen.Dummy) measurement.Section {
 	t.Helper()
 
 	totalBindings := consumerCount * bindingsPerConsumer
@@ -310,31 +248,15 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 
 		consumerSeq, providerSeq := bindingSlot(seq, providerCount, bindingsPerConsumer)
 		consumerPath := wt.PathForSequenceNumber(consumerSeq)
-		resourceName := fmt.Sprintf("loadtestresources%d", providerSeq)
 
-		gvr := schema.GroupVersionResource{
-			Group:    "loadtest.kcp.io",
-			Version:  "v1alpha1",
-			Resource: resourceName,
-		}
+		gvr := crgen.GVR(strconv.Itoa(providerSeq))
 
 		resClient := dynamicClient.Cluster(consumerPath).Resource(gvr).Namespace("default")
-		objName := fmt.Sprintf("loadtest-cr-%d-%d", consumerSeq, providerSeq)
 
 		// Create
-		obj := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "loadtest.kcp.io/v1alpha1",
-				"kind":       fmt.Sprintf("LoadTestResource%d", providerSeq),
-				"metadata": map[string]interface{}{
-					"name":      objName,
-					"namespace": "default",
-				},
-				"spec": map[string]interface{}{
-					"data": "initial-value",
-				},
-			},
-		}
+		providerID := strconv.Itoa(providerSeq)
+		instanceName := fmt.Sprintf("%d-%d", consumerSeq, providerSeq)
+		obj := dummy.GenerateCR(providerID, instanceName)
 
 		opStart := time.Now()
 		created, err := resClient.Create(ctx, obj, metav1.CreateOptions{})
@@ -345,7 +267,7 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 
 		// Get
 		opStart = time.Now()
-		_, err = resClient.Get(ctx, objName, metav1.GetOptions{})
+		_, err = resClient.Get(ctx, obj.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get custom resource in %s: %w", consumerPath, err)
 		}
@@ -364,7 +286,7 @@ func crudCustomResources(t *testing.T, dynamicClient kcpdynamic.ClusterInterface
 
 		// Delete
 		opStart = time.Now()
-		err = resClient.Delete(ctx, objName, metav1.DeleteOptions{})
+		err = resClient.Delete(ctx, obj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to delete custom resource in %s: %w", consumerPath, err)
 		}
