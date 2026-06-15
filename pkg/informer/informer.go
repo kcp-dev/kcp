@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/features"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -51,6 +52,7 @@ import (
 	kcpinformers "github.com/kcp-dev/client-go/informers"
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/projection"
 )
@@ -1021,7 +1023,12 @@ var builtInInformableTypes map[schema.GroupVersionResource]GVRPartialMetadata = 
 func (s *crdGVRSource) GVRs() map[schema.GroupVersionResource]GVRPartialMetadata {
 	crdGVRs := s.crdIndexer.ListIndexFuncValues(byGroupVersionResourceIndex)
 	result := make(map[schema.GroupVersionResource]GVRPartialMetadata, len(crdGVRs)+len(builtInInformableTypes))
+	mutatingAdmissionPolicyEnabled := kcpfeatures.DefaultFeatureGate.Enabled(features.MutatingAdmissionPolicy)
 	for gvr, metadata := range builtInInformableTypes {
+		if !mutatingAdmissionPolicyEnabled && gvr.Group == "admissionregistration.k8s.io" &&
+			(gvr.Resource == "mutatingadmissionpolicies" || gvr.Resource == "mutatingadmissionpolicybindings") {
+			continue
+		}
 		result[gvr] = metadata
 	}
 	for _, indexedValue := range crdGVRs {
