@@ -18,6 +18,7 @@ package mutatingadmissionpolicy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -262,7 +263,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 			mutating.NewMutatingAdmissionPolicyAccessor,
 			mutating.NewMutatingAdmissionPolicyBindingAccessor,
 			mutating.CompilePolicy,
-			nil,
+			&deferredInformerFactory{},
 			dynamicClient,
 			restMapper,
 			cn,
@@ -304,4 +305,13 @@ func (k *KubeMutatingAdmissionPolicy) logicalClusterDeleted(clusterName logicalc
 type stoppableMutatingAdmissionPolicy struct {
 	*mutating.Plugin
 	stop func()
+}
+
+// deferredInformerFactory is exactly the same as in the validating admission policy.
+type deferredInformerFactory struct {
+	informers.SharedInformerFactory
+}
+
+func (d *deferredInformerFactory) ForResource(resource schema.GroupVersionResource) (informers.GenericInformer, error) {
+	return nil, fmt.Errorf("deferring creation to dynamic informer. This is expected")
 }
