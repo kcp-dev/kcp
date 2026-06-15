@@ -18,11 +18,15 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"go.etcd.io/etcd/client/pkg/v3/transport"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
@@ -32,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	pluginvalidatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/cel/openapi/resolver"
+	"k8s.io/apiserver/pkg/storage/storagebackend"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -91,6 +96,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
+	"github.com/kcp-dev/kcp/pkg/reconciler/migration/logicalclustermigration"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/defaultapibindinglifecycle"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/initialization"
@@ -1146,6 +1152,78 @@ func (s *Server) installLogicalClusterCleanupController(ctx context.Context, con
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, 2)
 		},
+	})
+}
+
+func (s *Server) installLogicalClusterMigrationController(ctx context.Context) error {
+	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
+	externalConfig = rest.AddUserAgent(externalConfig, logicalclustermigration.ControllerName)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+
+	etcdClient, err := s.newEtcdClient()
+	if err != nil {
+		return err
+	}
+
+	c, err := logicalclustermigration.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		s.ExternalLogicalClusterAdminConfig,
+		etcdClient,
+		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+		s.CacheKcpSharedInformerFactory.Migration().V1alpha1().LogicalClusterMigrations(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.MigratingLogicalClusters,
+		s.ClusterContextManager.Cancel,
+		s.PartialMetadataDDSIF,
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: logicalclustermigration.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.CacheKcpSharedInformerFactory.Migration().V1alpha1().LogicalClusterMigrations().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			defer etcdClient.Close()
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+func (s *Server) newEtcdClient() (*clientv3.Client, error) {
+	return newEtcdClient(s.Options.GenericControlPlane.Etcd.StorageConfig.Transport)
+}
+
+func newEtcdClient(transportConfig storagebackend.TransportConfig) (*clientv3.Client, error) {
+	var tlsConfig *tls.Config
+	if transportConfig.CertFile != "" || transportConfig.KeyFile != "" || transportConfig.TrustedCAFile != "" {
+		tlsInfo := transport.TLSInfo{
+			CertFile:      transportConfig.CertFile,
+			KeyFile:       transportConfig.KeyFile,
+			TrustedCAFile: transportConfig.TrustedCAFile,
+		}
+		var err error
+		tlsConfig, err = tlsInfo.ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create etcd TLS config: %w", err)
+		}
+	}
+
+	return clientv3.New(clientv3.Config{
+		Endpoints: transportConfig.ServerList,
+		TLS:       tlsConfig,
 	})
 }
 

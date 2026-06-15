@@ -31,6 +31,7 @@ import (
 	kcpv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	kcpcachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	kcpcorev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcpmigrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	kcptenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcptopologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
 )
@@ -128,6 +129,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("shards"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().Shards().Informer()}, nil
 
+		// Group=migration.kcp.io, Version=v1alpha1
+	case kcpmigrationv1alpha1.SchemeGroupVersion.WithResource("logicalclustermigrations"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Migration().V1alpha1().LogicalClusterMigrations().Informer()}, nil
+
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case kcptenancyv1alpha1.SchemeGroupVersion.WithResource("workspaces"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Tenancy().V1alpha1().Workspaces().Informer()}, nil
@@ -190,6 +195,11 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("shards"):
 		informer := f.Core().V1alpha1().Shards().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+
+		// Group=migration.kcp.io, Version=v1alpha1
+	case kcpmigrationv1alpha1.SchemeGroupVersion.WithResource("logicalclustermigrations"):
+		informer := f.Migration().V1alpha1().LogicalClusterMigrations().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 		// Group=tenancy.kcp.io, Version=v1alpha1

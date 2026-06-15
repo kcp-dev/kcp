@@ -40,6 +40,7 @@ import (
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	migration "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
@@ -274,6 +275,11 @@ func InstallIndexers(
 			},
 			Local:  localKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
 			Global: globalKcpInformers.Core().V1alpha1().LogicalClusters().Informer(),
+		},
+		migration.SchemeGroupVersion.WithResource("logicalclustermigrations"): {
+			Kind:   "LogicalClusterMigration",
+			Local:  localKcpInformers.Migration().V1alpha1().LogicalClusterMigrations().Informer(),
+			Global: globalKcpInformers.Migration().V1alpha1().LogicalClusterMigrations().Informer(),
 		},
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
 			Kind:   "WorkspaceType",
