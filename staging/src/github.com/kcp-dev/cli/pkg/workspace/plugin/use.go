@@ -29,11 +29,13 @@ import (
 	"github.com/spf13/cobra"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/cli/pkg/base"
 	pluginhelpers "github.com/kcp-dev/cli/pkg/helpers"
@@ -422,6 +424,11 @@ func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterIn
 		return nil, nil
 	}
 	if err != nil {
+		// If the server doesn't have the API, it's expected. Log to debug, don't return an error.
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			klog.V(4).Infof("error checking APIBindings: %v", err)
+			return nil, nil
+		}
 		return nil, err
 	}
 
