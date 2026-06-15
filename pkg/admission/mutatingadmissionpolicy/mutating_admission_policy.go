@@ -245,7 +245,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	}
 
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(targetClusterName))
-	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(policyClusterName.Path()))
+	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(targetClusterName.Path()))
 
 	discoveryClient := memory.NewMemCacheClient(k.kubeClusterClient.Cluster(policyClusterName.Path()).Discovery())
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
