@@ -47,8 +47,7 @@ func (c *Controller) deleteOriginData(ctx context.Context, lcName logicalcluster
 	errCh := make(chan error, 1)
 
 	go func() {
-		defer close(errCh)
-		errCh <- c.scanEtcdKeys(ctx, prefix, lcName, prefixes)
+		errCh <- scanEtcdKeys(ctx, c.etcdClient, prefix, lcName, kcpetcd.ScanPageSize, prefixes)
 	}()
 
 	var deleteErrors []error
@@ -70,24 +69,20 @@ func (c *Controller) deleteOriginData(ctx context.Context, lcName logicalcluster
 	return nil
 }
 
-// scanEtcdKeys scans etcd and emits per-cluster deletion prefixes for all keys belonging to targetLogicalCluster.
-func (c *Controller) scanEtcdKeys(ctx context.Context, prefix string, targetLogicalCluster logicalcluster.Name, out chan<- string) error {
+// scanEtcdKeys scans etcd under prefix and emits one cluster-scoped prefix
+// per (group, resource[, segment]) family that contains keys belonging to
+// targetLogicalCluster.
+func scanEtcdKeys(ctx context.Context, kv clientv3.KV, prefix string, targetLogicalCluster logicalcluster.Name, pageSize int64, out chan<- string) error {
 	defer close(out)
+
+	seen := make(map[string]struct{})
 
 	key := prefix
 	for {
-		// While this logic is pulling batches of keys it only processes
-		// a batch until it found a matching key; then the prefix for
-		// this "tree" is written to the channel for the consumer to
-		// delete the key.
-		// That means in small trees we might retrieve the same keys
-		// a few times.
-		// TODO(ntnn): Arguably it would be better to process the
-		// full batch but this is simpler for now.
-		resp, err := c.etcdClient.Get(ctx, key,
+		resp, err := kv.Get(ctx, key,
 			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
 			clientv3.WithKeysOnly(),
-			clientv3.WithLimit(kcpetcd.ScanPageSize),
+			clientv3.WithLimit(pageSize),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to list etcd keys: %w", err)
@@ -98,35 +93,25 @@ func (c *Controller) scanEtcdKeys(ctx context.Context, prefix string, targetLogi
 				return err
 			}
 
-			k := string(kv.Key)
-			split, ok := kcpetcd.SplitKey(prefix, k, targetLogicalCluster)
+			split, ok := kcpetcd.SplitKey(prefix, string(kv.Key), targetLogicalCluster)
 			if !ok {
-				// not a relevant etcd key
+				continue
+			}
+			if split.Cluster != targetLogicalCluster {
 				continue
 			}
 
 			builtPrefix := split.ClusterPrefix(prefix)
-
-			if split.Cluster == targetLogicalCluster {
-				// key belongs to this cluster, pass the prefix into the channel
-				out <- builtPrefix
+			if _, dup := seen[builtPrefix]; dup {
+				continue
 			}
-
-			// skip to the next subtree
-			key = split.ClusterPrefix(builtPrefix) + "\x00"
-			break
+			seen[builtPrefix] = struct{}{}
+			out <- builtPrefix
 		}
 
 		if !resp.More {
 			return nil
 		}
-
-		if !strings.HasSuffix(key, "\x00") {
-			// Didn't instruct to skip any keys, continue from last key
-			// in the batch
-			key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
-		}
-
-		continue
+		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 	}
 }
