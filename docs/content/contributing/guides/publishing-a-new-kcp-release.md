@@ -143,3 +143,13 @@ Documentation for the respective release branch needs to be triggered manually a
    2. In the body, include noteworthy changes
    3. Provide a link to the release in GitHub for the full release notes
 2. Post a message in the [#kcp-users](https://kubernetes.slack.com/archives/C021U8WSAFK) Slack channel
+
+## Related repositories 
+
+Once we release kcp we also need to release the following related repositories:
+
+- [kcp-dev/multicluster-provider](https://github.com/kcp-dev/multicluster-provider) - Needs kcp-dev/apimachinery, kcp-dev/logicalcluster
+- [kcp-dev/api-syncagent](https://github.com/kcp-dev/api-syncagent) - Need multicluster-provider 
+- [kcp-dev/init-agent](https://github.com/kcp-dev/init-agent) - Needs multicluster-provider
+- [kcp-dev/kcp-operator](https://github.com/kcp-dev/kcp-operator) - Standalone operator for kcp, needs kcp-dev/kcp
+- [kcp-dev/helm-charts](https://github.com/kcp-dev/helm-charts) - needs rest of the repos to be released first
