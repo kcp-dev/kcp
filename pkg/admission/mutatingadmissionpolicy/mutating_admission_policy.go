@@ -207,6 +207,16 @@ func (k *KubeMutatingAdmissionPolicy) Admit(ctx context.Context, a admission.Att
 		return err
 	}
 
+	// Only spin up a MAP delegate when needed, because MAP requires the
+	// TypeConverterManager, which polls the OpenAPI endpoint every 5s.
+	hasPolicies, err := k.hasMutatingPolicies(ctx, sourceCluster)
+	if err != nil {
+		return err
+	}
+	if !hasPolicies {
+		return nil
+	}
+
 	delegate, err := k.getOrCreateDelegate(sourceCluster, cluster.Name)
 	if err != nil {
 		return err
@@ -230,6 +240,27 @@ func (k *KubeMutatingAdmissionPolicy) getSourceClusterForGroupResource(clusterNa
 	}
 
 	return clusterName, nil
+}
+
+// hasMutatingPolicies returns true if the given cluster has hasMutatingPolicies or MutatingAdmissionPolicyBindings.
+func (k *KubeMutatingAdmissionPolicy) hasMutatingPolicies(ctx context.Context, clusterName logicalcluster.Name) (bool, error) {
+	policyInformer := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Informer()
+	bindingInformer := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer()
+	if !cache.WaitForCacheSync(ctx.Done(), policyInformer.HasSynced, bindingInformer.HasSynced) {
+		return false, ctx.Err()
+	}
+	policies, err := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Lister().Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return false, err
+	}
+	if len(policies) > 0 {
+		return true, nil
+	}
+	bindings, err := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Lister().Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return false, err
+	}
+	return len(bindings) > 0, nil
 }
 
 // getOrCreateDelegate creates an actual plugin for policyClusterName (where policies are defined).
