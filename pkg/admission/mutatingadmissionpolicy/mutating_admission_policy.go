@@ -32,11 +32,9 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/features"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
@@ -53,6 +51,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 const PluginName = "KCPMutatingAdmissionPolicy"
@@ -96,6 +95,8 @@ type KubeMutatingAdmissionPolicy struct {
 
 	featureGates featuregate.FeatureGate
 
+	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
+
 	delegatesLock sync.RWMutex
 	delegates     map[delegateKey]*stoppableMutatingAdmissionPolicy
 
@@ -108,6 +109,7 @@ var _ = initializers.WantsKubeInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsKcpInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeMutatingAdmissionPolicy{})
+var _ = initializers.WantsDynamicRESTMapper(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsFeatures(&KubeMutatingAdmissionPolicy{})
 var _ = admission.InitializationValidator(&KubeMutatingAdmissionPolicy{})
@@ -158,6 +160,10 @@ func (k *KubeMutatingAdmissionPolicy) SetServerShutdownChannel(ch <-chan struct{
 
 func (k *KubeMutatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.ClusterInterface) {
 	k.dynamicClusterClient = c
+}
+
+func (k *KubeMutatingAdmissionPolicy) SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper) {
+	k.dynamicRESTMapper = dynRESTMapper
 }
 
 func (k *KubeMutatingAdmissionPolicy) SetAuthorizer(authz authorizer.Authorizer) {
@@ -267,9 +273,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(targetClusterName))
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(targetClusterName.Path()))
 
-	discoveryClient := memory.NewMemCacheClient(k.kubeClusterClient.Cluster(policyClusterName.Path()).Discovery())
-	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-	plugin.SetRESTMapper(restMapper)
+	plugin.SetRESTMapper(k.dynamicRESTMapper.ForCluster(policyClusterName))
 
 	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(policyClusterName.Path()))
 	plugin.SetDrainedNotification(ctx.Done())
