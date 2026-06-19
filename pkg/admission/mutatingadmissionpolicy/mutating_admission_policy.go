@@ -54,6 +54,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
@@ -102,6 +103,8 @@ type KubeMutatingAdmissionPolicy struct {
 
 	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
 
+	clusterContextManager *contextmanager.Manager[logicalcluster.Path]
+
 	delegatesLock sync.RWMutex
 	delegates     map[delegateKey]*stoppableMutatingAdmissionPolicy
 
@@ -119,6 +122,7 @@ var _ = initializers.WantsKcpInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicRESTMapper(&KubeMutatingAdmissionPolicy{})
+var _ = initializers.WantsClusterContextManager(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsFeatures(&KubeMutatingAdmissionPolicy{})
 var _ = admission.InitializationValidator(&KubeMutatingAdmissionPolicy{})
@@ -177,6 +181,10 @@ func (k *KubeMutatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.Clust
 
 func (k *KubeMutatingAdmissionPolicy) SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper) {
 	k.dynamicRESTMapper = dynRESTMapper
+}
+
+func (k *KubeMutatingAdmissionPolicy) SetClusterContextManager(mgr *contextmanager.Manager[logicalcluster.Path]) {
+	k.clusterContextManager = mgr
 }
 
 func (k *KubeMutatingAdmissionPolicy) SetAuthorizer(authz authorizer.Authorizer) {
@@ -242,7 +250,7 @@ func (k *KubeMutatingAdmissionPolicy) getSourceClusterForGroupResource(clusterNa
 	return clusterName, nil
 }
 
-// hasMutatingPolicies returns true if the given cluster has hasMutatingPolicies or MutatingAdmissionPolicyBindings.
+// hasMutatingPolicies returns true if the given cluster has any MutatingAdmissionPolicy or MutatingAdmissionPolicyBinding.
 func (k *KubeMutatingAdmissionPolicy) hasMutatingPolicies(ctx context.Context, clusterName logicalcluster.Name) (bool, error) {
 	policyInformer := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Informer()
 	bindingInformer := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer()
@@ -380,7 +388,8 @@ func (k *KubeMutatingAdmissionPolicy) logicalClusterDeleted(clusterName logicalc
 	k.typeConverterManagersLock.Unlock()
 }
 
-// getOrCreateTypeConverterManager returns a TypeConverterManager for the given cluster.
+// getOrCreateTypeConverterManager returns the running TypeConverterManager for the given target cluster, starting one on first use.
+// The manager is shared by all delegates for the same cluster.
 func (k *KubeMutatingAdmissionPolicy) getOrCreateTypeConverterManager(clusterName logicalcluster.Name) patch.TypeConverterManager {
 	k.typeConverterManagersLock.RLock()
 	tcm := k.typeConverterManagers[clusterName]
@@ -401,14 +410,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateTypeConverterManager(clusterNam
 		created := patch.NewTypeConverterManager(nil, openapiClient)
 		k.typeConverterManagers[clusterName] = created
 
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
-			select {
-			case <-ctx.Done():
-			case <-k.serverDone:
-				cancel()
-			}
-		}()
+		ctx, _ := k.clusterContextManager.Context(context.Background(), clusterName.Path())
 		go created.Run(ctx)
 
 		return created, nil
