@@ -95,6 +95,7 @@ type KubeMutatingAdmissionPolicy struct {
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 	serverDone                      <-chan struct{}
 	authorizer                      authorizer.Authorizer
+	cacheSyncOnce                   sync.Once
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 
@@ -250,9 +251,17 @@ func (k *KubeMutatingAdmissionPolicy) getSourceClusterForGroupResource(clusterNa
 func (k *KubeMutatingAdmissionPolicy) hasMutatingPolicies(ctx context.Context, clusterName logicalcluster.Name) (bool, error) {
 	policyInformer := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Informer()
 	bindingInformer := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer()
-	if !cache.WaitForCacheSync(ctx.Done(), policyInformer.HasSynced, bindingInformer.HasSynced) {
-		return false, ctx.Err()
-	}
+
+	// Waiting here for the cache sync isn't great.
+	// However not starting would cause MAP/MAPB to not be applied until they are synced.
+	// And starting them can cause issues on shards with 1000s of LCs, causing 1000s of
+	// delegates to be started.
+	// The once ensures that during shard startup the informers were synced once before
+	// deciding to start a delegate for a cluster.
+	k.cacheSyncOnce.Do(func() {
+		cache.WaitForCacheSync(ctx.Done(), policyInformer.HasSynced, bindingInformer.HasSynced)
+	})
+
 	policies, err := k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Lister().Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return false, err
