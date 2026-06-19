@@ -24,9 +24,11 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
@@ -197,5 +199,19 @@ func NewDynamicRESTMapperInitializer(dynamicRESTMapper *dynamicrestmapper.Dynami
 func (i *dynamicRESTMapperInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsDynamicRESTMapper); ok {
 		wants.SetDynamicRESTMapper(i.dynamicRESTMapper)
+	}
+}
+
+type clusterContextManagerInitializer struct {
+	clusterContextManager *contextmanager.Manager[logicalcluster.Path]
+}
+
+func NewClusterContextManagerInitializer(mgr *contextmanager.Manager[logicalcluster.Path]) *clusterContextManagerInitializer {
+	return &clusterContextManagerInitializer{clusterContextManager: mgr}
+}
+
+func (i *clusterContextManagerInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsClusterContextManager); ok {
+		wants.SetClusterContextManager(i.clusterContextManager)
 	}
 }
