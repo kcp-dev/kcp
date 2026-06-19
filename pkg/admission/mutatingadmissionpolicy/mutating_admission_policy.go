@@ -74,9 +74,8 @@ func Register(plugins *admission.Plugins) {
 
 func NewKubeMutatingAdmissionPolicy() *KubeMutatingAdmissionPolicy {
 	return &KubeMutatingAdmissionPolicy{
-		Handler:               admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
-		delegates:             make(map[delegateKey]*stoppableMutatingAdmissionPolicy),
-		typeConverterManagers: make(map[logicalcluster.Name]patch.TypeConverterManager),
+		Handler:   admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+		delegates: make(map[delegateKey]*stoppableMutatingAdmissionPolicy),
 	}
 }
 
@@ -108,8 +107,7 @@ type KubeMutatingAdmissionPolicy struct {
 	delegatesLock sync.RWMutex
 	delegates     map[delegateKey]*stoppableMutatingAdmissionPolicy
 
-	typeConverterManagersLock sync.RWMutex
-	typeConverterManagers     map[logicalcluster.Name]patch.TypeConverterManager
+	typeConverterManagers     sync.Map
 	typeConverterManagerGroup singleflight.Group
 
 	logicalClusterDeletionMonitorStarter sync.Once
@@ -158,9 +156,7 @@ func (k *KubeMutatingAdmissionPolicy) SetKcpInformers(local, global kcpinformers
 					}
 				}
 
-				k.typeConverterManagersLock.Lock()
-				delete(k.typeConverterManagers, clName)
-				k.typeConverterManagersLock.Unlock()
+				k.typeConverterManagers.Delete(clName)
 			},
 		},
 	)
@@ -383,39 +379,34 @@ func (k *KubeMutatingAdmissionPolicy) logicalClusterDeleted(clusterName logicalc
 		logger.V(3).Info("received event to stop mutating admission policy for logical cluster, but it wasn't in the map")
 	}
 
-	k.typeConverterManagersLock.Lock()
-	delete(k.typeConverterManagers, clusterName)
-	k.typeConverterManagersLock.Unlock()
+	k.typeConverterManagers.Delete(clusterName)
 }
 
 // getOrCreateTypeConverterManager returns the running TypeConverterManager for the given target cluster, starting one on first use.
 // The manager is shared by all delegates for the same cluster.
 func (k *KubeMutatingAdmissionPolicy) getOrCreateTypeConverterManager(clusterName logicalcluster.Name) patch.TypeConverterManager {
-	k.typeConverterManagersLock.RLock()
-	tcm := k.typeConverterManagers[clusterName]
-	k.typeConverterManagersLock.RUnlock()
-	if tcm != nil {
-		return tcm
+	stored, loaded := k.typeConverterManagers.Load(clusterName)
+	if loaded {
+		return stored.(patch.TypeConverterManager)
 	}
 
-	v, _, _ := k.typeConverterManagerGroup.Do(string(clusterName), func() (interface{}, error) {
-		k.typeConverterManagersLock.Lock()
-		defer k.typeConverterManagersLock.Unlock()
-
-		if existing := k.typeConverterManagers[clusterName]; existing != nil {
-			return existing, nil
+	created, _, _ := k.typeConverterManagerGroup.Do(clusterName.String(), func() (any, error) {
+		stored, loaded := k.typeConverterManagers.Load(clusterName)
+		if loaded {
+			return stored, nil
 		}
 
 		openapiClient := k.kubeClusterClient.Cluster(clusterName.Path()).Discovery().OpenAPIV3()
 		created := patch.NewTypeConverterManager(nil, openapiClient)
-		k.typeConverterManagers[clusterName] = created
+		k.typeConverterManagers.Store(clusterName, created)
 
 		ctx, _ := k.clusterContextManager.Context(context.Background(), clusterName.Path())
 		go created.Run(ctx)
 
 		return created, nil
 	})
-	return v.(patch.TypeConverterManager)
+
+	return created.(patch.TypeConverterManager)
 }
 
 type stoppableMutatingAdmissionPolicy struct {
