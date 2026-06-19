@@ -20,11 +20,19 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
+
+// WantsClusterContextManager interface should be implemented by admission plugins that
+// need a per-logical-cluster context.
+type WantsClusterContextManager interface {
+	SetClusterContextManager(*contextmanager.Manager[logicalcluster.Path])
+}
 
 // WantsKcpInformers interface should be implemented by admission plugins
 // that want to have both local and global kcp informer factories injected.
