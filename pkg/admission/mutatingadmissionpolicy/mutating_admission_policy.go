@@ -30,6 +30,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
+	"k8s.io/apiserver/pkg/admission/plugin/policy/matching"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -266,9 +267,29 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 		}
 	}()
 
-	plugin, err := mutating.NewPlugin(nil)
-	if err != nil {
-		return nil, err
+	tcm := k.getOrCreateTypeConverterManager(targetClusterName)
+
+	handler := admission.NewHandler(admission.Create, admission.Update, admission.Connect)
+	plugin := &mutating.Plugin{
+		Plugin: generic.NewPlugin(
+			handler,
+			func(_ informers.SharedInformerFactory, _ kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, cn logicalcluster.Name) generic.Source[mutating.PolicyHook] {
+				return generic.NewPolicySource(
+					k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Informer().Cluster(cn),
+					k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer().Cluster(cn),
+					mutating.NewMutatingAdmissionPolicyAccessor,
+					mutating.NewMutatingAdmissionPolicyBindingAccessor,
+					mutating.CompilePolicy,
+					&deferredInformerFactory{},
+					dynamicClient,
+					restMapper,
+					cn,
+				)
+			},
+			func(authz authorizer.Authorizer, m *matching.Matcher, _ kubernetes.Interface) generic.Dispatcher[mutating.PolicyHook] {
+				return mutating.NewDispatcher(authz, m, tcm)
+			},
+		),
 	}
 
 	// Default to enable MAP, but honour the feature gate if available.
@@ -291,19 +312,6 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	plugin.SetDrainedNotification(ctx.Done())
 	plugin.SetAuthorizer(k.authorizer)
 	plugin.SetClusterName(policyClusterName)
-	plugin.SetSourceFactory(func(_ informers.SharedInformerFactory, client kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, cn logicalcluster.Name) generic.Source[mutating.PolicyHook] {
-		return generic.NewPolicySource(
-			k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicies().Informer().Cluster(cn),
-			k.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer().Cluster(cn),
-			mutating.NewMutatingAdmissionPolicyAccessor,
-			mutating.NewMutatingAdmissionPolicyBindingAccessor,
-			mutating.CompilePolicy,
-			&deferredInformerFactory{},
-			dynamicClient,
-			restMapper,
-			cn,
-		)
-	})
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		cancel()
