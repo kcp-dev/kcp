@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -182,7 +183,16 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, err
 		}
 
-		return delegate.List(ctx, v1ListOptions)
+		list, err := delegate.List(ctx, v1ListOptions)
+		if apierrors.IsNotFound(err) {
+			// The resource (identity) is not served on this shard - e.g. a
+			// resource claimed from another APIExport that has no binding on this
+			// shard. There is nothing to list here; return an empty list instead
+			// of a 404 so wildcard consumers aggregating across shards/endpoints
+			// are not wedged by a shard that simply holds none of these objects.
+			return listFactory(), nil
+		}
+		return list, err
 	}
 	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
@@ -283,7 +293,15 @@ func DefaultDynamicDelegatedStoreFuncs(
 			}
 		}()
 
-		return delegate.Watch(watchCtx, v1ListOptions)
+		w, err := delegate.Watch(watchCtx, v1ListOptions)
+		if apierrors.IsNotFound(err) {
+			// See ListerFunc: the resource is not served on this shard. Return a
+			// watch that yields no events and stays open until the (request- or
+			// stop-bounded) context is done, instead of surfacing a 404. Objects
+			// that later appear on this shard are picked up on the next relist.
+			return newEmptyWatch(watchCtx), nil
+		}
+		return w, err
 	}
 	s.TableConvertorFunc = tableConvertor.ConvertToTable
 	s.CategoriesProviderFunc = func() []string {
@@ -362,6 +380,28 @@ func listerWatcherGetter(dynamicClusterClientFunc DynamicClusterClientFunc, name
 		}
 	}
 }
+
+// emptyWatch is a watch.Interface that produces no events and closes when its
+// context is done. It is returned when a forwarded resource is not served on the
+// local shard, so wildcard consumers see an empty (but open) watch instead of a
+// 404.
+type emptyWatch struct {
+	ch   chan watch.Event
+	once sync.Once
+}
+
+func newEmptyWatch(ctx context.Context) *emptyWatch {
+	w := &emptyWatch{ch: make(chan watch.Event)}
+	go func() {
+		<-ctx.Done()
+		w.Stop()
+	}()
+	return w
+}
+
+func (w *emptyWatch) Stop() { w.once.Do(func() { close(w.ch) }) }
+
+func (w *emptyWatch) ResultChan() <-chan watch.Event { return w.ch }
 
 // updateToCreateOptions creates a CreateOptions with the same field values as the provided PatchOptions.
 func updateToCreateOptions(uo *metav1.UpdateOptions) metav1.CreateOptions {
