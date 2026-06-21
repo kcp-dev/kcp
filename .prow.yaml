@@ -233,3 +233,36 @@ presubmits:
             requests:
               memory: 6Gi
               cpu: 4
+
+  # Same suite as pull-kcp-test-e2e-sharded, but each shard runs its own embedded
+  # virtual workspace server instead of a single standalone VW server. This
+  # exercises per-shard virtual workspace serving and cross-shard behaviour.
+  # Marked optional while known cross-shard gaps (e.g. permission-claimed
+  # resources served across shards) are being addressed.
+  - name: pull-kcp-test-e2e-sharded-embedded-vw
+    decorate: true
+    optional: true
+    # only run e2e tests if code changed.
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+          command:
+            - ./hack/run-with-prow.sh
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-e2e-sharded-embedded-vw
+          env:
+            - name: USE_GOTESTSUM
+              value: "1"
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: "1"
+            - name: E2E_PARALLELISM
+              value: "3"
+          resources:
+            requests:
+              memory: 6Gi
+              cpu: 4

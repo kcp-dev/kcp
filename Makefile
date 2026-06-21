@@ -385,6 +385,37 @@ test-e2e-sharded-minimal: build-e2e
 		$(SUITES_ARG) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
+# Same as test-e2e-sharded-minimal, but each shard runs its own embedded virtual
+# workspace server (--shard-run-virtual-workspaces=true) instead of a single
+# standalone VW server in front of all shards. This matches deployments where the
+# APIExport virtual workspaces are served per-shard, and exercises cross-shard
+# behaviour (e.g. permission-claimed resources whose objects live on a different
+# shard than the consuming APIExport).
+.PHONY: test-e2e-sharded-embedded-vw
+ifdef USE_GOTESTSUM
+test-e2e-sharded-embedded-vw: $(GOTESTSUM)
+endif
+test-e2e-sharded-embedded-vw: TEST_ARGS ?=
+test-e2e-sharded-embedded-vw: WHAT ?= ./test/e2e...
+test-e2e-sharded-embedded-vw: WORK_DIR ?= $(PWD)
+test-e2e-sharded-embedded-vw: SHARDS ?= 2
+ifdef ARTIFACT_DIR
+test-e2e-sharded-embedded-vw: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
+else
+test-e2e-sharded-embedded-vw: LOG_DIR ?= $(WORK_DIR)/.kcp
+endif
+test-e2e-sharded-embedded-vw: build-e2e
+	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
+	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=true --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
+	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
+	echo 'Starting test(s)' && \
+	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) $(WHAT) $(TEST_ARGS) \
+		-args --kcp-kubeconfig=$(WORK_DIR)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(WORK_DIR)/.kcp-0/admin.kubeconfig$(shell if [ $(SHARDS) -gt 1 ]; then seq 1 $$[$(SHARDS) - 1]; fi | while read n; do echo -n ",shard-$$n=$(WORK_DIR)/.kcp-$$n/admin.kubeconfig"; done) \
+		$(SUITES_ARG) \
+	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
+
 # This is just easy target to run 2 shard test server locally until manually killed.
 # You can target test to it by running:
 # go test ./test/e2e/apibinding/... --kcp-kubeconfig=$(pwd)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(pwd)/.kcp-0/admin.kubeconfig --shard-kubeconfigs=shard-1=$(pwd)/.kcp-1/admin.kubeconfig -run=^TestAPIBinding$
