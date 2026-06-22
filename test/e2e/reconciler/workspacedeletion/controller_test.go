@@ -46,6 +46,15 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+// nestedDeletionTimeout is a longer timeout for nested workspace deletion tests.
+// nested workspace deletion can take longer to propagate and the
+// default wait.ForeverTestTimeout can be too short, leading to flaking
+// tests.
+//
+// For more detail see this issue:
+// https://github.com/kcp-dev/kcp/issues/4072
+var nestedDeletionTimeout = 3 * wait.ForeverTestTimeout
+
 func TestWorkspaceDeletion(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -286,7 +295,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					}
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
-				}, wait.ForeverTestTimeout, 100*time.Millisecond)
+				}, nestedDeletionTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure namespace %q in the org workspace is deleted", ns.Name)
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -301,7 +310,7 @@ func TestWorkspaceDeletion(t *testing.T) {
 					}
 
 					return len(nslist.Items) == 0, toYAML(t, nslist)
-				}, wait.ForeverTestTimeout, 100*time.Millisecond)
+				}, nestedDeletionTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure workspace in the org workspace is deleted")
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
@@ -316,13 +325,13 @@ func TestWorkspaceDeletion(t *testing.T) {
 					}
 
 					return len(wslist.Items) == 0, toYAML(t, wslist)
-				}, wait.ForeverTestTimeout, 100*time.Millisecond)
+				}, nestedDeletionTimeout, 100*time.Millisecond)
 
 				t.Logf("Ensure the org workspace is deleted")
 				require.Eventually(t, func() bool {
 					_, err := rootShardKcpClusterClient.Cluster(core.RootCluster.Path()).TenancyV1alpha1().Workspaces().Get(ctx, orgPath.Base(), metav1.GetOptions{})
 					return apierrors.IsNotFound(err)
-				}, wait.ForeverTestTimeout, 100*time.Millisecond)
+				}, nestedDeletionTimeout, 100*time.Millisecond)
 			},
 		},
 	}
