@@ -31,11 +31,9 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -50,6 +48,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 const PluginName = "KCPValidatingAdmissionPolicy"
@@ -88,6 +87,8 @@ type KubeValidatingAdmissionPolicy struct {
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 
+	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
+
 	delegatesLock sync.RWMutex
 	delegates     map[delegateKey]*stoppableValidatingAdmissionPolicy
 
@@ -100,6 +101,7 @@ var _ = initializers.WantsKubeInformers(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsKcpInformers(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeValidatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeValidatingAdmissionPolicy{})
+var _ = initializers.WantsDynamicRESTMapper(&KubeValidatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeValidatingAdmissionPolicy{})
 var _ = admission.InitializationValidator(&KubeValidatingAdmissionPolicy{})
 
@@ -149,6 +151,10 @@ func (k *KubeValidatingAdmissionPolicy) SetServerShutdownChannel(ch <-chan struc
 
 func (k *KubeValidatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.ClusterInterface) {
 	k.dynamicClusterClient = c
+}
+
+func (k *KubeValidatingAdmissionPolicy) SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper) {
+	k.dynamicRESTMapper = dynRESTMapper
 }
 
 func (k *KubeValidatingAdmissionPolicy) SetAuthorizer(authz authorizer.Authorizer) {
@@ -260,10 +266,7 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, t
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(targetClusterName))
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(policyClusterName.Path()))
 
-	// TODO(ncdc): this is super inefficient to do per workspace
-	discoveryClient := memory.NewMemCacheClient(k.kubeClusterClient.Cluster(policyClusterName.Path()).Discovery())
-	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-	plugin.SetRESTMapper(restMapper)
+	plugin.SetRESTMapper(k.dynamicRESTMapper.ForCluster(policyClusterName))
 
 	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(policyClusterName.Path()))
 	plugin.SetDrainedNotification(ctx.Done())

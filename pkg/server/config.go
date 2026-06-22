@@ -658,6 +658,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
 		kcpadmissioninitializers.NewDynamicRESTMapperInitializer(c.DynamicRESTMapper),
+		kcpadmissioninitializers.NewClusterContextManagerInitializer(c.ClusterContextManager),
 	}
 
 	c.ShardBaseURL = func() string {
