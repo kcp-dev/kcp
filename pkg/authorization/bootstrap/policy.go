@@ -18,6 +18,7 @@ package bootstrap
 
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	rbacv1helpers "k8s.io/kubernetes/pkg/apis/rbac/v1"
@@ -163,6 +164,11 @@ func clusterRoles() []rbacv1.ClusterRole {
 				rbacv1helpers.NewRule("create").Groups(migration.GroupName).Resources("logicalclusterdumps").RuleOrDie(),
 				// allows shards to update LogicalClusterMigrations wherever it is placed
 				rbacv1helpers.NewRule("get", "update", "patch").Groups(migration.GroupName).Resources("logicalclustermigrations", "logicalclustermigrations/status").RuleOrDie(),
+				// Allow restoring bounds CRDs.
+				rbacv1helpers.NewRule("list").Groups(apis.GroupName).Resources("apibindings").RuleOrDie(),
+				rbacv1helpers.NewRule("get").Groups(apis.GroupName).Resources("apiexports").RuleOrDie(),
+				rbacv1helpers.NewRule("get").Groups(apis.GroupName).Resources("apiresourceschemas").RuleOrDie(),
+				rbacv1helpers.NewRule("get", "create").Groups(apiextensions.GroupName).Resources("customresourcedefinitions").RuleOrDie(),
 			},
 		},
 	}
