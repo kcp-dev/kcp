@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/index"
@@ -100,4 +101,91 @@ func TestWithLocalProxy_BareNameIsForwarded(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rr.Code, "bare cluster name must be forwarded, got %d", rr.Code)
 	require.Equal(t, "25t3xbr5iceb0155", gotName, "downstream must see the bare cluster name on context")
+}
+
+// TestWithProxyAuthHeaders_StripsForgedIdentityHeaders is the regression test for
+// the local-proxy identity-header cleaning.
+func TestWithProxyAuthHeaders_StripsForgedIdentityHeaders(t *testing.T) {
+	t.Parallel()
+	const (
+		userHeader  = "X-Remote-User"
+		groupHeader = "X-Remote-Group"
+		extraPrefix = "X-Remote-Extra-"
+
+		warrantHeader = "X-Remote-Extra-Authorization.kcp.io%2fwarrant"
+		scopesHeader  = "X-Remote-Extra-Authentication.kcp.io%2fscopes"
+	)
+	forgedWarrant := `{"user":"attacker","groups":["system:masters"]}`
+
+	tests := []struct {
+		name             string
+		user             userinfo.Info
+		clientHeaders    http.Header
+		wantUser         []string
+		wantGroups       []string
+		forbiddenHeaders []string
+	}{
+		{
+			name: "forged group dropped, real identity stamped",
+			user: &userinfo.DefaultInfo{Name: "alice", Groups: []string{"system:authenticated"}},
+			clientHeaders: http.Header{
+				groupHeader: {"system:masters"},
+			},
+			wantUser:   []string{"alice"},
+			wantGroups: []string{"system:authenticated"},
+		},
+		{
+			name: "forged user overwritten, forged warrant/scopes dropped (no X-Remote-User sent)",
+			user: &userinfo.DefaultInfo{Name: "alice", Groups: []string{"system:authenticated"}},
+			clientHeaders: http.Header{
+				groupHeader:   {"system:masters"},
+				warrantHeader: {forgedWarrant},
+				scopesHeader:  {"cluster:root"},
+			},
+			wantUser:         []string{"alice"},
+			wantGroups:       []string{"system:authenticated"},
+			forbiddenHeaders: []string{warrantHeader, scopesHeader},
+		},
+		{
+			name: "real extras stamped, forged extras dropped",
+			user: &userinfo.DefaultInfo{
+				Name:   "alice",
+				Groups: []string{"system:authenticated"},
+				Extra:  map[string][]string{"authentication.kcp.io/cluster-name": {"root:org:ws"}},
+			},
+			clientHeaders: http.Header{
+				warrantHeader: {forgedWarrant},
+			},
+			wantUser:         []string{"alice"},
+			wantGroups:       []string{"system:authenticated"},
+			forbiddenHeaders: []string{warrantHeader},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var forwarded http.Header
+			sink := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				forwarded = r.Header.Clone()
+			})
+			handler := withProxyAuthHeaders(sink, userHeader, groupHeader, extraPrefix)
+
+			req := httptest.NewRequest(http.MethodGet, "https://shard/clusters/root:org:ws/api/v1/secrets", http.NoBody)
+			for k, vs := range tc.clientHeaders {
+				for _, v := range vs {
+					req.Header.Add(k, v)
+				}
+			}
+			req = req.WithContext(request.WithUser(req.Context(), tc.user))
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			require.Equal(t, tc.wantUser, forwarded.Values(userHeader), "user header")
+			require.Equal(t, tc.wantGroups, forwarded.Values(groupHeader), "group header")
+			require.NotContains(t, forwarded.Values(groupHeader), "system:masters", "forged group must not leak to backend")
+			for _, h := range tc.forbiddenHeaders {
+				require.Empty(t, forwarded.Values(h), "forged header %q must not leak to backend", h)
+			}
+		})
+	}
 }

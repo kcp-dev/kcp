@@ -22,13 +22,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"os"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
@@ -60,27 +59,10 @@ func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, er
 func WithProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string, extraHeaderPrefix string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := request.UserFrom(r.Context()); ok {
-			appendClientCertAuthHeaders(r.Header, u, userHeader, groupHeader, extraHeaderPrefix)
+			authheaders.SetAuthHeaders(r.Header, u, userHeader, groupHeader, extraHeaderPrefix)
 		}
 
 		delegate.ServeHTTP(w, r)
-	}
-}
-
-func appendClientCertAuthHeaders(header http.Header, user userinfo.Info, userHeader, groupHeader, extraHeaderPrefix string) {
-	header.Set(userHeader, user.GetName())
-
-	for _, group := range user.GetGroups() {
-		header.Add(groupHeader, group)
-	}
-
-	for k, values := range user.GetExtra() {
-		// Key must be encoded to enable e.g authentication.kcp.io/cluster-name
-		// This is decoded in the RequestHeader auth handler
-		encodedKey := url.PathEscape(k)
-		for _, v := range values {
-			header.Add(extraHeaderPrefix+encodedKey, v)
-		}
 	}
 }
 
