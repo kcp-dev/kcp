@@ -16,7 +16,20 @@ limitations under the License.
 
 package logicalclustermigration
 
-import "embed"
+import (
+	"embed"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 //go:embed *.yaml
 var testFiles embed.FS
+
+func resourceExists(list *metav1.APIResourceList, resource string) bool {
+	for _, r := range list.APIResources {
+		if r.Name == resource {
+			return true
+		}
+	}
+	return false
+}
