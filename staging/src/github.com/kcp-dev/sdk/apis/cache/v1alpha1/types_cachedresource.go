@@ -25,11 +25,6 @@ import (
 
 const CachedResourceFinalizer = "cache.kcp.io/cachedresource"
 
-const (
-	// CachedResourceEndpointSliceSkipAnnotation is an annotation that can be set on a CachedResource to skip the creation of default CachedResourceEndpointSlice.
-	CachedResourceEndpointSliceSkipAnnotation = "cachedresources.cache.kcp.io/skip-endpointslice"
-)
-
 // CachedResource defines a resource that should be published to other workspaces
 //
 // +crd
