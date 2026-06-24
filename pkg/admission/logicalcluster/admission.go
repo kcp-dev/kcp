@@ -193,6 +193,15 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 			return admission.NewForbidden(a, fmt.Errorf("cannot transition from %q to %q", old.Status.Phase, logicalCluster.Status.Phase))
 		}
 
+		// Prevent marking a cluster as inactive when it is not in phase ready.
+		// Doing so can lead to undefined behaviour, as the cluster might be in the process of being initialized or terminated.
+		// Both require access to the LC, which the inactive annotation would prevent, deadlocking processes.
+		wasInactive := corev1alpha1.IsLogicalClusterInactive(old.Annotations)
+		isInactive := corev1alpha1.IsLogicalClusterInactive(logicalCluster.Annotations)
+		if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && !wasInactive && isInactive {
+			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster can only be marked inactive in phase %q, but is in phase %q", corev1alpha1.LogicalClusterPhaseReady, logicalCluster.Status.Phase))
+		}
+
 		return nil
 
 	case admission.Delete:

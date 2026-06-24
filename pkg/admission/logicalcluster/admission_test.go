@@ -318,6 +318,68 @@ func TestValidate(t *testing.T) {
 			wantErr: "cannot transition from",
 		},
 		{
+			name:        "fails to mark inactive while initializing",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
+				}).LogicalCluster,
+			),
+			wantErr: "can only be marked inactive in phase",
+		},
+		{
+			name:        "fails to mark inactive while scheduling",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
+				}).LogicalCluster,
+			),
+			wantErr: "can only be marked inactive in phase",
+		},
+		{
+			name:        "passes marking inactive when ready",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "passes reactivating (removing inactive) while not ready",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "passes updates on an already inactive cluster",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInactive,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInactive,
+				}).LogicalCluster,
+			),
+		},
+		{
 			name:        "fails deletion as another user",
 			clusterName: "root:org:ws",
 			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, &kuser.DefaultInfo{}),
@@ -432,6 +494,14 @@ func (b thisWsBuilder) directlyDeletable() thisWsBuilder {
 
 func (b thisWsBuilder) withStatus(status corev1alpha1.LogicalClusterStatus) thisWsBuilder {
 	b.Status = status
+	return b
+}
+
+func (b thisWsBuilder) inactive() thisWsBuilder {
+	if b.Annotations == nil {
+		b.Annotations = map[string]string{}
+	}
+	b.Annotations[corev1alpha1.LogicalClusterInactiveAnnotationKey] = "true"
 	return b
 }
 
