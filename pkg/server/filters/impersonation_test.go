@@ -309,6 +309,54 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 			expectedOriginalUser:     true,
 			handlerCalled:            true,
 		},
+		{
+			name:                  "Unprivileged requestor cannot inject a kcp warrant extra",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				// percent-encoded key, as a client sends it: authorization.kcp.io/warrant
+				"Impersonate-Extra-authorization.kcp.io%2Fwarrant": `{"groups":["system:masters"]}`,
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-202",
+				Groups: []string{"group1", user.AllAuthenticated},
+				Extra:  nil,
+			},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:                  "Unprivileged requestor cannot inject a kcp scopes extra",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authentication.kcp.io%2Fscopes": "cluster:other",
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-203",
+				Groups: []string{"group1"},
+				Extra:  nil,
+			},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:                  "system:masters requestor may carry a kcp warrant extra (trusted VW path)",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authorization.kcp.io%2Fwarrant": `{"groups":["system:kcp:admin"]}`,
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-204",
+				Groups: []string{authorizationbootstrap.SystemMastersGroup},
+				Extra:  nil,
+			},
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
+		},
 	}
 
 	for _, tt := range tests {

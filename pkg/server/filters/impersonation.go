@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -109,6 +110,23 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, originalUserContextKey, requester)
 		req = req.WithContext(ctx)
 
+		// validImpersonation only inspects impersonated *groups*. Impersonation
+		// extras such as the warrant and scope keys (authorization.kcp.io/warrant,
+		// authentication.kcp.io/scopes, authentication.kcp.io/cluster-name) are
+		// authority-granting and are populated only by trusted authenticators
+		// server-side; a client must never be able to set them via an
+		// Impersonate-Extra-* header. Trusted superusers (system:masters, e.g. the
+		// in-process virtual-workspace client that legitimately attaches a warrant)
+		// are exempt, mirroring the short-circuit in validImpersonation.
+		if !sets.New(requester.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
+			if key, found := forbiddenImpersonationExtra(req.Header); found {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonating the extra key %q is not allowed for the requestor", key)),
+					errorCodecs, schema.GroupVersion{}, w, req)
+				return
+			}
+		}
+
 		if validImpersonation(requester.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
 			handler.ServeHTTP(w, req)
 			return
@@ -178,6 +196,31 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 
 		handler.ServeHTTP(w, req.WithContext(request.WithUser(req.Context(), userScoped)))
 	})
+}
+
+// forbiddenImpersonationExtra reports whether the request carries an
+// Impersonate-Extra-* header for a kcp-reserved extra key (any key containing
+// "kcp.io", e.g. authorization.kcp.io/warrant or authentication.kcp.io/scopes).
+// Such extras grant authority and must only ever be set by trusted
+// authenticators, never asserted by a client. The header key suffix is
+// percent-encoded by clients (e.g. authorization.kcp.io%2Fwarrant), so it is
+// unescaped before matching. This mirrors the ExtraFilter DropExtraKeyContains
+// applied to workspace-local authenticators in pkg/authentication.
+func forbiddenImpersonationExtra(header http.Header) (string, bool) {
+	for name := range header {
+		if !strings.HasPrefix(name, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
+			continue
+		}
+		raw := name[len(authenticationv1.ImpersonateUserExtraHeaderPrefix):]
+		key, err := url.PathUnescape(raw)
+		if err != nil {
+			key = raw
+		}
+		if strings.Contains(strings.ToLower(key), "kcp.io") {
+			return key, true
+		}
+	}
+	return "", false
 }
 
 // validImpersonation checks if a user can impersonate all requested groups.
