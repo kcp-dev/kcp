@@ -30,19 +30,26 @@ import (
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 )
 
+// ClearAuthHeaders deletes any inbound copies of the request-header identity
+// headers.
+func ClearAuthHeaders(header http.Header, userHeader, groupHeader, extraHeaderPrefix string) {
+	header.Del(userHeader)
+	header.Del(groupHeader)
+	lowerPrefix := strings.ToLower(extraHeaderPrefix)
+	for key := range header {
+		if strings.HasPrefix(strings.ToLower(key), lowerPrefix) {
+			header.Del(key)
+		}
+	}
+}
+
 // SetAuthHeaders stamps the given authenticated user's identity onto the request
 // headers, after deleting any inbound copies of the identity headers.
 //
 // This mirrors k8s.io/client-go/transport.SetAuthProxyHeaders and the upstream
 // requestheader authenticator's ClearAuthenticationHeaders.
 func SetAuthHeaders(header http.Header, user userinfo.Info, userHeader, groupHeader, extraHeaderPrefix string) {
-	header.Del(userHeader)
-	header.Del(groupHeader)
-	for key := range header {
-		if strings.HasPrefix(strings.ToLower(key), strings.ToLower(extraHeaderPrefix)) {
-			header.Del(key)
-		}
-	}
+	ClearAuthHeaders(header, userHeader, groupHeader, extraHeaderPrefix)
 
 	header.Set(userHeader, user.GetName())
 

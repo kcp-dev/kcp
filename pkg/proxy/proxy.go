@@ -60,6 +60,8 @@ func WithProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string,
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u, ok := request.UserFrom(r.Context()); ok {
 			authheaders.SetAuthHeaders(r.Header, u, userHeader, groupHeader, extraHeaderPrefix)
+		} else {
+			authheaders.ClearAuthHeaders(r.Header, userHeader, groupHeader, extraHeaderPrefix)
 		}
 
 		delegate.ServeHTTP(w, r)

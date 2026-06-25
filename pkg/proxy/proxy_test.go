@@ -222,13 +222,30 @@ func TestWithProxyAuthHeaders_CustomHeaderNames(t *testing.T) {
 func TestWithProxyAuthHeaders_NoAuthenticatedUser(t *testing.T) {
 	t.Parallel()
 	var served bool
-	sink := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { served = true })
+	var forwarded http.Header
+	sink := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		served = true
+		forwarded = r.Header.Clone()
+	})
 	handler := WithProxyAuthHeaders(sink, defaultUserHeader, defaultGroupHeader, defaultExtraPrefix)
 
 	req := httptest.NewRequest(http.MethodGet, "https://front-proxy/api/v1/secrets", http.NoBody)
+	// No user in context (unauthenticated pass-through). Client forges identity.
+	req.Header.Set(defaultUserHeader, "kcp-admin")
+	req.Header.Add(defaultGroupHeader, "system:masters")
+	req.Header.Set(warrantExtraHeader, `{"user":"attacker","groups":["system:masters"]}`)
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
 	if !served {
 		t.Fatal("expected request to be passed through to delegate")
+	}
+	if v := forwarded.Values(defaultUserHeader); len(v) != 0 {
+		t.Errorf("forged user header leaked to shard: %v", v)
+	}
+	if v := forwarded.Values(defaultGroupHeader); len(v) != 0 {
+		t.Errorf("forged group header leaked to shard: %v", v)
+	}
+	if v := forwarded.Values(warrantExtraHeader); len(v) != 0 {
+		t.Errorf("forged warrant extra header leaked to shard: %v", v)
 	}
 }
