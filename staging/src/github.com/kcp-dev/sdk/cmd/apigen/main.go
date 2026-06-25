@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -61,8 +62,10 @@ type options struct {
 	outputDir           string
 	ignoreExportSchemas []string
 	preserveResources   bool
+	headerFile          string
 
 	ignoreExportSchemasParsed []metav1.GroupResource
+	headerText                string
 }
 
 func bindOptions(fs *pflag.FlagSet) *options {
@@ -71,6 +74,7 @@ func bindOptions(fs *pflag.FlagSet) *options {
 	fs.StringVar(&o.outputDir, "output-dir", "", "Directory where APIResourceSchemas and APIExports will be written.")
 	fs.StringSliceVar(&o.ignoreExportSchemas, "ignore-export-schemas", []string{}, "Comma-separated list of 'Resource.Group' to be ignored for APIExports generation.")
 	fs.BoolVar(&o.preserveResources, "preserve-resources", false, "Preserve existing resources in APIExport manifests instead of overriding them.")
+	fs.StringVar(&o.headerFile, "header-file", "", "Path to a file containing boilerplate header text; the contents will be prepended to all generated files.")
 	return &o
 }
 
@@ -97,6 +101,13 @@ func (o *options) Validate() error {
 			group = strings.TrimSuffix(group, "/")
 			o.ignoreExportSchemasParsed = append(o.ignoreExportSchemasParsed, metav1.GroupResource{Group: group, Resource: resource})
 		}
+	}
+	if o.headerFile != "" {
+		headerText, err := os.ReadFile(o.headerFile)
+		if err != nil {
+			return fmt.Errorf("could not read header file %q: %w", o.headerFile, err)
+		}
+		o.headerText = strings.ReplaceAll(string(headerText), "YEAR", strconv.Itoa(time.Now().Year()))
 	}
 	return nil
 }
@@ -178,7 +189,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := writeObjects(logger, opts.outputDir, apiExports, apiResourceSchemas); err != nil {
+	if err := writeObjects(logger, opts.outputDir, opts.headerText, apiExports, apiResourceSchemas); err != nil {
 		logger.Error(err, "Could not write manifests.")
 		os.Exit(1)
 	}
@@ -458,8 +469,13 @@ func generateExports(outputDir string, ignoreExportSchemas []metav1.GroupResourc
 	return exports, nil
 }
 
-func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha2.APIExport, schemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) error {
+func writeObjects(logger logr.Logger, outputDir string, headerText string, exports []*apisv1alpha2.APIExport, schemas map[metav1.GroupResource]*apisv1alpha1.APIResourceSchema) error {
 	logger.Info(fmt.Sprintf("Writing %d manifests to %s", len(exports)+len(schemas), outputDir))
+
+	var header []byte
+	if headerText != "" {
+		header = []byte(strings.TrimSuffix(headerText, "\n") + "\n\n")
+	}
 
 	codecs := serializer.NewCodecFactory(scheme)
 	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), runtime.ContentTypeYAML)
@@ -476,7 +492,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha2.
 			return err
 		}
 		output := filepath.Join(outputDir, fmt.Sprintf("%s%s.yaml", apiExportNamePrefix, export.Name))
-		if err := os.WriteFile(output, out, 0644); err != nil {
+		if err := os.WriteFile(output, append(header, out...), 0644); err != nil {
 			return err
 		}
 		writtenExports.Insert(output)
@@ -490,7 +506,7 @@ func writeObjects(logger logr.Logger, outputDir string, exports []*apisv1alpha2.
 			return err
 		}
 		output := filepath.Join(outputDir, fmt.Sprintf("%s%s.yaml", apiResourceSchemaNamePrefix, gr.String()))
-		if err := os.WriteFile(output, out, 0644); err != nil {
+		if err := os.WriteFile(output, append(header, out...), 0644); err != nil {
 			return err
 		}
 		writtenSchemas.Insert(output)
