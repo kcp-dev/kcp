@@ -88,10 +88,14 @@ type WorkspaceTypeSpec struct {
 	// +optional
 	Terminator bool `json:"terminator,omitempty"`
 
-	// extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
-	// and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
-	// another WorkspaceType, this WorkspaceType will be considered as that
-	// other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.
+	// extend is a list of other WorkspaceTypes whose initializers and
+	// limitAllowedChildren and limitAllowedParents this WorkspaceType inherits.
+	// Extension is additive: by (transitively) extending another WorkspaceType,
+	// this WorkspaceType is considered to be that other type when evaluating
+	// limitAllowedChildren and limitAllowedParents constraints. As a result, a
+	// type that extends multiple types satisfies a constraint that allows any
+	// one of those types, so the effective allowed set is the union of the
+	// extended types and not their intersection.
 	//
 	// A dependency cycle stop this WorkspaceType from being admitted as the type
 	// of a Workspace.
@@ -238,8 +242,7 @@ type WorkspaceTypeSelector struct {
 // composed together to add functionality to the owning WorkspaceType.
 type WorkspaceTypeExtension struct {
 	// with are WorkspaceTypes whose initializers are added to the list
-	// for the owning type, and for whom the owning type becomes an alias, as long
-	// as all of their required types are not mentioned in without.
+	// for the owning type, and for whom the owning type becomes an alias.
 	//
 	// +optional
 	With []WorkspaceTypeReference `json:"with,omitempty"`
