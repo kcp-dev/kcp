@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -32,6 +33,7 @@ import (
 	"github.com/xrstf/mockoidc"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
@@ -46,8 +48,9 @@ func StartMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoi
 	// start a mock OIDC server that will listen on a random port
 	// (only for discovery and keyset handling, no actual login workflows)
 	caDir := server.CADirectory()
-	caCertFile := filepath.Join(caDir, "mockoidc-ca.crt")
-	caKeyFile := filepath.Join(caDir, "mockoidc-ca.key")
+	caUniqueNameSuffix := fmt.Sprintf("%s-%s", t.Name(), utilrand.String(8))
+	caCertFile := filepath.Join(caDir, "mockoidc-ca-"+caUniqueNameSuffix+".crt")
+	caKeyFile := filepath.Join(caDir, "mockoidc-ca-"+caUniqueNameSuffix+".key")
 
 	ca, _, err := crypto.EnsureCA(caCertFile, caKeyFile, "", "mockoidc-ca", 1)
 	require.NoError(t, err)
@@ -87,6 +90,8 @@ func StartMockOIDC(t *testing.T, server kcptestingserver.RunningServer) (*mockoi
 	// necessary shutdown code already.
 	t.Cleanup(func() {
 		require.NoError(t, m.Shutdown())
+		os.Remove(caCertFile)
+		os.Remove(caKeyFile)
 	})
 
 	return m, ca
