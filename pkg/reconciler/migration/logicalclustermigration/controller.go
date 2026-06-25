@@ -34,6 +34,7 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
@@ -60,6 +61,7 @@ const (
 func NewController(
 	shardName string,
 	kcpClusterClient kcpclientset.ClusterInterface,
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	externalLogicalClusterAdminConfig *rest.Config,
 	etcdClient *clientv3.Client,
 	etcdStoragePrefix string,
@@ -79,6 +81,7 @@ func NewController(
 		),
 		shardName:                         shardName,
 		kcpClusterClient:                  kcpClusterClient,
+		crdClusterClient:                  crdClusterClient,
 		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
 		etcdClient:                        etcdClient,
 		etcdStoragePrefix:                 etcdStoragePrefix,
@@ -113,6 +116,7 @@ type Controller struct {
 	shardName string
 
 	kcpClusterClient                  kcpclientset.ClusterInterface
+	crdClusterClient                  kcpapiextensionsclientset.ClusterInterface
 	externalLogicalClusterAdminConfig *rest.Config
 	etcdClient                        *clientv3.Client
 	etcdStoragePrefix                 string
