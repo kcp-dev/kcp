@@ -18,12 +18,16 @@ package lookup
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 
@@ -87,6 +91,18 @@ func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) htt
 			return
 		}
 
+		// If the cluster was recently migrated and the request is not a fresh list or watch
+		// return a 410 to force the client to do a relist.
+		//
+		// This is only required for watches.
+		// Lists with a lower RV will get appropriate objects from the shard.
+		// Lists with a higher RV will get a 504 from the shard.
+		if index.RecentlyMigrated(result.Cluster) && isInProgressWatch(req) {
+			err := apierrors.NewResourceExpired(fmt.Sprintf("logical cluster %q migrated to another shard; relist required", result.Cluster))
+			responsewriters.ErrorNegotiated(err, kubernetesscheme.Codecs, schema.GroupVersion{}, w, req)
+			return
+		}
+
 		shardURL, err := url.Parse(result.URL)
 		if err != nil {
 			responsewriters.InternalError(w, req, err)
@@ -105,10 +121,38 @@ func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) htt
 		}
 
 		ctx = WithShardURL(ctx, shardURL)
+
+		// Bound watch requests by the per-cluster context to cancel them when the cluster is migrated or deleted.
+		if isWatchRequest(req) {
+			var cancel context.CancelFunc
+			ctx, cancel = index.ClusterContext(ctx, result.Cluster)
+			defer cancel()
+		}
+
 		req = req.WithContext(ctx)
 
 		delegate.ServeHTTP(w, req)
 	}
+}
+
+func isWatchRequest(req *http.Request) bool {
+	if info, ok := request.RequestInfoFrom(req.Context()); ok && info.IsResourceRequest {
+		return info.Verb == "watch"
+	}
+	switch req.URL.Query().Get("watch") {
+	case "true", "1":
+		return true
+	}
+	return false
+}
+
+func isInProgressWatch(req *http.Request) bool {
+	rv := req.URL.Query().Get("resourceVersion")
+	if rv == "" || rv == "0" {
+		return false
+	}
+
+	return isWatchRequest(req)
 }
 
 func newMappingHandler(delegate http.Handler, index proxyindex.Index) http.HandlerFunc {
