@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -69,28 +70,33 @@ func TestShardMetricsEndpoint(t *testing.T) {
 	// because the request is rejected before authz runs.
 	user1ClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", rootShardCfg))
 	require.NoError(t, err)
-	_, err = user1ClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: "workspace-metrics-viewer"},
-		Rules: []rbacv1.PolicyRule{{
-			Verbs:           []string{"get"},
-			NonResourceURLs: []string{"/metrics"},
-		}},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err)
-	_, err = user1ClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "user-1-workspace-metrics-viewer"},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "ClusterRole",
-			Name:     "workspace-metrics-viewer",
-		},
-		Subjects: []rbacv1.Subject{{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "User",
-			Name:     "user-1",
-		}},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err)
+	// After AdmitWorkspaceAccess, the RBACs cache might not be primed yet, so we need to retry on Create()s below.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err = user1ClusterClient.Cluster(wsPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "workspace-metrics-viewer"},
+			Rules: []rbacv1.PolicyRule{{
+				Verbs:           []string{"get"},
+				NonResourceURLs: []string{"/metrics"},
+			}},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}, wait.ForeverTestTimeout, 200*time.Millisecond, "waiting to create ClusterRole for user-1")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err = user1ClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "user-1-workspace-metrics-viewer"},
+			RoleRef: rbacv1.RoleRef{
+				APIGroup: rbacv1.GroupName,
+				Kind:     "ClusterRole",
+				Name:     "workspace-metrics-viewer",
+			},
+			Subjects: []rbacv1.Subject{{
+				APIGroup: rbacv1.GroupName,
+				Kind:     "User",
+				Name:     "user-1",
+			}},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}, wait.ForeverTestTimeout, 200*time.Millisecond, "waiting to create ClusterRoleBinding for user-1")
 
 	workspaceMetricsPath := fmt.Sprintf("/clusters/%s/metrics", wsPath.String())
 
