@@ -133,6 +133,33 @@ func NewController(
 			}
 			return bindings, nil
 		},
+		listAPIBindingsByClaimedIdentity: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
+			if export.Status.IdentityHash == "" {
+				return nil, nil
+			}
+			indexer := apiBindingInformer.Informer().GetIndexer()
+			keys := sets.New[string]()
+			for _, res := range export.Spec.Resources {
+				key := indexers.IdentityGroupResourceKeyFunc(export.Status.IdentityHash, res.Group, res.Name)
+				ks, err := indexer.IndexKeys(indexers.APIBindingByAcceptedClaimIdentityAndGR, key)
+				if err != nil {
+					return nil, err
+				}
+				keys.Insert(ks...)
+			}
+			bindings := make([]*apisv1alpha2.APIBinding, 0, keys.Len())
+			for _, key := range sets.List[string](keys) {
+				obj, exists, err := indexer.GetByKey(key)
+				if err != nil {
+					utilruntime.HandleError(err)
+					continue
+				} else if !exists {
+					continue
+				}
+				bindings = append(bindings, obj.(*apisv1alpha2.APIBinding))
+			}
+			return bindings, nil
+		},
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
@@ -350,9 +377,10 @@ type controller struct {
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface
 	kcpClusterClient kcpclientset.ClusterInterface
 
-	listAPIBindings            func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
-	listAPIBindingsByAPIExport func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
-	getAPIBinding              func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	listAPIBindings                  func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	listAPIBindingsByAPIExport       func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
+	listAPIBindingsByClaimedIdentity func(apiExport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
+	getAPIBinding                    func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 
 	getAPIExportByPath      func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getAPIExportsBySchema   func(schema *apisv1alpha1.APIResourceSchema) ([]*apisv1alpha2.APIExport, error)
@@ -401,6 +429,18 @@ func (c *controller) enqueueAPIExport(export *apisv1alpha2.APIExport, logger log
 
 	for _, binding := range bindings {
 		c.enqueueAPIBinding(binding, logging.WithObject(logger, export), fmt.Sprintf(" because of APIExport%s", logSuffix))
+	}
+
+	// Also enqueue bindings that don't reference this export directly but claim one of
+	// its resources via permission claim + identity hash. Needed so the materialiser
+	// reconciler re-runs once the cache-server-fed APIExport finally lands on this shard.
+	claimers, err := c.listAPIBindingsByClaimedIdentity(export)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	for _, binding := range claimers {
+		c.enqueueAPIBinding(binding, logging.WithObject(logger, export), fmt.Sprintf(" because of permission claim against APIExport%s", logSuffix))
 	}
 }
 
@@ -580,7 +620,8 @@ func InstallIndexers(
 ) {
 	// APIBinding indexers
 	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+		indexers.APIBindingsByAPIExport:                 indexers.IndexAPIBindingByAPIExport,
+		indexers.APIBindingByAcceptedClaimIdentityAndGR: indexers.IndexAPIBindingByAcceptedClaimIdentityAndGR,
 	})
 
 	// APIExport indexers
