@@ -1,0 +1,28 @@
+#version-banner {
+  display: block;
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  background-color: #448aff;
+  color: white;
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 0.7rem;
+  z-index: 10000;
+}
+
+#version-banner a {
+  color: white;
+  text-decoration: underline;
+  margin-left: 8px;
+}
+
+#version-banner a:hover {
+  text-decoration: none;
+}
+
+.md-header {
+  transition: top 0.2s ease;
+}
