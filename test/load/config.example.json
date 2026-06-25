@@ -8,8 +8,12 @@
     "crudConfigMapQPS": 150,
     "providerWorkspacesCount": 10,
     "consumerWorkspacesCount": 90,
+    "bindingsPerConsumer": 1,
     "createAPIExportQPS": 2.0,
     "createAPIBindingQPS": 2.0,
-    "crudSharedAPIQPS": 150
+    "crudSharedAPIQPS": 150,
+    "crLeafFields": 160,
+    "crListItems": 30,
+    "crTargetSizeBytes": 6000
   }
 }
