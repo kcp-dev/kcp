@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -38,9 +39,9 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
-	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy/v1alpha1"
@@ -115,8 +116,14 @@ func NewDefaultAPIBindingController(
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportsInformer.Informer().GetIndexer(), globalAPIExportsInformer.Informer().GetIndexer(), path, name)
 		},
 
-		commitApiBinding:     committer.NewCommitter[*apisv1alpha2.APIBinding, apisv1alpha2client.APIBindingInterface, *apisv1alpha2.APIBindingSpec, *apisv1alpha2.APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
-		commitLogicalCluster: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
+		commitApiBinding: committer.NewCommitter[*apisv1alpha2.APIBinding, apisv1alpha2client.APIBindingInterface, *apisv1alpha2.APIBindingSpec, *apisv1alpha2.APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
+
+		getLCDirect: func(ctx context.Context, clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return kcpClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().LogicalClusters().Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+		},
+		updateLCStatus: func(ctx context.Context, clusterName logicalcluster.Name, lc *corev1alpha1.LogicalCluster) (*corev1alpha1.LogicalCluster, error) {
+			return kcpClusterClient.Cluster(clusterName.Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, lc, metav1.UpdateOptions{})
+		},
 	}
 
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceType)
@@ -144,7 +151,6 @@ func NewDefaultAPIBindingController(
 }
 
 type apiBindingResource = committer.Resource[*apisv1alpha2.APIBindingSpec, *apisv1alpha2.APIBindingStatus]
-type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus]
 
 // DefaultAPIBindingController is a controller which instantiates APIBindings and waits for them to be fully bound
 // in new Workspaces.
@@ -161,8 +167,14 @@ type DefaultAPIBindingController struct {
 	createAPIBinding func(ctx context.Context, clusterName logicalcluster.Path, binding *apisv1alpha2.APIBinding) (*apisv1alpha2.APIBinding, error)
 	getAPIExport     func(clusterName logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 
-	commitApiBinding     func(ctx context.Context, old, new *apiBindingResource) error
-	commitLogicalCluster func(ctx context.Context, old, new *logicalClusterResource) error
+	commitApiBinding func(ctx context.Context, old, new *apiBindingResource) error
+
+	// getLCDirect fetches the LogicalCluster directly from the API (bypassing the cache) so
+	// that RetryOnConflict loops always start from the freshest resourceVersion.
+	getLCDirect func(ctx context.Context, clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	// updateLCStatus submits a status update for the LogicalCluster; the server rejects it
+	// with a conflict error if the resourceVersion has changed since getLCDirect was called.
+	updateLCStatus func(ctx context.Context, clusterName logicalcluster.Name, lc *corev1alpha1.LogicalCluster) (*corev1alpha1.LogicalCluster, error)
 
 	transitiveTypeResolver transitiveTypeResolver
 }
@@ -297,23 +309,35 @@ func (c *DefaultAPIBindingController) process(ctx context.Context, key string) e
 		return nil // nothing we can do here
 	}
 
-	old := logicalCluster
+	before := logicalCluster
 	logicalCluster = logicalCluster.DeepCopy()
 
 	logger = logging.WithObject(logger, logicalCluster)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	err = c.reconcile(ctx, logicalCluster)
-	if err != nil {
+	if err := c.reconcile(ctx, logicalCluster); err != nil {
 		errs = append(errs, err)
 	}
 
-	// If the object being reconciled changed as a result, update it.
-	oldResource := &logicalClusterResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &logicalClusterResource{ObjectMeta: logicalCluster.ObjectMeta, Spec: &logicalCluster.Spec, Status: &logicalCluster.Status}
-	if err := c.commitLogicalCluster(ctx, oldResource, newResource); err != nil {
-		errs = append(errs, err)
+	// Compute the condition delta and apply it onto a freshly-fetched object inside a
+	// RetryOnConflict loop. This ensures concurrent writes from APIBinderInitializerController
+	// (which owns WorkspaceAPIBindingsInitialized) cannot overwrite our condition and vice versa.
+	condPatch := conditions.NewPatch(before, logicalCluster)
+	if !condPatch.IsZero() {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			fresh, err := c.getLCDirect(ctx, clusterName)
+			if err != nil {
+				return err
+			}
+			if err := condPatch.Apply(fresh, conditions.WithOwnedConditions(tenancyv1alpha1.WorkspaceAPIBindingsReconciled)); err != nil {
+				return err
+			}
+			_, err = c.updateLCStatus(ctx, clusterName, fresh)
+			return err
+		}); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	return utilerrors.NewAggregate(errs)
