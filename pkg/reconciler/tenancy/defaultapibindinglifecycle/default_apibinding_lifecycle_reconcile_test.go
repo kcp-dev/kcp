@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The kcp Authors.
+Copyright 2026 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package initialization
+package defaultapibindinglifecycle
 
 import (
 	"context"
 	"errors"
-	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -42,67 +40,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
 
-func TestGenerateAPIBindingName(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		exportName           string
-		expectedPrefixLength int
-	}{
-		"short export name": {
-			exportName:           "a",
-			expectedPrefixLength: 1,
-		},
-		"max length without truncation": {
-			exportName:           strings.Repeat("a", 247),
-			expectedPrefixLength: 247,
-		},
-		"over max length": {
-			exportName:           strings.Repeat("a", 248),
-			expectedPrefixLength: 247,
-		},
-	}
-
-	re := regexp.MustCompile(`^(a+)-(.+)$`)
-
-	for testName, tc := range tests {
-		t.Run(testName, func(t *testing.T) {
-			t.Parallel()
-			clusterName := logicalcluster.Name("root:some:ws")
-			exportPath := "root:some:export:ws"
-
-			generated := generateAPIBindingName(clusterName, exportPath, tc.exportName)
-			t.Logf("generated: %s", generated)
-
-			matches := re.FindStringSubmatch(generated)
-			require.Len(t, matches, 3)
-			require.Len(t, matches[1], tc.expectedPrefixLength)
-			require.Len(t, matches[2], 5)
-		})
-	}
-}
-
-func TestGenerateAPIBindingNameWithMultipleSimilarLongNames(t *testing.T) {
-	t.Parallel()
-
-	clusterName := logicalcluster.Name("root:some:ws")
-	exportPath := "root:some:export:ws"
-
-	// 252 chars
-	longName1 := "thisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongname"
-	// 263 chars
-	longName2 := "thisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethisisareallylongnamethatdiffers"
-	generated1 := generateAPIBindingName(clusterName, exportPath, longName1)
-	t.Logf("generated1: %s", generated1)
-	generated2 := generateAPIBindingName(clusterName, exportPath, longName2)
-	t.Logf("generated2: %s", generated2)
-	require.Len(t, generated1, 253)
-	require.Len(t, generated2, 253)
-	require.NotEqual(t, generated1, generated2, "expected different generated names")
-}
-
-func newTestAPIBinder(cached *corev1alpha1.LogicalCluster, update func(context.Context, *corev1alpha1.LogicalCluster) error) *APIBinder {
-	b := &APIBinder{
+func newTestController(cached *corev1alpha1.LogicalCluster, update func(context.Context, *corev1alpha1.LogicalCluster) error) *DefaultAPIBindingController {
+	c := &DefaultAPIBindingController{
 		getLogicalCluster: func(logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
 			return cached, nil
 		},
@@ -110,10 +49,12 @@ func newTestAPIBinder(cached *corev1alpha1.LogicalCluster, update func(context.C
 			return nil, apierrors.NewNotFound(schema.GroupResource{}, "")
 		},
 		getWorkspaceType: func(logicalcluster.Path, string) (*tenancyv1alpha1.WorkspaceType, error) {
-			return nil, apierrors.NewNotFound(schema.GroupResource{}, "")
+			return &tenancyv1alpha1.WorkspaceType{}, nil
 		},
 		listLogicalClusters: func() ([]*corev1alpha1.LogicalCluster, error) { return nil, nil },
-		listAPIBindings:     func(logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) { return nil, nil },
+		listAPIBindings: func(logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return nil, nil
+		},
 		getAPIBinding: func(logicalcluster.Name, string) (*apisv1alpha2.APIBinding, error) {
 			return nil, apierrors.NewNotFound(schema.GroupResource{}, "")
 		},
@@ -123,11 +64,14 @@ func newTestAPIBinder(cached *corev1alpha1.LogicalCluster, update func(context.C
 		getAPIExport: func(logicalcluster.Path, string) (*apisv1alpha2.APIExport, error) {
 			return nil, apierrors.NewNotFound(schema.GroupResource{}, "")
 		},
+		commitApiBinding: func(context.Context, *apiBindingResource, *apiBindingResource) error {
+			return nil
+		},
 		commitConditions: committer.NewConditionsCommitter[*corev1alpha1.LogicalCluster](
-			[]conditionsv1alpha1.ConditionType{tenancyv1alpha1.WorkspaceAPIBindingsInitialized}, update),
+			[]conditionsv1alpha1.ConditionType{tenancyv1alpha1.WorkspaceAPIBindingsReconciled}, update),
+		transitiveTypeResolver: &noopResolver{},
 	}
-	b.transitiveTypeResolver = &noopResolver{}
-	return b
+	return c
 }
 
 func testCachedLogicalCluster() *corev1alpha1.LogicalCluster {
@@ -145,30 +89,35 @@ func testCachedLogicalCluster() *corev1alpha1.LogicalCluster {
 func TestProcessConditionIsolation(t *testing.T) {
 	t.Parallel()
 
+	// The cached object already carries a condition written by a different controller
+	// (WorkspaceAPIBindingsInitialized). After our controller runs, that foreign condition
+	// must still be present on the object we submit.
 	cached := testCachedLogicalCluster()
 	conditions.Set(cached, &conditionsv1alpha1.Condition{
-		Type:               tenancyv1alpha1.WorkspaceAPIBindingsReconciled,
+		Type:               tenancyv1alpha1.WorkspaceAPIBindingsInitialized,
 		Status:             corev1.ConditionTrue,
 		LastTransitionTime: metav1.Now(),
 	})
 
 	var updateStatusCalled bool
 	var receivedLC *corev1alpha1.LogicalCluster
-	b := newTestAPIBinder(cached, func(_ context.Context, lc *corev1alpha1.LogicalCluster) error {
+	c := newTestController(cached, func(_ context.Context, lc *corev1alpha1.LogicalCluster) error {
 		updateStatusCalled = true
 		receivedLC = lc.DeepCopy()
 		return nil
 	})
 
-	err := b.process(context.Background(), "root:ws|cluster")
+	err := c.process(context.Background(), "root:ws|cluster")
 	require.NoError(t, err)
 
 	require.True(t, updateStatusCalled, "updateLCStatus should have been called")
 
-	ownedCond := conditions.Get(receivedLC, tenancyv1alpha1.WorkspaceAPIBindingsInitialized)
-	require.NotNil(t, ownedCond, "owned condition WorkspaceAPIBindingsInitialized must be set")
+	// The condition this controller owns must be present.
+	ownedCond := conditions.Get(receivedLC, tenancyv1alpha1.WorkspaceAPIBindingsReconciled)
+	require.NotNil(t, ownedCond, "owned condition WorkspaceAPIBindingsReconciled must be set")
 
-	foreignCond := conditions.Get(receivedLC, tenancyv1alpha1.WorkspaceAPIBindingsReconciled)
+	// The foreign condition must not have been removed.
+	foreignCond := conditions.Get(receivedLC, tenancyv1alpha1.WorkspaceAPIBindingsInitialized)
 	require.NotNil(t, foreignCond, "foreign condition must be preserved")
 	require.Equal(t, corev1.ConditionTrue, foreignCond.Status)
 }
@@ -176,17 +125,17 @@ func TestProcessConditionIsolation(t *testing.T) {
 func TestProcessConflictRequeues(t *testing.T) {
 	t.Parallel()
 
-	b := newTestAPIBinder(testCachedLogicalCluster(), func(_ context.Context, _ *corev1alpha1.LogicalCluster) error {
+	c := newTestController(testCachedLogicalCluster(), func(_ context.Context, _ *corev1alpha1.LogicalCluster) error {
 		return apierrors.NewConflict(corev1alpha1.Resource("logicalclusters"), corev1alpha1.LogicalClusterName, errors.New("resourceVersion changed"))
 	})
-	b.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
-	t.Cleanup(b.queue.ShutDown)
+	c.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]())
+	t.Cleanup(c.queue.ShutDown)
 
 	const key = "root:ws|cluster"
-	err := b.process(context.Background(), key)
+	err := c.process(context.Background(), key)
 	require.NoError(t, err, "a conflict must not be returned as a hard error")
 
-	require.Eventually(t, func() bool { return b.queue.Len() == 1 }, time.Second, 5*time.Millisecond,
+	require.Eventually(t, func() bool { return c.queue.Len() == 1 }, time.Second, 5*time.Millisecond,
 		"the key should be requeued after a conflict")
 }
 

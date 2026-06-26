@@ -19,6 +19,7 @@ package initialization
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,9 +38,10 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	sdkinitialization "github.com/kcp-dev/sdk/apis/tenancy/initialization"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy/v1alpha1"
@@ -112,7 +114,13 @@ func NewAPIBinder(
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportsInformer.Informer().GetIndexer(), globalAPIExportsInformer.Informer().GetIndexer(), path, name)
 		},
 
-		commit: committer.NewCommitter[*corev1alpha1.LogicalCluster, corev1alpha1client.LogicalClusterInterface, *corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus](kcpClusterClient.CoreV1alpha1().LogicalClusters()),
+		commitConditions: committer.NewConditionsCommitter[*corev1alpha1.LogicalCluster](
+			[]conditionsv1alpha1.ConditionType{tenancyv1alpha1.WorkspaceAPIBindingsInitialized},
+			func(ctx context.Context, lc *corev1alpha1.LogicalCluster) error {
+				_, err := kcpClusterClient.Cluster(logicalcluster.From(lc).Path()).CoreV1alpha1().LogicalClusters().UpdateStatus(ctx, lc, metav1.UpdateOptions{})
+				return err
+			},
+		),
 	}
 
 	c.transitiveTypeResolver = admission.NewTransitiveTypeResolver(c.getWorkspaceType)
@@ -158,8 +166,6 @@ func NewAPIBinder(
 	return c, nil
 }
 
-type logicalClusterResource = committer.Resource[*corev1alpha1.LogicalClusterSpec, *corev1alpha1.LogicalClusterStatus]
-
 // APIBinder is a controller which instantiates APIBindings and waits for them to be fully bound
 // in new Workspaces.
 type APIBinder struct {
@@ -178,8 +184,7 @@ type APIBinder struct {
 
 	transitiveTypeResolver transitiveTypeResolver
 
-	// commit creates a patch and submits it, if needed.
-	commit func(ctx context.Context, old, new *logicalClusterResource) error
+	commitConditions committer.ConditionsCommitFunc[*corev1alpha1.LogicalCluster]
 }
 
 type transitiveTypeResolver interface {
@@ -311,8 +316,7 @@ func (b *APIBinder) process(ctx context.Context, key string) error {
 		if !apierrors.IsNotFound(err) {
 			logger.Error(err, "failed to get LogicalCluster from lister", "cluster", clusterName)
 		}
-
-		return nil // nothing we can do here
+		return nil
 	}
 
 	old := logicalCluster
@@ -327,11 +331,23 @@ func (b *APIBinder) process(ctx context.Context, key string) error {
 		errs = append(errs, err)
 	}
 
-	// If the object being reconciled changed as a result, update it.
-	oldResource := &logicalClusterResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &logicalClusterResource{ObjectMeta: logicalCluster.ObjectMeta, Spec: &logicalCluster.Spec, Status: &logicalCluster.Status}
-	if err := b.commit(ctx, oldResource, newResource); err != nil {
-		errs = append(errs, err)
+	initializerRemoved := slices.Contains(old.Status.Initializers, tenancyv1alpha1.WorkspaceAPIBindingsInitializer) &&
+		!slices.Contains(logicalCluster.Status.Initializers, tenancyv1alpha1.WorkspaceAPIBindingsInitializer)
+
+	err = b.commitConditions(ctx, old, logicalCluster, func(lc *corev1alpha1.LogicalCluster) bool {
+		if !initializerRemoved {
+			return false
+		}
+		lc.Status.Initializers = sdkinitialization.EnsureInitializerAbsent(tenancyv1alpha1.WorkspaceAPIBindingsInitializer, lc.Status.Initializers)
+		return true
+	})
+	if err != nil {
+		if apierrors.IsConflict(err) {
+			logger.V(4).Info("conflict updating LogicalCluster status, requeuing")
+			b.queue.AddRateLimited(key)
+		} else {
+			errs = append(errs, err)
+		}
 	}
 
 	return utilerrors.NewAggregate(errs)
