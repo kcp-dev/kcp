@@ -97,6 +97,10 @@ func TestReconciler(t *testing.T) {
 			logicalCluster: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 				"internal.apis.kcp.io/resource-bindings": `{"as.group":{"n":"binding1"},"bs.group":{"n":"binding1"},"crd1s.group":{"c":true},"crd2s.group":{"c":true},"cs.group":{"n":"binding2"},"ds.group":{"n":"binding2"}}`,
 			}}},
+			crds: []*apiextensionsv1.CustomResourceDefinition{
+				withEstablished(newCRD("group", "crd1s")),
+				withEstablished(newCRD("group", "crd2s")),
+			},
 			apiBindings: []*apisv1alpha2.APIBinding{
 				&newAPIBinding().WithName("binding1").WithBoundResources("group", "as", "group", "bs").APIBinding,
 			},
@@ -113,6 +117,15 @@ func TestReconciler(t *testing.T) {
 			},
 			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 				"internal.apis.kcp.io/resource-bindings": fmt.Sprintf(`{"crd1s.group":{"c":true},"crd3s.group":{"c":true,"e":%q}}`, notExpired),
+			}}},
+		},
+		"deleted CRD whose lock has no expiry is removed": {
+			logicalCluster: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				"internal.apis.kcp.io/resource-bindings": `{"crd1s.group":{"c":true}}`,
+			}}},
+			crds: []*apiextensionsv1.CustomResourceDefinition{},
+			want: &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				"internal.apis.kcp.io/resource-bindings": `{}`,
 			}}},
 		},
 	}

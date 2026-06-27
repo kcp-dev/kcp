@@ -308,9 +308,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 			continue
 		}
 
-		// CRD doesn't exist.
-		if b.CRDExpiry != nil && time.Now().After(b.CRDExpiry.Time) {
-			logger.V(4).Info("removing expired CRD binding of non-existing CRD", "crd", gr)
+		// CRD doesn't exist (anymore): release the lock immediately if it was
+		// held without an expiry (the CRD was deleted), or once an existing
+		// expiry has passed.
+		if b.CRDExpiry == nil || time.Now().After(b.CRDExpiry.Time) {
+			logger.V(4).Info("removing CRD binding of non-existing CRD", "crd", gr)
 			delete(rbs, gr)
 		}
 	}
