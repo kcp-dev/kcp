@@ -115,6 +115,18 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 		}
 	}
 
+	// Also advertise and verify the requestheader CA on the serving side. This unions
+	// the requestheader CA into the TLS CertificateRequest's acceptable-CA list, so a
+	// trusted upstream (e.g. a shard's mount proxy re-entering the front-proxy) actually
+	// presents its requestheader-CA-signed client cert. Without this, the Go TLS client
+	// finds no cert matching the advertised CAs and sends none, the requestheader
+	// authenticator never runs, and forwarded identity headers get cleared.
+	if authenticatorConfig.RequestHeaderConfig != nil && authenticatorConfig.RequestHeaderConfig.CAContentProvider != nil {
+		if err = authenticationInfo.ApplyClientCert(authenticatorConfig.RequestHeaderConfig.CAContentProvider, servingInfo); err != nil {
+			return fmt.Errorf("unable to load requestheader CA file: %w", err)
+		}
+	}
+
 	// Set for service account auth, if enabled
 	if c.serviceAccountAuthEnabled() {
 		authenticationInfo.APIAudiences = c.BuiltInOptions.APIAudiences

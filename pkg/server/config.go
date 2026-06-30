@@ -453,6 +453,26 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		virtualWorkspaceServerProxyTransport = transport
 	}
 
+	// Transport used by the local proxy when it forwards a request for a mounted
+	// workspace back to the front-proxy. It presents a requestheader-CA-signed client
+	// certificate so the front-proxy authenticates the forwarded identity headers
+	// (via its requestheader authenticator) instead of clearing them.
+	var mountProxyTransport http.RoundTripper
+	if opts.Extra.MountProxyClientCertFile != "" && opts.Extra.MountProxyClientKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(opts.Extra.MountProxyClientCertFile, opts.Extra.MountProxyClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load mount proxy client certificate %q or key %q: %w", opts.Extra.MountProxyClientCertFile, opts.Extra.MountProxyClientKeyFile, err)
+		}
+
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			// TODO: verify the front-proxy serving cert here instead of skipping, once a CA is wired through in dev mode.
+			InsecureSkipVerify: true,
+		}
+		mountProxyTransport = transport
+	}
+
 	// Prepare a local cluster index that can be used both by the LocalProxy, as well as the authenticator
 	// (the authenticator cannot always use the data the localproxy puts into the context because the
 	// authentication rest storage provider calls the authenticator outside of the handler chain).
@@ -624,7 +644,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// whether shard-wide URLs like /metrics may be served. Workspace-scoped
 		// requests are 501'd; top-level requests are evaluated against root RBAC.
 		apiHandler = kcpfilters.WithShardLevelPaths(apiHandler)
-		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex)
+		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex, mountProxyTransport)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
 		}
