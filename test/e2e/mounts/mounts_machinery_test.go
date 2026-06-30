@@ -60,8 +60,6 @@ var testFiles embed.FS
 // symbolic links fashion.
 
 func TestMountsMachinery(t *testing.T) {
-	t.Skip("This test is disabled because kcp 0.32.2 introduced authentication changes that break this test/functionality.")
-
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 

@@ -105,6 +105,7 @@ func WithLocalProxy(
 	handler http.Handler,
 	shardName, additionalMappingsFile string,
 	clusterIndex *index.State,
+	mountProxyTransport http.RoundTripper,
 ) (http.Handler, error) {
 	defaultHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
@@ -175,11 +176,17 @@ func WithLocalProxy(
 			}
 			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
 			proxy := httputil.NewSingleHostReverseProxy(u)
-			// TODO(mjudeikis): remove this once we have a real cert wired in dev mode
-			proxy.Transport = &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
+			if mountProxyTransport != nil {
+				// Present a requestheader-CA-signed client certificate so the front-proxy
+				// authenticates the forwarded identity headers instead of clearing them.
+				proxy.Transport = mountProxyTransport
+			} else {
+				// TODO(mjudeikis): remove this once we have a real cert wired in dev mode
+				proxy.Transport = &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				}
 			}
 
 			proxy.ServeHTTP(w, req)
