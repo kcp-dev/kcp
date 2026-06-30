@@ -59,7 +59,7 @@ func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 	// that the original bug exploited.
 	emptyIndex := index.New(nil)
 
-	h, err := WithLocalProxy(downstream, "test-shard", "", emptyIndex)
+	h, err := WithLocalProxy(downstream, "test-shard", "", emptyIndex, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet,
@@ -87,7 +87,7 @@ func TestWithLocalProxy_BareNameIsForwarded(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	h, err := WithLocalProxy(downstream, "test-shard", "", index.New(nil))
+	h, err := WithLocalProxy(downstream, "test-shard", "", index.New(nil), nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet,

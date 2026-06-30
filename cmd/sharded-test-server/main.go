@@ -101,6 +101,21 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("failed to create requestheader client cert: %w", err)
 	}
 
+	// Client cert (signed by the requestheader CA) that a shard's local proxy presents
+	// when it forwards a request for a mounted workspace back to the front-proxy. The
+	// front-proxy's requestheader authenticator verifies this cert and then takes the
+	// identity from the forwarded X-Remote-* headers. The CN must be listed in the
+	// front-proxy's --requestheader-allowed-names (see frontproxy.go).
+	_, _, err = requestHeaderCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp", "mounts-proxy.crt"),
+		filepath.Join(workDirPath, ".kcp", "mounts-proxy.key"),
+		&kuser.DefaultInfo{Name: "kcp-mounts-proxy"},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create mounts proxy client cert: %w", err)
+	}
+
 	// create client CA and kcp-admin client cert to connect through front-proxy
 	clientCA, _, err := crypto.EnsureCA(
 		filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
