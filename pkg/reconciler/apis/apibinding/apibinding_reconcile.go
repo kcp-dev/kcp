@@ -388,7 +388,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		// Try to get the bound CRD
-		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName(sch))
+		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, BoundCRDName(sch))
 		if err != nil && !apierrors.IsNotFound(err) {
 			conditions.MarkFalse(
 				apiBinding,
@@ -400,7 +400,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, fmt.Errorf(
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-				SystemBoundCRDsClusterName, boundCRDName(sch),
+				SystemBoundCRDsClusterName, BoundCRDName(sch),
 				logicalcluster.From(apiBinding), apiBinding.Name,
 				apiExportPath, apiExport.Name,
 				apiExportPath, resourceSchema.Schema,
@@ -421,7 +421,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			}
 		} else {
 			// Need to create bound CRD
-			crd, err := generateCRD(sch)
+			crd, err := GenerateBoundCRD(sch)
 			if err != nil {
 				logger.Error(err, "error generating CRD")
 
@@ -604,7 +604,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	return reconcileStatusContinue, nil
 }
 
-func boundCRDName(schema *apisv1alpha1.APIResourceSchema) string {
+// BoundCRDName returns the name used for a bound CRD in system:bound-crds.
+func BoundCRDName(schema *apisv1alpha1.APIResourceSchema) string {
 	return string(schema.UID)
 }
 
@@ -714,7 +715,7 @@ func (r *permissionClaimMaterialiserReconciler) reconcile(ctx context.Context, a
 // any shard's apibinding controller. The CRD is named by the schema UID so that
 // concurrent creators converge on the same object.
 func (r *permissionClaimMaterialiserReconciler) ensurePermissionClaimBoundCRD(ctx context.Context, sch *apisv1alpha1.APIResourceSchema) error {
-	name := boundCRDName(sch)
+	name := BoundCRDName(sch)
 
 	if _, err := r.getCRD(SystemBoundCRDsClusterName, name); err == nil {
 		// Already there. Recreation only happens via the regular Resources path; here
@@ -726,7 +727,7 @@ func (r *permissionClaimMaterialiserReconciler) ensurePermissionClaimBoundCRD(ct
 		return err
 	}
 
-	crd, err := generateCRD(sch)
+	crd, err := GenerateBoundCRD(sch)
 	if err != nil {
 		return err
 	}
@@ -737,10 +738,11 @@ func (r *permissionClaimMaterialiserReconciler) ensurePermissionClaimBoundCRD(ct
 	return nil
 }
 
-func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
+// GenerateBoundCRD creates a CRD object from an APIResourceSchema for use in system:bound-crds.
+func GenerateBoundCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: boundCRDName(schema),
+			Name: BoundCRDName(schema),
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey:            SystemBoundCRDsClusterName.String(),
 				apisv1alpha1.AnnotationBoundCRDKey:      "",

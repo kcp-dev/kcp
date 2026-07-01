@@ -19,6 +19,7 @@ package logicalclustermigration
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -31,8 +32,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -41,6 +45,9 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
+	"github.com/kcp-dev/kcp/config/helpers"
+	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/apis/wildwest/v1alpha1"
+	wildwestclientset "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -302,4 +309,284 @@ func TestMigrationAPIBindingUnprivileged(t *testing.T) {
 		metav1.CreateOptions{},
 	)
 	require.True(t, errors.IsForbidden(err), "expected forbidden, got: %v", err)
+}
+
+func TestFullMigrationAPIBindings(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) < 2 {
+		t.Skip("requires multi-shard setup")
+	}
+
+	cfg := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
+	require.NoError(t, err)
+	wildwestClusterClient, err := wildwestclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	shardNames := server.ShardNames()
+	originShard := shardNames[0]
+	destinationShard := shardNames[1]
+
+	t.Logf("Using origin shard %q and destination shard %q", originShard, destinationShard)
+
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	consumerPath, consumerWs := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithShard(originShard))
+	lcName := logicalcluster.Name(consumerWs.Spec.Cluster)
+
+	t.Logf("Provider workspace: %s, Consumer workspace: %s (logical cluster %s, shard %s)", providerPath, consumerPath, lcName, originShard)
+
+	t.Logf("Installing Cowboys APIResourceSchema in provider workspace %s", providerPath)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(kcpClusterClient.Cluster(providerPath).Discovery()))
+	err = helpers.CreateResourceFromFS(t.Context(), dynamicClusterClient.Cluster(providerPath), mapper, nil, "apiresourceschema_cowboys.yaml", testFiles)
+	require.NoError(t, err)
+
+	t.Logf("Creating Cowboys APIExport in provider workspace %s", providerPath)
+	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(
+		t.Context(),
+		&apisv1alpha2.APIExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "today-cowboys"},
+			Spec: apisv1alpha2.APIExportSpec{
+				Resources: []apisv1alpha2.ResourceSchema{
+					{
+						Name:   "cowboys",
+						Group:  "wildwest.dev",
+						Schema: "today.cowboys.wildwest.dev",
+						Storage: apisv1alpha2.ResourceSchemaStorage{
+							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+						},
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	require.NoError(t, err)
+
+	t.Logf("Creating Cowboys APIBinding in consumer workspace %s", consumerPath)
+	require.Eventually(t, func() bool {
+		_, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(
+			t.Context(),
+			&apisv1alpha2.APIBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "cowboys"},
+				Spec: apisv1alpha2.APIBindingSpec{
+					Reference: apisv1alpha2.BindingReference{
+						Export: &apisv1alpha2.ExportBindingReference{
+							Path: providerPath.String(),
+							Name: "today-cowboys",
+						},
+					},
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			t.Logf("failed to create Cowboys APIBinding: %v", err)
+		}
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create Cowboys APIBinding")
+
+	t.Logf("Waiting for Cowboys APIBinding to be bound in %s", consumerPath)
+	require.Eventually(t, func() bool {
+		binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), "cowboys", metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		return binding.Status.Phase == apisv1alpha2.APIBindingPhaseBound
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "Cowboys APIBinding never reached Bound phase")
+
+	t.Logf("Creating test Cowboys objects in consumer workspace %s", consumerPath)
+	numCowboys := 5
+	cowboyClient := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default")
+	for i := range numCowboys {
+		_, err := cowboyClient.Create(
+			t.Context(),
+			&wildwestv1alpha1.Cowboy{
+				ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("test-cowboy-%d", i)},
+				Spec:       wildwestv1alpha1.CowboySpec{Intent: fmt.Sprintf("intent-%d", i)},
+			},
+			metav1.CreateOptions{},
+		)
+		require.NoError(t, err)
+	}
+
+	t.Log("Starting informer for post-migration verification")
+	informerStore, informerController := cache.NewInformerWithOptions(cache.InformerOptions{
+		ListerWatcher: &cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return cowboyClient.List(t.Context(), options)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return cowboyClient.Watch(t.Context(), options)
+			},
+		},
+		ObjectType: &wildwestv1alpha1.Cowboy{},
+		Handler:    cache.ResourceEventHandlerFuncs{},
+	})
+	informerCtx, informerCancel := context.WithCancel(t.Context())
+	t.Cleanup(informerCancel)
+	go informerController.Run(informerCtx.Done())
+
+	t.Logf("Creating APIBinding for migration.kcp.io in %s", orgPath)
+	_, err = kcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIBindings().Create(
+		t.Context(),
+		&apisv1alpha2.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "migration"},
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
+						Path: core.RootCluster.Path().String(),
+						Name: "migration.kcp.io",
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	require.NoError(t, err)
+
+	t.Logf("Waiting for migration APIBinding to be bound in %s", orgPath)
+	require.Eventually(t, func() bool {
+		binding, err := kcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIBindings().Get(t.Context(), "migration", metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		return binding.Status.Phase == apisv1alpha2.APIBindingPhaseBound
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "migration APIBinding never reached Bound phase")
+
+	t.Logf("Creating LogicalClusterMigration for %s from %s to %s", lcName, originShard, destinationShard)
+	var lcm *migrationv1alpha1.LogicalClusterMigration
+	require.Eventually(t, func() bool {
+		var err error
+		lcm, err = kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Create(
+			t.Context(),
+			&migrationv1alpha1.LogicalClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-migration-apibindings"},
+				Spec: migrationv1alpha1.LogicalClusterMigrationSpec{
+					LogicalCluster:   lcName.String(),
+					DestinationShard: destinationShard,
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		if err != nil {
+			t.Logf("failed to create LogicalClusterMigration: %v", err)
+		}
+		return err == nil
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create LogicalClusterMigration")
+
+	t.Logf("Waiting for migration to complete")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		migration, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Get(t.Context(), lcm.Name, metav1.GetOptions{})
+		require.NoError(c, err)
+		t.Logf("migration phase: %q", migration.Status.Phase)
+		t.Logf("migration conditions: %#v", migration.Status.Conditions)
+		require.Equal(c, migrationv1alpha1.LogicalClusterMigrationPhaseCompleted, migration.Status.Phase)
+	}, wait.ForeverTestTimeout, 500*time.Millisecond, "waiting for migration to complete")
+
+	t.Logf("Cowboys resource must be already available once the migration is finished")
+	resources, err := wildwestClusterClient.Cluster(consumerPath).Discovery().ServerResourcesForGroupVersion("wildwest.dev/v1alpha1")
+	require.NoError(t, err, "resource discovery for wildwest.dev/v1alpha1 should succeed")
+	t.Logf("discovery for wildwest.dev/v1alpha1 has %d resources", len(resources.APIResources))
+	for _, res := range resources.APIResources {
+		t.Logf("Group: %q, Version: %q, Resource: %q", res.Group, res.Version, res.Group)
+	}
+	require.True(t, slices.ContainsFunc(resources.APIResources, func(res metav1.APIResource) bool {
+		return res.Name == "cowboys"
+	}), "resource discovery should contain cowboys")
+
+	t.Logf("Migration completed, running post-migration tests")
+
+	// Test that a client can access the consumer workspace after the migration.
+	t.Run("ClientAccess", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := cowboyClient.List(t.Context(), metav1.ListOptions{})
+		require.NoError(t, err, "LIST should succeed after migration")
+
+		_, err = cowboyClient.Get(t.Context(), "test-cowboy-0", metav1.GetOptions{})
+		require.NoError(t, err, "GET should succeed after migration")
+	})
+
+	// Verify that a watch established after migration can receive events.
+	t.Run("PreMigrateWatch", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := cowboyClient.Create(
+			t.Context(),
+			&wildwestv1alpha1.Cowboy{
+				ObjectMeta: metav1.ObjectMeta{Name: "post-migration-cowboy"},
+			},
+			metav1.CreateOptions{},
+		)
+		require.NoError(t, err)
+
+		postMigrationWatcher, err := cowboyClient.Watch(t.Context(), metav1.ListOptions{})
+		require.NoError(t, err, "should be able to establish a new watch after migration")
+		defer postMigrationWatcher.Stop()
+
+		for {
+			select {
+			case <-t.Context().Done():
+				t.Fatal("test context closed")
+			case event, ok := <-postMigrationWatcher.ResultChan():
+				if !ok {
+					t.Fatal("post-migration watch channel closed unexpectedly")
+				}
+				if event.Type == watch.Error {
+					continue
+				}
+				cowboy, ok := event.Object.(*wildwestv1alpha1.Cowboy)
+				if ok && cowboy.Name == "post-migration-cowboy" {
+					return
+				}
+			case <-time.After(wait.ForeverTestTimeout):
+				t.Fatal("post-migration watch did not receive event")
+			}
+		}
+	})
+
+	// Verify that an informer set up before migration picks up objects after migration.
+	t.Run("PreMigrateInformer", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := cowboyClient.Create(
+			t.Context(),
+			&wildwestv1alpha1.Cowboy{
+				ObjectMeta: metav1.ObjectMeta{Name: "post-migration-informer-cowboy"},
+			},
+			metav1.CreateOptions{},
+		)
+		require.NoError(t, err)
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			_, exists, err := informerStore.GetByKey("default/post-migration-informer-cowboy")
+			assert.NoError(c, err)
+			assert.True(c, exists, "informer should have picked up post-migration-informer-cowboy")
+		}, wait.ForeverTestTimeout, 500*time.Millisecond, "waiting for informer to pick up post-migration object")
+	})
+
+	// Check that all test Cowboys were transferred to the new shard.
+	t.Run("DataIntegrity", func(t *testing.T) {
+		t.Parallel()
+
+		cowboys, err := cowboyClient.List(t.Context(), metav1.ListOptions{})
+		require.NoError(t, err)
+
+		cowboyNames := make(map[string]bool, len(cowboys.Items))
+		for _, cowboy := range cowboys.Items {
+			cowboyNames[cowboy.Name] = true
+		}
+
+		for i := range numCowboys {
+			name := fmt.Sprintf("test-cowboy-%d", i)
+			require.True(t, cowboyNames[name], "Cowboy %s not found after migration", name)
+		}
+	})
 }
