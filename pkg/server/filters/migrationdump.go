@@ -18,16 +18,16 @@ package filters
 
 import (
 	"net/http"
-)
 
-const migrationDumpHandlerPath = "/apis/migration.kcp.io/v1alpha1/logicalclusterdumps"
+	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
+)
 
 // WithMigrationDumpHandler intercepts POSTs to the LogicalClusterDump path
 // before the kube REST chain rejects the unknown migration.kcp.io API group
 // with a 503. All other requests fall through to next.
 func WithMigrationDumpHandler(next http.Handler, dump http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		if req.Method == http.MethodPost && req.URL.Path == migrationDumpHandlerPath {
+		if req.Method == http.MethodPost && req.URL.Path == migratingworkspaces.HandlerPath {
 			dump.ServeHTTP(w, req)
 			return
 		}
