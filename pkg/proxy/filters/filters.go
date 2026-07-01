@@ -27,57 +27,44 @@ import (
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/authentication"
 )
 
-// WithOptionalAuthentication creates a handler that authenticates a request
-// if a ClientCert is presented but passes through to the next handler if one is
-// not. It will also call the authenticator present in the request context, if
-// any, to support per-workspace authentication.
-// When additionalAuthMethods is true we also attempt to authenticate even when
-// no client cert is detected in the request.
-func WithOptionalAuthentication(handler, failed http.Handler, auth authenticator.Request, additionalAuthMethods bool) http.Handler {
+// WithOptionalAuthentication creates a handler that authenticates
+// a request if credentials are presented but passes through to the next
+// handler if one is not.
+func WithOptionalAuthentication(handler, failed http.Handler, auth authenticator.Request) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Do not accidentally modify the variables in the scope of WithOptionalAuthentication().
-		var (
-			authenticator  = auth
-			additionalAuth = additionalAuthMethods
-		)
-
-		// If an authenticator for the workspace exists,
-		// it offers an alternative way to authenticate.
-		reqAuthenticator, ok := authentication.WorkspaceAuthenticatorFrom(req.Context())
-		if ok {
-			if auth != nil {
-				authenticator = authenticatorunion.New(auth, reqAuthenticator)
-			} else {
-				authenticator = reqAuthenticator
-			}
-			additionalAuth = true
+		// Collect all available authenticators: base (client cert, token file, etc.)
+		// plus any per-workspace authenticator resolved earlier in the chain.
+		authenticators := make([]authenticator.Request, 0, 2)
+		if auth != nil {
+			authenticators = append(authenticators, auth)
 		}
 
-		if authenticator == nil {
+		if wsAuth, ok := authentication.WorkspaceAuthenticatorFrom(req.Context()); ok {
+			authenticators = append(authenticators, wsAuth)
+		}
+
+		// No authenticators configured
+		if len(authenticators) == 0 {
 			handler.ServeHTTP(w, req)
 			return
 		}
 
-		if (req.TLS == nil || len(req.TLS.PeerCertificates) == 0) && !additionalAuth {
-			handler.ServeHTTP(w, req)
-			return
+		// Try to authenticate the request
+		combined := authenticatorunion.New(authenticators...)
+		resp, ok, err := combined.AuthenticateRequest(req)
+		if err == nil && ok {
+			// Add identity if authentication passed
+			req = req.WithContext(request.WithUser(req.Context(), resp.User))
+			// If this failed the request has to propagate to the shard.
+			// The request might be made with a static token which the
+			// front-proxy has no knowledge of.
+			// This will be superfluous in the future, see
+			// https://github.com/kcp-dev/kcp/issues/4100
 		}
-
-		resp, ok, err := authenticator.AuthenticateRequest(req)
-		if err != nil || !ok {
-			if err != nil {
-				logger := klog.FromContext(req.Context())
-				logger.Error(err, "Unable to authenticate the request")
-			}
-			failed.ServeHTTP(w, req)
-			return
-		}
-		req = req.WithContext(request.WithUser(req.Context(), resp.User))
 		handler.ServeHTTP(w, req)
 	})
 }
