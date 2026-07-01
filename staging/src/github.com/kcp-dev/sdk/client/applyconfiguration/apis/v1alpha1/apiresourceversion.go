@@ -54,6 +54,10 @@ type APIResourceVersionApplyConfiguration struct {
 	// See https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables for details.
 	// If no columns are specified, a single column displaying the age of the custom resource is used.
 	AdditionalPrinterColumns []v1.CustomResourceColumnDefinition `json:"additionalPrinterColumns,omitempty"`
+	// selectableFields specifies paths to fields that may be used as field selectors.
+	// A maximum of 8 selectable fields are allowed.
+	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors
+	SelectableFields []v1.SelectableField `json:"selectableFields,omitempty"`
 }
 
 // APIResourceVersionApplyConfiguration constructs a declarative configuration of the APIResourceVersion type for use with
@@ -124,6 +128,16 @@ func (b *APIResourceVersionApplyConfiguration) WithSubresources(value v1.CustomR
 func (b *APIResourceVersionApplyConfiguration) WithAdditionalPrinterColumns(values ...v1.CustomResourceColumnDefinition) *APIResourceVersionApplyConfiguration {
 	for i := range values {
 		b.AdditionalPrinterColumns = append(b.AdditionalPrinterColumns, values[i])
+	}
+	return b
+}
+
+// WithSelectableFields adds the given value to the SelectableFields field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the SelectableFields field.
+func (b *APIResourceVersionApplyConfiguration) WithSelectableFields(values ...v1.SelectableField) *APIResourceVersionApplyConfiguration {
+	for i := range values {
+		b.SelectableFields = append(b.SelectableFields, values[i])
 	}
 	return b
 }

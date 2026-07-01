@@ -150,6 +150,14 @@ type APIResourceVersion struct {
 	// +listType=map
 	// +listMapKey=name
 	AdditionalPrinterColumns []apiextensionsv1.CustomResourceColumnDefinition `json:"additionalPrinterColumns,omitempty"`
+
+	// selectableFields specifies paths to fields that may be used as field selectors.
+	// A maximum of 8 selectable fields are allowed.
+	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors
+	//
+	// +optional
+	// +listType=atomic
+	SelectableFields []apiextensionsv1.SelectableField `json:"selectableFields,omitempty"`
 }
 
 // CustomResourceConversion describes how to convert different versions of a CR.

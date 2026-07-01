@@ -887,6 +887,94 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 		want    *apiextensionsv1.CustomResourceDefinition
 		wantErr bool
 	}{
+		"selectable fields are propagated to the bound CRD": {
+			schema: &apisv1alpha1.APIResourceSchema{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "my-cluster",
+					},
+					Name: "my-name",
+					UID:  types.UID("my-uuid"),
+				},
+				Spec: apisv1alpha1.APIResourceSchemaSpec{
+					Group: "my-group",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Plural:   "widgets",
+						Singular: "widget",
+						Kind:     "Widget",
+						ListKind: "WidgetList",
+					},
+					Scope: apiextensionsv1.NamespaceScoped,
+					Versions: []apisv1alpha1.APIResourceVersion{
+						{
+							Name:    "v1",
+							Served:  true,
+							Storage: true,
+							Schema: runtime.RawExtension{
+								Raw: []byte(`
+{
+	"description": "foo",
+	"type": "object"
+}
+								`),
+							},
+							SelectableFields: []apiextensionsv1.SelectableField{
+								{
+									JSONPath: ".spec.color",
+								},
+								{
+									JSONPath: ".spec.size",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &apiextensionsv1.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-uuid",
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey:            SystemBoundCRDsClusterName.String(),
+						apisv1alpha1.AnnotationBoundCRDKey:      "",
+						apisv1alpha1.AnnotationSchemaClusterKey: "my-cluster",
+						apisv1alpha1.AnnotationSchemaNameKey:    "my-name",
+					},
+				},
+				Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+					Group: "my-group",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Plural:   "widgets",
+						Singular: "widget",
+						Kind:     "Widget",
+						ListKind: "WidgetList",
+					},
+					Scope: apiextensionsv1.NamespaceScoped,
+					Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+						{
+							Name:    "v1",
+							Served:  true,
+							Storage: true,
+							Schema: &apiextensionsv1.CustomResourceValidation{
+								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+									Description: "foo",
+									Type:        "object",
+								},
+							},
+							Subresources: &apiextensionsv1.CustomResourceSubresources{},
+							SelectableFields: []apiextensionsv1.SelectableField{
+								{
+									JSONPath: ".spec.color",
+								},
+								{
+									JSONPath: ".spec.size",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 		"full schema": {
 			schema: &apisv1alpha1.APIResourceSchema{
 				ObjectMeta: metav1.ObjectMeta{

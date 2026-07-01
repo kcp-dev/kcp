@@ -28,6 +28,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdvalidation "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
+	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -193,12 +194,12 @@ func ValidateAPIResourceVersion(ctx context.Context, version *apisv1alpha1.APIRe
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("deprecationWarning"), version.DeprecationWarning, err))
 	}
 
+	var crdSchemaInternal apiextensionsinternal.CustomResourceValidation
 	if len(version.Schema.Raw) == 0 || string(version.Schema.Raw) == "null" {
 		allErrs = append(allErrs, field.Required(fldPath.Child("schema"), ""))
 	} else {
 		statusEnabled := version.Subresources.Status != nil
 		var crdSchemaV1 apiextensionsv1.CustomResourceValidation
-		var crdSchemaInternal apiextensionsinternal.CustomResourceValidation
 		if err := json.Unmarshal(version.Schema.Raw, &crdSchemaV1.OpenAPIV3Schema); err != nil {
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("schema"), string(version.Schema.Raw), fmt.Sprintf("invalid JSON: %v", err)))
 		} else if err := apiextensionsv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(&crdSchemaV1, &crdSchemaInternal, nil); err != nil {
@@ -221,6 +222,25 @@ func ValidateAPIResourceVersion(ctx context.Context, version *apisv1alpha1.APIRe
 			allErrs = append(allErrs, field.Invalid(fldPath.Child("additionalPrinterColumns").Index(i), version.Subresources, err.Error()))
 		} else {
 			allErrs = append(allErrs, crdvalidation.ValidateCustomResourceColumnDefinition(&crdColumn, fldPath.Child("additionalPrinterColumns").Index(i))...)
+		}
+	}
+
+	if len(version.SelectableFields) > 0 {
+		if crdSchemaInternal.OpenAPIV3Schema == nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("selectableFields"), "", "may only be set when `version.schema.openAPIV3Schema` is not included"))
+		} else {
+			structural, err := structuralschema.NewStructural(crdSchemaInternal.OpenAPIV3Schema)
+			if err != nil {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("schema").Child("openAPIV3Schema"), "", err.Error()))
+			}
+			crdSelectableFields := make([]apiextensionsinternal.SelectableField, len(version.SelectableFields))
+			for i := range version.SelectableFields {
+				if err := apiextensionsv1.Convert_v1_SelectableField_To_apiextensions_SelectableField(&version.SelectableFields[i], &crdSelectableFields[i], nil); err != nil {
+					allErrs = append(allErrs, field.Invalid(fldPath.Child("selectableFields").Index(i), version.SelectableFields[i], err.Error()))
+				}
+			}
+
+			allErrs = append(allErrs, crdvalidation.ValidateCustomResourceSelectableFields(crdSelectableFields, structural, fldPath.Child("selectableFields"), defaultValidationOpts, version.Name)...)
 		}
 	}
 
