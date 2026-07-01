@@ -17,9 +17,12 @@ limitations under the License.
 package index
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -694,5 +697,117 @@ func withURL(ws *tenancyv1alpha1.Workspace, url string) *tenancyv1alpha1.Workspa
 func newLogicalCluster(cluster string) *corev1alpha1.LogicalCluster {
 	return &corev1alpha1.LogicalCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Annotations: map[string]string{"kcp.io/cluster": cluster}},
+	}
+}
+
+// TestMigrationDetection verifies that RecentlyMigrated only reports true when a
+// logical cluster actually changes shards (a migration), not on first insert or
+// repeated upserts to the same shard.
+func TestMigrationDetection(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	cluster := logicalcluster.Name("34")
+
+	// First observation of the logical cluster is not a migration.
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	if target.RecentlyMigrated(cluster) {
+		t.Fatal("first upsert must not be considered a migration")
+	}
+
+	// Repeated upsert to the same shard is not a migration.
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	if target.RecentlyMigrated(cluster) {
+		t.Fatal("re-upsert to the same shard must not be considered a migration")
+	}
+
+	// Changing shards is a migration.
+	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
+	if !target.RecentlyMigrated(cluster) {
+		t.Fatal("changing shards must be considered a migration")
+	}
+
+	// A different, never-migrated cluster is not affected.
+	if target.RecentlyMigrated(logicalcluster.Name("99")) {
+		t.Fatal("unrelated cluster must not be considered migrated")
+	}
+}
+
+// TestMigrationGraceExpiry verifies RecentlyMigrated returns false once the
+// grace period elapses, and that the entry is pruned.
+func TestMigrationGraceExpiry(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	now := time.Now()
+	target.now = func() time.Time { return now }
+	target.migrationGracePeriod = 30 * time.Second
+
+	cluster := logicalcluster.Name("34")
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
+
+	if !target.RecentlyMigrated(cluster) {
+		t.Fatal("expected cluster to be recently migrated within the grace period")
+	}
+
+	// Advance time past the grace period.
+	now = now.Add(31 * time.Second)
+	if target.RecentlyMigrated(cluster) {
+		t.Fatal("expected cluster to no longer be recently migrated after grace period")
+	}
+
+	// The entry should have been pruned lazily.
+	_, found := target.migratedAt.Load(cluster)
+	if found {
+		t.Fatal("expected migratedAt entry to be pruned after grace period")
+	}
+}
+
+// TestMigrationForceClosesInflightWatches verifies that an in-flight watch
+// context is cancelled when its logical cluster changes shards, and that a
+// watch for a different cluster is left untouched.
+func TestMigrationForceClosesInflightWatches(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	cluster := logicalcluster.Name("34")
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+
+	// Open an in-flight watch context and make sure it is cancelled on migration.
+	ctx, cancel := target.ClusterContext(context.Background(), cluster)
+	defer cancel()
+
+	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("expected in-flight watch context to be cancelled on shard change")
+	}
+
+	// A watch opened *after* the migration must be live, not stuck in a sticky
+	// cancelled state. This guards against using a sticky Cancel instead of a
+	// one-shot Delete, which would permanently kill all watches for the cluster.
+	reconnectCtx, reconnectCancel := target.ClusterContext(context.Background(), cluster)
+	defer reconnectCancel()
+	select {
+	case <-reconnectCtx.Done():
+		t.Fatal("expected post-migration watch context to stay open (sticky cancellation regression)")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// A watch context for a different logical cluster must not be cancelled when
+	// an unrelated cluster migrates.
+	other := logicalcluster.Name("99")
+	target.UpsertLogicalCluster("root", newLogicalCluster("99"))
+	otherCtx, otherCancel := target.ClusterContext(context.Background(), other)
+	defer otherCancel()
+
+	target.UpsertLogicalCluster("amber", newLogicalCluster("34")) // re-migrate 34, not 99
+	select {
+	case <-otherCtx.Done():
+		t.Fatal("expected watch context for unrelated cluster to stay open")
+	case <-time.After(100 * time.Millisecond):
 	}
 }
