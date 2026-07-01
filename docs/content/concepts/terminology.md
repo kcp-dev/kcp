@@ -47,6 +47,23 @@ tooling such as kubectl and client-go.
     We're working with the upstream community on adding support for the multi-cluster setups to the Kubernetes
     controller-runtime.
 
+```mermaid
+graph TB
+    subgraph KCP_Server ["KCP Server"]
+        KS[Kubernetes API Server<br/>Core Components]
+        KCP_Extensions[KCP Extensions<br/>APIBinding, Workspace,<br/>WorkspaceType, Partition, etc...]
+    end
+    
+    KS --> KCP_Extensions
+    KCP_Extensions --> KS
+    
+    User1[User/Team A] --> KCP_Server
+    User2[User/Team B] --> KCP_Server
+    Kubectl[kubectl] --> KCP_Server
+    Client[Kubernetes Client] --> KCP_Server
+
+```
+
 ## Logical Cluster
 
 A logical cluster is a way to subdivide a kcp server and its `etcd` datastore into multiple clusters without requiring
@@ -85,9 +102,37 @@ such as Workspace, to create logical cluster.
     unless stated otherwise, what applies to a workspace applies to a logical cluster as well, because Workspaces are
     abstractions built on top of logical clusters.
 
+```mermaid
+graph TB
+    subgraph KCP_Server ["KCP Server"]
+        subgraph WorkspaceLayer [Workspace Layer]
+            WS1[Workspace: bobs<br/>Type: organization<br/>Phase: Ready]
+            WS2[Workspace: alice<br/>Type: universal<br/>Phase: Ready]
+        end
+        
+        subgraph LogicalClusterLayer [Logical Cluster Layer - Auto-created]
+            LC1[Logical Cluster<br/>:root:bobs]
+            LC2[Logical Cluster<br/>:root:alice]
+        end
+        
+        subgraph StorageLayer [Storage Layer]
+            ETCD[(etcd<br/>Single Storage Cluster)]
+        end
+    end
+    
+    WS1 -->|auto-creates| LC1
+    WS2 -->|auto-creates| LC2
+    
+    LC1 -->|stores data in<br/>/bobs/ prefix| ETCD
+    LC2 -->|stores data in<br/>/alice/ prefix| ETCD
+    
+    User1[User: Bob] -->|kubectl ws use :root:bobs| LC1
+    User2[User: Alice] -->|kubectl ws use :root:alice| LC2
+```
+
 ## Workspace
 
-A Workspace is an abstraction used to create and provision logical clusters. Aside from creating the LogicalCluster
+A Workspace is an abstraction used to create and provision logical clusters. Aside from creating the `LogicalCluster`
 object, the responsibility of a Workspace is to initialize the given logical cluster by installing the required
 resources for the given workspace type, creating the initial objects, and more.
 
@@ -108,6 +153,22 @@ A Workspace's path is based on the hierarchy and the user provided name. For exa
 The workspace path is used for building the workspace URL and for accessing the workspace via the `ws` kubectl plugin.
 
 More information, including examples, can be found in the the [Workspaces document](workspaces/index.md).
+```mermaid
+graph TB
+    Root[Root Workspace<br/>root]
+    
+    Root --> Corp1[Acme Corp<br/>root:acme-corp]
+    Root --> Corp2[Startup XYZ<br/>root:startup-xyz]
+    
+    Corp1 --> Eng[Engineering<br/>root:acme-corp:engineering]
+    Corp1 --> Mkt[Marketing<br/>root:acme-corp:marketing]
+    
+    Eng --> Team1[App Team 1<br/>root:acme-corp:engineering:app-team-1]
+    Eng --> Team2[App Team 2<br/>root:acme-corp:engineering:app-team-2]
+    Eng --> Platform[Platform<br/>root:acme-corp:engineering:platform]
+    
+    Corp2 --> Dev[Development<br/>root:startup-xyz:dev]
+```
 
 ### Workspace Types
 
@@ -122,6 +183,29 @@ By default, each workspace has the [built-in APIs installed and available to its
 
 More information, including a list of Workspace Types and examples, can be found in the
 [Workspace Types document](workspaces/workspace-types.md).
+```mermaid
+graph LR
+    subgraph Types ["Workspace Types (Templates)"]
+        OrgType[organization<br/>Pre-configured for organizational structure]
+        UniversalType[universal<br/>General-purpose workspace]
+    end
+    
+    subgraph Instances ["Workspace Instances"]
+        OrgWS[wildwestdebug<br/>TYPE: organization]
+        UniversalWS[my-app-workspace<br/>TYPE: universal]
+    end
+    
+    subgraph Users ["User Personas"]
+        Teams[Teams & Organizations]
+        Developers[Individual Developers]
+    end
+    
+    OrgType -.->|instantiated as| OrgWS
+    UniversalType -.->|instantiated as| UniversalWS
+    
+    OrgWS -.->|used by| Teams
+    UniversalWS -.->|used by| Developers
+```
 
 ## Virtual Workspaces
 
@@ -187,6 +271,38 @@ The general workflow is:
 - Users can now create API resources of those types in their workspace. You can build and run controllers that are
   going to reconcile those resources across different workspaces.
 
+```mermaid
+graph TB
+    Title[API Exporting/Binding = Sharing Tools Between Workspaces/Logical Clusters]
+    
+    subgraph ToolOwner [Infra: Has Unique Tools]
+        Infra[Infra Workspace]
+        SpecialTool[Special Database API <br/>PostgreSQL Operator]
+        APIExport[API Export <br/> I'm sharing my Database tool]
+    end
+    
+    subgraph ToolUsers [App Teams - Need Tools]
+        AppTeam1[App Team 1 Workspace]
+        AppTeam2[App Team 2 Workspace]
+        APIBinding1[API Binding <br/> I want to use Database tool]
+        APIBinding2[API Binding <br/> I want to use Database tool]
+    end
+    
+    Title --> ToolOwner
+    
+    Infra --> SpecialTool
+    SpecialTool --> APIExport
+    
+    APIExport -->|shares with| APIBinding1
+    APIExport -->|shares with| APIBinding2
+    
+    APIBinding1 --> AppTeam1
+    APIBinding2 --> AppTeam2
+    
+    AppTeam1 --> CanUse1[App Team 1: <br/>can now create PostgreSQL databases]
+    AppTeam2 --> CanUse2[App Team 2: <br/>can now create PostgreSQL databases]
+```
+
 ## Shard
 
 A failure domain within the larger control plane service that cuts across the primary functionality. Most distributed
@@ -218,3 +334,16 @@ available shards.
 
 !!! note
     Depending on how you setup kcp, you might have front proxy running even though you don't have a sharded setup.
+
+```mermaid
+graph TB
+    Users[All Users & kubectl] --> FrontProxy[kcp-front-proxy<br/>Smart Router]
+    
+    FrontProxy --> Shard1[Shard 1<br/>Workspaces: frontend-team, mobile-team]
+    FrontProxy --> Shard2[Shard 2<br/>Workspaces: backend-team, data-team] 
+    FrontProxy --> Shard3[Shard 3<br/>Workspaces: platform-team, infra-team]
+    
+    Shard1 --> etcd1[etcd Storage<br/>Frontend & Mobile data]
+    Shard2 --> etcd2[etcd Storage<br/>Backend & Data team data]
+    Shard3 --> etcd3[etcd Storage<br/>Platform & Infra data]
+```
