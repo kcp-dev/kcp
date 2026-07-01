@@ -49,10 +49,13 @@ func WithBlockMigratingLogicalClusters(handler http.Handler, isMigrating func(lo
 		}
 
 		userInfo, ok := request.UserFrom(req.Context())
-		if ok && slices.Contains(userInfo.GetGroups(), bootstrappolicy.SystemExternalLogicalClusterAdmin) {
-			// allow system:kcp:external-logical-cluster-admin to pass,
-			// required for the destination shard to get
-			// logicalclusterdump from the migrating workspace
+		if ok && (slices.Contains(userInfo.GetGroups(), bootstrappolicy.SystemExternalLogicalClusterAdmin) ||
+			slices.Contains(userInfo.GetGroups(), bootstrappolicy.SystemMastersGroup)) {
+			// allow system:kcp:external-logical-cluster-admin and
+			// system:masters to pass, required for the destination shard
+			// to get logicalclusterdump from the migrating workspace and
+			// for internal controllers (e.g. workspace deletion) to manage
+			// the LogicalCluster during migration.
 			handler.ServeHTTP(w, req)
 			return
 		}
