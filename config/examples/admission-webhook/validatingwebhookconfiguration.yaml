@@ -1,0 +1,27 @@
+# Applied in the PROVIDER workspace -- the APIExport OWNER workspace.
+#
+# This is the key kcp behaviour: register the webhook ONCE, in the workspace that
+# owns the API (the APIExport). kcp's cluster-aware admission plugin dispatches
+# admission of `cowboys` from EVERY consumer workspace that binds the export to
+# this single configuration. The reviewed object carries a `kcp.io/cluster`
+# annotation telling the webhook which consumer workspace it lives in.
+#
+# run.sh substitutes WEBHOOK_URL and CA_BUNDLE before applying.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cowboy-intent-validator
+webhooks:
+- name: validate.cowboys.wildwest.dev
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  failurePolicy: Fail
+  rules:
+  - apiGroups: ["wildwest.dev"]
+    apiVersions: ["v1alpha1"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["cowboys"]
+    scope: "*"
+  clientConfig:
+    url: "WEBHOOK_URL"
+    caBundle: "CA_BUNDLE"
