@@ -141,6 +141,19 @@ func startFrontProxy(
 		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp", "root.kubeconfig")),
 		fmt.Sprintf("--shards-kubeconfig=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "shards.kubeconfig")),
 		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp", "client-ca.crt")),
+		// Trust requestheader-CA-signed clients (e.g. a shard's local proxy re-entering
+		// the front-proxy while forwarding a mounted workspace) to assert identity via
+		// X-Remote-* headers. Without this the front-proxy cannot authenticate the
+		// forwarded identity on that hop and clears the headers, breaking mounts.
+		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(workDirPath, ".kcp", "requestheader-ca.crt")),
+		"--requestheader-username-headers=X-Remote-User",
+		"--requestheader-group-headers=X-Remote-Group",
+		"--requestheader-extra-headers-prefix=X-Remote-Extra-",
+		// Restrict which requestheader-CA-signed client certs may assert identity to the
+		// known infra CNs (the front-proxy itself and the shards' local proxy). This keeps
+		// the front-proxy stricter than the shards: only these certs can forward headers,
+		// not any cert the requestheader CA happens to sign.
+		"--requestheader-allowed-names=kcp-front-proxy,kcp-mounts-proxy",
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.crt")),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.key")),
 		"--secure-port=6443",
