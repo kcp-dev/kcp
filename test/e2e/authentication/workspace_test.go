@@ -59,13 +59,13 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 	// start two mock OIDC servers that will listen on random ports
 	// (only for discovery and keyset handling, no actual login workflows)
-	mockA, ca := authfixtures.StartMockOIDC(t, server)
-	mockB, _ := authfixtures.StartMockOIDC(t, server)
+	mockA, caA := authfixtures.StartMockOIDC(t, server)
+	mockB, caB := authfixtures.StartMockOIDC(t, server)
 
 	// setup a new workspace auth config that uses mockoidc's server, one for
 	// each of our mockoidc servers
-	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mockA, ca, nil)
-	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mockB, ca, nil)
+	authConfigA := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mockA, caA, nil)
+	authConfigB := authfixtures.CreateWorkspaceOIDCAuthentication(t, t.Context(), kcpClusterClient, baseWsPath, mockB, caB, nil)
 
 	// use these configs in new WorkspaceTypes and create one extra workspace type that allows
 	// both mockoidc issuers
