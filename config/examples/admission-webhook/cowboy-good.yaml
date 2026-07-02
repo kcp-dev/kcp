@@ -1,0 +1,8 @@
+# Applied in the CONSUMER workspace. Should be ADMITTED.
+apiVersion: wildwest.dev/v1alpha1
+kind: Cowboy
+metadata:
+  name: lucky-luke
+  namespace: default
+spec:
+  intent: good

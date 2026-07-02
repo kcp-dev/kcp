@@ -1,0 +1,40 @@
+# Applied in the PROVIDER workspace.
+# Schema of the API we export. APIResourceSchemas are immutable; the name MUST be
+# "<any-prefix>.<plural>.<group>".
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: today.cowboys.wildwest.dev
+spec:
+  group: wildwest.dev
+  names:
+    kind: Cowboy
+    listKind: CowboyList
+    plural: cowboys
+    singular: cowboy
+    shortNames:
+    - cb
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    schema:
+      description: Cowboy is part of the wild west
+      type: object
+      properties:
+        spec:
+          description: CowboySpec holds the desired state of the Cowboy.
+          type: object
+          properties:
+            intent:
+              description: The intent of the cowboy (e.g. good, bad, ugly)
+              type: string
+        status:
+          description: CowboyStatus communicates the observed state of the Cowboy.
+          type: object
+          properties:
+            result:
+              type: string

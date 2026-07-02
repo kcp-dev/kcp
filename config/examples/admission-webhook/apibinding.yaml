@@ -1,0 +1,11 @@
+# Applied in the CONSUMER workspace.
+# Binds the provider's APIExport so `cowboys` becomes available here.
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIBinding
+metadata:
+  name: cowboys
+spec:
+  reference:
+    export:
+      path: root:provider   # workspace that holds the APIExport
+      name: today-cowboys

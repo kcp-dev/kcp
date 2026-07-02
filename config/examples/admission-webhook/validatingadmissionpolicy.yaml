@@ -1,0 +1,30 @@
+# Applied in the PROVIDER workspace.
+#
+# Server-less alternative to the webhook: a ValidatingAdmissionPolicy runs CEL
+# inside kcp -- no external server, no certs. kcp makes VAPs cluster-aware the
+# same way as webhooks: define them in the provider workspace and they apply to
+# every consumer that binds the export.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cowboy-intent-policy
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["wildwest.dev"]
+      apiVersions: ["v1alpha1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["cowboys"]
+  validations:
+  - expression: '!has(object.spec.intent) || object.spec.intent != "bad"'
+    message: 'spec.intent must not be "bad"'
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cowboy-intent-policy-binding
+spec:
+  policyName: cowboy-intent-policy
+  validationActions: ["Deny"]
