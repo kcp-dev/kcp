@@ -2,4 +2,5 @@ nav:
     - index.md
     - shards.md
     - partitions.md
+    - migration.md
     - cache-server.md
