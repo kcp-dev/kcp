@@ -1,0 +1,24 @@
+apiVersion: operator.kcp.io/v1alpha1
+kind: CacheServer
+metadata:
+  name: cache
+  namespace: kcp
+spec:
+  certificates:
+    issuerRef:
+      group: cert-manager.io
+      kind: Issuer
+      name: selfsigned
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: $NODEPOOL_SELECTOR
+                        operator: In
+                        values:
+                          - "kcp-server"

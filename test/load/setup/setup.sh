@@ -24,7 +24,7 @@ set -o pipefail
 cd "$(dirname "$0")"
 
 # optional variables
-KCP_OPERATOR_VERSION="${KCP_OPERATOR_VERSION:-0.6.0}"
+KCP_OPERATOR_VERSION="${KCP_OPERATOR_VERSION:-0.7.6}"
 ETCD_DRUID_VERSION="${ETCD_DRUID_VERSION:-v0.35.0}"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.19.3}"
 ENVOY_GATEWAY_VERSION="${ENVOY_GATEWAY_VERSION:-v1.7.0}"
@@ -34,6 +34,7 @@ PROMTAIL_VERSION="${PROMTAIL_VERSION:-6.17.1}"
 PYROSCOPE_VERSION="${PYROSCOPE_VERSION:-1.20.3}"
 USE_DEFAULT_ENVOY_GATEWAY="${USE_DEFAULT_ENVOY_GATEWAY:-true}"
 USE_PYROSCOPE="${USE_PYROSCOPE:-false}"
+USE_EXTERNAL_CACHE="${USE_EXTERNAL_CACHE:-true}"
 
 # required variables
 : "${NODEPOOL_SELECTOR:? must be set to indicate which label is used for pooling nodes (e.g. worker.gardener.cloud/pool). This depends on your infrastructure setup. Please refer to the architecture document to see which pools should exist}"
@@ -46,6 +47,10 @@ fi
 
 if [ "$USE_PYROSCOPE" = "true" ]; then
   echo "Pyroscope will be deployed for continuous profiling. This can adversely impact performance. Only use it for debugging. Set USE_PYROSCOPE to false to disable it."
+fi
+
+if [ "$USE_EXTERNAL_CACHE" = "true" ]; then
+  echo "kcp will be deployed with an external cache-server. Set USE_EXTERNAL_CACHE to false to use the embedded cache-server on the root shard instead."
 fi
 
 echo "Configuring helm repositories"
@@ -94,8 +99,25 @@ kubectl wait --for=condition=Ready etcds/kcp-etcd-shard-1 --namespace etcd-syste
 kubectl wait --for=condition=Ready etcds/kcp-etcd-shard-2 --namespace etcd-system --timeout=200s
 kubectl wait --for=condition=Ready etcds/kcp-etcd-shard-3 --namespace etcd-system --timeout=200s
 
+if [ "$USE_EXTERNAL_CACHE" = "true" ]; then
+  echo "Deploying external cache-server"
+  kubectl apply -f <(envsubst < manifests/cache-server.yaml)
+
+  echo "Waiting for cache-server deployment to become ready"
+  kubectl wait --for=create deployment/cache-cache-server -n kcp --timeout=120s
+  kubectl wait --for=condition=available deployment/cache-cache-server -n kcp --timeout=200s
+fi
+
 echo "Creating kcp shards"
-kubectl apply -f <(envsubst < manifests/kcp.yaml)
+if [ "$USE_EXTERNAL_CACHE" = "true" ]; then
+  # Point the RootShard and Shards at the standalone CacheServer, replacing the
+  # embedded cache config baked into kcp.yaml.
+  envsubst < manifests/kcp.yaml \
+    | yq '(select(.kind == "RootShard" or .kind == "Shard") | .spec.cache) = {"ref": {"name": "cache"}}' \
+    | kubectl apply -f -
+else
+  kubectl apply -f <(envsubst < manifests/kcp.yaml)
+fi
 
 echo "Waiting for kcp shards to become ready"
 kubectl wait --for=jsonpath='{.status.phase}'=Running rootshard/root -n kcp --timeout=300s
