@@ -33,6 +33,15 @@ type LogicalClusterMigrationStatusApplyConfiguration struct {
 	// originShard is the name of the shard to migrate the logical cluster from.
 	// Set by the origin shard controller during preparation.
 	OriginShard *string `json:"originShard,omitempty"`
+	// entriesCopied is the number of etcd entries copied from the origin
+	// shard to the destination shard so far during the Migrating phase.
+	EntriesCopied *int64 `json:"entriesCopied,omitempty"`
+	// dumpContinue is the continue token for the next LogicalClusterDump
+	// page to fetch from the origin shard. Set by the destination shard
+	// controller as it works through the data copy, and cleared once the
+	// copy is complete. Used to resume the copy from where it left off
+	// after a destination shard restart, instead of starting over.
+	DumpContinue *string `json:"dumpContinue,omitempty"`
 	// Current processing state of the migration.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
@@ -56,6 +65,22 @@ func (b *LogicalClusterMigrationStatusApplyConfiguration) WithPhase(value migrat
 // If called multiple times, the OriginShard field is set to the value of the last call.
 func (b *LogicalClusterMigrationStatusApplyConfiguration) WithOriginShard(value string) *LogicalClusterMigrationStatusApplyConfiguration {
 	b.OriginShard = &value
+	return b
+}
+
+// WithEntriesCopied sets the EntriesCopied field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the EntriesCopied field is set to the value of the last call.
+func (b *LogicalClusterMigrationStatusApplyConfiguration) WithEntriesCopied(value int64) *LogicalClusterMigrationStatusApplyConfiguration {
+	b.EntriesCopied = &value
+	return b
+}
+
+// WithDumpContinue sets the DumpContinue field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DumpContinue field is set to the value of the last call.
+func (b *LogicalClusterMigrationStatusApplyConfiguration) WithDumpContinue(value string) *LogicalClusterMigrationStatusApplyConfiguration {
+	b.DumpContinue = &value
 	return b
 }
 

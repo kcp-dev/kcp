@@ -45,23 +45,46 @@ type LogicalClusterDump struct {
 // LogicalClusterDumpSpec is the desired state for a dump request.
 //
 // The logical cluster to dump is taken from the request's cluster context
-// (i.e. the URL the request arrived on). No fields are required today.
-//
-// TODO: add Continue string for pagination.
-type LogicalClusterDumpSpec struct{}
+// (i.e. the URL the request arrived on).
+type LogicalClusterDumpSpec struct {
+	// continue is the token returned by a previous LogicalClusterDump's
+	// status.continue. If set, the scan resumes right after the last key
+	// returned by that page. If empty, the scan starts from the
+	// beginning of the logical cluster's etcd keyspace.
+	//
+	// +optional
+	Continue string `json:"continue,omitempty"`
+
+	// limit caps the number of entries returned in a single page. If
+	// zero, the server picks a default page size.
+	//
+	// +optional
+	Limit int64 `json:"limit,omitempty"`
+
+	// maxBytes caps the total size, in bytes, of entry values returned in
+	// a single page. The scan stops and returns a continue token as soon
+	// as this budget is exceeded, even if limit hasn't been reached yet.
+	// If zero, the server picks a default byte budget.
+	//
+	// +optional
+	MaxBytes int64 `json:"maxBytes,omitempty"`
+}
 
 // LogicalClusterDumpStatus carries the dump payload populated by the server.
 type LogicalClusterDumpStatus struct {
-	// entries is the full set of etcd key/value pairs belonging to the
+	// entries is the page of etcd key/value pairs belonging to the
 	// logical cluster, in the origin shard's etcd encoding (proto for
 	// built-ins, JSON for CRs).
 	//
-	// TODO: support pagination via a Continue token on Spec/Status.
-	// TODO: switch to NDJSON streaming once entry count or total size
-	// becomes a concern.
-	//
 	// +optional
 	Entries []EtcdEntry `json:"entries,omitempty"`
+
+	// continue is set when there are more entries to fetch. Pass it as
+	// spec.continue on the next LogicalClusterDump request to get the
+	// next page. Empty means this was the last page.
+	//
+	// +optional
+	Continue string `json:"continue,omitempty"`
 }
 
 // EtcdEntry is a single etcd key/value pair from the origin shard.

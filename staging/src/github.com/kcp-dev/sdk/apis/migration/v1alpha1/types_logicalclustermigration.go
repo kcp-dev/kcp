@@ -34,6 +34,7 @@ import (
 // +kubebuilder:printcolumn:name="Logical Cluster",type=string,JSONPath=`.spec.logicalCluster`,description="The logical cluster being migrated"
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`,description="The current phase of the migration"
 // +kubebuilder:printcolumn:name="Destination",type=string,JSONPath=`.spec.destinationShard`,description="The destination shard"
+// +kubebuilder:printcolumn:name="Entries Copied",type=integer,JSONPath=`.status.entriesCopied`,description="Number of etcd entries copied so far"
 type LogicalClusterMigration struct {
 	v1.TypeMeta `json:",inline"`
 	// +optional
@@ -88,6 +89,21 @@ type LogicalClusterMigrationStatus struct {
 	//
 	// +optional
 	OriginShard string `json:"originShard,omitempty"`
+
+	// entriesCopied is the number of etcd entries copied from the origin
+	// shard to the destination shard so far during the Migrating phase.
+	//
+	// +optional
+	EntriesCopied int64 `json:"entriesCopied,omitempty"`
+
+	// dumpContinue is the continue token for the next LogicalClusterDump
+	// page to fetch from the origin shard. Set by the destination shard
+	// controller as it works through the data copy, and cleared once the
+	// copy is complete. Used to resume the copy from where it left off
+	// after a destination shard restart, instead of starting over.
+	//
+	// +optional
+	DumpContinue string `json:"dumpContinue,omitempty"`
 
 	// Current processing state of the migration.
 	// +optional

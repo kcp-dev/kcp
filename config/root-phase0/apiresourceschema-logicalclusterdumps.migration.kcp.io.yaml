@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260604-70219e163.logicalclusterdumps.migration.kcp.io
+  name: v260702-7381341f5.logicalclusterdumps.migration.kcp.io
 spec:
   group: migration.kcp.io
   names:
@@ -39,23 +39,49 @@ spec:
         metadata:
           type: object
         spec:
-          description: |
+          description: |-
             LogicalClusterDumpSpec is the desired state for a dump request.
 
             The logical cluster to dump is taken from the request's cluster context
-            (i.e. the URL the request arrived on). No fields are required today.
+            (i.e. the URL the request arrived on).
+          properties:
+            continue:
+              description: |-
+                continue is the token returned by a previous LogicalClusterDump's
+                status.continue. If set, the scan resumes right after the last key
+                returned by that page. If empty, the scan starts from the
+                beginning of the logical cluster's etcd keyspace.
+              type: string
+            limit:
+              description: |-
+                limit caps the number of entries returned in a single page. If
+                zero, the server picks a default page size.
+              format: int64
+              type: integer
+            maxBytes:
+              description: |-
+                maxBytes caps the total size, in bytes, of entry values returned in
+                a single page. The scan stops and returns a continue token as soon
+                as this budget is exceeded, even if limit hasn't been reached yet.
+                If zero, the server picks a default byte budget.
+              format: int64
+              type: integer
           type: object
         status:
           description: LogicalClusterDumpStatus carries the dump payload populated
             by the server.
           properties:
+            continue:
+              description: |-
+                continue is set when there are more entries to fetch. Pass it as
+                spec.continue on the next LogicalClusterDump request to get the
+                next page. Empty means this was the last page.
+              type: string
             entries:
               description: |-
-                entries is the full set of etcd key/value pairs belonging to the
+                entries is the page of etcd key/value pairs belonging to the
                 logical cluster, in the origin shard's etcd encoding (proto for
                 built-ins, JSON for CRs).
-
-                becomes a concern.
               items:
                 description: EtcdEntry is a single etcd key/value pair from the origin
                   shard.

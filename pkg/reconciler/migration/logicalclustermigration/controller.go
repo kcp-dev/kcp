@@ -110,6 +110,7 @@ func NewController(
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
 	}
+	c.copyPageFromOrigin = c.copyPageFromOriginViaHTTP
 
 	// Events are queued from the cache server as that is used to
 	// coordinate the migration between the participating shards.
@@ -151,6 +152,12 @@ type Controller struct {
 	getAPIExportByPath   func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+
+	// copyPageFromOrigin fetches and writes a single page of a
+	// LogicalClusterDump. Extracted as a field (defaulting to
+	// copyPageFromOriginViaHTTP) so reconcileMigrating's pagination and
+	// requeue logic can be unit-tested without a live origin shard.
+	copyPageFromOrigin func(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (int64, string, error)
 }
 
 func (c *Controller) enqueue(obj interface{}) {
