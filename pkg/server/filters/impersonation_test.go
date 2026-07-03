@@ -338,7 +338,7 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 			wrappedHandler := WithImpersonationGatekeeper(mockHandler)
 
 			// Create a new HTTP request
-			req := httptest.NewRequest(http.MethodGet, "http://kcp.io/foo", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://kcp.io/foo", http.NoBody)
 
 			// Set impersonation headers if present
 			if tt.impersonateUserHeader != "" {
@@ -492,7 +492,7 @@ func TestWithScoping(t *testing.T) {
 			wrapped := WithImpersonationScoping(mock)
 
 			// prepare the request
-			req := httptest.NewRequest(http.MethodGet, "http://kcp.io/foo", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://kcp.io/foo", http.NoBody)
 			ctx := req.Context()
 			if !tt.noImpersonationKey {
 				ctx = context.WithValue(ctx, impersonationContextKey, true)

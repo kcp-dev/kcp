@@ -102,7 +102,7 @@ func TestWithShardLevelPaths(t *testing.T) {
 
 			h := WithShardLevelPaths(next)
 
-			req := httptest.NewRequest(http.MethodGet, "https://shard.example"+tc.path, http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://shard.example"+tc.path, http.NoBody)
 			if tc.cluster != nil {
 				req = req.WithContext(request.WithCluster(req.Context(), *tc.cluster))
 			}

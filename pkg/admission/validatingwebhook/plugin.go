@@ -152,7 +152,7 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 	defer p.managerLock.Unlock()
 
 	if _, ok := p.managersCache[clusterNameForGroupResource]; !ok {
-		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel))
+		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel)) //nolint:gosec // cancel is called later in the informer handler
 		p.managersCache[clusterNameForGroupResource] = configuration.NewValidatingWebhookConfigurationManagerForInformer(
 			p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().ClusterWithContext(ctx, clusterNameForGroupResource),
 		)

@@ -99,6 +99,8 @@ func (s *AdminAuthentication) ApplyTo(config *genericapiserver.Config) (volatile
 		shardAdminToken = uuid.New().String()
 		sum := sha256.Sum256([]byte(shardAdminToken))
 		shardAdminTokenHash = sum[:]
+
+		//nolint:gosec // G703 user-provided path is intentional
 		if err := os.WriteFile(s.ShardAdminTokenHashFilePath, shardAdminTokenHash, 0600); err != nil {
 			return "", "", "", nil, err
 		}

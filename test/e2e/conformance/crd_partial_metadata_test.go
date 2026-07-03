@@ -360,7 +360,7 @@ type crdConditionsAdapter struct {
 }
 
 func (ca *crdConditionsAdapter) GetConditions() conditionsv1alpha1.Conditions {
-	conditions := conditionsv1alpha1.Conditions{}
+	conditions := make(conditionsv1alpha1.Conditions, 0, len(ca.Status.Conditions))
 	for _, c := range ca.Status.Conditions {
 		conditions = append(conditions, conditionsv1alpha1.Condition{
 			Type:   conditionsv1alpha1.ConditionType(c.Type),

@@ -35,7 +35,7 @@ type Config struct {
 type ScrapeConfig struct {
 	JobName        string         `yaml:"job_name,omitempty"`
 	ScrapeInterval string         `yaml:"scrape_interval,omitempty"`
-	BearerToken    string         `yaml:"bearer_token,omitempty"` //nolint:gosec // Field has to be exported for the decoder.
+	BearerToken    string         `yaml:"bearer_token,omitempty"`
 	TlsConfig      TLSConfig      `yaml:"tls_config,omitempty"`
 	Scheme         string         `yaml:"scheme,omitempty"`
 	StaticConfigs  []StaticConfig `yaml:"static_configs,omitempty"`
@@ -95,7 +95,7 @@ func patchConfigFile(configFile string, patch func(*Config) error) error {
 	}
 	defer f.Close()
 
-	fd := int(f.Fd()) //nolint:gosec // the conversion uintpr -> int is fine here
+	fd := int(f.Fd())
 	// lock config file exclusively, blocks all other producers until unlocked or process (test) exits
 	err = syscall.Flock(fd, syscall.LOCK_EX)
 	if err != nil {

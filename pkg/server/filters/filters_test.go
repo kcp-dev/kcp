@@ -206,7 +206,7 @@ func TestWithClusterNameShapeInvariant(t *testing.T) {
 
 			h := WithClusterNameShapeInvariant(downstream)
 
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/configmaps", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/namespaces/default/configmaps", http.NoBody)
 			if tt.cluster != nil {
 				req = req.WithContext(request.WithCluster(req.Context(), *tt.cluster))
 			}

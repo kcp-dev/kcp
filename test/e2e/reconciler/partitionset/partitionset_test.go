@@ -44,8 +44,11 @@ import (
 
 func TestPartitionSet(t *testing.T) {
 	t.Parallel()
+
+	// need a context that is still usable in Cleanup() functions
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
+
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create organization and workspace.
@@ -111,10 +114,10 @@ func TestPartitionSet(t *testing.T) {
 	shard1a, err = shardClient.Cluster(core.RootCluster.Path()).Create(ctx, shard1a, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating shard")
 	// Necessary for multiple runs.
-	defer func() {
+	t.Cleanup(func() {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard1a.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
-	}()
+	})
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
@@ -151,10 +154,10 @@ func TestPartitionSet(t *testing.T) {
 	shard2, err = shardClient.Cluster(core.RootCluster.Path()).Create(ctx, shard2, metav1.CreateOptions{})
 	// Necessary for multiple runs.
 	require.NoError(t, err, "error creating shard")
-	defer func() {
+	t.Cleanup(func() {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard2.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
-	}()
+	})
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
@@ -216,10 +219,10 @@ func TestPartitionSet(t *testing.T) {
 	}
 	shard3, err = shardClient.Cluster(core.RootCluster.Path()).Create(ctx, shard3, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating shard")
-	defer func() {
+	t.Cleanup(func() {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard3.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
-	}()
+	})
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
 		require.NoError(t, err, "error retrieving partitionSet")
@@ -264,8 +267,11 @@ func TestPartitionSet(t *testing.T) {
 
 func TestPartitionSetAdmission(t *testing.T) {
 	t.Parallel()
+
+	// need a context that is still usable in Cleanup() functions
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
+
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create organization and workspace.
@@ -380,10 +386,10 @@ func TestPartitionSetAdmission(t *testing.T) {
 	}
 	shard, err := shardClient.Cluster(core.RootCluster.Path()).Create(ctx, admissionShard, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating shard")
-	defer func() {
+	t.Cleanup(func() {
 		err = shardClient.Cluster(core.RootCluster.Path()).Delete(ctx, shard.Name, metav1.DeleteOptions{})
 		require.NoError(t, err, "error deleting shard")
-	}()
+	})
 	var partitions *topologyv1alpha1.PartitionList
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitions, err = partitionClient.Cluster(partitionClusterPath).List(ctx, metav1.ListOptions{})

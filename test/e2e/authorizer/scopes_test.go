@@ -180,8 +180,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
