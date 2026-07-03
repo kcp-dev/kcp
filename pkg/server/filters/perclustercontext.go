@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
+	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
 
 // WithPerClusterContext injects a multiple-parent context for each request
@@ -47,7 +48,7 @@ func WithPerClusterContext(handler http.Handler, mgr *contextmanager.Manager[log
 		// Skip adding contexts to requests with LogicalClusterDump,
 		// contexts for migrating LCs are cancelled and stay cancelled
 		// until they are migrated.
-		migrationDumpHandlerPath,
+		migratingworkspaces.HandlerPath,
 	}
 
 	return func(w http.ResponseWriter, req *http.Request) {
