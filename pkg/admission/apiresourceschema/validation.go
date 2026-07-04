@@ -44,7 +44,7 @@ var (
 
 // ValidateAPIResourceSchema validates an APIResourceSchema.
 func ValidateAPIResourceSchema(ctx context.Context, s *apisv1alpha1.APIResourceSchema) field.ErrorList {
-	allErrs := field.ErrorList{}
+	allErrs := field.ErrorList{} //nolint:prealloc // prealloc doesn't make sense for this function
 	allErrs = append(allErrs, ValidateAPIResourceSchemaName(s.Name, &s.Spec, field.NewPath("metadata", "name"))...)
 	allErrs = append(allErrs, ValidateAPIResourceSchemaGroup(s.Spec.Group, s.Annotations)...)
 	allErrs = append(allErrs, ValidateAPIResourceSchemaSpec(ctx, &s.Spec, field.NewPath("spec"))...)

@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -36,7 +37,7 @@ func TestWithShardScopePassesThroughMetrics(t *testing.T) {
 
 	h := WithShardScope(next)
 
-	req := httptest.NewRequest(http.MethodGet, "https://cache.example/metrics", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://cache.example/metrics", http.NoBody)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -107,8 +108,8 @@ func TestWithCacheShardLevelPaths(t *testing.T) {
 
 			h := WithCacheShardLevelPaths(next)
 
-			req := httptest.NewRequest(http.MethodGet, "https://cache.example"+tc.path, http.NoBody)
-			ctx := req.Context()
+			ctx := context.Background()
+			req := httptest.NewRequestWithContext(ctx, http.MethodGet, "https://cache.example"+tc.path, http.NoBody)
 			if !tc.shard.Empty() {
 				ctx = request.WithShard(ctx, tc.shard)
 			}

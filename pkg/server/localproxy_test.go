@@ -63,7 +63,8 @@ func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 	h, err := WithLocalProxy(downstream, "test-shard", "", emptyIndex, nil)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet,
+	req := httptest.NewRequestWithContext(t.Context(),
+		http.MethodGet,
 		"/clusters/root:internal-cluster/apis/networking.dev/v1/namespaces/proj-x/ipallocations/foo",
 		http.NoBody)
 	rr := httptest.NewRecorder()
@@ -92,7 +93,8 @@ func TestWithLocalProxy_BareNameIsForwarded(t *testing.T) {
 	h, err := WithLocalProxy(downstream, "test-shard", "", index.New(nil), nil)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet,
+	req := httptest.NewRequestWithContext(t.Context(),
+		http.MethodGet,
 		"/clusters/25t3xbr5iceb0155/apis/networking.dev/v1/namespaces/proj-x/ipallocations/foo",
 		http.NoBody)
 	rr := httptest.NewRecorder()
@@ -171,7 +173,7 @@ func TestWithProxyAuthHeaders_StripsForgedIdentityHeaders(t *testing.T) {
 			})
 			handler := withProxyAuthHeaders(sink, userHeader, groupHeader, extraPrefix)
 
-			req := httptest.NewRequest(http.MethodGet, "https://shard/clusters/root:org:ws/api/v1/secrets", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://shard/clusters/root:org:ws/api/v1/secrets", http.NoBody)
 			for k, vs := range tc.clientHeaders {
 				for _, v := range vs {
 					req.Header.Add(k, v)

@@ -17,7 +17,6 @@ limitations under the License.
 package cachedresourceendpointslice
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -44,8 +43,7 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	server := kcptesting.SharedKcpServer(t)
 
 	// Create Organization and Workspaces

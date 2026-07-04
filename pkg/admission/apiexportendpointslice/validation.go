@@ -24,7 +24,7 @@ import (
 
 // ValidateAPIExportEndpointSlice validates an APIExport.
 func ValidateAPIExportEndpointSlice(slice *apisv1alpha1.APIExportEndpointSlice) field.ErrorList {
-	allErrs := field.ErrorList{}
+	allErrs := field.ErrorList{} //nolint:prealloc // prealloc doesn't make sense for this function
 
 	allErrs = append(allErrs, ValidateAPIExportEndpointSliceReference(slice.Spec.APIExport, field.NewPath("spec", "export"))...)
 

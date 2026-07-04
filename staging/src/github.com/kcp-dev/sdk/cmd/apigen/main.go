@@ -524,14 +524,14 @@ func writeObjects(logger logr.Logger, outputDir string, headerText string, expor
 
 		if strings.HasPrefix(info.Name(), apiExportNamePrefix) && !writtenExports.Has(path) {
 			logger.Info(fmt.Sprintf("Pruning APIExport %s", path))
-			if err := os.Remove(path); err != nil {
+			if err := os.Remove(path); err != nil { //nolint:gosec // G122 - dev tool, symlink TOCTOU not a concern
 				return err
 			}
 		}
 
 		if strings.HasPrefix(info.Name(), apiResourceSchemaNamePrefix) && !writtenSchemas.Has(path) {
 			logger.Info(fmt.Sprintf("Pruning APIResourceSchema %s", path))
-			if err := os.Remove(path); err != nil {
+			if err := os.Remove(path); err != nil { //nolint:gosec // G122 - dev tool, symlink TOCTOU not a concern
 				return err
 			}
 		}

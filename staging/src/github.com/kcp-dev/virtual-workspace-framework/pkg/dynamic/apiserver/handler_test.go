@@ -744,7 +744,7 @@ func TestRouting(t *testing.T) {
 
 					recorder := httptest.NewRecorder()
 
-					req := httptest.NewRequest(tc.Method, tc.Path, tc.Body)
+					req := httptest.NewRequestWithContext(t.Context(), tc.Method, tc.Path, tc.Body)
 					for k, v := range tc.Headers {
 						req.Header.Set(k, v)
 					}

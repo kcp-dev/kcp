@@ -49,7 +49,7 @@ func forwardThroughProxy(t *testing.T, user userinfo.Info, userHeader, groupHead
 
 	handler := WithProxyAuthHeaders(sink, userHeader, groupHeader, extraPrefix)
 
-	req := httptest.NewRequest(http.MethodGet, "https://front-proxy/clusters/root:org:ws/api/v1/secrets", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://front-proxy/clusters/root:org:ws/api/v1/secrets", http.NoBody)
 	for k, vs := range clientHeaders {
 		for _, v := range vs {
 			req.Header.Add(k, v)
@@ -229,7 +229,7 @@ func TestWithProxyAuthHeaders_NoAuthenticatedUser(t *testing.T) {
 	})
 	handler := WithProxyAuthHeaders(sink, defaultUserHeader, defaultGroupHeader, defaultExtraPrefix)
 
-	req := httptest.NewRequest(http.MethodGet, "https://front-proxy/api/v1/secrets", http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://front-proxy/api/v1/secrets", http.NoBody)
 	// No user in context (unauthenticated pass-through). Client forges identity.
 	req.Header.Set(defaultUserHeader, "kcp-admin")
 	req.Header.Add(defaultGroupHeader, "system:masters")

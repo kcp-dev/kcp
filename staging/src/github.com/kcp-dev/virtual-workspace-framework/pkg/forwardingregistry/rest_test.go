@@ -249,7 +249,7 @@ func TestWatch(t *testing.T) {
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeWatcher := watch.NewFake()
-	defer fakeWatcher.Stop()
+	t.Cleanup(fakeWatcher.Stop)
 	fakeClient.PrependWatchReactor("noxus", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
 	storage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
@@ -294,7 +294,7 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 			noxusGVRWithHash: "NoxuList",
 		})
 	fakeWatcher := watch.NewFake()
-	defer fakeWatcher.Stop()
+	t.Cleanup(fakeWatcher.Stop)
 	fakeClient.PrependWatchReactor("noxus:apiExportIdentityHash", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
 	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")

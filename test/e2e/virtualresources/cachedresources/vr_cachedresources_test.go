@@ -312,11 +312,11 @@ func TestCachedResources(t *testing.T) {
 		consumerCounters[consumerPath] = ptr.To[int32](0)
 	}
 	watchStopFuncs := make([]func(), 0, len(consumerWorkspaces))
-	defer func() {
+	t.Cleanup(func() {
 		for _, stop := range watchStopFuncs {
 			stop()
 		}
-	}()
+	})
 
 	// Create a watch for Sheriffs in each consumer workspace via its APIExport VW endpoint.
 	for consumerPath, consumerWS := range consumerWorkspaces {

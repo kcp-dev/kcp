@@ -24,7 +24,7 @@ import (
 
 // ValidateAPIBinding validates an APIBinding.
 func ValidateAPIBinding(apiBinding *APIBinding) field.ErrorList {
-	allErrs := field.ErrorList{}
+	allErrs := field.ErrorList{} //nolint:prealloc // prealloc doesn't make sense for this function
 
 	allErrs = append(allErrs, ValidateAPIBindingReference(apiBinding.Spec.Reference, field.NewPath("spec", "reference"))...)
 	allErrs = append(allErrs, ValidateAPIBindingPermissionClaims(apiBinding.Spec.PermissionClaims, field.NewPath("spec", "permissionClaims"))...)

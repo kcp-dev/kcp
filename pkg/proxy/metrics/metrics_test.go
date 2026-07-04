@@ -314,7 +314,7 @@ func TestWithBodyTracking(t *testing.T) {
 			wrapped := WithBodyTracking(handler)
 
 			// Create request
-			req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader([]byte(tt.requestBody)))
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/test", bytes.NewReader([]byte(tt.requestBody)))
 			recorder := httptest.NewRecorder()
 
 			// Execute
@@ -356,7 +356,7 @@ func TestNewProxyErrorHandler(t *testing.T) {
 			t.Parallel()
 			handler := NewProxyErrorHandler()
 			recorder := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", http.NoBody)
 
 			handler(recorder, req, tt.err)
 
