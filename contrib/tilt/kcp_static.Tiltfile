@@ -231,14 +231,17 @@ def _tls_route(name, hostname, service, port, cfg):
     }
 
 
-def _kubeconfig(name, target):
+def _kubeconfig(cfg, name, target):
     groups = ["system:masters"]
     if name == "root":
         groups.append("system:kcp:admin")
     return {
         "apiVersion": "operator.kcp.io/v1alpha1",
         "kind": "Kubeconfig",
-        "metadata": {"name": name},
+        # Must live in the same namespace as its target RootShard/Shard/FrontProxy:
+        # the operator resolves the *Ref by name within the Kubeconfig's own
+        # namespace, so a namespace-less CR lands in "default" and never resolves.
+        "metadata": {"name": name, "namespace": cfg["namespace"]},
         "spec": {
             "username": "kcp-admin",
             "groups": groups,
@@ -355,11 +358,11 @@ def deploy_kcp(base_domain = "kcp.localhost", extra_shards = [], **overrides):
 
     # Admin kubeconfigs.
     kcfgs = [
-        _kubeconfig("frontproxy", {"frontProxyRef": {"name": "frontproxy"}}),
-        _kubeconfig("root", {"rootShardRef": {"name": "root"}}),
+        _kubeconfig(cfg, "frontproxy", {"frontProxyRef": {"name": "frontproxy"}}),
+        _kubeconfig(cfg, "root", {"rootShardRef": {"name": "root"}}),
     ]
     for name in cfg["extra_shards"]:
-        kcfgs.append(_kubeconfig(name, {"shardRef": {"name": name}}))
+        kcfgs.append(_kubeconfig(cfg, name, {"shardRef": {"name": name}}))
     k8s_kind("Kubeconfig")
     k8s_yaml(encode_yaml_stream(kcfgs))
 
@@ -374,15 +377,18 @@ def _extract_kubeconfigs(cfg):
     script = '\n'.join([
         'set -eo pipefail',
         'DIR="${KCP_KUBECONFIG_DIR:-' + cfg["kubeconfig_dir"] + '}"',
+        # Kubeconfigs and their secrets live in the deployment namespace, which is
+        # not necessarily the kubeconfig context's default — pin it explicitly.
+        'NS="' + cfg["namespace"] + '"',
         'mkdir -p "$DIR"',
         'until [ "$(kubectl api-resources --api-group operator.kcp.io 2>/dev/null | wc -l)" -ge 2 ]; do',
         '  echo "waiting for kcp-operator API..."; sleep 1;',
         'done',
         'for n in ' + ' '.join(names) + '; do',
-        '  kubectl wait "kubeconfig/$n" --for=create --timeout=5m',
-        '  kubectl wait "kubeconfig/$n" --for=condition=Available --timeout=5m',
-        '  kubectl wait "secret/kcp-$n-kubeconfig" --for=create --timeout=5m',
-        '  kubectl get "secret/kcp-$n-kubeconfig" -o jsonpath="{.data.kubeconfig}" | base64 -d > "$DIR/tilt-$n.kubeconfig"',
+        '  kubectl wait -n "$NS" "kubeconfig/$n" --for=create --timeout=5m',
+        '  kubectl wait -n "$NS" "kubeconfig/$n" --for=condition=Available --timeout=5m',
+        '  kubectl wait -n "$NS" "secret/kcp-$n-kubeconfig" --for=create --timeout=5m',
+        '  kubectl get -n "$NS" "secret/kcp-$n-kubeconfig" -o jsonpath="{.data.kubeconfig}" | base64 -d > "$DIR/tilt-$n.kubeconfig"',
         'done',
     ])
     local_resource(
