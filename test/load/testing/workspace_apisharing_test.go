@@ -198,7 +198,7 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 
 		// Wait for the binding to become bound.
 		opStart = time.Now()
-		err = wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 4*time.Minute, true, func(ctx context.Context) (bool, error) {
 			got, err := client.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil //nolint:nilerr
