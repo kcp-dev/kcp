@@ -54,13 +54,13 @@ func (c *Controller) ensureBoundCRDs(ctx context.Context, lcName logicalcluster.
 			exportPath = logicalcluster.From(&binding).Path()
 		}
 
-		apiExport, err := c.kcpClusterClient.Cluster(exportPath).ApisV1alpha2().APIExports().Get(ctx, exportName, metav1.GetOptions{})
+		apiExport, err := c.getAPIExportByPath(exportPath, exportName)
 		if err != nil {
 			return fmt.Errorf("failed to get APIExport %s:%s for binding %s: %w", exportPath, exportName, binding.Name, err)
 		}
 
 		for _, resource := range apiExport.Spec.Resources {
-			schema, err := c.kcpClusterClient.Cluster(exportPath).ApisV1alpha1().APIResourceSchemas().Get(ctx, resource.Schema, metav1.GetOptions{})
+			schema, err := c.getAPIResourceSchema(logicalcluster.From(apiExport), resource.Schema)
 			if err != nil {
 				return fmt.Errorf("failed to get APIResourceSchema %s in %s: %w", resource.Schema, exportPath, err)
 			}
@@ -68,10 +68,7 @@ func (c *Controller) ensureBoundCRDs(ctx context.Context, lcName logicalcluster.
 			boundCRDName := apibinding.BoundCRDName(schema)
 
 			// Try to get the bound CRD.
-			existingCRD, err := c.crdClusterClient.
-				Cluster(apibinding.SystemBoundCRDsClusterName.Path()).
-				ApiextensionsV1().CustomResourceDefinitions().
-				Get(ctx, boundCRDName, metav1.GetOptions{})
+			existingCRD, err := c.getCRD(apibinding.SystemBoundCRDsClusterName, boundCRDName)
 			if err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("error getting bound CRD %s: %w", boundCRDName, err)
 			}
