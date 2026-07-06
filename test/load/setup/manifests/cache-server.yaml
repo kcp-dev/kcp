@@ -4,6 +4,8 @@ metadata:
   name: cache
   namespace: kcp
 spec:
+  image:
+    tag: v0.32.3
   certificates:
     issuerRef:
       group: cert-manager.io
