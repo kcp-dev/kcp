@@ -250,6 +250,12 @@ func (c *Controller) reconcileDestinationFinalize(ctx context.Context, migration
 		}
 	}
 
+	// We need to re-create the bound CRDs for all APIBindings
+	// in the LC as they are not part of the dump.
+	if err := c.ensureBoundCRDs(ctx, lcName); err != nil {
+		return true, fmt.Errorf("failed to ensure bound CRDs for %s: %w", lcName, err)
+	}
+
 	// Migration is done, allow access to the logical cluster.
 	// Maybe needs some targeted relisting for api sharing before
 	// allowing access so the stateful objects (*EndpointSlice) are

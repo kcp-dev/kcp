@@ -1155,11 +1155,18 @@ func (s *Server) installLogicalClusterCleanupController(ctx context.Context, con
 	})
 }
 
-func (s *Server) installLogicalClusterMigrationController(ctx context.Context) error {
+func (s *Server) installLogicalClusterMigrationController(ctx context.Context, config *rest.Config) error {
 	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
 	externalConfig = rest.AddUserAgent(externalConfig, logicalclustermigration.ControllerName)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+
+	crdConfig := rest.CopyConfig(config)
+	crdConfig = rest.AddUserAgent(crdConfig, logicalclustermigration.ControllerName)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(crdConfig)
 	if err != nil {
 		return err
 	}
@@ -1172,12 +1179,18 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context) e
 	c, err := logicalclustermigration.NewController(
 		s.Options.Extra.ShardName,
 		kcpClusterClient,
+		crdClusterClient,
 		s.ExternalLogicalClusterAdminConfig,
 		etcdClient,
 		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
 		s.CacheKcpSharedInformerFactory.Migration().V1alpha1().LogicalClusterMigrations(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.MigratingLogicalClusters,
 		s.ClusterContextManager.Cancel,
 		s.PartialMetadataDDSIF,
@@ -1192,7 +1205,12 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context) e
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.CacheKcpSharedInformerFactory.Migration().V1alpha1().LogicalClusterMigrations().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
-					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+					s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

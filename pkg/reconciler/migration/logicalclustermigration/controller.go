@@ -23,6 +23,7 @@ import (
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -34,15 +35,23 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	migrationv1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
+	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
+	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	migrationv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/migration/v1alpha1"
+	apisv1alpha1listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -60,12 +69,16 @@ const (
 func NewController(
 	shardName string,
 	kcpClusterClient kcpclientset.ClusterInterface,
+	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	externalLogicalClusterAdminConfig *rest.Config,
 	etcdClient *clientv3.Client,
 	etcdStoragePrefix string,
 	cachedLogicalClusterMigrationInformer migrationv1alpha1informers.LogicalClusterMigrationClusterInformer,
 	localLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	cachedShardInformer corev1alpha1informers.ShardClusterInformer,
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
+	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	apiResourceSchemaInformer, globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	migratingLogicalClusters *MigratingLogicalClusters,
 	cancelLogicalClusterConnections func(logicalcluster.Path, error),
 	ddsif *informer.DiscoveringDynamicSharedInformerFactory,
@@ -79,6 +92,7 @@ func NewController(
 		),
 		shardName:                         shardName,
 		kcpClusterClient:                  kcpClusterClient,
+		crdClusterClient:                  crdClusterClient,
 		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
 		etcdClient:                        etcdClient,
 		etcdStoragePrefix:                 etcdStoragePrefix,
@@ -88,6 +102,13 @@ func NewController(
 		cancelLogicalClusterConnections:   cancelLogicalClusterConnections,
 		ddsif:                             ddsif,
 		commit:                            committer.NewCommitter[*migrationv1alpha1.LogicalClusterMigration, migrationv1alpha1client.LogicalClusterMigrationInterface, *migrationv1alpha1.LogicalClusterMigrationSpec, *migrationv1alpha1.LogicalClusterMigrationStatus](kcpClusterClient.MigrationV1alpha1().LogicalClusterMigrations()),
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		},
+		getAPIResourceSchema: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIResourceSchema, apisv1alpha1listers.APIResourceSchemaLister](apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
+		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return crdInformer.Lister().Cluster(clusterName).Get(name)
+		},
 	}
 
 	// Events are queued from the cache server as that is used to
@@ -113,6 +134,7 @@ type Controller struct {
 	shardName string
 
 	kcpClusterClient                  kcpclientset.ClusterInterface
+	crdClusterClient                  kcpapiextensionsclientset.ClusterInterface
 	externalLogicalClusterAdminConfig *rest.Config
 	etcdClient                        *clientv3.Client
 	etcdStoragePrefix                 string
@@ -125,6 +147,10 @@ type Controller struct {
 	ddsif                           *informer.DiscoveringDynamicSharedInformerFactory
 
 	commit func(ctx context.Context, old, new *logicalClusterMigrationResource) error
+
+	getAPIExportByPath   func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
 }
 
 func (c *Controller) enqueue(obj interface{}) {

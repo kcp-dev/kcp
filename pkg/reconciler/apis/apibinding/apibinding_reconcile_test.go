@@ -1268,7 +1268,7 @@ func TestCRDFromAPIResourceSchema(t *testing.T) {
 	for testName, tc := range tests {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			got, err := generateCRD(tc.schema)
+			got, err := GenerateBoundCRD(tc.schema)
 
 			if tc.wantErr != (err != nil) {
 				t.Fatalf("wantErr: %v, got %v", tc.wantErr, err)
