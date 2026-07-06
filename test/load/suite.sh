@@ -42,7 +42,7 @@ if [[ -z "$testname" ]]; then
 fi
 
 # build go test args
-go_test_args=(-timeout 2h -test.fullpath=true -run "^${testname}$" -count=1 -v github.com/kcp-dev/kcp/test/load/testing)
+go_test_args=(-timeout 3h -test.fullpath=true -run "^${testname}$" -count=1 -v github.com/kcp-dev/kcp/test/load/testing)
 if [[ -n "$configfile" ]]; then
   go_test_args+=(-args --config="$configfile")
 fi
@@ -52,7 +52,7 @@ logfile="$logdir/${testname}_$(date '+%Y-%m-%d-%H:%M:%S').log"
 echo "Executing test: $testname"
 echo "Logs will be saved to: $logfile"
 
-go test "${go_test_args[@]}" &> "$logfile" &
+setsid go test "${go_test_args[@]}" &> "$logfile" &
 test_pid=$!
 
 # on Ctrl+C: stop tailing but keep the test running
