@@ -94,6 +94,7 @@ func CRDToAPIResourceSchema(crd *apiextensionsv1.CustomResourceDefinition, prefi
 			Deprecated:               crdVersion.Deprecated,
 			DeprecationWarning:       crdVersion.DeprecationWarning,
 			AdditionalPrinterColumns: crdVersion.AdditionalPrinterColumns,
+			SelectableFields:         crdVersion.SelectableFields,
 		}
 
 		if crdVersion.Schema != nil && crdVersion.Schema.OpenAPIV3Schema != nil {

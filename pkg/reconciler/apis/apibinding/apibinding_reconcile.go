@@ -778,6 +778,7 @@ func generateCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.Custo
 			DeprecationWarning:       version.DeprecationWarning,
 			Subresources:             &version.Subresources,
 			AdditionalPrinterColumns: version.AdditionalPrinterColumns,
+			SelectableFields:         version.SelectableFields,
 		}
 
 		var validation apiextensionsv1.CustomResourceValidation
