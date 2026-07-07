@@ -24,6 +24,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -38,6 +39,8 @@ func (c *Controller) ensureBoundCRDs(ctx context.Context, lcName logicalcluster.
 	if err != nil {
 		return fmt.Errorf("failed to list APIBindings in %s: %w", lcName, err)
 	}
+
+	boundCRDNames := sets.New[string]()
 
 	for _, binding := range bindings.Items {
 		if binding.Spec.Reference.Export == nil {
@@ -66,24 +69,15 @@ func (c *Controller) ensureBoundCRDs(ctx context.Context, lcName logicalcluster.
 			}
 
 			boundCRDName := apibinding.BoundCRDName(schema)
+			boundCRDNames.Insert(boundCRDName)
 
 			// Try to get the bound CRD.
-			existingCRD, err := c.getCRD(apibinding.SystemBoundCRDsClusterName, boundCRDName)
+			_, err = c.getCRD(apibinding.SystemBoundCRDsClusterName, boundCRDName)
 			if err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("error getting bound CRD %s: %w", boundCRDName, err)
 			}
-
 			if err == nil {
-				// Bound CRD already exists. We need to wait until it reaches Established.
-				if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
-					logger.V(4).Info("bound CRD is not yet established, requeueing", "crd", boundCRDName)
-					return fmt.Errorf("bound CRD %s is not yet established", boundCRDName)
-				}
-				if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
-					logger.V(4).Info("bound CRD is terminating, requeueing", "crd", boundCRDName)
-					return fmt.Errorf("bound CRD %s is terminating", boundCRDName)
-				}
-				logger.V(4).Info("bound CRD already exists and is established", "crd", boundCRDName)
+				// Bound CRD already exists. We'll go check for its status as a next step after all CRDs are created.
 				continue
 			}
 
@@ -98,12 +92,28 @@ func (c *Controller) ensureBoundCRDs(ctx context.Context, lcName logicalcluster.
 				Cluster(apibinding.SystemBoundCRDsClusterName.Path()).
 				ApiextensionsV1().CustomResourceDefinitions().
 				Create(ctx, crd, metav1.CreateOptions{})
-			if err != nil {
+			if err != nil && !apierrors.IsAlreadyExists(err) {
 				return fmt.Errorf("failed to create bound CRD %s: %v", crd.Name, err)
 			}
-
-			return fmt.Errorf("bound CRD %s created, requeueing to wait for established", crd.Name)
 		}
+	}
+
+	// Poll on all CRDs and make sure they are Established.
+	for boundCRDName := range boundCRDNames {
+		existingCRD, err := c.getCRD(apibinding.SystemBoundCRDsClusterName, boundCRDName)
+		if err != nil {
+			return fmt.Errorf("error getting bound CRD %s: %w", boundCRDName, err)
+		}
+
+		if !apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Established) {
+			logger.V(4).Info("bound CRD is not yet established, requeueing", "crd", boundCRDName)
+			return fmt.Errorf("bound CRD %s is not yet established", boundCRDName)
+		}
+		if apihelpers.IsCRDConditionTrue(existingCRD, apiextensionsv1.Terminating) {
+			logger.V(4).Info("bound CRD is terminating, requeueing", "crd", boundCRDName)
+			return fmt.Errorf("bound CRD %s is terminating", boundCRDName)
+		}
+		logger.V(4).Info("bound CRD is established", "crd", boundCRDName)
 	}
 
 	return nil
