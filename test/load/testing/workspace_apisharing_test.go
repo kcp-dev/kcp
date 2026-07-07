@@ -80,6 +80,11 @@ func TestAPISharing(t *testing.T) {
 
 	t.Logf("Running custom resource CRUD operations")
 	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer, dummy)
+	crudSection.Parameters = append(crudSection.Parameters,
+		measurement.Parameter{Key: "CRLeafFields", Value: fmt.Sprintf("%d", params.CRLeafFields)},
+		measurement.Parameter{Key: "CRListItems", Value: fmt.Sprintf("%d", params.CRListItems)},
+		measurement.Parameter{Key: "CRTargetSizeBytes", Value: fmt.Sprintf("%d", params.CRTargetSizeBytes)},
+	)
 	sections = append(sections, crudSection)
 
 	report := NewKCPReport(t.Context(), t, "API Sharing", cfg.FrontProxyKubeconfig)
