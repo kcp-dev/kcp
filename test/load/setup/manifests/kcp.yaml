@@ -33,7 +33,7 @@ spec:
       cpu: "2"
       memory: 3Gi
     limits:
-      cpu: "12"
+      cpu: "14"
       memory: 115Gi
   etcd:
     endpoints:
@@ -132,7 +132,7 @@ spec:
       cpu: "2"
       memory: 3Gi
     limits:
-      cpu: "12"
+      cpu: "14"
       memory: 115Gi
   deploymentTemplate:
     spec:
@@ -187,7 +187,7 @@ spec:
       cpu: "2"
       memory: 3Gi
     limits:
-      cpu: "12"
+      cpu: "14"
       memory: 115Gi
   deploymentTemplate:
     spec:
