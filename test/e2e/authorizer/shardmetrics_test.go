@@ -79,7 +79,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 				NonResourceURLs: []string{"/metrics"},
 			}},
 		}, metav1.CreateOptions{})
-		require.NoError(t, err)
+		require.NoError(c, err)
 	}, wait.ForeverTestTimeout, 200*time.Millisecond, "waiting to create ClusterRole for user-1")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err = user1ClusterClient.Cluster(wsPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
