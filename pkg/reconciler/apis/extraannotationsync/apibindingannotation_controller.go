@@ -115,6 +115,7 @@ func NewController(
 	_, _ = apiExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueAPIExport(obj, logger) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueAPIExport(obj, logger) },
+		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj, logger) },
 	}))
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -247,15 +248,17 @@ func (c *controller) process(ctx context.Context, key string) error {
 	if path.Empty() {
 		path = clusterName.Path()
 	}
+
+	// If the APIExport is gone strip the previously synced extra annotations.
+	var exportAnnotations map[string]string
 	apiExport, err := c.getAPIExport(path, apiBinding.Spec.Reference.Export.Name)
-	if apierrors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
+	if err == nil {
+		exportAnnotations = apiExport.Annotations
+	} else if !apierrors.IsNotFound(err) {
 		return err
 	}
 
-	patchBytes, err := syncExtraAnnotationPatch(apiExport.Annotations, apiBinding.Annotations)
+	patchBytes, err := syncExtraAnnotationPatch(exportAnnotations, apiBinding.Annotations)
 	if err != nil {
 		return err
 	}

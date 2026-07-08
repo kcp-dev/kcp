@@ -57,6 +57,12 @@ func TestSyncExtraAnnotationPatch(t *testing.T) {
 			apiBindingAnnotations: map[string]string{"key2": "value2", apisv1alpha1.AnnotationAPIExportExtraKeyPrefix + "test": "test1"},
 			wantPatch:             fmt.Sprintf(`{"metadata":{"annotations":{%q:"test"}}}`, apisv1alpha1.AnnotationAPIExportExtraKeyPrefix+"test"),
 		},
+		{
+			name:                  "strip extra annotations when export is gone",
+			apiExportAnnotations:  nil,
+			apiBindingAnnotations: map[string]string{"key2": "value2", apisv1alpha1.AnnotationAPIExportExtraKeyPrefix + "test": "test"},
+			wantPatch:             fmt.Sprintf(`{"metadata":{"annotations":{%q:null}}}`, apisv1alpha1.AnnotationAPIExportExtraKeyPrefix+"test"),
+		},
 	}
 
 	for _, scenario := range scenarios {
