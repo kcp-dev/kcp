@@ -351,10 +351,18 @@ def deploy_kcp(base_domain = "kcp.localhost", extra_shards = [], **overrides):
     # not register the shard/proxy kinds as image workloads (no image_object),
     # so Tilt names the resource after the CR ("root") rather than
     # "root:rootshard".
-    k8s_resource("root", labels=cfg["labels"])
-    k8s_resource("frontproxy", labels=cfg["labels"])
+    #
+    # pod_readiness="ignore": these resources own only CRs (RootShard/FrontProxy/
+    # Shard + TLSRoute + the same-named Kubeconfig), not Pods. Tilt's kstatus
+    # judges readiness from a "Ready" condition; the operator's Kubeconfig CR carries 
+    # neither (it reports an "Available" condition instead), so kstatus reads it as
+    # perpetually in-progress and the resource would hang "pending" forever — blocking 
+    # anything that depends on it.
+    
+    k8s_resource("root", labels=cfg["labels"], pod_readiness="ignore")
+    k8s_resource("frontproxy", labels=cfg["labels"], pod_readiness="ignore")
     for name in cfg["extra_shards"]:
-        k8s_resource(name, labels=cfg["labels"])
+        k8s_resource(name, labels=cfg["labels"], pod_readiness="ignore")
 
     # Admin kubeconfigs.
     kcfgs = [
