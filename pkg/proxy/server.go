@@ -23,19 +23,29 @@ import (
 	"slices"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	"k8s.io/apiserver/pkg/server/healthz"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
@@ -149,10 +159,48 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory))
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
+	// /metrics is served locally by the front proxy (it is not proxied to a
+	// shard), so it needs its own authentication and authorization: without it
+	// the endpoint is world-readable and leaks shard-wide operational data
+	// (logical-cluster counts, client-cert expiry, request patterns). Access is
+	// delegated to :root via SubjectAccessReview, so the same
+	// system:kcp:metrics-reader binding that authorizes scraping on the shards
+	// authorizes it here too. Registered before "/" so it takes precedence over
+	// the proxy handler for this exact path.
+	metricsHandler, err := newProtectedMetricsHandler(c.AuthenticationInfo.Authenticator, c.RootShardConfig, requestInfoFactory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create protected metrics handler: %w", err)
+	}
+	mux.Handle("/metrics", metricsHandler)
+
 	mux.Handle("/", handler)
 	s.Handler = mux
 
 	return s, nil
+}
+
+func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *restclient.Config, requestInfoResolver request.RequestInfoResolver) (http.Handler, error) {
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create root shard client for metrics authorization: %w", err)
+	}
+	authz, err := delegated.NewDelegatedAuthorizer(core.RootCluster, kubeClusterClient, delegated.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics authorizer: %w", err)
+	}
+
+	return withMetricsAuthorization(legacyregistry.Handler(), auth, authz, requestInfoResolver), nil
+}
+
+func withMetricsAuthorization(h http.Handler, auth authenticator.Request, authz authorizer.Authorizer, requestInfoResolver request.RequestInfoResolver) http.Handler {
+	scheme := runtime.NewScheme()
+	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Version: "v1"})
+	codecs := serializer.NewCodecFactory(scheme)
+
+	h = genericapifilters.WithAuthorization(h, authz, codecs)
+	h = genericapifilters.WithAuthentication(h, auth, frontproxyfilters.NewUnauthorizedHandler(), nil, nil)
+	h = genericapifilters.WithRequestInfo(h, requestInfoResolver)
+	return h
 }
 
 // preparedServer is a private wrapper that enforces a call of PrepareRun() before Run can be invoked.
