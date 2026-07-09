@@ -74,6 +74,8 @@ type ExtraOptions struct {
 	MountProxyClientKeyFile               string
 	DiscoveryPollInterval                 time.Duration
 	ExperimentalBindFreePort              bool
+	LogicalClusterTotalObjectLimit        int64
+	LogicalClusterObjectCountScanInterval time.Duration
 	LogicalClusterAdminKubeconfig         string
 	ExternalLogicalClusterAdminKubeconfig string
 	ConversionCELTransformationTimeout    time.Duration
@@ -128,6 +130,9 @@ func NewOptions(rootDir string) *Options {
 			DiscoveryPollInterval:              60 * time.Second,
 			ExperimentalBindFreePort:           false,
 			ConversionCELTransformationTimeout: time.Second,
+
+			LogicalClusterTotalObjectLimit:        0,
+			LogicalClusterObjectCountScanInterval: 60 * time.Second,
 
 			BatteriesIncluded:   sets.List[string](batteries.Defaults),
 			ServiceAccountCache: saCache,
@@ -195,6 +200,9 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.MarkHidden("external-hostname") //nolint:errcheck
 
 	fs.DurationVar(&o.Extra.ConversionCELTransformationTimeout, "conversion-cel-transformation-timeout", o.Extra.ConversionCELTransformationTimeout, "Maximum amount of time that CEL transformations may take per object conversion.")
+
+	fs.Int64Var(&o.Extra.LogicalClusterTotalObjectLimit, "logical-cluster-total-object-limit", o.Extra.LogicalClusterTotalObjectLimit, "Maximum total number of objects allowed in a logical cluster on this shard. 0 disables the default limit. The "+corev1alpha1.LogicalClusterMaxTotalObjectsAnnotationKey+" annotation on a LogicalCluster overrides this value for that logical cluster.")
+	fs.DurationVar(&o.Extra.LogicalClusterObjectCountScanInterval, "logical-cluster-object-count-scan-interval", o.Extra.LogicalClusterObjectCountScanInterval, "Interval at which etcd is scanned to count objects per logical cluster for total object count limit enforcement.")
 
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.

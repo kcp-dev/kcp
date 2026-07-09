@@ -68,6 +68,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/objectcount"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
@@ -1216,6 +1217,40 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context, c
 		Runner: func(ctx context.Context) {
 			defer etcdClient.Close()
 			c.Start(ctx, 2)
+		},
+	})
+}
+
+// installObjectCountScanner starts the periodic etcd scan feeding the
+// per-logical-cluster object count registry used by the
+// core.kcp.io/LogicalClusterObjectCountLimit admission plugin. It runs on
+// every replica because the registry is per-process, in-memory state the
+// local admission chain depends on.
+func (s *Server) installObjectCountScanner(_ context.Context) error {
+	etcdClient, err := s.newEtcdClient()
+	if err != nil {
+		return err
+	}
+
+	scanner := objectcount.NewScanner(
+		etcdClient,
+		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+		s.Options.Extra.LogicalClusterObjectCountScanInterval,
+		s.ObjectCountRegistry,
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Lister(),
+		s.Options.Extra.ShardName,
+	)
+
+	return s.registerControllerWithoutLeaderElection(&controllerWrapper{
+		Name: "kcp-logicalcluster-objectcount-scanner",
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			defer etcdClient.Close()
+			scanner.Start(ctx)
 		},
 	})
 }

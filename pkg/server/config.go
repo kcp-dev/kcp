@@ -73,6 +73,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
+	"github.com/kcp-dev/kcp/pkg/objectcount"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/migration/logicalclustermigration"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
@@ -140,6 +141,11 @@ type ExtraConfig struct {
 	MigrationDumpHandler     *migrationdump.Handler
 	openAPIv3Controller      *openapiv3.Controller
 	openAPIv3ServiceCache    *openapiv3.ServiceCache
+
+	// ObjectCountRegistry tracks the total object count per logical cluster on
+	// this shard, fed by a periodic etcd scan and admission-time deltas. It is
+	// shared between the objectcountlimit admission plugin and the scanner.
+	ObjectCountRegistry *objectcount.Registry
 
 	// URL getters depending on genericspiserver.ExternalAddress which is initialized on server run
 	ShardBaseURL             func() string
@@ -662,12 +668,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 	c.ExtraConfig.quotaAdmissionStopCh = make(chan struct{})
 	c.ExtraConfig.MigratingLogicalClusters = logicalclustermigration.NewMigratingLogicalClusters()
+	c.ExtraConfig.ObjectCountRegistry = objectcount.NewRegistry(opts.Extra.LogicalClusterTotalObjectLimit)
 
 	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
 	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
 
 	admissionPluginInitializers := []admission.PluginInitializer{ //nolint:prealloc
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
+		kcpadmissioninitializers.NewObjectCountRegistryInitializer(c.ObjectCountRegistry),
 		kcpadmissioninitializers.NewKubeInformersInitializer(c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory),
 		kcpadmissioninitializers.NewKubeClusterClientInitializer(c.KubeClusterClient),
 		kcpadmissioninitializers.NewKcpClusterClientInitializer(c.KcpClusterClient),

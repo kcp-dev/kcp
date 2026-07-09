@@ -104,6 +104,45 @@ func SplitKey(prefix, key string, lc logicalcluster.Name) (KeyParts, bool) {
 	return ret, true
 }
 
+// ClusterOf returns the logical cluster a storage key belongs to. Unlike
+// SplitKey it does not require a target logical cluster: the ambiguous
+// 5-segment case (group/resource/cluster/namespace/name for built-in
+// namespaced resources vs. group/resource/identity/cluster/name for
+// identity-based cluster-scoped resources) is resolved via isCluster, which
+// reports whether the given segment is a known logical cluster name.
+func ClusterOf(prefix, key string, isCluster func(string) bool) (logicalcluster.Name, bool) {
+	if !strings.HasPrefix(key, prefix) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(key, prefix)
+	rest = strings.TrimPrefix(rest, "/")
+
+	parts := strings.SplitN(rest, "/", 6)
+
+	// key too short
+	if len(parts) < 3 {
+		return "", false
+	}
+
+	if parts[2] == "customresources" || len(parts) == 6 {
+		// group/resource/"customresources"/cluster/[namespace/]name
+		// group/resource/identity/cluster/namespace/name
+		if len(parts) < 4 {
+			return "", false
+		}
+		return logicalcluster.Name(parts[3]), true
+	}
+
+	if len(parts) == 5 && !isCluster(parts[2]) {
+		// group/resource/identity/cluster/name
+		return logicalcluster.Name(parts[3]), true
+	}
+
+	// group/resource/cluster/[namespace/]name
+	// group/resource/cluster/namespace/name
+	return logicalcluster.Name(parts[2]), true
+}
+
 // BelongsToCluster reports whether key belongs to logical cluster lc.
 // It checks both the built-in (parts[2]) and CRD/identity-based (parts[3])
 // cluster positions via SplitKey.
