@@ -193,6 +193,9 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 	if requeue {
 		logger.V(2).Info("copied data page, more remaining", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
 	} else {
+		// Copy is done, drop the cached origin client for this migration
+		// rather than keeping its HTTP transport around indefinitely.
+		c.evictOriginClient(lcName, migration.Status.OriginShard)
 		logger.V(2).Info("data copied, transitioning to OriginCleanup", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
 	}
 	return requeue, nil
@@ -207,9 +210,16 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 // reconcile - including ones where the shard is about to be restarted -
 // letting the next reconcile resume from status.dumpContinue instead of
 // restarting the copy.
+//
+// A page only reaches this function once it has been copied successfully,
+// so any CopyFailed condition left over from an earlier failed attempt on
+// this migration no longer applies and is cleared here - otherwise it
+// would stay stuck at False while later pages keep succeeding, right up
+// until the copy happens to finish.
 func applyDumpPageResult(migration *migrationv1alpha1.LogicalClusterMigration, copied int64, nextContinue string) (requeue bool) {
 	migration.Status.EntriesCopied += copied
 	migration.Status.DumpContinue = nextContinue
+	conditions.Delete(migration, migrationv1alpha1.LCMigrationDataCopied)
 
 	if nextContinue != "" {
 		return true

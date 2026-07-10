@@ -47,11 +47,6 @@ var (
 	errorCodecs = serializer.NewCodecFactory(errorScheme)
 )
 
-// defaultDumpMaxBytes is the default cap on the total size of entry values
-// returned in a single LogicalClusterDump page, used when the request
-// doesn't specify spec.maxBytes.
-const defaultDumpMaxBytes int64 = 2 * 1024 * 1024
-
 func init() {
 	errorScheme.AddUnversionedTypes(metav1.Unversioned, &metav1.Status{})
 }
@@ -185,7 +180,7 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 		limit = kcpetcd.ScanPageSize
 	}
 	if maxBytes <= 0 {
-		maxBytes = defaultDumpMaxBytes
+		maxBytes = kcpetcd.DumpMaxBytes
 	}
 
 	key := prefix
@@ -193,12 +188,20 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 		key = prefix + strings.TrimPrefix(continueToken, "/")
 	}
 
+	// Cap the raw etcd scan chunk size at the caller's requested page
+	// limit (but never above ScanPageSize) so a small page request
+	// doesn't pull more keys from etcd than it can possibly use.
+	etcdScanLimit := limit
+	if etcdScanLimit > kcpetcd.ScanPageSize {
+		etcdScanLimit = kcpetcd.ScanPageSize
+	}
+
 	var entries []migrationv1alpha1.EtcdEntry
 	var totalBytes int64
 	for {
 		resp, err := kv.Get(ctx, key,
 			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
-			clientv3.WithLimit(kcpetcd.ScanPageSize),
+			clientv3.WithLimit(etcdScanLimit),
 		)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to list etcd keys: %w", err)

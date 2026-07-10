@@ -47,20 +47,9 @@ import (
 func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (int64, string, error) {
 	logger := klog.FromContext(ctx)
 
-	originShard, err := c.shardLister.Cluster(core.RootCluster).Get(originShardName)
+	client, err := c.originClient(lcName, originShardName)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to get origin shard %q: %w", originShardName, err)
-	}
-	if originShard.Spec.VirtualWorkspaceURL == "" {
-		return 0, "", fmt.Errorf("origin shard %q has no VirtualWorkspaceURL", originShardName)
-	}
-
-	cfg := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
-	cfg.Host = originShard.Spec.VirtualWorkspaceURL + migratingworkspaces.URLFor() + "/clusters/" + string(lcName)
-
-	client, err := kcpsdkclient.NewForConfig(cfg)
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to create origin migrating client: %w", err)
+		return 0, "", err
 	}
 
 	logger.V(2).Info("requesting logical cluster dump page from origin", "logicalCluster", lcName, "originShard", originShardName, "continue", continueToken)
@@ -92,4 +81,47 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 	}
 
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
+}
+
+// originClient returns the cached client for requesting LogicalClusterDump
+// pages of lcName from originShardName, creating and caching one if none
+// exists yet. Reusing the client across pages of the same copy avoids
+// building a new HTTP transport and connection pool per page.
+func (c *Controller) originClient(lcName logicalcluster.Name, originShardName string) (kcpsdkclient.Interface, error) {
+	key := originClientKey{originShardName: originShardName, lcName: lcName}
+
+	c.originClientsMu.Lock()
+	defer c.originClientsMu.Unlock()
+
+	if client, ok := c.originClients[key]; ok {
+		return client, nil
+	}
+
+	originShard, err := c.shardLister.Cluster(core.RootCluster).Get(originShardName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get origin shard %q: %w", originShardName, err)
+	}
+	if originShard.Spec.VirtualWorkspaceURL == "" {
+		return nil, fmt.Errorf("origin shard %q has no VirtualWorkspaceURL", originShardName)
+	}
+
+	cfg := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
+	cfg.Host = originShard.Spec.VirtualWorkspaceURL + migratingworkspaces.URLFor() + "/clusters/" + string(lcName)
+
+	client, err := kcpsdkclient.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create origin migrating client: %w", err)
+	}
+
+	c.originClients[key] = client
+	return client, nil
+}
+
+// evictOriginClient drops the cached client for lcName/originShardName once
+// its data copy is done, so the migration's HTTP transport doesn't linger
+// forever in the cache.
+func (c *Controller) evictOriginClient(lcName logicalcluster.Name, originShardName string) {
+	c.originClientsMu.Lock()
+	defer c.originClientsMu.Unlock()
+	delete(c.originClients, originClientKey{originShardName: originShardName, lcName: lcName})
 }

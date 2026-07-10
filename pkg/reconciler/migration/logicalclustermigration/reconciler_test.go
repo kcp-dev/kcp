@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 )
 
@@ -68,6 +69,29 @@ func TestApplyDumpPageResult_accumulatesEntriesCopiedAcrossMultiplePages(t *test
 
 	require.Equal(t, int64(30), migration.Status.EntriesCopied)
 	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup, migration.Status.Phase)
+}
+
+// TestApplyDumpPageResult_clearsStaleCopyFailedConditionOnLaterSuccess covers
+// a bug where a transient failure on one page (which marks DataCopied
+// False/CopyFailed) would leave that condition stuck at False forever,
+// even after a later page copy succeeded, because only the final page used
+// to touch the condition.
+func TestApplyDumpPageResult_clearsStaleCopyFailedConditionOnLaterSuccess(t *testing.T) {
+	t.Parallel()
+
+	migration := &migrationv1alpha1.LogicalClusterMigration{}
+	conditions.MarkFalse(
+		migration,
+		migrationv1alpha1.LCMigrationDataCopied,
+		"CopyFailed",
+		conditionsv1alpha1.ConditionSeverityError,
+		"some transient error",
+	)
+
+	requeue := applyDumpPageResult(migration, 10, "more-to-come")
+
+	require.True(t, requeue)
+	require.Nil(t, conditions.Get(migration, migrationv1alpha1.LCMigrationDataCopied), "a successful page must clear the stale CopyFailed condition even if the copy isn't done yet")
 }
 
 // TestApplyDumpPageResult_resumesAfterSimulatedRestart mimics a destination
