@@ -50,8 +50,25 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 		finalizersToNumRemaining: map[string]int{},
 	}
 
+	retained, err := c.retainedResources(logicalcluster.From(apibinding), apibinding)
+	if err != nil {
+		return totalResourceRemaining, err
+	}
+
 	deleteContentErrs := []error{}
 	for _, resource := range apibinding.Status.BoundResources {
+		if r, ok := retained[schema.GroupResource{Group: resource.Group, Resource: resource.Resource}]; ok {
+			switch r.reason {
+			case retainedAdopted:
+				logger.V(2).Info("not deleting instances of bound resource, adopted by another APIBinding",
+					"group", resource.Group, "resource", resource.Resource, "successor", r.successor)
+			case retainedOrphaned:
+				logger.Info("orphaning instances of bound resource per deletionPolicy=Orphan; they stay in storage until a binding with the same schema and identity binds the resource again",
+					"group", resource.Group, "resource", resource.Resource)
+			}
+			continue
+		}
+
 		for _, version := range resource.StorageVersions {
 			gvr := schema.GroupVersionResource{
 				Group:    resource.Group,

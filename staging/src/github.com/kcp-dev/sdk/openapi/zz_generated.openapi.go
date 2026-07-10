@@ -2036,6 +2036,13 @@ func schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"deletionPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "deletionPolicy controls what happens to instances of bound resources when this APIBinding is deleted and no other APIBinding adopts them.\n\n\"Delete\" (the default) deletes all instances of all bound resources. \"Orphan\" leaves them in storage; they become unreachable through the workspace API until an APIBinding binds the same group/resource with the same schema and identity again, at which point they reappear untouched.\n\nIndependent of this policy, instances of a bound group/resource are never deleted if, at deletion time, another APIBinding in the workspace references an APIExport serving the same group/resource with the same APIResourceSchema (by UID) and the same identity: that binding adopts the instances instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"reference"},
 			},

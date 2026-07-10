@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1alpha2
 
+import (
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+)
+
 // APIBindingSpecApplyConfiguration represents a declarative configuration of the APIBindingSpec type for use
 // with apply.
 //
@@ -30,6 +34,20 @@ type APIBindingSpecApplyConfiguration struct {
 	// requested access to the specified resources in this workspace. Access is granted per
 	// GroupResource, identity, and other properties.
 	PermissionClaims []AcceptablePermissionClaimApplyConfiguration `json:"permissionClaims,omitempty"`
+	// deletionPolicy controls what happens to instances of bound resources when
+	// this APIBinding is deleted and no other APIBinding adopts them.
+	//
+	// "Delete" (the default) deletes all instances of all bound resources.
+	// "Orphan" leaves them in storage; they become unreachable through the
+	// workspace API until an APIBinding binds the same group/resource with the
+	// same schema and identity again, at which point they reappear untouched.
+	//
+	// Independent of this policy, instances of a bound group/resource are never
+	// deleted if, at deletion time, another APIBinding in the workspace
+	// references an APIExport serving the same group/resource with the same
+	// APIResourceSchema (by UID) and the same identity: that binding adopts the
+	// instances instead.
+	DeletionPolicy *apisv1alpha2.APIBindingDeletionPolicy `json:"deletionPolicy,omitempty"`
 }
 
 // APIBindingSpecApplyConfiguration constructs a declarative configuration of the APIBindingSpec type for use with
@@ -56,5 +74,13 @@ func (b *APIBindingSpecApplyConfiguration) WithPermissionClaims(values ...*Accep
 		}
 		b.PermissionClaims = append(b.PermissionClaims, *values[i])
 	}
+	return b
+}
+
+// WithDeletionPolicy sets the DeletionPolicy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the DeletionPolicy field is set to the value of the last call.
+func (b *APIBindingSpecApplyConfiguration) WithDeletionPolicy(value apisv1alpha2.APIBindingDeletionPolicy) *APIBindingSpecApplyConfiguration {
+	b.DeletionPolicy = &value
 	return b
 }

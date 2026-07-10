@@ -79,7 +79,40 @@ type APIBindingSpec struct {
 	// +listMapKey=resource
 	// +listMapKey=identityHash
 	PermissionClaims []AcceptablePermissionClaim `json:"permissionClaims,omitempty"`
+
+	// deletionPolicy controls what happens to instances of bound resources when
+	// this APIBinding is deleted and no other APIBinding adopts them.
+	//
+	// "Delete" (the default) deletes all instances of all bound resources.
+	// "Orphan" leaves them in storage; they become unreachable through the
+	// workspace API until an APIBinding binds the same group/resource with the
+	// same schema and identity again, at which point they reappear untouched.
+	//
+	// Independent of this policy, instances of a bound group/resource are never
+	// deleted if, at deletion time, another APIBinding in the workspace
+	// references an APIExport serving the same group/resource with the same
+	// APIResourceSchema (by UID) and the same identity: that binding adopts the
+	// instances instead.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=Delete;Orphan
+	// +kubebuilder:default=Delete
+	DeletionPolicy APIBindingDeletionPolicy `json:"deletionPolicy,omitempty"`
 }
+
+// APIBindingDeletionPolicy determines what happens to instances of bound
+// resources when their APIBinding is deleted.
+type APIBindingDeletionPolicy string
+
+const (
+	// APIBindingDeletionPolicyDelete deletes all instances of all bound
+	// resources when the APIBinding is deleted. This is the default.
+	APIBindingDeletionPolicyDelete APIBindingDeletionPolicy = "Delete"
+
+	// APIBindingDeletionPolicyOrphan leaves instances of bound resources in
+	// storage when the APIBinding is deleted.
+	APIBindingDeletionPolicyOrphan APIBindingDeletionPolicy = "Orphan"
+)
 
 // ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
 // scope down access to objects of the claimed resource.
