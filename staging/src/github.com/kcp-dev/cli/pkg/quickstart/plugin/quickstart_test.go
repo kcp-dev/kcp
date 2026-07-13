@@ -475,6 +475,7 @@ func TestDefaultEnterWorkspaceForwardsOptions(t *testing.T) {
 }
 
 func TestPrintConnectionHintFormatsServerURL(t *testing.T) {
+	t.Parallel()
 	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.serverURL = "https://192.168.0.5:6443"
@@ -494,6 +495,7 @@ func TestPrintConnectionHintFormatsServerURL(t *testing.T) {
 }
 
 func TestRunPreservesErrorChainOnStepFailure(t *testing.T) {
+	t.Parallel()
 	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
@@ -534,6 +536,7 @@ func TestRunPreservesErrorChainOnStepFailure(t *testing.T) {
 }
 
 func TestRunWithHintEmitsHintWhenServerUnreachable(t *testing.T) {
+	t.Parallel()
 	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
@@ -572,6 +575,7 @@ func TestRunWithHintEmitsHintWhenServerUnreachable(t *testing.T) {
 }
 
 func TestRunWithHintSuppressesHintWhenServerReachable(t *testing.T) {
+	t.Parallel()
 	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
@@ -600,6 +604,7 @@ func TestRunWithHintSuppressesHintWhenServerReachable(t *testing.T) {
 }
 
 func TestRunWithHintSilentOnSuccess(t *testing.T) {
+	t.Parallel()
 	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
@@ -621,6 +626,7 @@ func TestRunWithHintSilentOnSuccess(t *testing.T) {
 }
 
 func TestIsConnectionError(t *testing.T) {
+	t.Parallel()
 	wrapURL := func(cause error) error {
 		return fmt.Errorf("step 1/6 failed: %w", &url.Error{
 			Op:  "Post",
@@ -687,6 +693,7 @@ func TestIsConnectionError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := isConnectionError(tt.err); got != tt.want {
 				t.Errorf("isConnectionError(%v) = %v, want %v", tt.err, got, tt.want)
 			}
