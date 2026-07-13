@@ -854,7 +854,8 @@ func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
-	ctx := t.Context()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
 
 	sourceConfig := source.BaseConfig(t)
 
