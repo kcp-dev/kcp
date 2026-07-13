@@ -205,10 +205,17 @@ func TestKubeQuotaCrossWorkspaceIsolation(t *testing.T) {
 		return ok && hard.Equal(resource.MustParse("4")), fmt.Sprintf("ok=%t, status.hard=%s", ok, hard.String())
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "workspace A Status.Hard never converged on 4")
 
+	// Use a dry-run create to confirm enforcement. Quota admission still runs
+	// under dry-run, but nothing is persisted. A plain create here would be
+	// harmful: admission enforcement converges independently of (and lags
+	// behind) the Status.Hard we waited for above, so every create that slips
+	// through the lag window leaves a real configmap behind, pushing Used well
+	// past the limit and making the later "create after freeing headroom" step
+	// impossible to ever satisfy by deleting a single configmap.
 	t.Logf("Confirming workspace A is now at its hard limit and rejects creates")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "blocked-"}}
-		_, err := kubeClusterClient.Cluster(wsAPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{})
+		_, err := kubeClusterClient.Cluster(wsAPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		if err != nil {
 			return apierrors.IsForbidden(err), err.Error()
 		}
