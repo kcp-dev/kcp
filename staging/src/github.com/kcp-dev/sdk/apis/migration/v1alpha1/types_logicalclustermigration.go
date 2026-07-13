@@ -63,7 +63,7 @@ type LogicalClusterMigrationSpec struct {
 
 // LogicalClusterMigrationPhaseType is the type of the current phase of the migration.
 //
-// +kubebuilder:validation:Enum=Preparing;Migrating;OriginCleanup;DestinationFinalize;Completed;Failed
+// +kubebuilder:validation:Enum=Preparing;Migrating;OriginCleanup;DestinationFinalize;Aborting;Completed;Failed
 type LogicalClusterMigrationPhaseType string
 
 const (
@@ -71,6 +71,7 @@ const (
 	LogicalClusterMigrationPhaseMigrating           LogicalClusterMigrationPhaseType = "Migrating"
 	LogicalClusterMigrationPhaseOriginCleanup       LogicalClusterMigrationPhaseType = "OriginCleanup"
 	LogicalClusterMigrationPhaseDestinationFinalize LogicalClusterMigrationPhaseType = "DestinationFinalize"
+	LogicalClusterMigrationPhaseAborting            LogicalClusterMigrationPhaseType = "Aborting"
 	LogicalClusterMigrationPhaseCompleted           LogicalClusterMigrationPhaseType = "Completed"
 	LogicalClusterMigrationPhaseFailed              LogicalClusterMigrationPhaseType = "Failed"
 )
@@ -114,9 +115,17 @@ const (
 	// belonging to the migration logical cluster.
 	LCMigrationOriginCleaned conditionsv1alpha1.ConditionType = "OriginCleaned"
 
+	// LCMigrationDestinationCleaned indicates the destination shard has cleaned up
+	// all copied data during an abort.
+	LCMigrationDestinationCleaned conditionsv1alpha1.ConditionType = "DestinationCleaned"
+
 	// LCMigrationCompleted indicates the migration has fully completed and the
 	// logical cluster is available on the destination shard.
 	LCMigrationCompleted conditionsv1alpha1.ConditionType = "Completed"
+
+	// LCMigrationAborted indicates the migration was aborted (e.g. due to
+	// workspace deletion) and both shards have cleaned up their data.
+	LCMigrationAborted conditionsv1alpha1.ConditionType = "Aborted"
 )
 
 func (in *LogicalClusterMigration) SetConditions(c conditionsv1alpha1.Conditions) {

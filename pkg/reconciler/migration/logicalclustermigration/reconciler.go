@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
@@ -41,6 +42,32 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 		logger.V(4).Info("migration is not for this shard, skipping")
 		return false, nil
 	}
+
+	// Detect LC deletion during migration. If the origin shard sees the LC
+	// has a DeletionTimestamp and we're not already in a terminal or aborting
+	// phase, transition to Aborting to clean up data on both shards.
+	if isOrigin && !isTerminalOrAborting(migration.Status.Phase) {
+		lcName := logicalcluster.Name(migration.Spec.LogicalCluster)
+		lc, err := c.logicalClusterLister.Cluster(lcName).Get(corev1alpha1.LogicalClusterName)
+		if err == nil && !lc.DeletionTimestamp.IsZero() {
+			logger.V(2).Info("LogicalCluster is being deleted, transitioning to Aborting", "logicalCluster", lcName)
+			migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseAborting
+			return true, nil
+		}
+		// If the LC is not found in the lister, it may have already been
+		// fully deleted. Transition to Aborting to ensure cleanup.
+		if apierrors.IsNotFound(err) {
+			logger.V(2).Info("LogicalCluster not found in lister, transitioning to Aborting", "logicalCluster", lcName)
+			migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseAborting
+			return true, nil
+		}
+	}
+
+	// Requeue on the origin shard during phases where the destination is
+	// active. This ensures the deletion detection above re-runs even if
+	// the LC informer event is missed.
+	requeueForDeletionDetection := isOrigin && (migration.Status.Phase == migrationv1alpha1.LogicalClusterMigrationPhaseMigrating ||
+		migration.Status.Phase == migrationv1alpha1.LogicalClusterMigrationPhaseDestinationFinalize)
 
 	// Route through the process. The overview of the process id
 	// described in the doc.go, details are in the methods.
@@ -65,7 +92,7 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 		if isDestination {
 			return c.reconcileMigrating(ctx, migration)
 		}
-		return false, nil
+		return requeueForDeletionDetection, nil
 
 	case migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup:
 		if isOrigin {
@@ -77,7 +104,10 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 		if isDestination {
 			return c.reconcileDestinationFinalize(ctx, migration)
 		}
-		return false, nil
+		return requeueForDeletionDetection, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseAborting:
+		return c.reconcileAborting(ctx, migration)
 
 	default:
 		logger.V(2).Info("unknown phase", "phase", migration.Status.Phase)
@@ -280,4 +310,59 @@ func (c *Controller) reconcileDestinationFinalize(ctx context.Context, migration
 
 	logger.V(2).Info("migration completed", "logicalCluster", lcName)
 	return false, nil
+}
+
+// reconcileAborting handles the Aborting phase, which is entered when the
+// LogicalCluster is being deleted during an active migration. Both origin and
+// destination shards clean up their local etcd data independently.
+func (c *Controller) reconcileAborting(ctx context.Context, migration *migrationv1alpha1.LogicalClusterMigration) (bool, error) {
+	logger := klog.FromContext(ctx)
+	lcName := logicalcluster.Name(migration.Spec.LogicalCluster)
+
+	logger.V(2).Info("aborting migration due to LogicalCluster deletion", "logicalCluster", lcName)
+
+	// Each shard cleans up its own local etcd data.
+	// deleteOriginData() is idempotent — if no data exists locally, it's a no-op.
+	if c.isOrigin(migration) || c.isDestination(migration) {
+		if err := c.deleteOriginData(ctx, lcName); err != nil {
+			return true, err
+		}
+		c.migratingLogicalClusters.Remove(lcName)
+	}
+
+	// Track per-shard completion via conditions.
+	if c.isOrigin(migration) {
+		conditions.MarkTrue(migration, migrationv1alpha1.LCMigrationOriginCleaned)
+	}
+	if c.isDestination(migration) {
+		conditions.MarkTrue(migration, migrationv1alpha1.LCMigrationDestinationCleaned)
+	}
+
+	// Both shards done? Transition to terminal Failed state.
+	// If data was never copied to the destination (DataCopied is not True),
+	// there's nothing to clean on the destination — only origin cleanup is needed.
+	originDone := conditions.IsTrue(migration, migrationv1alpha1.LCMigrationOriginCleaned)
+	destinationDone := conditions.IsTrue(migration, migrationv1alpha1.LCMigrationDestinationCleaned)
+	destinationNeverHadData := !conditions.IsTrue(migration, migrationv1alpha1.LCMigrationDataCopied)
+
+	if originDone && (destinationDone || destinationNeverHadData) {
+		migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseFailed
+		conditions.MarkTrue(migration, migrationv1alpha1.LCMigrationAborted)
+		logger.V(2).Info("abort complete, transitioning to Failed", "logicalCluster", lcName)
+	}
+
+	return false, nil
+}
+
+// isTerminalOrAborting returns true if the migration is in a terminal state
+// or already aborting.
+func isTerminalOrAborting(phase migrationv1alpha1.LogicalClusterMigrationPhaseType) bool {
+	switch phase {
+	case migrationv1alpha1.LogicalClusterMigrationPhaseCompleted,
+		migrationv1alpha1.LogicalClusterMigrationPhaseFailed,
+		migrationv1alpha1.LogicalClusterMigrationPhaseAborting:
+		return true
+	default:
+		return false
+	}
 }

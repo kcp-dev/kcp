@@ -25,6 +25,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -98,6 +99,7 @@ func NewController(
 		etcdStoragePrefix:                 etcdStoragePrefix,
 		logicalClusterLister:              localLogicalClusterInformer.Lister(),
 		shardLister:                       cachedShardInformer.Lister(),
+		migrationIndexer:                  cachedLogicalClusterMigrationInformer.Informer().GetIndexer(),
 		migratingLogicalClusters:          migratingLogicalClusters,
 		cancelLogicalClusterConnections:   cancelLogicalClusterConnections,
 		ddsif:                             ddsif,
@@ -123,6 +125,14 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
 	})
 
+	// Watch local LogicalClusters for deletion during migration.
+	// When a workspace is deleted, the LC gets a DeletionTimestamp;
+	// we need to enqueue the corresponding migration to trigger abort.
+	_, _ = localLogicalClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(_, obj interface{}) { c.enqueueFromLogicalCluster(obj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueFromLogicalCluster(obj) },
+	})
+
 	return c, nil
 }
 
@@ -141,6 +151,7 @@ type Controller struct {
 
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 	shardLister          corev1alpha1listers.ShardClusterLister
+	migrationIndexer     cache.Indexer
 
 	migratingLogicalClusters        *MigratingLogicalClusters
 	cancelLogicalClusterConnections func(logicalcluster.Path, error)
@@ -162,6 +173,41 @@ func (c *Controller) enqueue(obj interface{}) {
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
 	logger.V(4).Info("queueing LogicalClusterMigration")
 	c.queue.Add(key)
+}
+
+// enqueueFromLogicalCluster handles events from the local LogicalCluster
+// informer. If the LC is currently migrating, it enqueues the corresponding
+// LogicalClusterMigration so the reconciler can detect deletion and abort.
+func (c *Controller) enqueueFromLogicalCluster(obj interface{}) {
+	metaObj, err := meta.Accessor(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+
+	lcName := logicalcluster.From(metaObj)
+	if !c.migratingLogicalClusters.IsMigrating(lcName) {
+		return
+	}
+
+	// Find the migration that references this LC by scanning the cached informer store.
+	for _, item := range c.migrationIndexer.List() {
+		migration, ok := item.(*migrationv1alpha1.LogicalClusterMigration)
+		if !ok {
+			continue
+		}
+		if migration.Spec.LogicalCluster == string(lcName) {
+			key, err := kcpcache.MetaClusterNamespaceKeyFunc(migration)
+			if err != nil {
+				utilruntime.HandleError(err)
+				continue
+			}
+			logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
+			logger.V(4).Info("queueing LogicalClusterMigration from LogicalCluster event", "logicalCluster", lcName)
+			c.queue.Add(key)
+			return
+		}
+	}
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
