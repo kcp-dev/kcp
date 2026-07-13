@@ -50,6 +50,7 @@ type QuickstartOptions struct {
 	TreeSeed  int64
 
 	scenario            scenarios.Scenario
+	serverURL           string
 	enterWorkspace      func(ctx context.Context, path string) error
 	newUseWorkspaceOpts func(genericiooptions.IOStreams) *workspaceplugin.UseWorkspaceOptions
 	newKCPClusterClient func(config *rest.Config) (kcpclientset.ClusterInterface, error)

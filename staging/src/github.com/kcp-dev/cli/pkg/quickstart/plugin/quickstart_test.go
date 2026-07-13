@@ -21,10 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
+	"os"
 	"strings"
+	"syscall"
 	"testing"
 
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -76,7 +80,7 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			streams, _, _, _ := genericclioptions.NewTestIOStreams()
+			streams, _, _, _ := genericiooptions.NewTestIOStreams()
 			o := NewQuickstartOptions(streams)
 			o.NamePrefix = tt.namePrefix
 			if tt.withScenario {
@@ -120,7 +124,7 @@ func TestComplete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			streams, _, _, _ := genericclioptions.NewTestIOStreams()
+			streams, _, _, _ := genericiooptions.NewTestIOStreams()
 			o := NewQuickstartOptions(streams)
 			o.Scenario = tt.scenario
 
@@ -214,7 +218,7 @@ func TestRunCleanup(t *testing.T) {
 
 	newOpts := func(t *testing.T) *QuickstartOptions {
 		t.Helper()
-		streams, _, _, _ := genericclioptions.NewTestIOStreams()
+		streams, _, _, _ := genericiooptions.NewTestIOStreams()
 
 		o := NewQuickstartOptions(streams)
 		o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
@@ -388,7 +392,7 @@ func TestRunEnter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			streams, _, _, _ := genericclioptions.NewTestIOStreams()
+			streams, _, _, _ := genericiooptions.NewTestIOStreams()
 			o := NewQuickstartOptions(streams)
 			o.Enter = tt.enter
 			o.scenario = &mockScenario{}
@@ -425,7 +429,7 @@ func TestRunEnter(t *testing.T) {
 
 func TestRunEnterError(t *testing.T) {
 	t.Parallel()
-	streams, _, _, _ := genericclioptions.NewTestIOStreams()
+	streams, _, _, _ := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.Enter = true
 	o.scenario = &mockScenario{}
@@ -448,13 +452,13 @@ func TestRunEnterError(t *testing.T) {
 
 func TestDefaultEnterWorkspaceForwardsOptions(t *testing.T) {
 	t.Parallel()
-	streams, _, _, _ := genericclioptions.NewTestIOStreams()
+	streams, _, _, _ := genericiooptions.NewTestIOStreams()
 	o := NewQuickstartOptions(streams)
 	o.KubectlOverrides.CurrentContext = "my-context"
 	o.ClientConfig = &fakeClientConfig{}
 
 	var capturedUseOpts *workspaceplugin.UseWorkspaceOptions
-	o.newUseWorkspaceOpts = func(streams genericclioptions.IOStreams) *workspaceplugin.UseWorkspaceOptions {
+	o.newUseWorkspaceOpts = func(streams genericiooptions.IOStreams) *workspaceplugin.UseWorkspaceOptions {
 		capturedUseOpts = workspaceplugin.NewUseWorkspaceOptions(streams)
 		return capturedUseOpts
 	}
@@ -467,5 +471,225 @@ func TestDefaultEnterWorkspaceForwardsOptions(t *testing.T) {
 	}
 	if capturedUseOpts.Options != o.Options {
 		t.Error("defaultEnterWorkspace did not forward Options to UseWorkspaceOptions")
+	}
+}
+
+func TestPrintConnectionHintFormatsServerURL(t *testing.T) {
+	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
+	o := NewQuickstartOptions(streams)
+	o.serverURL = "https://192.168.0.5:6443"
+
+	o.printConnectionHint()
+
+	got := errOut.String()
+	if !strings.Contains(got, "Cannot reach kcp") {
+		t.Errorf("expected 'Cannot reach kcp' in stderr, got: %q", got)
+	}
+	if !strings.Contains(got, "Make sure kcp is running") {
+		t.Errorf("expected setup instructions in stderr, got: %q", got)
+	}
+	if !strings.Contains(got, "https://192.168.0.5:6443") {
+		t.Errorf("expected server URL in stderr, got: %q", got)
+	}
+}
+
+func TestRunPreservesErrorChainOnStepFailure(t *testing.T) {
+	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
+	o := NewQuickstartOptions(streams)
+	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.newKCPDynamicClient = func(_ *rest.Config) (kcpdynamic.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.ClientConfig = &fakeClientConfig{}
+
+	netErr := &net.OpError{
+		Op:  "dial",
+		Net: "tcp",
+		Err: fmt.Errorf("connection refused"),
+	}
+	o.scenario = &cleanupScenario{steps: []scenarios.Step{
+		{
+			Description: "step-A",
+			Execute:     func(_ context.Context, _ scenarios.ExecutionContext) error { return netErr },
+		},
+	}}
+
+	err := o.Run(context.Background())
+	if err == nil {
+		t.Fatal("expected error from failing step, got nil")
+	}
+
+	var got *net.OpError
+	if !errors.As(err, &got) {
+		t.Errorf("Run should preserve typed error chain; errors.As(err, *net.OpError) failed for %v", err)
+	} else if !errors.Is(got, netErr) {
+		t.Errorf("errors.As recovered a different error: got %v, want %v", got, netErr)
+	}
+
+	if !strings.Contains(errOut.String(), "Cannot reach kcp") {
+		t.Errorf("expected connection hint in stderr, got: %q", errOut.String())
+	}
+}
+
+func TestRunWithHintEmitsHintWhenServerUnreachable(t *testing.T) {
+	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
+	o := NewQuickstartOptions(streams)
+	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.newKCPDynamicClient = func(_ *rest.Config) (kcpdynamic.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.ClientConfig = &fakeClientConfig{}
+
+	connErr := &url.Error{
+		Op:  "Post",
+		URL: "https://localhost:6443/x",
+		Err: &net.OpError{
+			Op:  "dial",
+			Net: "tcp",
+			Err: os.NewSyscallError("connect", syscall.ECONNREFUSED),
+		},
+	}
+	o.scenario = &cleanupScenario{steps: []scenarios.Step{
+		{
+			Description: "step-A",
+			Execute: func(_ context.Context, _ scenarios.ExecutionContext) error {
+				return connErr
+			},
+		},
+	}}
+
+	err := o.Run(context.Background())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(errOut.String(), "Cannot reach kcp") {
+		t.Errorf("expected hint in stderr, got: %q", errOut.String())
+	}
+}
+
+func TestRunWithHintSuppressesHintWhenServerReachable(t *testing.T) {
+	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
+	o := NewQuickstartOptions(streams)
+	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.newKCPDynamicClient = func(_ *rest.Config) (kcpdynamic.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.ClientConfig = &fakeClientConfig{}
+	o.scenario = &cleanupScenario{steps: []scenarios.Step{
+		{
+			Description: "step-A",
+			Execute: func(_ context.Context, _ scenarios.ExecutionContext) error {
+				return errors.New("unauthorized")
+			},
+		},
+	}}
+
+	err := o.Run(context.Background())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if strings.Contains(errOut.String(), "Cannot reach kcp") {
+		t.Errorf("expected NO hint for a non-connection error, got: %q", errOut.String())
+	}
+}
+
+func TestRunWithHintSilentOnSuccess(t *testing.T) {
+	streams, _, _, errOut := genericiooptions.NewTestIOStreams()
+	o := NewQuickstartOptions(streams)
+	o.newKCPClusterClient = func(_ *rest.Config) (kcpclientset.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.newKCPDynamicClient = func(_ *rest.Config) (kcpdynamic.ClusterInterface, error) {
+		return nil, nil
+	}
+	o.ClientConfig = &fakeClientConfig{}
+	o.scenario = &mockScenario{}
+	o.Enter = false
+
+	if err := o.Run(context.Background()); err != nil {
+		t.Fatalf("Run(): %v", err)
+	}
+	if errOut.String() != "" {
+		t.Errorf("expected no stderr on success, got: %q", errOut.String())
+	}
+}
+
+func TestIsConnectionError(t *testing.T) {
+	wrapURL := func(cause error) error {
+		return fmt.Errorf("step 1/6 failed: %w", &url.Error{
+			Op:  "Post",
+			URL: "https://localhost:6443/clusters/root/apis",
+			Err: &net.OpError{Op: "dial", Net: "tcp", Err: cause},
+		})
+	}
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "connection refused",
+			err:  wrapURL(os.NewSyscallError("connect", syscall.ECONNREFUSED)),
+			want: true,
+		},
+		{
+			name: "timed out",
+			err:  wrapURL(os.NewSyscallError("connect", syscall.ETIMEDOUT)),
+			want: true,
+		},
+		{
+			name: "host unreachable",
+			err:  wrapURL(os.NewSyscallError("connect", syscall.EHOSTUNREACH)),
+			want: true,
+		},
+		{
+			name: "network unreachable",
+			err:  wrapURL(os.NewSyscallError("connect", syscall.ENETUNREACH)),
+			want: true,
+		},
+		{
+			name: "i/o timeout without syscall errno",
+			err:  fmt.Errorf("boom: %w", &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("i/o timeout")}),
+			want: true,
+		},
+		{
+			name: "DNS host not found",
+			err:  fmt.Errorf("boom: %w", &net.DNSError{Err: "no such host", Name: "nope.invalid", IsNotFound: true}),
+			want: true,
+		},
+		{
+			name: "nil error",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "auth error is not a connection error",
+			err:  errors.New(`the server has asked for the client to provide credentials (post workspaces.tenancy.kcp.io)`),
+			want: false,
+		},
+		{
+			name: "TLS/x509 error is not a connection error",
+			err:  errors.New(`x509: certificate signed by unknown authority`),
+			want: false,
+		},
+		{
+			name: "non-dial net.OpError (e.g. write on closed conn) is not treated as unreachable",
+			err:  &net.OpError{Op: "write", Net: "tcp", Err: errors.New("broken pipe")},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isConnectionError(tt.err); got != tt.want {
+				t.Errorf("isConnectionError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
 	}
 }
