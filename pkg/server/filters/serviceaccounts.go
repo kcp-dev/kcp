@@ -21,7 +21,7 @@ import (
 	"path"
 	"strings"
 
-	"gopkg.in/square/go-jose.v2/jwt"
+	"gopkg.in/go-jose/go-jose.v2/jwt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
