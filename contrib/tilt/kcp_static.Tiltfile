@@ -233,7 +233,11 @@ def _tls_route(name, hostname, service, port, cfg):
 
 def _kubeconfig(cfg, name, target):
     groups = ["system:masters"]
-    if name == "root":
+    if name in ("root", "frontproxy"):
+        # The front-proxy drops system:masters on ingress (see
+        # pkg/proxy/options/authentication.go DropGroups), so the admin
+        # kubeconfig that goes through it must carry system:kcp:admin
+        # or it arrives at the shard with no privileged groups at all.
         groups.append("system:kcp:admin")
     return {
         "apiVersion": "operator.kcp.io/v1alpha1",
@@ -294,6 +298,9 @@ def _defaults(base_domain, extra_shards):
         "route_version": "v1alpha3",
         "labels": ["kcp"],
         "kubeconfig_dir": "../..",
+        # Tilt resources the generated CRs should wait for (e.g. the caller's
+        # namespace resource) so a fresh cluster doesn't race "namespace not found".
+        "resource_deps": [],
     }
 
 
@@ -359,10 +366,21 @@ def deploy_kcp(base_domain = "kcp.localhost", extra_shards = [], **overrides):
     # perpetually in-progress and the resource would hang "pending" forever — blocking 
     # anything that depends on it.
     
-    k8s_resource("root", labels=cfg["labels"], pod_readiness="ignore")
-    k8s_resource("frontproxy", labels=cfg["labels"], pod_readiness="ignore")
+    # Explicitly claim each CR's objects (RootShard/Shard/FrontProxy + its TLSRoute
+    # + same-named Kubeconfig). Without this, Tilt's name-based auto-grouping is
+    # ambiguous (several objects share the name "root"/"frontproxy"), so the CRs
+    # spill into the dependency-less "uncategorized" catch-all and race the
+    # namespace on a fresh cluster ("namespace not found").
+    # Claim the CR + its TLSRoute (applied above). The same-named Kubeconfig is
+    # applied further down and auto-assigns to this resource by name, so it must
+    # NOT be listed here (it doesn't exist yet at this point in evaluation).
+    k8s_resource("root", labels=cfg["labels"], pod_readiness="ignore", resource_deps=cfg["resource_deps"],
+                 objects=["root:rootshard", "root:tlsroute"])
+    k8s_resource("frontproxy", labels=cfg["labels"], pod_readiness="ignore", resource_deps=cfg["resource_deps"],
+                 objects=["frontproxy:frontproxy", "front-proxy:tlsroute"])
     for name in cfg["extra_shards"]:
-        k8s_resource(name, labels=cfg["labels"], pod_readiness="ignore")
+        k8s_resource(name, labels=cfg["labels"], pod_readiness="ignore", resource_deps=cfg["resource_deps"],
+                     objects=[name + ":shard", name + ":tlsroute"])
 
     # Admin kubeconfigs.
     kcfgs = [
