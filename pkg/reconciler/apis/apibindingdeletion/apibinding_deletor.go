@@ -41,6 +41,11 @@ type gvrDeletionMetadata struct {
 type gvrDeletionMetadataTotal struct {
 	gvrToNumRemaining        map[schema.GroupVersionResource]int
 	finalizersToNumRemaining map[string]int
+	// gvrsWaitingForSuccessor are resources whose instances are intentionally
+	// not deleted per deletionPolicy=WaitForSuccessor. Their counts appear in
+	// gvrToNumRemaining so finalization is blocked until a successor adopts
+	// them (or the policy changes).
+	gvrsWaitingForSuccessor sets.Set[schema.GroupVersionResource]
 }
 
 func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.APIBinding) (gvrDeletionMetadataTotal, error) {
@@ -48,6 +53,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 	totalResourceRemaining := gvrDeletionMetadataTotal{
 		gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
 		finalizersToNumRemaining: map[string]int{},
+		gvrsWaitingForSuccessor:  sets.New[schema.GroupVersionResource](),
 	}
 
 	retained, err := c.retainedResources(logicalcluster.From(apibinding), apibinding)
@@ -62,11 +68,30 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 			case retainedAdopted:
 				logger.V(2).Info("not deleting instances of bound resource, adopted by another APIBinding",
 					"group", resource.Group, "resource", resource.Resource, "successor", r.successor)
-			case retainedOrphaned:
-				logger.Info("orphaning instances of bound resource per deletionPolicy=Orphan; they stay in storage until a binding with the same schema and identity binds the resource again",
+				continue
+			case retainedWaiting:
+				// Do not delete; count remaining instances so the finalizer is
+				// held until a successor adopts them. A resource with zero
+				// instances has nothing to hand over and does not block.
+				for _, version := range resource.StorageVersions {
+					gvr := schema.GroupVersionResource{Group: resource.Group, Resource: resource.Resource, Version: version}
+					if projection.Includes(gvr) {
+						continue
+					}
+					partialList, err := c.listResources(ctx, logicalcluster.From(apibinding).Path(), gvr)
+					if err != nil {
+						deleteContentErrs = append(deleteContentErrs, err)
+						continue
+					}
+					if len(partialList.Items) > 0 {
+						totalResourceRemaining.gvrToNumRemaining[gvr] = len(partialList.Items)
+						totalResourceRemaining.gvrsWaitingForSuccessor.Insert(gvr)
+					}
+				}
+				logger.V(2).Info("holding deletion of bound resource instances per deletionPolicy=WaitForSuccessor",
 					"group", resource.Group, "resource", resource.Resource)
+				continue
 			}
-			continue
 		}
 
 		for _, version := range resource.StorageVersions {

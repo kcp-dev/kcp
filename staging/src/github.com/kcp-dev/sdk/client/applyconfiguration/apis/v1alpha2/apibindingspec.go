@@ -38,9 +38,13 @@ type APIBindingSpecApplyConfiguration struct {
 	// this APIBinding is deleted and no other APIBinding adopts them.
 	//
 	// "Delete" (the default) deletes all instances of all bound resources.
-	// "Orphan" leaves them in storage; they become unreachable through the
-	// workspace API until an APIBinding binds the same group/resource with the
-	// same schema and identity again, at which point they reappear untouched.
+	// "WaitForSuccessor" holds the APIBinding's finalizer until every bound
+	// group/resource that still has instances gains a successor APIBinding to
+	// adopt them: the binding stays in deletion with condition
+	// BindingResourceDeleteSuccess=False, reason WaitingForSuccessor, and the
+	// instances remain in storage, covered by this binding, until the handover
+	// completes. Patch the policy back to "Delete" to let deletion proceed
+	// destructively.
 	//
 	// Independent of this policy, instances of a bound group/resource are never
 	// deleted if, at deletion time, another APIBinding in the workspace

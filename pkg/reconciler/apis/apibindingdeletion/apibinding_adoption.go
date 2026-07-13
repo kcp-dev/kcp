@@ -17,14 +17,15 @@ limitations under the License.
 package apibindingdeletion
 
 import (
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
-// retentionReason explains why instances of a bound resource are kept in
-// storage when their APIBinding is deleted.
+// retentionReason explains why instances of a bound resource are not deleted
+// when their APIBinding is deleted.
 type retentionReason string
 
 const (
@@ -34,10 +35,11 @@ const (
 	// they are served again as soon as it binds.
 	retainedAdopted retentionReason = "Adopted"
 
-	// retainedOrphaned means spec.deletionPolicy is Orphan and no successor
-	// exists. Instances stay in storage, unreachable until a binding with the
-	// same schema and identity binds the group/resource again.
-	retainedOrphaned retentionReason = "Orphaned"
+	// retainedWaiting means spec.deletionPolicy is WaitForSuccessor and no
+	// successor exists yet. Instances stay in storage, covered by the deleting
+	// binding, and the binding's finalizer is held until a successor appears
+	// (or the policy is changed back to Delete).
+	retainedWaiting retentionReason = "WaitingForSuccessor"
 )
 
 type retention struct {
@@ -49,13 +51,17 @@ type retention struct {
 // retainedResources decides, per bound group/resource, whether instances must
 // be kept in storage when the given APIBinding is deleted. Resources with a
 // verified successor are retained regardless of deletionPolicy; resources
-// without one are retained only under deletionPolicy=Orphan.
+// without one are retained (and block finalization) under
+// deletionPolicy=WaitForSuccessor.
+//
+// WaitForSuccessor degrades to Delete when the LogicalCluster itself is
+// deleting (or already gone): workspace teardown removes bindings as part of
+// removing all content, and waiting for a successor that can never come would
+// deadlock the workspace in Terminating.
 //
 // Successor verification is same-storage only: the successor's APIExport must
 // serve the group/resource through the same APIResourceSchema (by UID) with
-// the same identity hash. Lookups go through (possibly lagging) informers, so
-// a just-created successor can be missed; deletionPolicy=Orphan is the
-// belt-and-braces guard against that race.
+// the same identity hash.
 func (c *Controller) retainedResources(clusterName logicalcluster.Name, apibinding *apisv1alpha2.APIBinding) (map[schema.GroupResource]retention, error) {
 	retained := map[schema.GroupResource]retention{}
 
@@ -71,15 +77,27 @@ func (c *Controller) retainedResources(clusterName logicalcluster.Name, apibindi
 		candidates = append(candidates, b)
 	}
 
-	orphan := apibinding.Spec.DeletionPolicy == apisv1alpha2.APIBindingDeletionPolicyOrphan
+	wait := apibinding.Spec.DeletionPolicy == apisv1alpha2.APIBindingDeletionPolicyWaitForSuccessor
+	if wait {
+		lc, err := c.getLogicalCluster(clusterName)
+		switch {
+		case apierrors.IsNotFound(err):
+			wait = false
+		case err != nil:
+			return nil, err
+		case !lc.DeletionTimestamp.IsZero():
+			wait = false
+		}
+	}
+
 	for _, br := range apibinding.Status.BoundResources {
 		gr := schema.GroupResource{Group: br.Group, Resource: br.Resource}
 		if successor, ok := c.successorFor(clusterName, candidates, br); ok {
 			retained[gr] = retention{reason: retainedAdopted, successor: successor}
 			continue
 		}
-		if orphan {
-			retained[gr] = retention{reason: retainedOrphaned}
+		if wait {
+			retained[gr] = retention{reason: retainedWaiting}
 		}
 	}
 
@@ -101,8 +119,8 @@ func (c *Controller) successorFor(clusterName logicalcluster.Name, candidates []
 		export, err := c.getAPIExportByPath(path, b.Spec.Reference.Export.Name)
 		if err != nil {
 			// A candidate whose export cannot be resolved cannot be verified as
-			// same-storage; treating it as a successor would block deletion on
-			// dangling references forever.
+			// same-storage; with WaitForSuccessor the binding keeps waiting and
+			// re-evaluates, so a transient cache miss only delays the handover.
 			continue
 		}
 		if export.Status.IdentityHash != br.Schema.IdentityHash {

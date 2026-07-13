@@ -226,7 +226,7 @@ func TestConvertV1Alpha2APIBindings(t *testing.T) {
 						Name: "bar",
 					},
 				},
-				DeletionPolicy: APIBindingDeletionPolicyOrphan,
+				DeletionPolicy: APIBindingDeletionPolicyWaitForSuccessor,
 			},
 		},
 	}

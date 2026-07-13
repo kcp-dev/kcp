@@ -28,6 +28,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 )
 
 const (
@@ -105,17 +107,27 @@ func cowboysExport(name, identityHash, schemaName string) *apisv1alpha2.APIExpor
 	}
 }
 
+func liveLogicalCluster() *corev1alpha1.LogicalCluster {
+	return &corev1alpha1.LogicalCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        corev1alpha1.LogicalClusterName,
+			Annotations: map[string]string{logicalcluster.AnnotationKey: testCluster},
+		},
+	}
+}
+
 func TestRetainedResources(t *testing.T) {
 	t.Parallel()
 
 	cowboysGR := schema.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}
 
 	tests := []struct {
-		name     string
-		policy   apisv1alpha2.APIBindingDeletionPolicy
-		bindings []*apisv1alpha2.APIBinding
-		exports  map[string]*apisv1alpha2.APIExport
-		schemas  map[string]*apisv1alpha1.APIResourceSchema
+		name           string
+		policy         apisv1alpha2.APIBindingDeletionPolicy
+		bindings       []*apisv1alpha2.APIBinding
+		exports        map[string]*apisv1alpha2.APIExport
+		schemas        map[string]*apisv1alpha1.APIResourceSchema
+		logicalCluster *corev1alpha1.LogicalCluster
 
 		expectRetained  bool
 		expectReason    retentionReason
@@ -127,10 +139,21 @@ func TestRetainedResources(t *testing.T) {
 			expectRetained: false,
 		},
 		{
-			name:           "no successor, Orphan policy: retained as orphaned",
-			policy:         apisv1alpha2.APIBindingDeletionPolicyOrphan,
+			name:           "no successor, WaitForSuccessor policy: retained, waiting",
+			policy:         apisv1alpha2.APIBindingDeletionPolicyWaitForSuccessor,
 			expectRetained: true,
-			expectReason:   retainedOrphaned,
+			expectReason:   retainedWaiting,
+		},
+		{
+			name:   "WaitForSuccessor degrades to Delete when the LogicalCluster is deleting",
+			policy: apisv1alpha2.APIBindingDeletionPolicyWaitForSuccessor,
+			logicalCluster: func() *corev1alpha1.LogicalCluster {
+				lc := liveLogicalCluster()
+				now := metav1.Now()
+				lc.DeletionTimestamp = &now
+				return lc
+			}(),
+			expectRetained: false,
 		},
 		{
 			name:     "successor with same schema UID and identity: adopted regardless of policy",
@@ -188,11 +211,11 @@ func TestRetainedResources(t *testing.T) {
 			expectRetained: false,
 		},
 		{
-			name:           "successor export unresolvable: not adopted, Orphan still retains",
-			policy:         apisv1alpha2.APIBindingDeletionPolicyOrphan,
+			name:           "successor export unresolvable: not adopted, WaitForSuccessor keeps waiting",
+			policy:         apisv1alpha2.APIBindingDeletionPolicyWaitForSuccessor,
 			bindings:       []*apisv1alpha2.APIBinding{candidateBinding("cowboys", "cowboys")},
 			expectRetained: true,
-			expectReason:   retainedOrphaned,
+			expectReason:   retainedWaiting,
 		},
 	}
 
@@ -201,6 +224,10 @@ func TestRetainedResources(t *testing.T) {
 			t.Parallel()
 
 			deleting := deletingBinding(tt.policy)
+			lc := tt.logicalCluster
+			if lc == nil {
+				lc = liveLogicalCluster()
+			}
 			c := &Controller{
 				listAPIBindings: func(cluster logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
 					return append([]*apisv1alpha2.APIBinding{deleting}, tt.bindings...), nil
@@ -216,6 +243,9 @@ func TestRetainedResources(t *testing.T) {
 						return sch, nil
 					}
 					return nil, fmt.Errorf("APIResourceSchema %s|%s not found", cluster, name)
+				},
+				getLogicalCluster: func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+					return lc, nil
 				},
 			}
 
@@ -241,7 +271,7 @@ func TestRetainedResources(t *testing.T) {
 	}
 }
 
-func TestDeleteAllCRsSkipsRetained(t *testing.T) {
+func TestDeleteAllCRsSkipsAdopted(t *testing.T) {
 	t.Parallel()
 
 	deleting := deletingBinding(apisv1alpha2.APIBindingDeletionPolicyDelete)
@@ -256,6 +286,9 @@ func TestDeleteAllCRsSkipsRetained(t *testing.T) {
 		},
 		getAPIResourceSchema: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			return &apisv1alpha1.APIResourceSchema{ObjectMeta: metav1.ObjectMeta{Name: cowboySchemaName, UID: types.UID(cowboySchemaUID)}}, nil
+		},
+		getLogicalCluster: func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return liveLogicalCluster(), nil
 		},
 		listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 			return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{
@@ -277,5 +310,67 @@ func TestDeleteAllCRsSkipsRetained(t *testing.T) {
 	}
 	if len(remaining.gvrToNumRemaining) != 0 {
 		t.Errorf("adopted resources must not count as remaining (would block finalization), got %v", remaining.gvrToNumRemaining)
+	}
+	if remaining.gvrsWaitingForSuccessor.Len() != 0 {
+		t.Errorf("adopted resources must not be marked waiting, got %v", remaining.gvrsWaitingForSuccessor)
+	}
+}
+
+func TestDeleteAllCRsWaitsForSuccessor(t *testing.T) {
+	t.Parallel()
+
+	deleting := deletingBinding(apisv1alpha2.APIBindingDeletionPolicyWaitForSuccessor)
+	cowboysGVR := schema.GroupVersionResource{Group: "wildwest.dev", Resource: "cowboys", Version: "v1alpha1"}
+
+	deleted := map[schema.GroupVersionResource]bool{}
+	c := &Controller{
+		listAPIBindings: func(cluster logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return []*apisv1alpha2.APIBinding{deleting}, nil
+		},
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return nil, fmt.Errorf("no exports")
+		},
+		getAPIResourceSchema: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			return nil, fmt.Errorf("no schemas")
+		},
+		getLogicalCluster: func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return liveLogicalCluster(), nil
+		},
+		listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
+			return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{
+				*newPartialObject("wildwest.dev/v1alpha1", "Cowboy", "luke", "saloon", nil),
+			}}, nil
+		},
+		deleteResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource, namespace string) error {
+			deleted[gvr] = true
+			return nil
+		},
+	}
+
+	remaining, err := c.deleteAllCRs(context.Background(), deleting)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(deleted) != 0 {
+		t.Errorf("expected no deletions under WaitForSuccessor, got %v", deleted)
+	}
+	if got := remaining.gvrToNumRemaining[cowboysGVR]; got != 1 {
+		t.Errorf("expected 1 remaining instance for %v (blocks finalization), got %d", cowboysGVR, got)
+	}
+	if !remaining.gvrsWaitingForSuccessor.Has(cowboysGVR) {
+		t.Errorf("expected %v to be marked waiting for successor, got %v", cowboysGVR, remaining.gvrsWaitingForSuccessor)
+	}
+
+	// the status mutation must hold the finalizer with the WaitingForSuccessor reason
+	mutated, mutateErr := c.mutateResourceRemainingStatus(remaining, deleting.DeepCopy())
+	if mutateErr == nil {
+		t.Fatalf("expected a ResourcesRemainingError to keep the finalizer held")
+	}
+	cond := conditions.Get(mutated, apisv1alpha2.BindingResourceDeleteSuccess)
+	if cond == nil {
+		t.Fatalf("missing condition %s", apisv1alpha2.BindingResourceDeleteSuccess)
+	}
+	if cond.Reason != WaitingForSuccessorReason {
+		t.Errorf("expected condition reason %q, got %q", WaitingForSuccessorReason, cond.Reason)
 	}
 }
