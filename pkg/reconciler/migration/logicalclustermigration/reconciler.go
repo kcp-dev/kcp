@@ -174,7 +174,12 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 	// be safe.
 	c.ddsif.PurgeCluster(lcName)
 
-	if err := c.copyDataFromOrigin(ctx, lcName, migration.Status.OriginShard); err != nil {
+	// Copy one page of data per reconcile. status.dumpContinue and
+	// status.entriesCopied are persisted after every call, so a shard
+	// restart resumes from the last completed page instead of starting
+	// the copy over.
+	copied, nextContinue, err := c.copyPageFromOrigin(ctx, lcName, migration.Status.OriginShard, migration.Status.DumpContinue)
+	if err != nil {
 		conditions.MarkFalse(
 			migration,
 			migrationv1alpha1.LCMigrationDataCopied,
@@ -184,13 +189,45 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 		)
 		return true, err
 	}
+	requeue := applyDumpPageResult(migration, copied, nextContinue)
+	if requeue {
+		logger.V(2).Info("copied data page, more remaining", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
+	} else {
+		// Copy is done, drop the cached origin client for this migration
+		// rather than keeping its HTTP transport around indefinitely.
+		c.evictOriginClient(lcName, migration.Status.OriginShard)
+		logger.V(2).Info("data copied, transitioning to OriginCleanup", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
+	}
+	return requeue, nil
+}
 
-	// Transition to OriginCleanup.
+// applyDumpPageResult records the result of copying one LogicalClusterDump
+// page onto migration.Status and reports whether reconcileMigrating should
+// requeue for another page.
+//
+// status.entriesCopied and status.dumpContinue are updated unconditionally,
+// so they're persisted by the controller's commit step after every
+// reconcile - including ones where the shard is about to be restarted -
+// letting the next reconcile resume from status.dumpContinue instead of
+// restarting the copy.
+//
+// A page only reaches this function once it has been copied successfully,
+// so any CopyFailed condition left over from an earlier failed attempt on
+// this migration no longer applies and is cleared here - otherwise it
+// would stay stuck at False while later pages keep succeeding, right up
+// until the copy happens to finish.
+func applyDumpPageResult(migration *migrationv1alpha1.LogicalClusterMigration, copied int64, nextContinue string) (requeue bool) {
+	migration.Status.EntriesCopied += copied
+	migration.Status.DumpContinue = nextContinue
+	conditions.Delete(migration, migrationv1alpha1.LCMigrationDataCopied)
+
+	if nextContinue != "" {
+		return true
+	}
+
 	conditions.MarkTrue(migration, migrationv1alpha1.LCMigrationDataCopied)
 	migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup
-
-	logger.V(2).Info("data copied, transitioning to OriginCleanup", "logicalCluster", lcName)
-	return false, nil
+	return false
 }
 
 func (c *Controller) reconcileOriginCleanup(ctx context.Context, migration *migrationv1alpha1.LogicalClusterMigration) (bool, error) {

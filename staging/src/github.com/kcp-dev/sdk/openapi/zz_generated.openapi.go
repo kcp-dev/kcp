@@ -4197,8 +4197,31 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LogicalClusterDumpSpec is the desired state for a dump request.\n\nThe logical cluster to dump is taken from the request's cluster context (i.e. the URL the request arrived on). No fields are required today.",
+				Description: "LogicalClusterDumpSpec is the desired state for a dump request.\n\nThe logical cluster to dump is taken from the request's cluster context (i.e. the URL the request arrived on).",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "continue is the token returned by a previous LogicalClusterDump's status.continue. If set, the scan resumes right after the last key returned by that page. If empty, the scan starts from the beginning of the logical cluster's etcd keyspace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "limit caps the number of entries returned in a single page. If zero, the server picks a default page size.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"maxBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "maxBytes caps the total size, in bytes, of entry values returned in a single page. The scan stops and returns a continue token as soon as this budget is exceeded, even if limit hasn't been reached yet. If zero, the server picks a default byte budget.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -4213,7 +4236,7 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref common.Refe
 				Properties: map[string]spec.Schema{
 					"entries": {
 						SchemaProps: spec.SchemaProps{
-							Description: "entries is the full set of etcd key/value pairs belonging to the logical cluster, in the origin shard's etcd encoding (proto for built-ins, JSON for CRs).\n\nbecomes a concern.",
+							Description: "entries is the page of etcd key/value pairs belonging to the logical cluster, in the origin shard's etcd encoding (proto for built-ins, JSON for CRs).",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4223,6 +4246,13 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref common.Refe
 									},
 								},
 							},
+						},
+					},
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "continue is set when there are more entries to fetch. Pass it as spec.continue on the next LogicalClusterDump request to get the next page. Empty means this was the last page.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -4376,6 +4406,20 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref common
 					"originShard": {
 						SchemaProps: spec.SchemaProps{
 							Description: "originShard is the name of the shard to migrate the logical cluster from. Set by the origin shard controller during preparation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"entriesCopied": {
+						SchemaProps: spec.SchemaProps{
+							Description: "entriesCopied is the number of etcd entries copied from the origin shard to the destination shard so far during the Migrating phase.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"dumpContinue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "dumpContinue is the continue token for the next LogicalClusterDump page to fetch from the origin shard. Set by the destination shard controller as it works through the data copy, and cleared once the copy is complete. Used to resume the copy from where it left off after a destination shard restart, instead of starting over.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

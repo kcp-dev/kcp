@@ -131,9 +131,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	logger.V(2).Info("dumping logical cluster from etcd", "cluster", cluster.Name)
+	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", cluster.Name, "continue", dump.Spec.Continue)
 
-	entries, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdStoragePrefix, cluster.Name)
+	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes)
 	if err != nil {
 		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to dump logical cluster: %w", err)))
 		return
@@ -146,7 +146,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 		ObjectMeta: dump.ObjectMeta,
 		Status: migrationv1alpha1.LogicalClusterDumpStatus{
-			Entries: entries,
+			Entries:  entries,
+			Continue: nextContinue,
 		},
 	}
 
@@ -157,53 +158,76 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// scanEtcdEntries returns every etcd key/value pair belonging to the given
-// logical cluster.
+// scanEtcdEntries returns a single page of etcd key/value pairs belonging
+// to the given logical cluster, resuming right after continueToken if set.
 //
-// TODO: stream entries as NDJSON so the response doesn't have to be buffered
-// in memory.
+// The page stops growing once it holds limit entries or once adding another
+// entry would push the accumulated value size past maxBytes, whichever
+// happens first (a single entry larger than maxBytes is still returned
+// alone, so the scan always makes progress). If limit or maxBytes is zero
+// or negative, a default is used.
 //
-// TODO: paginate via spec.Continue / status.Continue so a single dump call
-// doesn't have to hold all keys in memory.
-func scanEtcdEntries(ctx context.Context, etcdClient *clientv3.Client, storagePrefix string, target logicalcluster.Name) ([]migrationv1alpha1.EtcdEntry, error) {
+// The second return value is the continue token for the next page, or the
+// empty string if the scan reached the end of the logical cluster's
+// keyspace.
+func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, target logicalcluster.Name, continueToken string, limit, maxBytes int64) ([]migrationv1alpha1.EtcdEntry, string, error) {
 	prefix := storagePrefix
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
 
-	var entries []migrationv1alpha1.EtcdEntry
+	if limit <= 0 {
+		limit = kcpetcd.ScanPageSize
+	}
+	if maxBytes <= 0 {
+		maxBytes = kcpetcd.DumpMaxBytes
+	}
+
 	key := prefix
+	if continueToken != "" {
+		key = prefix + strings.TrimPrefix(continueToken, "/")
+	}
+
+	// Cap the raw etcd scan chunk size at the caller's requested page
+	// limit (but never above ScanPageSize) so a small page request
+	// doesn't pull more keys from etcd than it can possibly use.
+	etcdScanLimit := limit
+	if etcdScanLimit > kcpetcd.ScanPageSize {
+		etcdScanLimit = kcpetcd.ScanPageSize
+	}
+
+	var entries []migrationv1alpha1.EtcdEntry
+	var totalBytes int64
 	for {
-		resp, err := etcdClient.Get(ctx, key,
+		resp, err := kv.Get(ctx, key,
 			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
-			clientv3.WithLimit(kcpetcd.ScanPageSize),
+			clientv3.WithLimit(etcdScanLimit),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list etcd keys: %w", err)
+			return nil, "", fmt.Errorf("failed to list etcd keys: %w", err)
 		}
 
-		for _, kv := range resp.Kvs {
+		for _, entry := range resp.Kvs {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, "", err
 			}
-			// TODO(ntnn): This isn't super efficient. For large LCs
-			// this will re-parse thousands of keys. It would be better
-			// to cache the known-good prefixes and to continue from
-			// there, however considering that this should move towards
-			// pagination or streaming it seems like premature
-			// optimization. Just something to keep in mind when working
-			// on this.
-			if !kcpetcd.BelongsToCluster(prefix, string(kv.Key), target) {
+			if !kcpetcd.BelongsToCluster(prefix, string(entry.Key), target) {
 				continue
 			}
+
+			if int64(len(entries)) >= limit || (len(entries) > 0 && totalBytes+int64(len(entry.Value)) > maxBytes) {
+				return entries, strings.TrimPrefix(string(entry.Key), prefix), nil
+			}
+
 			entries = append(entries, migrationv1alpha1.EtcdEntry{
-				Key:   strings.TrimPrefix(string(kv.Key), prefix),
-				Value: append([]byte(nil), kv.Value...),
+				Key:   strings.TrimPrefix(string(entry.Key), prefix),
+				Value: append([]byte(nil), entry.Value...),
 			})
+			totalBytes += int64(len(entry.Value))
 		}
 
 		if !resp.More {
-			return entries, nil
+			return entries, "", nil
 		}
 		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 	}

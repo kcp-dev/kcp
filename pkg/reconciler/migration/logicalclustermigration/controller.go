@@ -19,6 +19,7 @@ package logicalclustermigration
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -42,6 +43,7 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
+	kcpsdkclient "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	migrationv1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
@@ -109,7 +111,9 @@ func NewController(
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
+		originClients: make(map[originClientKey]kcpsdkclient.Interface),
 	}
+	c.copyPageFromOrigin = c.copyPageFromOriginViaHTTP
 
 	// Events are queued from the cache server as that is used to
 	// coordinate the migration between the participating shards.
@@ -151,6 +155,27 @@ type Controller struct {
 	getAPIExportByPath   func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getAPIResourceSchema func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
 	getCRD               func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+
+	// copyPageFromOrigin fetches and writes a single page of a
+	// LogicalClusterDump. Extracted as a field (defaulting to
+	// copyPageFromOriginViaHTTP) so reconcileMigrating's pagination and
+	// requeue logic can be unit-tested without a live origin shard.
+	copyPageFromOrigin func(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (int64, string, error)
+
+	// originClientsMu guards originClients.
+	originClientsMu sync.Mutex
+	// originClients caches one client per (origin shard, logical cluster)
+	// pair so a paginated copy reuses the same underlying HTTP transport
+	// and connection pool across pages, instead of building a new one
+	// per page.
+	originClients map[originClientKey]kcpsdkclient.Interface
+}
+
+// originClientKey identifies a cached origin client for one migration's
+// data copy.
+type originClientKey struct {
+	originShardName string
+	lcName          logicalcluster.Name
 }
 
 func (c *Controller) enqueue(obj interface{}) {

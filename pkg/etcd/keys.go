@@ -25,6 +25,11 @@ import (
 // ScanPageSize is the page size used in etcd range scans.
 const ScanPageSize int64 = 1000
 
+// DumpMaxBytes is the default cap on the total size of entry values
+// returned in a single LogicalClusterDump page, used when the request
+// doesn't specify spec.maxBytes.
+const DumpMaxBytes int64 = 2 * 1024 * 1024
+
 // KeyParts holds the parsed components of an etcd key produced by SplitKey.
 type KeyParts struct {
 	Group    string

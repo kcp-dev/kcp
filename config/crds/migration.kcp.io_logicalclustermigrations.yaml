@@ -29,6 +29,10 @@ spec:
       jsonPath: .spec.destinationShard
       name: Destination
       type: string
+    - description: Number of etcd entries copied so far
+      jsonPath: .status.entriesCopied
+      name: Entries Copied
+      type: integer
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -119,6 +123,20 @@ spec:
                   - type
                   type: object
                 type: array
+              dumpContinue:
+                description: |-
+                  dumpContinue is the continue token for the next LogicalClusterDump
+                  page to fetch from the origin shard. Set by the destination shard
+                  controller as it works through the data copy, and cleared once the
+                  copy is complete. Used to resume the copy from where it left off
+                  after a destination shard restart, instead of starting over.
+                type: string
+              entriesCopied:
+                description: |-
+                  entriesCopied is the number of etcd entries copied from the origin
+                  shard to the destination shard so far during the Migrating phase.
+                format: int64
+                type: integer
               originShard:
                 description: |-
                   originShard is the name of the shard to migrate the logical cluster from.

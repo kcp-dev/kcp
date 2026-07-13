@@ -172,15 +172,26 @@ func TestFullMigration(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create LogicalClusterMigration")
 
 	t.Logf("Waiting for migration to complete")
+	var completedMigration *migrationv1alpha1.LogicalClusterMigration
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		migration, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Get(t.Context(), lcm.Name, metav1.GetOptions{})
 		require.NoError(c, err)
-		t.Logf("migration phase: %q", migration.Status.Phase)
+		t.Logf("migration phase: %q, entriesCopied: %d", migration.Status.Phase, migration.Status.EntriesCopied)
 		t.Logf("migration conditions: %#v", migration.Status.Conditions)
 		require.Equal(c, migrationv1alpha1.LogicalClusterMigrationPhaseCompleted, migration.Status.Phase)
+		completedMigration = migration
 	}, wait.ForeverTestTimeout, 500*time.Millisecond, "waiting for migration to complete")
 
 	t.Logf("Migration completed, running post-migration tests")
+
+	// The paginated dump copy should have made progress and left no
+	// dangling continue token once the copy finished.
+	t.Run("DumpProgressReporting", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Positive(t, completedMigration.Status.EntriesCopied, "status.entriesCopied should reflect the copied etcd entries")
+		assert.Empty(t, completedMigration.Status.DumpContinue, "status.dumpContinue should be cleared once the copy is complete")
+	})
 
 	// Test that a client can access the lc after the migration.
 	t.Run("ClientAccess", func(t *testing.T) {

@@ -6,12 +6,12 @@ spec:
   resources:
   - group: migration.kcp.io
     name: logicalclusterdumps
-    schema: v260604-70219e163.logicalclusterdumps.migration.kcp.io
+    schema: v260702-7381341f5.logicalclusterdumps.migration.kcp.io
     storage:
       crd: {}
   - group: migration.kcp.io
     name: logicalclustermigrations
-    schema: v260604-70219e163.logicalclustermigrations.migration.kcp.io
+    schema: v260702-7381341f5.logicalclustermigrations.migration.kcp.io
     storage:
       crd: {}
 status: {}
