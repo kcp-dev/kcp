@@ -31,21 +31,12 @@ Before initiating a migration, ensure that:
 - The `LogicalClusterMigration` feature gate is enabled on all participating shards and the cache
   server
 - The `migration.kcp.io` API is bound in the workspace where you want to create the
-  `LogicalClusterMigration` resource (typically the parent of the workspace being migrated)
-- No other migration is currently in progress for the same logical cluster
+  `LogicalClusterMigration` resource
 
 ## Migration Process
 
-The migration proceeds through several phases:
-
-| Phase | Description |
-|-------|-------------|
-| `Preparing` | Origin shard marks the logical cluster as migrating, cancels active connections, and purges informer caches |
-| `Migrating` | Destination shard pulls all etcd data from the origin via the migration virtual workspace |
-| `OriginCleanup` | Origin shard deletes all etcd data belonging to the logical cluster |
-| `DestinationFinalize` | Destination shard removes the migration annotation and updates informers |
-| `Completed` | Migration finished successfully |
-| `Failed` | Migration encountered an unrecoverable error |
+The migration proceeds through several phases, for example from `Preparing` over `Migrating` to
+`Completed`. Please see the [in-code documentation](https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/migration/logicalclustermigration/doc.go) for more information.
 
 ## Initiating a Migration
 
