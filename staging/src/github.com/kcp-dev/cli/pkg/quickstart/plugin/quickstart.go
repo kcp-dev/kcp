@@ -18,13 +18,29 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
+	"net/url"
+	"syscall"
 
 	"github.com/kcp-dev/cli/pkg/quickstart/scenarios"
 )
 
 // Run executes the quickstart scenario, creating all resources step by step, or cleaning them up if --cleanup is set.
 func (o *QuickstartOptions) Run(ctx context.Context) error {
+	return o.runWithHint(ctx)
+}
+
+func (o *QuickstartOptions) runWithHint(ctx context.Context) error {
+	err := o.runCore(ctx)
+	if err != nil && o.serverURL != "" && isConnectionError(err) {
+		o.printConnectionHint()
+	}
+	return err
+}
+
+func (o *QuickstartOptions) runCore(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, o.Timeout)
 	defer cancel()
 
@@ -91,6 +107,12 @@ func (o *QuickstartOptions) buildExecutionContext() (scenarios.ExecutionContext,
 		return scenarios.ExecutionContext{}, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
+	u, err := url.Parse(config.Host)
+	if err != nil {
+		return scenarios.ExecutionContext{}, fmt.Errorf("parsing server URL: %w", err)
+	}
+	o.serverURL = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+
 	return scenarios.ExecutionContext{
 		KCPClusterClient: kcpClusterClient,
 		DynamicClient:    dynamicClient,
@@ -98,4 +120,39 @@ func (o *QuickstartOptions) buildExecutionContext() (scenarios.ExecutionContext,
 		ErrOut:           o.ErrOut,
 		State:            make(map[string]string),
 	}, nil
+}
+
+func (o *QuickstartOptions) printConnectionHint() {
+	fmt.Fprintf(o.ErrOut,
+		"\nCannot reach kcp at %s.\n"+
+			"Make sure kcp is running. To start it:\n"+
+			"  kcp start --bind-address=127.0.0.1\n\n"+
+			"Then set your kubeconfig:\n"+
+			"  export KUBECONFIG=.kcp/admin.kubeconfig\n\n"+
+			"Download kcp from: https://github.com/kcp-dev/kcp/releases\n\n",
+		o.serverURL,
+	)
+}
+
+func isConnectionError(err error) bool {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+
+	var opErr *net.OpError
+	if !errors.As(err, &opErr) {
+		return false
+	}
+
+	var errno syscall.Errno
+	if errors.As(opErr, &errno) {
+		switch {
+		case errors.Is(errno, syscall.ECONNREFUSED), errors.Is(errno, syscall.ETIMEDOUT), errors.Is(errno, syscall.EHOSTUNREACH), errors.Is(errno, syscall.ENETUNREACH):
+			return true
+		}
+	}
+
+	// a dial that failed before producing a syscall errno (e.g. i/o timeout surfaced as a bare net error) is still a connection failure.
+	return opErr.Op == "dial"
 }

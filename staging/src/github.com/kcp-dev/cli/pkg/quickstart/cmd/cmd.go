@@ -46,6 +46,9 @@ func New(streams genericclioptions.IOStreams) *cobra.Command {
 			                 performance testing the workspace control plane.
 			                 Tune with --tree-depth, --tree-count, --tree-seed.
 
+			Requires a running kcp instance. Download from
+			https://github.com/kcp-dev/kcp/releases.
+
 			Use --cleanup to tear down all resources created by a previous run.
 		`),
 		SilenceUsage: true,
