@@ -43,7 +43,6 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
-	kcpsdkclient "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	migrationv1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
@@ -111,7 +110,7 @@ func NewController(
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return crdInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		originClients: make(map[originClientKey]kcpsdkclient.Interface),
+		originClients: make(map[string]*originClientEntry),
 	}
 	c.copyPageFromOrigin = c.copyPageFromOriginViaHTTP
 
@@ -164,18 +163,21 @@ type Controller struct {
 
 	// originClientsMu guards originClients.
 	originClientsMu sync.Mutex
-	// originClients caches one client per (origin shard, logical cluster)
-	// pair so a paginated copy reuses the same underlying HTTP transport
-	// and connection pool across pages, instead of building a new one
-	// per page.
-	originClients map[originClientKey]kcpsdkclient.Interface
+	// originClients caches one client per origin shard, shared by every
+	// concurrent migration copying data from that shard, so they reuse
+	// the same underlying HTTP transport and connection pool instead of
+	// each building their own. Entries are refcounted (see
+	// originClientEntry) and only torn down once no migration is using
+	// them anymore.
+	originClients map[string]*originClientEntry
 }
 
-// originClientKey identifies a cached origin client for one migration's
-// data copy.
-type originClientKey struct {
-	originShardName string
-	lcName          logicalcluster.Name
+// originClientEntry is a refcounted, shared client for one origin shard.
+// refs tracks which logical clusters currently have a migration actively
+// copying data from this shard; the entry is dropped once refs is empty.
+type originClientEntry struct {
+	client kcpclientset.ClusterInterface
+	refs   map[logicalcluster.Name]struct{}
 }
 
 func (c *Controller) enqueue(obj interface{}) {

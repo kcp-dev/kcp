@@ -193,9 +193,11 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 	if requeue {
 		logger.V(2).Info("copied data page, more remaining", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
 	} else {
-		// Copy is done, drop the cached origin client for this migration
-		// rather than keeping its HTTP transport around indefinitely.
-		c.evictOriginClient(lcName, migration.Status.OriginShard)
+		// Copy is done, release this migration's hold on the origin
+		// shard's shared client. It's only actually torn down once no
+		// other concurrent migration from the same origin shard is still
+		// using it.
+		c.releaseOriginClient(lcName, migration.Status.OriginShard)
 		logger.V(2).Info("data copied, transitioning to OriginCleanup", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
 	}
 	return requeue, nil
