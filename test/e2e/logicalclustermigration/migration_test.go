@@ -846,13 +846,30 @@ func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		// Migrating the provider logical cluster to another shard severs the
+		// pre-migration watch stream: a raw watch cannot follow the data across
+		// shards the way a reflector relists. Re-establish the watch when it
+		// closes (starting from resourceVersion "0" so the VW replays the
+		// current state) and assert that events keep flowing via the VW after
+		// the migration, exactly as the sibling informer does.
+		// We need this as generated clients don't have a way to re-establish watches automatically.
+		// In production users should use informers or dynamic (controller-runtime) clients that do this automatically.
+		watcher := vwWatcher
 		for {
 			select {
 			case <-t.Context().Done():
 				t.Fatal("test context closed while waiting for VW watch event")
-			case event, ok := <-vwWatcher.ResultChan():
+			case event, ok := <-watcher.ResultChan():
 				if !ok {
-					t.Fatal("VW watch closed unexpectedly after provider migration")
+					w, err := wildwestVWClient.WildwestV1alpha1().Cowboys().Watch(t.Context(), metav1.ListOptions{ResourceVersion: "0"})
+					if err != nil {
+						t.Logf("re-establishing VW watch after migration failed, retrying: %v", err)
+						time.Sleep(100 * time.Millisecond)
+						continue
+					}
+					watcher = w
+					t.Cleanup(watcher.Stop)
+					continue
 				}
 				if event.Type == watch.Error {
 					continue
