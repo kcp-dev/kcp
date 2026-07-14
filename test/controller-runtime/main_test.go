@@ -1,0 +1,71 @@
+/*
+Copyright 2026 The kcp Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controllerruntime
+
+import (
+	"errors"
+	"flag"
+	"path/filepath"
+
+	cliflag "k8s.io/component-base/cli/flag"
+
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcptesting "github.com/kcp-dev/sdk/testing"
+	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+)
+
+// This mirrors the flag wiring in test/e2e/framework so that the same
+// --kcp-kubeconfig / --shard-kubeconfigs flags the Makefile passes are
+// understood here, and so that kcptesting.SharedKcpServer targets the external
+// shared server. It is duplicated (rather than imported from the framework)
+// because this is a separate Go module that deliberately avoids the framework's
+// heavyweight dependency tree.
+var testConfig = struct {
+	kcpKubeconfig       string
+	shardKubeconfigs    map[string]string
+	useDefaultKCPServer bool
+}{}
+
+func complete() {
+	if testConfig.useDefaultKCPServer && len(testConfig.kcpKubeconfig) > 0 {
+		panic(errors.New("only one of --use-default-kcp-server and --kcp-kubeconfig should be set"))
+	}
+	if testConfig.useDefaultKCPServer {
+		repo, err := kcptestinghelpers.RepositoryDir()
+		if err != nil {
+			panic(err)
+		}
+		testConfig.kcpKubeconfig = filepath.Join(repo, ".kcp", "admin.kubeconfig")
+	}
+	if len(testConfig.kcpKubeconfig) > 0 && len(testConfig.shardKubeconfigs) == 0 {
+		testConfig.shardKubeconfigs = map[string]string{corev1alpha1.RootShard: testConfig.kcpKubeconfig}
+	}
+}
+
+func init() {
+	flag.StringVar(&testConfig.kcpKubeconfig, "kcp-kubeconfig", "", "Path to the kubeconfig for a kcp server.")
+	flag.Var(cliflag.NewMapStringString(&testConfig.shardKubeconfigs), "shard-kubeconfigs", "Paths to the kubeconfigs for a kcp shard server in the format <shard-name>=<kubeconfig-path>. If unset, kcp-kubeconfig is used.")
+	flag.BoolVar(&testConfig.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
+	// Accepted for parity with the e2e harness (the Makefile may pass --suites);
+	// this module does not gate on suites, so the value is ignored.
+	_ = flag.String("suites", "control-plane,cli", "A comma-delimited list of suites to run.")
+
+	kcptesting.InitExternalServer(func() (string, map[string]string) {
+		complete()
+		return testConfig.kcpKubeconfig, testConfig.shardKubeconfigs
+	})
+}

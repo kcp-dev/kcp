@@ -266,3 +266,34 @@ presubmits:
             requests:
               memory: 6Gi
               cpu: 4
+
+  # Runs the controller-runtime test module (test/controller-runtime, a separate
+  # Go module that keeps sigs.k8s.io/controller-runtime out of the root go.mod)
+  # against a 2-shard server.
+  - name: pull-kcp-test-e2e-sharded-controller-runtime
+    decorate: true
+    optional: true
+    # only run e2e tests if code changed.
+    run_if_changed: "(cmd|config|pkg|staging|test|go.mod|go.sum|Makefile|.prow.yaml)"
+    clone_uri: "https://github.com/kcp-dev/kcp"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+          command:
+            - ./hack/run-with-prow.sh
+            - ./hack/run-with-prometheus.sh
+            - make
+            - test-e2e-sharded-controller-runtime
+          env:
+            - name: USE_GOTESTSUM
+              value: "1"
+            - name: KUBE_CACHE_MUTATION_DETECTOR
+              value: "1"
+            - name: E2E_PARALLELISM
+              value: "3"
+          resources:
+            requests:
+              memory: 6Gi
+              cpu: 4
