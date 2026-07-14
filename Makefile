@@ -385,6 +385,35 @@ test-e2e-sharded-minimal: build-e2e
 		$(SUITES_ARG) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
+# Runs the controller-runtime test module (test/controller-runtime, a separate Go
+# module so sigs.k8s.io/controller-runtime stays out of the root go.mod) against a
+# freshly brought-up 2-shard server. Mirrors test-e2e-sharded-minimal; only the
+# final `go test` differs (it runs inside the submodule). WORK_DIR is absolute
+# ($(PWD)), so the kubeconfig paths remain valid after cd-ing into the module.
+.PHONY: test-e2e-sharded-controller-runtime
+ifdef USE_GOTESTSUM
+test-e2e-sharded-controller-runtime: $(GOTESTSUM)
+endif
+test-e2e-sharded-controller-runtime: TEST_ARGS ?=
+test-e2e-sharded-controller-runtime: WORK_DIR ?= $(PWD)
+test-e2e-sharded-controller-runtime: SHARDS ?= 2
+ifdef ARTIFACT_DIR
+test-e2e-sharded-controller-runtime: LOG_DIR ?= $(ARTIFACT_DIR)/kcp
+else
+test-e2e-sharded-controller-runtime: LOG_DIR ?= $(WORK_DIR)/.kcp
+endif
+test-e2e-sharded-controller-runtime: build-e2e
+	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
+	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
+	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
+	echo 'Starting test(s)' && \
+	cd $(ROOT_DIR)/test/controller-runtime && NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) $(PARALLELISM_ARG) ./... $(TEST_ARGS) \
+		-args --kcp-kubeconfig=$(WORK_DIR)/.kcp/admin.kubeconfig --shard-kubeconfigs=root=$(WORK_DIR)/.kcp-0/admin.kubeconfig$(shell if [ $(SHARDS) -gt 1 ]; then seq 1 $$[$(SHARDS) - 1]; fi | while read n; do echo -n ",shard-$$n=$(WORK_DIR)/.kcp-$$n/admin.kubeconfig"; done) \
+		$(SUITES_ARG) \
+	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
+
 # Same as test-e2e-sharded-minimal, but each shard runs its own embedded virtual
 # workspace server (--shard-run-virtual-workspaces=true) instead of a single
 # standalone VW server in front of all shards. This matches deployments where the
@@ -441,7 +470,7 @@ test: ## Run tests
 	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
 		if [ "$$MOD" != "." ]; then \
 			echo "Testing $$MOD module..."; \
-			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v 'test/load/testing')); \
+			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/load/testing' -e 'test/controller-runtime')); \
 		fi; \
 	done
 
