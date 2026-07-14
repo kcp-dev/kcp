@@ -4798,6 +4798,69 @@ of this version of the custom resource.</p>
 
 <div class="property depth-3">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.versions[*].selectableFields">.spec.versions[*].selectableFields</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>selectableFields specifies paths to fields that may be used as field selectors.
+A maximum of 8 selectable fields are allowed.
+See <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors">https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors</a></p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.versions[*].selectableFields[*]">.spec.versions[*].selectableFields[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>SelectableField specifies the JSON path of a field that may be used with field selectors.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.versions[*].selectableFields[*].jsonPath">.spec.versions[*].selectableFields[*].jsonPath</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>jsonPath is a simple JSON path which is evaluated against each custom resource to produce a
+field selector value.
+Only JSON paths without the array notation are allowed.
+Must point to a field of type string, boolean or integer. Types with enum values
+and strings with formats are allowed.
+If jsonPath refers to absent field in a resource, the jsonPath evaluates to an empty string.
+Must not point to metdata fields.
+Required.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha1-.spec.versions[*].served">.spec.versions[*].served</h3>
 </div>
 <div class="property-body">
