@@ -468,9 +468,9 @@ test: WHAT ?= ./...
 test: ## Run tests
 	$(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/e2e' -e 'test/integration')
 	for MOD in $$(git ls-files '**/go.mod' | sed 's,/go.mod,,'); do \
-		if [ "$$MOD" != "." ]; then \
+		if [ "$$MOD" != "." ] && [ "$$MOD" != "test/controller-runtime" ]; then \
 			echo "Testing $$MOD module..."; \
-			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v -e 'test/load/testing' -e 'test/controller-runtime')); \
+			(cd $$MOD && $(GO_TEST) -race $(COUNT_ARG) -coverprofile=coverage.txt -covermode=atomic $(TEST_ARGS) $$(go list "$(WHAT)" | grep -v 'test/load/testing')); \
 		fi; \
 	done
 
