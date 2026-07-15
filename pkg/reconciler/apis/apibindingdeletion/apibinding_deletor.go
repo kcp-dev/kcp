@@ -50,8 +50,21 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 		finalizersToNumRemaining: map[string]int{},
 	}
 
+	// Resources that another APIBinding in this workspace will adopt (same
+	// schema UID and identity) are handed over, not deleted.
+	adopted, err := c.adoptedResources(logicalcluster.From(apibinding), apibinding)
+	if err != nil {
+		return totalResourceRemaining, err
+	}
+
 	deleteContentErrs := []error{}
 	for _, resource := range apibinding.Status.BoundResources {
+		if successor, ok := adopted[schema.GroupResource{Group: resource.Group, Resource: resource.Resource}]; ok {
+			logger.V(2).Info("not deleting instances of bound resource, adopted by another APIBinding",
+				"group", resource.Group, "resource", resource.Resource, "successor", successor)
+			continue
+		}
+
 		for _, version := range resource.StorageVersions {
 			gvr := schema.GroupVersionResource{
 				Group:    resource.Group,
