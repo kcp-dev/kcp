@@ -204,6 +204,9 @@ func TestAPIBindingTerminating(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			controller := &Controller{
+				listAPIBindings: func(cluster logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+					return nil, nil
+				},
 				listResources: func(ctx context.Context, cluster logicalcluster.Path, gvr schema.GroupVersionResource) (*metav1.PartialObjectMetadataList, error) {
 					if tt.existingObjects == nil {
 						return &metav1.PartialObjectMetadataList{Items: []metav1.PartialObjectMetadata{}}, nil
