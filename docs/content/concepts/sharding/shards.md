@@ -274,6 +274,13 @@ inferred only from request errors at the moment of access. Concretely:
 
 [is-valid]: https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/tenancy/workspace/workspace_reconcile_scheduling.go#L423
 
+### Logical cluster migration
+
+Workspaces can be moved between shards using the logical cluster migration feature. This allows
+rebalancing workspaces across shards or evacuating a shard for maintenance. During migration,
+the workspace is temporarily unavailable. See [Logical Cluster Migration](migration.md) for
+details.
+
 ### Cache server bottlenecks
 
 The cache server is the only fan-in point for cross-shard data, which makes it
