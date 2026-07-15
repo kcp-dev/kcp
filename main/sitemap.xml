@@ -121,6 +121,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/sharding/cache-server/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/concepts/sharding/migration/</loc>
+        <lastmod>2026-07-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/concepts/sharding/migration/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/concepts/sharding/partitions/</loc>
         <lastmod>2026-07-15</lastmod>
         <changefreq>daily</changefreq>
@@ -263,6 +269,12 @@
         <lastmod>2026-07-15</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/storage-to-rest-patterns/"/>
+    </url>
+    <url>
+        <loc>https://docs.kcp.io/kcp/main/developers/testing-migration/</loc>
+        <lastmod>2026-07-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/testing-migration/"/>
     </url>
     <url>
         <loc>https://docs.kcp.io/kcp/main/developers/controllers/client-go/</loc>

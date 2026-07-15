@@ -1580,6 +1580,8 @@
       
         
       
+        
+      
     
     
       
@@ -1834,6 +1836,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#logical-cluster-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logical cluster migration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cache-server-bottlenecks" class="md-nav__link">
     <span class="md-ellipsis">
       Cache server bottlenecks
@@ -1895,6 +1906,27 @@
   
   <span class="md-ellipsis">
     Partitions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Logical Cluster Migration
   </span>
   
 
@@ -2038,6 +2070,8 @@
       
         
           
+        
+      
         
       
         
@@ -2237,6 +2271,27 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../developers/testing-migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Testing Logical Cluster Migration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -2256,10 +2311,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_6" >
         
           
-          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -2270,8 +2325,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
             <span class="md-nav__icon md-icon"></span>
             Internals
           </label>
@@ -2364,7 +2419,7 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_6" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_7" >
         
           
           
@@ -2380,14 +2435,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4_7" id="__nav_4_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
             <span class="md-nav__icon md-icon"></span>
             Investigations
           </label>
@@ -4358,6 +4413,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#logical-cluster-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logical cluster migration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cache-server-bottlenecks" class="md-nav__link">
     <span class="md-ellipsis">
       Cache server bottlenecks
@@ -4616,6 +4680,11 @@ inferred only from request errors at the moment of access. Concretely:</p>
 <li><strong>Cross-shard writes</strong> (e.g. workspace creation racing against the target
   shard's outage) requeue and retry with the standard workqueue backoff.</li>
 </ul>
+<h3 id="logical-cluster-migration">Logical cluster migration<a class="headerlink" href="#logical-cluster-migration" title="Permanent link">&para;</a></h3>
+<p>Workspaces can be moved between shards using the logical cluster migration feature. This allows
+rebalancing workspaces across shards or evacuating a shard for maintenance. During migration,
+the workspace is temporarily unavailable. See <a href="../migration/">Logical Cluster Migration</a> for
+details.</p>
 <h3 id="cache-server-bottlenecks">Cache server bottlenecks<a class="headerlink" href="#cache-server-bottlenecks" title="Permanent link">&para;</a></h3>
 <p>The cache server is the only fan-in point for cross-shard data, which makes it
 the most important scaling consideration in a kcp installation:</p>
