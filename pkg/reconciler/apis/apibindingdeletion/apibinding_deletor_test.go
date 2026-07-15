@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -166,6 +167,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 			expectedResourceRemaining: gvrDeletionMetadataTotal{
 				gvrToNumRemaining:        map[schema.GroupVersionResource]int{},
 				finalizersToNumRemaining: map[string]int{},
+				gvrsWaitingForSuccessor:  sets.New[schema.GroupVersionResource](),
 			},
 		},
 		{
@@ -180,6 +182,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 					{Group: "", Version: "v1", Resource: "pods"}:            1,
 				},
 				finalizersToNumRemaining: map[string]int{},
+				gvrsWaitingForSuccessor:  sets.New[schema.GroupVersionResource](),
 			},
 		},
 		{
@@ -196,6 +199,7 @@ func TestAPIBindingTerminating(t *testing.T) {
 				finalizersToNumRemaining: map[string]int{
 					"test.kcp.io/finalizer": 2,
 				},
+				gvrsWaitingForSuccessor: sets.New[schema.GroupVersionResource](),
 			},
 		},
 	}
