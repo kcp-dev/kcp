@@ -289,6 +289,160 @@ func TestFullMigration(t *testing.T) {
 	})
 }
 
+// TestConcurrentMigrationsFromSameOriginShard runs several migrations from
+// the same origin shard to the same destination shard at the same time.
+// The destination shard's controller shares one client per origin shard
+// across concurrent migrations (refcounted, torn down once the last user
+// releases it) instead of building one per migration - this exercises that
+// sharing isn't observable as internal state from a black-box e2e test, so
+// what's actually being checked is the thing that WOULD break if the
+// sharing/refcounting had a bug: every migration completes with the right
+// data, and none of them interfere with each other's copy.
+func TestConcurrentMigrationsFromSameOriginShard(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) < 2 {
+		t.Skip("requires multi-shard setup")
+	}
+
+	cfg := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	shardNames := server.ShardNames()
+	originShard := shardNames[0]
+	destinationShard := shardNames[1]
+
+	const numMigrations = 3
+
+	t.Logf("Using origin shard %q and destination shard %q for %d concurrent migrations", originShard, destinationShard, numMigrations)
+
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+
+	t.Logf("Creating APIBinding for migration.kcp.io in %s", orgPath)
+	_, err = kcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIBindings().Create(
+		t.Context(),
+		&apisv1alpha2.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "migration",
+			},
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
+						Path: core.RootCluster.Path().String(),
+						Name: "migration.kcp.io",
+					},
+				},
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	require.NoError(t, err)
+
+	t.Logf("Waiting for migration APIBinding to be bound in %s", orgPath)
+	require.Eventually(t, func() bool {
+		binding, err := kcpClusterClient.Cluster(orgPath).ApisV1alpha2().APIBindings().Get(t.Context(), "migration", metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		return binding.Status.Phase == apisv1alpha2.APIBindingPhaseBound
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "migration APIBinding never reached Bound phase")
+
+	// Set up all workspaces + their own distinct test data up front, all
+	// pinned to the same origin shard, so their migrations can genuinely
+	// overlap once kicked off below.
+	type target struct {
+		wsPath logicalcluster.Path
+		lcName logicalcluster.Name
+		cmName string
+	}
+	targets := make([]target, numMigrations)
+	for i := range numMigrations {
+		wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithShard(originShard))
+		lcName := logicalcluster.Name(ws.Spec.Cluster)
+		cmName := fmt.Sprintf("concurrent-migration-marker-%d", i)
+
+		t.Logf("Workspace %d: %s (logical cluster %s) created on shard %s", i, wsPath, lcName, originShard)
+
+		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(
+			t.Context(),
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: cmName},
+				Data:       map[string]string{"workspace-index": fmt.Sprintf("%d", i)},
+			},
+			metav1.CreateOptions{},
+		)
+		require.NoError(t, err)
+
+		targets[i] = target{wsPath: wsPath, lcName: lcName, cmName: cmName}
+	}
+
+	// Kick off all migrations before waiting on any of them, to maximize
+	// the chance their copies genuinely overlap in time.
+	migrationNames := make([]string, numMigrations)
+	for i, tgt := range targets {
+		migrationName := fmt.Sprintf("concurrent-migration-%d", i)
+		migrationNames[i] = migrationName
+
+		t.Logf("Creating LogicalClusterMigration %q for %s from %s to %s", migrationName, tgt.lcName, originShard, destinationShard)
+		require.Eventually(t, func() bool {
+			_, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Create(
+				t.Context(),
+				&migrationv1alpha1.LogicalClusterMigration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: migrationName,
+					},
+					Spec: migrationv1alpha1.LogicalClusterMigrationSpec{
+						LogicalCluster:   tgt.lcName.String(),
+						DestinationShard: destinationShard,
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			if err != nil {
+				t.Logf("failed to create LogicalClusterMigration %q: %v", migrationName, err)
+			}
+			return err == nil
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create LogicalClusterMigration %q", migrationName)
+	}
+
+	// Wait for + verify each migration in parallel: t.Parallel() subtests
+	// all pause here until every sibling has reached this point, then run
+	// concurrently, so the "wait for completion" below happens for all
+	// numMigrations migrations at once.
+	for i, tgt := range targets {
+		t.Run(migrationNames[i], func(t *testing.T) {
+			t.Parallel()
+
+			migrationName := migrationNames[i]
+
+			var completedMigration *migrationv1alpha1.LogicalClusterMigration
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				migration, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Get(t.Context(), migrationName, metav1.GetOptions{})
+				require.NoError(c, err)
+				require.Equal(c, migrationv1alpha1.LogicalClusterMigrationPhaseCompleted, migration.Status.Phase)
+				completedMigration = migration
+			}, wait.ForeverTestTimeout, 500*time.Millisecond, "waiting for migration %q to complete", migrationName)
+
+			assert.Positive(t, completedMigration.Status.EntriesCopied, "status.entriesCopied should reflect the copied etcd entries for %q", migrationName)
+			assert.Empty(t, completedMigration.Status.DumpContinue, "status.dumpContinue should be cleared once %q is complete", migrationName)
+
+			// Data integrity: this workspace must have exactly its own
+			// marker ConfigMap - not missing (dropped by a racing copy)
+			// and not some other workspace's data (cross-contamination
+			// from an incorrectly-shared client/request).
+			cm, err := kubeClusterClient.Cluster(tgt.wsPath).CoreV1().ConfigMaps("default").Get(t.Context(), tgt.cmName, metav1.GetOptions{})
+			require.NoError(t, err, "marker ConfigMap %q missing after migration", tgt.cmName)
+			assert.Equal(t, fmt.Sprintf("%d", i), cm.Data["workspace-index"], "marker ConfigMap %q has wrong data - possible cross-contamination between concurrent migrations", tgt.cmName)
+		})
+	}
+}
+
 // TestMigrationAPIBindingUnprivileged verifies that the migration API
 // can't be bound even by cluster-admin users in other workspaces.
 func TestMigrationAPIBindingUnprivileged(t *testing.T) {

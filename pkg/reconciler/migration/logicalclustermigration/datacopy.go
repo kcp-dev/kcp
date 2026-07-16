@@ -28,7 +28,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
-	kcpsdkclient "github.com/kcp-dev/sdk/client/clientset/versioned"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
 	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
@@ -47,10 +47,11 @@ import (
 func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (int64, string, error) {
 	logger := klog.FromContext(ctx)
 
-	client, err := c.originClient(lcName, originShardName)
+	shardClient, err := c.acquireOriginClient(lcName, originShardName)
 	if err != nil {
 		return 0, "", err
 	}
+	client := shardClient.Cluster(lcName.Path())
 
 	logger.V(2).Info("requesting logical cluster dump page from origin", "logicalCluster", lcName, "originShard", originShardName, "continue", continueToken)
 
@@ -83,45 +84,62 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
 }
 
-// originClient returns the cached client for requesting LogicalClusterDump
-// pages of lcName from originShardName, creating and caching one if none
-// exists yet. Reusing the client across pages of the same copy avoids
-// building a new HTTP transport and connection pool per page.
-func (c *Controller) originClient(lcName logicalcluster.Name, originShardName string) (kcpsdkclient.Interface, error) {
-	key := originClientKey{originShardName: originShardName, lcName: lcName}
-
+// acquireOriginClient returns the shared, cluster-aware client for
+// originShardName, creating it if none exists yet, and records lcName as a
+// user of it. The underlying client is scoped to the origin shard's
+// migrating virtual workspace as a whole (not to any one logical cluster),
+// so every concurrent migration copying data from the same origin shard
+// reuses the same HTTP transport and connection pool - callers scope it to
+// their own logical cluster per request via shardClient.Cluster(path).
+//
+// Safe to call repeatedly for the same (originShardName, lcName) pair, e.g.
+// once per page of the same copy: recording lcName as a user is idempotent,
+// so it doesn't inflate a refcount.
+func (c *Controller) acquireOriginClient(lcName logicalcluster.Name, originShardName string) (kcpclientset.ClusterInterface, error) {
 	c.originClientsMu.Lock()
 	defer c.originClientsMu.Unlock()
 
-	if client, ok := c.originClients[key]; ok {
-		return client, nil
+	entry, ok := c.originClients[originShardName]
+	if !ok {
+		originShard, err := c.shardLister.Cluster(core.RootCluster).Get(originShardName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get origin shard %q: %w", originShardName, err)
+		}
+		if originShard.Spec.VirtualWorkspaceURL == "" {
+			return nil, fmt.Errorf("origin shard %q has no VirtualWorkspaceURL", originShardName)
+		}
+
+		cfg := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
+		cfg.Host = originShard.Spec.VirtualWorkspaceURL + migratingworkspaces.URLFor()
+
+		client, err := kcpclientset.NewForConfig(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create origin migrating client: %w", err)
+		}
+
+		entry = &originClientEntry{client: client, refs: map[logicalcluster.Name]struct{}{}}
+		c.originClients[originShardName] = entry
 	}
 
-	originShard, err := c.shardLister.Cluster(core.RootCluster).Get(originShardName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get origin shard %q: %w", originShardName, err)
-	}
-	if originShard.Spec.VirtualWorkspaceURL == "" {
-		return nil, fmt.Errorf("origin shard %q has no VirtualWorkspaceURL", originShardName)
-	}
-
-	cfg := rest.CopyConfig(c.externalLogicalClusterAdminConfig)
-	cfg.Host = originShard.Spec.VirtualWorkspaceURL + migratingworkspaces.URLFor() + "/clusters/" + string(lcName)
-
-	client, err := kcpsdkclient.NewForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create origin migrating client: %w", err)
-	}
-
-	c.originClients[key] = client
-	return client, nil
+	entry.refs[lcName] = struct{}{}
+	return entry.client, nil
 }
 
-// evictOriginClient drops the cached client for lcName/originShardName once
-// its data copy is done, so the migration's HTTP transport doesn't linger
-// forever in the cache.
-func (c *Controller) evictOriginClient(lcName logicalcluster.Name, originShardName string) {
+// releaseOriginClient marks lcName as done with originShardName's client.
+// Once no logical cluster is using it anymore, the shared client is
+// dropped from the cache instead of lingering indefinitely. Safe to call
+// even if lcName never acquired the client (e.g. the migration failed
+// before ever reaching copyPageFromOriginViaHTTP).
+func (c *Controller) releaseOriginClient(lcName logicalcluster.Name, originShardName string) {
 	c.originClientsMu.Lock()
 	defer c.originClientsMu.Unlock()
-	delete(c.originClients, originClientKey{originShardName: originShardName, lcName: lcName})
+
+	entry, ok := c.originClients[originShardName]
+	if !ok {
+		return
+	}
+	delete(entry.refs, lcName)
+	if len(entry.refs) == 0 {
+		delete(c.originClients, originShardName)
+	}
 }
