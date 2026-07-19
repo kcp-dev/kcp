@@ -28,36 +28,36 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,categories=kcp,path=cachedresourceendpointslices,singular=cachedresourceendpointslice
-// +kubebuilder:printcolumn:name="CachedResource",type="string",JSONPath=".spec.cachedResource.name"
+// +kubebuilder:resource:scope=Cluster,categories=kcp,path=clustercachedresourceendpointslices,singular=clustercachedresourceendpointslice
+// +kubebuilder:printcolumn:name="ClusterCachedResource",type="string",JSONPath=".spec.clusterCachedResource.name"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// CachedResourceEndpointSlice is a sink for the endpoints of CachedResource virtual workspaces.
-type CachedResourceEndpointSlice struct {
+// ClusterCachedResourceEndpointSlice is a sink for the endpoints of ClusterCachedResource virtual workspaces.
+type ClusterCachedResourceEndpointSlice struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds the desired state:
-	// - the targeted CachedResource
-	Spec CachedResourceEndpointSliceSpec `json:"spec,omitempty"`
+	// - the targeted ClusterCachedResource
+	Spec ClusterCachedResourceEndpointSliceSpec `json:"spec,omitempty"`
 
 	// status communicates the observed state:
 	// the filtered list of endpoints for the Replication service.
 	// +optional
-	Status CachedResourceEndpointSliceStatus `json:"status,omitempty"`
+	Status ClusterCachedResourceEndpointSliceStatus `json:"status,omitempty"`
 }
 
-// CachedResourceEndpointSliceSpec defines the desired state of the CachedResourceEndpointSlice.
-type CachedResourceEndpointSliceSpec struct {
-	// CachedResource points to the real CachedResource the slice is created for.
+// ClusterCachedResourceEndpointSliceSpec defines the desired state of the ClusterCachedResourceEndpointSlice.
+type ClusterCachedResourceEndpointSliceSpec struct {
+	// ClusterCachedResource points to the real ClusterCachedResource the slice is created for.
 	//
 	// +required
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="CachedResource reference must not be changed"
-	CachedResource CachedResourceReference `json:"cachedResource"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ClusterCachedResource reference must not be changed"
+	ClusterCachedResource ClusterCachedResourceReference `json:"clusterCachedResource"`
 
-	// export points to the APIExport that exports this CachedResourceEndpointSlice.
+	// export points to the APIExport that exports this ClusterCachedResourceEndpointSlice.
 	//
 	// +required
 	// +kubebuilder:validation:Required
@@ -65,7 +65,7 @@ type CachedResourceEndpointSliceSpec struct {
 	APIExport ExportBindingReference `json:"export"`
 
 	// partition points to a partition that is used for filtering the endpoints
-	// of the CachedResource part of the slice.
+	// of the ClusterCachedResource part of the slice.
 	//
 	// +optional
 	Partition string `json:"partition,omitempty"`
@@ -88,9 +88,9 @@ type ExportBindingReference struct {
 	Name string `json:"name"`
 }
 
-// CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.
-type CachedResourceEndpointSliceStatus struct {
-	// conditions is a list of conditions that apply to the CachedResourceEndpointSlice.
+// ClusterCachedResourceEndpointSliceStatus defines the observed state of ClusterCachedResourceEndpointSlice.
+type ClusterCachedResourceEndpointSliceStatus struct {
+	// conditions is a list of conditions that apply to the ClusterCachedResourceEndpointSlice.
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 
 	// endpoints contains all the URLs of the Replication service.
@@ -98,7 +98,7 @@ type CachedResourceEndpointSliceStatus struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=url
-	CachedResourceEndpoints []CachedResourceEndpoint `json:"endpoints,omitempty"`
+	ClusterCachedResourceEndpoints []ClusterCachedResourceEndpoint `json:"endpoints,omitempty"`
 
 	// shardSelector is the selector used to filter the shards. It is used to filter the shards
 	// when determining partition scope when deriving the endpoints. This is set by owning shard,
@@ -108,52 +108,52 @@ type CachedResourceEndpointSliceStatus struct {
 	ShardSelector string `json:"shardSelector,omitempty"`
 }
 
-// CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
+// ClusterCachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
 //
 // It is an alias of the shared endpoint shape, so that the readers which resolve
 // an endpoint slice by kind at runtime -- and therefore cannot know whether they
-// hold an APIExportEndpointSlice, a CachedResourceEndpointSlice or a third-party
+// hold an APIExportEndpointSlice, a ClusterCachedResourceEndpointSlice or a third-party
 // kind following the same convention -- have a single type to decode into.
-type CachedResourceEndpoint = corev1alpha1.Endpoint
+type ClusterCachedResourceEndpoint = corev1alpha1.Endpoint
 
-func (in *CachedResourceEndpointSlice) GetConditions() conditionsv1alpha1.Conditions {
+func (in *ClusterCachedResourceEndpointSlice) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }
 
-func (in *CachedResourceEndpointSlice) SetConditions(conditions conditionsv1alpha1.Conditions) {
+func (in *ClusterCachedResourceEndpointSlice) SetConditions(conditions conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = conditions
 }
 
-// These are valid conditions of CachedResourceEndpointSlice in addition to
-// CachedResourceValid and related reasons defined with the APIBinding type.
+// These are valid conditions of ClusterCachedResourceEndpointSlice in addition to
+// ClusterCachedResourceValid and related reasons defined with the APIBinding type.
 const (
-	// PartitionValid is a condition for CachedResourceEndpointSlice that reflects the validity of the referenced Partition.
+	// PartitionValid is a condition for ClusterCachedResourceEndpointSlice that reflects the validity of the referenced Partition.
 	PartitionValid conditionsv1alpha1.ConditionType = "PartitionValid"
 
-	// APIExportValid is a condition for CachedResourceEndpointSlice that reflects whether the referenced APIExport exists
+	// APIExportValid is a condition for ClusterCachedResourceEndpointSlice that reflects whether the referenced APIExport exists
 	// and is accessible.
 	APIExportValid conditionsv1alpha1.ConditionType = "APIExportValid"
 
-	// EndpointURLsReady is a condition for CachedResourceEndpointSlice that reflects the readiness of the URLs.
+	// EndpointURLsReady is a condition for ClusterCachedResourceEndpointSlice that reflects the readiness of the URLs.
 	//
 	// Deprecated: This condition is deprecated and will be removed in a future release.
-	CachedResourceEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
+	ClusterCachedResourceEndpointSliceURLsReady conditionsv1alpha1.ConditionType = "EndpointURLsReady"
 
-	// PartitionInvalidReferenceReason is a reason for the PartitionValid condition of CachedResourceEndpointSlice that the
+	// PartitionInvalidReferenceReason is a reason for the PartitionValid condition of ClusterCachedResourceEndpointSlice that the
 	// Partition reference is invalid.
 	PartitionInvalidReferenceReason = "PartitionInvalidReference"
 
 	// APIExportInvalidReferenceReason is a reason for the APIExportValid condition that the APIExport either does not
-	// exist or does not reference this CachedResourceEndpointSlice.
+	// exist or does not reference this ClusterCachedResourceEndpointSlice.
 	APIExportInvalidReferenceReason = "APIExportInvalidReference"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CachedResourceEndpointSliceList is a list of CachedResourceEndpointSlice resources.
-type CachedResourceEndpointSliceList struct {
+// ClusterCachedResourceEndpointSliceList is a list of ClusterCachedResourceEndpointSlice resources.
+type ClusterCachedResourceEndpointSliceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []CachedResourceEndpointSlice `json:"items"`
+	Items []ClusterCachedResourceEndpointSlice `json:"items"`
 }

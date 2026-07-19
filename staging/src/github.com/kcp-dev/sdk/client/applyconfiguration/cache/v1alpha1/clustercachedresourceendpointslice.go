@@ -25,37 +25,37 @@ import (
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
-// CachedResourceEndpointSliceApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSlice type for use
+// ClusterCachedResourceEndpointSliceApplyConfiguration represents a declarative configuration of the ClusterCachedResourceEndpointSlice type for use
 // with apply.
 //
-// CachedResourceEndpointSlice is a sink for the endpoints of CachedResource virtual workspaces.
-type CachedResourceEndpointSliceApplyConfiguration struct {
+// ClusterCachedResourceEndpointSlice is a sink for the endpoints of ClusterCachedResource virtual workspaces.
+type ClusterCachedResourceEndpointSliceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// spec holds the desired state:
-	// - the targeted CachedResource
-	Spec *CachedResourceEndpointSliceSpecApplyConfiguration `json:"spec,omitempty"`
+	// - the targeted ClusterCachedResource
+	Spec *ClusterCachedResourceEndpointSliceSpecApplyConfiguration `json:"spec,omitempty"`
 	// status communicates the observed state:
 	// the filtered list of endpoints for the Replication service.
-	Status *CachedResourceEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
+	Status *ClusterCachedResourceEndpointSliceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// CachedResourceEndpointSlice constructs a declarative configuration of the CachedResourceEndpointSlice type for use with
+// ClusterCachedResourceEndpointSlice constructs a declarative configuration of the ClusterCachedResourceEndpointSlice type for use with
 // apply.
-func CachedResourceEndpointSlice(name string) *CachedResourceEndpointSliceApplyConfiguration {
-	b := &CachedResourceEndpointSliceApplyConfiguration{}
+func ClusterCachedResourceEndpointSlice(name string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
+	b := &ClusterCachedResourceEndpointSliceApplyConfiguration{}
 	b.WithName(name)
-	b.WithKind("CachedResourceEndpointSlice")
+	b.WithKind("ClusterCachedResourceEndpointSlice")
 	b.WithAPIVersion("cache.kcp.io/v1alpha1")
 	return b
 }
 
-func (b CachedResourceEndpointSliceApplyConfiguration) IsApplyConfiguration() {}
+func (b ClusterCachedResourceEndpointSliceApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithKind(value string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithKind(value string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.TypeMetaApplyConfiguration.Kind = &value
 	return b
 }
@@ -63,7 +63,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithKind(value string) *
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithAPIVersion(value string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithAPIVersion(value string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.TypeMetaApplyConfiguration.APIVersion = &value
 	return b
 }
@@ -71,7 +71,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithAPIVersion(value str
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithName(value string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithName(value string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Name = &value
 	return b
@@ -80,7 +80,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithName(value string) *
 // WithGenerateName sets the GenerateName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GenerateName field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithGenerateName(value string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithGenerateName(value string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.GenerateName = &value
 	return b
@@ -89,7 +89,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithGenerateName(value s
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithNamespace(value string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithNamespace(value string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Namespace = &value
 	return b
@@ -98,7 +98,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithNamespace(value stri
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithUID(value types.UID) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithUID(value types.UID) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.UID = &value
 	return b
@@ -107,7 +107,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithUID(value types.UID)
 // WithResourceVersion sets the ResourceVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithResourceVersion(value string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithResourceVersion(value string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.ResourceVersion = &value
 	return b
@@ -116,7 +116,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithResourceVersion(valu
 // WithGeneration sets the Generation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Generation field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithGeneration(value int64) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithGeneration(value int64) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Generation = &value
 	return b
@@ -125,7 +125,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithGeneration(value int
 // WithCreationTimestamp sets the CreationTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithCreationTimestamp(value metav1.Time) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithCreationTimestamp(value metav1.Time) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.CreationTimestamp = &value
 	return b
@@ -134,7 +134,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithCreationTimestamp(va
 // WithDeletionTimestamp sets the DeletionTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithDeletionTimestamp(value metav1.Time) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.DeletionTimestamp = &value
 	return b
@@ -143,7 +143,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithDeletionTimestamp(va
 // WithDeletionGracePeriodSeconds sets the DeletionGracePeriodSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.DeletionGracePeriodSeconds = &value
 	return b
@@ -153,7 +153,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithDeletionGracePeriodS
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Labels field,
 // overwriting an existing map entries in Labels field with the same key.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithLabels(entries map[string]string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithLabels(entries map[string]string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.ObjectMetaApplyConfiguration.Labels == nil && len(entries) > 0 {
 		b.ObjectMetaApplyConfiguration.Labels = make(map[string]string, len(entries))
@@ -168,7 +168,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithLabels(entries map[s
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Annotations field,
 // overwriting an existing map entries in Annotations field with the same key.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithAnnotations(entries map[string]string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithAnnotations(entries map[string]string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.ObjectMetaApplyConfiguration.Annotations == nil && len(entries) > 0 {
 		b.ObjectMetaApplyConfiguration.Annotations = make(map[string]string, len(entries))
@@ -182,7 +182,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithAnnotations(entries 
 // WithOwnerReferences adds the given value to the OwnerReferences field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the OwnerReferences field.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithOwnerReferences(values ...*v1.OwnerReferenceApplyConfiguration) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		if values[i] == nil {
@@ -196,7 +196,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithOwnerReferences(valu
 // WithFinalizers adds the given value to the Finalizers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithFinalizers(values ...string) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithFinalizers(values ...string) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		b.ObjectMetaApplyConfiguration.Finalizers = append(b.ObjectMetaApplyConfiguration.Finalizers, values[i])
@@ -204,7 +204,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithFinalizers(values ..
 	return b
 }
 
-func (b *CachedResourceEndpointSliceApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
 	}
@@ -213,7 +213,7 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) ensureObjectMetaApplyCon
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithSpec(value *CachedResourceEndpointSliceSpecApplyConfiguration) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithSpec(value *ClusterCachedResourceEndpointSliceSpecApplyConfiguration) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.Spec = value
 	return b
 }
@@ -221,29 +221,29 @@ func (b *CachedResourceEndpointSliceApplyConfiguration) WithSpec(value *CachedRe
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceApplyConfiguration) WithStatus(value *CachedResourceEndpointSliceStatusApplyConfiguration) *CachedResourceEndpointSliceApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) WithStatus(value *ClusterCachedResourceEndpointSliceStatusApplyConfiguration) *ClusterCachedResourceEndpointSliceApplyConfiguration {
 	b.Status = value
 	return b
 }
 
 // GetKind retrieves the value of the Kind field in the declarative configuration.
-func (b *CachedResourceEndpointSliceApplyConfiguration) GetKind() *string {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) GetKind() *string {
 	return b.TypeMetaApplyConfiguration.Kind
 }
 
 // GetAPIVersion retrieves the value of the APIVersion field in the declarative configuration.
-func (b *CachedResourceEndpointSliceApplyConfiguration) GetAPIVersion() *string {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) GetAPIVersion() *string {
 	return b.TypeMetaApplyConfiguration.APIVersion
 }
 
 // GetName retrieves the value of the Name field in the declarative configuration.
-func (b *CachedResourceEndpointSliceApplyConfiguration) GetName() *string {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Name
 }
 
 // GetNamespace retrieves the value of the Namespace field in the declarative configuration.
-func (b *CachedResourceEndpointSliceApplyConfiguration) GetNamespace() *string {
+func (b *ClusterCachedResourceEndpointSliceApplyConfiguration) GetNamespace() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Namespace
 }

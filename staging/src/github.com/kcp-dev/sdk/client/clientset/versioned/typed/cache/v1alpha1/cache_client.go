@@ -29,8 +29,8 @@ import (
 
 type CacheV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	CachedResourcesGetter
-	CachedResourceEndpointSlicesGetter
+	ClusterCachedResourcesGetter
+	ClusterCachedResourceEndpointSlicesGetter
 }
 
 // CacheV1alpha1Client is used to interact with features provided by the cache.kcp.io group.
@@ -38,12 +38,12 @@ type CacheV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *CacheV1alpha1Client) CachedResources() CachedResourceInterface {
-	return newCachedResources(c)
+func (c *CacheV1alpha1Client) ClusterCachedResources() ClusterCachedResourceInterface {
+	return newClusterCachedResources(c)
 }
 
-func (c *CacheV1alpha1Client) CachedResourceEndpointSlices() CachedResourceEndpointSliceInterface {
-	return newCachedResourceEndpointSlices(c)
+func (c *CacheV1alpha1Client) ClusterCachedResourceEndpointSlices() ClusterCachedResourceEndpointSliceInterface {
+	return newClusterCachedResourceEndpointSlices(c)
 }
 
 // NewForConfig creates a new CacheV1alpha1Client for the given config.

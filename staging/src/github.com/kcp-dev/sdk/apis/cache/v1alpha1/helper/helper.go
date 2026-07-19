@@ -36,10 +36,10 @@ func QualifiedObjectName(obj metav1.Object) string {
 	return fmt.Sprintf("%s|%s", logicalcluster.From(obj), obj.GetName())
 }
 
-// IsCachedResourceEndpointSliceResourceStorage returns true if the APIExport resource storage
-// refers to a CachedResourceEndpointSlice virtual resource.
-func IsCachedResourceEndpointSliceResourceStorage(storage *apisv1alpha2.ResourceSchemaStorage) bool {
+// IsClusterCachedResourceEndpointSliceResourceStorage returns true if the APIExport resource storage
+// refers to a ClusterCachedResourceEndpointSlice virtual resource.
+func IsClusterCachedResourceEndpointSliceResourceStorage(storage *apisv1alpha2.ResourceSchemaStorage) bool {
 	return storage.Virtual != nil &&
 		ptr.Deref(storage.Virtual.Reference.APIGroup, "") == "cache.kcp.io" &&
-		storage.Virtual.Reference.Kind == "CachedResourceEndpointSlice"
+		storage.Virtual.Reference.Kind == "ClusterCachedResourceEndpointSlice"
 }

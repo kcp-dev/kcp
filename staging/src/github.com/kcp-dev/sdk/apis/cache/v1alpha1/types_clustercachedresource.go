@@ -23,9 +23,9 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-const CachedResourceFinalizer = "cache.kcp.io/cachedresource"
+const ClusterCachedResourceFinalizer = "cache.kcp.io/clustercachedresource"
 
-// CachedResource defines a resource that should be published to other workspaces
+// ClusterCachedResource defines a resource that should be published to other workspaces
 //
 // +crd
 // +genclient
@@ -36,27 +36,27 @@ const CachedResourceFinalizer = "cache.kcp.io/cachedresource"
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 // +kubebuilder:printcolumn:name="Resource",type=string,JSONPath=`.spec.resource`,description="Resource type being published"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-type CachedResource struct {
+type ClusterCachedResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CachedResourceSpec   `json:"spec"`
-	Status CachedResourceStatus `json:"status,omitempty"`
+	Spec   ClusterCachedResourceSpec   `json:"spec"`
+	Status ClusterCachedResourceStatus `json:"status,omitempty"`
 }
 
-// CachedResourceSpec defines the desired state of CachedResource.
-type CachedResourceSpec struct {
+// ClusterCachedResourceSpec defines the desired state of ClusterCachedResource.
+type ClusterCachedResourceSpec struct {
 	// GroupVersionResource is the fully qualified name of the resource to be published.
 	GroupVersionResource `json:",inline"`
 
 	// identity points to a secret that contains the API identity in the 'key' file.
-	// The API identity allows access to CachedResource's resources via the APIExport.
+	// The API identity allows access to ClusterCachedResource's resources via the APIExport.
 	//
-	// Different  CachedResource in a workspace can share a common identity, or have different
+	// Different  ClusterCachedResource in a workspace can share a common identity, or have different
 	// ones. The identity (the secret) can also be transferred to another workspace
 	// when the  ublishedResource is moved.
 	//
-	// The identity is defaulted. A secret with the name of the CachedResource is automatically
+	// The identity is defaulted. A secret with the name of the ClusterCachedResource is automatically
 	// created.
 	//
 	// +optional
@@ -67,8 +67,8 @@ type CachedResourceSpec struct {
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 }
 
-// Identity defines the identity of an CachedResource, i.e. determines the cached resource access
-// of the resources, that are published by this CachedResource.
+// Identity defines the identity of a ClusterCachedResource, i.e. determines the cached resource access
+// of the resources, that are published by this ClusterCachedResource.
 type Identity struct {
 	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
 	//
@@ -98,43 +98,43 @@ type GroupVersionResource struct {
 	Resource string `json:"resource"`
 }
 
-// CachedResourcePhaseType is the type of the current phase of the published resource.
+// ClusterCachedResourcePhaseType is the type of the current phase of the published resource.
 //
 // +kubebuilder:validation:Enum=Scheduling;Initializing;Ready;Deleting;Deleted
-type CachedResourcePhaseType string
+type ClusterCachedResourcePhaseType string
 
 const (
-	CachedResourcePhaseInitializing CachedResourcePhaseType = "Initializing"
-	CachedResourcePhaseReady        CachedResourcePhaseType = "Ready"
-	CachedResourcePhaseDeleting     CachedResourcePhaseType = "Deleting"
-	CachedResourcePhaseDeleted      CachedResourcePhaseType = "Deleted"
+	ClusterCachedResourcePhaseInitializing ClusterCachedResourcePhaseType = "Initializing"
+	ClusterCachedResourcePhaseReady        ClusterCachedResourcePhaseType = "Ready"
+	ClusterCachedResourcePhaseDeleting     ClusterCachedResourcePhaseType = "Deleting"
+	ClusterCachedResourcePhaseDeleted      ClusterCachedResourcePhaseType = "Deleted"
 )
 
 // These are valid conditions of published resource.
 const (
-	// CachedResourceValid represents status of the scheduling process for this published resource.
-	CachedResourceValid conditionsv1alpha1.ConditionType = "ResourceValid"
+	// ClusterCachedResourceValid represents status of the scheduling process for this published resource.
+	ClusterCachedResourceValid conditionsv1alpha1.ConditionType = "ResourceValid"
 
 	// ReplicationStarted represents status of the replication process for this published resource.
 	ReplicationStarted conditionsv1alpha1.ConditionType = "ReplicationStarted"
 )
 
 const (
-	// CachedResourceIdentityValid represents status of the identity generation process for this published resource.
-	CachedResourceIdentityValid conditionsv1alpha1.ConditionType = "IdentityValid"
+	// ClusterCachedResourceIdentityValid represents status of the identity generation process for this published resource.
+	ClusterCachedResourceIdentityValid conditionsv1alpha1.ConditionType = "IdentityValid"
 
 	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
 	IdentityVerificationFailedReason = "IdentityVerificationFailed"
 )
 
 const (
-	// CachedResourceInvalidReferenceReason is a reason for the CachedResourceValid condition that the referenced
-	// CachedResource reference is invalid.
-	CachedResourceInvalidReferenceReason = "CachedResourceInvalidReference"
-	// CachedResourceNotFoundReason is a reason for the CachedResourceValid condition that the referenced CachedResource is not found.
-	CachedResourceNotFoundReason = "CachedResourceNotFound"
-	// ResourceNotClusterScoped is a reason for the CachedResourceValid condition
-	// that the resource in CachedResource is not cluster scoped.
+	// ClusterCachedResourceInvalidReferenceReason is a reason for the ClusterCachedResourceValid condition that the referenced
+	// ClusterCachedResource reference is invalid.
+	ClusterCachedResourceInvalidReferenceReason = "ClusterCachedResourceInvalidReference"
+	// ClusterCachedResourceNotFoundReason is a reason for the ClusterCachedResourceValid condition that the referenced ClusterCachedResource is not found.
+	ClusterCachedResourceNotFoundReason = "ClusterCachedResourceNotFound"
+	// ResourceNotClusterScoped is a reason for the ClusterCachedResourceValid condition
+	// that the resource in ClusterCachedResource is not cluster scoped.
 	ResourceNotClusterScoped = "ResourceNotClusterScoped"
 
 	// InternalErrorReason is a reason used by multiple conditions that something went wrong.
@@ -143,13 +143,13 @@ const (
 
 // These are valid reasons of published resource.
 const (
-	CachedResourceValidNoResources   = "NoResources"
-	CachedResourceValidDeleting      = "Deleting"
-	CachedResourceReplicationStarted = "Started"
+	ClusterCachedResourceValidNoResources   = "NoResources"
+	ClusterCachedResourceValidDeleting      = "Deleting"
+	ClusterCachedResourceReplicationStarted = "Started"
 )
 
-// CachedResourceStatus defines the observed state of CachedResource.
-type CachedResourceStatus struct {
+// ClusterCachedResourceStatus defines the observed state of ClusterCachedResource.
+type ClusterCachedResourceStatus struct {
 	// IdentityHash is a hash of the identity configuration
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
@@ -161,7 +161,7 @@ type CachedResourceStatus struct {
 	// Phase of the workspace (Initializing, Ready, Unavailable).
 	//
 	// +kubebuilder:default=Initializing
-	Phase CachedResourcePhaseType `json:"phase,omitempty"`
+	Phase ClusterCachedResourcePhaseType `json:"phase,omitempty"`
 
 	// Current processing state of the Workspace.
 	// +optional
@@ -175,16 +175,16 @@ type ResourceCount struct {
 	Local int `json:"local"`
 }
 
-// CachedResourceReference is a reference to a CachedResource.
-type CachedResourceReference struct {
-	// path is a logical cluster path where the CachedResource is defined. If empty,
-	// the CachedResource is assumed to be co-located with the referencing resource.
+// ClusterCachedResourceReference is a reference to a ClusterCachedResource.
+type ClusterCachedResourceReference struct {
+	// path is a logical cluster path where the ClusterCachedResource is defined. If empty,
+	// the ClusterCachedResource is assumed to be co-located with the referencing resource.
 	//
 	// +optional
 	// +kubebuilder:validation:Pattern:="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
 	Path string `json:"path,omitempty"`
 
-	// name is the name of the CachedResource the reference points to.
+	// name is the name of the ClusterCachedResource the reference points to.
 	//
 	// +required
 	// +kubebuilder:validation:Required
@@ -192,20 +192,20 @@ type CachedResourceReference struct {
 	Name string `json:"name"`
 }
 
-// CachedResourceList contains a list of CachedResource
+// ClusterCachedResourceList contains a list of ClusterCachedResource
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type CachedResourceList struct {
+type ClusterCachedResourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CachedResource `json:"items"`
+	Items           []ClusterCachedResource `json:"items"`
 }
 
-func (in *CachedResource) SetConditions(c conditionsv1alpha1.Conditions) {
+func (in *ClusterCachedResource) SetConditions(c conditionsv1alpha1.Conditions) {
 	in.Status.Conditions = c
 }
 
-func (in *CachedResource) GetConditions() conditionsv1alpha1.Conditions {
+func (in *ClusterCachedResource) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions
 }
 
