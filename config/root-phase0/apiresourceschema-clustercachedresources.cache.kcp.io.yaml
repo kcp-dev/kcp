@@ -1,16 +1,16 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v250920-de0c8484d.cachedresources.cache.kcp.io
+  name: v250920-de0c8484d.clustercachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
     categories:
     - kcp
-    kind: CachedResource
-    listKind: CachedResourceList
-    plural: cachedresources
-    singular: cachedresource
+    kind: ClusterCachedResource
+    listKind: ClusterCachedResourceList
+    plural: clustercachedresources
+    singular: clustercachedresource
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -23,8 +23,8 @@ spec:
       type: date
     name: v1alpha1
     schema:
-      description: CachedResource defines a resource that should be published to other
-        workspaces
+      description: ClusterCachedResource defines a resource that should be published
+        to other workspaces
       properties:
         apiVersion:
           description: |-
@@ -44,7 +44,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: CachedResourceSpec defines the desired state of CachedResource.
+          description: ClusterCachedResourceSpec defines the desired state of ClusterCachedResource.
           properties:
             group:
               description: |-
@@ -55,13 +55,13 @@ spec:
             identity:
               description: |-
                 identity points to a secret that contains the API identity in the 'key' file.
-                The API identity allows access to CachedResource's resources via the APIExport.
+                The API identity allows access to ClusterCachedResource's resources via the APIExport.
 
-                Different  CachedResource in a workspace can share a common identity, or have different
+                Different  ClusterCachedResource in a workspace can share a common identity, or have different
                 ones. The identity (the secret) can also be transferred to another workspace
                 when the  ublishedResource is moved.
 
-                The identity is defaulted. A secret with the name of the CachedResource is automatically
+                The identity is defaulted. A secret with the name of the ClusterCachedResource is automatically
                 created.
               properties:
                 secretRef:
@@ -140,7 +140,7 @@ spec:
           - resource
           type: object
         status:
-          description: CachedResourceStatus defines the observed state of CachedResource.
+          description: ClusterCachedResourceStatus defines the observed state of ClusterCachedResource.
           properties:
             conditions:
               description: Current processing state of the Workspace.

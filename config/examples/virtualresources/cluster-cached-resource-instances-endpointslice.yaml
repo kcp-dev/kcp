@@ -1,9 +1,9 @@
 apiVersion: cache.kcp.io/v1alpha1
-kind: CachedResourceEndpointSlice
+kind: ClusterCachedResourceEndpointSlice
 metadata:
   name: instances
 spec:
-  cachedResource:
+  clusterCachedResource:
     name: instances
   export:
     name: virtualmachines

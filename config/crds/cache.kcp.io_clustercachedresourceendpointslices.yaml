@@ -4,21 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.3
-  name: cachedresourceendpointslices.cache.kcp.io
+  name: clustercachedresourceendpointslices.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
     categories:
     - kcp
-    kind: CachedResourceEndpointSlice
-    listKind: CachedResourceEndpointSliceList
-    plural: cachedresourceendpointslices
-    singular: cachedresourceendpointslice
+    kind: ClusterCachedResourceEndpointSlice
+    listKind: ClusterCachedResourceEndpointSliceList
+    plural: clustercachedresourceendpointslices
+    singular: clustercachedresourceendpointslice
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.cachedResource.name
-      name: CachedResource
+    - jsonPath: .spec.clusterCachedResource.name
+      name: ClusterCachedResource
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -26,8 +26,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CachedResourceEndpointSlice is a sink for the endpoints of CachedResource
-          virtual workspaces.
+        description: ClusterCachedResourceEndpointSlice is a sink for the endpoints
+          of ClusterCachedResource virtual workspaces.
         properties:
           apiVersion:
             description: |-
@@ -49,30 +49,30 @@ spec:
           spec:
             description: |-
               spec holds the desired state:
-              - the targeted CachedResource
+              - the targeted ClusterCachedResource
             properties:
-              cachedResource:
-                description: CachedResource points to the real CachedResource the
-                  slice is created for.
+              clusterCachedResource:
+                description: ClusterCachedResource points to the real ClusterCachedResource
+                  the slice is created for.
                 properties:
                   name:
-                    description: name is the name of the CachedResource the reference
-                      points to.
+                    description: name is the name of the ClusterCachedResource the
+                      reference points to.
                     type: string
                   path:
                     description: |-
-                      path is a logical cluster path where the CachedResource is defined. If empty,
-                      the CachedResource is assumed to be co-located with the referencing resource.
+                      path is a logical cluster path where the ClusterCachedResource is defined. If empty,
+                      the ClusterCachedResource is assumed to be co-located with the referencing resource.
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - name
                 type: object
                 x-kubernetes-validations:
-                - message: CachedResource reference must not be changed
+                - message: ClusterCachedResource reference must not be changed
                   rule: self == oldSelf
               export:
-                description: export points to the APIExport that exports this CachedResourceEndpointSlice.
+                description: export points to the APIExport that exports this ClusterCachedResourceEndpointSlice.
                 properties:
                   name:
                     description: name is the name of the APIExport that describes
@@ -93,10 +93,10 @@ spec:
               partition:
                 description: |-
                   partition points to a partition that is used for filtering the endpoints
-                  of the CachedResource part of the slice.
+                  of the ClusterCachedResource part of the slice.
                 type: string
             required:
-            - cachedResource
+            - clusterCachedResource
             - export
             type: object
           status:
@@ -106,7 +106,7 @@ spec:
             properties:
               conditions:
                 description: conditions is a list of conditions that apply to the
-                  CachedResourceEndpointSlice.
+                  ClusterCachedResourceEndpointSlice.
                 items:
                   description: Condition defines an observation of a object operational
                     state.
@@ -153,8 +153,8 @@ spec:
               endpoints:
                 description: endpoints contains all the URLs of the Replication service.
                 items:
-                  description: CachedResourceEndpoint contains the endpoint information
-                    of a Replication service for a specific shard.
+                  description: ClusterCachedResourceEndpoint contains the endpoint
+                    information of a Replication service for a specific shard.
                   properties:
                     url:
                       description: url is Replication virtual workspace URL.
