@@ -47,7 +47,7 @@ var NonPersistedResourcesClaimable = map[schema.GroupResource]bool{
 	authorizationv1.SchemeGroupVersion.WithResource("selfsubjectrulesreviews").GroupResource():   false,
 	authorizationv1.SchemeGroupVersion.WithResource("subjectaccessreviews").GroupResource():      true,
 	authenticationv1.SchemeGroupVersion.WithResource("selfsubjectreviews").GroupResource():       false,
-	authenticationv1.SchemeGroupVersion.WithResource("tokenreviews").GroupResource():             false,
+	authenticationv1.SchemeGroupVersion.WithResource("tokenreviews").GroupResource():             true,
 }
 
 // Labeler calculates labels to apply to all instances of a cluster-group-resource based on permission claims.
