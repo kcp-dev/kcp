@@ -158,22 +158,22 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.VirtualWorkspaceApplyConfiguration{}
 
 		// Group=cache.kcp.io, Version=v1alpha1
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResource"):
-		return &applyconfigurationcachev1alpha1.CachedResourceApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpoint"):
-		return &applyconfigurationcachev1alpha1.CachedResourceEndpointApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSlice"):
-		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSliceSpec"):
-		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceSpecApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSliceStatus"):
-		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceStatusApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceReference"):
-		return &applyconfigurationcachev1alpha1.CachedResourceReferenceApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceSpec"):
-		return &applyconfigurationcachev1alpha1.CachedResourceSpecApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceStatus"):
-		return &applyconfigurationcachev1alpha1.CachedResourceStatusApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResource"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceEndpoint"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceEndpointApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceEndpointSlice"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceEndpointSliceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceEndpointSliceSpec"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceEndpointSliceSpecApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceEndpointSliceStatus"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceEndpointSliceStatusApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceReference"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceReferenceApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceSpec"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceSpecApplyConfiguration{}
+	case cachev1alpha1.SchemeGroupVersion.WithKind("ClusterCachedResourceStatus"):
+		return &applyconfigurationcachev1alpha1.ClusterCachedResourceStatusApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("ExportBindingReference"):
 		return &applyconfigurationcachev1alpha1.ExportBindingReferenceApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("GroupVersionResource"):

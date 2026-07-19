@@ -18,26 +18,26 @@ limitations under the License.
 
 package v1alpha1
 
-// CachedResourceEndpointApplyConfiguration represents a declarative configuration of the CachedResourceEndpoint type for use
+// ClusterCachedResourceEndpointApplyConfiguration represents a declarative configuration of the ClusterCachedResourceEndpoint type for use
 // with apply.
 //
 // Using a struct provides an extension point
-// CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
-type CachedResourceEndpointApplyConfiguration struct {
+// ClusterCachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
+type ClusterCachedResourceEndpointApplyConfiguration struct {
 	// url is Replication virtual workspace URL.
 	URL *string `json:"url,omitempty"`
 }
 
-// CachedResourceEndpointApplyConfiguration constructs a declarative configuration of the CachedResourceEndpoint type for use with
+// ClusterCachedResourceEndpointApplyConfiguration constructs a declarative configuration of the ClusterCachedResourceEndpoint type for use with
 // apply.
-func CachedResourceEndpoint() *CachedResourceEndpointApplyConfiguration {
-	return &CachedResourceEndpointApplyConfiguration{}
+func ClusterCachedResourceEndpoint() *ClusterCachedResourceEndpointApplyConfiguration {
+	return &ClusterCachedResourceEndpointApplyConfiguration{}
 }
 
 // WithURL sets the URL field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the URL field is set to the value of the last call.
-func (b *CachedResourceEndpointApplyConfiguration) WithURL(value string) *CachedResourceEndpointApplyConfiguration {
+func (b *ClusterCachedResourceEndpointApplyConfiguration) WithURL(value string) *ClusterCachedResourceEndpointApplyConfiguration {
 	b.URL = &value
 	return b
 }

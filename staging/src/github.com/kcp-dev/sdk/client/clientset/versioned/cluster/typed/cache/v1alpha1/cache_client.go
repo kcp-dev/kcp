@@ -32,8 +32,8 @@ import (
 
 type CacheV1alpha1ClusterInterface interface {
 	CacheV1alpha1ClusterScoper
-	CachedResourcesClusterGetter
-	CachedResourceEndpointSlicesClusterGetter
+	ClusterCachedResourcesClusterGetter
+	ClusterCachedResourceEndpointSlicesClusterGetter
 }
 
 type CacheV1alpha1ClusterScoper interface {
@@ -52,12 +52,12 @@ func (c *CacheV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) kc
 	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
-func (c *CacheV1alpha1ClusterClient) CachedResources() CachedResourceClusterInterface {
-	return &cachedResourcesClusterInterface{clientCache: c.clientCache}
+func (c *CacheV1alpha1ClusterClient) ClusterCachedResources() ClusterCachedResourceClusterInterface {
+	return &clusterCachedResourcesClusterInterface{clientCache: c.clientCache}
 }
 
-func (c *CacheV1alpha1ClusterClient) CachedResourceEndpointSlices() CachedResourceEndpointSliceClusterInterface {
-	return &cachedResourceEndpointSlicesClusterInterface{clientCache: c.clientCache}
+func (c *CacheV1alpha1ClusterClient) ClusterCachedResourceEndpointSlices() ClusterCachedResourceEndpointSliceClusterInterface {
+	return &clusterCachedResourceEndpointSlicesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new CacheV1alpha1ClusterClient for the given config.

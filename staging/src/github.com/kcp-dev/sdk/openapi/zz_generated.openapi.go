@@ -103,16 +103,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha2.ResourceSelector{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_ResourceSelector(ref),
 		v1alpha2.ScopedPermissionClaim{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref),
 		v1alpha2.VirtualWorkspace{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
-		cachev1alpha1.CachedResource{}.OpenAPIModelName():                             schema_sdk_apis_cache_v1alpha1_CachedResource(ref),
-		cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName():                     schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref),
-		cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName():                schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref),
-		cachev1alpha1.CachedResourceEndpointSliceList{}.OpenAPIModelName():            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref),
-		cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName():            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref),
-		cachev1alpha1.CachedResourceEndpointSliceStatus{}.OpenAPIModelName():          schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref),
-		cachev1alpha1.CachedResourceList{}.OpenAPIModelName():                         schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref),
-		cachev1alpha1.CachedResourceReference{}.OpenAPIModelName():                    schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref),
-		cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName():                         schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref),
-		cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref),
+		cachev1alpha1.ClusterCachedResource{}.OpenAPIModelName():                      schema_sdk_apis_cache_v1alpha1_ClusterCachedResource(ref),
+		cachev1alpha1.ClusterCachedResourceEndpoint{}.OpenAPIModelName():              schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpoint(ref),
+		cachev1alpha1.ClusterCachedResourceEndpointSlice{}.OpenAPIModelName():         schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSlice(ref),
+		cachev1alpha1.ClusterCachedResourceEndpointSliceList{}.OpenAPIModelName():     schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSliceList(ref),
+		cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{}.OpenAPIModelName():     schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSliceSpec(ref),
+		cachev1alpha1.ClusterCachedResourceEndpointSliceStatus{}.OpenAPIModelName():   schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSliceStatus(ref),
+		cachev1alpha1.ClusterCachedResourceList{}.OpenAPIModelName():                  schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceList(ref),
+		cachev1alpha1.ClusterCachedResourceReference{}.OpenAPIModelName():             schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceReference(ref),
+		cachev1alpha1.ClusterCachedResourceSpec{}.OpenAPIModelName():                  schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceSpec(ref),
+		cachev1alpha1.ClusterCachedResourceStatus{}.OpenAPIModelName():                schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceStatus(ref),
 		cachev1alpha1.ExportBindingReference{}.OpenAPIModelName():                     schema_sdk_apis_cache_v1alpha1_ExportBindingReference(ref),
 		cachev1alpha1.GroupVersionResource{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
 		cachev1alpha1.Identity{}.OpenAPIModelName():                                   schema_sdk_apis_cache_v1alpha1_Identity(ref),
@@ -3029,11 +3029,11 @@ func schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref common.ReferenceCallback
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResource defines a resource that should be published to other workspaces",
+				Description: "ClusterCachedResource defines a resource that should be published to other workspaces",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3059,13 +3059,13 @@ func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback)
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName()),
+							Ref:     ref(cachev1alpha1.ClusterCachedResourceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName()),
+							Ref:     ref(cachev1alpha1.ClusterCachedResourceStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -3073,15 +3073,15 @@ func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceSpec{}.OpenAPIModelName(), cachev1alpha1.CachedResourceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+			cachev1alpha1.ClusterCachedResourceSpec{}.OpenAPIModelName(), cachev1alpha1.ClusterCachedResourceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.",
+				Description: "ClusterCachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"url": {
@@ -3099,11 +3099,11 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref common.ReferenceC
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceEndpointSlice is a sink for the endpoints of CachedResource virtual workspaces.",
+				Description: "ClusterCachedResourceEndpointSlice is a sink for the endpoints of ClusterCachedResource virtual workspaces.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3128,31 +3128,31 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref common.Refer
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Description: "spec holds the desired state: - the targeted CachedResource",
+							Description: "spec holds the desired state: - the targeted ClusterCachedResource",
 							Default:     map[string]interface{}{},
-							Ref:         ref(cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName()),
+							Ref:         ref(cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Description: "status communicates the observed state: the filtered list of endpoints for the Replication service.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(cachev1alpha1.CachedResourceEndpointSliceStatus{}.OpenAPIModelName()),
+							Ref:         ref(cachev1alpha1.ClusterCachedResourceEndpointSliceStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName(), cachev1alpha1.CachedResourceEndpointSliceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+			cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{}.OpenAPIModelName(), cachev1alpha1.ClusterCachedResourceEndpointSliceStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSliceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceEndpointSliceList is a list of CachedResourceEndpointSlice resources.",
+				Description: "ClusterCachedResourceEndpointSliceList is a list of ClusterCachedResourceEndpointSlice resources.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3182,7 +3182,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName()),
+										Ref:     ref(cachev1alpha1.ClusterCachedResourceEndpointSlice{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3193,57 +3193,57 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref common.R
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+			cachev1alpha1.ClusterCachedResourceEndpointSlice{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSliceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceEndpointSliceSpec defines the desired state of the CachedResourceEndpointSlice.",
+				Description: "ClusterCachedResourceEndpointSliceSpec defines the desired state of the ClusterCachedResourceEndpointSlice.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"cachedResource": {
+					"clusterCachedResource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CachedResource points to the real CachedResource the slice is created for.",
+							Description: "ClusterCachedResource points to the real ClusterCachedResource the slice is created for.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(cachev1alpha1.CachedResourceReference{}.OpenAPIModelName()),
+							Ref:         ref(cachev1alpha1.ClusterCachedResourceReference{}.OpenAPIModelName()),
 						},
 					},
 					"export": {
 						SchemaProps: spec.SchemaProps{
-							Description: "export points to the APIExport that exports this CachedResourceEndpointSlice.",
+							Description: "export points to the APIExport that exports this ClusterCachedResourceEndpointSlice.",
 							Default:     map[string]interface{}{},
 							Ref:         ref(cachev1alpha1.ExportBindingReference{}.OpenAPIModelName()),
 						},
 					},
 					"partition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "partition points to a partition that is used for filtering the endpoints of the CachedResource part of the slice.",
+							Description: "partition points to a partition that is used for filtering the endpoints of the ClusterCachedResource part of the slice.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"cachedResource", "export"},
+				Required: []string{"clusterCachedResource", "export"},
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceReference{}.OpenAPIModelName(), cachev1alpha1.ExportBindingReference{}.OpenAPIModelName()},
+			cachev1alpha1.ClusterCachedResourceReference{}.OpenAPIModelName(), cachev1alpha1.ExportBindingReference{}.OpenAPIModelName()},
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceEndpointSliceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.",
+				Description: "ClusterCachedResourceEndpointSliceStatus defines the observed state of ClusterCachedResourceEndpointSlice.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "conditions is a list of conditions that apply to the CachedResourceEndpointSlice.",
+							Description: "conditions is a list of conditions that apply to the ClusterCachedResourceEndpointSlice.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3271,7 +3271,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName()),
+										Ref:     ref(cachev1alpha1.ClusterCachedResourceEndpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3288,15 +3288,15 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
+			cachev1alpha1.ClusterCachedResourceEndpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceList contains a list of CachedResource",
+				Description: "ClusterCachedResourceList contains a list of ClusterCachedResource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3326,7 +3326,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallb
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(cachev1alpha1.CachedResource{}.OpenAPIModelName()),
+										Ref:     ref(cachev1alpha1.ClusterCachedResource{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3337,27 +3337,27 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceList(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResource{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+			cachev1alpha1.ClusterCachedResource{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceReference is a reference to a CachedResource.",
+				Description: "ClusterCachedResourceReference is a reference to a ClusterCachedResource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"path": {
 						SchemaProps: spec.SchemaProps{
-							Description: "path is a logical cluster path where the CachedResource is defined. If empty, the CachedResource is assumed to be co-located with the referencing resource.",
+							Description: "path is a logical cluster path where the ClusterCachedResource is defined. If empty, the ClusterCachedResource is assumed to be co-located with the referencing resource.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the CachedResource the reference points to.",
+							Description: "name is the name of the ClusterCachedResource the reference points to.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3370,11 +3370,11 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceReference(ref common.Reference
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceSpec defines the desired state of CachedResource.",
+				Description: "ClusterCachedResourceSpec defines the desired state of ClusterCachedResource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"group": {
@@ -3401,7 +3401,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallb
 					},
 					"identity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity allows access to CachedResource's resources via the APIExport.\n\nDifferent  CachedResource in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the  ublishedResource is moved.\n\nThe identity is defaulted. A secret with the name of the CachedResource is automatically created.",
+							Description: "identity points to a secret that contains the API identity in the 'key' file. The API identity allows access to ClusterCachedResource's resources via the APIExport.\n\nDifferent  ClusterCachedResource in a workspace can share a common identity, or have different ones. The identity (the secret) can also be transferred to another workspace when the  ublishedResource is moved.\n\nThe identity is defaulted. A secret with the name of the ClusterCachedResource is automatically created.",
 							Ref:         ref(cachev1alpha1.Identity{}.OpenAPIModelName()),
 						},
 					},
@@ -3420,11 +3420,11 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceSpec(ref common.ReferenceCallb
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceStatus defines the observed state of CachedResource.",
+				Description: "ClusterCachedResourceStatus defines the observed state of ClusterCachedResource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"identityHash": {
@@ -3538,7 +3538,7 @@ func schema_sdk_apis_cache_v1alpha1_Identity(ref common.ReferenceCallback) commo
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Identity defines the identity of an CachedResource, i.e. determines the cached resource access of the resources, that are published by this CachedResource.",
+				Description: "Identity defines the identity of a ClusterCachedResource, i.e. determines the cached resource access of the resources, that are published by this ClusterCachedResource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"secretRef": {

@@ -22,37 +22,37 @@ import (
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
-// CachedResourceSpecApplyConfiguration represents a declarative configuration of the CachedResourceSpec type for use
+// ClusterCachedResourceSpecApplyConfiguration represents a declarative configuration of the ClusterCachedResourceSpec type for use
 // with apply.
 //
-// CachedResourceSpec defines the desired state of CachedResource.
-type CachedResourceSpecApplyConfiguration struct {
+// ClusterCachedResourceSpec defines the desired state of ClusterCachedResource.
+type ClusterCachedResourceSpecApplyConfiguration struct {
 	// GroupVersionResource is the fully qualified name of the resource to be published.
 	GroupVersionResourceApplyConfiguration `json:",inline"`
 	// identity points to a secret that contains the API identity in the 'key' file.
-	// The API identity allows access to CachedResource's resources via the APIExport.
+	// The API identity allows access to ClusterCachedResource's resources via the APIExport.
 	//
-	// Different  CachedResource in a workspace can share a common identity, or have different
+	// Different  ClusterCachedResource in a workspace can share a common identity, or have different
 	// ones. The identity (the secret) can also be transferred to another workspace
 	// when the  ublishedResource is moved.
 	//
-	// The identity is defaulted. A secret with the name of the CachedResource is automatically
+	// The identity is defaulted. A secret with the name of the ClusterCachedResource is automatically
 	// created.
 	Identity *IdentityApplyConfiguration `json:"identity,omitempty"`
 	// LabelSelector is used to filter which resources should be published
 	LabelSelector *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
 }
 
-// CachedResourceSpecApplyConfiguration constructs a declarative configuration of the CachedResourceSpec type for use with
+// ClusterCachedResourceSpecApplyConfiguration constructs a declarative configuration of the ClusterCachedResourceSpec type for use with
 // apply.
-func CachedResourceSpec() *CachedResourceSpecApplyConfiguration {
-	return &CachedResourceSpecApplyConfiguration{}
+func ClusterCachedResourceSpec() *ClusterCachedResourceSpecApplyConfiguration {
+	return &ClusterCachedResourceSpecApplyConfiguration{}
 }
 
 // WithGroup sets the Group field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Group field is set to the value of the last call.
-func (b *CachedResourceSpecApplyConfiguration) WithGroup(value string) *CachedResourceSpecApplyConfiguration {
+func (b *ClusterCachedResourceSpecApplyConfiguration) WithGroup(value string) *ClusterCachedResourceSpecApplyConfiguration {
 	b.GroupVersionResourceApplyConfiguration.Group = &value
 	return b
 }
@@ -60,7 +60,7 @@ func (b *CachedResourceSpecApplyConfiguration) WithGroup(value string) *CachedRe
 // WithVersion sets the Version field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Version field is set to the value of the last call.
-func (b *CachedResourceSpecApplyConfiguration) WithVersion(value string) *CachedResourceSpecApplyConfiguration {
+func (b *ClusterCachedResourceSpecApplyConfiguration) WithVersion(value string) *ClusterCachedResourceSpecApplyConfiguration {
 	b.GroupVersionResourceApplyConfiguration.Version = &value
 	return b
 }
@@ -68,7 +68,7 @@ func (b *CachedResourceSpecApplyConfiguration) WithVersion(value string) *Cached
 // WithResource sets the Resource field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Resource field is set to the value of the last call.
-func (b *CachedResourceSpecApplyConfiguration) WithResource(value string) *CachedResourceSpecApplyConfiguration {
+func (b *ClusterCachedResourceSpecApplyConfiguration) WithResource(value string) *ClusterCachedResourceSpecApplyConfiguration {
 	b.GroupVersionResourceApplyConfiguration.Resource = &value
 	return b
 }
@@ -76,7 +76,7 @@ func (b *CachedResourceSpecApplyConfiguration) WithResource(value string) *Cache
 // WithIdentity sets the Identity field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Identity field is set to the value of the last call.
-func (b *CachedResourceSpecApplyConfiguration) WithIdentity(value *IdentityApplyConfiguration) *CachedResourceSpecApplyConfiguration {
+func (b *ClusterCachedResourceSpecApplyConfiguration) WithIdentity(value *IdentityApplyConfiguration) *ClusterCachedResourceSpecApplyConfiguration {
 	b.Identity = value
 	return b
 }
@@ -84,7 +84,7 @@ func (b *CachedResourceSpecApplyConfiguration) WithIdentity(value *IdentityApply
 // WithLabelSelector sets the LabelSelector field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the LabelSelector field is set to the value of the last call.
-func (b *CachedResourceSpecApplyConfiguration) WithLabelSelector(value *v1.LabelSelectorApplyConfiguration) *CachedResourceSpecApplyConfiguration {
+func (b *ClusterCachedResourceSpecApplyConfiguration) WithLabelSelector(value *v1.LabelSelectorApplyConfiguration) *ClusterCachedResourceSpecApplyConfiguration {
 	b.LabelSelector = value
 	return b
 }

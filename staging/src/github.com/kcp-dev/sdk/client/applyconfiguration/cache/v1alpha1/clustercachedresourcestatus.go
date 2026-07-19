@@ -23,31 +23,31 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// CachedResourceStatusApplyConfiguration represents a declarative configuration of the CachedResourceStatus type for use
+// ClusterCachedResourceStatusApplyConfiguration represents a declarative configuration of the ClusterCachedResourceStatus type for use
 // with apply.
 //
-// CachedResourceStatus defines the observed state of CachedResource.
-type CachedResourceStatusApplyConfiguration struct {
+// ClusterCachedResourceStatus defines the observed state of ClusterCachedResource.
+type ClusterCachedResourceStatusApplyConfiguration struct {
 	// IdentityHash is a hash of the identity configuration
 	IdentityHash *string `json:"identityHash,omitempty"`
 	// ResourceCount is the number of resources that match the label selector
 	ResourceCounts *ResourceCountApplyConfiguration `json:"resourceCounts,omitempty"`
 	// Phase of the workspace (Initializing, Ready, Unavailable).
-	Phase *cachev1alpha1.CachedResourcePhaseType `json:"phase,omitempty"`
+	Phase *cachev1alpha1.ClusterCachedResourcePhaseType `json:"phase,omitempty"`
 	// Current processing state of the Workspace.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
 
-// CachedResourceStatusApplyConfiguration constructs a declarative configuration of the CachedResourceStatus type for use with
+// ClusterCachedResourceStatusApplyConfiguration constructs a declarative configuration of the ClusterCachedResourceStatus type for use with
 // apply.
-func CachedResourceStatus() *CachedResourceStatusApplyConfiguration {
-	return &CachedResourceStatusApplyConfiguration{}
+func ClusterCachedResourceStatus() *ClusterCachedResourceStatusApplyConfiguration {
+	return &ClusterCachedResourceStatusApplyConfiguration{}
 }
 
 // WithIdentityHash sets the IdentityHash field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the IdentityHash field is set to the value of the last call.
-func (b *CachedResourceStatusApplyConfiguration) WithIdentityHash(value string) *CachedResourceStatusApplyConfiguration {
+func (b *ClusterCachedResourceStatusApplyConfiguration) WithIdentityHash(value string) *ClusterCachedResourceStatusApplyConfiguration {
 	b.IdentityHash = &value
 	return b
 }
@@ -55,7 +55,7 @@ func (b *CachedResourceStatusApplyConfiguration) WithIdentityHash(value string) 
 // WithResourceCounts sets the ResourceCounts field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceCounts field is set to the value of the last call.
-func (b *CachedResourceStatusApplyConfiguration) WithResourceCounts(value *ResourceCountApplyConfiguration) *CachedResourceStatusApplyConfiguration {
+func (b *ClusterCachedResourceStatusApplyConfiguration) WithResourceCounts(value *ResourceCountApplyConfiguration) *ClusterCachedResourceStatusApplyConfiguration {
 	b.ResourceCounts = value
 	return b
 }
@@ -63,7 +63,7 @@ func (b *CachedResourceStatusApplyConfiguration) WithResourceCounts(value *Resou
 // WithPhase sets the Phase field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Phase field is set to the value of the last call.
-func (b *CachedResourceStatusApplyConfiguration) WithPhase(value cachev1alpha1.CachedResourcePhaseType) *CachedResourceStatusApplyConfiguration {
+func (b *ClusterCachedResourceStatusApplyConfiguration) WithPhase(value cachev1alpha1.ClusterCachedResourcePhaseType) *ClusterCachedResourceStatusApplyConfiguration {
 	b.Phase = &value
 	return b
 }
@@ -71,7 +71,7 @@ func (b *CachedResourceStatusApplyConfiguration) WithPhase(value cachev1alpha1.C
 // WithConditions sets the Conditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Conditions field is set to the value of the last call.
-func (b *CachedResourceStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *CachedResourceStatusApplyConfiguration {
+func (b *ClusterCachedResourceStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *ClusterCachedResourceStatusApplyConfiguration {
 	b.Conditions = &value
 	return b
 }

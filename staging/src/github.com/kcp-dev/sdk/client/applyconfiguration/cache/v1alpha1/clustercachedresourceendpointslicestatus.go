@@ -22,44 +22,44 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
-// CachedResourceEndpointSliceStatusApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSliceStatus type for use
+// ClusterCachedResourceEndpointSliceStatusApplyConfiguration represents a declarative configuration of the ClusterCachedResourceEndpointSliceStatus type for use
 // with apply.
 //
-// CachedResourceEndpointSliceStatus defines the observed state of CachedResourceEndpointSlice.
-type CachedResourceEndpointSliceStatusApplyConfiguration struct {
-	// conditions is a list of conditions that apply to the CachedResourceEndpointSlice.
+// ClusterCachedResourceEndpointSliceStatus defines the observed state of ClusterCachedResourceEndpointSlice.
+type ClusterCachedResourceEndpointSliceStatusApplyConfiguration struct {
+	// conditions is a list of conditions that apply to the ClusterCachedResourceEndpointSlice.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 	// endpoints contains all the URLs of the Replication service.
-	CachedResourceEndpoints []CachedResourceEndpointApplyConfiguration `json:"endpoints,omitempty"`
+	ClusterCachedResourceEndpoints []ClusterCachedResourceEndpointApplyConfiguration `json:"endpoints,omitempty"`
 	// shardSelector is the selector used to filter the shards. It is used to filter the shards
 	// when determining partition scope when deriving the endpoints. This is set by owning shard,
 	// and is used by follower shards to determine if its inscope or not.
 	ShardSelector *string `json:"shardSelector,omitempty"`
 }
 
-// CachedResourceEndpointSliceStatusApplyConfiguration constructs a declarative configuration of the CachedResourceEndpointSliceStatus type for use with
+// ClusterCachedResourceEndpointSliceStatusApplyConfiguration constructs a declarative configuration of the ClusterCachedResourceEndpointSliceStatus type for use with
 // apply.
-func CachedResourceEndpointSliceStatus() *CachedResourceEndpointSliceStatusApplyConfiguration {
-	return &CachedResourceEndpointSliceStatusApplyConfiguration{}
+func ClusterCachedResourceEndpointSliceStatus() *ClusterCachedResourceEndpointSliceStatusApplyConfiguration {
+	return &ClusterCachedResourceEndpointSliceStatusApplyConfiguration{}
 }
 
 // WithConditions sets the Conditions field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Conditions field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *CachedResourceEndpointSliceStatusApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceStatusApplyConfiguration) WithConditions(value conditionsv1alpha1.Conditions) *ClusterCachedResourceEndpointSliceStatusApplyConfiguration {
 	b.Conditions = &value
 	return b
 }
 
-// WithCachedResourceEndpoints adds the given value to the CachedResourceEndpoints field in the declarative configuration
+// WithClusterCachedResourceEndpoints adds the given value to the ClusterCachedResourceEndpoints field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the CachedResourceEndpoints field.
-func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithCachedResourceEndpoints(values ...*CachedResourceEndpointApplyConfiguration) *CachedResourceEndpointSliceStatusApplyConfiguration {
+// If called multiple times, values provided by each call will be appended to the ClusterCachedResourceEndpoints field.
+func (b *ClusterCachedResourceEndpointSliceStatusApplyConfiguration) WithClusterCachedResourceEndpoints(values ...*ClusterCachedResourceEndpointApplyConfiguration) *ClusterCachedResourceEndpointSliceStatusApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
-			panic("nil value passed to WithCachedResourceEndpoints")
+			panic("nil value passed to WithClusterCachedResourceEndpoints")
 		}
-		b.CachedResourceEndpoints = append(b.CachedResourceEndpoints, *values[i])
+		b.ClusterCachedResourceEndpoints = append(b.ClusterCachedResourceEndpoints, *values[i])
 	}
 	return b
 }
@@ -67,7 +67,7 @@ func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithCachedResource
 // WithShardSelector sets the ShardSelector field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ShardSelector field is set to the value of the last call.
-func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithShardSelector(value string) *CachedResourceEndpointSliceStatusApplyConfiguration {
+func (b *ClusterCachedResourceEndpointSliceStatusApplyConfiguration) WithShardSelector(value string) *ClusterCachedResourceEndpointSliceStatusApplyConfiguration {
 	b.ShardSelector = &value
 	return b
 }

@@ -18,28 +18,28 @@ limitations under the License.
 
 package v1alpha1
 
-// CachedResourceReferenceApplyConfiguration represents a declarative configuration of the CachedResourceReference type for use
+// ClusterCachedResourceReferenceApplyConfiguration represents a declarative configuration of the ClusterCachedResourceReference type for use
 // with apply.
 //
-// CachedResourceReference is a reference to a CachedResource.
-type CachedResourceReferenceApplyConfiguration struct {
-	// path is a logical cluster path where the CachedResource is defined. If empty,
-	// the CachedResource is assumed to be co-located with the referencing resource.
+// ClusterCachedResourceReference is a reference to a ClusterCachedResource.
+type ClusterCachedResourceReferenceApplyConfiguration struct {
+	// path is a logical cluster path where the ClusterCachedResource is defined. If empty,
+	// the ClusterCachedResource is assumed to be co-located with the referencing resource.
 	Path *string `json:"path,omitempty"`
-	// name is the name of the CachedResource the reference points to.
+	// name is the name of the ClusterCachedResource the reference points to.
 	Name *string `json:"name,omitempty"`
 }
 
-// CachedResourceReferenceApplyConfiguration constructs a declarative configuration of the CachedResourceReference type for use with
+// ClusterCachedResourceReferenceApplyConfiguration constructs a declarative configuration of the ClusterCachedResourceReference type for use with
 // apply.
-func CachedResourceReference() *CachedResourceReferenceApplyConfiguration {
-	return &CachedResourceReferenceApplyConfiguration{}
+func ClusterCachedResourceReference() *ClusterCachedResourceReferenceApplyConfiguration {
+	return &ClusterCachedResourceReferenceApplyConfiguration{}
 }
 
 // WithPath sets the Path field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Path field is set to the value of the last call.
-func (b *CachedResourceReferenceApplyConfiguration) WithPath(value string) *CachedResourceReferenceApplyConfiguration {
+func (b *ClusterCachedResourceReferenceApplyConfiguration) WithPath(value string) *ClusterCachedResourceReferenceApplyConfiguration {
 	b.Path = &value
 	return b
 }
@@ -47,7 +47,7 @@ func (b *CachedResourceReferenceApplyConfiguration) WithPath(value string) *Cach
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *CachedResourceReferenceApplyConfiguration) WithName(value string) *CachedResourceReferenceApplyConfiguration {
+func (b *ClusterCachedResourceReferenceApplyConfiguration) WithName(value string) *ClusterCachedResourceReferenceApplyConfiguration {
 	b.Name = &value
 	return b
 }

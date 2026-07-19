@@ -118,10 +118,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Apis().V1alpha2().APIExports().Informer()}, nil
 
 		// Group=cache.kcp.io, Version=v1alpha1
-	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("cachedresources"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Cache().V1alpha1().CachedResources().Informer()}, nil
-	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("cachedresourceendpointslices"):
-		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Cache().V1alpha1().CachedResourceEndpointSlices().Informer()}, nil
+	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("clustercachedresources"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Cache().V1alpha1().ClusterCachedResources().Informer()}, nil
+	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("clustercachedresourceendpointslices"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer()}, nil
 
 		// Group=core.kcp.io, Version=v1alpha1
 	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
@@ -182,11 +182,11 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 		// Group=cache.kcp.io, Version=v1alpha1
-	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("cachedresources"):
-		informer := f.Cache().V1alpha1().CachedResources().Informer()
+	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("clustercachedresources"):
+		informer := f.Cache().V1alpha1().ClusterCachedResources().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
-	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("cachedresourceendpointslices"):
-		informer := f.Cache().V1alpha1().CachedResourceEndpointSlices().Informer()
+	case kcpcachev1alpha1.SchemeGroupVersion.WithResource("clustercachedresourceendpointslices"):
+		informer := f.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 		// Group=core.kcp.io, Version=v1alpha1

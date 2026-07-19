@@ -18,18 +18,18 @@ limitations under the License.
 
 package v1alpha1
 
-// CachedResourceClusterListerExpansion allows custom methods to be added to
-// CachedResourceClusterLister.
-type CachedResourceClusterListerExpansion interface{}
+// ClusterCachedResourceClusterListerExpansion allows custom methods to be added to
+// ClusterCachedResourceClusterLister.
+type ClusterCachedResourceClusterListerExpansion interface{}
 
-// CachedResourceListerExpansion allows custom methods to be added to
-// CachedResourceLister.
-type CachedResourceListerExpansion interface{}
+// ClusterCachedResourceListerExpansion allows custom methods to be added to
+// ClusterCachedResourceLister.
+type ClusterCachedResourceListerExpansion interface{}
 
-// CachedResourceEndpointSliceClusterListerExpansion allows custom methods to be added to
-// CachedResourceEndpointSliceClusterLister.
-type CachedResourceEndpointSliceClusterListerExpansion interface{}
+// ClusterCachedResourceEndpointSliceClusterListerExpansion allows custom methods to be added to
+// ClusterCachedResourceEndpointSliceClusterLister.
+type ClusterCachedResourceEndpointSliceClusterListerExpansion interface{}
 
-// CachedResourceEndpointSliceListerExpansion allows custom methods to be added to
-// CachedResourceEndpointSliceLister.
-type CachedResourceEndpointSliceListerExpansion interface{}
+// ClusterCachedResourceEndpointSliceListerExpansion allows custom methods to be added to
+// ClusterCachedResourceEndpointSliceLister.
+type ClusterCachedResourceEndpointSliceListerExpansion interface{}
