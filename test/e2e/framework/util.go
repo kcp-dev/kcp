@@ -95,10 +95,10 @@ func ExportVirtualWorkspaceURLs(export *apisv1alpha1.APIExportEndpointSlice) []s
 }
 
 // ReplicationVirtualWorkspaceURLs returns the URLs of the virtual workspaces of the
-// given CachedResourceEndpointSlice.
-func ReplicationVirtualWorkspaceURLs(slice *cachev1alpha1.CachedResourceEndpointSlice) []string {
-	urls := make([]string, 0, len(slice.Status.CachedResourceEndpoints))
-	for _, vw := range slice.Status.CachedResourceEndpoints {
+// given ClusterCachedResourceEndpointSlice.
+func ReplicationVirtualWorkspaceURLs(slice *cachev1alpha1.ClusterCachedResourceEndpointSlice) []string {
+	urls := make([]string, 0, len(slice.Status.ClusterCachedResourceEndpoints))
+	for _, vw := range slice.Status.ClusterCachedResourceEndpoints {
 		urls = append(urls, vw.URL)
 	}
 	return urls
