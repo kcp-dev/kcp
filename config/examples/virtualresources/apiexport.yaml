@@ -11,7 +11,7 @@ spec:
       virtual:
         reference:
           apiGroup: cache.kcp.io
-          kind: CachedResourceEndpointSlice
+          kind: ClusterCachedResourceEndpointSlice
           name: instances
         identityHash: 676a1a997f7507fdfcfd1fcf35920efdff1297cd215cad4f486220c30a5c7090
   - name: virtualmachines

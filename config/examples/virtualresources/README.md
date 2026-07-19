@@ -1,7 +1,7 @@
 # VirtualResources Example
 
-This example shows usage of virtual resources, together with CachedResources.
-The goal of CachedResources is to distribute static, read-only resources to multiple clusters
+This example shows usage of virtual resources, together with ClusterCachedResources.
+The goal of ClusterCachedResources is to distribute static, read-only resources to multiple clusters
 in a scalable way.
 
 ## Setup
@@ -23,9 +23,9 @@ in a scalable way.
    kubectl create -f config/examples/virtualresources/apiresourceschema-instances.yaml
    kubectl create -f config/examples/virtualresources/instances.yaml
 
-   # create caching for the resources with a pre-made CachedResources identity
-   kubectl create -f config/examples/virtualresources/cached-resource-identity.yaml
-   kubectl create -f config/examples/virtualresources/cached-resource-instances.yaml
+   # create caching for the resources with a pre-made ClusterCachedResources identity
+   kubectl create -f config/examples/virtualresources/cluster-cached-resource-identity.yaml
+   kubectl create -f config/examples/virtualresources/cluster-cached-resource-instances.yaml
    ```
 
 3. Create an APIResourceSchema for actual virtual machines to be distributed,
@@ -35,11 +35,11 @@ in a scalable way.
     kubectl create -f config/examples/virtualresources/apiresourceschema-virtualmachine.yaml
    ```
 
-4. Create an APIExport for the virtual machines and the CachedResourceEndpointSlice that references it:
+4. Create an APIExport for the virtual machines and the ClusterCachedResourceEndpointSlice that references it:
 
     ```bash
     kubectl create -f config/examples/virtualresources/apiexport.yaml
-    kubectl create -f config/examples/virtualresources/cached-resource-instances-endpointslice.yaml
+    kubectl create -f config/examples/virtualresources/cluster-cached-resource-instances-endpointslice.yaml
    ```
 
 5. Create a consumer workspace, where we will consume the virtual machines:
