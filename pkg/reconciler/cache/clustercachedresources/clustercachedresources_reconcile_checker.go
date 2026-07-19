@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -28,36 +28,36 @@ import (
 
 // counters counts the number of resources in the local and cache and updates the status.
 type counter struct {
-	listSelectedLocalResources  func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error)
-	listSelectedCachedResources func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error)
+	listSelectedLocalResources         func(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error)
+	listSelectedClusterCachedResources func(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error)
 }
 
-func (r *counter) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
-	if cachedResource.Status.ResourceCounts == nil {
-		cachedResource.Status.ResourceCounts = &cachev1alpha1.ResourceCount{
+func (r *counter) reconcile(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error) {
+	if clusterCachedResource.Status.ResourceCounts == nil {
+		clusterCachedResource.Status.ResourceCounts = &cachev1alpha1.ResourceCount{
 			Cache: 0,
 			Local: 0,
 		}
 	}
 
-	selectedLocalResources, err := r.listSelectedLocalResources(ctx, cachedResource)
+	selectedLocalResources, err := r.listSelectedLocalResources(ctx, clusterCachedResource)
 	if err != nil && !errors.IsNotFound(err) {
 		return reconcileStatusContinue, err
 	}
 
-	selectedCacheResources, err := r.listSelectedCachedResources(ctx, cachedResource)
+	selectedCacheResources, err := r.listSelectedClusterCachedResources(ctx, clusterCachedResource)
 	if err != nil && !errors.IsNotFound(err) {
 		return reconcileStatusContinue, err
 	}
 
 	if selectedLocalResources != nil {
-		cachedResource.Status.ResourceCounts.Local = len(selectedLocalResources.Items)
+		clusterCachedResource.Status.ResourceCounts.Local = len(selectedLocalResources.Items)
 	}
 	if selectedCacheResources != nil {
-		cachedResource.Status.ResourceCounts.Cache = len(selectedCacheResources.Items)
+		clusterCachedResource.Status.ResourceCounts.Cache = len(selectedCacheResources.Items)
 	}
 
-	conditions.MarkTrue(cachedResource, cachev1alpha1.CachedResourceValid)
+	conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ClusterCachedResourceValid)
 
 	return reconcileStatusContinue, nil
 }

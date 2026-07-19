@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -36,7 +36,7 @@ import (
 func TestReconcileIdentity(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
-		CachedResource            *cachev1alpha1.CachedResource
+		ClusterCachedResource     *cachev1alpha1.ClusterCachedResource
 		reconciler                *identityReconciler
 		expectedErr               error
 		expectedStatus            reconcileStatus
@@ -45,7 +45,7 @@ func TestReconcileIdentity(t *testing.T) {
 		expectedIdentityHash      string
 	}{
 		"identity in spec is missing and create fails": {
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "cluster_name",
@@ -66,7 +66,7 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedStatus: reconcileStatusStop,
 			expectedConditions: conditionsv1alpha1.Conditions{
 				*conditions.FalseCondition(
-					cachev1alpha1.CachedResourceIdentityValid,
+					cachev1alpha1.ClusterCachedResourceIdentityValid,
 					cachev1alpha1.IdentityGenerationFailedReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Error creating identity secret: create failed",
@@ -74,7 +74,7 @@ func TestReconcileIdentity(t *testing.T) {
 			},
 		},
 		"identity in spec is missing and create succeeds": {
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "cluster_name",
@@ -103,14 +103,14 @@ func TestReconcileIdentity(t *testing.T) {
 			},
 		},
 		"identity in spec is present and key in secret is missing": {
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "cluster_name",
 					},
 					Name: "cr-name",
 				},
-				Spec: cachev1alpha1.CachedResourceSpec{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					Identity: &cachev1alpha1.Identity{
 						SecretRef: &corev1.SecretReference{
 							Name:      "cr-name",
@@ -128,7 +128,7 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedStatus: reconcileStatusStop,
 			expectedConditions: conditionsv1alpha1.Conditions{
 				*conditions.FalseCondition(
-					cachev1alpha1.CachedResourceIdentityValid,
+					cachev1alpha1.ClusterCachedResourceIdentityValid,
 					cachev1alpha1.IdentityVerificationFailedReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"secret is missing data.key",
@@ -142,14 +142,14 @@ func TestReconcileIdentity(t *testing.T) {
 			},
 		},
 		"identity in spec is present and identity hash in status is not matching": {
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "cluster_name",
 					},
 					Name: "cr-name",
 				},
-				Spec: cachev1alpha1.CachedResourceSpec{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					Identity: &cachev1alpha1.Identity{
 						SecretRef: &corev1.SecretReference{
 							Name:      "cr-name",
@@ -157,7 +157,7 @@ func TestReconcileIdentity(t *testing.T) {
 						},
 					},
 				},
-				Status: cachev1alpha1.CachedResourceStatus{
+				Status: cachev1alpha1.ClusterCachedResourceStatus{
 					IdentityHash: "some-sha256-digest-for-xxx",
 				},
 			},
@@ -174,7 +174,7 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedStatus: reconcileStatusStop,
 			expectedConditions: conditionsv1alpha1.Conditions{
 				*conditions.FalseCondition(
-					cachev1alpha1.CachedResourceIdentityValid,
+					cachev1alpha1.ClusterCachedResourceIdentityValid,
 					cachev1alpha1.IdentityVerificationFailedReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					`hash mismatch: identity secret hash "cd2eb0837c9b4c962c22d2ff8b5441b7b45805887f051d39bf133b583baf6860" must match status.identityHash "some-sha256-digest-for-xxx"`,
@@ -189,14 +189,14 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedIdentityHash: "some-sha256-digest-for-xxx",
 		},
 		"identity in spec is present and identity hash in status is missing": {
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "cluster_name",
 					},
 					Name: "cr-name",
 				},
-				Spec: cachev1alpha1.CachedResourceSpec{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					Identity: &cachev1alpha1.Identity{
 						SecretRef: &corev1.SecretReference{
 							Name:      "cr-name",
@@ -217,7 +217,7 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedErr:    nil,
 			expectedStatus: reconcileStatusContinue,
 			expectedConditions: conditionsv1alpha1.Conditions{
-				*conditions.TrueCondition(cachev1alpha1.CachedResourceIdentityValid),
+				*conditions.TrueCondition(cachev1alpha1.ClusterCachedResourceIdentityValid),
 			},
 			expectedIdentitySecretRef: &cachev1alpha1.Identity{
 				SecretRef: &corev1.SecretReference{
@@ -228,14 +228,14 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedIdentityHash: "cd2eb0837c9b4c962c22d2ff8b5441b7b45805887f051d39bf133b583baf6860",
 		},
 		"identity in spec is present and identity hash in status is matching": {
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: "cluster_name",
 					},
 					Name: "cr-name",
 				},
-				Spec: cachev1alpha1.CachedResourceSpec{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					Identity: &cachev1alpha1.Identity{
 						SecretRef: &corev1.SecretReference{
 							Name:      "cr-name",
@@ -243,7 +243,7 @@ func TestReconcileIdentity(t *testing.T) {
 						},
 					},
 				},
-				Status: cachev1alpha1.CachedResourceStatus{
+				Status: cachev1alpha1.ClusterCachedResourceStatus{
 					IdentityHash: "cd2eb0837c9b4c962c22d2ff8b5441b7b45805887f051d39bf133b583baf6860",
 				},
 			},
@@ -259,7 +259,7 @@ func TestReconcileIdentity(t *testing.T) {
 			expectedErr:    nil,
 			expectedStatus: reconcileStatusContinue,
 			expectedConditions: conditionsv1alpha1.Conditions{
-				*conditions.TrueCondition(cachev1alpha1.CachedResourceIdentityValid),
+				*conditions.TrueCondition(cachev1alpha1.ClusterCachedResourceIdentityValid),
 			},
 			expectedIdentitySecretRef: &cachev1alpha1.Identity{
 				SecretRef: &corev1.SecretReference{
@@ -274,10 +274,10 @@ func TestReconcileIdentity(t *testing.T) {
 	for testName, tt := range tests {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			status, err := tt.reconciler.reconcile(context.Background(), tt.CachedResource)
+			status, err := tt.reconciler.reconcile(context.Background(), tt.ClusterCachedResource)
 
 			resetLastTransitionTime(tt.expectedConditions)
-			resetLastTransitionTime(tt.CachedResource.Status.Conditions)
+			resetLastTransitionTime(tt.ClusterCachedResource.Status.Conditions)
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)
@@ -287,9 +287,9 @@ func TestReconcileIdentity(t *testing.T) {
 			}
 
 			require.Equal(t, tt.expectedStatus, status, "reconcile status mismatch")
-			require.Equal(t, tt.expectedConditions, tt.CachedResource.Status.Conditions, "conditions mismatch")
-			require.Equal(t, tt.expectedIdentitySecretRef, tt.CachedResource.Spec.Identity, "Identity secret ref mismatch")
-			require.Equal(t, tt.expectedIdentityHash, tt.CachedResource.Status.IdentityHash, "Identity hash mismatch")
+			require.Equal(t, tt.expectedConditions, tt.ClusterCachedResource.Status.Conditions, "conditions mismatch")
+			require.Equal(t, tt.expectedIdentitySecretRef, tt.ClusterCachedResource.Spec.Identity, "Identity secret ref mismatch")
+			require.Equal(t, tt.expectedIdentityHash, tt.ClusterCachedResource.Status.IdentityHash, "Identity hash mismatch")
 		})
 	}
 }

@@ -72,18 +72,18 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 		s.KcpSharedInformerFactory.Start(hookContext.Done())
 
 		go s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().Run(hookContext.Done())
-		go s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().Run(hookContext.Done())
 
-		logger.Info("starting CRD and CachedResource informers")
+		logger.Info("starting CRD and ClusterCachedResource informers")
 		if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
-			cachedResourcesSynced := s.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().HasSynced()
-			return crdsSynced && cachedResourcesSynced, nil
+			clusterCachedResourcesSynced := s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().HasSynced()
+			return crdsSynced && clusterCachedResourcesSynced, nil
 		}); err != nil {
-			logger.Error(err, "failed to start some of CRD and CachedResource informers")
+			logger.Error(err, "failed to start some of CRD and ClusterCachedResource informers")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
-		logger.Info("finished starting CRD and CachedResource informers")
+		logger.Info("finished starting CRD and ClusterCachedResource informers")
 
 		select {
 		case <-hookContext.Done():

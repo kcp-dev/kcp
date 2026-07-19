@@ -64,7 +64,7 @@ func BuildVirtualWorkspace(
 
 	readyCh := make(chan struct{})
 
-	cachedResourceContent := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
+	clusterCachedResourceContent := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
 		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			cluster, apiDomain, prefixToStrip, ok := digestURL(urlPath, rootPathPrefix)
 			if !ok {
@@ -89,31 +89,31 @@ func BuildVirtualWorkspace(
 			// and we need to do that before the SharedInformerFactory.Start() is called in cmd/virtual-workspaces/cmd.go.
 
 			globalInformers := map[string]cache.SharedIndexInformer{
-				"cachedresources":              globalKcpInformers.Cache().V1alpha1().CachedResources().Informer(),
-				"cachedresourceendpointslices": globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer(),
-				"apiexports":                   globalKcpInformers.Apis().V1alpha2().APIExports().Informer(),
-				"apiresourceschemas":           globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+				"clustercachedresources":              globalKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer(),
+				"clustercachedresourceendpointslices": globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer(),
+				"apiexports":                          globalKcpInformers.Apis().V1alpha2().APIExports().Informer(),
+				"apiresourceschemas":                  globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 			}
 
 			localInformers := map[string]cache.SharedIndexInformer{
-				"cachedresources":              localKcpInformers.Cache().V1alpha1().CachedResources().Informer(),
-				"cachedresourceendpointslices": localKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer(),
-				"apiexports":                   localKcpInformers.Apis().V1alpha2().APIExports().Informer(),
-				"apibindings":                  localKcpInformers.Apis().V1alpha2().APIBindings().Informer(),
-				"apiresourceschemas":           localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
+				"clustercachedresources":              localKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer(),
+				"clustercachedresourceendpointslices": localKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer(),
+				"apiexports":                          localKcpInformers.Apis().V1alpha2().APIExports().Informer(),
+				"apibindings":                         localKcpInformers.Apis().V1alpha2().APIBindings().Informer(),
+				"apiresourceschemas":                  localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Informer(),
 			}
 
 			// Install indexers.
 
-			// CachedResource & friends indexers.
+			// ClusterCachedResource & friends indexers.
 			indexers.AddIfNotPresentOrDie(
-				globalKcpInformers.Cache().V1alpha1().CachedResources().Informer().GetIndexer(),
+				globalKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer(),
 				cache.Indexers{
 					indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 				},
 			)
 			indexers.AddIfNotPresentOrDie(
-				localKcpInformers.Cache().V1alpha1().CachedResources().Informer().GetIndexer(),
+				localKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer(),
 				cache.Indexers{
 					indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 				},
@@ -141,12 +141,12 @@ func BuildVirtualWorkspace(
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				localKcpInformers,
 				globalKcpInformers,
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, cachedResource *cachev1alpha1.CachedResource, export *apisv1alpha2.APIExport) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, clusterCachedResource *cachev1alpha1.ClusterCachedResource, export *apisv1alpha2.APIExport) (apidefinition.APIDefinition, error) {
 					return provideReadOnlyRestStorage(
 						mainConfig,
 						cacheDynamicClusterClient,
 						apiResourceSchema,
-						cachedResource,
+						clusterCachedResource,
 						export,
 					)
 				},
@@ -186,7 +186,7 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: replication.VirtualWorkspaceName, VirtualWorkspace: cachedResourceContent},
+		{Name: replication.VirtualWorkspaceName, VirtualWorkspace: clusterCachedResourceContent},
 	}, nil
 }
 
@@ -201,7 +201,7 @@ func digestURL(urlPath, rootPathPrefix string) (
 	}
 
 	// Incoming requests to this virtual workspace will look like:
-	//  /services/apiexport/root:org:ws/<CachedResourceEndpointSlice-name>/clusters/*/api/v1/configmaps
+	//  /services/apiexport/root:org:ws/<ClusterCachedResourceEndpointSlice-name>/clusters/*/api/v1/configmaps
 	//                     └────────────────────────┐
 	// Where the withoutRootPathPrefix starts here: ┘
 	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
@@ -224,7 +224,7 @@ func digestURL(urlPath, rootPathPrefix string) (
 		realPath += parts[2]
 	}
 
-	//  /services/apiexport/root:org:ws/<CachedResourceEndpointSlice-name>/clusters/*/api/v1/configmaps
+	//  /services/apiexport/root:org:ws/<ClusterCachedResourceEndpointSlice-name>/clusters/*/api/v1/configmaps
 	//                     ┌──────────────────────────────────────────────┘
 	// We are now here: ───┘
 	// Now, we parse out the logical cluster.

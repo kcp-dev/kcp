@@ -1,9 +1,9 @@
-# CachedResources controller
+# ClusterCachedResources controller
 
-This controller acts on `CachedResources` objects and based on configured GroupVersionKind - replicated them into cache server.
+This controller acts on `ClusterCachedResources` objects and based on configured GroupVersionKind - replicated them into cache server.
 To replicate objects 'wrapper' object is used `CachedObject`. Objects are named based on the original gvr. Example:
 
-Object targeted by `CachedResource` bellow:
+Object targeted by `ClusterCachedResource` bellow:
 ```yaml
 apiVersion: machines.svm.io/v1alpha1
 kind: Instance
@@ -28,17 +28,17 @@ metadata:
 
 Labels are used to filter object based on group, schema, etc. This way we can get individual object by knowing full gvr + name or just schema.
 
-Main controller (`CachedResources`) for each `CachedResource` starts child replication controller with 2 informers:
+Main controller (`ClusterCachedResources`) for each `ClusterCachedResource` starts child replication controller with 2 informers:
 * Local - targeting native type (in example `instances`) to get every change for it.
 * Global - targeting `CachedObject` from the cache server
 
 It will observe both cache and local states and makes sure object are replicated.
-On deletion of `CachedResources` cache is purged and controller stopped after purge is done.
+On deletion of `ClusterCachedResources` cache is purged and controller stopped after purge is done.
 
 
 ## Delete flow:
 
-1. CachedResource is deleted
+1. ClusterCachedResource is deleted
 2. Root controller sets phase to `Deleting`
 3. Root controller gives signal to child controller as its deleted so its stops replicating
 4. Replication root controller will purge the selected resources and flips the status to Deleted

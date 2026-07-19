@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresourceendpointsliceurls
+package clustercachedresourceendpointsliceurls
 
 import (
 	"context"
@@ -41,23 +41,23 @@ type result struct {
 	remove bool
 }
 
-func (c *controller) reconcile(ctx context.Context, slice *cachev1alpha1.CachedResourceEndpointSlice) (bool, error) {
+func (c *controller) reconcile(ctx context.Context, slice *cachev1alpha1.ClusterCachedResourceEndpointSlice) (bool, error) {
 	return endpointsReconciler{
-		getAPIExport:                     c.getAPIExport,
-		listAPIBindingsByAPIExport:       c.listAPIBindingsByAPIExport,
-		getMyShard:                       c.getMyShard,
-		patchCachedResourceEndpointSlice: c.patchCachedResourceEndpointSlice,
+		getAPIExport:                            c.getAPIExport,
+		listAPIBindingsByAPIExport:              c.listAPIBindingsByAPIExport,
+		getMyShard:                              c.getMyShard,
+		patchClusterCachedResourceEndpointSlice: c.patchClusterCachedResourceEndpointSlice,
 	}.reconcile(ctx, slice)
 }
 
 type endpointsReconciler struct {
-	getAPIExport                     func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	listAPIBindingsByAPIExport       func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
-	getMyShard                       func() (*corev1alpha1.Shard, error)
-	patchCachedResourceEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.CachedResourceEndpointSliceApplyConfiguration) error
+	getAPIExport                            func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	listAPIBindingsByAPIExport              func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
+	getMyShard                              func() (*corev1alpha1.Shard, error)
+	patchClusterCachedResourceEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.ClusterCachedResourceEndpointSliceApplyConfiguration) error
 }
 
-func (r endpointsReconciler) reconcile(ctx context.Context, slice *cachev1alpha1.CachedResourceEndpointSlice) (bool, error) {
+func (r endpointsReconciler) reconcile(ctx context.Context, slice *cachev1alpha1.ClusterCachedResourceEndpointSlice) (bool, error) {
 	for _, condition := range slice.Status.Conditions {
 		if !conditions.IsTrue(slice, condition.Type) {
 			return false, nil
@@ -74,22 +74,22 @@ func (r endpointsReconciler) reconcile(ctx context.Context, slice *cachev1alpha1
 	}
 
 	// Patch the object
-	patch := cachev1alpha1apply.CachedResourceEndpointSlice(slice.Name)
+	patch := cachev1alpha1apply.ClusterCachedResourceEndpointSlice(slice.Name)
 	if rs.remove {
-		patch.WithStatus(cachev1alpha1apply.CachedResourceEndpointSliceStatus())
+		patch.WithStatus(cachev1alpha1apply.ClusterCachedResourceEndpointSliceStatus())
 	} else {
-		patch.WithStatus(cachev1alpha1apply.CachedResourceEndpointSliceStatus().
-			WithCachedResourceEndpoints(cachev1alpha1apply.CachedResourceEndpoint().WithURL(rs.url)))
+		patch.WithStatus(cachev1alpha1apply.ClusterCachedResourceEndpointSliceStatus().
+			WithClusterCachedResourceEndpoints(cachev1alpha1apply.ClusterCachedResourceEndpoint().WithURL(rs.url)))
 	}
 	cluster := logicalcluster.From(slice)
-	err = r.patchCachedResourceEndpointSlice(ctx, cluster.Path(), patch)
+	err = r.patchClusterCachedResourceEndpointSlice(ctx, cluster.Path(), patch)
 	if err != nil {
 		return true, err
 	}
 	return false, nil
 }
 
-func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev1alpha1.CachedResourceEndpointSlice) (*result, error) {
+func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev1alpha1.ClusterCachedResourceEndpointSlice) (*result, error) {
 	logger := klog.FromContext(ctx)
 
 	thisShard, err := r.getMyShard()
@@ -139,7 +139,7 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev
 		return nil, nil
 	}
 
-	// URL format: <Shard URL>/services/replication/<CachedResourceEndpointSlice cluster>/<CachedResourceEndpointSlice name>
+	// URL format: <Shard URL>/services/replication/<ClusterCachedResourceEndpointSlice cluster>/<ClusterCachedResourceEndpointSlice name>
 	baseURL.Path = path.Join(
 		baseURL.Path,
 		virtualworkspacesoptions.DefaultRootPathPrefix,
@@ -149,7 +149,7 @@ func (r *endpointsReconciler) updateEndpoints(ctx context.Context, slice *cachev
 	)
 	newURL := baseURL.String()
 
-	for _, e := range slice.Status.CachedResourceEndpoints {
+	for _, e := range slice.Status.ClusterCachedResourceEndpoints {
 		if e.URL == newURL {
 			return nil, nil
 		}

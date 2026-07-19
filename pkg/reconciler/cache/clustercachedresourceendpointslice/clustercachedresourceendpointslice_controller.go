@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresourceendpointslice
+package clustercachedresourceendpointslice
 
 import (
 	"context"
@@ -54,13 +54,13 @@ import (
 )
 
 const (
-	ControllerName = "kcp-cachedresourceendpointslice"
+	ControllerName = "kcp-clustercachedresourceendpointslice"
 )
 
-// NewController returns a new controller for CachedResourceEndpointSlices.
+// NewController returns a new controller for ClusterCachedResourceEndpointSlices.
 func NewController(
-	cachedResourceEndpointSliceClusterInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer,
-	globalCachedResourceClusterInformer cachev1alpha1informers.CachedResourceClusterInformer,
+	clusterCachedResourceEndpointSliceClusterInformer cachev1alpha1informers.ClusterCachedResourceEndpointSliceClusterInformer,
+	globalClusterCachedResourceClusterInformer cachev1alpha1informers.ClusterCachedResourceClusterInformer,
 	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 	partitionClusterInformer topologyinformers.PartitionClusterInformer,
 	kcpClusterClient kcpclientset.ClusterInterface,
@@ -72,14 +72,14 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-		listCachedResourceEndpointSlices: func() ([]*cachev1alpha1.CachedResourceEndpointSlice, error) {
-			return cachedResourceEndpointSliceClusterInformer.Lister().List(labels.Everything())
+		listClusterCachedResourceEndpointSlices: func() ([]*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+			return clusterCachedResourceEndpointSliceClusterInformer.Lister().List(labels.Everything())
 		},
-		getCachedResourceEndpointSlice: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-			return indexers.ByPathAndName[*cachev1alpha1.CachedResourceEndpointSlice](cachev1alpha1.Resource("cachedresourceendpointslice"), cachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), path, name)
+		getClusterCachedResourceEndpointSlice: func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+			return indexers.ByPathAndName[*cachev1alpha1.ClusterCachedResourceEndpointSlice](cachev1alpha1.Resource("clustercachedresourceendpointslice"), clusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), path, name)
 		},
-		getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
-			return indexers.ByPathAndName[*cachev1alpha1.CachedResource](cachev1alpha1.Resource("cachedresource"), globalCachedResourceClusterInformer.Informer().GetIndexer(), path, name)
+		getClusterCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResource, error) {
+			return indexers.ByPathAndName[*cachev1alpha1.ClusterCachedResource](cachev1alpha1.Resource("clustercachedresource"), globalClusterCachedResourceClusterInformer.Informer().GetIndexer(), path, name)
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndName[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), globalAPIExportClusterInformer.Informer().GetIndexer(), path, name)
@@ -87,41 +87,41 @@ func NewController(
 		getPartition: func(clusterName logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error) {
 			return partitionClusterInformer.Lister().Cluster(clusterName).Get(name)
 		},
-		getCachedResourceEndpointSlicesByPartition: func(key string) ([]*cachev1alpha1.CachedResourceEndpointSlice, error) {
-			list, err := cachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().ByIndex(indexCachedResourceEndpointSlicesByPartition, key)
+		getClusterCachedResourceEndpointSlicesByPartition: func(key string) ([]*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+			list, err := clusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().ByIndex(indexClusterCachedResourceEndpointSlicesByPartition, key)
 			if err != nil {
 				return nil, err
 			}
-			slices := make([]*cachev1alpha1.CachedResourceEndpointSlice, 0, len(list))
+			slices := make([]*cachev1alpha1.ClusterCachedResourceEndpointSlice, 0, len(list))
 			for _, obj := range list {
-				slices = append(slices, obj.(*cachev1alpha1.CachedResourceEndpointSlice))
+				slices = append(slices, obj.(*cachev1alpha1.ClusterCachedResourceEndpointSlice))
 			}
 			return slices, nil
 		},
-		cachedResourceEndpointSliceClusterInformer: cachedResourceEndpointSliceClusterInformer,
-		commit: committer.NewCommitter[*CachedResourceEndpointSlice, Patcher, *CachedResourceEndpointSliceSpec, *CachedResourceEndpointSliceStatus](kcpClusterClient.CacheV1alpha1().CachedResourceEndpointSlices()),
+		clusterCachedResourceEndpointSliceClusterInformer: clusterCachedResourceEndpointSliceClusterInformer,
+		commit: committer.NewCommitter[*ClusterCachedResourceEndpointSlice, Patcher, *ClusterCachedResourceEndpointSliceSpec, *ClusterCachedResourceEndpointSliceStatus](kcpClusterClient.CacheV1alpha1().ClusterCachedResourceEndpointSlices()),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	_, _ = cachedResourceEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = clusterCachedResourceEndpointSliceClusterInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger, "")
+			c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](obj), logger, "")
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](newObj), logger, "")
+			c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](newObj), logger, "")
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger, "")
+			c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](obj), logger, "")
 		},
 	})
 
-	_, _ = globalCachedResourceClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+	_, _ = globalClusterCachedResourceClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](obj), logger)
+			c.enqueueClusterCachedResource(tombstone.Obj[*cachev1alpha1.ClusterCachedResource](obj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResource(tombstone.Obj[*cachev1alpha1.CachedResource](obj), logger)
+			c.enqueueClusterCachedResource(tombstone.Obj[*cachev1alpha1.ClusterCachedResource](obj), logger)
 		},
 	}))
 
@@ -152,45 +152,45 @@ func NewController(
 	return c, nil
 }
 
-type CachedResourceEndpointSlice = cachev1alpha1.CachedResourceEndpointSlice
-type CachedResourceEndpointSliceSpec = cachev1alpha1.CachedResourceEndpointSliceSpec
-type CachedResourceEndpointSliceStatus = cachev1alpha1.CachedResourceEndpointSliceStatus
-type Patcher = cachev1alpha1client.CachedResourceEndpointSliceInterface
-type Resource = committer.Resource[*CachedResourceEndpointSliceSpec, *CachedResourceEndpointSliceStatus]
+type ClusterCachedResourceEndpointSlice = cachev1alpha1.ClusterCachedResourceEndpointSlice
+type ClusterCachedResourceEndpointSliceSpec = cachev1alpha1.ClusterCachedResourceEndpointSliceSpec
+type ClusterCachedResourceEndpointSliceStatus = cachev1alpha1.ClusterCachedResourceEndpointSliceStatus
+type Patcher = cachev1alpha1client.ClusterCachedResourceEndpointSliceInterface
+type Resource = committer.Resource[*ClusterCachedResourceEndpointSliceSpec, *ClusterCachedResourceEndpointSliceStatus]
 type CommitFunc = func(context.Context, *Resource, *Resource) error
 
-// controller reconciles CachedResourceEndpointSlices. It ensures that the shard endpoints are populated
-// in the status of every CachedResourceEndpointSlices.
+// controller reconciles ClusterCachedResourceEndpointSlices. It ensures that the shard endpoints are populated
+// in the status of every ClusterCachedResourceEndpointSlices.
 type controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
-	listCachedResourceEndpointSlices           func() ([]*cachev1alpha1.CachedResourceEndpointSlice, error)
-	getCachedResourceEndpointSlice             func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
-	getCachedResource                          func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
-	getAPIExport                               func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	getPartition                               func(cluster logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
-	getCachedResourceEndpointSlicesByPartition func(key string) ([]*cachev1alpha1.CachedResourceEndpointSlice, error)
+	listClusterCachedResourceEndpointSlices           func() ([]*cachev1alpha1.ClusterCachedResourceEndpointSlice, error)
+	getClusterCachedResourceEndpointSlice             func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error)
+	getClusterCachedResource                          func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResource, error)
+	getAPIExport                                      func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getPartition                                      func(cluster logicalcluster.Name, name string) (*topologyv1alpha1.Partition, error)
+	getClusterCachedResourceEndpointSlicesByPartition func(key string) ([]*cachev1alpha1.ClusterCachedResourceEndpointSlice, error)
 
-	cachedResourceEndpointSliceClusterInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer
-	commit                                     CommitFunc
+	clusterCachedResourceEndpointSliceClusterInformer cachev1alpha1informers.ClusterCachedResourceEndpointSliceClusterInformer
+	commit                                            CommitFunc
 }
 
-func (c *controller) enqueueCachedResourceEndpointSlice(endpoints *cachev1alpha1.CachedResourceEndpointSlice, logger logr.Logger, logSuffix string) {
+func (c *controller) enqueueClusterCachedResourceEndpointSlice(endpoints *cachev1alpha1.ClusterCachedResourceEndpointSlice, logger logr.Logger, logSuffix string) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(endpoints)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 
-	logger.V(4).Info(fmt.Sprintf("queueing CachedResourceEndpointSlice%s", logSuffix))
+	logger.V(4).Info(fmt.Sprintf("queueing ClusterCachedResourceEndpointSlice%s", logSuffix))
 	c.queue.Add(key)
 }
 
-func (c *controller) enqueueCachedResource(cachedResource *cachev1alpha1.CachedResource, logger logr.Logger) {
+func (c *controller) enqueueClusterCachedResource(clusterCachedResource *cachev1alpha1.ClusterCachedResource, logger logr.Logger) {
 	// binding keys by full path
 	keys := sets.New[string]()
-	if path := logicalcluster.NewPath(cachedResource.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
-		pathKeys, err := c.cachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(IndexCachedResourceEndpointSliceByCachedResource, path.Join(cachedResource.Name).String())
+	if path := logicalcluster.NewPath(clusterCachedResource.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+		pathKeys, err := c.clusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(IndexClusterCachedResourceEndpointSliceByClusterCachedResource, path.Join(clusterCachedResource.Name).String())
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -198,7 +198,7 @@ func (c *controller) enqueueCachedResource(cachedResource *cachev1alpha1.CachedR
 		keys.Insert(pathKeys...)
 	}
 
-	clusterKeys, err := c.cachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(IndexCachedResourceEndpointSliceByCachedResource, logicalcluster.From(cachedResource).Path().Join(cachedResource.Name).String())
+	clusterKeys, err := c.clusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(IndexClusterCachedResourceEndpointSliceByClusterCachedResource, logicalcluster.From(clusterCachedResource).Path().Join(clusterCachedResource.Name).String())
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
@@ -206,27 +206,27 @@ func (c *controller) enqueueCachedResource(cachedResource *cachev1alpha1.CachedR
 	keys.Insert(clusterKeys...)
 
 	for _, key := range sets.List[string](keys) {
-		slice, exists, err := c.cachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
+		slice, exists, err := c.clusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
 		if err != nil {
 			utilruntime.HandleError(err)
 			continue
 		} else if !exists {
 			continue
 		}
-		c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](slice), logger, " because of referenced CachedResource")
+		c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](slice), logger, " because of referenced ClusterCachedResource")
 	}
 }
 
 func (c *controller) enqueueAPIExport(export *apisv1alpha2.APIExport, logger logr.Logger) {
 	keys := sets.New[string]()
 	for _, res := range export.Spec.Resources {
-		if !cachev1alpha1helpers.IsCachedResourceEndpointSliceResourceStorage(&res.Storage) {
+		if !cachev1alpha1helpers.IsClusterCachedResourceEndpointSliceResourceStorage(&res.Storage) {
 			continue
 		}
 		keys.Insert(cache.ToClusterAwareKey(logicalcluster.From(export).String(), "", res.Storage.Virtual.Reference.Name))
 	}
 	for k := range keys {
-		logger.V(4).Info("queueing CachedResourceEndpointSlice from APIExport")
+		logger.V(4).Info("queueing ClusterCachedResourceEndpointSlice from APIExport")
 		c.queue.Add(k)
 	}
 }
@@ -238,14 +238,14 @@ func (c *controller) enqueuePartition(obj *topologyv1alpha1.Partition, logger lo
 		return
 	}
 
-	slices, err := c.getCachedResourceEndpointSlicesByPartition(key)
+	slices, err := c.getClusterCachedResourceEndpointSlicesByPartition(key)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return
 	}
 
 	for _, slice := range slices {
-		c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](slice), logger, " because of Partition change")
+		c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](slice), logger, " because of Partition change")
 	}
 }
 
@@ -302,7 +302,7 @@ func (c *controller) process(ctx context.Context, key string) error {
 		utilruntime.HandleError(err)
 		return nil
 	}
-	obj, err := c.getCachedResourceEndpointSlice(clusterName.Path(), name)
+	obj, err := c.getClusterCachedResourceEndpointSlice(clusterName.Path(), name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil // object deleted before we handled it
@@ -337,17 +337,17 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
 func InstallIndexers(
-	globalCachedResourceClusterInformer cachev1alpha1informers.CachedResourceClusterInformer,
-	cachedResourceEndpointSliceClusterInformer cachev1alpha1informers.CachedResourceEndpointSliceClusterInformer,
+	globalClusterCachedResourceClusterInformer cachev1alpha1informers.ClusterCachedResourceClusterInformer,
+	clusterCachedResourceEndpointSliceClusterInformer cachev1alpha1informers.ClusterCachedResourceEndpointSliceClusterInformer,
 	globalAPIExportClusterInformer apisv1alpha2informers.APIExportClusterInformer,
 ) {
-	indexers.AddIfNotPresentOrDie(globalCachedResourceClusterInformer.Informer().GetIndexer(), cache.Indexers{
+	indexers.AddIfNotPresentOrDie(globalClusterCachedResourceClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
-	indexers.AddIfNotPresentOrDie(cachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), cache.Indexers{
-		indexers.ByLogicalClusterPathAndName:             indexers.IndexByLogicalClusterPathAndName,
-		IndexCachedResourceEndpointSliceByCachedResource: IndexCachedResourceEndpointSliceByCachedResourceFunc,
-		indexCachedResourceEndpointSlicesByPartition:     indexCachedResourceEndpointSlicesByPartitionFunc,
+	indexers.AddIfNotPresentOrDie(clusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName:                           indexers.IndexByLogicalClusterPathAndName,
+		IndexClusterCachedResourceEndpointSliceByClusterCachedResource: IndexClusterCachedResourceEndpointSliceByClusterCachedResourceFunc,
+		indexClusterCachedResourceEndpointSlicesByPartition:            indexClusterCachedResourceEndpointSlicesByPartitionFunc,
 	})
 	indexers.AddIfNotPresentOrDie(globalAPIExportClusterInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,

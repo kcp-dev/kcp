@@ -37,28 +37,28 @@ func TestDigestUrl(t *testing.T) {
 		expectedLogicalPath string
 	}{
 		{
-			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster/apis",
+			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster/apis",
 			expectedAccept:      true,
-			expectedKey:         "my-cluster/my-cachedresource",
+			expectedKey:         "my-cluster/my-clustercachedresource",
 			expectedCluster:     genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
-			expectedLogicalPath: "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster",
+			expectedLogicalPath: "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster",
 		},
 		{
-			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster",
+			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster",
 			expectedAccept:      true,
-			expectedKey:         "my-cluster/my-cachedresource",
+			expectedKey:         "my-cluster/my-clustercachedresource",
 			expectedCluster:     genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
-			expectedLogicalPath: "/services/replication/my-cluster/my-cachedresource/clusters/my-cluster",
+			expectedLogicalPath: "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster",
 		},
 		{
-			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters/other-cluster",
+			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster",
 			expectedAccept:      true,
-			expectedKey:         "my-cluster/my-cachedresource",
+			expectedKey:         "my-cluster/my-clustercachedresource",
 			expectedCluster:     genericapirequest.Cluster{Name: "other-cluster", Wildcard: false},
-			expectedLogicalPath: "/services/replication/my-cluster/my-cachedresource/clusters/other-cluster",
+			expectedLogicalPath: "/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster",
 		},
 		{
-			urlPath:             "/services/replication/my-cluster/my-cachedresource/clusters",
+			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters",
 			expectedAccept:      false,
 			expectedKey:         "",
 			expectedCluster:     genericapirequest.Cluster{},

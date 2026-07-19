@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -33,7 +33,7 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
 	"github.com/kcp-dev/kcp/pkg/informer"
-	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
@@ -52,32 +52,32 @@ type replication struct {
 	controllerRegistry                   *controllerRegistry
 }
 
-func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
+func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error) {
 	logger := klog.FromContext(ctx)
-	logger.Info("reconciling cached resource", "CachedResource", cachedResource.Name)
+	logger.Info("reconciling cached resource", "ClusterCachedResource", clusterCachedResource.Name)
 
 	gvr := schema.GroupVersionResource{
-		Group:    cachedResource.Spec.Group,
-		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource,
+		Group:    clusterCachedResource.Spec.Group,
+		Version:  clusterCachedResource.Spec.Version,
+		Resource: clusterCachedResource.Spec.Resource,
 	}
-	cluster := logicalcluster.From(cachedResource)
+	cluster := logicalcluster.From(clusterCachedResource)
 
 	var resourceLabelSelector labels.Selector
-	if cachedResource.Spec.LabelSelector != nil {
-		resourceLabelSelector = labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels)
+	if clusterCachedResource.Spec.LabelSelector != nil {
+		resourceLabelSelector = labels.SelectorFromSet(clusterCachedResource.Spec.LabelSelector.MatchLabels)
 	}
 
-	clusterName := logicalcluster.From(cachedResource)
-	controllerName := fmt.Sprintf("%s.%s.%s.%s.%s", clusterName, gvr.Version, gvr.Resource, gvr.Group, cachedResource.Name)
+	clusterName := logicalcluster.From(clusterCachedResource)
+	controllerName := fmt.Sprintf("%s.%s.%s.%s.%s", clusterName, gvr.Version, gvr.Resource, gvr.Group, clusterCachedResource.Name)
 	// TODO: Add locking here when multiple workers are supported.
 	controller := r.controllerRegistry.get(controllerName)
 	// We setup controller even if we are deleting. This is to ensure that we can purge the cache.
 	// If for some reason was dead, we will recreate it.
-	danglingResources := cachedResource.Status.ResourceCounts != nil && cachedResource.Status.ResourceCounts.Cache > 0
+	danglingResources := clusterCachedResource.Status.ResourceCounts != nil && clusterCachedResource.Status.ResourceCounts.Cache > 0
 	if controller == nil {
-		if cachedResource.DeletionTimestamp != nil && !danglingResources {
-			cachedResource.Status.Phase = cachev1alpha1.CachedResourcePhaseDeleted
+		if clusterCachedResource.DeletionTimestamp != nil && !danglingResources {
+			clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseDeleted
 			return reconcileStatusStopAndRequeue, nil
 		}
 
@@ -104,14 +104,14 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 			return reconcileStatusStopAndRequeue, err
 		}
 		replicated := &replicationcontroller.ReplicatedGVR{
-			Identity: cachedResource.Status.IdentityHash,
+			Identity: clusterCachedResource.Status.IdentityHash,
 			Kind:     replicatedKind.Kind,
 			Local:    local.Informer(),
 			Global:   global.Informer(),
 		}
 		replicationcontroller.InstallIndexers(replicated)
 		requeueSelf := func() {
-			r.requeueSelf(cachedResource)
+			r.requeueSelf(clusterCachedResource)
 		}
 
 		c, err := replicationcontroller.NewController(
@@ -135,9 +135,9 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 		go replicated.Global.Run(ctx.Done())
 
 		r.controllerRegistry.register(controllerName, c, cancel)
-		if cachedResource.Status.Phase != cachev1alpha1.CachedResourcePhaseDeleting {
-			conditions.MarkTrue(cachedResource, cachev1alpha1.ReplicationStarted)
-			cachedResource.Status.Phase = cachev1alpha1.CachedResourcePhaseReady
+		if clusterCachedResource.Status.Phase != cachev1alpha1.ClusterCachedResourcePhaseDeleting {
+			conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ReplicationStarted)
+			clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseReady
 		}
 
 		go func() {
@@ -162,12 +162,12 @@ func (r *replication) reconcile(ctx context.Context, cachedResource *cachev1alph
 	// 2. We are in deleting phase, and there is something to delete - we need to wait.
 
 	switch {
-	case cachedResource.Status.Phase == cachev1alpha1.CachedResourcePhaseDeleting && danglingResources:
+	case clusterCachedResource.Status.Phase == cachev1alpha1.ClusterCachedResourcePhaseDeleting && danglingResources:
 		controller.SetDeleted(ctx)
 		return reconcileStatusStopAndRequeue, nil
-	case cachedResource.Status.Phase == cachev1alpha1.CachedResourcePhaseDeleting && !danglingResources:
+	case clusterCachedResource.Status.Phase == cachev1alpha1.ClusterCachedResourcePhaseDeleting && !danglingResources:
 		r.controllerRegistry.unregister(controllerName) // unregister will cancel the context. and things will
-		cachedResource.Status.Phase = cachev1alpha1.CachedResourcePhaseDeleted
+		clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseDeleted
 		return reconcileStatusStopAndRequeue, nil
 	default:
 		return reconcileStatusContinue, nil

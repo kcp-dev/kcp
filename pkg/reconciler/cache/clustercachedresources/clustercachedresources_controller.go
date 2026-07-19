@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -47,7 +47,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
-	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
@@ -58,12 +58,12 @@ import (
 // new published resource is created. This would be fist optimization we need todo as follow-up
 // before removing feature flag and making it enabled by default.
 const (
-	ControllerName = "kcp-cached-resources-controller"
+	ControllerName = "kcp-cluster-cached-resources-controller"
 
 	DefaultIdentitySecretNamespace = "kcp-system"
 )
 
-// NewController returns a new controller for CachedResource objects.
+// NewController returns a new controller for ClusterCachedResource objects.
 func NewController(
 	shardName string,
 	kcpClusterClient kcpclientset.ClusterInterface,
@@ -83,7 +83,7 @@ func NewController(
 	localDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
 	globalDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory,
 
-	cachedResourceInformer cacheinformers.CachedResourceClusterInformer,
+	clusterCachedResourceInformer cacheinformers.ClusterCachedResourceClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
 		shardName: shardName,
@@ -104,12 +104,12 @@ func NewController(
 		localDiscoveringDynamicKcpInformers:  localDiscoveringDynamicKcpInformers,
 		globalDiscoveringDynamicKcpInformers: globalDiscoveringDynamicKcpInformers,
 
-		CachedResourceLister:              cachedResourceInformer.Lister(),
-		CachedResourceIndexer:             cachedResourceInformer.Informer().GetIndexer(),
+		ClusterCachedResourceLister:       clusterCachedResourceInformer.Lister(),
+		ClusterCachedResourceIndexer:      clusterCachedResourceInformer.Informer().GetIndexer(),
 		cacheApiExtensionsClusterClient:   cacheApiExtensionsClusterClient,
 		cacheApiExtensionsClusterInformer: cacheApiExtensionsClusterInformer,
 
-		commit: committer.NewCommitter[*cachev1alpha1.CachedResource, cachev1alpha1client.CachedResourceInterface, *cachev1alpha1.CachedResourceSpec, *cachev1alpha1.CachedResourceStatus](kcpClusterClient.CacheV1alpha1().CachedResources()),
+		commit: committer.NewCommitter[*cachev1alpha1.ClusterCachedResource, cachev1alpha1client.ClusterCachedResourceInterface, *cachev1alpha1.ClusterCachedResourceSpec, *cachev1alpha1.ClusterCachedResourceStatus](kcpClusterClient.CacheV1alpha1().ClusterCachedResources()),
 
 		secretNamespace: DefaultIdentitySecretNamespace,
 
@@ -142,7 +142,7 @@ func NewController(
 		controllerRegistry: newRegistry(),
 	}
 
-	_, _ = cachedResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = clusterCachedResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
 		DeleteFunc: func(obj interface{}) { c.enqueue(obj) },
@@ -151,7 +151,7 @@ func NewController(
 	return c, nil
 }
 
-type CachedResourceResource = committer.Resource[*cachev1alpha1.CachedResourceSpec, *cachev1alpha1.CachedResourceStatus]
+type ClusterCachedResourceResource = committer.Resource[*cachev1alpha1.ClusterCachedResourceSpec, *cachev1alpha1.ClusterCachedResourceStatus]
 
 type Controller struct {
 	shardName string
@@ -168,10 +168,10 @@ type Controller struct {
 	localDiscoveringDynamicKcpInformers  *informer.DiscoveringDynamicSharedInformerFactory
 	globalDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
 
-	CachedResourceIndexer cache.Indexer
-	CachedResourceLister  cachev1alpha1listers.CachedResourceClusterLister
+	ClusterCachedResourceIndexer cache.Indexer
+	ClusterCachedResourceLister  cachev1alpha1listers.ClusterCachedResourceClusterLister
 
-	commit func(ctx context.Context, new, old *CachedResourceResource) error
+	commit func(ctx context.Context, new, old *ClusterCachedResourceResource) error
 
 	secretNamespace string
 
@@ -196,7 +196,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
-	logger.V(4).Info("queueing CachedResource")
+	logger.V(4).Info("queueing ClusterCachedResource")
 	c.queue.Add(key)
 }
 
@@ -256,7 +256,7 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	cachedResource, err := c.CachedResourceLister.Cluster(parent).Get(name)
+	clusterCachedResource, err := c.ClusterCachedResourceLister.Cluster(parent).Get(name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return false, nil
@@ -264,20 +264,20 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 
-	old := cachedResource
-	cachedResource = cachedResource.DeepCopy()
+	old := clusterCachedResource
+	clusterCachedResource = clusterCachedResource.DeepCopy()
 
-	logger := logging.WithObject(klog.FromContext(ctx), cachedResource)
+	logger := logging.WithObject(klog.FromContext(ctx), clusterCachedResource)
 	ctx = klog.NewContext(ctx, logger)
 
 	var errs []error
-	requeue, err := c.reconcile(ctx, parent, cachedResource)
+	requeue, err := c.reconcile(ctx, parent, clusterCachedResource)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	oldResource := &CachedResourceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &CachedResourceResource{ObjectMeta: cachedResource.ObjectMeta, Spec: &cachedResource.Spec, Status: &cachedResource.Status}
+	oldResource := &ClusterCachedResourceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
+	newResource := &ClusterCachedResourceResource{ObjectMeta: clusterCachedResource.ObjectMeta, Spec: &clusterCachedResource.Spec, Status: &clusterCachedResource.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		errs = append(errs, err)
 	}

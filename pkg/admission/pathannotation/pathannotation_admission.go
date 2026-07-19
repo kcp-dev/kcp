@@ -70,7 +70,7 @@ type pathAnnotationPlugin struct {
 
 var pathAnnotationResources = sets.New[string](
 	apisv1alpha2.Resource("apiexports").String(),
-	cachev1alpha1.Resource("cachedresources").String(),
+	cachev1alpha1.Resource("clustercachedresources").String(),
 	apisv1alpha2.Resource("apibindings").String(),
 	tenancyv1alpha1.Resource("workspacetypes").String(),
 )

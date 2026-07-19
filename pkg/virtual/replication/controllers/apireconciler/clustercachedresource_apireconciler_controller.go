@@ -50,7 +50,7 @@ const (
 	ControllerName = "kcp-virtual-replication-api-reconciler"
 )
 
-type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, cachedResource *cachev1alpha1.CachedResource, export *apisv1alpha2.APIExport) (apidefinition.APIDefinition, error)
+type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, clusterCachedResource *cachev1alpha1.ClusterCachedResource, export *apisv1alpha2.APIExport) (apidefinition.APIDefinition, error)
 
 // NewAPIReconciler returns a new controller which reconciles APIExport resources,
 // keeping the APIDefinition for it up-to-date.
@@ -84,16 +84,16 @@ func NewAPIReconciler(
 			localKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
 			globalKcpInformers.Apis().V1alpha1().APIResourceSchemas().Lister(),
 		),
-		getCachedResourceEndpointSlice: informer.NewScopedGetterWithFallback(
-			localKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Lister(),
-			globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Lister(),
+		getClusterCachedResourceEndpointSlice: informer.NewScopedGetterWithFallback(
+			localKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Lister(),
+			globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Lister(),
 		),
-		getCachedResourceByPath: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
-			// Pull only from the global informer! We need CachedResources to come from the cache,
+		getClusterCachedResourceByPath: func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResource, error) {
+			// Pull only from the global informer! We need ClusterCachedResources to come from the cache,
 			// so that they have the shard annotation present! See ../builder/wrap.go.
-			return indexers.ByPathAndName[*cachev1alpha1.CachedResource](
-				cachev1alpha1.Resource("cachedresources"),
-				globalKcpInformers.Cache().V1alpha1().CachedResources().Informer().GetIndexer(),
+			return indexers.ByPathAndName[*cachev1alpha1.ClusterCachedResource](
+				cachev1alpha1.Resource("clustercachedresources"),
+				globalKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer(),
 				path,
 				name,
 			)
@@ -102,15 +102,15 @@ func NewAPIReconciler(
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
 
-	_, _ = globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](obj), logger)
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](obj), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.CachedResourceEndpointSlice](obj), logger)
+			c.enqueueClusterCachedResourceEndpointSlice(tombstone.Obj[*cachev1alpha1.ClusterCachedResourceEndpointSlice](obj), logger)
 		},
 	})
 
@@ -127,13 +127,13 @@ type APIReconciler struct {
 	mutex   sync.RWMutex // protects the map, not the values!
 	apiSets map[dynamiccontext.APIDomainKey]apidefinition.APIDefinitionSet
 
-	getAPIExportByPath             func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	getAPIResourceSchema           func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	getCachedResourceByPath        func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error)
-	getCachedResourceEndpointSlice func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
+	getAPIExportByPath                    func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIResourceSchema                  func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getClusterCachedResourceByPath        func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResource, error)
+	getClusterCachedResourceEndpointSlice func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error)
 }
 
-func (c *APIReconciler) enqueueCachedResourceEndpointSlice(endpointSlice *cachev1alpha1.CachedResourceEndpointSlice, logger logr.Logger) {
+func (c *APIReconciler) enqueueClusterCachedResourceEndpointSlice(endpointSlice *cachev1alpha1.ClusterCachedResourceEndpointSlice, logger logr.Logger) {
 	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(endpointSlice)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -142,7 +142,7 @@ func (c *APIReconciler) enqueueCachedResourceEndpointSlice(endpointSlice *cachev
 
 	logger = logging.WithObject(logger, endpointSlice)
 
-	logging.WithQueueKey(logger, key).V(4).Info("queueing CachedResourceEndpointSlice")
+	logging.WithQueueKey(logger, key).V(4).Info("queueing ClusterCachedResourceEndpointSlice")
 	c.queue.Add(key)
 }
 
@@ -216,9 +216,9 @@ func (c *APIReconciler) process(ctx context.Context, key string) error {
 
 	logger := klog.FromContext(ctx).WithValues("apiDomainKey", apiDomainKey)
 
-	endpointSlice, err := c.getCachedResourceEndpointSlice(clusterName, endpointSliceName)
+	endpointSlice, err := c.getClusterCachedResourceEndpointSlice(clusterName, endpointSliceName)
 	if err != nil && !apierrors.IsNotFound(err) {
-		logger.Error(err, "error getting CachedResourceEndpointSlice")
+		logger.Error(err, "error getting ClusterCachedResourceEndpointSlice")
 		return nil // nothing we can do here
 	}
 

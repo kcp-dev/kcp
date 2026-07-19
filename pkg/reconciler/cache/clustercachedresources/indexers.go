@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,21 +35,21 @@ const (
 
 // IndexByShardAndLogicalClusterAndNamespace is an index function that indexes by an object's gvr and logical cluster.
 func IndexByGVRAndLogicalCluster(obj interface{}) ([]string, error) {
-	cachedResource := obj.(*cachev1alpha1.CachedResource)
+	clusterCachedResource := obj.(*cachev1alpha1.ClusterCachedResource)
 
-	if cachedResource.Status.IdentityHash == "" {
+	if clusterCachedResource.Status.IdentityHash == "" {
 		return []string{}, nil
 	}
-	if cachedResource.Annotations == nil ||
-		cachedResource.Annotations[AnnotationResourceKind] == "" ||
-		cachedResource.Annotations[AnnotationResourceScope] == "" {
+	if clusterCachedResource.Annotations == nil ||
+		clusterCachedResource.Annotations[AnnotationResourceKind] == "" ||
+		clusterCachedResource.Annotations[AnnotationResourceScope] == "" {
 		return []string{}, nil
 	}
 
 	return []string{
 		GVRAndLogicalClusterKey(
-			schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource),
-			logicalcluster.From(cachedResource),
+			schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource),
+			logicalcluster.From(clusterCachedResource),
 		),
 	}, nil
 }
@@ -57,19 +57,19 @@ func IndexByGVRAndLogicalCluster(obj interface{}) ([]string, error) {
 // IndexByIdentityAndGroupResource is an index function that indexes by an object's identity hash and group/resource.
 // Objects with an empty identity hash are not indexed.
 func IndexByIdentityAndGroupResource(obj interface{}) ([]string, error) {
-	cachedResource := obj.(*cachev1alpha1.CachedResource)
+	clusterCachedResource := obj.(*cachev1alpha1.ClusterCachedResource)
 
-	if cachedResource.Status.IdentityHash == "" {
+	if clusterCachedResource.Status.IdentityHash == "" {
 		return []string{}, nil
 	}
-	if cachedResource.Annotations == nil ||
-		cachedResource.Annotations[AnnotationResourceKind] == "" ||
-		cachedResource.Annotations[AnnotationResourceScope] == "" {
+	if clusterCachedResource.Annotations == nil ||
+		clusterCachedResource.Annotations[AnnotationResourceKind] == "" ||
+		clusterCachedResource.Annotations[AnnotationResourceScope] == "" {
 		return []string{}, nil
 	}
 
-	gvr := schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource)
-	return []string{IdentityAndGroupResourceKey(cachedResource.Status.IdentityHash, gvr.GroupResource())}, nil
+	gvr := schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource)
+	return []string{IdentityAndGroupResourceKey(clusterCachedResource.Status.IdentityHash, gvr.GroupResource())}, nil
 }
 
 // IdentityAndGroupResourceKey creates an index key from an identity hash and group/resource.
@@ -79,16 +79,16 @@ func IdentityAndGroupResourceKey(identity string, gr schema.GroupResource) strin
 
 // IndexByGroupResource is an index function that indexes by an object's group/resource.
 func IndexByGroupResource(obj interface{}) ([]string, error) {
-	cachedResource := obj.(*cachev1alpha1.CachedResource)
-	if cachedResource.Status.IdentityHash == "" {
+	clusterCachedResource := obj.(*cachev1alpha1.ClusterCachedResource)
+	if clusterCachedResource.Status.IdentityHash == "" {
 		return []string{}, nil
 	}
-	if cachedResource.Annotations == nil ||
-		cachedResource.Annotations[AnnotationResourceKind] == "" ||
-		cachedResource.Annotations[AnnotationResourceScope] == "" {
+	if clusterCachedResource.Annotations == nil ||
+		clusterCachedResource.Annotations[AnnotationResourceKind] == "" ||
+		clusterCachedResource.Annotations[AnnotationResourceScope] == "" {
 		return []string{}, nil
 	}
-	gvr := schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource)
+	gvr := schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource)
 	return []string{GroupResourceKey(gvr.GroupResource())}, nil
 }
 
