@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -58,7 +58,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestCachedResources(t *testing.T) {
+func TestClusterCachedResources(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -106,8 +106,8 @@ func TestCachedResources(t *testing.T) {
 
 	// Prepare wildwest.dev resource "sheriffs":
 	// * Create CRD and generate its associated APIResourceSchema to be used with an APIExport later.
-	// * Create a CachedResource for that resource and wait until it's ready.
-	cachedResourceIdentities := make(map[string]string)
+	// * Create a ClusterCachedResource for that resource and wait until it's ready.
+	clusterCachedResourceIdentities := make(map[string]string)
 	for resourceName := range resourceNames {
 		gr := metav1.GroupResource{
 			Group:    "wildwest.dev",
@@ -126,13 +126,13 @@ func TestCachedResources(t *testing.T) {
 		_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIResourceSchemas().Create(ctx, sch, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		// Create a CachedResource for that CR.
-		t.Logf("Creating CachedResource for %s.v1alpha1.wildwest.dev in %q", resourceName, providerPath)
-		cachedResource, err := kcpClusterClient.Cluster(providerPath).CacheV1alpha1().CachedResources().Create(ctx, &cachev1alpha1.CachedResource{
+		// Create a ClusterCachedResource for that CR.
+		t.Logf("Creating ClusterCachedResource for %s.v1alpha1.wildwest.dev in %q", resourceName, providerPath)
+		clusterCachedResource, err := kcpClusterClient.Cluster(providerPath).CacheV1alpha1().ClusterCachedResources().Create(ctx, &cachev1alpha1.ClusterCachedResource{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: gr.String(),
 			},
-			Spec: cachev1alpha1.CachedResourceSpec{
+			Spec: cachev1alpha1.ClusterCachedResourceSpec{
 				GroupVersionResource: cachev1alpha1.GroupVersionResource{
 					Group:    "wildwest.dev",
 					Version:  "v1alpha1",
@@ -142,15 +142,15 @@ func TestCachedResources(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-			cachedResource, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().CachedResources().Get(ctx, cachedResource.Name, metav1.GetOptions{})
-			return cachedResource, err
-		}, kcptestinghelpers.Is(cachev1alpha1.ReplicationStarted), fmt.Sprintf("CachedResource %v should become ready", cachedResource.Name))
+			clusterCachedResource, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().ClusterCachedResources().Get(ctx, clusterCachedResource.Name, metav1.GetOptions{})
+			return clusterCachedResource, err
+		}, kcptestinghelpers.Is(cachev1alpha1.ReplicationStarted), fmt.Sprintf("ClusterCachedResource %v should become ready", clusterCachedResource.Name))
 
-		cachedResourceIdentities[resourceName] = cachedResource.Status.IdentityHash
+		clusterCachedResourceIdentities[resourceName] = clusterCachedResource.Status.IdentityHash
 	}
 
-	// Create an APIExport for the created CachedResources.
-	t.Logf("Creating APIExport for wildwest.dev CachedResources in %q", providerPath)
+	// Create an APIExport for the created ClusterCachedResources.
+	t.Logf("Creating APIExport for wildwest.dev ClusterCachedResources in %q", providerPath)
 	apiExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(ctx, &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cached-wildwest-provider",
@@ -165,10 +165,10 @@ func TestCachedResources(t *testing.T) {
 						Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 							Reference: corev1.TypedLocalObjectReference{
 								APIGroup: ptr.To(cachev1alpha1.SchemeGroupVersion.Group),
-								Kind:     "CachedResourceEndpointSlice",
+								Kind:     "ClusterCachedResourceEndpointSlice",
 								Name:     "sheriffs.wildwest.dev",
 							},
-							IdentityHash: cachedResourceIdentities["sheriffs"],
+							IdentityHash: clusterCachedResourceIdentities["sheriffs"],
 						},
 					},
 				},
@@ -177,7 +177,7 @@ func TestCachedResources(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	// Create CachedResourceEndpointSlices for the CachedResource(s) we've created above.
+	// Create ClusterCachedResourceEndpointSlices for the ClusterCachedResource(s) we've created above.
 	for resourceName := range resourceNames {
 		gr := metav1.GroupResource{
 			Group:    "wildwest.dev",
@@ -185,14 +185,14 @@ func TestCachedResources(t *testing.T) {
 		}
 		name := gr.String()
 
-		// Create a CachedResourceEndpointSlice for the CachedResource ^^.
-		t.Logf("Creating a CachedResourceEndpointSlice that references %s CachedResource and %s APIExport (will create right after) in %q", resourceName, apiExport.Name, providerPath)
-		cres, err := kcpClusterClient.Cluster(providerPath).CacheV1alpha1().CachedResourceEndpointSlices().Create(ctx, &cachev1alpha1.CachedResourceEndpointSlice{
+		// Create a ClusterCachedResourceEndpointSlice for the ClusterCachedResource ^^.
+		t.Logf("Creating a ClusterCachedResourceEndpointSlice that references %s ClusterCachedResource and %s APIExport (will create right after) in %q", resourceName, apiExport.Name, providerPath)
+		cres, err := kcpClusterClient.Cluster(providerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Create(ctx, &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-				CachedResource: cachev1alpha1.CachedResourceReference{
+			Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
+				ClusterCachedResource: cachev1alpha1.ClusterCachedResourceReference{
 					Name: name,
 				},
 				APIExport: cachev1alpha1.ExportBindingReference{
@@ -202,13 +202,13 @@ func TestCachedResources(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 		kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-			cres, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(ctx, cres.Name, metav1.GetOptions{})
+			cres, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Get(ctx, cres.Name, metav1.GetOptions{})
 			return cres, err
-		}, kcptestinghelpers.Is(cachev1alpha1.CachedResourceValid), fmt.Sprintf("CachedResourceEndpointSlice %v should have its CachedResource reference valid", name))
+		}, kcptestinghelpers.Is(cachev1alpha1.ClusterCachedResourceValid), fmt.Sprintf("ClusterCachedResourceEndpointSlice %v should have its ClusterCachedResource reference valid", name))
 		kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-			cres, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(ctx, cres.Name, metav1.GetOptions{})
+			cres, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Get(ctx, cres.Name, metav1.GetOptions{})
 			return cres, err
-		}, kcptestinghelpers.Is(cachev1alpha1.APIExportValid), fmt.Sprintf("CachedResourceEndpointSlice %v should have its APIExport reference valid", apiExport.Name))
+		}, kcptestinghelpers.Is(cachev1alpha1.APIExportValid), fmt.Sprintf("ClusterCachedResourceEndpointSlice %v should have its APIExport reference valid", apiExport.Name))
 	}
 
 	//

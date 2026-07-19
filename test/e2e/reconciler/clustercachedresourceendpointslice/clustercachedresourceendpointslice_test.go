@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresourceendpointslice
+package clustercachedresourceendpointslice
 
 import (
 	"fmt"
@@ -39,7 +39,7 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
+func TestClusterCachedResourceEndpointSliceWithPath(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
@@ -65,13 +65,13 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 	sheriffsGR := metav1.GroupResource{Group: "wildwest.dev", Resource: "sheriffs"}
 	wildwest.Create(t, providerPath, crdClient, sheriffsGR)
 
-	// Create a CachedResource in the provider workspace
-	t.Logf("Creating CachedResource in provider workspace %q", providerPath)
-	cachedResource := &cachev1alpha1.CachedResource{
+	// Create a ClusterCachedResource in the provider workspace
+	t.Logf("Creating ClusterCachedResource in provider workspace %q", providerPath)
+	clusterCachedResource := &cachev1alpha1.ClusterCachedResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: sheriffsGR.String(),
 		},
-		Spec: cachev1alpha1.CachedResourceSpec{
+		Spec: cachev1alpha1.ClusterCachedResourceSpec{
 			GroupVersionResource: cachev1alpha1.GroupVersionResource{
 				Group:    "wildwest.dev",
 				Version:  "v1alpha1",
@@ -80,35 +80,35 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 		},
 	}
 
-	cachedResourceClient := kcpClusterClient.CacheV1alpha1().CachedResources()
-	_, err = cachedResourceClient.Cluster(providerPath).Create(ctx, cachedResource, metav1.CreateOptions{})
-	require.NoError(t, err, "error creating CachedResource")
+	clusterCachedResourceClient := kcpClusterClient.CacheV1alpha1().ClusterCachedResources()
+	_, err = clusterCachedResourceClient.Cluster(providerPath).Create(ctx, clusterCachedResource, metav1.CreateOptions{})
+	require.NoError(t, err, "error creating ClusterCachedResource")
 
-	// Wait for CachedResource to be ready
+	// Wait for ClusterCachedResource to be ready
 	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
-		cachedResource, err = cachedResourceClient.Cluster(providerPath).Get(ctx, cachedResource.Name, metav1.GetOptions{})
-		return cachedResource, err
-	}, kcptestinghelpers.Is(cachev1alpha1.ReplicationStarted), fmt.Sprintf("CachedResource %v should become ready", cachedResource.Name))
+		clusterCachedResource, err = clusterCachedResourceClient.Cluster(providerPath).Get(ctx, clusterCachedResource.Name, metav1.GetOptions{})
+		return clusterCachedResource, err
+	}, kcptestinghelpers.Is(cachev1alpha1.ReplicationStarted), fmt.Sprintf("ClusterCachedResource %v should become ready", clusterCachedResource.Name))
 
-	// Create a CachedResourceEndpointSlice in the consumer workspace that references
-	// the CachedResource in the provider workspace using the path field
-	t.Logf("Creating CachedResourceEndpointSlice in consumer workspace %q with path reference to provider workspace %q", consumerPath, providerPath)
-	sliceExternalPath := &cachev1alpha1.CachedResourceEndpointSlice{
+	// Create a ClusterCachedResourceEndpointSlice in the consumer workspace that references
+	// the ClusterCachedResource in the provider workspace using the path field
+	t.Logf("Creating ClusterCachedResourceEndpointSlice in consumer workspace %q with path reference to provider workspace %q", consumerPath, providerPath)
+	sliceExternalPath := &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "sheriffs-external-path-slice-",
 		},
-		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-			CachedResource: cachev1alpha1.CachedResourceReference{
+		Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
+			ClusterCachedResource: cachev1alpha1.ClusterCachedResourceReference{
 				Path: providerPath.String(),
-				Name: cachedResource.Name,
+				Name: clusterCachedResource.Name,
 			},
 		},
 	}
 
-	sliceClient := kcpClusterClient.CacheV1alpha1().CachedResourceEndpointSlices()
+	sliceClient := kcpClusterClient.CacheV1alpha1().ClusterCachedResourceEndpointSlices()
 
 	var sliceExternalPathName string
-	t.Logf("Creating CachedResourceEndpointSlice with external path reference")
+	t.Logf("Creating ClusterCachedResourceEndpointSlice with external path reference")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		created, err := sliceClient.Cluster(consumerPath).Create(ctx, sliceExternalPath, metav1.CreateOptions{})
 		if err != nil {
@@ -116,27 +116,27 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 		}
 		sliceExternalPathName = created.Name
 		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected CachedResourceEndpointSlice creation to succeed")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected ClusterCachedResourceEndpointSlice creation to succeed")
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		sliceExternalPath, err = kcpClusterClient.Cluster(consumerPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(ctx, sliceExternalPathName, metav1.GetOptions{})
+		sliceExternalPath, err = kcpClusterClient.Cluster(consumerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Get(ctx, sliceExternalPathName, metav1.GetOptions{})
 		require.NoError(t, err)
 
-		if conditions.IsTrue(sliceExternalPath, cachev1alpha1.CachedResourceValid) {
+		if conditions.IsTrue(sliceExternalPath, cachev1alpha1.ClusterCachedResourceValid) {
 			return true, ""
 		}
 
 		return false, spew.Sdump(sliceExternalPath.Status.Conditions)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid CachedResource reference")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid ClusterCachedResource reference")
 
-	t.Logf("Creating CachedResourceEndpointSlice in provider workspace that references the CachedResource in the same workspace")
-	sliceSameWorkspace := &cachev1alpha1.CachedResourceEndpointSlice{
+	t.Logf("Creating ClusterCachedResourceEndpointSlice in provider workspace that references the ClusterCachedResource in the same workspace")
+	sliceSameWorkspace := &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "sheriffs-same-workspace-slice-",
 		},
-		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-			CachedResource: cachev1alpha1.CachedResourceReference{
-				Name: cachedResource.Name,
+		Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
+			ClusterCachedResource: cachev1alpha1.ClusterCachedResourceReference{
+				Name: clusterCachedResource.Name,
 			},
 		},
 	}
@@ -149,48 +149,48 @@ func TestCachedResourceEndpointSliceWithPath(t *testing.T) {
 		}
 		sliceSameWorkspaceName = created.Name
 		return true, ""
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected CachedResourceEndpointSlice creation in same workspace to succeed")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected ClusterCachedResourceEndpointSlice creation in same workspace to succeed")
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		sliceSameWorkspace, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(ctx, sliceSameWorkspaceName, metav1.GetOptions{})
+		sliceSameWorkspace, err = kcpClusterClient.Cluster(providerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Get(ctx, sliceSameWorkspaceName, metav1.GetOptions{})
 		require.NoError(t, err)
 
-		if conditions.IsTrue(sliceSameWorkspace, cachev1alpha1.CachedResourceValid) {
+		if conditions.IsTrue(sliceSameWorkspace, cachev1alpha1.ClusterCachedResourceValid) {
 			return true, ""
 		}
 
 		return false, spew.Sdump(sliceSameWorkspace.Status.Conditions)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid CachedResource reference in same workspace")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected valid ClusterCachedResource reference in same workspace")
 
-	t.Logf("CachedResourceEndpointSlice successfully references CachedResource in same workspace")
+	t.Logf("ClusterCachedResourceEndpointSlice successfully references ClusterCachedResource in same workspace")
 
-	sliceInvalidReference := &cachev1alpha1.CachedResourceEndpointSlice{
+	sliceInvalidReference := &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sheriffs-invalid-reference-slice",
 		},
-		Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-			CachedResource: cachev1alpha1.CachedResourceReference{
+		Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
+			ClusterCachedResource: cachev1alpha1.ClusterCachedResourceReference{
 				Path: providerPath.String(),
-				Name: "nonexistent-cachedresource",
+				Name: "nonexistent-clustercachedresource",
 			},
 		},
 	}
 
 	_, err = sliceClient.Cluster(consumerPath).Create(ctx, sliceInvalidReference, metav1.CreateOptions{})
-	require.NoError(t, err, "CachedResourceEndpointSlice should be created even if CachedResource doesn't exist yet")
+	require.NoError(t, err, "ClusterCachedResourceEndpointSlice should be created even if ClusterCachedResource doesn't exist yet")
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		sliceInvalidReference, err = kcpClusterClient.Cluster(consumerPath).CacheV1alpha1().CachedResourceEndpointSlices().Get(ctx, sliceInvalidReference.Name, metav1.GetOptions{})
+		sliceInvalidReference, err = kcpClusterClient.Cluster(consumerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Get(ctx, sliceInvalidReference.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err.Error()
 		}
 
-		if conditions.IsFalse(sliceInvalidReference, cachev1alpha1.CachedResourceValid) &&
-			conditions.GetReason(sliceInvalidReference, cachev1alpha1.CachedResourceValid) == cachev1alpha1.CachedResourceNotFoundReason {
+		if conditions.IsFalse(sliceInvalidReference, cachev1alpha1.ClusterCachedResourceValid) &&
+			conditions.GetReason(sliceInvalidReference, cachev1alpha1.ClusterCachedResourceValid) == cachev1alpha1.ClusterCachedResourceNotFoundReason {
 			return true, ""
 		}
 		return false, spew.Sdump(sliceInvalidReference.Status.Conditions)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected invalid CachedResource reference")
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected invalid ClusterCachedResource reference")
 
-	t.Logf("CachedResourceEndpointSlice correctly reports invalid reference to nonexistent CachedResource")
+	t.Logf("ClusterCachedResourceEndpointSlice correctly reports invalid reference to nonexistent ClusterCachedResource")
 }

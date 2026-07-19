@@ -150,12 +150,12 @@ func TestDynamicRestMapper(t *testing.T) {
 	})
 	require.Error(t, err, "KubeCluster v1alpha1 should not be discoverable anymore")
 
-	t.Logf("Testing that CachedResourceEndpointSlice.cache.kcp.io can be resolved without explicit version")
+	t.Logf("Testing that ClusterCachedResourceEndpointSlice.cache.kcp.io can be resolved without explicit version")
 	_, err = drm.RESTMapping(schema.GroupKind{
 		Group: "cache.kcp.io",
-		Kind:  "CachedResourceEndpointSlice",
+		Kind:  "ClusterCachedResourceEndpointSlice",
 	})
-	require.NoError(t, err, "CachedResourceEndpointSlice.cache.kcp.io should be resolvable")
+	require.NoError(t, err, "ClusterCachedResourceEndpointSlice.cache.kcp.io should be resolvable")
 
 	t.Logf("Testing that creating Sheriff system CRD is reflected in the mapper")
 	systemCRDsPath := logicalcluster.NewPath("system:system-crds")

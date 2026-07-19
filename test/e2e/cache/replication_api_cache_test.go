@@ -133,7 +133,7 @@ func TestCacheServerReplicationAPI(t *testing.T) {
 
 			t.Logf("Wait for replication api to be ready and reporting 7 replicas")
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				publishedResource, err := orgProviderKCPClient.Cluster(rootOrg).CacheV1alpha1().CachedResources().Get(ctx, "instances", metav1.GetOptions{})
+				publishedResource, err := orgProviderKCPClient.Cluster(rootOrg).CacheV1alpha1().ClusterCachedResources().Get(ctx, "instances", metav1.GetOptions{})
 				require.NoError(t, err)
 				return publishedResource != nil && publishedResource.Status.ResourceCounts != nil && publishedResource.Status.ResourceCounts.Cache == 7, yamlMarshal(t, publishedResource)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for replication api to be ready and reporting 7 replicas")
@@ -144,7 +144,7 @@ func TestCacheServerReplicationAPI(t *testing.T) {
 			err = dynamicClusterClient.Cluster(rootOrg).Resource(schema.GroupVersionResource{Group: "machines.svm.io", Version: "v1alpha1", Resource: "instances"}).Delete(ctx, "analytics-2", metav1.DeleteOptions{})
 			require.NoError(t, err)
 			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				publishedResource, err := orgProviderKCPClient.Cluster(rootOrg).CacheV1alpha1().CachedResources().Get(ctx, "instances", metav1.GetOptions{})
+				publishedResource, err := orgProviderKCPClient.Cluster(rootOrg).CacheV1alpha1().ClusterCachedResources().Get(ctx, "instances", metav1.GetOptions{})
 				require.NoError(t, err)
 				return publishedResource != nil && publishedResource.Status.ResourceCounts != nil && publishedResource.Status.ResourceCounts.Cache == 5, yamlMarshal(t, publishedResource)
 			}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for replication api to be ready and reporting 5 replicas")
@@ -208,7 +208,7 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 				t.Parallel()
 				var err error
 
-				// We need the Instances CRD + a few of its CRs for testing and a CachedResource for that Instance resource + its identity secret.
+				// We need the Instances CRD + a few of its CRs for testing and a ClusterCachedResource for that Instance resource + its identity secret.
 				// We iterate over two different identities, so we should have two distinct Instance resources across the cache server.
 
 				t.Logf("Install Instances CRD into workspace %q", ws)
@@ -245,13 +245,13 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 				}, metav1.CreateOptions{})
 				require.NoError(t, err, "error creating identity secret %s workspace", ws)
 
-				t.Logf("Create a CachedResource in workspace %q", ws)
-				_, err = kcpClusterClient.Cluster(ws).CacheV1alpha1().CachedResources().
-					Create(ctx, &cachev1alpha1.CachedResource{
+				t.Logf("Create a ClusterCachedResource in workspace %q", ws)
+				_, err = kcpClusterClient.Cluster(ws).CacheV1alpha1().ClusterCachedResources().
+					Create(ctx, &cachev1alpha1.ClusterCachedResource{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "instances",
 						},
-						Spec: cachev1alpha1.CachedResourceSpec{
+						Spec: cachev1alpha1.ClusterCachedResourceSpec{
 							GroupVersionResource: cachev1alpha1.GroupVersionResource{
 								Group:    "machines.svm.io",
 								Version:  "v1alpha1",
@@ -270,11 +270,11 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 							},
 						},
 					}, metav1.CreateOptions{})
-				require.NoError(t, err, "error creating CachedResource in workspace %s", ws)
+				require.NoError(t, err, "error creating ClusterCachedResource in workspace %s", ws)
 
 				t.Logf("Wait while the Instance objects in workspace %q are replicated", ws)
 				kcptestinghelpers.Eventually(t, func() (bool, string) {
-					cr, err := kcpClusterClient.Cluster(ws).CacheV1alpha1().CachedResources().
+					cr, err := kcpClusterClient.Cluster(ws).CacheV1alpha1().ClusterCachedResources().
 						Get(ctx, "instances", metav1.GetOptions{})
 					require.NoError(t, err)
 					if cr.Status.ResourceCounts == nil {
@@ -289,7 +289,7 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 					return true, ""
 				}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CRD to be established")
 
-				cr, err := kcpClusterClient.Cluster(ws).CacheV1alpha1().CachedResources().
+				cr, err := kcpClusterClient.Cluster(ws).CacheV1alpha1().ClusterCachedResources().
 					Get(ctx, "instances", metav1.GetOptions{})
 				require.NoError(t, err)
 				require.NotEmpty(t, cr.Status.IdentityHash, "identity hash should not be empty")
@@ -338,16 +338,16 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 	)
 	require.NoError(t, err, "scoped get from cache should succeed")
 
-	// Once the CachedResource in B1's ws is deleted, the instances resource should be gone from cache too.
+	// Once the ClusterCachedResource in B1's ws is deleted, the instances resource should be gone from cache too.
 
-	t.Logf("Wait while CachedResource in %q workspace is deleted", wsB1Path)
-	err = kcpClusterClient.CacheV1alpha1().CachedResources().Cluster(wsB1Path).Delete(t.Context(), "instances", metav1.DeleteOptions{})
-	require.NoError(t, err, "deleting CachedResource %s|%s should not fail", wsB1Path, "instances")
+	t.Logf("Wait while ClusterCachedResource in %q workspace is deleted", wsB1Path)
+	err = kcpClusterClient.CacheV1alpha1().ClusterCachedResources().Cluster(wsB1Path).Delete(t.Context(), "instances", metav1.DeleteOptions{})
+	require.NoError(t, err, "deleting ClusterCachedResource %s|%s should not fail", wsB1Path, "instances")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		_, err = kcpClusterClient.CacheV1alpha1().CachedResources().Cluster(wsB1Path).Get(t.Context(), "instances", metav1.GetOptions{})
+		_, err = kcpClusterClient.CacheV1alpha1().ClusterCachedResources().Cluster(wsB1Path).Get(t.Context(), "instances", metav1.GetOptions{})
 		return apierrors.IsNotFound(err), fmt.Sprintf("expected NotFound, got err=%v", err)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for CachedResource to be deleted")
-	// Just to be safe it's better to be polling for NotFound, because the CachedResource informer
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for ClusterCachedResource to be deleted")
+	// Just to be safe it's better to be polling for NotFound, because the ClusterCachedResource informer
 	// in cache-server's CRD lister might be behind, and/or the resources still being GC'd.
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err = cacheDynClient.Cluster(b1ClusterName).Resource(schema.GroupVersionResource{
