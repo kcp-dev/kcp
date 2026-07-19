@@ -93,8 +93,8 @@ The set of object types replicated to the cache server is wired up by the
 | `apiexportendpointslices` | `apis.kcp.io/v1alpha1` | always |
 | `apiresourceschemas` | `apis.kcp.io/v1alpha1` | always |
 | `apiconversions` | `apis.kcp.io/v1alpha1` | always |
-| `cachedresources` | `cache.kcp.io/v1alpha1` | always |
-| `cachedresourceendpointslices` | `cache.kcp.io/v1alpha1` | always |
+| `clustercachedresources` | `cache.kcp.io/v1alpha1` | always |
+| `clustercachedresourceendpointslices` | `cache.kcp.io/v1alpha1` | always |
 | `shards` | `core.kcp.io/v1alpha1` | always |
 | `workspacetypes` | `tenancy.kcp.io/v1alpha1` | always |
 | `mutatingwebhookconfigurations` | `admissionregistration.k8s.io/v1` | always |
@@ -106,7 +106,7 @@ The set of object types replicated to the cache server is wired up by the
 | `clusterrolebindings` | `rbac.authorization.k8s.io/v1` | annotated `core.kcp.io/replicate` |
 
 User-defined types are added on top of this set via the
-[CachedResource API](../apis/cached-resources.md).
+[Cached resource API](../apis/cached-resources.md).
 
 Objects in clusters whose name starts with `system:` are excluded from
 replication.
@@ -150,12 +150,12 @@ unrelated tenant RBAC stays local.
   but does not push the binding back.
 - **`Partition` / `PartitionSet`.** These are configuration objects consumed
   in the workspace where they live and referenced by `APIExportEndpointSlice`.
-- **Identity secrets.** A `CachedResource`'s identity secret is created
+- **Identity secrets.** A `ClusterCachedResource`'s identity secret is created
   locally per shard, not replicated.
 
 ### Adding New Resources
 
-User-defined resources can be added to the cache server using the [CachedResource API](../apis/cached-resources.md). A CachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.
+User-defined resources can be added to the cache server using the [Cached resource API](../apis/cached-resources.md). A ClusterCachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.
 
 ### Deletion of Data
 

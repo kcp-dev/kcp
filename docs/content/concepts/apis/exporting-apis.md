@@ -578,7 +578,7 @@ spec:
       virtual:
         reference: # (1)
           apiGroup: cache.kcp.io
-          kind: CachedResourceEndpointSlice
+          kind: ClusterCachedResourceEndpointSlice
           name: cpuflavors-v1
         identityHash: cd2eb0837... # (2)
 
@@ -587,6 +587,6 @@ spec:
 1. The `reference` block defines a reference to an [endpoint slice](#endpoint-slices) object.
 2. The `identityHash` refers to the identity hash owned by the virtual resource. This is different from the APIExport identity hash.
 
-kcp currently supports one such virtual resource: see [CachedResource API](./cached-resources.md) for more information.
+kcp currently supports one such virtual resource: see [ClusterCachedResource API](./cached-resources.md) for more information.
 
 Virtual resources are generic, and as long as the source virtual workspace implements the endpoint slice machinery, it can be used in APIExport's `virtual` storage definition.
