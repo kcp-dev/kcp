@@ -45,12 +45,12 @@ import (
 )
 
 // Locally we store object with the original form of the object.
-// In the cache we store object with the CachedResource as a wrapper, and store the original GVR in the labels.
-// This way we can extract the original GVR from the CachedResource and use it to enqueue the object.
+// In the cache we store object with the ClusterCachedResource as a wrapper, and store the original GVR in the labels.
+// This way we can extract the original GVR from the ClusterCachedResource and use it to enqueue the object.
 
 const (
 	// ControllerName hold this controller name.
-	ControllerName = "kcp-cached-resource-replication-controller"
+	ControllerName = "kcp-cluster-cached-resource-replication-controller"
 )
 
 func getClusterNameFromObj(obj any) logicalcluster.Name {

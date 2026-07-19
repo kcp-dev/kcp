@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresourceendpointslice
+package clustercachedresourceendpointslice
 
 import (
 	"context"
@@ -32,41 +32,41 @@ import (
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 )
 
-func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.CachedResourceEndpointSlice) error {
-	cachedResourcePath := logicalcluster.NewPath(endpoints.Spec.CachedResource.Path)
-	if cachedResourcePath.Empty() {
-		cachedResourcePath = logicalcluster.From(endpoints).Path()
+func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.ClusterCachedResourceEndpointSlice) error {
+	clusterCachedResourcePath := logicalcluster.NewPath(endpoints.Spec.ClusterCachedResource.Path)
+	if clusterCachedResourcePath.Empty() {
+		clusterCachedResourcePath = logicalcluster.From(endpoints).Path()
 	}
 
-	_, err := c.getCachedResource(cachedResourcePath, endpoints.Spec.CachedResource.Name)
+	_, err := c.getClusterCachedResource(clusterCachedResourcePath, endpoints.Spec.ClusterCachedResource.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Don't keep the endpoints if the CachedResource has been deleted.
-			endpoints.Status.CachedResourceEndpoints = nil
+			// Don't keep the endpoints if the ClusterCachedResource has been deleted.
+			endpoints.Status.ClusterCachedResourceEndpoints = nil
 			conditions.MarkFalse(
 				endpoints,
-				cachev1alpha1.CachedResourceValid,
-				cachev1alpha1.CachedResourceNotFoundReason,
+				cachev1alpha1.ClusterCachedResourceValid,
+				cachev1alpha1.ClusterCachedResourceNotFoundReason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"Error getting CachedResource %s|%s",
-				cachedResourcePath,
-				endpoints.Spec.CachedResource.Name,
+				"Error getting ClusterCachedResource %s|%s",
+				clusterCachedResourcePath,
+				endpoints.Spec.ClusterCachedResource.Name,
 			)
 			// No need to try again.
 			return nil
 		}
 		conditions.MarkFalse(
 			endpoints,
-			cachev1alpha1.CachedResourceValid,
+			cachev1alpha1.ClusterCachedResourceValid,
 			cachev1alpha1.InternalErrorReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			"Error getting CachedResource %s|%s",
-			cachedResourcePath,
-			endpoints.Spec.CachedResource.Name,
+			"Error getting ClusterCachedResource %s|%s",
+			clusterCachedResourcePath,
+			endpoints.Spec.ClusterCachedResource.Name,
 		)
 		return err
 	}
-	conditions.MarkTrue(endpoints, cachev1alpha1.CachedResourceValid)
+	conditions.MarkTrue(endpoints, cachev1alpha1.ClusterCachedResourceValid)
 
 	// Check that the referenced APIExport exists and references this endpoint slice.
 	apiExportPath := logicalcluster.NewPath(endpoints.Spec.APIExport.Path)
@@ -76,7 +76,7 @@ func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.Cac
 	export, err := c.getAPIExport(apiExportPath, endpoints.Spec.APIExport.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			endpoints.Status.CachedResourceEndpoints = nil
+			endpoints.Status.ClusterCachedResourceEndpoints = nil
 			conditions.MarkFalse(
 				endpoints,
 				cachev1alpha1.APIExportValid,
@@ -102,17 +102,17 @@ func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.Cac
 		return err
 	}
 	referencedByExport := slices.ContainsFunc(export.Spec.Resources, func(res apisv1alpha2.ResourceSchema) bool {
-		return cachev1alpha1helper.IsCachedResourceEndpointSliceResourceStorage(&res.Storage) &&
+		return cachev1alpha1helper.IsClusterCachedResourceEndpointSliceResourceStorage(&res.Storage) &&
 			res.Storage.Virtual.Reference.Name == endpoints.Name
 	})
 	if !referencedByExport {
-		endpoints.Status.CachedResourceEndpoints = nil
+		endpoints.Status.ClusterCachedResourceEndpoints = nil
 		conditions.MarkFalse(
 			endpoints,
 			cachev1alpha1.APIExportValid,
 			cachev1alpha1.APIExportInvalidReferenceReason,
 			conditionsv1alpha1.ConditionSeverityError,
-			"APIExport %s|%s does not reference this CachedResourceEndpointSlice",
+			"APIExport %s|%s does not reference this ClusterCachedResourceEndpointSlice",
 			apiExportPath,
 			endpoints.Spec.APIExport.Name,
 		)
@@ -128,7 +128,7 @@ func (c *controller) reconcile(ctx context.Context, endpoints *cachev1alpha1.Cac
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				// Don't keep the endpoints if the Partition has been deleted and is still referenced.
-				endpoints.Status.CachedResourceEndpoints = nil
+				endpoints.Status.ClusterCachedResourceEndpoints = nil
 				conditions.MarkFalse(
 					endpoints,
 					cachev1alpha1.PartitionValid,

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -31,81 +31,81 @@ import (
 func TestFinalizer_Reconcile(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name               string
-		CachedResource     *cachev1alpha1.CachedResource
-		expectedStatus     reconcileStatus
-		expectedFinalizers []string
-		expectedPhase      cachev1alpha1.CachedResourcePhaseType
+		name                  string
+		ClusterCachedResource *cachev1alpha1.ClusterCachedResource
+		expectedStatus        reconcileStatus
+		expectedFinalizers    []string
+		expectedPhase         cachev1alpha1.ClusterCachedResourcePhaseType
 	}{
 		{
 			name: "case 1: remove finalizer when resource is deleted and in Deleted phase",
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test",
-					Finalizers:        []string{cachev1alpha1.CachedResourceFinalizer},
+					Finalizers:        []string{cachev1alpha1.ClusterCachedResourceFinalizer},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Status: cachev1alpha1.CachedResourceStatus{
-					Phase: cachev1alpha1.CachedResourcePhaseDeleted,
+				Status: cachev1alpha1.ClusterCachedResourceStatus{
+					Phase: cachev1alpha1.ClusterCachedResourcePhaseDeleted,
 				},
 			},
 			expectedStatus:     reconcileStatusStopAndRequeue,
 			expectedFinalizers: []string{},
-			expectedPhase:      cachev1alpha1.CachedResourcePhaseDeleted,
+			expectedPhase:      cachev1alpha1.ClusterCachedResourcePhaseDeleted,
 		},
 		{
 			name: "case 2: mark as deleting when resource is deleted but not in Deleting phase",
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test",
-					Finalizers:        []string{cachev1alpha1.CachedResourceFinalizer},
+					Finalizers:        []string{cachev1alpha1.ClusterCachedResourceFinalizer},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Status: cachev1alpha1.CachedResourceStatus{
-					Phase: cachev1alpha1.CachedResourcePhaseReady,
+				Status: cachev1alpha1.ClusterCachedResourceStatus{
+					Phase: cachev1alpha1.ClusterCachedResourcePhaseReady,
 				},
 			},
 			expectedStatus:     reconcileStatusStopAndRequeue,
-			expectedFinalizers: []string{cachev1alpha1.CachedResourceFinalizer},
-			expectedPhase:      cachev1alpha1.CachedResourcePhaseDeleting,
+			expectedFinalizers: []string{cachev1alpha1.ClusterCachedResourceFinalizer},
+			expectedPhase:      cachev1alpha1.ClusterCachedResourcePhaseDeleting,
 		},
 		{
 			name: "case 2: no change when resource is already in Deleting phase",
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test",
-					Finalizers:        []string{cachev1alpha1.CachedResourceFinalizer},
+					Finalizers:        []string{cachev1alpha1.ClusterCachedResourceFinalizer},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Status: cachev1alpha1.CachedResourceStatus{
-					Phase: cachev1alpha1.CachedResourcePhaseDeleting,
+				Status: cachev1alpha1.ClusterCachedResourceStatus{
+					Phase: cachev1alpha1.ClusterCachedResourcePhaseDeleting,
 				},
 			},
 			expectedStatus:     reconcileStatusContinue,
-			expectedFinalizers: []string{cachev1alpha1.CachedResourceFinalizer},
-			expectedPhase:      cachev1alpha1.CachedResourcePhaseDeleting,
+			expectedFinalizers: []string{cachev1alpha1.ClusterCachedResourceFinalizer},
+			expectedPhase:      cachev1alpha1.ClusterCachedResourcePhaseDeleting,
 		},
 		{
 			name: "case 3: add finalizer when resource is not deleted",
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 				},
 			},
 			expectedStatus:     reconcileStatusStopAndRequeue,
-			expectedFinalizers: []string{cachev1alpha1.CachedResourceFinalizer},
+			expectedFinalizers: []string{cachev1alpha1.ClusterCachedResourceFinalizer},
 			expectedPhase:      "",
 		},
 		{
 			name: "case 3: keep finalizer when resource is not deleted and finalizer present",
-			CachedResource: &cachev1alpha1.CachedResource{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test",
-					Finalizers: []string{cachev1alpha1.CachedResourceFinalizer},
+					Finalizers: []string{cachev1alpha1.ClusterCachedResourceFinalizer},
 				},
 			},
 			expectedStatus:     reconcileStatusContinue,
-			expectedFinalizers: []string{cachev1alpha1.CachedResourceFinalizer},
+			expectedFinalizers: []string{cachev1alpha1.ClusterCachedResourceFinalizer},
 			expectedPhase:      "",
 		},
 	}
@@ -114,11 +114,11 @@ func TestFinalizer_Reconcile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			finalizer := &finalizer{}
-			status, err := finalizer.reconcile(context.Background(), tt.CachedResource)
+			status, err := finalizer.reconcile(context.Background(), tt.ClusterCachedResource)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedStatus, status)
-			require.Equal(t, tt.expectedFinalizers, tt.CachedResource.Finalizers)
-			require.Equal(t, tt.expectedPhase, tt.CachedResource.Status.Phase)
+			require.Equal(t, tt.expectedFinalizers, tt.ClusterCachedResource.Finalizers)
+			require.Equal(t, tt.expectedPhase, tt.ClusterCachedResource.Status.Phase)
 		})
 	}
 }

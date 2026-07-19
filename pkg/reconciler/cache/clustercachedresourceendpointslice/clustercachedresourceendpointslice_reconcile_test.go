@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresourceendpointslice
+package clustercachedresourceendpointslice
 
 import (
 	"context"
@@ -41,65 +41,65 @@ func TestReconcile(t *testing.T) {
 	t.Parallel()
 	const workspacePath = "root:org:ws"
 	tests := map[string]struct {
-		keyMissing                bool
-		cachedResourceMissing     bool
-		partitionMissing          bool
-		cachedResourceInternalErr bool
-		listShardsError           error
-		errorReason               string
+		keyMissing                       bool
+		clusterCachedResourceMissing     bool
+		partitionMissing                 bool
+		clusterCachedResourceInternalErr bool
+		listShardsError                  error
+		errorReason                      string
 
-		wantError                  bool
-		wantVerifyFailure          bool
-		wantCachedResourceValid    bool
-		wantPartitionValid         bool
-		wantCachedResourceNotValid bool
-		wantPartitionNotValid      bool
+		wantError                         bool
+		wantVerifyFailure                 bool
+		wantClusterCachedResourceValid    bool
+		wantPartitionValid                bool
+		wantClusterCachedResourceNotValid bool
+		wantPartitionNotValid             bool
 
-		sliceMutator               func(slice *cachev1alpha1.CachedResourceEndpointSlice)
-		expectedCachedResourcePath string
+		sliceMutator                      func(slice *cachev1alpha1.ClusterCachedResourceEndpointSlice)
+		expectedClusterCachedResourcePath string
 	}{
-		"CachedResourceValid set to false when CachedResource is missing": {
-			cachedResourceMissing:      true,
-			errorReason:                cachev1alpha1.CachedResourceNotFoundReason,
-			wantCachedResourceNotValid: true,
-			expectedCachedResourcePath: workspacePath,
+		"ClusterCachedResourceValid set to false when ClusterCachedResource is missing": {
+			clusterCachedResourceMissing:      true,
+			errorReason:                       cachev1alpha1.ClusterCachedResourceNotFoundReason,
+			wantClusterCachedResourceNotValid: true,
+			expectedClusterCachedResourcePath: workspacePath,
 		},
-		"CachedResourceValid set to false if an internal error happens when fetching the CachedResource": {
-			cachedResourceInternalErr:  true,
-			wantError:                  true,
-			errorReason:                cachev1alpha1.InternalErrorReason,
-			wantCachedResourceNotValid: true,
-			expectedCachedResourcePath: workspacePath,
+		"ClusterCachedResourceValid set to false if an internal error happens when fetching the ClusterCachedResource": {
+			clusterCachedResourceInternalErr:  true,
+			wantError:                         true,
+			errorReason:                       cachev1alpha1.InternalErrorReason,
+			wantClusterCachedResourceNotValid: true,
+			expectedClusterCachedResourcePath: workspacePath,
 		},
 		"PartitionValid set to false when the Partition is missing": {
-			partitionMissing:           true,
-			errorReason:                cachev1alpha1.PartitionInvalidReferenceReason,
-			wantPartitionNotValid:      true,
-			expectedCachedResourcePath: workspacePath,
+			partitionMissing:                  true,
+			errorReason:                       cachev1alpha1.PartitionInvalidReferenceReason,
+			wantPartitionNotValid:             true,
+			expectedClusterCachedResourcePath: workspacePath,
 		},
-		"CachedResource lookup uses referenced path when provided": {
-			sliceMutator: func(slice *cachev1alpha1.CachedResourceEndpointSlice) {
-				slice.Spec.CachedResource.Path = "root:org:external"
+		"ClusterCachedResource lookup uses referenced path when provided": {
+			sliceMutator: func(slice *cachev1alpha1.ClusterCachedResourceEndpointSlice) {
+				slice.Spec.ClusterCachedResource.Path = "root:org:external"
 			},
-			expectedCachedResourcePath: "root:org:external",
-			wantCachedResourceValid:    true,
-			wantPartitionValid:         true,
+			expectedClusterCachedResourcePath: "root:org:external",
+			wantClusterCachedResourceValid:    true,
+			wantPartitionValid:                true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			var gotCachedResourcePath string
+			var gotClusterCachedResourcePath string
 			c := &controller{
-				getCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.CachedResource, error) {
-					gotCachedResourcePath = path.String()
-					if tc.cachedResourceMissing {
-						return nil, apierrors.NewNotFound(cachev1alpha1.Resource("CachedResource"), name)
-					} else if tc.cachedResourceInternalErr {
+				getClusterCachedResource: func(path logicalcluster.Path, name string) (*cachev1alpha1.ClusterCachedResource, error) {
+					gotClusterCachedResourcePath = path.String()
+					if tc.clusterCachedResourceMissing {
+						return nil, apierrors.NewNotFound(cachev1alpha1.Resource("ClusterCachedResource"), name)
+					} else if tc.clusterCachedResourceInternalErr {
 						return nil, fmt.Errorf("internal error")
 					} else {
-						return &cachev1alpha1.CachedResource{
+						return &cachev1alpha1.ClusterCachedResource{
 							ObjectMeta: metav1.ObjectMeta{
 								Annotations: map[string]string{
 									logicalcluster.AnnotationKey: "root:org:ws",
@@ -125,7 +125,7 @@ func TestReconcile(t *testing.T) {
 										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 											Reference: corev1.TypedLocalObjectReference{
 												APIGroup: ptr.To(apiGroup),
-												Kind:     "CachedResourceEndpointSlice",
+												Kind:     "ClusterCachedResourceEndpointSlice",
 												Name:     "my-slice",
 											},
 										},
@@ -158,15 +158,15 @@ func TestReconcile(t *testing.T) {
 				},
 			}
 
-			cachedResourceEndpointSlice := &cachev1alpha1.CachedResourceEndpointSlice{
+			clusterCachedResourceEndpointSlice := &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						logicalcluster.AnnotationKey: workspacePath,
 					},
 					Name: "my-slice",
 				},
-				Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
-					CachedResource: cachev1alpha1.CachedResourceReference{
+				Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
+					ClusterCachedResource: cachev1alpha1.ClusterCachedResourceReference{
 						Name: "my-cr",
 					},
 					APIExport: cachev1alpha1.ExportBindingReference{
@@ -176,19 +176,19 @@ func TestReconcile(t *testing.T) {
 				},
 			}
 			if tc.sliceMutator != nil {
-				tc.sliceMutator(cachedResourceEndpointSlice)
+				tc.sliceMutator(clusterCachedResourceEndpointSlice)
 			}
-			err := c.reconcile(context.Background(), cachedResourceEndpointSlice)
+			err := c.reconcile(context.Background(), clusterCachedResourceEndpointSlice)
 			if tc.wantError {
 				require.Error(t, err, "expected an error")
 			} else {
 				require.NoError(t, err, "expected no error")
 			}
 
-			if tc.wantCachedResourceNotValid {
-				requireConditionMatches(t, cachedResourceEndpointSlice,
+			if tc.wantClusterCachedResourceNotValid {
+				requireConditionMatches(t, clusterCachedResourceEndpointSlice,
 					conditions.FalseCondition(
-						cachev1alpha1.CachedResourceValid,
+						cachev1alpha1.ClusterCachedResourceValid,
 						tc.errorReason,
 						conditionsv1alpha1.ConditionSeverityError,
 						"",
@@ -197,7 +197,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			if tc.wantPartitionNotValid {
-				requireConditionMatches(t, cachedResourceEndpointSlice,
+				requireConditionMatches(t, clusterCachedResourceEndpointSlice,
 					conditions.FalseCondition(
 						cachev1alpha1.PartitionValid,
 						tc.errorReason,
@@ -207,20 +207,20 @@ func TestReconcile(t *testing.T) {
 				)
 			}
 
-			if tc.wantCachedResourceValid {
-				requireConditionMatches(t, cachedResourceEndpointSlice,
-					conditions.TrueCondition(cachev1alpha1.CachedResourceValid),
+			if tc.wantClusterCachedResourceValid {
+				requireConditionMatches(t, clusterCachedResourceEndpointSlice,
+					conditions.TrueCondition(cachev1alpha1.ClusterCachedResourceValid),
 				)
 			}
 
 			if tc.wantPartitionValid {
-				requireConditionMatches(t, cachedResourceEndpointSlice,
+				requireConditionMatches(t, clusterCachedResourceEndpointSlice,
 					conditions.TrueCondition(cachev1alpha1.PartitionValid),
 				)
 			}
 
-			if tc.expectedCachedResourcePath != "" {
-				require.Equal(t, tc.expectedCachedResourcePath, gotCachedResourcePath, "unexpected cached resource lookup path")
+			if tc.expectedClusterCachedResourcePath != "" {
+				require.Equal(t, tc.expectedClusterCachedResourcePath, gotClusterCachedResourcePath, "unexpected cached resource lookup path")
 			}
 		})
 	}

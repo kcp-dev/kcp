@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -34,15 +34,15 @@ import (
 func TestSchema(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
-		CachedResource     *cachev1alpha1.CachedResource
-		reconciler         *validSchema
-		expectedErr        error
-		expectedStatus     reconcileStatus
-		expectedConditions conditionsv1alpha1.Conditions
+		ClusterCachedResource *cachev1alpha1.ClusterCachedResource
+		reconciler            *validSchema
+		expectedErr           error
+		expectedStatus        reconcileStatus
+		expectedConditions    conditionsv1alpha1.Conditions
 	}{
 		"resource not found": {
-			CachedResource: &cachev1alpha1.CachedResource{
-				Spec: cachev1alpha1.CachedResourceSpec{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					GroupVersionResource: cachev1alpha1.GroupVersionResource{
 						Group:    "none",
 						Version:  "v1",
@@ -58,8 +58,8 @@ func TestSchema(t *testing.T) {
 			expectedErr: fmt.Errorf("no matches for none/v1, Resource=nonexistent"),
 		},
 		"resource is namespace-scoped and check fails": {
-			CachedResource: &cachev1alpha1.CachedResource{
-				Spec: cachev1alpha1.CachedResourceSpec{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					GroupVersionResource: cachev1alpha1.GroupVersionResource{
 						Group:    "foo.dev",
 						Version:  "v1",
@@ -75,7 +75,7 @@ func TestSchema(t *testing.T) {
 			expectedStatus: reconcileStatusStop,
 			expectedConditions: conditionsv1alpha1.Conditions{
 				*conditions.FalseCondition(
-					cachev1alpha1.CachedResourceValid,
+					cachev1alpha1.ClusterCachedResourceValid,
 					cachev1alpha1.ResourceNotClusterScoped,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Resource namespaced.foo.dev is not cluster-scoped",
@@ -83,8 +83,8 @@ func TestSchema(t *testing.T) {
 			},
 		},
 		"resource is cluster-scoped and check succeeds": {
-			CachedResource: &cachev1alpha1.CachedResource{
-				Spec: cachev1alpha1.CachedResourceSpec{
+			ClusterCachedResource: &cachev1alpha1.ClusterCachedResource{
+				Spec: cachev1alpha1.ClusterCachedResourceSpec{
 					GroupVersionResource: cachev1alpha1.GroupVersionResource{
 						Group:    "foo.dev",
 						Version:  "v1",
@@ -104,10 +104,10 @@ func TestSchema(t *testing.T) {
 	for testName, tt := range tests {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			status, err := tt.reconciler.reconcile(context.Background(), tt.CachedResource)
+			status, err := tt.reconciler.reconcile(context.Background(), tt.ClusterCachedResource)
 
 			resetLastTransitionTime(tt.expectedConditions)
-			resetLastTransitionTime(tt.CachedResource.Status.Conditions)
+			resetLastTransitionTime(tt.ClusterCachedResource.Status.Conditions)
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)
@@ -117,7 +117,7 @@ func TestSchema(t *testing.T) {
 			}
 
 			require.Equal(t, tt.expectedStatus, status, "reconcile status mismatch")
-			require.Equal(t, tt.expectedConditions, tt.CachedResource.Status.Conditions, "conditions mismatch")
+			require.Equal(t, tt.expectedConditions, tt.ClusterCachedResource.Status.Conditions, "conditions mismatch")
 		})
 	}
 }

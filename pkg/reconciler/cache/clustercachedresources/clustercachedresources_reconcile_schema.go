@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -31,8 +31,8 @@ type validSchema struct {
 	getResourceScope func(gvr schema.GroupVersionResource) (meta.RESTScope, error)
 }
 
-func (r *validSchema) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
-	wrappedGVR := schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource)
+func (r *validSchema) reconcile(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error) {
+	wrappedGVR := schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource)
 
 	scope, err := r.getResourceScope(wrappedGVR)
 	if err != nil {
@@ -44,8 +44,8 @@ func (r *validSchema) reconcile(ctx context.Context, cachedResource *cachev1alph
 	}
 
 	conditions.MarkFalse(
-		cachedResource,
-		cachev1alpha1.CachedResourceValid,
+		clusterCachedResource,
+		cachev1alpha1.ClusterCachedResourceValid,
 		cachev1alpha1.ResourceNotClusterScoped,
 		conditionsv1alpha1.ConditionSeverityError,
 		"Resource %s is not cluster-scoped",

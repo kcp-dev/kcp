@@ -145,8 +145,8 @@ func clusterRoles() []rbacv1.ClusterRole {
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
-				rbacv1helpers.NewRule("update", "patch", "get").Groups(cache.GroupName).Resources("cachedresourceendpointslices/status").RuleOrDie(),
-				rbacv1helpers.NewRule("get", "list", "watch").Groups(cache.GroupName).Resources("cachedresourceendpointslices").RuleOrDie(),
+				rbacv1helpers.NewRule("update", "patch", "get").Groups(cache.GroupName).Resources("clustercachedresourceendpointslices/status").RuleOrDie(),
+				rbacv1helpers.NewRule("get", "list", "watch").Groups(cache.GroupName).Resources("clustercachedresourceendpointslices").RuleOrDie(),
 			},
 		},
 		{

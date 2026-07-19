@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -49,19 +49,19 @@ const (
 )
 
 type reconciler interface {
-	reconcile(ctx context.Context, workspace *cachev1alpha1.CachedResource) (reconcileStatus, error)
+	reconcile(ctx context.Context, workspace *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error)
 }
 
 // reconcile reconciles the workspace objects. It is intended to be single reconciler for all the
 // workspace replated operations. For now it has single reconciler that updates the status of the
 // workspace based on the mount status.
-func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) (bool, error) {
+func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (bool, error) {
 	reconcilers := []reconciler{
 		&finalizer{},
 		&validSchema{
 			getResourceScope: func(gvr schema.GroupVersionResource) (meta.RESTScope, error) {
-				scopedMapper := c.dynRESTMapper.ForCluster(logicalcluster.From(cachedResource))
-				kind, err := scopedMapper.KindFor(schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource))
+				scopedMapper := c.dynRESTMapper.ForCluster(logicalcluster.From(clusterCachedResource))
+				kind, err := scopedMapper.KindFor(schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource))
 				if err != nil {
 					return nil, err
 				}
@@ -95,16 +95,16 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			secretNamespace:             c.secretNamespace,
 		},
 		&purge{
-			deleteSelectedCacheResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) error {
-				return c.deleteSelectedCacheResources(ctx, cluster, cachedResource)
+			deleteSelectedCacheResources: func(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) error {
+				return c.deleteSelectedCacheResources(ctx, cluster, clusterCachedResource)
 			},
 		},
 		&counter{
-			listSelectedLocalResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
-				return c.listSelectedLocalResources(ctx, cluster, cachedResource)
+			listSelectedLocalResources: func(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error) {
+				return c.listSelectedLocalResources(ctx, cluster, clusterCachedResource)
 			},
-			listSelectedCachedResources: func(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
-				return c.listSelectedCacheResources(ctx, cluster, cachedResource)
+			listSelectedClusterCachedResources: func(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error) {
+				return c.listSelectedCacheResources(ctx, cluster, clusterCachedResource)
 			},
 		},
 		&replication{
@@ -126,7 +126,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 	for _, r := range reconcilers {
 		var err error
 		var status reconcileStatus
-		status, err = r.reconcile(ctx, cachedResource)
+		status, err = r.reconcile(ctx, clusterCachedResource)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -142,16 +142,16 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 	return requeue, utilerrors.NewAggregate(errs)
 }
 
-func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
+func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error) {
 	gvr := schema.GroupVersionResource{
-		Group:    cachedResource.Spec.Group,
-		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource,
+		Group:    clusterCachedResource.Spec.Group,
+		Version:  clusterCachedResource.Spec.Version,
+		Resource: clusterCachedResource.Spec.Resource,
 	}
 
 	listOpts := metav1.ListOptions{}
-	if cachedResource.Spec.LabelSelector != nil {
-		listOpts.LabelSelector = labels.SelectorFromSet(cachedResource.Spec.LabelSelector.MatchLabels).String()
+	if clusterCachedResource.Spec.LabelSelector != nil {
+		listOpts.LabelSelector = labels.SelectorFromSet(clusterCachedResource.Spec.LabelSelector.MatchLabels).String()
 	}
 
 	resources, err := c.localDynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, listOpts)
@@ -162,11 +162,11 @@ func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster log
 	return resources, nil
 }
 
-func (c *Controller) deleteSelectedCacheResources(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) error {
+func (c *Controller) deleteSelectedCacheResources(ctx context.Context, cluster logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource) error {
 	gvr := schema.GroupVersionResource{
-		Group:    cachedResource.Spec.Group,
-		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource + ":" + cachedResource.Status.IdentityHash,
+		Group:    clusterCachedResource.Spec.Group,
+		Version:  clusterCachedResource.Spec.Version,
+		Resource: clusterCachedResource.Spec.Resource + ":" + clusterCachedResource.Status.IdentityHash,
 	}
 	if gvr.Group == "" {
 		gvr.Group = "core"
@@ -177,11 +177,11 @@ func (c *Controller) deleteSelectedCacheResources(ctx context.Context, cluster l
 	return err
 }
 
-func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource) (*unstructured.UnstructuredList, error) {
+func (c *Controller) listSelectedCacheResources(ctx context.Context, cluster logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error) {
 	gvr := schema.GroupVersionResource{
-		Group:    cachedResource.Spec.Group,
-		Version:  cachedResource.Spec.Version,
-		Resource: cachedResource.Spec.Resource + ":" + cachedResource.Status.IdentityHash,
+		Group:    clusterCachedResource.Spec.Group,
+		Version:  clusterCachedResource.Spec.Version,
+		Resource: clusterCachedResource.Spec.Resource + ":" + clusterCachedResource.Status.IdentityHash,
 	}
 	if gvr.Group == "" {
 		gvr.Group = "core"
@@ -208,14 +208,14 @@ func (c *Controller) ensureSecretNamespaceExists(ctx context.Context, clusterNam
 		}
 		logger = logging.WithObject(logger, ns)
 		if err := c.createNamespace(ctx, clusterName.Path(), ns); err != nil && !apierrors.IsAlreadyExists(err) {
-			logger.Error(err, "error creating namespace for CachedResource secret identities")
+			logger.Error(err, "error creating namespace for ClusterCachedResource secret identities")
 			// Keep going - maybe things will work. If the secret creation fails, we'll make sure to set a condition.
 		}
 	}
 }
 
-func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, cachedResourceName string) error {
-	secret, err := GenerateIdentitySecret(ctx, defaultSecretNamespace, cachedResourceName)
+func (c *Controller) createIdentitySecret(ctx context.Context, clusterName logicalcluster.Path, defaultSecretNamespace, clusterCachedResourceName string) error {
+	secret, err := GenerateIdentitySecret(ctx, defaultSecretNamespace, clusterCachedResourceName)
 	if err != nil {
 		return err
 	}

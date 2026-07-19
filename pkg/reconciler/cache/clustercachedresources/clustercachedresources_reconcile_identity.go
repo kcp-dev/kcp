@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -40,34 +40,34 @@ type identityReconciler struct {
 	secretNamespace string
 }
 
-func (r *identityReconciler) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
-	if !cachedResource.DeletionTimestamp.IsZero() {
+func (r *identityReconciler) reconcile(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error) {
+	if !clusterCachedResource.DeletionTimestamp.IsZero() {
 		return reconcileStatusContinue, nil
 	}
-	identity := cachedResource.Spec.Identity
+	identity := clusterCachedResource.Spec.Identity
 	if identity == nil {
 		identity = &cachev1alpha1.Identity{}
 	}
 
-	clusterName := logicalcluster.From(cachedResource)
+	clusterName := logicalcluster.From(clusterCachedResource)
 
 	if identity.SecretRef == nil {
 		r.ensureSecretNamespaceExists(ctx, clusterName, r.secretNamespace)
 
 		// See if the generated secret already exists (for whatever reason)
-		_, err := r.getSecret(ctx, clusterName, r.secretNamespace, cachedResource.Name)
+		_, err := r.getSecret(ctx, clusterName, r.secretNamespace, clusterCachedResource.Name)
 		if err != nil && !errors.IsNotFound(err) {
 			return reconcileStatusStop, fmt.Errorf("error checking if APIExport %s|%s identity secret %s|%s/%s exists: %w",
-				clusterName, cachedResource.Name,
-				clusterName, r.secretNamespace, cachedResource.Name,
+				clusterName, clusterCachedResource.Name,
+				clusterName, r.secretNamespace, clusterCachedResource.Name,
 				err,
 			)
 		}
 		if errors.IsNotFound(err) {
-			if err := r.createIdentitySecret(ctx, clusterName.Path(), r.secretNamespace, cachedResource.Name); err != nil {
+			if err := r.createIdentitySecret(ctx, clusterName.Path(), r.secretNamespace, clusterCachedResource.Name); err != nil {
 				conditions.MarkFalse(
-					cachedResource,
-					cachev1alpha1.CachedResourceIdentityValid,
+					clusterCachedResource,
+					cachev1alpha1.ClusterCachedResourceIdentityValid,
 					cachev1alpha1.IdentityGenerationFailedReason,
 					conditionsv1alpha1.ConditionSeverityError,
 					"Error creating identity secret: %v",
@@ -80,20 +80,20 @@ func (r *identityReconciler) reconcile(ctx context.Context, cachedResource *cach
 
 		identity.SecretRef = &corev1.SecretReference{
 			Namespace: r.secretNamespace,
-			Name:      cachedResource.Name,
+			Name:      clusterCachedResource.Name,
 		}
 
-		cachedResource.Spec.Identity = identity
+		clusterCachedResource.Spec.Identity = identity
 
 		// Record the spec change. A future iteration will store the hash in status.
 		return reconcileStatusStopAndRequeue, nil
 	}
 
 	// Ref exists - make sure it's valid
-	if err := r.updateOrVerifyIdentitySecretHash(ctx, clusterName, cachedResource, r.secretNamespace); err != nil {
+	if err := r.updateOrVerifyIdentitySecretHash(ctx, clusterName, clusterCachedResource, r.secretNamespace); err != nil {
 		conditions.MarkFalse(
-			cachedResource,
-			cachev1alpha1.CachedResourceIdentityValid,
+			clusterCachedResource,
+			cachev1alpha1.ClusterCachedResourceIdentityValid,
 			cachev1alpha1.IdentityVerificationFailedReason,
 			conditionsv1alpha1.ConditionSeverityError,
 			"%v",
@@ -103,15 +103,15 @@ func (r *identityReconciler) reconcile(ctx context.Context, cachedResource *cach
 		return reconcileStatusStop, err
 	}
 
-	if !conditions.IsTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid) {
-		conditions.MarkTrue(cachedResource, cachev1alpha1.CachedResourceIdentityValid)
+	if !conditions.IsTrue(clusterCachedResource, cachev1alpha1.ClusterCachedResourceIdentityValid) {
+		conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ClusterCachedResourceIdentityValid)
 	}
 
 	return reconcileStatusContinue, nil
 }
 
-func (r *identityReconciler) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, cachedResource *cachev1alpha1.CachedResource, defaultSecretNamespace string) error {
-	secret, err := r.getSecret(ctx, clusterName, cachedResource.Spec.Identity.SecretRef.Namespace, cachedResource.Spec.Identity.SecretRef.Name)
+func (r *identityReconciler) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource, defaultSecretNamespace string) error {
+	secret, err := r.getSecret(ctx, clusterName, clusterCachedResource.Spec.Identity.SecretRef.Namespace, clusterCachedResource.Spec.Identity.SecretRef.Name)
 	if err != nil {
 		return err
 	}
@@ -121,12 +121,12 @@ func (r *identityReconciler) updateOrVerifyIdentitySecretHash(ctx context.Contex
 		return err
 	}
 
-	if cachedResource.Status.IdentityHash == "" {
-		cachedResource.Status.IdentityHash = hash
+	if clusterCachedResource.Status.IdentityHash == "" {
+		clusterCachedResource.Status.IdentityHash = hash
 	}
 
-	if cachedResource.Status.IdentityHash != hash {
-		return fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, cachedResource.Status.IdentityHash)
+	if clusterCachedResource.Status.IdentityHash != hash {
+		return fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, clusterCachedResource.Status.IdentityHash)
 	}
 
 	return nil

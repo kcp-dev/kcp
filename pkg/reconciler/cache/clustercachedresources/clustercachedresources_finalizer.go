@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cachedresources
+package clustercachedresources
 
 import (
 	"context"
@@ -29,12 +29,12 @@ import (
 // If is done deleting - it removes the finalizer.
 type finalizer struct{}
 
-func (r *finalizer) reconcile(ctx context.Context, cachedResource *cachev1alpha1.CachedResource) (reconcileStatus, error) {
+func (r *finalizer) reconcile(ctx context.Context, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error) {
 	switch {
-	case !cachedResource.DeletionTimestamp.IsZero() && cachedResource.Status.Phase == cachev1alpha1.CachedResourcePhaseDeleted: // case 1: Resource is in Deleted phase, remove finalizer
-		if slices.Contains(cachedResource.Finalizers, cachev1alpha1.CachedResourceFinalizer) {
-			cachedResource.Finalizers = slices.DeleteFunc(cachedResource.Finalizers, func(f string) bool {
-				return f == cachev1alpha1.CachedResourceFinalizer
+	case !clusterCachedResource.DeletionTimestamp.IsZero() && clusterCachedResource.Status.Phase == cachev1alpha1.ClusterCachedResourcePhaseDeleted: // case 1: Resource is in Deleted phase, remove finalizer
+		if slices.Contains(clusterCachedResource.Finalizers, cachev1alpha1.ClusterCachedResourceFinalizer) {
+			clusterCachedResource.Finalizers = slices.DeleteFunc(clusterCachedResource.Finalizers, func(f string) bool {
+				return f == cachev1alpha1.ClusterCachedResourceFinalizer
 			})
 			// Requeue once to let the commit land; the object will then be GC'd by the API server.
 			return reconcileStatusStopAndRequeue, nil
@@ -42,14 +42,14 @@ func (r *finalizer) reconcile(ctx context.Context, cachedResource *cachev1alpha1
 		// Finalizer already gone — stop without requeueing. The controller will be triggered again
 		// by the Delete watch event once the API server removes the object.
 		return reconcileStatusStop, nil
-	case !cachedResource.DeletionTimestamp.IsZero() && cachedResource.Status.Phase != cachev1alpha1.CachedResourcePhaseDeleting: // case 2: Resource is being deleted - mark as deleting
+	case !clusterCachedResource.DeletionTimestamp.IsZero() && clusterCachedResource.Status.Phase != cachev1alpha1.ClusterCachedResourcePhaseDeleting: // case 2: Resource is being deleted - mark as deleting
 		// Case 1: Resource is being deleted
-		conditions.MarkFalse(cachedResource, cachev1alpha1.CachedResourceValid, cachev1alpha1.CachedResourceValidDeleting, conditionsv1alpha1.ConditionSeverityError, "Published resource deleting")
-		cachedResource.Status.Phase = cachev1alpha1.CachedResourcePhaseDeleting
+		conditions.MarkFalse(clusterCachedResource, cachev1alpha1.ClusterCachedResourceValid, cachev1alpha1.ClusterCachedResourceValidDeleting, conditionsv1alpha1.ConditionSeverityError, "Published resource deleting")
+		clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseDeleting
 		return reconcileStatusStopAndRequeue, nil
 	default: // case 3: Resource is not deleted, ensure finalizer is present
-		if !slices.Contains(cachedResource.Finalizers, cachev1alpha1.CachedResourceFinalizer) {
-			cachedResource.Finalizers = append(cachedResource.Finalizers, cachev1alpha1.CachedResourceFinalizer)
+		if !slices.Contains(clusterCachedResource.Finalizers, cachev1alpha1.ClusterCachedResourceFinalizer) {
+			clusterCachedResource.Finalizers = append(clusterCachedResource.Finalizers, cachev1alpha1.ClusterCachedResourceFinalizer)
 			return reconcileStatusStopAndRequeue, nil
 		}
 	}

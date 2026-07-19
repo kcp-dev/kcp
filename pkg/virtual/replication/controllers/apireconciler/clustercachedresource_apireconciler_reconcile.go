@@ -34,14 +34,14 @@ import (
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
-func findResourceSchemaByCachedResourceEndpointSlice(
+func findResourceSchemaByClusterCachedResourceEndpointSlice(
 	export *apisv1alpha2.APIExport,
-	endpointSlice *cachev1alpha1.CachedResourceEndpointSlice,
+	endpointSlice *cachev1alpha1.ClusterCachedResourceEndpointSlice,
 ) *apisv1alpha2.ResourceSchema {
 	resIdx := slices.IndexFunc(export.Spec.Resources, func(res apisv1alpha2.ResourceSchema) bool {
 		return res.Storage.Virtual != nil &&
 			ptr.Deref(res.Storage.Virtual.Reference.APIGroup, "") == cachev1alpha1.SchemeGroupVersion.Group &&
-			res.Storage.Virtual.Reference.Kind == "CachedResourceEndpointSlice" &&
+			res.Storage.Virtual.Reference.Kind == "ClusterCachedResourceEndpointSlice" &&
 			res.Storage.Virtual.Reference.Name == endpointSlice.Name
 	})
 	if resIdx >= 0 {
@@ -50,7 +50,7 @@ func findResourceSchemaByCachedResourceEndpointSlice(
 	return nil
 }
 
-func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alpha1.CachedResourceEndpointSlice, apiDomainKey dynamiccontext.APIDomainKey) error {
+func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alpha1.ClusterCachedResourceEndpointSlice, apiDomainKey dynamiccontext.APIDomainKey) error {
 	logger := klog.FromContext(ctx)
 
 	if endpointSlice == nil {
@@ -60,21 +60,21 @@ func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alp
 		return nil
 	}
 
-	if !conditions.IsTrue(endpointSlice, cachev1alpha1.CachedResourceValid) ||
+	if !conditions.IsTrue(endpointSlice, cachev1alpha1.ClusterCachedResourceValid) ||
 		!conditions.IsTrue(endpointSlice, cachev1alpha1.APIExportValid) {
-		logger.V(2).Info("CachedResourceEndpointSlice not ready")
+		logger.V(2).Info("ClusterCachedResourceEndpointSlice not ready")
 		return nil
 	}
 
-	// Extract the CachedResource and APIExport referenced by the endpoint slice.
+	// Extract the ClusterCachedResource and APIExport referenced by the endpoint slice.
 
-	cachedResourcePath := logicalcluster.NewPath(endpointSlice.Spec.CachedResource.Path)
-	if cachedResourcePath.Empty() {
-		cachedResourcePath = logicalcluster.From(endpointSlice).Path()
+	clusterCachedResourcePath := logicalcluster.NewPath(endpointSlice.Spec.ClusterCachedResource.Path)
+	if clusterCachedResourcePath.Empty() {
+		clusterCachedResourcePath = logicalcluster.From(endpointSlice).Path()
 	}
-	cachedResource, err := c.getCachedResourceByPath(cachedResourcePath, endpointSlice.Spec.CachedResource.Name)
+	clusterCachedResource, err := c.getClusterCachedResourceByPath(clusterCachedResourcePath, endpointSlice.Spec.ClusterCachedResource.Name)
 	if err != nil {
-		logger.Error(err, "failed to get CachedResource for CachedResourceEndpointSlice")
+		logger.Error(err, "failed to get ClusterCachedResource for ClusterCachedResourceEndpointSlice")
 		return err
 	}
 
@@ -84,19 +84,19 @@ func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alp
 	}
 	export, err := c.getAPIExportByPath(exportPath, endpointSlice.Spec.APIExport.Name)
 	if err != nil {
-		logger.Error(err, "failed to get APIExport for CachedResourceEndpointSlice")
+		logger.Error(err, "failed to get APIExport for ClusterCachedResourceEndpointSlice")
 		return err
 	}
 
 	// Next, we should be able to find this slice referenced in the export's resources.
 
-	res := findResourceSchemaByCachedResourceEndpointSlice(export, endpointSlice)
+	res := findResourceSchemaByClusterCachedResourceEndpointSlice(export, endpointSlice)
 	if res == nil {
-		logger.Error(nil, "APIExport doesn't export this CachedResourceEndpointSlice")
+		logger.Error(nil, "APIExport doesn't export this ClusterCachedResourceEndpointSlice")
 		return nil
 	}
 
-	// Get the schema, and check that this actually belongs to the GVR of this CachedResource.
+	// Get the schema, and check that this actually belongs to the GVR of this ClusterCachedResource.
 
 	sch, err := c.getAPIResourceSchema(logicalcluster.From(export), res.Schema)
 	if err != nil {
@@ -104,7 +104,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alp
 		return err
 	}
 
-	gvr := schema.GroupVersionResource(cachedResource.Spec.GroupVersionResource)
+	gvr := schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource)
 
 	hasVersionMatch := false
 	for i := range sch.Spec.Versions {
@@ -119,7 +119,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alp
 	}
 
 	logger.Info("creating API definition", "gvr", gvr)
-	apiDefinition, err := c.createAPIDefinition(sch, cachedResource, export)
+	apiDefinition, err := c.createAPIDefinition(sch, clusterCachedResource, export)
 	if err != nil {
 		// TODO(ncdc): would be nice to expose some sort of user-visible error
 		logger.Error(err, "error creating api definition", "gvr", gvr)
@@ -134,7 +134,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, endpointSlice *cachev1alp
 		apiSet[gvr.GroupResource().WithVersion(version.Name)] = apiResourceSchemaApiDefinition{
 			APIDefinition: apiDefinition,
 			UID:           sch.UID,
-			IdentityHash:  cachedResource.Status.IdentityHash,
+			IdentityHash:  clusterCachedResource.Status.IdentityHash,
 		}
 	}
 
