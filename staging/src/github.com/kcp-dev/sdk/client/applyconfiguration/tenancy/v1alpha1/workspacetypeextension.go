@@ -25,8 +25,7 @@ package v1alpha1
 // composed together to add functionality to the owning WorkspaceType.
 type WorkspaceTypeExtensionApplyConfiguration struct {
 	// with are WorkspaceTypes whose initializers are added to the list
-	// for the owning type, and for whom the owning type becomes an alias, as long
-	// as all of their required types are not mentioned in without.
+	// for the owning type, and for whom the owning type becomes an alias.
 	With []WorkspaceTypeReferenceApplyConfiguration `json:"with,omitempty"`
 }
 
