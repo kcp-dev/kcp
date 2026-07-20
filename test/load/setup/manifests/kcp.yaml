@@ -5,7 +5,7 @@ metadata:
   namespace: kcp
 spec:
   image:
-    tag: v0.32.3
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   external:
     hostname: frontproxy.$GATEWAY_BASE_URL
     port: 443
@@ -67,7 +67,7 @@ metadata:
   namespace: kcp
 spec:
   image:
-    tag: v0.32.3
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   certificateTemplates:
     server:
       spec:
@@ -108,7 +108,7 @@ metadata:
   namespace: kcp
 spec:
   image:
-    tag: v0.32.3
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   shardBaseURL: "https://shard2.$GATEWAY_BASE_URL:443"
   certificateTemplates:
     server:
@@ -163,7 +163,7 @@ metadata:
   namespace: kcp
 spec:
   image:
-    tag: v0.32.3
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   shardBaseURL: "https://shard3.$GATEWAY_BASE_URL:443"
   certificateTemplates:
     server:
