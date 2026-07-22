@@ -1,0 +1,7 @@
+apiVersion: example.io/v1
+kind: Widget
+metadata:
+  name: bob
+spec:
+  firstName: Bob
+  lastName: Jones
