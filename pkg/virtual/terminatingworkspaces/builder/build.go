@@ -218,6 +218,8 @@ func BuildVirtualWorkspace(
 			}
 		}),
 		HandlerFactory: handler.HandlerFactory(func(rootAPIServerConfig genericapiserver.CompletedConfig) (http.Handler, error) {
+			transportCache := virtualshared.NewTransportCache(cfg)
+
 			if err := rootAPIServerConfig.AddPostStartHook(workspaceContentName, func(hookContext genericapiserver.PostStartHookContext) error {
 				defer close(workspaceContentReadyCh)
 
@@ -231,6 +233,8 @@ func BuildVirtualWorkspace(
 						return nil
 					}
 				}
+
+				transportCache.StartWithContext(hookContext)
 
 				return nil
 			}); err != nil {
@@ -292,18 +296,16 @@ func BuildVirtualWorkspace(
 						return
 					}
 
-					thisCfg := rest.CopyConfig(cfg)
 					extra := map[string][]string{}
 					for k, v := range caller.GetExtra() {
 						extra[k] = v
 					}
-					thisCfg.Impersonate = rest.ImpersonationConfig{
+					authenticatingTransport, err := transportCache.TransportFor(rest.ImpersonationConfig{
 						UserName: caller.GetName(),
 						UID:      caller.GetUID(),
 						Groups:   append([]string{authorization.TerminatorGroup(terminator)}, caller.GetGroups()...),
 						Extra:    extra,
-					}
-					authenticatingTransport, err := rest.TransportFor(thisCfg)
+					})
 					if err != nil {
 						http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
 						return
@@ -328,14 +330,12 @@ func BuildVirtualWorkspace(
 					extra[k] = v
 				}
 
-				thisCfg := rest.CopyConfig(cfg)
-				thisCfg.Impersonate = rest.ImpersonationConfig{
+				authenticatingTransport, err := transportCache.TransportFor(rest.ImpersonationConfig{
 					UserName: info.Username,
 					UID:      info.UID,
 					Groups:   info.Groups,
 					Extra:    extra,
-				}
-				authenticatingTransport, err := rest.TransportFor(thisCfg)
+				})
 				if err != nil {
 					http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
 					return
