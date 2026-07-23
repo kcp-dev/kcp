@@ -27,6 +27,14 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+// Naming convention used throughout this file:
+//   - workspace names are plain words:      "org", "rh", "mount"
+//   - logical cluster IDs are "lc-"prefixed: "lc-org", "lc-rh"
+//     (the special root logical cluster keeps its real name, "root")
+//
+// A path segment can be EITHER a workspace name or a logical cluster ID, and
+// the "lc-" prefix makes it obvious which kind a given path segment is.
+
 type shardStub struct {
 	name string
 	url  string
@@ -34,6 +42,29 @@ type shardStub struct {
 
 func TestLookup(t *testing.T) {
 	t.Parallel()
+
+	// Shared fixtures for the multi-shard scenarios. The workspace hierarchy is
+	// root:org:rh, where the "org" workspace resolves to logical cluster
+	// "lc-org" and "rh" to logical cluster "lc-rh". The hierarchy is
+	// deliberately split across shards: the "org" workspace lives on shard
+	// "root" while its child "rh" lives on shard "beta". This lets the cases
+	// below exercise how a path resolves when a canonical workspace path and a
+	// raw logical cluster ID are mixed.
+	threeShards := []shardStub{
+		{name: "root", url: "https://root.kcp.dev"},
+		{name: "beta", url: "https://beta.kcp.dev"},
+		{name: "gama", url: "https://gama.kcp.dev"},
+	}
+	splitWorkspaces := map[string][]*tenancyv1alpha1.Workspace{
+		"root": {newWorkspace("org", "root", "lc-org")},
+		"beta": {newWorkspace("rh", "lc-org", "lc-rh")},
+	}
+	splitLogicalClusters := map[string][]*corev1alpha1.LogicalCluster{
+		"root": {newLogicalCluster("root")},
+		"beta": {newLogicalCluster("lc-org")},
+		"gama": {newLogicalCluster("lc-rh")},
+	}
+
 	scenarios := []struct {
 		name                           string
 		targetPath                     logicalcluster.Path
@@ -55,202 +86,116 @@ func TestLookup(t *testing.T) {
 			targetPath: logicalcluster.NewPath(""),
 		},
 		{
-			name: "a ns must be scheduled to be considered",
+			// A workspace still in the Scheduling phase is not indexed, so
+			// "root:org" cannot be resolved yet.
+			name: "a workspace must be scheduled to be considered",
 			initialShardsToUpsert: []shardStub{{
 				name: "root",
 				url:  "https://root.kcp.dev",
 			}},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
 				"root": {func() *tenancyv1alpha1.Workspace {
-					ws := newWorkspace("org", "root", "organization")
+					ws := newWorkspace("org", "root", "lc-org")
 					ws.Status.Phase = corev1alpha1.LogicalClusterPhaseScheduling
 					return ws
 				}()},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root"), newLogicalCluster("organization")},
+				"root": {newLogicalCluster("root"), newLogicalCluster("lc-org")},
 			},
-			targetPath: logicalcluster.NewPath("root:organization"),
+			targetPath: logicalcluster.NewPath("root:org"),
 		},
 		{
-			name: "single shard: a logical cluster for root:organization workspace is found",
+			// Canonical path, single shard: "root:org" walks workspace names to
+			// logical cluster "lc-org".
+			name: "single shard: a logical cluster for root:org workspace is found",
 			initialShardsToUpsert: []shardStub{{
 				name: "root",
 				url:  "https://root.kcp.dev",
 			}},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one"), newWorkspace("rh", "one", "two")},
+				"root": {newWorkspace("org", "root", "lc-org"), newWorkspace("rh", "lc-org", "lc-rh")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root"), newLogicalCluster("one"), newLogicalCluster("two")},
+				"root": {newLogicalCluster("root"), newLogicalCluster("lc-org"), newLogicalCluster("lc-rh")},
 			},
 			targetPath:      logicalcluster.NewPath("root:org"),
 			expectFound:     true,
-			expectedCluster: "one",
+			expectedCluster: "lc-org",
 			expectedShard:   "root",
 		},
 		{
+			// Canonical path, cluster living on a different shard than its root.
 			name: "multiple shards: a logical cluster for root:org workspace is found",
 			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
+				{name: "root", url: "https://root.kcp.dev"},
+				{name: "beta", url: "https://beta.kcp.dev"},
 			},
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one"), newWorkspace("rh", "one", "two")},
+				"root": {newWorkspace("org", "root", "lc-org"), newWorkspace("rh", "lc-org", "lc-rh")},
 			},
 			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
 				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one"), newLogicalCluster("two")},
+				"beta": {newLogicalCluster("lc-org"), newLogicalCluster("lc-rh")},
 			},
 			targetPath:      logicalcluster.NewPath("root:org"),
 			expectFound:     true,
-			expectedCluster: "one",
+			expectedCluster: "lc-org",
 			expectedShard:   "beta",
 		},
 		{
-			name: "multiple shards: a logical cluster for root:org:rh workspace is found",
-			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
-				{
-					name: "gama",
-					url:  "https://gama.kcp.dev",
-				},
-			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one")},
-				"beta": {newWorkspace("rh", "one", "two")},
-			},
-			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one")},
-				"gama": {newLogicalCluster("two")},
-			},
-			targetPath:      logicalcluster.NewPath("root:org:rh"),
-			expectFound:     true,
-			expectedCluster: "two",
-			expectedShard:   "gama",
+			// Full canonical path across the split hierarchy.
+			name:                           "multiple shards: a logical cluster for root:org:rh workspace is found",
+			initialShardsToUpsert:          threeShards,
+			initialWorkspacesToUpsert:      splitWorkspaces,
+			initialLogicalClustersToUpsert: splitLogicalClusters,
+			targetPath:                     logicalcluster.NewPath("root:org:rh"),
+			expectFound:                    true,
+			expectedCluster:                "lc-rh",
+			expectedShard:                  "gama",
 		},
 		{
-			name: "multiple shards: a logical cluster for one:rh workspace is found",
-			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
-				{
-					name: "gama",
-					url:  "https://gama.kcp.dev",
-				},
-			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one")},
-				"beta": {newWorkspace("rh", "one", "two")},
-			},
-			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one")},
-				"gama": {newLogicalCluster("two")},
-			},
-			targetPath:      logicalcluster.NewPath("one:rh"),
-			expectFound:     true,
-			expectedCluster: "two",
-			expectedShard:   "gama",
+			// Mixing: the path starts with a raw logical cluster ID ("lc-org")
+			// instead of the canonical "root:org" prefix, followed by the
+			// workspace name "rh". Only the FIRST segment may be a cluster ID.
+			name:                           "multiple shards: a logical cluster for lc-org:rh workspace is found",
+			initialShardsToUpsert:          threeShards,
+			initialWorkspacesToUpsert:      splitWorkspaces,
+			initialLogicalClustersToUpsert: splitLogicalClusters,
+			targetPath:                     logicalcluster.NewPath("lc-org:rh"),
+			expectFound:                    true,
+			expectedCluster:                "lc-rh",
+			expectedShard:                  "gama",
 		},
 		{
-			name: "multiple shards: a logical cluster for does-not-exists:rh workspace is NOT found",
-			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
-				{
-					name: "gama",
-					url:  "https://gama.kcp.dev",
-				},
-			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one")},
-				"beta": {newWorkspace("rh", "one", "two")},
-			},
-			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one")},
-				"gama": {newLogicalCluster("two")},
-			},
-			targetPath:  logicalcluster.NewPath("does-not-exists:rh"),
-			expectFound: false,
+			// Leading segment is neither a known cluster ID nor a shard root.
+			name:                           "multiple shards: a logical cluster for does-not-exists:rh workspace is NOT found",
+			initialShardsToUpsert:          threeShards,
+			initialWorkspacesToUpsert:      splitWorkspaces,
+			initialLogicalClustersToUpsert: splitLogicalClusters,
+			targetPath:                     logicalcluster.NewPath("does-not-exists:rh"),
+			expectFound:                    false,
 		},
 		{
-			name: "multiple shards: a logical cluster for root:one:rh workspace is NOT found",
-			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
-				{
-					name: "gama",
-					url:  "https://gama.kcp.dev",
-				},
-			},
-			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one")},
-				"beta": {newWorkspace("rh", "one", "two")},
-			},
-			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one")},
-				"gama": {newLogicalCluster("two")},
-			},
-			targetPath:  logicalcluster.NewPath("root:one:rh"),
-			expectFound: false,
+			// Mixing rejected: a cluster ID ("lc-org") in the MIDDLE of the path
+			// is not honored — the cluster-ID shortcut only works as the leading
+			// segment. Contrast with the "lc-org:rh" case above.
+			name:                           "multiple shards: a logical cluster for root:lc-org:rh workspace is NOT found",
+			initialShardsToUpsert:          threeShards,
+			initialWorkspacesToUpsert:      splitWorkspaces,
+			initialLogicalClustersToUpsert: splitLogicalClusters,
+			targetPath:                     logicalcluster.NewPath("root:lc-org:rh"),
+			expectFound:                    false,
 		},
 		{
-			name: "multiple shards: one:rh workspace is a mount with URL",
-			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
-				{
-					name: "gama",
-					url:  "https://gama.kcp.dev",
-				},
-			},
+			name:                  "multiple shards: lc-org:mount workspace is a mount with URL",
+			initialShardsToUpsert: threeShards,
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one")},
+				"root": {newWorkspace("org", "root", "lc-org")},
 				"beta": {
 					withURL(
 						withPhase(
-							newWorkspaceWithMount("mount", "one", "", tenancyv1alpha1.ObjectReference{
+							newWorkspaceWithMount("mount", "lc-org", "", tenancyv1alpha1.ObjectReference{
 								Kind:       "KubeCluster",
 								Name:       "prod-cluster",
 								APIVersion: "proxy.kcp.dev/v1alpha1",
@@ -258,52 +203,31 @@ func TestLookup(t *testing.T) {
 							"Ready"),
 						"https://kcp.dev.local/services/custom-url/proxy")},
 			},
-			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one")},
-				"gama": {newLogicalCluster("two")},
-			},
-			targetPath:      logicalcluster.NewPath("one:mount"),
-			expectFound:     true,
-			expectedCluster: "",
-			expectedShard:   "",
-			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
+			initialLogicalClustersToUpsert: splitLogicalClusters,
+			targetPath:                     logicalcluster.NewPath("lc-org:mount"),
+			expectFound:                    true,
+			expectedCluster:                "",
+			expectedShard:                  "",
+			expectedURL:                    "https://kcp.dev.local/services/custom-url/proxy",
 		},
 		{
-			name: "multiple shards: one:rh workspace is a mount, but phase is Unavailable",
-			initialShardsToUpsert: []shardStub{
-				{
-					name: "root",
-					url:  "https://root.kcp.dev",
-				},
-				{
-					name: "beta",
-					url:  "https://beta.kcp.dev",
-				},
-				{
-					name: "gama",
-					url:  "https://gama.kcp.dev",
-				},
-			},
+			name:                  "multiple shards: lc-org:rh workspace is a mount, but phase is Unavailable",
+			initialShardsToUpsert: threeShards,
 			initialWorkspacesToUpsert: map[string][]*tenancyv1alpha1.Workspace{
-				"root": {newWorkspace("org", "root", "one")},
-				"beta": {withURL(withPhase(newWorkspaceWithMount("rh", "one", "", tenancyv1alpha1.ObjectReference{
+				"root": {newWorkspace("org", "root", "lc-org")},
+				"beta": {withURL(withPhase(newWorkspaceWithMount("rh", "lc-org", "", tenancyv1alpha1.ObjectReference{
 					Kind:       "KubeCluster",
 					Name:       "prod-cluster",
 					APIVersion: "proxy.kcp.dev/v1alpha1",
 				}), corev1alpha1.LogicalClusterPhaseUnavailable), "https://kcp.dev.local/services/custom-url/proxy")},
 			},
-			initialLogicalClustersToUpsert: map[string][]*corev1alpha1.LogicalCluster{
-				"root": {newLogicalCluster("root")},
-				"beta": {newLogicalCluster("one")},
-				"gama": {newLogicalCluster("two")},
-			},
-			targetPath:      logicalcluster.NewPath("one:rh"),
-			expectFound:     true,
-			expectedError:   503,
-			expectedCluster: "",
-			expectedShard:   "",
-			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
+			initialLogicalClustersToUpsert: splitLogicalClusters,
+			targetPath:                     logicalcluster.NewPath("lc-org:rh"),
+			expectFound:                    true,
+			expectedError:                  503,
+			expectedCluster:                "",
+			expectedShard:                  "",
+			expectedURL:                    "https://kcp.dev.local/services/custom-url/proxy",
 		},
 	}
 
@@ -360,14 +284,14 @@ func TestDeleteShard(t *testing.T) {
 
 	target.UpsertShard("root", "https://root.io")
 	target.UpsertShard("amber", "https://amber.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
-	target.UpsertWorkspace("root", newWorkspace("org1", "root", "43"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
+	target.UpsertWorkspace("root", newWorkspace("org1", "root", "lc-org1"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
-	target.UpsertLogicalCluster("amber", newLogicalCluster("43"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
+	target.UpsertLogicalCluster("amber", newLogicalCluster("lc-org1"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org1"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "43", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "lc-org1", "", true)
 
 	// delete the shard and ensure we cannot look up a path on it
 	target.DeleteShard("amber")
@@ -375,7 +299,7 @@ func TestDeleteShard(t *testing.T) {
 	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org", "", true)
 }
 
 func TestDeleteLogicalCluster(t *testing.T) {
@@ -383,18 +307,18 @@ func TestDeleteLogicalCluster(t *testing.T) {
 	target := New(nil)
 
 	// ensure deleting not existent logical cluster won't blow up
-	target.DeleteLogicalCluster("root", newLogicalCluster("34"))
+	target.DeleteLogicalCluster("root", newLogicalCluster("lc-org"))
 
 	target.UpsertShard("root", "https://root.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org", "", true)
 
 	// ensure that after deleting the logical cluster it cannot be looked up
-	target.DeleteLogicalCluster("root", newLogicalCluster("34"))
+	target.DeleteLogicalCluster("root", newLogicalCluster("lc-org"))
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
 	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
@@ -413,20 +337,20 @@ func TestDeleteLogicalClusterScrubsAllMaps(t *testing.T) {
 
 	target.UpsertShard("root", "https://root.io")
 
-	// "34" exists both as a child (org workspace under root points at it)
-	// and as a parent (it has its own sub-workspace "sub" pointing at "99").
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
-	target.UpsertWorkspace("root", newWorkspaceWithMount("mounted", "34", "55",
+	// "lc-org" exists both as a child (org workspace under root points at it)
+	// and as a parent (it has its own sub-workspaces "mounted" and "broken").
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
+	target.UpsertWorkspace("root", newWorkspaceWithMount("mounted", "lc-org", "lc-mounted",
 		tenancyv1alpha1.ObjectReference{APIVersion: "v1", Kind: "Cluster", Name: "m"}))
-	target.UpsertWorkspace("root", withPhase(newWorkspace("broken", "34", "66"),
+	target.UpsertWorkspace("root", withPhase(newWorkspace("broken", "lc-org", "lc-broken"),
 		corev1alpha1.LogicalClusterPhaseUnavailable))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
 
-	// Sanity: all 7 maps must hold an entry that references "34".
+	// Sanity: all 7 maps must hold an entry that references "lc-org".
 	assertHasCluster := func(name string, presence bool) {
 		t.Helper()
-		c := logicalcluster.Name("34")
+		c := logicalcluster.Name("lc-org")
 		_, child := target.shardClusterWorkspaceName["root"][c]
 		_, parent := target.shardClusterParentCluster["root"][c]
 		_, asParentInName := target.shardClusterWorkspaceNameCluster["root"][c]
@@ -453,9 +377,9 @@ func TestDeleteLogicalClusterScrubsAllMaps(t *testing.T) {
 
 	// Simulate the race: LogicalCluster delete arrives before any of the
 	// Workspace delete events.
-	target.DeleteLogicalCluster("root", newLogicalCluster("34"))
+	target.DeleteLogicalCluster("root", newLogicalCluster("lc-org"))
 
-	// All 7 maps must now be free of any reference to "34".
+	// All 7 maps must now be free of any reference to "lc-org".
 	assertHasCluster("post-delete", false)
 }
 
@@ -471,14 +395,14 @@ func TestDeleteLogicalCluster_ScrubsAllMaps(t *testing.T) {
 	target.UpsertShard("root", "https://root.io")
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
 
-	// Parent "root" contains workspace "org" with scheduled cluster "orgcluster",
+	// Parent "root" contains workspace "org" with scheduled cluster "lc-org",
 	// plus an unavailable workspace and a mounted one — exercises every map.
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "orgcluster"))
-	target.UpsertWorkspace("root", withPhase(newWorkspace("bad", "root", "badcluster"), corev1alpha1.LogicalClusterPhaseUnavailable))
-	target.UpsertWorkspace("root", newWorkspaceWithMount("mnt", "root", "mntcluster", tenancyv1alpha1.ObjectReference{Name: "ref"}))
-	target.UpsertLogicalCluster("root", newLogicalCluster("orgcluster"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("badcluster"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("mntcluster"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
+	target.UpsertWorkspace("root", withPhase(newWorkspace("bad", "root", "lc-bad"), corev1alpha1.LogicalClusterPhaseUnavailable))
+	target.UpsertWorkspace("root", newWorkspaceWithMount("mnt", "root", "lc-mnt", tenancyv1alpha1.ObjectReference{Name: "ref"}))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-bad"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-mnt"))
 
 	// Sanity: every map has the parent's bucket populated.
 	if _, ok := target.shardClusterWorkspaceNameCluster["root"][logicalcluster.Name("root")]; !ok {
@@ -490,25 +414,25 @@ func TestDeleteLogicalCluster_ScrubsAllMaps(t *testing.T) {
 	if _, ok := target.shardClusterWorkspaceNameErrorCode["root"][logicalcluster.Name("root")]; !ok {
 		t.Fatal("setup: shardClusterWorkspaceNameErrorCode[root][root] should be populated")
 	}
-	if _, ok := target.shardClusterWorkspaceName["root"][logicalcluster.Name("orgcluster")]; !ok {
-		t.Fatal("setup: shardClusterWorkspaceName[root][orgcluster] should be populated")
+	if _, ok := target.shardClusterWorkspaceName["root"][logicalcluster.Name("lc-org")]; !ok {
+		t.Fatal("setup: shardClusterWorkspaceName[root][lc-org] should be populated")
 	}
-	if _, ok := target.shardClusterParentCluster["root"][logicalcluster.Name("orgcluster")]; !ok {
-		t.Fatal("setup: shardClusterParentCluster[root][orgcluster] should be populated")
+	if _, ok := target.shardClusterParentCluster["root"][logicalcluster.Name("lc-org")]; !ok {
+		t.Fatal("setup: shardClusterParentCluster[root][lc-org] should be populated")
 	}
 
 	// Delete the CHILD logical cluster directly, without first deleting the
 	// Workspace CR. This is the out-of-order case the cleanup must handle.
-	target.DeleteLogicalCluster("root", newLogicalCluster("orgcluster"))
+	target.DeleteLogicalCluster("root", newLogicalCluster("lc-org"))
 
-	if _, ok := target.shardClusterWorkspaceName["root"][logicalcluster.Name("orgcluster")]; ok {
-		t.Error("shardClusterWorkspaceName[root][orgcluster] leaked after child LogicalCluster delete")
+	if _, ok := target.shardClusterWorkspaceName["root"][logicalcluster.Name("lc-org")]; ok {
+		t.Error("shardClusterWorkspaceName[root][lc-org] leaked after child LogicalCluster delete")
 	}
-	if _, ok := target.shardClusterParentCluster["root"][logicalcluster.Name("orgcluster")]; ok {
-		t.Error("shardClusterParentCluster[root][orgcluster] leaked after child LogicalCluster delete")
+	if _, ok := target.shardClusterParentCluster["root"][logicalcluster.Name("lc-org")]; ok {
+		t.Error("shardClusterParentCluster[root][lc-org] leaked after child LogicalCluster delete")
 	}
-	if _, ok := target.clusterShards[logicalcluster.Name("orgcluster")]; ok {
-		t.Error("clusterShards[orgcluster] leaked after LogicalCluster delete")
+	if _, ok := target.clusterShards[logicalcluster.Name("lc-org")]; ok {
+		t.Error("clusterShards[lc-org] leaked after LogicalCluster delete")
 	}
 
 	// Delete the PARENT logical cluster while child workspace entries still exist
@@ -534,25 +458,25 @@ func TestDeleteWorkspace(t *testing.T) {
 	target := New(nil)
 
 	// ensure deleting not existent workspace won't blow up
-	target.DeleteWorkspace("root", newWorkspace("org", "root", "34"))
+	target.DeleteWorkspace("root", newWorkspace("org", "root", "lc-org"))
 
 	target.UpsertShard("root", "https://root.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
-	target.UpsertWorkspace("root", newWorkspace("org1", "root", "43"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
+	target.UpsertWorkspace("root", newWorkspace("org1", "root", "lc-org1"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("43"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org1"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org", "", true)
 
-	target.DeleteWorkspace("root", newWorkspace("org", "root", "34"))
+	target.DeleteWorkspace("root", newWorkspace("org", "root", "lc-org"))
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
 	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
 
 	r, found = target.Lookup(logicalcluster.NewPath("root:org1"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "43", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org1", "", true)
 }
 
 func TestUpsertLogicalCluster(t *testing.T) {
@@ -561,16 +485,16 @@ func TestUpsertLogicalCluster(t *testing.T) {
 
 	target.UpsertShard("root", "https://root.io")
 	target.UpsertShard("amber", "https://amber.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org", "", true)
 
-	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("amber", newLogicalCluster("lc-org"))
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "lc-org", "", true)
 }
 
 // Since LookupURL uses Lookup method the following test is just a smoke tests.
@@ -579,16 +503,16 @@ func TestLookupURL(t *testing.T) {
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
 
 	r, found := target.LookupURL(logicalcluster.NewPath("root:org"))
 	if !found {
 		t.Fatalf("expected to find a URL for %q path", "root:org")
 	}
-	if r.URL != "https://root.io/clusters/34" {
-		t.Fatalf("unexpected url. returned = %v, expected = %v for %q path", r.URL, "https://root.io/clusters/34", "root:org")
+	if r.URL != "https://root.io/clusters/lc-org" {
+		t.Fatalf("unexpected url. returned = %v, expected = %v for %q path", r.URL, "https://root.io/clusters/lc-org", "root:org")
 	}
 
 	r, found = target.LookupURL(logicalcluster.NewPath("root:org:rh"))
@@ -605,16 +529,16 @@ func TestUpsertShard(t *testing.T) {
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
 
 	r, found := target.LookupURL(logicalcluster.NewPath("root:org"))
 	if !found {
 		t.Fatalf("expected to find a URL for %q path", "root:org")
 	}
-	if r.URL != "https://root.io/clusters/34" {
-		t.Fatalf("unexpected url = %v returned, expected = %v for %q path", r.URL, "https://root.io/clusters/34", "root:org")
+	if r.URL != "https://root.io/clusters/lc-org" {
+		t.Fatalf("unexpected url = %v returned, expected = %v for %q path", r.URL, "https://root.io/clusters/lc-org", "root:org")
 	}
 
 	target.UpsertShard("root", "https://new-root.io")
@@ -622,8 +546,8 @@ func TestUpsertShard(t *testing.T) {
 	if !found {
 		t.Fatalf("expected to find a URL for %q path", "root:org")
 	}
-	if r.URL != "https://new-root.io/clusters/34" {
-		t.Fatalf("unexpected url = %v returned, expected = %v for %q path", r.URL, "https://new-root.io/clusters/34", "root:org")
+	if r.URL != "https://new-root.io/clusters/lc-org" {
+		t.Fatalf("unexpected url = %v returned, expected = %v for %q path", r.URL, "https://new-root.io/clusters/lc-org", "root:org")
 	}
 }
 
@@ -632,17 +556,17 @@ func TestUpsertWorkspace(t *testing.T) {
 	target := New(nil)
 
 	target.UpsertShard("root", "https://root.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("44"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("lc-org-v2"))
 
 	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org", "", true)
 
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "44"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "lc-org-v2"))
 	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
-	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "44", "", true)
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "lc-org-v2", "", true)
 }
 
 func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, cluster logicalcluster.Name, url string, found bool, expectedShard string, expectedCluster logicalcluster.Name, expectedURL string, expectToFind bool) {
@@ -662,16 +586,20 @@ func validateLookupOutput(t *testing.T, path logicalcluster.Path, shard string, 
 	}
 }
 
-func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1alpha1.Workspace {
+// newWorkspace builds a Workspace named workspaceName that lives in the
+// parentClusterID logical cluster and schedules its own contents to the
+// childClusterID logical cluster (spec.Cluster). By convention logical cluster
+// IDs are "lc-"prefixed and workspaceName is a plain word.
+func newWorkspace(workspaceName, parentClusterID, childClusterID string) *tenancyv1alpha1.Workspace {
 	return &tenancyv1alpha1.Workspace{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{"kcp.io/cluster": cluster}},
-		Spec:       tenancyv1alpha1.WorkspaceSpec{Cluster: scheduledCluster},
+		ObjectMeta: metav1.ObjectMeta{Name: workspaceName, Annotations: map[string]string{"kcp.io/cluster": parentClusterID}},
+		Spec:       tenancyv1alpha1.WorkspaceSpec{Cluster: childClusterID},
 		Status:     tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
 	}
 }
 
-func newWorkspaceWithMount(name, cluster, scheduledCluster string, ref tenancyv1alpha1.ObjectReference) *tenancyv1alpha1.Workspace {
-	ws := newWorkspace(name, cluster, scheduledCluster)
+func newWorkspaceWithMount(workspaceName, parentClusterID, childClusterID string, ref tenancyv1alpha1.ObjectReference) *tenancyv1alpha1.Workspace {
+	ws := newWorkspace(workspaceName, parentClusterID, childClusterID)
 	ws.Spec.Mount = &tenancyv1alpha1.Mount{Reference: ref}
 	return ws
 }
@@ -691,8 +619,10 @@ func withURL(ws *tenancyv1alpha1.Workspace, url string) *tenancyv1alpha1.Workspa
 	return ws
 }
 
-func newLogicalCluster(cluster string) *corev1alpha1.LogicalCluster {
+// newLogicalCluster builds a LogicalCluster identified by logicalClusterID
+// (the kcp.io/cluster annotation). By convention these IDs are "lc-"prefixed.
+func newLogicalCluster(logicalClusterID string) *corev1alpha1.LogicalCluster {
 	return &corev1alpha1.LogicalCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Annotations: map[string]string{"kcp.io/cluster": cluster}},
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Annotations: map[string]string{"kcp.io/cluster": logicalClusterID}},
 	}
 }

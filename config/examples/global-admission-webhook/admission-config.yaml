@@ -1,0 +1,9 @@
+# Pass this to the shard: --admission-control-config-file=admission-config.yaml
+# It points the global validating-webhook admission plugin at a
+# ValidatingWebhookConfiguration that is applied to EVERY logical cluster.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+- name: apis.kcp.io/GlobalValidatingWebhook
+  # Inline the config, or use `path: global-validatingwebhookconfiguration.yaml`.
+  path: global-validatingwebhookconfiguration.yaml
