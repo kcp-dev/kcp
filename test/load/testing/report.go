@@ -19,6 +19,9 @@ package testing
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,5 +59,53 @@ func NewKCPReport(ctx context.Context, t *testing.T, title string, cfg *rest.Con
 
 	report.Metadata = append(report.Metadata, measurement.Parameter{Key: "kcp Shards", Value: fmt.Sprintf("%d", len(shards.Items))})
 
+	// running on first shard name is fine, we just want to detect if cache server is used and not verify that it is correct for all shards
+	firstShard := shards.Items[0].Name
+	report.Metadata = append(report.Metadata, measurement.Parameter{Key: "kcp Cache Server", Value: detectCacheServer(ctx, t, cfg, firstShard)})
+
 	return report
+}
+
+// In our two setups, we can use a little trick to determine if the cache server is embedded or external:
+// 200 -> we reached embedded cache handler
+// 404 -> can't reach cache via external VW, also embedded
+// 403 + "not resolved to valid virtual workspace" -> external cache server
+// anything else, can't tell.
+// This might become a bit brittle, but since its just to report metadata, we should be fine.
+// Any alternative would involve sharing setup data or giving access to the underlying Kubernetes cluster.
+func detectCacheServer(ctx context.Context, t *testing.T, cfg *rest.Config, shardName string) string {
+	// strip out any clusters
+	host := cfg.Host
+	if i := strings.Index(host, "/clusters/"); i != -1 {
+		host = host[:i]
+	}
+	httpClient, err := rest.HTTPClientFor(cfg)
+	if err != nil {
+		t.Logf("Could not build HTTP client for cache-server probe: %v", err)
+		return "unknown"
+	}
+	url := host + "/services/cache/shards/" + shardName + "/healthz"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		t.Logf("Could not build request for cache-server probe: %v", err)
+		return "unknown"
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		t.Logf("Could not probe cache-server endpoint: %v", err)
+		return "unknown"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
+		return "embedded"
+	}
+
+	if resp.StatusCode == http.StatusForbidden {
+		body, _ := io.ReadAll(resp.Body)
+		if strings.Contains(string(body), "Path not resolved to a valid virtual workspace") {
+			return "external"
+		}
+	}
+	return "unknown"
 }

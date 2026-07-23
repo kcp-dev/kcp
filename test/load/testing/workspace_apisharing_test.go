@@ -80,6 +80,11 @@ func TestAPISharing(t *testing.T) {
 
 	t.Logf("Running custom resource CRUD operations")
 	crudSection := crudCustomResources(t, dynamicClusterClient, wt, params.CRUDSharedAPIQPS, params.ProviderWorkspacesCount, params.ConsumerWorkspacesCount, params.BindingsPerConsumer, dummy)
+	crudSection.Parameters = append(crudSection.Parameters,
+		measurement.Parameter{Key: "CRLeafFields", Value: fmt.Sprintf("%d", params.CRLeafFields)},
+		measurement.Parameter{Key: "CRListItems", Value: fmt.Sprintf("%d", params.CRListItems)},
+		measurement.Parameter{Key: "CRTargetSizeBytes", Value: fmt.Sprintf("%d", params.CRTargetSizeBytes)},
+	)
 	sections = append(sections, crudSection)
 
 	report := NewKCPReport(t.Context(), t, "API Sharing", cfg.FrontProxyKubeconfig)
@@ -198,7 +203,7 @@ func createAPIBindings(t *testing.T, client kcpclientset.ClusterInterface, wt tr
 
 		// Wait for the binding to become bound.
 		opStart = time.Now()
-		err = wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 4*time.Minute, true, func(ctx context.Context) (bool, error) {
 			got, err := client.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil //nolint:nilerr
