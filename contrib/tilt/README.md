@@ -70,6 +70,28 @@ KCP_OBSERVABILITY_ENABLED=false make tilt-kind-up
 
 (`0`, `no` and `off` are also accepted as disabling values.)
 
+### Portal (contrib-dashboard)
+
+Both installs deploy the [contrib-dashboard](https://github.com/kcp-dev/contrib-dashboard)
+portal — a web UI for kcp workspaces and APIExports/APIBindings — served in no-oidc
+mode against the front-proxy. Once up, it is reachable at <http://localhost:8080>.
+
+Both read the portal's `deploy/deployment.yaml` from a sibling `contrib-dashboard`
+checkout (default `../../../contrib-dashboard`, override with `KCP_PORTAL_DIR`).
+
+- The default `Tiltfile` **live-reloads** the portal: it builds the image from that
+  checkout and rebuilds on source changes.
+- `Tiltfile.static` deploys the **published** image
+  `ghcr.io/kcp-dev/contrib-dashboard:main` (no build). Override the ref with
+  `KCP_PORTAL_IMAGE`.
+
+Disable the portal in either install with `KCP_PORTAL_ENABLED=false` (also accepts
+`0`, `no`, `off`):
+
+```bash
+KCP_PORTAL_ENABLED=false make tilt-kind-up
+```
+
 ## Static install (upstream images, no hot reload)
 
 The default `Tiltfile` builds the `kcp` and `kcp-front-proxy` images from your local

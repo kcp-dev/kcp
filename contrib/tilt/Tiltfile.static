@@ -75,3 +75,29 @@ deploy_kcp(
     token_auth_secret=os.getenv('KCP_TOKEN_AUTH_SECRET', None) or None,
     token_auth_key=os.getenv('KCP_TOKEN_AUTH_KEY', None) or None,
 )
+
+# Portal (contrib-dashboard) — a web UI for kcp workspaces/APIExports served in
+# no-oidc mode against the front-proxy. Enabled by default; disable with
+# KCP_PORTAL_ENABLED=false (also accepts 0/no/off).
+#
+# Static: no local build — reuses the checkout's deploy/deployment.yaml but swaps
+# its dev image (kcp-dashboard) for the published image, so nothing is built.
+# Override the ref with KCP_PORTAL_IMAGE.
+if os.getenv('KCP_PORTAL_ENABLED', 'true').lower() not in ('false', '0', 'no', 'off'):
+    DASHBOARD_DIR = os.getenv('KCP_PORTAL_DIR', '../../../contrib-dashboard')
+    manifest = DASHBOARD_DIR + '/deploy/deployment.yaml'
+    if not os.path.exists(manifest):
+        fail('contrib-dashboard not found at %s — set KCP_PORTAL_DIR to your checkout ' % DASHBOARD_DIR +
+             'or disable the portal with KCP_PORTAL_ENABLED=false')
+    portal_image = os.getenv('KCP_PORTAL_IMAGE', 'ghcr.io/kcp-dev/contrib-dashboard:main')
+    dashboard_yaml = str(read_file(manifest)).replace('image: kcp-dashboard', 'image: ' + portal_image)
+    k8s_yaml(blob(dashboard_yaml))
+    k8s_resource('kcp-dashboard',
+        port_forwards=['8080:8080'],
+        # Wait for the admin kubeconfig secret to be extracted so the mount exists.
+        resource_deps=['kcp-admin extract'],
+        labels='dashboard',
+    )
+    print('kcp portal → http://localhost:8080 (no-oidc, static image %s)' % portal_image)
+else:
+    print('Portal (contrib-dashboard) disabled (KCP_PORTAL_ENABLED=false)')

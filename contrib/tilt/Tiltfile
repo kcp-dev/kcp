@@ -98,3 +98,36 @@ local_resource('kcp-admin extract',
     labels='kcp',
     allow_parallel=True,
 )
+
+# Portal (contrib-dashboard) — a web UI for kcp workspaces/APIExports served in
+# no-oidc mode against the front-proxy. Enabled by default; disable with
+# KCP_PORTAL_ENABLED=false (also accepts 0/no/off).
+#
+# Live-reload build: the dashboard sources live in the sibling contrib-dashboard
+# checkout (github.com/kcp-dev/contrib-dashboard, default ../../../contrib-dashboard).
+# The docker_build ref matches the image in dashboard.yaml, so Tilt swaps in the
+# locally built image and rebuilds it on source changes.
+if os.getenv('KCP_PORTAL_ENABLED', 'true').lower() not in ('false', '0', 'no', 'off'):
+    DASHBOARD_DIR = os.getenv('KCP_PORTAL_DIR', '../../../contrib-dashboard')
+    if not os.path.exists(DASHBOARD_DIR + '/Dockerfile'):
+        fail('contrib-dashboard not found at %s — set KCP_PORTAL_DIR to your checkout ' % DASHBOARD_DIR +
+             'or disable the portal with KCP_PORTAL_ENABLED=false')
+    # docker_build ref matches the image in the checkout's deploy/deployment.yaml
+    # (kcp-dashboard), so Tilt swaps in the locally built image and rebuilds it on
+    # source changes.
+    docker_build(
+        'kcp-dashboard',
+        DASHBOARD_DIR,
+        dockerfile=DASHBOARD_DIR + '/Dockerfile',
+        ignore=['node_modules', 'web/dist', 'server/dist', '**/*.log'],
+    )
+    k8s_yaml(DASHBOARD_DIR + '/deploy/deployment.yaml')
+    k8s_resource('kcp-dashboard',
+        port_forwards=['8080:8080'],
+        # Wait for the admin kubeconfig secret to be extracted so the mount exists.
+        resource_deps=['kcp-admin extract'],
+        labels='dashboard',
+    )
+    print('kcp portal → http://localhost:8080 (no-oidc, live-reload from %s)' % DASHBOARD_DIR)
+else:
+    print('Portal (contrib-dashboard) disabled (KCP_PORTAL_ENABLED=false)')
