@@ -25,6 +25,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
+	"github.com/kcp-dev/kcp/pkg/objectcount"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
@@ -80,4 +81,10 @@ type WantsDynamicClusterClient interface {
 // WantsDynamicRESTMapper is an interface that should be implemented by admission plugins that need the DynamicRESTMapper.
 type WantsDynamicRESTMapper interface {
 	SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper)
+}
+
+// WantsObjectCountRegistry interface should be implemented by admission plugins
+// that want to have the per-logical-cluster object count registry injected.
+type WantsObjectCountRegistry interface {
+	SetObjectCountRegistry(*objectcount.Registry)
 }
