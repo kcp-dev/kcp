@@ -22,53 +22,53 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResource) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResource"
+func (in ClusterCachedResource) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResource"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceEndpoint) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpoint"
+func (in ClusterCachedResourceEndpoint) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceEndpoint"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceEndpointSlice) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSlice"
+func (in ClusterCachedResourceEndpointSlice) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceEndpointSlice"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceEndpointSliceList) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceList"
+func (in ClusterCachedResourceEndpointSliceList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceEndpointSliceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceEndpointSliceSpec) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceSpec"
+func (in ClusterCachedResourceEndpointSliceSpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceEndpointSliceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceEndpointSliceStatus) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSliceStatus"
+func (in ClusterCachedResourceEndpointSliceStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceEndpointSliceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceList) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceList"
+func (in ClusterCachedResourceList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceReference) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceReference"
+func (in ClusterCachedResourceReference) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceSpec) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceSpec"
+func (in ClusterCachedResourceSpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceStatus) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceStatus"
+func (in ClusterCachedResourceStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.ClusterCachedResourceStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

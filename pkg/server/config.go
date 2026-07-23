@@ -791,7 +791,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
 		// vwClientConfig is used by the aggregating CRD-version discovery server and the virtual
 		// resources server to forward requests to the virtual workspace endpoint URLs advertised
-		// in CachedResourceEndpointSlices.
+		// in ClusterCachedResourceEndpointSlices.
 		vwClientConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 		if opts.Extra.ShardClientCertFile != "" && opts.Extra.ShardClientKeyFile != "" {
 			// On a real, multi-component deployment the advertised endpoint URL is the serving

@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package replication and its sub-packages provide the Replication Virtual Workspace.
 //
-// Objects replicated to the cache server described by a CachedResource are exposed
+// Objects replicated to the cache server described by a ClusterCachedResource are exposed
 // through this virtual workspace with read-only verbs GET, LIST and WATCH.
 package replication
 

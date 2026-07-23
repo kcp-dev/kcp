@@ -19,6 +19,6 @@ package cache
 const (
 	GroupName = "cache.kcp.io"
 
-	CachedResourceKind     = "CachedResource"
-	CachedResourceResource = "CachedResources"
+	ClusterCachedResourceKind     = "ClusterCachedResource"
+	ClusterCachedResourceResource = "ClusterCachedResources"
 )

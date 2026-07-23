@@ -45,7 +45,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
@@ -232,9 +232,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		resyncPeriod,
 	)
 
-	if err := c.KcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().GetIndexer().AddIndexers(cache.Indexers{
-		cachedresources.ByIdentityAndGroupResource: cachedresources.IndexByIdentityAndGroupResource,
-		cachedresources.ByGroupResource:            cachedresources.IndexByGroupResource,
+	if err := c.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer().AddIndexers(cache.Indexers{
+		clustercachedresources.ByIdentityAndGroupResource: clustercachedresources.IndexByIdentityAndGroupResource,
+		clustercachedresources.ByGroupResource:            clustercachedresources.IndexByGroupResource,
 	}); err != nil {
 		return nil, err
 	}

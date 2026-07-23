@@ -46,23 +46,23 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
 var systemCachedCRDLogicalCluster = logicalcluster.Name("system:cached-crds")
 
 // crdClusterLister is a CRD lister for the built-in APIs as well as
-// synthetic ones for CachedResources.
+// synthetic ones for ClusterCachedResources.
 type crdClusterLister struct {
 	crdLister  kcpapiextensionsv1listers.CustomResourceDefinitionClusterLister
 	crdIndexer cache.Indexer
 
-	cachedResourcesLister  cache1alpha1listers.CachedResourceClusterLister
-	cachedResourcesIndexer cache.Indexer
+	clusterCachedResourcesLister  cache1alpha1listers.ClusterCachedResourceClusterLister
+	clusterCachedResourcesIndexer cache.Indexer
 
-	listCachedResourcesByIdentityAndGR func(identity string, gr schema.GroupResource) ([]*cachev1alpha1.CachedResource, error)
-	listCachedResourcesByGR            func(gr schema.GroupResource) ([]*cachev1alpha1.CachedResource, error)
+	listClusterCachedResourcesByIdentityAndGR func(identity string, gr schema.GroupResource) ([]*cachev1alpha1.ClusterCachedResource, error)
+	listClusterCachedResourcesByGR            func(gr schema.GroupResource) ([]*cachev1alpha1.ClusterCachedResource, error)
 }
 
 func newCacheResourceAwareCRDClusterLister(apiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory, kcpSharedInformerFactory kcpinformers.SharedInformerFactory) *crdClusterLister {
@@ -70,22 +70,22 @@ func newCacheResourceAwareCRDClusterLister(apiExtensionsSharedInformerFactory kc
 		crdLister:  apiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 		crdIndexer: apiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer(),
 
-		cachedResourcesLister:  kcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Lister(),
-		cachedResourcesIndexer: kcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().GetIndexer(),
+		clusterCachedResourcesLister:  kcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Lister(),
+		clusterCachedResourcesIndexer: kcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer(),
 
-		listCachedResourcesByIdentityAndGR: func(identity string, gr schema.GroupResource) ([]*cachev1alpha1.CachedResource, error) {
-			return indexers.ByIndex[*cachev1alpha1.CachedResource](
-				kcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().GetIndexer(),
-				cachedresources.ByIdentityAndGroupResource,
-				cachedresources.IdentityAndGroupResourceKey(identity, gr),
+		listClusterCachedResourcesByIdentityAndGR: func(identity string, gr schema.GroupResource) ([]*cachev1alpha1.ClusterCachedResource, error) {
+			return indexers.ByIndex[*cachev1alpha1.ClusterCachedResource](
+				kcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer(),
+				clustercachedresources.ByIdentityAndGroupResource,
+				clustercachedresources.IdentityAndGroupResourceKey(identity, gr),
 			)
 		},
 
-		listCachedResourcesByGR: func(gr schema.GroupResource) ([]*cachev1alpha1.CachedResource, error) {
-			return indexers.ByIndex[*cachev1alpha1.CachedResource](
-				kcpSharedInformerFactory.Cache().V1alpha1().CachedResources().Informer().GetIndexer(),
-				cachedresources.ByGroupResource,
-				cachedresources.GroupResourceKey(gr),
+		listClusterCachedResourcesByGR: func(gr schema.GroupResource) ([]*cachev1alpha1.ClusterCachedResource, error) {
+			return indexers.ByIndex[*cachev1alpha1.ClusterCachedResource](
+				kcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().GetIndexer(),
+				clustercachedresources.ByGroupResource,
+				clustercachedresources.GroupResourceKey(gr),
 			)
 		},
 	}
@@ -127,10 +127,10 @@ func (c *crdLister) List(ctx context.Context, selector labels.Selector) ([]*apie
 	}
 	clusterName := c.cluster
 
-	// seen keeps track of which CRDs have already been found from system and CachedResources.
+	// seen keeps track of which CRDs have already been found from system and ClusterCachedResources.
 	seen := sets.New[string]()
 
-	// Priority 1: add system CRDs. These take priority over CRDs from CachedResources.
+	// Priority 1: add system CRDs. These take priority over CRDs from ClusterCachedResources.
 	systemCRDs, err := c.crdLister.Cluster(bootstrap.SystemCRDLogicalCluster).List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving kcp system CRDs: %w", err)
@@ -142,23 +142,23 @@ func (c *crdLister) List(ctx context.Context, selector labels.Selector) ([]*apie
 		seen.Insert(canonicalCRDName(crd))
 	}
 
-	// Priority 2: add CachedResource CRDs.
-	localCachedResources, err := c.cachedResourcesLister.Cluster(clusterName).List(labels.Everything())
+	// Priority 2: add ClusterCachedResource CRDs.
+	localClusterCachedResources, err := c.clusterCachedResourcesLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
-	for _, cr := range localCachedResources {
+	for _, cr := range localClusterCachedResources {
 		if cr.Annotations == nil ||
-			cr.Annotations[cachedresources.AnnotationResourceKind] == "" ||
-			cr.Annotations[cachedresources.AnnotationResourceScope] == "" ||
+			cr.Annotations[clustercachedresources.AnnotationResourceKind] == "" ||
+			cr.Annotations[clustercachedresources.AnnotationResourceScope] == "" ||
 			cr.Status.IdentityHash == "" {
 			continue
 		}
-		crs, err := c.listCachedResourcesByIdentityAndGR(cr.Status.IdentityHash, schema.GroupVersionResource(cr.Spec.GroupVersionResource).GroupResource())
+		crs, err := c.listClusterCachedResourcesByIdentityAndGR(cr.Status.IdentityHash, schema.GroupVersionResource(cr.Spec.GroupVersionResource).GroupResource())
 		if err != nil {
 			return nil, err
 		}
-		crd, err := c.synthesizeCRDForCachedResources(crs)
+		crd, err := c.synthesizeCRDForClusterCachedResources(crs)
 		if err != nil {
 			continue
 		}
@@ -245,7 +245,7 @@ func (c *crdLister) Get(ctx context.Context, name string) (*apiextensionsv1.Cust
 func (c *crdLister) getForIdentityWildcard(ctx context.Context, name, identity string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	group, resource := crdNameToGroupResource(name)
 
-	crs, err := c.listCachedResourcesByIdentityAndGR(identity, schema.GroupResource{
+	crs, err := c.listClusterCachedResourcesByIdentityAndGR(identity, schema.GroupResource{
 		Group:    group,
 		Resource: resource,
 	})
@@ -256,18 +256,18 @@ func (c *crdLister) getForIdentityWildcard(ctx context.Context, name, identity s
 		return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 	}
 
-	return c.synthesizeCRDForCachedResources(crs)
+	return c.synthesizeCRDForClusterCachedResources(crs)
 }
 
 func (c *crdLister) getForWildcardPartialMetadata(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	group, resource := crdNameToGroupResource(name)
-	crs, err := c.listCachedResourcesByGR(schema.GroupResource{Group: group, Resource: resource})
+	crs, err := c.listClusterCachedResourcesByGR(schema.GroupResource{Group: group, Resource: resource})
 	if err != nil {
 		return nil, err
 	}
 	if len(crs) > 0 {
 		// Pick any one. Partial metadata requests don't care.
-		return c.synthesizeCRDForCachedResources(crs[:1])
+		return c.synthesizeCRDForClusterCachedResources(crs[:1])
 	}
 
 	return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
@@ -277,8 +277,8 @@ func (c *crdLister) get(ctx context.Context, clusterName logicalcluster.Name, na
 	group, resource := crdNameToGroupResource(name)
 	gr := schema.GroupResource{Group: group, Resource: resource}
 
-	// Find the identity hash from a CachedResource in the target cluster.
-	crs, err := c.cachedResourcesLister.Cluster(clusterName).List(labels.Everything())
+	// Find the identity hash from a ClusterCachedResource in the target cluster.
+	crs, err := c.clusterCachedResourcesLister.Cluster(clusterName).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
@@ -286,14 +286,14 @@ func (c *crdLister) get(ctx context.Context, clusterName logicalcluster.Name, na
 	for _, cr := range crs {
 		matchingIdentity := identity == "" || cr.Status.IdentityHash == identity
 		if matchingIdentity && cr.Spec.Group == group && cr.Spec.Resource == resource {
-			matchingCRs, err := c.listCachedResourcesByIdentityAndGR(cr.Status.IdentityHash, gr)
+			matchingCRs, err := c.listClusterCachedResourcesByIdentityAndGR(cr.Status.IdentityHash, gr)
 			if err != nil {
 				return nil, err
 			}
 			if len(matchingCRs) == 0 {
 				return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
 			}
-			return c.synthesizeCRDForCachedResources(matchingCRs)
+			return c.synthesizeCRDForClusterCachedResources(matchingCRs)
 		}
 	}
 
@@ -346,14 +346,14 @@ func syntheticCRDUID(identity string, gr schema.GroupResource, sortedVersions []
 	return types.UID(kcpcrypto.Base36.BytesPad(h[:]))
 }
 
-// synthesizeCRD builds a CRD from a set of CachedResources that share the same identity+GR.
-func (c *crdClusterLister) synthesizeCRDForCachedResources(crs []*cachev1alpha1.CachedResource) (*apiextensionsv1.CustomResourceDefinition, error) {
+// synthesizeCRD builds a CRD from a set of ClusterCachedResources that share the same identity+GR.
+func (c *crdClusterLister) synthesizeCRDForClusterCachedResources(crs []*cachev1alpha1.ClusterCachedResource) (*apiextensionsv1.CustomResourceDefinition, error) {
 	gr := schema.GroupResource{
 		Group:    crs[0].Spec.Group,
 		Resource: crs[0].Spec.Resource,
 	}
-	kind := crs[0].Annotations[cachedresources.AnnotationResourceKind]
-	scope := apiextensionsv1.ResourceScope(crs[0].Annotations[cachedresources.AnnotationResourceScope])
+	kind := crs[0].Annotations[clustercachedresources.AnnotationResourceKind]
+	scope := apiextensionsv1.ResourceScope(crs[0].Annotations[clustercachedresources.AnnotationResourceScope])
 	identity := crs[0].Status.IdentityHash
 
 	versionSet := make(map[string]struct{}, len(crs))
