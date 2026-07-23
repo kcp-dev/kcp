@@ -4418,10 +4418,14 @@ not inherit its defaultChildWorkspaceType.</p>
 </div>
 
 <div class="property-description">
-<p>extend is a list of other WorkspaceTypes whose initializers and limitAllowedChildren
-and limitAllowedParents this WorkspaceType is inheriting. By (transitively) extending
-another WorkspaceType, this WorkspaceType will be considered as that
-other type in evaluation of limitAllowedChildren and limitAllowedParents constraints.</p>
+<p>extend is a list of other WorkspaceTypes whose initializers and
+limitAllowedChildren and limitAllowedParents this WorkspaceType inherits.
+Extension is additive: by (transitively) extending another WorkspaceType,
+this WorkspaceType is considered to be that other type when evaluating
+limitAllowedChildren and limitAllowedParents constraints. As a result, a
+type that extends multiple types satisfies a constraint that allows any
+one of those types, so the effective allowed set is the union of the
+extended types and not their intersection.</p>
 
 <p>A dependency cycle stop this WorkspaceType from being admitted as the type
 of a Workspace.</p>
@@ -4446,8 +4450,7 @@ of a Workspace.</p>
 
 <div class="property-description">
 <p>with are WorkspaceTypes whose initializers are added to the list
-for the owning type, and for whom the owning type becomes an alias, as long
-as all of their required types are not mentioned in without.</p>
+for the owning type, and for whom the owning type becomes an alias.</p>
 
 </div>
 
