@@ -1,0 +1,31 @@
+# A normal ValidatingWebhookConfiguration - but supplied to the shard at startup
+# (via admission-config.yaml) rather than created as an object in a workspace. It
+# therefore fires for matching requests in ALL logical clusters, with no per-
+# workspace registration, and a workspace admin cannot see or remove it.
+#
+# The request's logical cluster is delivered to the endpoint on the reviewed
+# object's `kcp.io/cluster` annotation (stamped for the duration of the callout).
+# Use URL clientConfig + caBundle; the webhook must serve AdmissionReview v1 and
+# can DENY. Keep failurePolicy/timeout tight - this is on the write path of every
+# matching request across every workspace.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: metering-global
+webhooks:
+- name: enforce.metering.contrib.kcp.io
+  clientConfig:
+    url: https://metering-webhook.metering.svc:443/validate
+    caBundle: REPLACE_WITH_BASE64_CA
+  rules:
+  - apiGroups: ["*"]
+    apiVersions: ["*"]
+    operations: ["CREATE", "DELETE"]
+    resources: ["*"]
+    scope: "*"
+  # Narrow with matchConditions (CEL) so you are not called for every request -
+  # e.g. only objects a MeteringConfig meters.
+  failurePolicy: Ignore
+  timeoutSeconds: 2
+  sideEffects: None
+  admissionReviewVersions: ["v1"]
