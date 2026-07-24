@@ -40,6 +40,8 @@ import (
 	"fmt"
 	"io"
 
+	"sigs.k8s.io/yaml"
+
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
@@ -48,7 +50,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	admissionregistrationapiv1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1"
-	"sigs.k8s.io/yaml"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"

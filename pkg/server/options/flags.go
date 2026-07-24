@@ -198,8 +198,8 @@ var (
 		// validating webhook wired at startup). enable/disable-admission-plugins
 		// remain disallowed - the plugin set stays curated.
 		"disable-admission-plugins", // admission plugins that should be disabled although they are in the default enabled plugins list (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
-		"enable-admission-plugins",               // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
-		"admission-control",                      // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
+		"enable-admission-plugins",  // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
+		"admission-control",         // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
 
 		// egress selector flags
 		"egress-selector-config-file", // File with apiserver egress selector configuration.
