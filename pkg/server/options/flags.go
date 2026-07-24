@@ -158,6 +158,9 @@ var (
 		"disabled-metrics",                // This flag provides an escape hatch for misbehaving metrics. You must provide the fully qualified metric name in order to disable it. Disclaimer: disabling metrics is higher in precedence than showing hidden metrics.
 		"show-hidden-metrics-for-version", // The previous version for which you want to show hidden metrics. Only the previous minor version is meaningful, other values will not be allowed. The format is <major>.<minor>, e.g.: '1.16'. The purpose of this format is make sure you have the opportunity to notice if the next release hides additional metrics, rather than being surprised when they are permanently removed in the release after that.
 
+		// admission flags
+		"admission-control-config-file", // File with admission control configuration (per-plugin admission config; notably for the apis.kcp.io/GlobalValidatingWebhook plugin - a global, cluster-aware validating webhook wired at shard startup).
+
 		// misc flags
 		"enable-logs-handler",                   // If true, install a /logs handler for the apiserver logs.
 		"event-ttl",                             // Amount of time to retain events.
@@ -189,10 +192,14 @@ var (
 		// admission flags
 		"default-not-ready-toleration-seconds",   // Indicates the tolerationSeconds of the toleration for notReady:NoExecute that is added by default to every pod that does not already have such a toleration.
 		"default-unreachable-toleration-seconds", // Indicates the tolerationSeconds of the toleration for unreachable:NoExecute that is added by default to every pod that does not already have such a toleration.
-		"admission-control-config-file",          // File with admission control configuration.
-		"disable-admission-plugins",              // admission plugins that should be disabled although they are in the default enabled plugins list (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
-		"enable-admission-plugins",               // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
-		"admission-control",                      // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
+		// admission-control-config-file is intentionally EXPOSED (not disallowed):
+		// it delivers per-plugin admission config, notably for the
+		// apis.kcp.io/GlobalValidatingWebhook plugin (a global, cluster-aware
+		// validating webhook wired at startup). enable/disable-admission-plugins
+		// remain disallowed - the plugin set stays curated.
+		"disable-admission-plugins", // admission plugins that should be disabled although they are in the default enabled plugins list (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
+		"enable-admission-plugins",  // admission plugins that should be enabled in addition to default enabled ones (NamespaceLifecycle). Comma-delimited list of admission plugins: MutatingAdmissionWebhook, NamespaceLifecycle, ValidatingAdmissionWebhook. The order of plugins in this flag does not matter.
+		"admission-control",         // Deprecated: Use --enable-admission-plugins or --disable-admission-plugins instead. Will be removed in a future version.
 
 		// egress selector flags
 		"egress-selector-config-file", // File with apiserver egress selector configuration.
