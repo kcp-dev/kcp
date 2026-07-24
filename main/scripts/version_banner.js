@@ -1,72 +1,40 @@
 (function () {
   "use strict";
 
-  const UNRELEASED_VERSION = "main";
+  const path = window.location.pathname;
+  const match = path.match(/^(.*?\/)(main|v\d+\.\d+[^\/]*)(\/|$)/);
+  if (!match) return;
 
-  function getCurrentVersion() {
-    const path = window.location.pathname;
-    const versionMatch = path.match(/\/(main|v\d+\.\d+[^\/]*)/);
-    return versionMatch ? versionMatch[1] : null;
-  }
+  const root = match[1];
+  const currentVersion = match[2];
 
-  function getAvailableVersions() {
-    const versionList = document.querySelector("ul.md-version__list");
-    if (!versionList) return [];
+  fetch(root + "versions.json")
+    .then((response) => response.json())
+    .then((versions) => {
+      const latest =
+        versions.find((v) => (v.aliases || []).includes("latest")) || versions[0];
+      if (!latest) return;
 
-    const links = Array.from(
-      versionList.querySelectorAll("a.md-version__link")
-    );
+      let message;
+      if (currentVersion === "main") {
+        message = "You are viewing the docs for an unreleased version.";
+      } else if (currentVersion !== latest.version) {
+        message = "You are viewing the docs for an old version.";
+      }
+      if (!message) return;
 
-    return links
-      .map((link) => {
-        const href = link.href || link.getAttribute("href");
-        const match = href.match(/\/(v\d+\.\d+[^\/]*)\//);
-        return match ? match[1] : null;
-      })
-      .filter((v) => v && /^v\d+\.\d+/.test(v))
-      .filter((v, i, arr) => arr.indexOf(v) === i);
-  }
+      const rest = path.slice(root.length + currentVersion.length);
+      createBanner(message, root + latest.version + rest);
+    })
+    .catch(() => {});
 
-  function getLatestVersionPath() {
-    const versions = getAvailableVersions();
-    const latestVersion = versions[0];
-
-    if (!latestVersion) {
-      return null;
-    }
-
-    const currentPath = window.location.pathname;
-
-    return (
-      currentPath.replace(/\/main(\/|$)/, `/${latestVersion}$1`) ||
-      `/${latestVersion}/`
-    );
-  }
-
-  function createBanner() {
+  function createBanner(message, latestPath) {
     const banner = document.createElement("div");
     banner.id = "version-banner";
     banner.innerHTML = `
-    <strong>You are viewing the docs for an unreleased version.</strong>
-    <a href="#" id="latest-version-link">Click here to go to the latest stable version.</a>
+    <strong>${message}</strong>
+    <a href="${latestPath}" id="latest-version-link">Click here to go to the latest stable version.</a>
   `;
-
-    banner.querySelector("#latest-version-link").addEventListener("click", function (e) {
-      const path = getLatestVersionPath();
-      if (path) {
-        e.preventDefault();
-        window.location.href = path;
-      }
-    });
-
     document.body.insertBefore(banner, document.body.firstChild);
-
-    return banner;
   }
-
-  if (getCurrentVersion() !== UNRELEASED_VERSION) {
-    return;
-  }
-
-  createBanner();
 })();
