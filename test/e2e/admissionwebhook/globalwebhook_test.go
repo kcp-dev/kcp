@@ -166,7 +166,6 @@ plugins:
 
 	t.Log("Create a labeled ConfigMap in each workspace; the single global webhook fires in both.")
 	for i, wsPath := range []logicalcluster.Path{ws1Path, ws2Path} {
-		wsPath := wsPath
 		name := fmt.Sprintf("allowed-%d", i)
 		var lastErr error
 		ok := func() bool {

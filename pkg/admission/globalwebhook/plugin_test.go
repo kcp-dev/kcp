@@ -51,6 +51,7 @@ webhooks:
 `
 
 func TestInertWhenUnconfigured(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		config string
@@ -61,6 +62,7 @@ func TestInertWhenUnconfigured(t *testing.T) {
 		{name: "zero webhooks", config: "apiVersion: admissionregistration.k8s.io/v1\nkind: ValidatingWebhookConfiguration\nmetadata:\n  name: x\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			var r *strings.Reader
 			if !tc.nilCfg {
 				r = strings.NewReader(tc.config)
@@ -90,6 +92,7 @@ func TestInertWhenUnconfigured(t *testing.T) {
 }
 
 func TestBuildsStaticSourceFromConfig(t *testing.T) {
+	t.Parallel()
 	p, err := NewGlobalValidatingWebhook(strings.NewReader(twoWebhookConfig))
 	if err != nil {
 		t.Fatalf("construct: %v", err)
@@ -107,6 +110,7 @@ func TestBuildsStaticSourceFromConfig(t *testing.T) {
 }
 
 func TestHandlesAllOperations(t *testing.T) {
+	t.Parallel()
 	p, _ := NewGlobalValidatingWebhook(nil)
 	for _, op := range []admission.Operation{admission.Create, admission.Update, admission.Delete, admission.Connect} {
 		if !p.Handles(op) {
@@ -116,6 +120,7 @@ func TestHandlesAllOperations(t *testing.T) {
 }
 
 func TestBadConfigErrors(t *testing.T) {
+	t.Parallel()
 	if _, err := NewGlobalValidatingWebhook(strings.NewReader("webhooks: [ this: is: not: valid")); err == nil {
 		t.Fatal("expected an error for malformed config")
 	}
