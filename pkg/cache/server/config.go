@@ -35,6 +35,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
@@ -102,15 +103,16 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		}
 		c.EmbeddedEtcd.LogLevel = "error"
 	}
-	// change the storage prefix under which all resources are kept
-	// this allows us to store the same GR under a different
-	// prefix than the kcp server. It is useful when this server
-	// shares the database with a kcp instance.
+
+	// Default cache storage prefix to /cache to discern from root shard.
+	// If the prefix is not the default value `--etcd-prefix` was passed and must be honoured.
 	//
 	// It boils down to the following on the storage level:
-	// for listing across shard:  /cache/<group>/<resource>:<identity>/*
-	// for listing for one shard: /cache/<group>/<resource>:<identity>/<shard>/*
-	opts.Etcd.StorageConfig.Prefix = "/cache"
+	// for listing across shard:  /<prefix>/<group>/<resource>:<identity>/*
+	// for listing for one shard: /<prefix>/<group>/<resource>:<identity>/<shard>/*
+	if opts.Etcd.StorageConfig.Prefix == kubeoptions.DefaultEtcdPathPrefix {
+		opts.Etcd.StorageConfig.Prefix = "/cache"
+	}
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
 	serverConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(openapi.GetOpenAPIDefinitions, apiopenapi.NewDefinitionNamer(apiextensionsapiserver.Scheme))
