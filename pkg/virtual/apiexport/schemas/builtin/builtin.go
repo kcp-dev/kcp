@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -332,5 +333,15 @@ var BuiltInAPIs = []internalapis.InternalAPI{
 		GroupVersion:  schema.GroupVersion{Group: "authorization.k8s.io", Version: "v1"},
 		Instance:      &authorizationv1.LocalSubjectAccessReview{},
 		ResourceScope: apiextensionsv1.NamespaceScoped,
+	},
+	{
+		Names: apiextensionsv1.CustomResourceDefinitionNames{
+			Plural:   "tokenreviews",
+			Singular: "tokenreview",
+			Kind:     "TokenReview",
+		},
+		GroupVersion:  schema.GroupVersion{Group: "authentication.k8s.io", Version: "v1"},
+		Instance:      &authenticationv1.TokenReview{},
+		ResourceScope: apiextensionsv1.ClusterScoped,
 	},
 }
