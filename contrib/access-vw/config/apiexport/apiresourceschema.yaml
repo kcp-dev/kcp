@@ -1,0 +1,55 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: v1alpha1.selfclusteraccessreviews.access.kcp.io
+spec:
+  group: access.kcp.io
+  names:
+    kind: SelfClusterAccessReview
+    listKind: SelfClusterAccessReviewList
+    plural: selfclusteraccessreviews
+    singular: selfclusteraccessreview
+    shortNames:
+      - scar
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        description: |
+          SelfClusterAccessReview answers "which logical clusters does
+          the calling identity have view-or-above access to?". Modelled
+          on Kubernetes SelfSubjectAccessReview: the caller POSTs a
+          (mostly empty) object and the server returns the populated
+          status.
+        type: object
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          status:
+            type: object
+            description: Result of the access review, populated by the server.
+            properties:
+              clusters:
+                type: array
+                description: |
+                  Logical clusters the subject has at least 'view'
+                  access to, paired with each cluster's FrontProxy
+                  endpoint URL. Sorted by clusterName.
+                items:
+                  type: object
+                  required:
+                    - clusterName
+                    - endpoint
+                  properties:
+                    clusterName:
+                      type: string
+                      description: Logical cluster (workspace) identifier.
+                    endpoint:
+                      type: string
+                      description: FrontProxy URL for this cluster.

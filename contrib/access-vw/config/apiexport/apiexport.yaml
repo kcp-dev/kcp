@@ -1,0 +1,24 @@
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: access.kcp.io
+spec:
+  resources:
+    - name: selfclusteraccessreviews
+      group: access.kcp.io
+      schema: v1alpha1.selfclusteraccessreviews.access.kcp.io
+      storage:
+        crd: {}
+  permissionClaims:
+    - group: rbac.authorization.k8s.io
+      resource: clusterrolebindings
+      verbs: [get, list, watch]
+    - group: rbac.authorization.k8s.io
+      resource: rolebindings
+      verbs: [get, list, watch]
+    - group: rbac.authorization.k8s.io
+      resource: clusterroles
+      verbs: [get, list, watch]
+    - group: rbac.authorization.k8s.io
+      resource: roles
+      verbs: [get, list, watch]
