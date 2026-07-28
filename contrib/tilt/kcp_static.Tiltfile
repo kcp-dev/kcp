@@ -96,6 +96,11 @@ def _apply_auth(spec, cfg):
             "groupsClaim": oidc.get("groupsClaim", "groups"),
             "usernameClaim": oidc.get("usernameClaim", "sub"),
         }
+
+        if oidc.get("usernamePrefix"):
+            auth["oidc"]["usernamePrefix"] = oidc["usernamePrefix"]
+        if oidc.get("groupsPrefix"):
+            auth["oidc"]["groupsPrefix"] = oidc["groupsPrefix"]
         if oidc.get("caFileRef"):
             auth["oidc"]["caFileRef"] = oidc["caFileRef"]
     spec["auth"] = auth
