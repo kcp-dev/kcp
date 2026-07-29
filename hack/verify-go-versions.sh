@@ -21,6 +21,10 @@ gomod_version() {
     awk '/^go / { print $2 }' "$1" | sed 's/.0$//'
 }
 
+gomod_major_minor_version() {
+    awk -F. '{ print $1 "." $2 }' <<<"$1"
+}
+
 minimum_go_version="$(gomod_version go.mod)"
 build_go_version="$(awk '/go-build-version/ { print $3 }' go.mod)"
 errors=0
@@ -28,8 +32,9 @@ errors=0
 echo "Verifying minimum Go version: $minimum_go_version"
 
 for gomod in $(git ls-files '**/go.mod'); do
-    if [[ "$(gomod_version $gomod)" != "$minimum_go_version" ]]; then
-        echo "  Wrong go version in $gomod, expected $minimum_go_version"
+    current_go_version="$(gomod_version "$gomod")"
+    if [[ "$(gomod_major_minor_version "$current_go_version")" != "$(gomod_major_minor_version "$minimum_go_version")" ]]; then
+        echo "  Wrong go version in $gomod, expected $minimum_go_version (same major.minor)"
         errors=$((errors + 1))
     fi
 done

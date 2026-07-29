@@ -133,8 +133,8 @@ github.com/kcp-dev/kubernetes/staging/src/k8s.io/streaming v0.0.0-20260602065202
 github.com/kcp-dev/kubernetes/staging/src/k8s.io/streaming v0.0.0-20260602065202-e006560fc76a/go.mod h1:9sXYRxV6dk0iOTol8hn0L/nfV42D5q/zcF2TOvoamfg=
 github.com/kcp-dev/logicalcluster/v3 v3.0.5 h1:JbYakokb+5Uinz09oTXomSUJVQsqfxEvU4RyHUYxHOU=
 github.com/kcp-dev/logicalcluster/v3 v3.0.5/go.mod h1:EWBUBxdr49fUB1cLMO4nOdBWmYifLbP1LfoL20KkXYY=
-github.com/kcp-dev/multicluster-provider v0.8.0 h1:GpifvXjgUUy/V3BDwcPayBhcg85ANN/lI/zWNkEeJpk=
-github.com/kcp-dev/multicluster-provider v0.8.0/go.mod h1:7LkQot2Ljmsv1w5ZjfHpjVEbQwtFQiA6LAWHbiHCGUI=
+github.com/kcp-dev/multicluster-provider v0.7.1 h1:Adqvt+ECTgVizkam+QxzNi1mun1IixSg9as4xZS+gqw=
+github.com/kcp-dev/multicluster-provider v0.7.1/go.mod h1:JB+ntaOpqhRFDRd+O7AYM5QZvt8/I/Xeo7SrW7+77EQ=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zttxdo=

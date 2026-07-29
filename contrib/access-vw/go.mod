@@ -1,20 +1,11 @@
-// The access virtual workspace is a separate Go module inside the kcp
-// repository: it ships as its own binary (it is not part of the shared
-// cmd/virtual-workspaces process) and pulls in dependencies — an RBAC
-// indexer built on multicluster-runtime today, an MCP protocol server
-// later — that kcp core does not otherwise need.
-//
-// It builds against the in-repo staging modules and the same kcp fork of
-// Kubernetes as kcp core; keep the replace blocks below in sync with the
-// root go.mod when bumping.
 module github.com/kcp-dev/kcp/contrib/access-vw
 
-go 1.26
+go 1.26.3
 
 require (
 	github.com/go-logr/logr v1.4.3
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
-	github.com/kcp-dev/multicluster-provider v0.8.0
+	github.com/kcp-dev/multicluster-provider v0.7.1
 	github.com/kcp-dev/sdk v0.32.0
 	github.com/kcp-dev/virtual-workspace-framework v0.0.0
 	github.com/spf13/pflag v1.0.10
@@ -134,6 +125,7 @@ replace (
 	github.com/kcp-dev/apimachinery/v2 => ../../staging/src/github.com/kcp-dev/apimachinery
 	github.com/kcp-dev/client-go => ../../staging/src/github.com/kcp-dev/client-go
 	github.com/kcp-dev/code-generator/v3 => ../../staging/src/github.com/kcp-dev/code-generator
+	github.com/kcp-dev/multicluster-provider/client => github.com/kcp-dev/multicluster-provider/client v0.8.0
 	github.com/kcp-dev/sdk => ../../staging/src/github.com/kcp-dev/sdk
 	github.com/kcp-dev/virtual-workspace-framework => ../../staging/src/github.com/kcp-dev/virtual-workspace-framework
 )
