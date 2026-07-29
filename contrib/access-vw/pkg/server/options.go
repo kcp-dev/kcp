@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/pflag"
@@ -94,7 +95,8 @@ func (o *Options) Complete() error {
 	return nil
 }
 
-// Validate checks flag consistency.
+// Validate checks flag consistency, reporting every problem it finds
+// rather than only the first.
 func (o *Options) Validate() error {
 	secureServingErrs := o.SecureServing.Validate()
 	authenticationErrs := o.Authentication.Validate()
@@ -104,10 +106,6 @@ func (o *Options) Validate() error {
 	errs = append(errs, secureServingErrs...)
 	errs = append(errs, authenticationErrs...)
 	errs = append(errs, authorizationErrs...)
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+
+	return errors.Join(errs...)
 }

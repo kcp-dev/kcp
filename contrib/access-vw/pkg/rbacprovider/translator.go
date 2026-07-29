@@ -48,13 +48,13 @@ func NewTranslator(g *graph.Graph) *Translator {
 // observed in the given logical cluster, addressable at endpoint.
 func (t *Translator) ApplyClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, cluster graph.LogicalCluster, endpoint string) {
 	key := bindingKey{cluster: cluster, name: crb.Name}
-	t.apply(key, translateSubjects(crb.Subjects), endpoint)
+	t.apply(key, translateSubjects(crb.Subjects, ""), endpoint)
 }
 
 // ApplyRoleBinding is the namespaced analogue of ApplyClusterRoleBinding.
 func (t *Translator) ApplyRoleBinding(rb *rbacv1.RoleBinding, cluster graph.LogicalCluster, endpoint string) {
 	key := bindingKey{cluster: cluster, namespace: rb.Namespace, name: rb.Name}
-	t.apply(key, translateSubjects(rb.Subjects), endpoint)
+	t.apply(key, translateSubjects(rb.Subjects, rb.Namespace), endpoint)
 }
 
 // RemoveClusterRoleBinding undoes a previously-applied CRB:
@@ -112,6 +112,10 @@ func (t *Translator) apply(key bindingKey, subjects []graph.Subject, endpoint st
 		}
 		t.incrementRef(s, key.cluster, endpoint, key)
 	}
+
+	if hasOld && oldState.endpoint != endpoint {
+		t.g.SetEndpoint(key.cluster, endpoint)
+	}
 }
 
 func (t *Translator) remove(key bindingKey) {
@@ -159,11 +163,16 @@ func (t *Translator) decrementRef(s graph.Subject, c graph.LogicalCluster, key b
 	}
 }
 
-func translateSubjects(in []rbacv1.Subject) []graph.Subject {
+// translateSubjects converts RBAC subjects to graph subjects, dropping
+// kinds the graph does not model and de-duplicating the result.
+// defaultNamespace is used for ServiceAccount subjects that omit one;
+// pass "" when there is no meaningful default, and such subjects are
+// skipped.
+func translateSubjects(in []rbacv1.Subject, defaultNamespace string) []graph.Subject {
 	seen := make(map[graph.Subject]struct{})
 	out := make([]graph.Subject, 0, len(in))
 	for _, rs := range in {
-		s, ok := translateSubject(rs)
+		s, ok := translateSubject(rs, defaultNamespace)
 		if !ok {
 			continue
 		}
@@ -176,14 +185,24 @@ func translateSubjects(in []rbacv1.Subject) []graph.Subject {
 	return out
 }
 
-func translateSubject(rs rbacv1.Subject) (graph.Subject, bool) {
+func translateSubject(rs rbacv1.Subject, defaultNamespace string) (graph.Subject, bool) {
 	switch rs.Kind {
 	case rbacv1.UserKind:
 		return graph.User(rs.Name), true
 	case rbacv1.GroupKind:
 		return graph.Group(rs.Name), true
 	case rbacv1.ServiceAccountKind:
-		return graph.User("system:serviceaccount:" + rs.Namespace + ":" + rs.Name), true
+		namespace := rs.Namespace
+		if namespace == "" {
+			namespace = defaultNamespace
+		}
+		// Still empty: the subject cannot be resolved to a username,
+		// and "system:serviceaccount::name" would index an identity
+		// that can never authenticate.
+		if namespace == "" {
+			return graph.Subject{}, false
+		}
+		return graph.User("system:serviceaccount:" + namespace + ":" + rs.Name), true
 	default:
 		return graph.Subject{}, false
 	}

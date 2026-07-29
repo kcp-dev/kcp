@@ -60,17 +60,20 @@ implement the same interface without changing the SCAR API surface.
 ## Running
 
 ```sh
-make build
+go build -o bin/access-vw ./cmd/access-vw
 
 # Install the APIExport in root, then bind it from the workspaces you want indexed.
 kubectl apply -f config/apiexport/
 
 bin/access-vw \
   --kubeconfig=$KUBECONFIG \
-  --apiexport-endpointslice=access-vw \
+  --apiexport-endpointslice=access.kcp.io \
   --endpoint-base=https://localhost:6443/clusters/ \
   --secure-port=9443
 ```
+
+`--apiexport-endpointslice` names the `APIExportEndpointSlice` kcp generates for the
+APIExport, so it matches the export's name (`access.kcp.io`).
 
 Serving is TLS-only; a self-signed certificate is generated for development if none is
 supplied. Callers are authenticated by the standard delegated stack — front-proxy

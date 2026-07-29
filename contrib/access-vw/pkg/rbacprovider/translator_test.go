@@ -290,13 +290,45 @@ func TestApplyClusterRoleBinding_endpointUpdate(t *testing.T) {
 		t.Fatalf("first apply: got endpoint %q, want %q", got[0].Endpoint, before)
 	}
 
-	// Subjects unchanged but endpoint moved. Current MVP keeps old
-	// endpoint since the diff has no subject changes to trigger a
-	// re-grant. This test pins that behavior.
 	tr.ApplyClusterRoleBinding(crb("b1", userSubject("alice")), testCluster, after)
 	got = g.ClustersFor("alice", nil)
-	if got[0].Endpoint != before {
-		t.Logf("MVP behavior change: endpoint refreshed to %q (was %q)", got[0].Endpoint, before)
+	if got[0].Endpoint != after {
+		t.Errorf("after endpoint move: got endpoint %q, want %q", got[0].Endpoint, after)
+	}
+}
+
+func TestApplyRoleBinding_serviceAccountNamespaceDefaulting(t *testing.T) {
+	t.Parallel()
+
+	g := graph.New()
+	tr := rbacprovider.NewTranslator(g)
+
+	tr.ApplyRoleBinding(
+		rb("team-a", "rb1", rbacv1.Subject{Kind: rbacv1.ServiceAccountKind, Name: "runner"}),
+		testCluster, testEndpoint("ws-test"),
+	)
+
+	if got := g.ClustersFor("system:serviceaccount:team-a:runner", nil); len(got) != 1 {
+		t.Errorf("expected the SA to be indexed under the binding's namespace, got %+v", got)
+	}
+	if got := g.ClustersFor("system:serviceaccount::runner", nil); len(got) != 0 {
+		t.Errorf("expected no entry for an empty namespace, got %+v", got)
+	}
+}
+
+func TestApplyClusterRoleBinding_serviceAccountWithoutNamespaceSkipped(t *testing.T) {
+	t.Parallel()
+
+	g := graph.New()
+	tr := rbacprovider.NewTranslator(g)
+
+	tr.ApplyClusterRoleBinding(
+		crb("b1", rbacv1.Subject{Kind: rbacv1.ServiceAccountKind, Name: "runner"}),
+		testCluster, testEndpoint("ws-test"),
+	)
+
+	if got := g.Snapshot(); len(got.Subjects) != 0 {
+		t.Errorf("expected no subjects indexed, got %+v", got.Subjects)
 	}
 }
 

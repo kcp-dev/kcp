@@ -57,17 +57,9 @@ func (p *Provider) runInformers(ctx context.Context, client kubernetes.Interface
 }
 
 func (p *Provider) onCRB(obj any, deleted bool) {
-	crb, ok := obj.(*rbacv1.ClusterRoleBinding)
+	crb, deleted, ok := typedFromEvent[*rbacv1.ClusterRoleBinding](obj, deleted)
 	if !ok {
-		tomb, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return
-		}
-		crb, ok = tomb.Obj.(*rbacv1.ClusterRoleBinding)
-		if !ok {
-			return
-		}
-		deleted = true
+		return
 	}
 	cluster := clusterOf(crb)
 	if deleted {
@@ -78,17 +70,9 @@ func (p *Provider) onCRB(obj any, deleted bool) {
 }
 
 func (p *Provider) onRB(obj any, deleted bool) {
-	rb, ok := obj.(*rbacv1.RoleBinding)
+	rb, deleted, ok := typedFromEvent[*rbacv1.RoleBinding](obj, deleted)
 	if !ok {
-		tomb, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return
-		}
-		rb, ok = tomb.Obj.(*rbacv1.RoleBinding)
-		if !ok {
-			return
-		}
-		deleted = true
+		return
 	}
 	cluster := clusterOf(rb)
 	if deleted {
@@ -96,6 +80,28 @@ func (p *Provider) onRB(obj any, deleted bool) {
 		return
 	}
 	p.translator.ApplyRoleBinding(rb, cluster, p.endpointFor(cluster))
+}
+
+// typedFromEvent extracts a typed object from an informer event
+// payload. A DeletedFinalStateUnknown tombstone always means the
+// object is gone, whatever the caller passed in, so the returned
+// deleted flag is authoritative. ok is false for anything that cannot
+// be resolved to T.
+func typedFromEvent[T metav1.Object](obj any, deleted bool) (T, bool, bool) {
+	if typed, ok := obj.(T); ok {
+		return typed, deleted, true
+	}
+	tomb, ok := obj.(cache.DeletedFinalStateUnknown)
+	if !ok {
+		var zero T
+		return zero, deleted, false
+	}
+	typed, ok := tomb.Obj.(T)
+	if !ok {
+		var zero T
+		return zero, deleted, false
+	}
+	return typed, true, true
 }
 
 func clusterOf(obj metav1.Object) graph.LogicalCluster {

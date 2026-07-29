@@ -262,3 +262,73 @@ func TestReady(t *testing.T) {
 		})
 	}
 }
+
+func TestSetEndpoint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		setup    func(*graph.Graph)
+		wantURL  string
+		wantSeen bool
+	}{
+		{
+			name: "updates a known cluster",
+			setup: func(g *graph.Graph) {
+				g.Grant(graph.User("alice"), "ws-1", "https://old.example.com/clusters/ws-1")
+				g.SetEndpoint("ws-1", "https://new.example.com/clusters/ws-1")
+			},
+			wantURL:  "https://new.example.com/clusters/ws-1",
+			wantSeen: true,
+		},
+		{
+			name: "ignores a cluster nobody can reach",
+			setup: func(g *graph.Graph) {
+				g.SetEndpoint("ws-1", "https://new.example.com/clusters/ws-1")
+			},
+			wantSeen: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			g := graph.New()
+			tt.setup(g)
+
+			got := g.Snapshot().Clusters
+			url, seen := got["ws-1"]
+			if seen != tt.wantSeen {
+				t.Fatalf("cluster tracked = %v, want %v (%+v)", seen, tt.wantSeen, got)
+			}
+			if seen && url != tt.wantURL {
+				t.Errorf("endpoint = %q, want %q", url, tt.wantURL)
+			}
+		})
+	}
+}
+
+func TestRevokeDropsOrphanedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	g := graph.New()
+	g.Grant(graph.User("alice"), "ws-1", endpoint("ws-1"))
+	g.Grant(graph.User("bob"), "ws-1", endpoint("ws-1"))
+
+	// Still reachable by bob, so the endpoint stays.
+	g.Revoke(graph.User("alice"), "ws-1")
+	if _, seen := g.Snapshot().Clusters["ws-1"]; !seen {
+		t.Fatal("endpoint dropped while bob still has access")
+	}
+
+	// Last subject gone: the cluster should leave the snapshot too.
+	g.Revoke(graph.User("bob"), "ws-1")
+	snap := g.Snapshot()
+	if _, seen := snap.Clusters["ws-1"]; seen {
+		t.Errorf("orphaned endpoint retained: %+v", snap.Clusters)
+	}
+	if len(snap.Subjects) != 0 {
+		t.Errorf("expected no subjects, got %+v", snap.Subjects)
+	}
+}

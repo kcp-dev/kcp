@@ -1,7 +1,8 @@
 // Package server wires the Access Virtual Workspace binary together:
 // the shared access graph, the RBAC provider that populates it, and a
 // virtual-workspace root apiserver (kcp virtual-workspace-framework)
-// serving two virtual workspaces behind kcp's front-proxy:
+// serving the access virtual workspace at /services/access behind
+// kcp's front-proxy.
 package server
 
 import (
@@ -115,11 +116,18 @@ func Run(ctx context.Context, o *Options) error {
 	}
 
 	// Debug endpoint: pretty-printed snapshot of the access graph.
-	rootServer.GenericAPIServer.Handler.NonGoRestfulMux.HandleFunc(debugGraphPath, func(w http.ResponseWriter, _ *http.Request) {
+	rootServer.GenericAPIServer.Handler.NonGoRestfulMux.HandleFunc(debugGraphPath, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		_ = enc.Encode(g.Snapshot())
+		if err := enc.Encode(g.Snapshot()); err != nil {
+			klog.ErrorS(err, "encoding access graph snapshot")
+		}
 	})
 
 	prepared := rootServer.GenericAPIServer.PrepareRun()

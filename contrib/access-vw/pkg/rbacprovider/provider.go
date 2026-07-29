@@ -3,6 +3,7 @@ package rbacprovider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -40,8 +41,9 @@ var _ accessprovider.AccessProvider = (*Provider)(nil)
 //     supplied REST config.
 //   - Stub mode: RestConfig is nil. Start builds the translator,
 //     marks the graph Ready (with an empty data set), and blocks on
-//     ctx. Useful for the demo binary and for tests that drive the
-//     translator manually via the Translator() accessor.
+//     ctx. Useful for the demo binary. Tests that want to drive
+//     translation directly construct a NewTranslator instead of going
+//     through a Provider.
 type Provider struct {
 	// EndpointBaseURL is the FrontProxy URL prefix used to construct
 	// each cluster's endpoint. Per-cluster URL is base + cluster name.
@@ -65,12 +67,6 @@ type Provider struct {
 // New returns a configured Provider in stub mode.
 func New(endpointBaseURL string) *Provider {
 	return &Provider{EndpointBaseURL: endpointBaseURL}
-}
-
-// Translator returns the underlying Translator, building one against
-// the supplied graph if Start has not run yet.
-func (p *Provider) Translator() *Translator {
-	return p.translator
 }
 
 // Start implements accessprovider.AccessProvider. It dispatches to
@@ -97,5 +93,10 @@ func (p *Provider) Start(ctx context.Context, g *graph.Graph) error {
 }
 
 func (p *Provider) endpointFor(c graph.LogicalCluster) string {
-	return p.EndpointBaseURL + string(c)
+	base := p.EndpointBaseURL
+	if base != "" && !strings.HasSuffix(base, "/") {
+		base += "/"
+	}
+
+	return base + string(c)
 }

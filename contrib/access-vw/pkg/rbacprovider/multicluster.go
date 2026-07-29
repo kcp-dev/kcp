@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -20,7 +22,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/multicluster-provider/apiexport"
+	"github.com/kcp-dev/multicluster-provider/pkg/handlers"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
@@ -42,8 +46,9 @@ func (p *Provider) runMulticluster(ctx context.Context, cfg *rest.Config, g *gra
 	utilruntime.Must(apisv1alpha1.AddToScheme(sch))
 
 	provider, err := apiexport.New(cfg, p.APIExportEndpointSlice, apiexport.Options{
-		Scheme: sch,
-		Log:    &logger,
+		Scheme:   sch,
+		Log:      &logger,
+		Handlers: handlers.Handlers{clusterLifecycle{t: p.translator, logger: logger}},
 	})
 	if err != nil {
 		return fmt.Errorf("construct apiexport provider: %w", err)
@@ -62,8 +67,17 @@ func (p *Provider) runMulticluster(ctx context.Context, cfg *rest.Config, g *gra
 	}
 
 	if err := mgr.GetLocalManager().Add(manager.RunnableFunc(func(ctx context.Context) error {
+		// Wait for the discovery cache — the wildcard APIBinding watch
+		// that tells the provider which logical clusters exist — before
+		// answering queries. Without this the graph would report ready
+		// the moment the manager starts, and SCAR would return an empty
+		// or partial answer that looks authoritative.
+		if !mgr.GetLocalManager().GetCache().WaitForCacheSync(ctx) {
+			return fmt.Errorf("discovery cache did not sync")
+		}
+
 		g.SetReady()
-		logger.Info("access graph marked ready (multicluster manager started)")
+		logger.Info("access graph marked ready (cluster discovery cache synced)")
 		<-ctx.Done()
 		return nil
 	})); err != nil {
@@ -71,6 +85,24 @@ func (p *Provider) runMulticluster(ctx context.Context, cfg *rest.Config, g *gra
 	}
 
 	return mgr.Start(ctx)
+}
+
+type clusterLifecycle struct {
+	t      *Translator
+	logger logr.Logger
+}
+
+func (c clusterLifecycle) OnAdd(client.Object) {}
+
+func (c clusterLifecycle) OnUpdate(client.Object, client.Object) {}
+
+func (c clusterLifecycle) OnDelete(obj client.Object) {
+	cluster := graph.LogicalCluster(logicalcluster.From(obj).String())
+	if cluster == "" {
+		return
+	}
+	c.logger.Info("cluster left the fleet, dropping from access graph", "cluster", cluster)
+	c.t.ForgetCluster(cluster)
 }
 
 func registerRBACControllers(
