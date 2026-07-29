@@ -9,7 +9,7 @@
 // root go.mod when bumping.
 module github.com/kcp-dev/kcp/contrib/access-vw
 
-go 1.26.3
+go 1.26
 
 require (
 	github.com/go-logr/logr v1.4.3

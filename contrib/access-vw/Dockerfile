@@ -1,4 +1,4 @@
-FROM golang:1.26.5 AS builder
+FROM golang:1.26.4 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
