@@ -1,8 +1,8 @@
 nav:
     - index.md
     - quickstart.md
+    - quickstart-kind.md
     - helm.md
     - kubectl-plugin.md
     - integrations.md
     - production
-    
