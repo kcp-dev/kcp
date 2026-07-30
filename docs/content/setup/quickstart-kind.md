@@ -155,6 +155,7 @@ spec:
   privateKey:
     algorithm: RSA
     size: 2048
+    rotationPolicy: Always
   usages:
     - client auth
   subject:
@@ -201,11 +202,12 @@ kubectl ws tree
 
 ## Step 6: Create Team Workspaces
 
-Create four workspaces for different teams:
+Create workspaces for the two teams:
 
-kubectl ws create team-alpha --enter
+```bash
+kubectl create workspace team-alpha --enter
 kubectl ws ..
-kubectl ws create team-beta --enter
+kubectl create workspace team-beta --enter
 kubectl ws :root
 ```
 
@@ -262,6 +264,7 @@ spec:
   privateKey:
     algorithm: RSA
     size: 2048
+    rotationPolicy: Always
   usages:
     - client auth
   subject:
@@ -287,6 +290,7 @@ spec:
   privateKey:
     algorithm: RSA
     size: 2048
+    rotationPolicy: Always
   usages:
     - client auth
   subject:

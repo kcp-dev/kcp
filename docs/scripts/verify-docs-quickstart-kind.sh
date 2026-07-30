@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Copyright 2026 The kcp Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # verification script for docs/content/setup/quickstart-kind.md
 
 set -o errexit
@@ -53,7 +67,7 @@ for team in team-alpha team-beta; do
     if kubectl ws :root:"${team}" > /dev/null 2>&1; then
         echo "Workspace ${team} already exists, skipping..."
     else
-        kubectl ws create "${team}" --enter
+        kubectl create workspace "${team}" --enter
         kubectl ws ..
     fi
 done
@@ -65,7 +79,7 @@ kubectl ws tree
 # Step 7: Generate Team Certificates
 echo "=== Step 7: Generating team certificates ==="
 for team in alpha beta; do
-    cat <<EOF | kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" apply -n ${KCP_NAMESPACE} -f -
+    cat <<EOF | kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" apply -n "${KCP_NAMESPACE}" -f -
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -79,6 +93,7 @@ spec:
   privateKey:
     algorithm: RSA
     size: 2048
+    rotationPolicy: Always
   usages:
     - client auth
   subject:
@@ -90,7 +105,7 @@ done
 echo "Waiting for certificates to be ready..."
 for team in alpha beta; do
     kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
-      wait --for=condition=Ready certificate/team-${team}-cert -n ${KCP_NAMESPACE} --timeout=60s
+      wait --for=condition=Ready "certificate/team-${team}-cert" -n "${KCP_NAMESPACE}" --timeout=60s
 done
 
 # Step 8: Grant Workspace Access
@@ -98,7 +113,7 @@ echo "=== Step 8: Granting workspace access ==="
 
 for team in alpha beta; do
     echo "Configuring access for team-${team}..."
-    kubectl ws :root:team-${team}
+    kubectl ws ":root:team-${team}"
 
     cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
@@ -125,32 +140,32 @@ echo "=== Step 9: Creating team kubeconfigs ==="
 if [ ! -f ca.crt ]; then
     echo "Extracting CA certificate..."
     kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
-      get secret kcp-ca -n ${KCP_NAMESPACE} \
+      get secret kcp-ca -n "${KCP_NAMESPACE}" \
       -o=jsonpath='{.data.tls\.crt}' | base64 -d > ca.crt
 fi
 
 for team in alpha beta; do
     echo "Processing team-${team}..."
     kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
-        get secret team-${team}-cert -n ${KCP_NAMESPACE} \
-        -o=jsonpath='{.data.tls\.crt}' | base64 -d > team-${team}.crt
+        get secret "team-${team}-cert" -n "${KCP_NAMESPACE}" \
+        -o=jsonpath='{.data.tls\.crt}' | base64 -d > "team-${team}.crt"
     kubectl --kubeconfig "${KIND_KUBECONFIG}" --context "${KIND_CONTEXT}" \
-        get secret team-${team}-cert -n ${KCP_NAMESPACE} \
-        -o=jsonpath='{.data.tls\.key}' | base64 -d > team-${team}.key
+        get secret "team-${team}-cert" -n "${KCP_NAMESPACE}" \
+        -o=jsonpath='{.data.tls\.key}' | base64 -d > "team-${team}.key"
 
-    kubectl --kubeconfig=team-${team}.kubeconfig config set-cluster kcp \
-        --server https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT}/clusters/root:team-${team} \
+    kubectl --kubeconfig="team-${team}.kubeconfig" config set-cluster kcp \
+        --server "https://${KCP_EXTERNAL_HOSTNAME}:${KCP_PORT}/clusters/root:team-${team}" \
         --certificate-authority=ca.crt
 
-    kubectl --kubeconfig=team-${team}.kubeconfig config set-credentials team-${team} \
-        --client-certificate=team-${team}.crt \
-        --client-key=team-${team}.key
+    kubectl --kubeconfig="team-${team}.kubeconfig" config set-credentials "team-${team}" \
+        --client-certificate="team-${team}.crt" \
+        --client-key="team-${team}.key"
 
-    kubectl --kubeconfig=team-${team}.kubeconfig config set-context team-${team} \
+    kubectl --kubeconfig="team-${team}.kubeconfig" config set-context "team-${team}" \
         --cluster=kcp \
-        --user=team-${team}
+        --user="team-${team}"
 
-    kubectl --kubeconfig=team-${team}.kubeconfig config use-context team-${team}
+    kubectl --kubeconfig="team-${team}.kubeconfig" config use-context "team-${team}"
 done
 
 # Step 10: Verify Team Access
@@ -168,13 +183,13 @@ done
 
 # Verify each team can write to their workspace (idempotent namespace create)
 for team in alpha beta; do
-    if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} > /dev/null 2>&1; then
-        if ! KUBECONFIG=team-${team}.kubeconfig kubectl create namespace demo-${team}; then
+    if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace "demo-${team}" > /dev/null 2>&1; then
+        if ! KUBECONFIG=team-${team}.kubeconfig kubectl create namespace "demo-${team}"; then
             echo "Team ${team}: Namespace create FAILED"
             FAILED=1
         fi
     fi
-    if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace demo-${team} > /dev/null 2>&1; then
+    if ! KUBECONFIG=team-${team}.kubeconfig kubectl get namespace "demo-${team}" > /dev/null 2>&1; then
         echo "Team ${team}: Namespace create/lookup FAILED"
         FAILED=1
     fi
@@ -190,7 +205,7 @@ else
     echo "OK: Team Alpha cannot access Team Beta workspace (isolation works)"
 fi
 
-if [ $FAILED -eq 0 ]; then
+if [ "$FAILED" -eq 0 ]; then
     echo ""
     echo "All verification checks passed!"
 else
