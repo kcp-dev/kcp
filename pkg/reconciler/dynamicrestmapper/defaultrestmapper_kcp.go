@@ -25,7 +25,6 @@ package dynamicrestmapper
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -495,27 +494,6 @@ func (m *DefaultRESTMapper) RESTMappings(gk schema.GroupKind, versions ...string
 				continue
 			}
 			potentialGVK = append(potentialGVK, gk.WithVersion(gv.Version))
-		}
-
-		// defaultGroupVersions holds a single, highest version per group, so a
-		// kind that is not served in that version would not be found at all --
-		// e.g. apis.kcp.io defaults to v1alpha2 because of APIExport, while
-		// APIExportEndpointSlice only exists in v1alpha1. Fall back to every
-		// version of the group that does serve the kind, preferring the newest.
-		if !slices.ContainsFunc(potentialGVK, func(gvk schema.GroupVersionKind) bool {
-			_, ok := m.kindToPluralResource[gvk]
-			return ok
-		}) {
-			var fallback []schema.GroupVersionKind
-			for gvk := range m.kindToPluralResource {
-				if gvk.Group == gk.Group && gvk.Kind == gk.Kind {
-					fallback = append(fallback, gvk)
-				}
-			}
-			slices.SortFunc(fallback, func(a, b schema.GroupVersionKind) int {
-				return strings.Compare(b.Version, a.Version)
-			})
-			potentialGVK = append(potentialGVK, fallback...)
 		}
 	}
 

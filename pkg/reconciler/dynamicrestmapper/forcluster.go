@@ -106,13 +106,13 @@ func (v *ForCluster) RESTMapping(gk schema.GroupKind, versions ...string) (*meta
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
 
-	if mapping, err := v.parent.builtin.RESTMapping(gk, versions...); err == nil {
+	if mapping, err := v.parent.builtin.restMappingWithFallback(gk, versions...); err == nil {
 		return mapping, nil
 	} else if !errors.Is(err, &meta.NoResourceMatchError{}) && !errors.Is(err, &meta.NoKindMatchError{}) {
 		return nil, err
 	}
 
-	return v.clusterMappingOrEmpty(v.clusterName).RESTMapping(gk, versions...)
+	return v.clusterMappingOrEmpty(v.clusterName).restMappingWithFallback(gk, versions...)
 }
 
 // RESTMappings returns all resource mappings for the provided group kind if no
@@ -122,13 +122,13 @@ func (v *ForCluster) RESTMappings(gk schema.GroupKind, versions ...string) ([]*m
 	v.parent.lock.RLock()
 	defer v.parent.lock.RUnlock()
 
-	if mappings, err := v.parent.builtin.RESTMappings(gk, versions...); err == nil {
+	if mappings, err := v.parent.builtin.restMappingsWithFallback(gk, versions...); err == nil {
 		return mappings, nil
 	} else if !errors.Is(err, &meta.NoResourceMatchError{}) && !errors.Is(err, &meta.NoKindMatchError{}) {
 		return nil, err
 	}
 
-	return v.clusterMappingOrEmpty(v.clusterName).RESTMappings(gk, versions...)
+	return v.clusterMappingOrEmpty(v.clusterName).restMappingsWithFallback(gk, versions...)
 }
 
 func (v *ForCluster) ResourceSingularizer(resourceType string) (string, error) {
