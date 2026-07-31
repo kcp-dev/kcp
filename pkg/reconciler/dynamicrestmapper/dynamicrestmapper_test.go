@@ -275,6 +275,50 @@ func TestClusterRESTMapping(t *testing.T) {
 		"ResourceFor() on an empty mapper should return an error of type NoResourceMatchError")
 }
 
+func TestRESTMappingVersionFallback(t *testing.T) {
+	t.Parallel()
+
+	// apis.kcp.io defaults to v1alpha2 because of APIExport, while
+	// APIExportEndpointSlice only exists in v1alpha1. Mapping the latter
+	// without an explicit version must fall back to v1alpha1 instead of
+	// failing.
+	exportV1alpha1 := newTypeMeta("apis.kcp.io", "v1alpha1", "APIExport", "apiexport", "apiexports", meta.RESTScopeRoot)
+	exportV1alpha2 := newTypeMeta("apis.kcp.io", "v1alpha2", "APIExport", "apiexport", "apiexports", meta.RESTScopeRoot)
+	sliceV1alpha1 := newTypeMeta("apis.kcp.io", "v1alpha1", "APIExportEndpointSlice", "apiexportendpointslice", "apiexportendpointslices", meta.RESTScopeRoot)
+
+	dmapper := NewDynamicRESTMapper()
+	dmapper.ForCluster("one").apply(nil, []typeMeta{exportV1alpha1, exportV1alpha2, sliceV1alpha1})
+	mapper := dmapper.ForCluster("one")
+
+	mapping, err := mapper.RESTMapping(sliceV1alpha1.groupVersionKind().GroupKind())
+	require.NoError(t, err,
+		"RESTMapping() should fall back to a version serving the kind")
+	require.Equal(t, sliceV1alpha1.groupVersionKind(), mapping.GroupVersionKind,
+		"RESTMapping() fallback should return the newest version serving the kind")
+
+	mappings, err := mapper.RESTMappings(sliceV1alpha1.groupVersionKind().GroupKind())
+	require.NoError(t, err,
+		"RESTMappings() should fall back to versions serving the kind")
+	require.Len(t, mappings, 1)
+	require.Equal(t, sliceV1alpha1.groupVersionKind(), mappings[0].GroupVersionKind)
+
+	// The default version must still win when it serves the kind.
+	mapping, err = mapper.RESTMapping(exportV1alpha2.groupVersionKind().GroupKind())
+	require.NoError(t, err)
+	require.Equal(t, exportV1alpha2.groupVersionKind(), mapping.GroupVersionKind,
+		"RESTMapping() should keep preferring the group's default version")
+
+	// An explicit version request must not trigger the fallback.
+	_, err = mapper.RESTMapping(sliceV1alpha1.groupVersionKind().GroupKind(), "v1alpha2")
+	require.Error(t, err,
+		"RESTMapping() with an explicit unserved version should still fail")
+
+	// An unknown kind must still fail.
+	_, err = mapper.RESTMapping(schema.GroupKind{Group: "apis.kcp.io", Kind: "Unknown"})
+	require.Error(t, err,
+		"RESTMapping() for an unknown kind should fail")
+}
+
 func TestDiffResourceBindingsAnn(t *testing.T) {
 	t.Parallel()
 	scenarios := map[string]struct {
