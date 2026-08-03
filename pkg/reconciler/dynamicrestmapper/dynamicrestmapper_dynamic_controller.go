@@ -410,6 +410,12 @@ func (c *DynamicTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomRe
 	if crd == nil {
 		return nil
 	}
+	if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
+		// The CRD's Status.AcceptedNames may not be populated yet. Bail out
+		// instead of storing garbage mappings; enqueueCRDUpdate will trigger
+		// a re-processing once the CRD becomes established.
+		return nil
+	}
 	gvkrs := make([]typeMeta, 0, len(crd.Spec.Versions))
 	for _, version := range crd.Spec.Versions {
 		if !version.Served {

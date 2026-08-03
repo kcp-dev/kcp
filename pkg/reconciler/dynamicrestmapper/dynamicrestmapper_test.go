@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -417,4 +418,53 @@ func TestDiffResourceBindingsAnn(t *testing.T) {
 				"mismatch in annotation keys to add")
 		})
 	}
+}
+
+// TestGatherGVKRsForCRD guards against a race where the resource-bindings
+// lock for a CRD becomes visible before the CRD itself is established:
+// reading Status.AcceptedNames at that point would yield empty names and
+// store a garbage mapping that is never corrected.
+func TestGatherGVKRsForCRD(t *testing.T) {
+	t.Parallel()
+
+	newCRD := func(established bool) *apiextensionsv1.CustomResourceDefinition {
+		crd := &apiextensionsv1.CustomResourceDefinition{
+			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+				Group: "example.com",
+				Scope: apiextensionsv1.ClusterScoped,
+				Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+					{Name: "v1", Served: true},
+				},
+			},
+			Status: apiextensionsv1.CustomResourceDefinitionStatus{
+				AcceptedNames: apiextensionsv1.CustomResourceDefinitionNames{
+					Kind:     "Widget",
+					Singular: "widget",
+					Plural:   "widgets",
+				},
+			},
+		}
+		if established {
+			crd.Status.Conditions = append(crd.Status.Conditions, apiextensionsv1.CustomResourceDefinitionCondition{
+				Type:   apiextensionsv1.Established,
+				Status: apiextensionsv1.ConditionTrue,
+			})
+		}
+		return crd
+	}
+
+	c := &DynamicTypesController{}
+
+	t.Run("not established yields no mappings", func(t *testing.T) {
+		t.Parallel()
+		require.Empty(t, c.gatherGVKRsForCRD(newCRD(false)))
+	})
+
+	t.Run("established yields the accepted names", func(t *testing.T) {
+		t.Parallel()
+		gvkrs := c.gatherGVKRsForCRD(newCRD(true))
+		require.Equal(t, []typeMeta{
+			newTypeMeta("example.com", "v1", "Widget", "widget", "widgets", meta.RESTScopeRoot),
+		}, gvkrs)
+	})
 }
