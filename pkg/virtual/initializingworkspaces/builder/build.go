@@ -20,13 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
 	"time"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -291,67 +291,9 @@ func BuildVirtualWorkspace(
 					return
 				}
 
-				if wst != nil && len(wst.Spec.InitializerPermissions) > 0 {
-					caller := authorization.RequestUserInfo(request)
-					if caller == nil {
-						http.Error(writer, "no user information in request context", http.StatusInternalServerError)
-						return
-					}
-					// Evaluate the initializer's permissions. If not allowed, reject the request. If
-					// allowed, forward with the initializer's identity plus a synthetic group that signals.
-					if allowed, reason := authorization.EvaluateLifecyclePermissions(request, caller, wst.Spec.InitializerPermissions); !allowed {
-						http.Error(writer, fmt.Sprintf("initializer %q denied by initializerPermissions: %s", initializer, reason), http.StatusForbidden)
-						return
-					}
-
-					thisCfg := rest.CopyConfig(cfg)
-					extra := map[string][]string{}
-					for k, v := range caller.GetExtra() {
-						extra[k] = v
-					}
-					thisCfg.Impersonate = rest.ImpersonationConfig{
-						UserName: caller.GetName(),
-						UID:      caller.GetUID(),
-						// Inject the synthetic group so the workspace content authorizer
-						// trusts this request as pre-authorized by the VW. This will be used for auditing.
-						Groups: append([]string{authorization.InitializerGroup(initializer)}, caller.GetGroups()...),
-						Extra:  extra,
-					}
-					authenticatingTransport, err := rest.TransportFor(thisCfg)
-					if err != nil {
-						http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
-						return
-					}
-					virtualshared.ServeProxy(writer, request, forwardedHost, authenticatingTransport)
-					return
-				}
-
-				// Owner-impersonation fallback (mode 2).
-				if logicalCluster.Spec.CreatedBy == nil {
-					http.Error(writer, fmt.Sprintf("LogicalCluster %s|%s had no createdBy recorded", cluster, corev1alpha1.LogicalClusterName), http.StatusInternalServerError)
-					return
-				}
-				info := authenticationv1.UserInfo{
-					Username: logicalCluster.Spec.CreatedBy.Username,
-					UID:      logicalCluster.Spec.CreatedBy.UID,
-					Groups:   logicalCluster.Spec.CreatedBy.Groups,
-					Extra:    logicalCluster.Spec.CreatedBy.Extra,
-				}
-				extra := map[string][]string{}
-				for k, v := range info.Extra {
-					extra[k] = v
-				}
-
-				thisCfg := rest.CopyConfig(cfg)
-				thisCfg.Impersonate = rest.ImpersonationConfig{
-					UserName: info.Username,
-					UID:      info.UID,
-					Groups:   info.Groups,
-					Extra:    extra,
-				}
-				authenticatingTransport, err := rest.TransportFor(thisCfg)
+				authenticatingTransport, status, err := transportForInitializer(request, cfg, initializer, wst, logicalCluster.Spec.CreatedBy)
 				if err != nil {
-					http.Error(writer, fmt.Sprintf("could not create round-tripper: %v", err), http.StatusInternalServerError)
+					http.Error(writer, err.Error(), status)
 					return
 				}
 				virtualshared.ServeProxy(writer, request, forwardedHost, authenticatingTransport)
@@ -455,6 +397,71 @@ func resolveInitializerWorkspaceType(
 		func() (logicalcluster.Name, string, error) { return initialization.TypeFrom(initializer) },
 		localWSTIndexer, cachedWSTIndexer,
 	)
+}
+
+// transportForInitializer picks the identity the initializing-workspaces VW forwards an initializer
+// request with. System initializers use the VW's own system identity and not impersonate
+// the creating user.
+func transportForInitializer(
+	request *http.Request,
+	cfg *rest.Config,
+	initializer corev1alpha1.LogicalClusterInitializer,
+	wst *tenancyv1alpha1.WorkspaceType,
+	createdBy *corev1alpha1.OwnerUserInfo,
+) (http.RoundTripper, int, error) {
+	thisCfg := cfg
+
+	switch {
+	case wst == nil:
+		// System initializer. Forward as the VW's own system identity and do not impersonate
+		// the creator. Impersonating would require the creator to hold permissions
+		// on the defaultAPIBindings references.
+
+	case len(wst.Spec.InitializerPermissions) > 0:
+		caller := authorization.RequestUserInfo(request)
+		if caller == nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("initializer %q: no user information in request context", initializer)
+		}
+		if allowed, reason := authorization.EvaluateLifecyclePermissions(request, caller, wst.Spec.InitializerPermissions); !allowed {
+			return nil, http.StatusForbidden, fmt.Errorf("initializer %q denied by initializerPermissions: %s", initializer, reason)
+		}
+		thisCfg = rest.CopyConfig(cfg)
+		thisCfg.Impersonate = rest.ImpersonationConfig{
+			UserName: caller.GetName(),
+			UID:      caller.GetUID(),
+			Groups:   append([]string{authorization.InitializerGroup(initializer)}, caller.GetGroups()...),
+			Extra:    copyExtra(caller.GetExtra()),
+		}
+
+	default:
+		// Impersonate the user.
+		if createdBy == nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("initializer %q: no createdBy recorded for owner impersonation", initializer)
+		}
+		extra := make(map[string][]string, len(createdBy.Extra))
+		for k, v := range createdBy.Extra {
+			extra[k] = []string(v)
+		}
+		thisCfg = rest.CopyConfig(cfg)
+		thisCfg.Impersonate = rest.ImpersonationConfig{
+			UserName: createdBy.Username,
+			UID:      createdBy.UID,
+			Groups:   createdBy.Groups,
+			Extra:    extra,
+		}
+	}
+
+	rt, err := rest.TransportFor(thisCfg)
+	if err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("could not create round-tripper: %w", err)
+	}
+	return rt, http.StatusOK, nil
+}
+
+func copyExtra(in map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(in))
+	maps.Copy(out, in)
+	return out
 }
 
 // URLFor returns the absolute path for the specified initializer.

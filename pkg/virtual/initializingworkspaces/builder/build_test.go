@@ -17,13 +17,18 @@ limitations under the License.
 package builder
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
@@ -38,6 +43,7 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
@@ -209,6 +215,158 @@ func TestResolveInitializerWorkspaceType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTransportForInitializer(t *testing.T) {
+	t.Parallel()
+
+	const initializer = corev1alpha1.LogicalClusterInitializer("root:org:custom")
+	syntheticGroup := authorization.InitializerGroup(initializer)
+
+	wstAllowingCreate := &tenancyv1alpha1.WorkspaceType{
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			InitializerPermissions: []rbacv1.PolicyRule{{
+				APIGroups: []string{"apis.kcp.io"},
+				Resources: []string{"apibindings"},
+				Verbs:     []string{"create"},
+			}},
+		},
+	}
+	wstAllowingGetOnly := &tenancyv1alpha1.WorkspaceType{
+		Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+			InitializerPermissions: []rbacv1.PolicyRule{{
+				APIGroups: []string{"apis.kcp.io"},
+				Resources: []string{"apibindings"},
+				Verbs:     []string{"get"},
+			}},
+		},
+	}
+	wstNoPermissions := &tenancyv1alpha1.WorkspaceType{}
+
+	caller := &user.DefaultInfo{
+		Name:   "alice",
+		UID:    "uid-alice",
+		Groups: []string{"g1"},
+		Extra:  map[string][]string{"scope": {"cluster:root"}},
+	}
+	owner := &corev1alpha1.OwnerUserInfo{
+		Username: "bob",
+		UID:      "uid-bob",
+		Groups:   []string{"o1"},
+		Extra:    map[string]authenticationv1.ExtraValue{"scope": {"cluster:root"}},
+	}
+
+	// A create request against apibindings, optionally carrying an authenticated user.
+	newRequest := func(u user.Info) *http.Request {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/clusters/some-cluster/apis/apis.kcp.io/v1alpha2/apibindings", http.NoBody)
+		if u != nil {
+			req = req.WithContext(request.WithUser(req.Context(), u))
+		}
+		return req
+	}
+
+	tests := []struct {
+		name       string
+		request    *http.Request
+		wst        *tenancyv1alpha1.WorkspaceType
+		createdBy  *corev1alpha1.OwnerUserInfo
+		wantErr    bool
+		wantStatus int
+		// wantUser == "" means no impersonation, i.e. the VW's own system identity.
+		wantUser   string
+		wantGroups []string
+		wantExtra  map[string][]string
+	}{
+		{
+			name:     "system initializer uses the VW system identity",
+			request:  newRequest(nil),
+			wst:      nil,
+			wantUser: "",
+		},
+		{
+			name:       "caller allowed, impersonates caller plus synthetic group",
+			request:    newRequest(caller),
+			wst:        wstAllowingCreate,
+			wantUser:   "alice",
+			wantGroups: []string{syntheticGroup, "g1"},
+			wantExtra:  map[string][]string{"scope": {"cluster:root"}},
+		},
+		{
+			name:       "owner impersonation fallback",
+			request:    newRequest(nil),
+			wst:        wstNoPermissions,
+			createdBy:  owner,
+			wantUser:   "bob",
+			wantGroups: []string{"o1"},
+			wantExtra:  map[string][]string{"scope": {"cluster:root"}},
+		},
+		{
+			name:       "caller denied by initializerPermissions",
+			request:    newRequest(caller),
+			wst:        wstAllowingGetOnly,
+			wantErr:    true,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "no user in context",
+			request:    newRequest(nil),
+			wst:        wstAllowingCreate,
+			wantErr:    true,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "no createdBy recorded",
+			request:    newRequest(nil),
+			wst:        wstNoPermissions,
+			wantErr:    true,
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			captured := &capturingRoundTripper{}
+			rt, status, err := transportForInitializer(tc.request, &rest.Config{Transport: captured}, initializer, tc.wst, tc.createdBy)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.Equal(t, tc.wantStatus, status)
+				require.Nil(t, rt)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
+			require.NotNil(t, rt)
+
+			outReq, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://kcp.test/", http.NoBody)
+			require.NoError(t, err)
+			resp, err := rt.RoundTrip(outReq)
+			require.NoError(t, err)
+			resp.Body.Close()
+
+			got := captured.header
+			if tc.wantUser == "" {
+				assert.Empty(t, got.Get("Impersonate-User"))
+				return
+			}
+			assert.Equal(t, tc.wantUser, got.Get("Impersonate-User"))
+			assert.ElementsMatch(t, tc.wantGroups, got.Values("Impersonate-Group"))
+			for k, vals := range tc.wantExtra {
+				assert.Equal(t, vals, got.Values("Impersonate-Extra-"+k))
+			}
+		})
+	}
+}
+
+type capturingRoundTripper struct {
+	header http.Header
+}
+
+func (c *capturingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	c.header = req.Header.Clone()
+	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: http.NoBody}, nil
 }
 
 func newWSTIndexer(t *testing.T, objs ...*tenancyv1alpha1.WorkspaceType) cache.Indexer {
