@@ -142,14 +142,7 @@ workspace content is to be persisted.
 ## System Workspaces
 
 System workspaces are local to a shard and are named in the pattern `system:<system-workspace-name>`.
-
-System workspace are only accessible to a shard-local admin user, and there is
-neither a definition via a Workspace, nor is there any validation of requests
-that the system workspace exists.
-
-As an example, the `system:admin` workspace exists for administrative objects
-that are scoped to the local shard (e.g. `lease` objects for kcp internal controllers if
-leader election is enabled). It is accessible via `/clusters/system:admin`.
+See the dedicated [System Workspaces](./system-workspaces.md) page for details.
 
 ## Workspace Type Extensions and Constraints
 
