@@ -66,8 +66,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha1.APIConversionSpecApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("APIExport"):
 		return &apisv1alpha1.APIExportApplyConfiguration{}
-	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpoint"):
-		return &apisv1alpha1.APIExportEndpointApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSlice"):
 		return &apisv1alpha1.APIExportEndpointSliceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("APIExportEndpointSliceSpec"):
@@ -160,8 +158,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=cache.kcp.io, Version=v1alpha1
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResource"):
 		return &applyconfigurationcachev1alpha1.CachedResourceApplyConfiguration{}
-	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpoint"):
-		return &applyconfigurationcachev1alpha1.CachedResourceEndpointApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSlice"):
 		return &applyconfigurationcachev1alpha1.CachedResourceEndpointSliceApplyConfiguration{}
 	case cachev1alpha1.SchemeGroupVersion.WithKind("CachedResourceEndpointSliceSpec"):
@@ -188,6 +184,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationconditionsv1alpha1.ConditionApplyConfiguration{}
 
 		// Group=core.kcp.io, Version=v1alpha1
+	case corev1alpha1.SchemeGroupVersion.WithKind("Endpoint"):
+		return &applyconfigurationcorev1alpha1.EndpointApplyConfiguration{}
+	case corev1alpha1.SchemeGroupVersion.WithKind("EndpointSelector"):
+		return &applyconfigurationcorev1alpha1.EndpointSelectorApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("LogicalCluster"):
 		return &applyconfigurationcorev1alpha1.LogicalClusterApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("LogicalClusterOwner"):

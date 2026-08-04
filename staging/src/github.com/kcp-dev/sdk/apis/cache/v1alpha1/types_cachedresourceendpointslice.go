@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
@@ -107,17 +108,13 @@ type CachedResourceEndpointSliceStatus struct {
 	ShardSelector string `json:"shardSelector,omitempty"`
 }
 
-// Using a struct provides an extension point
-
 // CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.
-type CachedResourceEndpoint struct {
-	// url is Replication virtual workspace URL.
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:format:URL
-	// +required
-	URL string `json:"url"`
-}
+//
+// It is an alias of the shared endpoint shape, so that the readers which resolve
+// an endpoint slice by kind at runtime -- and therefore cannot know whether they
+// hold an APIExportEndpointSlice, a CachedResourceEndpointSlice or a third-party
+// kind following the same convention -- have a single type to decode into.
+type CachedResourceEndpoint = corev1alpha1.Endpoint
 
 func (in *CachedResourceEndpointSlice) GetConditions() conditionsv1alpha1.Conditions {
 	return in.Status.Conditions

@@ -27,11 +27,6 @@ func (in CachedResource) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in CachedResourceEndpoint) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpoint"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CachedResourceEndpointSlice) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.cache.v1alpha1.CachedResourceEndpointSlice"
 }

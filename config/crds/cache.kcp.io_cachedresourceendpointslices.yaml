@@ -153,11 +153,90 @@ spec:
               endpoints:
                 description: endpoints contains all the URLs of the Replication service.
                 items:
-                  description: CachedResourceEndpoint contains the endpoint information
-                    of a Replication service for a specific shard.
+                  description: |-
+                    Endpoint is one URL an endpoint slice advertises, and the shards it is meant
+                    for.
+
+                    Endpoint slices are read unstructured where the kind is only known at runtime
+                    -- an APIExport may point at any kind that follows this shape -- so this is
+                    the contract those readers rely on: status.endpoints[] with a url, and
+                    optionally a shards selector saying which shards that url serves.
                   properties:
+                    shards:
+                      description: |-
+                        shards says which shards this URL serves.
+
+                        Saying nothing -- the zero value -- means the URL was composed for one
+                        specific shard and is matched by URL prefix instead, which is what kcp's
+                        own controllers publish. A status should not mix the two: either every
+                        endpoint says which shards it is for, or none does.
+                      properties:
+                        matchAll:
+                          description: |-
+                            matchAll says this URL serves every shard: one virtual workspace for the
+                            whole installation, which is what a provider running a single virtual
+                            workspace publishes.
+                          type: boolean
+                        selector:
+                          description: |-
+                            selector picks the shards this URL serves by matching against shard
+                            labels. Every shard labels itself with its own name, so a single shard is
+                            selected with matchLabels: {name: <shard>}, and groupings such as a region
+                            use whatever labels the installation puts on its shards -- the same ones
+                            Partition and PartitionSet select by.
+
+                            The most specific selector that matches a shard wins, so a URL for a
+                            region overrides one for the whole installation where the region applies.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                      x-kubernetes-validations:
+                      - message: matchAll and selector are mutually exclusive
+                        rule: '!(has(self.matchAll) && self.matchAll && has(self.selector))'
                     url:
-                      description: url is Replication virtual workspace URL.
+                      description: url is the virtual workspace URL serving this endpoint.
                       minLength: 1
                       type: string
                   required:
