@@ -42,6 +42,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
+	apibindingadmission "github.com/kcp-dev/kcp/pkg/admission/apibinding"
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -62,6 +63,9 @@ func Register(plugins *admission.Plugins) {
 				return indexers.ByPathAndNameWithFallback[*tenancyv1alpha1.WorkspaceType](tenancyv1alpha1.Resource("workspacetypes"), plugin.typeIndexer, plugin.globalTypeIndexer, path, name)
 			}
 			plugin.transitiveTypeResolver = NewTransitiveTypeResolver(plugin.getType)
+			plugin.getLogicalCluster = func(path logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return indexers.ByPathAndNameWithFallback[*corev1alpha1.LogicalCluster](corev1alpha1.Resource("logicalclusters"), plugin.logicalClusterIndexer, plugin.cacheLogicalClusterIndexer, path, corev1alpha1.LogicalClusterName)
+			}
 
 			return plugin, nil
 		})
@@ -80,6 +84,10 @@ type workspacetypeExists struct {
 	globalTypeIndexer cache.Indexer
 
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
+
+	getLogicalCluster          func(path logicalcluster.Path) (*corev1alpha1.LogicalCluster, error)
+	logicalClusterIndexer      cache.Indexer
+	cacheLogicalClusterIndexer cache.Indexer
 
 	transitiveTypeResolver TransitiveTypeResolver
 
@@ -283,8 +291,12 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 			return admission.NewForbidden(a, fmt.Errorf("spec.type.path must be set"))
 		}
 
+		newAuthorizer := func(exportClusterName logicalcluster.Name) (authorizer.Authorizer, error) {
+			return o.createAuthorizer(exportClusterName, o.deepSARClient, delegated.Options{})
+		}
+
 		for _, alias := range wtAliases {
-			authz, err := o.createAuthorizer(logicalcluster.From(alias), o.deepSARClient, delegated.Options{})
+			authz, err := newAuthorizer(logicalcluster.From(alias))
 			if err != nil {
 				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to workspace type %q", ws.Spec.Type))
 			}
@@ -302,6 +314,10 @@ func (o *workspacetypeExists) Validate(ctx context.Context, a admission.Attribut
 				return admission.NewForbidden(a, fmt.Errorf("unable to determine access to workspace type %s:%s: %w", canonicalPathFrom(alias), alias.Name, err))
 			} else if decision != authorizer.DecisionAllow {
 				return admission.NewForbidden(a, fmt.Errorf("unable to use workspace type %s:%s: missing verb='use' permission on workspacetype", canonicalPathFrom(alias), alias.Name))
+			}
+
+			if err := apibindingadmission.CheckDefaultAPIBindingsAccess(ctx, a.GetUserInfo(), logicalcluster.From(alias), alias.Spec.DefaultAPIBindings, o.getLogicalCluster, newAuthorizer, false); err != nil {
+				return admission.NewForbidden(a, fmt.Errorf("unable to create workspace %q: %w", ws.Name, err))
 			}
 		}
 
@@ -350,6 +366,12 @@ func (o *workspacetypeExists) ValidateInitialization() error {
 	if o.logicalClusterLister == nil {
 		return fmt.Errorf(PluginName + " plugin needs a LogicalCluster lister")
 	}
+	if o.logicalClusterIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a LogicalCluster indexer")
+	}
+	if o.cacheLogicalClusterIndexer == nil {
+		return fmt.Errorf(PluginName + " plugin needs a global LogicalCluster indexer")
+	}
 	return nil
 }
 
@@ -358,21 +380,32 @@ func (o *workspacetypeExists) SetKcpInformers(local, global kcpinformers.SharedI
 	globalTypesReady := global.Tenancy().V1alpha1().WorkspaceTypes().Informer().HasSynced
 
 	logicalClusterReady := local.Core().V1alpha1().LogicalClusters().Informer().HasSynced
+	cacheLogicalClusterReady := global.Core().V1alpha1().LogicalClusters().Informer().HasSynced
 
 	o.SetReadyFunc(func() bool {
-		return localTypesReady() && globalTypesReady() && logicalClusterReady()
+		return localTypesReady() && globalTypesReady() && logicalClusterReady() && cacheLogicalClusterReady()
 	})
 
 	o.typeIndexer = local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
 	o.globalTypeIndexer = global.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer()
 
 	o.logicalClusterLister = local.Core().V1alpha1().LogicalClusters().Lister()
+	o.logicalClusterIndexer = local.Core().V1alpha1().LogicalClusters().Informer().GetIndexer()
+	o.cacheLogicalClusterIndexer = global.Core().V1alpha1().LogicalClusters().Informer().GetIndexer()
 
 	indexers.AddIfNotPresentOrDie(local.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
 	indexers.AddIfNotPresentOrDie(global.Tenancy().V1alpha1().WorkspaceTypes().Informer().GetIndexer(), cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(o.logicalClusterIndexer, cache.Indexers{
+		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
+	})
+
+	indexers.AddIfNotPresentOrDie(o.cacheLogicalClusterIndexer, cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 }
