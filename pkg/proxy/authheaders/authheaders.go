@@ -30,6 +30,16 @@ import (
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 )
 
+// The header names a backend is conventionally configured to trust, matching
+// the --requestheader-username-headers, --requestheader-group-headers and
+// --requestheader-extra-headers-prefix that kcp starts its shards and virtual
+// workspace servers with.
+const (
+	DefaultUserHeader        = "X-Remote-User"
+	DefaultGroupHeader       = "X-Remote-Group"
+	DefaultExtraHeaderPrefix = "X-Remote-Extra-"
+)
+
 // ClearAuthHeaders deletes any inbound copies of the request-header identity
 // headers.
 func ClearAuthHeaders(header http.Header, userHeader, groupHeader, extraHeaderPrefix string) {
