@@ -553,6 +553,106 @@ func (a *fakeAuthorizer) Authorize(ctx context.Context, attr authorizer.Attribut
 	return a.authorized, "reason", a.err
 }
 
+type verbAwareAuthorizer struct {
+	allow func(attr authorizer.Attributes) bool
+}
+
+func (a verbAwareAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+	if a.allow(attr) {
+		return authorizer.DecisionAllow, "", nil
+	}
+	return authorizer.DecisionNoOpinion, "denied by test", nil
+}
+
+func TestValidateDefaultAPIBindingsBind(t *testing.T) {
+	t.Parallel()
+
+	allowAll := func(authorizer.Attributes) bool { return true }
+	denyBind := func(attr authorizer.Attributes) bool {
+		return attr.GetVerb() != "bind" || attr.GetResource() != "apiexports"
+	}
+
+	baseTypes := func() []*tenancyv1alpha1.WorkspaceType {
+		return []*tenancyv1alpha1.WorkspaceType{
+			newType("root:org:parent").allowingChild("root:org:foo").WorkspaceType,
+			newType("root:org:foo").allowingParent("root:org:parent").WorkspaceType,
+		}
+	}
+
+	tests := []struct {
+		name    string
+		types   []*tenancyv1alpha1.WorkspaceType
+		allow   func(authorizer.Attributes) bool
+		wantErr bool
+	}{
+		{
+			name: "user has bind on the default export: create allowed",
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:org:parent").allowingChild("root:org:foo").WorkspaceType,
+				newType("root:org:foo").allowingParent("root:org:parent").
+					withDefaultAPIBinding("root", "core.kdp.k8c.io").WorkspaceType,
+			},
+			allow:   allowAll,
+			wantErr: false,
+		},
+		{
+			name: "user lacks bind on the default export: create rejected",
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:org:parent").allowingChild("root:org:foo").WorkspaceType,
+				newType("root:org:foo").allowingParent("root:org:parent").
+					withDefaultAPIBinding("root", "core.kdp.k8c.io").WorkspaceType,
+			},
+			allow:   denyBind,
+			wantErr: true,
+		},
+		{
+			name:    "no defaultAPIBindings: create allowed even if bind would be denied",
+			types:   baseTypes(),
+			allow:   denyBind,
+			wantErr: false,
+		},
+		{
+			name: "binding inherited from an extended type is checked: create rejected",
+			types: []*tenancyv1alpha1.WorkspaceType{
+				newType("root:org:base").withDefaultAPIBinding("root", "core.kdp.k8c.io").WorkspaceType,
+				newType("root:org:parent").allowingChild("root:org:foo").WorkspaceType,
+				newType("root:org:foo").allowingParent("root:org:parent").extending("root:org:base").WorkspaceType,
+			},
+			allow:   denyBind,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			typeLister := fakeWorkspaceTypeClusterLister(tt.types)
+			o := &workspacetypeExists{
+				Handler: admission.NewHandler(admission.Create, admission.Update),
+				getType: getType(tt.types),
+				logicalClusterLister: fakeLogicalClusterClusterLister(
+					[]*corev1alpha1.LogicalCluster{
+						newLogicalCluster("root:org:ws").withType("root:org", "parent").LogicalCluster,
+					},
+				),
+				createAuthorizer: func(logicalcluster.Name, kcpkubernetesclientset.ClusterInterface, delegated.Options) (authorizer.Authorizer, error) {
+					return verbAwareAuthorizer{allow: tt.allow}, nil
+				},
+				// Avoids a panics if test cases with a non-root binding paths are added later.
+				getLogicalCluster: func(logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+					return nil, apierrors.NewNotFound(corev1alpha1.Resource("logicalclusters"), "cluster")
+				},
+				transitiveTypeResolver: NewTransitiveTypeResolver(typeLister.GetByPath),
+			}
+			attr := createAttr(newWorkspace("root:org:ws:test").withType("root:org:foo").Workspace)
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.Name("root:org:ws")})
+			if err := o.Validate(ctx, attr, nil); (err != nil) != tt.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestTransitiveTypeResolverResolve(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -862,6 +962,14 @@ func (b builder) withDefault(qualifiedName string) builder {
 		Path: path.String(),
 		Name: tenancyv1alpha1.WorkspaceTypeName(name),
 	}
+	return b
+}
+
+func (b builder) withDefaultAPIBinding(path, export string) builder {
+	b.Spec.DefaultAPIBindings = append(b.Spec.DefaultAPIBindings, tenancyv1alpha1.APIExportReference{
+		Path:   path,
+		Export: export,
+	})
 	return b
 }
 

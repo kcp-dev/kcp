@@ -240,4 +240,89 @@ func TestDefaultAPIBindingsBindPermission(t *testing.T) {
 			return true, ""
 		}, wait.ForeverTestTimeout, 250*time.Millisecond, "expected denial of WorkspaceType update with deterministic bind error")
 	})
+
+	t.Run("workspace creation requires bind on the type's defaultAPIBindings", func(t *testing.T) {
+		t.Logf("Create a third APIExport user-1 has no bind on")
+		wsExport := &apisv1alpha2.APIExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "workspace-create-export"},
+			Spec: apisv1alpha2.APIExportSpec{
+				Resources: []apisv1alpha2.ResourceSchema{
+					{
+						Name:   "cowboys",
+						Group:  "wildwest.dev",
+						Schema: "today.cowboys.wildwest.dev",
+						Storage: apisv1alpha2.ResourceSchemaStorage{
+							CRD: &apisv1alpha2.ResourceSchemaStorageCRD{},
+						},
+					},
+				},
+			},
+		}
+		_, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(t.Context(), wsExport, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		t.Logf("Create a WorkspaceType referencing it, as an admin who does have bind")
+		wt := &tenancyv1alpha1.WorkspaceType{
+			ObjectMeta: metav1.ObjectMeta{Name: "needs-bind"},
+			Spec: tenancyv1alpha1.WorkspaceTypeSpec{
+				Extend: tenancyv1alpha1.WorkspaceTypeExtension{
+					With: []tenancyv1alpha1.WorkspaceTypeReference{{Name: "universal", Path: "root"}},
+				},
+				DefaultAPIBindings: []tenancyv1alpha1.APIExportReference{
+					{Path: providerPathStr, Export: wsExport.Name},
+				},
+				DefaultAPIBindingLifecycle: ptr.To(tenancyv1alpha1.APIBindingLifecycleModeMaintain),
+			},
+		}
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			_, err := kcpClusterClient.Cluster(tenantPath).TenancyV1alpha1().WorkspaceTypes().Create(t.Context(), wt, metav1.CreateOptions{})
+			if err == nil {
+				return true, ""
+			}
+			return false, fmt.Sprintf("waiting for WorkspaceType create to succeed: %v", err)
+		}, wait.ForeverTestTimeout, 250*time.Millisecond, "expected WorkspaceType create to succeed for an admin with bind")
+
+		workspaceOfType := func(name string) *tenancyv1alpha1.Workspace {
+			return &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{Name: name},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					Type: &tenancyv1alpha1.WorkspaceTypeReference{
+						Name: tenancyv1alpha1.TypeName(wt.Name),
+						Path: tenantPath.String(),
+					},
+				},
+			}
+		}
+
+		t.Logf("user-1 attempts to create a Workspace of that type — expect denial")
+		expected := "no permission to bind one or more of the default API bindings"
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			_, err := user1KcpClient.Cluster(tenantPath).TenancyV1alpha1().Workspaces().Create(t.Context(), workspaceOfType("denied"), metav1.CreateOptions{})
+			require.Error(t, err, "Workspace create must be denied: user-1 has no bind permission on %s:%s", providerPathStr, wsExport.Name)
+			if !strings.Contains(err.Error(), expected) {
+				return false, fmt.Sprintf("waiting for deterministic admission error: want %q, got %q", expected, err.Error())
+			}
+			return true, ""
+		}, wait.ForeverTestTimeout, 250*time.Millisecond, "expected denial of Workspace create with deterministic bind error")
+
+		t.Logf("Grant user-1 bind on %s in provider workspace %q", wsExport.Name, providerPath)
+		clusterRole, clusterRoleBinding := createClusterRoleAndBindings(
+			"user-1-bind-workspace-create-export", "user-1", "User",
+			apisv1alpha2.SchemeGroupVersion.Group, "apiexports", wsExport.Name,
+			[]string{"bind"},
+		)
+		_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoles().Create(t.Context(), clusterRole, metav1.CreateOptions{})
+		require.NoError(t, err)
+		_, err = kubeClusterClient.Cluster(providerPath).RbacV1().ClusterRoleBindings().Create(t.Context(), clusterRoleBinding, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		t.Logf("user-1 creates a Workspace of that type again — expect success")
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			_, err := user1KcpClient.Cluster(tenantPath).TenancyV1alpha1().Workspaces().Create(t.Context(), workspaceOfType("allowed"), metav1.CreateOptions{})
+			if err == nil {
+				return true, ""
+			}
+			return false, fmt.Sprintf("waiting for Workspace create to succeed: %v", err)
+		}, wait.ForeverTestTimeout, 250*time.Millisecond, "expected Workspace create to succeed once user-1 has bind")
+	})
 }

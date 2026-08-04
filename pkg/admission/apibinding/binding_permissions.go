@@ -23,8 +23,67 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
+
+// DefaultAPIBindingAccessError indicates the user lacks the 'bind' verb on one of a
+// WorkspaceType's default APIExports.
+type DefaultAPIBindingAccessError struct {
+	// ExportPath is the fully-qualified export path.
+	ExportPath string
+}
+
+func (e *DefaultAPIBindingAccessError) Error() string {
+	if e.ExportPath != "" {
+		return fmt.Sprintf("no permission to bind to export %s", e.ExportPath)
+	}
+	return "no permission to bind one or more of the default API bindings"
+}
+
+// CheckDefaultAPIBindingsAccess verifies that 'u' has the 'bind' verb on every APIExport
+// referenced by a WorkspaceType's defaultAPIBindings.
+func CheckDefaultAPIBindingsAccess(
+	ctx context.Context,
+	u user.Info,
+	localCluster logicalcluster.Name,
+	bindings []tenancyv1alpha1.APIExportReference,
+	getLogicalCluster func(path logicalcluster.Path) (*corev1alpha1.LogicalCluster, error),
+	newAuthorizer func(clusterName logicalcluster.Name) (authorizer.Authorizer, error),
+) error {
+	for _, ref := range bindings {
+		notPermitted := &DefaultAPIBindingAccessError{
+			ExportPath: logicalcluster.NewPath(ref.Path).Join(ref.Export).String(),
+		}
+
+		var exportClusterName logicalcluster.Name
+		switch {
+		case ref.Path == "":
+			exportClusterName = localCluster
+		case ref.Path == core.RootCluster.String():
+			exportClusterName = core.RootCluster
+		default:
+			lc, err := getLogicalCluster(logicalcluster.NewPath(ref.Path))
+			if err != nil {
+				return notPermitted
+			}
+			exportClusterName = logicalcluster.From(lc)
+		}
+
+		authz, err := newAuthorizer(exportClusterName)
+		if err != nil {
+			return notPermitted
+		}
+		if err := CheckAPIExportAccess(ctx, u, ref.Export, authz); err != nil {
+			return notPermitted
+		}
+	}
+
+	return nil
+}
 
 func CheckAPIExportAccess(ctx context.Context, user user.Info, apiExportName string, authz authorizer.Authorizer) error {
 	bindAttr := authorizer.AttributesRecord{
