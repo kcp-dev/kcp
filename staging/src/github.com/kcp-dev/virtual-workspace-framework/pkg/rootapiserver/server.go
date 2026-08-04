@@ -38,6 +38,7 @@ import (
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	virtualcontext "github.com/kcp-dev/virtual-workspace-framework/pkg/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/hops"
 )
 
 type auditClusterKeyType int
@@ -116,7 +117,10 @@ func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.D
 			apiHandler.ServeHTTP(w, req)
 		})
 
-		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(auditAnnotationWrapper, c.Generic.Config)
+		// Record how far this request has already travelled, so that anything
+		// this virtual workspace does on its behalf carries the count onwards.
+		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
+			hops.WithRequestHops(auditAnnotationWrapper), c.Generic.Config)
 
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			requestContext := req.Context()
