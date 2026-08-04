@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/hops"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
@@ -105,6 +106,12 @@ func BuildVirtualWorkspace(
 		}),
 
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
+			// This virtual workspace serves resources by delegating to the
+			// shard, and the shard may forward some of them straight back here.
+			// Carrying the hop count on those calls is what lets that cycle be
+			// cut off instead of spinning.
+			cfg := hops.WrapConfig(cfg)
+
 			dynamicClient, err := kcpdynamic.NewForConfig(cfg)
 			if err != nil {
 				return nil, fmt.Errorf("error creating privileged dynamic kcp client: %w", err)

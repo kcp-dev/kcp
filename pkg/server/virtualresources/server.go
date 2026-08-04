@@ -41,6 +41,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/hops"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
@@ -268,7 +269,26 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// We have a virtual resource. Get the endpoint URL, create a proxy handler and serve from that endpoint.
+	// We have a virtual resource. Before forwarding, check how far this request
+	// has already travelled: the virtual workspace it is on its way to may
+	// serve it by delegating back here, and only the count says whether that is
+	// one leg of a legitimate chain or a lap of a cycle.
+	inboundHops := hops.FromHeader(r.Header)
+	if hops.Exceeded(inboundHops) {
+		err := fmt.Errorf("request for %s has been forwarded %d times without being served: "+
+			"the virtual workspace advertised for it delegates it back to this shard. "+
+			"Check that the endpoint slice referenced by the APIExport points at a virtual workspace "+
+			"that serves %s, and that --shard-virtual-workspace-url does not point back at this shard",
+			gr, inboundHops, gr)
+		utilruntime.HandleError(err)
+		responsewriters.ErrorNegotiated(
+			apierrors.NewInternalError(err),
+			errorCodecs, schema.GroupVersion{Group: requestInfo.APIGroup, Version: requestInfo.APIVersion}, w, r,
+		)
+		return
+	}
+
+	// Get the endpoint URL, create a proxy handler and serve from that endpoint.
 
 	apiExportShard := shard.Name(apiExport.Annotations[shard.AnnotationKey])
 	if apiExportShard.Empty() {
@@ -293,7 +313,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String())
+	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops)
 	if err != nil {
 		utilruntime.HandleError(err)
 		responsewriters.ErrorNegotiated(
@@ -369,7 +389,7 @@ func (s *Server) getAPIBindingForRequest(
 	return nil, nil
 }
 
-func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string) (http.Handler, error) {
+func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int) (http.Handler, error) {
 	scopedURL, err := url.Parse(virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard))
 	if err != nil {
 		return nil, err
@@ -380,8 +400,19 @@ func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard st
 		return nil, err
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(scopedURL)
-	proxy.Transport = tr
+	proxy := &httputil.ReverseProxy{
+		Transport: tr,
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(scopedURL)
+			r.SetXForwarded()
+			// SetURL clears the outbound Host along with pointing the request at
+			// the virtual workspace; keep the host the caller asked for, which is
+			// what a single-host reverse proxy forwards.
+			r.Out.Host = r.In.Host
+
+			hops.SetHeader(r.Out.Header, inboundHops+1)
+		},
+	}
 
 	return proxy, nil
 }
