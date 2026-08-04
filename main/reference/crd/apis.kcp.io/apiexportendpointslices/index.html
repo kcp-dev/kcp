@@ -4477,7 +4477,209 @@ can be useful (see .node.status.conditions), the ability to deconflict is import
 </div>
 
 <div class="property-description">
-<p>APIExportEndpoint contains the endpoint information of an APIExport service for a specific shard.</p>
+<p>Endpoint is one URL an endpoint slice advertises, and the shards it is meant
+for.</p>
+
+<p>Endpoint slices are read unstructured where the kind is only known at runtime
+&ndash; an APIExport may point at any kind that follows this shape &ndash; so this is
+the contract those readers rely on: status.endpoints[] with a url, and
+optionally a shards selector saying which shards that url serves.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards">.status.endpoints[*].shards</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>shards says which shards this URL serves.</p>
+
+<p>Saying nothing &ndash; the zero value &ndash; means the URL was composed for one
+specific shard and is matched by URL prefix instead, which is what kcp&rsquo;s
+own controllers publish. A status should not mix the two: either every
+endpoint says which shards it is for, or none does.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.matchAll">.status.endpoints[*].shards.matchAll</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">boolean</span>
+
+</div>
+
+<div class="property-description">
+<p>matchAll says this URL serves every shard: one virtual workspace for the
+whole installation, which is what a provider running a single virtual
+workspace publishes.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector">.status.endpoints[*].shards.selector</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>selector picks the shards this URL serves by matching against shard
+labels. Every shard labels itself with its own name, so a single shard is
+selected with matchLabels: {name: <shard>}, and groupings such as a region
+use whatever labels the installation puts on its shards &ndash; the same ones
+Partition and PartitionSet select by.</p>
+
+<p>The most specific selector that matches a shard wins, so a URL for a
+region overrides one for the whole installation where the region applies.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchExpressions">.status.endpoints[*].shards.selector.matchExpressions</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>matchExpressions is a list of label selector requirements. The requirements are ANDed.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-6">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchExpressions[*]">.status.endpoints[*].shards.selector.matchExpressions[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchExpressions[*].key">.status.endpoints[*].shards.selector.matchExpressions[*].key</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>key is the label key that the selector applies to.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchExpressions[*].operator">.status.endpoints[*].shards.selector.matchExpressions[*].operator</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+<span class="property-required">Required</span>
+</div>
+
+<div class="property-description">
+<p>operator represents a key&rsquo;s relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-7">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchExpressions[*].values">.status.endpoints[*].shards.selector.matchExpressions[*].values</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-8">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchExpressions[*].values[*]">.status.endpoints[*].shards.selector.matchExpressions[*].values[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-5">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.endpoints[*].shards.selector.matchLabels">.status.endpoints[*].shards.selector.matchLabels</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is &ldquo;key&rdquo;, the
+operator is &ldquo;In&rdquo;, and the values array contains only &ldquo;value&rdquo;. The requirements are ANDed.</p>
 
 </div>
 
@@ -4495,7 +4697,7 @@ can be useful (see .node.status.conditions), the ability to deconflict is import
 </div>
 
 <div class="property-description">
-<p>url is an APIExport virtual workspace URL.</p>
+<p>url is the virtual workspace URL serving this endpoint.</p>
 
 </div>
 
