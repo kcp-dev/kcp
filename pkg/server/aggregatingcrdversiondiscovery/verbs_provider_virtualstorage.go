@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
@@ -49,6 +50,7 @@ type virtualStorageClientOptions struct {
 	// Local shard info.
 	ThisShardName                      shard.Name
 	ThisShardVirtualWorkspaceURLGetter func() string
+	ThisShardLabels                    func() labels.Set
 
 	// Misc.
 	GetUnstructuredEndpointSlice    func(ctx context.Context, cluster logicalcluster.Name, shard shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error)
@@ -151,6 +153,16 @@ func buildVerbsMap(apiResources *metav1.APIResourceList, resourceName string) ma
 	return m
 }
 
+// thisShardLabels reports the shard's labels, or none if the caller did not
+// supply a way to read them. Without labels only endpoints that select shards
+// are affected, and those fail with a clear error rather than silently.
+func thisShardLabels(opts *virtualStorageClientOptions) labels.Set {
+	if opts.ThisShardLabels == nil {
+		return nil
+	}
+	return opts.ThisShardLabels()
+}
+
 func getVirtualResourceURL(
 	ctx context.Context,
 	apiExportCluster logicalcluster.Name,
@@ -173,10 +185,10 @@ func getVirtualResourceURL(
 		return "", err
 	}
 
-	urls, err := endpointslice.ListURLsFromUnstructured(*slice)
+	endpoints, err := endpointslice.ListEndpointsFromUnstructured(*slice)
 	if err != nil {
 		return "", err
 	}
 
-	return endpointslice.FindOneURL(opts.ThisShardVirtualWorkspaceURLGetter(), urls)
+	return endpointslice.PickURL(opts.ThisShardVirtualWorkspaceURLGetter(), thisShardLabels(opts), endpoints)
 }

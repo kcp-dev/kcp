@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -345,12 +346,17 @@ func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster log
 		return "", err
 	}
 
-	urls, err := endpointslice.ListURLsFromUnstructured(*slice)
+	endpoints, err := endpointslice.ListEndpointsFromUnstructured(*slice)
 	if err != nil {
 		return "", err
 	}
 
-	return endpointslice.FindOneURL(s.Extra.ShardVirtualWorkspaceURLGetter(), urls)
+	var shardLabels labels.Set
+	if s.Extra.ThisShardLabels != nil {
+		shardLabels = s.Extra.ThisShardLabels()
+	}
+
+	return endpointslice.PickURL(s.Extra.ShardVirtualWorkspaceURLGetter(), shardLabels, endpoints)
 }
 
 func (s *Server) getAPIBindingForRequest(
