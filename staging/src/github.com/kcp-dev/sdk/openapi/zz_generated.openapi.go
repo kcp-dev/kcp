@@ -49,7 +49,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.APIConversionRule{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIConversionRule(ref),
 		v1alpha1.APIConversionSpec{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIConversionSpec(ref),
 		v1alpha1.APIExport{}.OpenAPIModelName():                                       schema_sdk_apis_apis_v1alpha1_APIExport(ref),
-		v1alpha1.APIExportEndpoint{}.OpenAPIModelName():                               schema_sdk_apis_apis_v1alpha1_APIExportEndpoint(ref),
 		v1alpha1.APIExportEndpointSlice{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref),
 		v1alpha1.APIExportEndpointSliceList{}.OpenAPIModelName():                      schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceList(ref),
 		v1alpha1.APIExportEndpointSliceSpec{}.OpenAPIModelName():                      schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceSpec(ref),
@@ -104,7 +103,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha2.ScopedPermissionClaim{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha2_ScopedPermissionClaim(ref),
 		v1alpha2.VirtualWorkspace{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref),
 		cachev1alpha1.CachedResource{}.OpenAPIModelName():                             schema_sdk_apis_cache_v1alpha1_CachedResource(ref),
-		cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName():                     schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref),
 		cachev1alpha1.CachedResourceEndpointSlice{}.OpenAPIModelName():                schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref),
 		cachev1alpha1.CachedResourceEndpointSliceList{}.OpenAPIModelName():            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceList(ref),
 		cachev1alpha1.CachedResourceEndpointSliceSpec{}.OpenAPIModelName():            schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceSpec(ref),
@@ -117,6 +115,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		cachev1alpha1.GroupVersionResource{}.OpenAPIModelName():                       schema_sdk_apis_cache_v1alpha1_GroupVersionResource(ref),
 		cachev1alpha1.Identity{}.OpenAPIModelName():                                   schema_sdk_apis_cache_v1alpha1_Identity(ref),
 		cachev1alpha1.ResourceCount{}.OpenAPIModelName():                              schema_sdk_apis_cache_v1alpha1_ResourceCount(ref),
+		corev1alpha1.Endpoint{}.OpenAPIModelName():                                    schema_sdk_apis_core_v1alpha1_Endpoint(ref),
+		corev1alpha1.EndpointSelector{}.OpenAPIModelName():                            schema_sdk_apis_core_v1alpha1_EndpointSelector(ref),
 		corev1alpha1.LogicalCluster{}.OpenAPIModelName():                              schema_sdk_apis_core_v1alpha1_LogicalCluster(ref),
 		corev1alpha1.LogicalClusterList{}.OpenAPIModelName():                          schema_sdk_apis_core_v1alpha1_LogicalClusterList(ref),
 		corev1alpha1.LogicalClusterOwner{}.OpenAPIModelName():                         schema_sdk_apis_core_v1alpha1_LogicalClusterOwner(ref),
@@ -675,28 +675,6 @@ func schema_sdk_apis_apis_v1alpha1_APIExport(ref common.ReferenceCallback) commo
 	}
 }
 
-func schema_sdk_apis_apis_v1alpha1_APIExportEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "APIExportEndpoint contains the endpoint information of an APIExport service for a specific shard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Description: "url is an APIExport virtual workspace URL.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"url"},
-			},
-		},
-	}
-}
-
 func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -862,7 +840,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.APIExportEndpoint{}.OpenAPIModelName()),
+										Ref:     ref(corev1alpha1.Endpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -879,7 +857,7 @@ func schema_sdk_apis_apis_v1alpha1_APIExportEndpointSliceStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.APIExportEndpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
+			corev1alpha1.Endpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -3077,28 +3055,6 @@ func schema_sdk_apis_cache_v1alpha1_CachedResource(ref common.ReferenceCallback)
 	}
 }
 
-func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CachedResourceEndpoint contains the endpoint information of a Replication service for a specific shard.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Description: "url is Replication virtual workspace URL.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"url"},
-			},
-		},
-	}
-}
-
 func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSlice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3271,7 +3227,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName()),
+										Ref:     ref(corev1alpha1.Endpoint{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -3288,7 +3244,7 @@ func schema_sdk_apis_cache_v1alpha1_CachedResourceEndpointSliceStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			cachev1alpha1.CachedResourceEndpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
+			corev1alpha1.Endpoint{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -3580,6 +3536,65 @@ func schema_sdk_apis_cache_v1alpha1_ResourceCount(ref common.ReferenceCallback) 
 				Required: []string{"cache", "local"},
 			},
 		},
+	}
+}
+
+func schema_sdk_apis_core_v1alpha1_Endpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Endpoint is one URL an endpoint slice advertises, and the shards it is meant for.\n\nEndpoint slices are read unstructured where the kind is only known at runtime -- an APIExport may point at any kind that follows this shape -- so this is the contract those readers rely on: status.endpoints[] with a url, and optionally a shards selector saying which shards that url serves.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "url is the virtual workspace URL serving this endpoint.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"shards": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shards says which shards this URL serves.\n\nSaying nothing -- the zero value -- means the URL was composed for one specific shard and is matched by URL prefix instead, which is what kcp's own controllers publish. A status should not mix the two: either every endpoint says which shards it is for, or none does.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(corev1alpha1.EndpointSelector{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
+		Dependencies: []string{
+			corev1alpha1.EndpointSelector{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_core_v1alpha1_EndpointSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EndpointSelector says which shards an endpoint URL serves.\n\nIt offers two ways of saying it, and saying both is an error: matchAll is the whole installation, and selector is a subset of it. Saying neither says nothing about shards at all, and leaves the URL to be matched by prefix.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"matchAll": {
+						SchemaProps: spec.SchemaProps{
+							Description: "matchAll says this URL serves every shard: one virtual workspace for the whole installation, which is what a provider running a single virtual workspace publishes.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector picks the shards this URL serves by matching against shard labels. Every shard labels itself with its own name, so a single shard is selected with matchLabels: {name: <shard>}, and groupings such as a region use whatever labels the installation puts on its shards -- the same ones Partition and PartitionSet select by.\n\nThe most specific selector that matches a shard wins, so a URL for a region overrides one for the whole installation where the region applies.",
+							Ref:         ref(v1.LabelSelector{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.LabelSelector{}.OpenAPIModelName()},
 	}
 }
 

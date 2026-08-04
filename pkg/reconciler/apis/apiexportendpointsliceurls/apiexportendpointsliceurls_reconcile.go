@@ -30,6 +30,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	apisv1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/apis/v1alpha1"
+	corev1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/core/v1alpha1"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -103,7 +104,7 @@ func (r *endpointsReconciler) reconcile(ctx context.Context, apiExportEndpointSl
 		patch.WithStatus(apisv1alpha1apply.APIExportEndpointSliceStatus())
 	} else {
 		patch.WithStatus(apisv1alpha1apply.APIExportEndpointSliceStatus().
-			WithAPIExportEndpoints(apisv1alpha1apply.APIExportEndpoint().WithURL(rs.url)))
+			WithAPIExportEndpoints(corev1alpha1apply.Endpoint().WithURL(rs.url)))
 	}
 	cluster := logicalcluster.From(apiExportEndpointSlice)
 	err = r.patchAPIExportEndpointSlice(ctx, cluster.Path(), patch)

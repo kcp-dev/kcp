@@ -30,6 +30,7 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	cachev1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/cache/v1alpha1"
+	corev1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/core/v1alpha1"
 
 	virtualworkspacesoptions "github.com/kcp-dev/kcp/cmd/virtual-workspaces/options"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -79,7 +80,7 @@ func (r endpointsReconciler) reconcile(ctx context.Context, slice *cachev1alpha1
 		patch.WithStatus(cachev1alpha1apply.CachedResourceEndpointSliceStatus())
 	} else {
 		patch.WithStatus(cachev1alpha1apply.CachedResourceEndpointSliceStatus().
-			WithCachedResourceEndpoints(cachev1alpha1apply.CachedResourceEndpoint().WithURL(rs.url)))
+			WithCachedResourceEndpoints(corev1alpha1apply.Endpoint().WithURL(rs.url)))
 	}
 	cluster := logicalcluster.From(slice)
 	err = r.patchCachedResourceEndpointSlice(ctx, cluster.Path(), patch)

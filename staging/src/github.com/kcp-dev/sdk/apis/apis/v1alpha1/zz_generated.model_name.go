@@ -67,11 +67,6 @@ func (in APIExport) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in APIExportEndpoint) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpoint"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportEndpointSlice) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.apis.v1alpha1.APIExportEndpointSlice"
 }

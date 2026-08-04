@@ -20,6 +20,7 @@ package v1alpha1
 
 import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	corev1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/core/v1alpha1"
 )
 
 // CachedResourceEndpointSliceStatusApplyConfiguration represents a declarative configuration of the CachedResourceEndpointSliceStatus type for use
@@ -30,7 +31,7 @@ type CachedResourceEndpointSliceStatusApplyConfiguration struct {
 	// conditions is a list of conditions that apply to the CachedResourceEndpointSlice.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 	// endpoints contains all the URLs of the Replication service.
-	CachedResourceEndpoints []CachedResourceEndpointApplyConfiguration `json:"endpoints,omitempty"`
+	CachedResourceEndpoints []corev1alpha1.EndpointApplyConfiguration `json:"endpoints,omitempty"`
 	// shardSelector is the selector used to filter the shards. It is used to filter the shards
 	// when determining partition scope when deriving the endpoints. This is set by owning shard,
 	// and is used by follower shards to determine if its inscope or not.
@@ -54,7 +55,7 @@ func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithConditions(val
 // WithCachedResourceEndpoints adds the given value to the CachedResourceEndpoints field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the CachedResourceEndpoints field.
-func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithCachedResourceEndpoints(values ...*CachedResourceEndpointApplyConfiguration) *CachedResourceEndpointSliceStatusApplyConfiguration {
+func (b *CachedResourceEndpointSliceStatusApplyConfiguration) WithCachedResourceEndpoints(values ...*corev1alpha1.EndpointApplyConfiguration) *CachedResourceEndpointSliceStatusApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithCachedResourceEndpoints")
