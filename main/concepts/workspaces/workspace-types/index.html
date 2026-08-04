@@ -1008,6 +1008,8 @@
       
         
       
+        
+      
     
     
       
@@ -1224,6 +1226,27 @@
   
   <span class="md-ellipsis">
     WorkspaceType Best Practices
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../system-workspaces/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    System Workspaces
   </span>
   
 
@@ -4447,13 +4470,8 @@ kcp startup:</p>
 are used to schedule a new Workspace to, i.e. to select in which etcd the
 workspace content is to be persisted.</p>
 <h2 id="system-workspaces">System Workspaces<a class="headerlink" href="#system-workspaces" title="Permanent link">&para;</a></h2>
-<p>System workspaces are local to a shard and are named in the pattern <code>system:&lt;system-workspace-name&gt;</code>.</p>
-<p>System workspace are only accessible to a shard-local admin user, and there is
-neither a definition via a Workspace, nor is there any validation of requests
-that the system workspace exists.</p>
-<p>As an example, the <code>system:admin</code> workspace exists for administrative objects
-that are scoped to the local shard (e.g. <code>lease</code> objects for kcp internal controllers if
-leader election is enabled). It is accessible via <code>/clusters/system:admin</code>.</p>
+<p>System workspaces are local to a shard and are named in the pattern <code>system:&lt;system-workspace-name&gt;</code>.
+See the dedicated <a href="../system-workspaces/">System Workspaces</a> page for details.</p>
 <h2 id="workspace-type-extensions-and-constraints">Workspace Type Extensions and Constraints<a class="headerlink" href="#workspace-type-extensions-and-constraints" title="Permanent link">&para;</a></h2>
 <p>kcp offers extensions and constraints that enable you inherit functionality from other
 workspace types and create custom workspace hierarchies for your organizational structure.</p>

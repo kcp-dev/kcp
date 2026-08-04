@@ -6,34 +6,33 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
-the name of the APIResourceSchema for the conversions to take effect.
+        <meta name="description" content="System workspaces are shard-local logical clusters with special meaning to kcp internals.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/reference/crd/apis.kcp.io/apiconversions/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/workspaces/system-workspaces/">
       
       
-        <link rel="prev" href="../apibindings/">
+        <link rel="prev" href="../workspace-types-best-practices/">
       
       
-        <link rel="next" href="../apiexportendpointslices/">
+        <link rel="next" href="../virtual-workspaces/">
       
       
-      <link rel="icon" href="../../../../favicons/favicon.ico">
+      <link rel="icon" href="../../../favicons/favicon.ico">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
     
     
       
-        <title>APIConversion - docs.kcp.io</title>
+        <title>System Workspaces - docs.kcp.io</title>
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.bcfcd587.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -52,11 +51,11 @@ the name of the APIResourceSchema for the conversions to take effect.
       
     
     
-      <link rel="stylesheet" href="../../../../stylesheets/version_banner.css">
+      <link rel="stylesheet" href="../../../stylesheets/version_banner.css">
     
-      <link rel="stylesheet" href="../../../../stylesheets/crd.css">
+      <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -82,7 +81,7 @@ the name of the APIResourceSchema for the conversions to take effect.
     <div data-md-component="skip">
       
         
-        <a href="#apiconversion-crd-schema-reference-group-apiskcpio" class="md-skip">
+        <a href="#system-workspaces" class="md-skip">
           Skip to content
         </a>
       
@@ -100,9 +99,9 @@ the name of the APIResourceSchema for the conversions to take effect.
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -119,7 +118,7 @@ the name of the APIResourceSchema for the conversions to take effect.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              APIConversion
+              System Workspaces
             
           </span>
         </div>
@@ -238,7 +237,7 @@ the name of the APIResourceSchema for the conversions to take effect.
     
     
       <li class="md-tabs__item">
-        <a href="../../../.." class="md-tabs__link">
+        <a href="../../.." class="md-tabs__link">
           
   
     
@@ -258,7 +257,7 @@ the name of the APIResourceSchema for the conversions to take effect.
     
     
       <li class="md-tabs__item">
-        <a href="../../../../setup/" class="md-tabs__link">
+        <a href="../../../setup/" class="md-tabs__link">
           
   
     
@@ -274,11 +273,13 @@ the name of the APIResourceSchema for the conversions to take effect.
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../../concepts/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
     
@@ -298,7 +299,7 @@ the name of the APIResourceSchema for the conversions to take effect.
     
     
       <li class="md-tabs__item">
-        <a href="../../../../developers/" class="md-tabs__link">
+        <a href="../../../developers/" class="md-tabs__link">
           
   
     
@@ -318,7 +319,7 @@ the name of the APIResourceSchema for the conversions to take effect.
     
     
       <li class="md-tabs__item">
-        <a href="../../../../contributing/" class="md-tabs__link">
+        <a href="../../../contributing/" class="md-tabs__link">
           
   
     
@@ -334,13 +335,11 @@ the name of the APIResourceSchema for the conversions to take effect.
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../reference/" class="md-tabs__link">
           
   
     
@@ -375,9 +374,9 @@ the name of the APIResourceSchema for the conversions to take effect.
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
+    <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="logo">
 
     </a>
     docs.kcp.io
@@ -429,7 +428,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../.." class="md-nav__link ">
+            <a href="../../.." class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -462,7 +461,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../GOALS/" class="md-nav__link">
+      <a href="../../../GOALS/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -523,7 +522,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../setup/" class="md-nav__link ">
+            <a href="../../../setup/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -556,7 +555,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/quickstart/" class="md-nav__link">
+      <a href="../../../setup/quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -577,7 +576,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/helm/" class="md-nav__link">
+      <a href="../../../setup/helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -598,7 +597,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -619,7 +618,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/integrations/" class="md-nav__link">
+      <a href="../../../setup/integrations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -677,7 +676,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../setup/production/" class="md-nav__link ">
+            <a href="../../../setup/production/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -710,7 +709,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/overview/" class="md-nav__link">
+      <a href="../../../setup/production/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -731,7 +730,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/prerequisites/" class="md-nav__link">
+      <a href="../../../setup/production/prerequisites/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -752,7 +751,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/kcp-dekker/" class="md-nav__link">
+      <a href="../../../setup/production/kcp-dekker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -773,7 +772,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/kcp-vespucci/" class="md-nav__link">
+      <a href="../../../setup/production/kcp-vespucci/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -794,7 +793,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/kcp-comer/" class="md-nav__link">
+      <a href="../../../setup/production/kcp-comer/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -815,7 +814,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/audit-logging/" class="md-nav__link">
+      <a href="../../../setup/production/audit-logging/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -836,7 +835,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../setup/production/metrics/" class="md-nav__link">
+      <a href="../../../setup/production/metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -869,6 +868,8 @@ the name of the APIResourceSchema for the conversions to take effect.
       
   
   
+    
+  
   
   
     
@@ -897,21 +898,22 @@ the name of the APIResourceSchema for the conversions to take effect.
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -922,13 +924,13 @@ the name of the APIResourceSchema for the conversions to take effect.
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -944,7 +946,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/terminology/" class="md-nav__link">
+      <a href="../../terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -965,7 +967,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -983,6 +985,8 @@ the name of the APIResourceSchema for the conversions to take effect.
                 
   
   
+    
+  
   
   
     
@@ -1012,18 +1016,16 @@ the name of the APIResourceSchema for the conversions to take effect.
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/workspaces/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1040,7 +1042,7 @@ the name of the APIResourceSchema for the conversions to take effect.
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Workspaces
@@ -1056,7 +1058,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/workspace-types/" class="md-nav__link">
+      <a href="../workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1077,7 +1079,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/workspace-types-best-practices/" class="md-nav__link">
+      <a href="../workspace-types-best-practices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1095,10 +1097,30 @@ the name of the APIResourceSchema for the conversions to take effect.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/system-workspaces/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    System Workspaces
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1107,6 +1129,122 @@ the name of the APIResourceSchema for the conversions to take effect.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#key-characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Characteristics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#system-workspaces-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      System Workspaces Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemadmin" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:admin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemsystem-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:system-crds
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="system:system-crds">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#crd-resolution-priority" class="md-nav__link">
+    <span class="md-ellipsis">
+      CRD Resolution Priority
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bootstrapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bootstrapping
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systembound-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:bound-crds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemshard" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:shard
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemcached-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:cached-crds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cache-server-system-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache Server System Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1119,7 +1257,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1140,7 +1278,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1161,7 +1299,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1182,7 +1320,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/workspaces/mounts/" class="md-nav__link">
+      <a href="../mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1244,7 +1382,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/apis/" class="md-nav__link ">
+            <a href="../../apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1277,7 +1415,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1298,7 +1436,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/apis/built-in/" class="md-nav__link">
+      <a href="../../apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1319,7 +1457,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/apis/cached-resources/" class="md-nav__link">
+      <a href="../../apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1340,7 +1478,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/apis/exporting-apis/" class="md-nav__link">
+      <a href="../../apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1361,7 +1499,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1417,7 +1555,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/authentication/" class="md-nav__link ">
+            <a href="../../authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1450,7 +1588,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/authentication/oidc/" class="md-nav__link">
+      <a href="../../authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1471,7 +1609,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/authentication/workspace/" class="md-nav__link">
+      <a href="../../authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1525,7 +1663,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/authorization/" class="md-nav__link ">
+            <a href="../../authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1558,7 +1696,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/authorization/authorizers/" class="md-nav__link">
+      <a href="../../authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1618,7 +1756,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/sharding/" class="md-nav__link ">
+            <a href="../../sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1651,7 +1789,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/sharding/shards/" class="md-nav__link">
+      <a href="../../sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1672,7 +1810,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/sharding/partitions/" class="md-nav__link">
+      <a href="../../sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1693,7 +1831,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/sharding/migration/" class="md-nav__link">
+      <a href="../../sharding/migration/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1714,7 +1852,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/sharding/cache-server/" class="md-nav__link">
+      <a href="../../sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1768,7 +1906,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../concepts/miscellaneous/" class="md-nav__link ">
+            <a href="../../miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1801,7 +1939,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../concepts/miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1872,7 +2010,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../developers/" class="md-nav__link ">
+            <a href="../../../developers/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1951,7 +2089,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
+      <a href="../../../developers/controllers/writing-kcp-aware-controllers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1972,7 +2110,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/controllers/client-go/" class="md-nav__link">
+      <a href="../../../developers/controllers/client-go/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2001,7 +2139,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/running-sharded/" class="md-nav__link">
+      <a href="../../../developers/running-sharded/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2022,7 +2160,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/storage-to-rest-patterns/" class="md-nav__link">
+      <a href="../../../developers/storage-to-rest-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2043,7 +2181,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/testing-migration/" class="md-nav__link">
+      <a href="../../../developers/testing-migration/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2110,7 +2248,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/internals/etcd-structure/" class="md-nav__link">
+      <a href="../../../developers/internals/etcd-structure/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2131,7 +2269,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
+      <a href="../../../developers/internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2195,7 +2333,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../developers/investigations/" class="md-nav__link ">
+            <a href="../../../developers/investigations/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2228,7 +2366,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/investigations/loadtest-report-apr-2026/" class="md-nav__link">
+      <a href="../../../developers/investigations/loadtest-report-apr-2026/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2249,7 +2387,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/investigations/logical-clusters/" class="md-nav__link">
+      <a href="../../../developers/investigations/logical-clusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2270,7 +2408,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/investigations/memory-leak-attribution/" class="md-nav__link">
+      <a href="../../../developers/investigations/memory-leak-attribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2291,7 +2429,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/investigations/minimal-api-server/" class="md-nav__link">
+      <a href="../../../developers/investigations/minimal-api-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2312,7 +2450,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/investigations/self-service-policy/" class="md-nav__link">
+      <a href="../../../developers/investigations/self-service-policy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2333,7 +2471,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
+      <a href="../../../developers/investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2404,7 +2542,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../contributing/" class="md-nav__link ">
+            <a href="../../../contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2437,7 +2575,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/getting-started/" class="md-nav__link">
+      <a href="../../../contributing/getting-started/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2458,7 +2596,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/coding/" class="md-nav__link">
+      <a href="../../../contributing/coding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2479,7 +2617,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/monorepo/" class="md-nav__link">
+      <a href="../../../contributing/monorepo/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2546,7 +2684,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/governance/general-technical-review/" class="md-nav__link">
+      <a href="../../../contributing/governance/general-technical-review/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2567,7 +2705,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/governance/security-self-assessment/" class="md-nav__link">
+      <a href="../../../contributing/governance/security-self-assessment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2621,7 +2759,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../contributing/continuous-integration/" class="md-nav__link ">
+            <a href="../../../contributing/continuous-integration/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2654,7 +2792,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
+      <a href="../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2733,7 +2871,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
+      <a href="../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2754,7 +2892,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
+      <a href="../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2775,7 +2913,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
+      <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -2819,7 +2957,7 @@ the name of the APIResourceSchema for the conversions to take effect.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
+            <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2867,8 +3005,6 @@ the name of the APIResourceSchema for the conversions to take effect.
       
   
   
-    
-  
   
   
     
@@ -2885,22 +3021,21 @@ the name of the APIResourceSchema for the conversions to take effect.
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../" class="md-nav__link ">
+            <a href="../../../reference/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -2911,13 +3046,13 @@ the name of the APIResourceSchema for the conversions to take effect.
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             Reference
@@ -3019,7 +3154,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/create_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3040,7 +3175,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3061,7 +3196,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_bind/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3082,7 +3217,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_bind_apiexport/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3103,7 +3238,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_claims/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3124,7 +3259,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_claims_accept/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_accept/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3145,7 +3280,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_claims_get/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3166,7 +3301,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_claims_get_apibinding/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3187,7 +3322,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_claims_reject/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_claims_reject/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3208,7 +3343,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_crd/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3229,7 +3364,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_crd_snapshot/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3250,7 +3385,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_quickstart/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3271,7 +3406,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3292,7 +3427,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3313,7 +3448,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3334,7 +3469,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3355,7 +3490,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/kcp_workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3376,7 +3511,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/workspace/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3397,7 +3532,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/workspace_create-context/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3418,7 +3553,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/workspace_current/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3439,7 +3574,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/workspace_tree/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3460,7 +3595,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../../cli/workspace_use/" class="md-nav__link">
+      <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3486,10 +3621,8 @@ the name of the APIResourceSchema for the conversions to take effect.
                 
   
   
-    
   
   
-  
     
     
       
@@ -3507,11 +3640,13 @@ the name of the APIResourceSchema for the conversions to take effect.
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3" >
         
           
           <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="0">
@@ -3525,7 +3660,7 @@ the name of the APIResourceSchema for the conversions to take effect.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6_3">
             <span class="md-nav__icon md-icon"></span>
             CRD
@@ -3536,10 +3671,8 @@ the name of the APIResourceSchema for the conversions to take effect.
                 
   
   
-    
   
   
-  
     
     
       
@@ -3559,11 +3692,13 @@ the name of the APIResourceSchema for the conversions to take effect.
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_3_1" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3_1" >
         
           
           <label class="md-nav__link" for="__nav_6_3_1" id="__nav_6_3_1_label" tabindex="0">
@@ -3577,7 +3712,7 @@ the name of the APIResourceSchema for the conversions to take effect.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_1_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_1_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6_3_1">
             <span class="md-nav__icon md-icon"></span>
             apis.kcp.io
@@ -3591,7 +3726,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../apibindings/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3609,28 +3744,10 @@ the name of the APIResourceSchema for the conversions to take effect.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    APIConversion
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3639,33 +3756,6 @@ the name of the APIResourceSchema for the conversions to take effect.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#apiconversion-crd-schema-reference-group-apiskcpio" class="md-nav__link">
-    <span class="md-ellipsis">
-      APIConversion CRD schema reference (group apis.kcp.io)
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3678,7 +3768,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../apiexportendpointslices/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3699,7 +3789,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../apiexports/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3720,7 +3810,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../apiresourceschemas/" class="md-nav__link">
+      <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3795,7 +3885,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../core.kcp.io/logicalclusters/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3816,7 +3906,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../core.kcp.io/shards/" class="md-nav__link">
+      <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3891,7 +3981,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../tenancy.kcp.io/workspaces/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3912,7 +4002,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../tenancy.kcp.io/workspacetypes/" class="md-nav__link">
+      <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -3987,7 +4077,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../topology.kcp.io/partitions/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -4008,7 +4098,7 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
     <li class="md-nav__item">
-      <a href="../../topology.kcp.io/partitionsets/" class="md-nav__link">
+      <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -4062,6 +4152,8 @@ the name of the APIResourceSchema for the conversions to take effect.
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -4070,9 +4162,96 @@ the name of the APIResourceSchema for the conversions to take effect.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#apiconversion-crd-schema-reference-group-apiskcpio" class="md-nav__link">
+  <a href="#key-characteristics" class="md-nav__link">
     <span class="md-ellipsis">
-      APIConversion CRD schema reference (group apis.kcp.io)
+      Key Characteristics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#system-workspaces-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      System Workspaces Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemadmin" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:admin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemsystem-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:system-crds
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="system:system-crds">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#crd-resolution-priority" class="md-nav__link">
+    <span class="md-ellipsis">
+      CRD Resolution Priority
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bootstrapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bootstrapping
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systembound-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:bound-crds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemshard" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:shard
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemcached-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      system:cached-crds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cache-server-system-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache Server System Resources
     </span>
   </a>
   
@@ -4096,314 +4275,149 @@ the name of the APIResourceSchema for the conversions to take effect.
   
 
 
-  <h1>APIConversion</h1>
-
-<h2 id="apiconversion-crd-schema-reference-group-apiskcpio">APIConversion CRD schema reference (group apis.kcp.io)<a class="headerlink" href="#apiconversion-crd-schema-reference-group-apiskcpio" title="Permanent link">&para;</a></h2>
-<div class="lead">APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
-the name of the APIResourceSchema for the conversions to take effect.
-</div>
-
-<dl class="crd-meta">
-<dt class="fullname">Full name:</dt>
-<dd class="fullname">apiconversions.apis.kcp.io</dd>
-<dt class="groupname">Group:</dt>
-<dd class="groupname">apis.kcp.io</dd>
-<dt class="singularname">Singular name:</dt>
-<dd class="singularname">apiconversion</dd>
-<dt class="pluralname">Plural name:</dt>
-<dd class="pluralname">apiconversions</dd>
-<dt class="scope">Scope:</dt>
-<dd class="scope">Cluster</dd>
-<dt class="versions">Versions:</dt>
-<dd class="versions"><a class="version" href="#v1alpha1" title="Show schema for version v1alpha1">v1alpha1</a></dd>
-</dl>
-
-<div class="crd-schema-version">
-<h2 id="v1alpha1">Version v1alpha1</h2>
-
-
-
-<h3 id="property-details-v1alpha1">Properties</h3>
-
-
-<div class="property depth-0">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.apiVersion">.apiVersion</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>APIVersion defines the versioned schema of this representation of an object.
-Servers should convert recognized schemas to the latest internal value, and
-may reject unrecognized values.
-More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources</a></p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-0">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.kind">.kind</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>Kind is a string value representing the REST resource this object represents.
-Servers may infer this from the endpoint the client submits requests to.
-Cannot be updated.
-In CamelCase.
-More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds">https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds</a></p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-0">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.metadata">.metadata</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-<span class="property-required">Required</span>
-</div>
-
-</div>
-</div>
-
-<div class="property depth-0">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec">.spec</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>Spec holds the desired state.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-1">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions">.spec.conversions</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>conversions specify rules to convert between different API versions in an APIResourceSchema.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-2">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*]">.spec.conversions[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>APIVersionConversion contains rules to convert between two specific API versions in an
-APIResourceSchema. Additionally, to avoid data loss when round-tripping from a version that
-contains a new field to one that doesn&rsquo;t and back again, you can specify a list of fields to
-preserve (these are stored in annotations).</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].from">.spec.conversions[*].from</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>from is the source version.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].preserve">.spec.conversions[*].preserve</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-
-</div>
-
-<div class="property-description">
-<p>preserve contains a list of JSONPath expressions to fields to preserve in the originating version
-of the object, relative to its root, such as &lsquo;.spec.name.first&rsquo;.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].preserve[*]">.spec.conversions[*].preserve[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules">.spec.conversions[*].rules</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">array</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>rules contains field-specific conversion expressions.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-4">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*]">.spec.conversions[*].rules[*]</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">object</span>
-
-</div>
-
-<div class="property-description">
-<p>APIConversionRule specifies how to convert a single field.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*].destination">.spec.conversions[*].rules[*].destination</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>destination is a JSONPath expression to the field in the target version of the object, relative to
-its root, such as &lsquo;.spec.name.first&rsquo;.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*].field">.spec.conversions[*].rules[*].field</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>field is a JSONPath expression to the field in the originating version of the object, relative to its root, such
-as &lsquo;.spec.name.first&rsquo;.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].rules[*].transformation">.spec.conversions[*].rules[*].transformation</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-
-</div>
-
-<div class="property-description">
-<p>transformation is an optional CEL expression used to execute user-specified rules to transform the
-originating field &ndash; identified by &lsquo;self&rsquo; &ndash; to the destination field.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-3">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha1-.spec.conversions[*].to">.spec.conversions[*].to</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>to is the target version.</p>
-
-</div>
-
-</div>
-</div>
-
-
-
-
-</div>
+<h1 id="system-workspaces">System Workspaces<a class="headerlink" href="#system-workspaces" title="Permanent link">&para;</a></h1>
+<p>System workspaces are special logical clusters that exist on every shard (including the root
+shard). They are used internally by kcp to store system-level resources and are not part of the
+regular workspace hierarchy.</p>
+<h2 id="key-characteristics">Key Characteristics<a class="headerlink" href="#key-characteristics" title="Permanent link">&para;</a></h2>
+<p>All system workspaces share the following properties:</p>
+<ul>
+<li><strong>Naming convention:</strong> All system workspace names are prefixed with <code>system:</code>.</li>
+<li><strong>Shard-local:</strong> Each shard has its own independent copy of every system workspace.</li>
+<li><strong>Not user-accessible:</strong> System workspaces are only accessible to shard-local admin users
+  (e.g. members of <code>system:masters</code>). There is no <code>Workspace</code> object representing them and no
+  validation that a given system workspace actually exists.</li>
+<li><strong>Cannot be migrated:</strong> System workspaces are permanently bound to their shard and are never
+  subject to workspace migration or inactivation.</li>
+<li><strong>Excluded from replication:</strong> Objects stored in system workspaces are not replicated to the
+  cache server.</li>
+<li><strong>No workspace content authorization:</strong> The standard workspace content authorizer does not
+  apply. Access requires global privilege (e.g. shard admin) that bypasses authorization entirely.</li>
+</ul>
+<h2 id="system-workspaces-overview">System Workspaces Overview<a class="headerlink" href="#system-workspaces-overview" title="Permanent link">&para;</a></h2>
+<p>The following system workspaces exist:</p>
+<table>
+<thead>
+<tr>
+<th>Workspace</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>system:admin</code></td>
+<td>Shard-scoped administrative resources (e.g. leader election leases)</td>
+</tr>
+<tr>
+<td><code>system:system-crds</code></td>
+<td>Central repository for all CRDs owned and managed by kcp</td>
+</tr>
+<tr>
+<td><code>system:bound-crds</code></td>
+<td>Storage for CRDs dynamically created from APIBindings</td>
+</tr>
+<tr>
+<td><code>system:shard</code></td>
+<td>Holds API bindings for root APIs required by every shard</td>
+</tr>
+<tr>
+<td><code>system:cached-crds</code></td>
+<td>Used by the cache server to manage CRDs for cached resources</td>
+</tr>
+</tbody>
+</table>
+<h2 id="systemadmin"><code>system:admin</code><a class="headerlink" href="#systemadmin" title="Permanent link">&para;</a></h2>
+<p>The <code>system:admin</code> workspace holds administrative objects scoped to the local shard. It is
+accessible via <code>/clusters/system:admin</code>.</p>
+<p>Its primary use is <strong>leader election</strong>: when kcp is deployed with multiple instances sharing the
+same backing storage, controllers use <code>Lease</code> objects in <code>system:admin</code> to coordinate which
+instance is the active leader. The relevant CLI flags are:</p>
+<ul>
+<li><code>--enable-leader-election</code> – enables leader election for kcp controllers running in the
+  <code>system:admin</code> workspace.</li>
+<li><code>--leader-election-namespace</code> – the namespace within <code>system:admin</code> to use for the leader
+  election <code>Lease</code>.</li>
+<li><code>--leader-election-name</code> – the name of the <code>Lease</code> object.</li>
+</ul>
+<p>The <code>system:admin</code> context in the generated admin kubeconfig uses a separate shard admin identity,
+distinct from the kcp admin identity used for the <code>root</code> context.</p>
+<h2 id="systemsystem-crds"><code>system:system-crds</code><a class="headerlink" href="#systemsystem-crds" title="Permanent link">&para;</a></h2>
+<p>The <code>system:system-crds</code> workspace is the central store for all CRDs that kcp itself owns and
+manages. These CRDs are bootstrapped during kcp startup and should never be installed in any
+other logical cluster.</p>
+<p>This is where kcp's own APIs live – including <code>apis.kcp.io</code>, <code>core.kcp.io</code> and <code>cache.kcp.io</code>
+resources. The exact list of CRDs is defined in <code>config/system-crds/bootstrap.go</code>.</p>
+<h3 id="crd-resolution-priority">CRD Resolution Priority<a class="headerlink" href="#crd-resolution-priority" title="Permanent link">&para;</a></h3>
+<p>When kcp resolves which CRDs are available in a given workspace, it uses a three-tier priority
+system:</p>
+<ol>
+<li><strong>System CRDs</strong> (highest priority) – CRDs from <code>system:system-crds</code> are always included and
+   override everything else.</li>
+<li><strong>APIBinding CRDs</strong> – CRDs from <code>system:bound-crds</code> that were created through APIBindings
+   are added next, unless they conflict with a system CRD.</li>
+<li><strong>Local workspace CRDs</strong> (lowest priority) – CRDs installed directly in the workspace are
+   only included if they do not conflict with system or APIBinding CRDs.</li>
+</ol>
+<p>This priority system ensures that kcp's core APIs are always available and cannot be shadowed
+by user-installed CRDs.</p>
+<h3 id="bootstrapping">Bootstrapping<a class="headerlink" href="#bootstrapping" title="Permanent link">&para;</a></h3>
+<p>System CRDs are bootstrapped during kcp startup. The bootstrap process continuously retries
+until all CRDs are successfully created, blocking server startup until complete. This ensures
+that the shard is fully functional before it begins serving requests.</p>
+<h2 id="systembound-crds"><code>system:bound-crds</code><a class="headerlink" href="#systembound-crds" title="Permanent link">&para;</a></h2>
+<p>The <code>system:bound-crds</code> workspace stores CRDs that are dynamically created when users create
+APIBindings. When an APIBinding references an APIExport, the API binding controller converts
+the exported <code>APIResourceSchema</code> objects into CRDs and stores them in this workspace.</p>
+<p>Each bound CRD is:</p>
+<ul>
+<li><strong>Named after the schema UID</strong> of the originating <code>APIResourceSchema</code>.</li>
+<li><strong>Decorated with an identity hash annotation</strong> so that the storage layer can assign the
+  correct etcd resource prefix, keeping data from different APIExports separated.</li>
+<li><strong>Lifecycle-managed</strong> – when an APIBinding is being deleted, the bound CRD is updated with
+  a <code>DeletionTimestamp</code> and a terminating condition so that the <code>create</code> verb is suppressed
+  while existing data can still be read.</li>
+</ul>
+<h2 id="systemshard"><code>system:shard</code><a class="headerlink" href="#systemshard" title="Permanent link">&para;</a></h2>
+<p>The <code>system:shard</code> workspace holds essential API bindings that every shard needs to function.
+During shard bootstrap, API bindings for the following API groups are created in this workspace:</p>
+<ul>
+<li><code>shards.core.kcp.io</code></li>
+<li><code>tenancy.kcp.io</code></li>
+<li><code>topology.kcp.io</code></li>
+<li><code>cache.kcp.io</code></li>
+<li><code>migration.kcp.io</code></li>
+</ul>
+<p>These bindings ensure that every shard – including the root shard – has access to the root
+APIs required for workspace scheduling, shard management and cache coordination. Additionally,
+the shard bootstrap creates a default namespace and a <code>LogicalCluster</code> resource in this
+workspace.</p>
+<h2 id="systemcached-crds"><code>system:cached-crds</code><a class="headerlink" href="#systemcached-crds" title="Permanent link">&para;</a></h2>
+<p>The <code>system:cached-crds</code> workspace is specific to the <strong>cache server</strong>. It manages CRDs for
+resources that are replicated across shards via the cache server.</p>
+<p>The cache server's CRD lister operates with a two-tier lookup:</p>
+<ol>
+<li><strong>System CRDs</strong> from <code>system:system-crds</code> (same as the main kcp server).</li>
+<li><strong>Synthetic CRDs</strong> derived from <code>CachedResource</code> objects. These are not real CRDs stored in
+   etcd, but are dynamically constructed from <code>CachedResource</code> metadata (resource kind, scope
+   and identity hash).</li>
+</ol>
+<p>This workspace is used only by the cache server and is not relevant to regular kcp operation.</p>
+<h2 id="cache-server-system-resources">Cache Server System Resources<a class="headerlink" href="#cache-server-system-resources" title="Permanent link">&para;</a></h2>
+<p>The cache server also bootstraps its own set of CRDs into <code>system:system-crds</code> (on the cache
+server's shard, named <code>system:cache:server</code>). In addition to the CRDs that the main kcp server
+bootstraps, the cache server's <code>system:system-crds</code> includes CRDs for:</p>
+<ul>
+<li><code>logicalclustermigrations</code> (<code>migration.kcp.io</code>)</li>
+<li><code>shards</code> (<code>core.kcp.io</code>)</li>
+<li><code>cachedobjects</code> (<code>cache.kcp.io</code>)</li>
+<li><code>workspacetypes</code> (<code>tenancy.kcp.io</code>)</li>
+<li>RBAC resources (<code>roles</code>, <code>clusterroles</code>, <code>rolebindings</code>, <code>clusterrolebindings</code>)</li>
+<li>Admission resources (<code>mutatingwebhookconfigurations</code>, <code>validatingwebhookconfigurations</code>,
+  <code>mutatingadmissionpolicies</code>, <code>mutatingadmissionpolicybindings</code>,
+  <code>validatingadmissionpolicies</code>, <code>validatingadmissionpolicybindings</code>)</li>
+</ul>
+<p>These CRDs have their schemas stripped down (preserving unknown fields, no subresources) since
+the cache server stores replicated copies and does not need full validation.</p>
 
 
 
@@ -4496,12 +4510,12 @@ originating field &ndash; identified by &lsquo;self&rsquo; &ndash; to the destin
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
       
-        <script src="../../../../scripts/version_banner.js"></script>
+        <script src="../../../scripts/version_banner.js"></script>
       
     
   </body>
