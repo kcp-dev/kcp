@@ -168,7 +168,6 @@ func TestCachedResources(t *testing.T) {
 								Kind:     "CachedResourceEndpointSlice",
 								Name:     "sheriffs.wildwest.dev",
 							},
-							IdentityHash: cachedResourceIdentities["sheriffs"],
 						},
 					},
 				},

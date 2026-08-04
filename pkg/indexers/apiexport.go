@@ -19,7 +19,6 @@ package indexers
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -40,8 +39,7 @@ const (
 	// APIExportEndpointSliceByAPIExport is the indexer name for retrieving APIExportEndpointSlices by their APIExport's Reference Path and Name.
 	APIExportEndpointSliceByAPIExport = "APIExportEndpointSliceByAPIExport"
 
-	APIExportByVirtualResourceIdentities       = "APIExportByVirtualResourceIdentities"
-	APIExportByVirtualResourceIdentitiesAndGRs = "APIExportByVirtualResourceIdentitiesAndGRs"
+	APIExportByVirtualResourceIdentities = "APIExportByVirtualResourceIdentities"
 
 	// APIExportByAPIResourceSchema is the indexer name for retrieving APIExports by the
 	// cluster-aware key of one of their APIResourceSchemas (Spec.Resources[].Schema).
@@ -133,36 +131,10 @@ func IndexAPIExportByVirtualResourceIdentities(obj interface{}) ([]string, error
 	virtualResourceIdentities := sets.New[string]()
 
 	for _, res := range apiExport.Spec.Resources {
-		if res.Storage.Virtual != nil {
-			virtualResourceIdentities.Insert(res.Storage.Virtual.IdentityHash)
+		if identity := res.VirtualStorageIdentity(); identity != "" {
+			virtualResourceIdentities.Insert(identity)
 		}
 	}
 
 	return sets.List[string](virtualResourceIdentities), nil
-}
-
-// IndexAPIExportByVirtualResourceIdentities is an index function that indexes an APIExport by its
-// exported resources' virtual storage identity and group resource.
-func IndexAPIExportByVirtualResourceIdentitiesAndGRs(obj interface{}) ([]string, error) {
-	apiExport, ok := obj.(*apisv1alpha2.APIExport)
-	if !ok {
-		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
-	}
-
-	keys := sets.New[string]()
-
-	for _, res := range apiExport.Spec.Resources {
-		if res.Storage.Virtual != nil {
-			keys.Insert(VirtualResourceIdentityAndGRKey(res.Storage.Virtual.IdentityHash, schema.GroupResource{
-				Group:    res.Group,
-				Resource: res.Name,
-			}))
-		}
-	}
-
-	return sets.List[string](keys), nil
-}
-
-func VirtualResourceIdentityAndGRKey(identityHash string, gr schema.GroupResource) string {
-	return fmt.Sprintf("%s:%s", gr.String(), identityHash)
 }

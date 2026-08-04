@@ -2895,16 +2895,8 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageVirtual(ref common.Refer
 							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
 						},
 					},
-					"identityHash": {
-						SchemaProps: spec.SchemaProps{
-							Description: "IdentityHash is the identity of the virtual resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
-				Required: []string{"reference", "identityHash"},
+				Required: []string{"reference"},
 			},
 		},
 		Dependencies: []string{

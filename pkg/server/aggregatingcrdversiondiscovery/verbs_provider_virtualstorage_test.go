@@ -106,7 +106,6 @@ func Test_newVirtualStorageVerbsProvider(t *testing.T) {
 										Kind:     vrSliceKind.Kind,
 										Name:     vrSliceName,
 									},
-									IdentityHash: "vr-identity-123",
 								},
 							},
 						},
@@ -153,7 +152,6 @@ func Test_newVirtualStorageVerbsProvider(t *testing.T) {
 										Kind:     vrSliceKind.Kind,
 										Name:     vrSliceName,
 									},
-									IdentityHash: "vr-identity-123",
 								},
 							},
 						},
@@ -224,7 +222,6 @@ func Test_newVirtualStorageVerbsProvider(t *testing.T) {
 										Kind:     vrSliceKind.Kind,
 										Name:     vrSliceName,
 									},
-									IdentityHash: "vr-identity-123",
 								},
 							},
 						},
@@ -242,7 +239,9 @@ func Test_newVirtualStorageVerbsProvider(t *testing.T) {
 	for tname, tt := range tests {
 		t.Run(tname, func(t *testing.T) {
 			t.Parallel()
-			p, err := newVirtualStorageVerbsProvider(context.Background(), res, "vr-identity-123", tt.apiExport, tt.opts)
+			// The identity is derived from the resource, so this is what a
+			// bound CRD's schema-storage annotation would carry.
+			p, err := newVirtualStorageVerbsProvider(context.Background(), res, "sheriffs.wildwest.dev", tt.apiExport, tt.opts)
 			if tt.wantErr != nil {
 				require.Equal(t, tt.wantErr.Error(), err.Error())
 				return

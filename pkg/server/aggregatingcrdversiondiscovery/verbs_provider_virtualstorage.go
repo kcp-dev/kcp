@@ -68,7 +68,7 @@ func newVirtualStorageVerbsProvider(
 	var virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual
 	for _, resourceSchema := range apiExport.Spec.Resources {
 		if resourceSchema.Storage.Virtual != nil &&
-			resourceSchema.Storage.Virtual.IdentityHash == vrIdentity &&
+			resourceSchema.VirtualStorageIdentity() == vrIdentity &&
 			resourceSchema.Group == vrResource.Group &&
 			resourceSchema.Name == vrResource.Resource {
 			virtualStorage = resourceSchema.Storage.Virtual

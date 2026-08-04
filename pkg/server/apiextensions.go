@@ -342,12 +342,12 @@ func tryDecorateCRDWithSchemaStorage(in *apiextensionsv1.CustomResourceDefinitio
 	}
 
 	var (
-		resourceStorage apisv1alpha2.ResourceSchemaStorage
-		foundResource   bool
+		exported      apisv1alpha2.ResourceSchema
+		foundResource bool
 	)
 	for _, resource := range apiExport.Spec.Resources {
 		if resource.Group == in.Spec.Group && resource.Name == in.Status.AcceptedNames.Plural {
-			resourceStorage = resource.Storage
+			exported = resource
 			foundResource = true
 			break
 		}
@@ -357,8 +357,8 @@ func tryDecorateCRDWithSchemaStorage(in *apiextensionsv1.CustomResourceDefinitio
 	}
 	out := shallowCopyCRDAndDeepCopyAnnotations(in)
 
-	if resourceStorage.Virtual != nil {
-		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", resourceStorage.Virtual.IdentityHash)
+	if exported.Storage.Virtual != nil {
+		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", exported.VirtualStorageIdentity())
 	}
 
 	return out, nil

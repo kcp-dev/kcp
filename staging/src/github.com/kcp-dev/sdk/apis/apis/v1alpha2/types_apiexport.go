@@ -171,6 +171,23 @@ type ResourceSchema struct {
 	Storage ResourceSchemaStorage `json:"storage"`
 }
 
+// VirtualStorageIdentity names this entry's virtual storage, or returns the
+// empty string when the resource is not virtually stored.
+//
+// Bound CRDs carry it in their apis.kcp.io/schema-storage annotation, which is
+// how a shard finds its way from a bound resource back to the storage that
+// declares where the resource is served. It is derived rather than stored:
+// name and group already identify an entry uniquely within an APIExport, since
+// admission rejects duplicates, and a field would only add a second way to say
+// the same thing -- one that could be set wrong, and that could not be changed
+// afterwards without orphaning every CRD already bound.
+func (r ResourceSchema) VirtualStorageIdentity() string {
+	if r.Storage.Virtual == nil {
+		return ""
+	}
+	return r.Name + "." + r.Group
+}
+
 // ResourceSchemaStorage defines how the resource is stored.
 //
 // +kubebuilder:validation:XValidation:rule="has(self.crd) != has(self.virtual)",message="Exactly one of crd or virtual must be set"
@@ -199,9 +216,6 @@ type ResourceSchemaStorageVirtual struct {
 	// Reference points to another object that has a URL to a virtual workspace
 	// in a "url" field in its status. The object can be of any kind.
 	Reference corev1.TypedLocalObjectReference `json:"reference"`
-
-	// IdentityHash is the identity of the virtual resource.
-	IdentityHash string `json:"identityHash"`
 
 	// Resource selector TBD.
 	// We are not sure if it belongs here.
