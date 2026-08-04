@@ -47,7 +47,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	"github.com/kcp-dev/kcp/pkg/indexers"
-	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 )
@@ -405,26 +404,13 @@ func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard st
 		Transport: tr,
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(scopedURL)
+			r.SetXForwarded()
+			// SetURL clears the outbound Host along with pointing the request at
+			// the virtual workspace; keep the host the caller asked for, which is
+			// what a single-host reverse proxy forwards.
+			r.Out.Host = r.In.Host
+
 			hops.SetHeader(r.Out.Header, inboundHops+1)
-			// Say who asked.
-			//
-			// The connection to the virtual workspace authenticates as this shard,
-			// so without this the virtual workspace sees the shard and authorizes
-			// that instead of the caller -- and a provider's backend is told the
-			// shard's identity rather than the user's. The virtual workspace
-			// believes these headers only over a connection whose client
-			// certificate its --requestheader-client-ca-file trusts, which is the
-			// same arrangement the front proxy already uses to reach shards.
-			//
-			// Stamping strips any inbound copies first, so a client cannot assert
-			// an identity by setting the headers itself.
-			if user, ok := genericapirequest.UserFrom(r.Out.Context()); ok {
-				authheaders.SetAuthHeaders(r.Out.Header, user,
-					authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
-			} else {
-				authheaders.ClearAuthHeaders(r.Out.Header,
-					authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
-			}
 		},
 	}
 
