@@ -17,6 +17,7 @@ limitations under the License.
 package etcd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -117,6 +118,101 @@ func TestSplitKey(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.wantKeyParts, keyParts)
+		})
+	}
+}
+
+func TestClusterOf(t *testing.T) {
+	t.Parallel()
+
+	knownClusters := map[string]bool{
+		"root:ws":    true,
+		"root:other": true,
+	}
+	isCluster := func(segment string) bool {
+		return strings.HasPrefix(segment, "system:") || knownClusters[segment]
+	}
+
+	tests := []struct {
+		name        string
+		prefix      string
+		key         string
+		wantOK      bool
+		wantCluster logicalcluster.Name
+	}{
+		{
+			name:        "built-in namespaced resource",
+			prefix:      "/registry/",
+			key:         "/registry/apps/deployments/root:ws/default/my-deploy",
+			wantOK:      true,
+			wantCluster: "root:ws",
+		},
+		{
+			name:        "built-in cluster-scoped resource",
+			prefix:      "/registry/",
+			key:         "/registry/rbac.authorization.k8s.io/clusterroles/root:ws/my-role",
+			wantOK:      true,
+			wantCluster: "root:ws",
+		},
+		{
+			name:        "CRD namespaced resource",
+			prefix:      "/registry/",
+			key:         "/registry/mygroup.io/widgets/customresources/root:ws/default/my-widget",
+			wantOK:      true,
+			wantCluster: "root:ws",
+		},
+		{
+			name:        "CRD cluster-scoped resource",
+			prefix:      "/registry/",
+			key:         "/registry/mygroup.io/widgets/customresources/root:ws/my-widget",
+			wantOK:      true,
+			wantCluster: "root:ws",
+		},
+		{
+			name:        "identity-based namespaced resource",
+			prefix:      "/registry/",
+			key:         "/registry/mygroup.io/widgets/abc123def/root:ws/default/my-widget",
+			wantOK:      true,
+			wantCluster: "root:ws",
+		},
+		{
+			name:        "identity-based cluster-scoped resource (ambiguous 5 segments)",
+			prefix:      "/registry/",
+			key:         "/registry/mygroup.io/widgets/abc123def/root:ws/my-widget",
+			wantOK:      true,
+			wantCluster: "root:ws",
+		},
+		{
+			name:        "system cluster",
+			prefix:      "/registry/",
+			key:         "/registry/core/configmaps/system:admin/default/cm",
+			wantOK:      true,
+			wantCluster: "system:admin",
+		},
+		{
+			name:   "key too short",
+			prefix: "/registry/",
+			key:    "/registry/apps/deployments",
+			wantOK: false,
+		},
+		{
+			name:   "no prefix match",
+			prefix: "/registry/",
+			key:    "/other/apps/deployments/root:ws/my-deploy",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cluster, ok := ClusterOf(tt.prefix, tt.key, isCluster)
+			require.Equal(t, tt.wantOK, ok)
+			if !ok {
+				return
+			}
+			assert.Equal(t, tt.wantCluster, cluster)
 		})
 	}
 }

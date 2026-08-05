@@ -745,6 +745,13 @@ func (s *Server) Run(ctx context.Context) error {
 			return err
 		}
 	}
+	// Registered outside of installControllers so that it is registered exactly
+	// once per process: it runs on every replica, independent of leader election,
+	// because it feeds per-process, in-memory state used by the local admission chain.
+	if err := s.installObjectCountScanner(ctx); err != nil {
+		return err
+	}
+
 	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
 		controllerCtx := klog.NewContext(hookContext, logger)

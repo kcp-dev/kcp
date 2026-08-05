@@ -74,6 +74,12 @@ const (
 	// LogicalClusterShardAnnotationKey is the shard name the LogicalCluster is scheduled on.
 	// This annotation is set on both the LogicalCluster and its owner, if the owner is set.
 	LogicalClusterShardAnnotationKey = "core.kcp.io/shard"
+
+	// LogicalClusterMaxTotalObjectsAnnotationKey overrides the shard-wide default
+	// limit on the total number of objects in this logical cluster. A value <= 0
+	// disables the limit for this logical cluster. The annotation is protected by
+	// the ReservedMetadata admission plugin, i.e. only system users may set it.
+	LogicalClusterMaxTotalObjectsAnnotationKey = "core.kcp.io/max-total-objects"
 )
 
 // LogicalClusterPhaseType is the type of the current phase of the logical cluster.

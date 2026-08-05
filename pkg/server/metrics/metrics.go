@@ -88,6 +88,27 @@ var (
 		},
 		[]string{"shard"},
 	)
+
+	// logicalClusterObjectCount and logicalClusterObjectLimit are only
+	// published for logical clusters at or above 90% of their total object
+	// count limit to keep the label cardinality bounded.
+	logicalClusterObjectCount = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Name:           "kcp_logicalcluster_object_count",
+			Help:           "Total number of objects in a logical cluster. Only published for logical clusters at or above 90% of their total object count limit.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shard", "cluster"},
+	)
+
+	logicalClusterObjectLimit = metrics.NewGaugeVec(
+		&metrics.GaugeOpts{
+			Name:           "kcp_logicalcluster_object_limit",
+			Help:           "Effective total object count limit of a logical cluster. Only published for logical clusters at or above 90% of their total object count limit.",
+			StabilityLevel: metrics.ALPHA,
+		},
+		[]string{"shard", "cluster"},
+	)
 )
 
 func init() {
@@ -98,6 +119,22 @@ func init() {
 	legacyregistry.MustRegister(apiBindingReadyDurationMs)
 	legacyregistry.MustRegister(apiExportConditionStatus)
 	legacyregistry.MustRegister(apiExportReadyDurationMs)
+	legacyregistry.MustRegister(logicalClusterObjectCount)
+	legacyregistry.MustRegister(logicalClusterObjectLimit)
+}
+
+// SetLogicalClusterObjectCount publishes the total object count and effective
+// limit for the given logical cluster.
+func SetLogicalClusterObjectCount(shardName, cluster string, count, limit int64) {
+	logicalClusterObjectCount.WithLabelValues(shardName, cluster).Set(float64(count))
+	logicalClusterObjectLimit.WithLabelValues(shardName, cluster).Set(float64(limit))
+}
+
+// DeleteLogicalClusterObjectCount stops publishing object count metrics for
+// the given logical cluster.
+func DeleteLogicalClusterObjectCount(shardName, cluster string) {
+	logicalClusterObjectCount.DeleteLabelValues(shardName, cluster)
+	logicalClusterObjectLimit.DeleteLabelValues(shardName, cluster)
 }
 
 // IncrementLogicalClusterCount increments the count for the given shard and phase.

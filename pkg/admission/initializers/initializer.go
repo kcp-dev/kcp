@@ -29,6 +29,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
+	"github.com/kcp-dev/kcp/pkg/objectcount"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
@@ -199,6 +200,24 @@ func NewDynamicRESTMapperInitializer(dynamicRESTMapper *dynamicrestmapper.Dynami
 func (i *dynamicRESTMapperInitializer) Initialize(plugin admission.Interface) {
 	if wants, ok := plugin.(WantsDynamicRESTMapper); ok {
 		wants.SetDynamicRESTMapper(i.dynamicRESTMapper)
+	}
+}
+
+// NewObjectCountRegistryInitializer returns an admission plugin initializer that
+// injects the per-logical-cluster object count registry into admission plugins.
+func NewObjectCountRegistryInitializer(registry *objectcount.Registry) *objectCountRegistryInitializer {
+	return &objectCountRegistryInitializer{
+		registry: registry,
+	}
+}
+
+type objectCountRegistryInitializer struct {
+	registry *objectcount.Registry
+}
+
+func (i *objectCountRegistryInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsObjectCountRegistry); ok {
+		wants.SetObjectCountRegistry(i.registry)
 	}
 }
 

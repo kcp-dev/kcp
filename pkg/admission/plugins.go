@@ -61,6 +61,7 @@ import (
 	kcpmutatingadmissionpolicy "github.com/kcp-dev/kcp/pkg/admission/mutatingadmissionpolicy"
 	kcpmutatingwebhook "github.com/kcp-dev/kcp/pkg/admission/mutatingwebhook"
 	workspacenamespacelifecycle "github.com/kcp-dev/kcp/pkg/admission/namespacelifecycle"
+	"github.com/kcp-dev/kcp/pkg/admission/objectcountlimit"
 	"github.com/kcp-dev/kcp/pkg/admission/pathannotation"
 	"github.com/kcp-dev/kcp/pkg/admission/permissionclaims"
 	"github.com/kcp-dev/kcp/pkg/admission/reservedcrdannotations"
@@ -101,6 +102,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	reservedmetadata.PluginName,
 	permissionclaims.PluginName,
 	pathannotation.PluginName,
+	objectcountlimit.PluginName,
 	kubequota.PluginName,
 	mutatingadmissionpolicy.PluginName,
 	cachedresource.PluginName,
@@ -143,6 +145,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	reservedmetadata.Register(plugins)
 	permissionclaims.Register(plugins)
 	pathannotation.Register(plugins)
+	objectcountlimit.Register(plugins)
 	kubequota.Register(plugins)
 	cachedresource.Register(plugins)
 }
@@ -174,6 +177,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	reservednames.PluginName,
 	permissionclaims.PluginName,
 	pathannotation.PluginName,
+	objectcountlimit.PluginName,
 	kubequota.PluginName,
 	cachedresource.PluginName,
 )
