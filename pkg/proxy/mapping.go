@@ -26,7 +26,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
@@ -54,13 +53,7 @@ func isShardMapping(m types.PathMapping) bool {
 
 func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler, error) {
 	handlers := proxy.HttpHandler{
-		Mappings: types.HttpHandlerMappings{
-			{
-				Weight:  0,
-				Path:    "/metrics",
-				Handler: legacyregistry.Handler(),
-			},
-		},
+		Mappings: types.HttpHandlerMappings{},
 	}
 
 	logger := klog.FromContext(ctx)
