@@ -1325,7 +1325,7 @@
         
   
   <span class="md-ellipsis">
-    CachedResource API
+    Cached resource API
   </span>
   
 
@@ -4430,12 +4430,12 @@ in the <code>system:cache:server</code> shard under the <code>system:system-crds
 <td>always</td>
 </tr>
 <tr>
-<td><code>cachedresources</code></td>
+<td><code>clustercachedresources</code></td>
 <td><code>cache.kcp.io/v1alpha1</code></td>
 <td>always</td>
 </tr>
 <tr>
-<td><code>cachedresourceendpointslices</code></td>
+<td><code>clustercachedresourceendpointslices</code></td>
 <td><code>cache.kcp.io/v1alpha1</code></td>
 <td>always</td>
 </tr>
@@ -4487,7 +4487,7 @@ in the <code>system:cache:server</code> shard under the <code>system:system-crds
 </tbody>
 </table>
 <p>User-defined types are added on top of this set via the
-<a href="../../apis/cached-resources/">CachedResource API</a>.</p>
+<a href="../../apis/cached-resources/">Cached resource API</a>.</p>
 <p>Objects in clusters whose name starts with <code>system:</code> are excluded from
 replication.</p>
 <h4 id="how-rbac-objects-are-selected-for-replication">How RBAC objects are selected for replication<a class="headerlink" href="#how-rbac-objects-are-selected-for-replication" title="Permanent link">&para;</a></h4>
@@ -4520,11 +4520,11 @@ unrelated tenant RBAC stays local.</p>
   but does not push the binding back.</li>
 <li><strong><code>Partition</code> / <code>PartitionSet</code>.</strong> These are configuration objects consumed
   in the workspace where they live and referenced by <code>APIExportEndpointSlice</code>.</li>
-<li><strong>Identity secrets.</strong> A <code>CachedResource</code>'s identity secret is created
+<li><strong>Identity secrets.</strong> A <code>ClusterCachedResource</code>'s identity secret is created
   locally per shard, not replicated.</li>
 </ul>
 <h3 id="adding-new-resources">Adding New Resources<a class="headerlink" href="#adding-new-resources" title="Permanent link">&para;</a></h3>
-<p>User-defined resources can be added to the cache server using the <a href="../../apis/cached-resources/">CachedResource API</a>. A CachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.</p>
+<p>User-defined resources can be added to the cache server using the <a href="../../apis/cached-resources/">Cached resource API</a>. A ClusterCachedResource object triggers replication of a cluster-scoped resource from a workspace into the cache, making it available across shards alongside the built-in resource set.</p>
 <h3 id="deletion-of-data">Deletion of Data<a class="headerlink" href="#deletion-of-data" title="Permanent link">&para;</a></h3>
 <p>Not implemented at the moment.
 Only deleting resources explicitly is possible.

@@ -22,7 +22,7 @@
     
     
       
-        <title>CachedResource API - docs.kcp.io</title>
+        <title>Cached resource API - docs.kcp.io</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cachedresource-api" class="md-skip">
+        <a href="#cached-resource-api" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CachedResource API
+              Cached resource API
             
           </span>
         </div>
@@ -1331,7 +1331,7 @@
           
   
   <span class="md-ellipsis">
-    CachedResource API
+    Cached resource API
   </span>
   
 
@@ -1342,7 +1342,7 @@
         
   
   <span class="md-ellipsis">
-    CachedResource API
+    Cached resource API
   </span>
   
 
@@ -1374,9 +1374,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cachedresource-identity" class="md-nav__link">
+  <a href="#clustercachedresource-identity" class="md-nav__link">
     <span class="md-ellipsis">
-      CachedResource identity
+      ClusterCachedResource identity
     </span>
   </a>
   
@@ -1397,19 +1397,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#exporting-cachedresources" class="md-nav__link">
+  <a href="#exporting-clustercachedresources" class="md-nav__link">
     <span class="md-ellipsis">
-      Exporting CachedResources
+      Exporting ClusterCachedResources
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Exporting CachedResources">
+    <nav class="md-nav" aria-label="Exporting ClusterCachedResources">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cachedresourceendpointslice" class="md-nav__link">
+  <a href="#clustercachedresourceendpointslice" class="md-nav__link">
     <span class="md-ellipsis">
-      CachedResourceEndpointSlice
+      ClusterCachedResourceEndpointSlice
     </span>
   </a>
   
@@ -4130,9 +4130,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cachedresource-identity" class="md-nav__link">
+  <a href="#clustercachedresource-identity" class="md-nav__link">
     <span class="md-ellipsis">
-      CachedResource identity
+      ClusterCachedResource identity
     </span>
   </a>
   
@@ -4153,19 +4153,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#exporting-cachedresources" class="md-nav__link">
+  <a href="#exporting-clustercachedresources" class="md-nav__link">
     <span class="md-ellipsis">
-      Exporting CachedResources
+      Exporting ClusterCachedResources
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Exporting CachedResources">
+    <nav class="md-nav" aria-label="Exporting ClusterCachedResources">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cachedresourceendpointslice" class="md-nav__link">
+  <a href="#clustercachedresourceendpointslice" class="md-nav__link">
     <span class="md-ellipsis">
-      CachedResourceEndpointSlice
+      ClusterCachedResourceEndpointSlice
     </span>
   </a>
   
@@ -4194,15 +4194,19 @@
   
 
 
-<h1 id="cachedresource-api">CachedResource API<a class="headerlink" href="#cachedresource-api" title="Permanent link">&para;</a></h1>
+<h1 id="cached-resource-api">Cached resource API<a class="headerlink" href="#cached-resource-api" title="Permanent link">&para;</a></h1>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>As of 0.29, this feature is of alpha-version quality. To use it, enable the <code>CachedAPIs</code> feature gate.</p>
 </div>
-<p>A CachedResource object triggers replication of a user-defined resource from its workspace into kcp's <a href="../../sharding/cache-server/">cache server</a>, extending its <a href="../../sharding/cache-server/#built-in-resources">built-in resource set</a> with custom types. This makes those resources available across shards, enabling implementors to build globally-aware kcp-native components. API providers can additionally expose replicated resources as read-only to consumer workspaces — see <a href="#exporting-cachedresources">Exporting CachedResources</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Only a cluster scoped ClusterCachedResource is supported for the time being.</p>
+</div>
+<p>A ClusterCachedResource object triggers replication of a user-defined resource from its workspace into kcp's <a href="../../sharding/cache-server/">cache server</a>, extending its <a href="../../sharding/cache-server/#built-in-resources">built-in resource set</a> with custom types. This makes those resources available across shards, enabling implementors to build globally-aware kcp-native components. API providers can additionally expose replicated resources as read-only to consumer workspaces — see <a href="#exporting-clustercachedresources">Exporting ClusterCachedResources</a>.</p>
 <h2 id="resource-replication">Resource replication<a class="headerlink" href="#resource-replication" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterCachedResource</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
@@ -4212,14 +4216,14 @@
 </code></pre></div>
 <p>The snippet above shows an example where all <code>cpuflavors.v1.cloud.example.com</code> objects in the workspace are replicated to the cache. There are some constraints on what resources may be replicated:</p>
 <ul>
-<li>There may be only one CachedResource for a particular group-version-resource triplet in the workspace.</li>
+<li>There may be only one ClusterCachedResource for a particular group-version-resource triplet in the workspace.</li>
 <li>The resource must be cluster scoped.</li>
 <li>The resource must not be a <a href="../built-in/">built-in API</a> or kcp system API belonging to <code>apis.kcp.io</code> group.</li>
 <li>The resource may be originating from a CRD or an APIBinding.</li>
 </ul>
-<p>Once created, resource replication progress may be checked in CachedResource's status:</p>
+<p>Once created, resource replication progress may be checked in ClusterCachedResource's status:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterCachedResource</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">status</span><span class="p">:</span>
@@ -4240,10 +4244,10 @@
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="nt">local</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w"> </span><span class="c1"># (2)</span>
 </code></pre></div>
 <ol>
-<li><code>cache</code> resource count refers to the count of objects currently in cache for this CachedResource.</li>
-<li><code>local</code> resource count refers to the count of objects the CachedResource currently sees in its workspace.</li>
+<li><code>cache</code> resource count refers to the count of objects currently in cache for this ClusterCachedResource.</li>
+<li><code>local</code> resource count refers to the count of objects the ClusterCachedResource currently sees in its workspace.</li>
 </ol>
-<p>The objects a CachedResource is watching are always replicated in the direction <strong>from</strong> CachedResource's workspace <strong>into</strong> cache. Note that this means the only way to modify the in-cache copies is to modify the original objects. In-cache objects can be then projected into a workspace as a read-only API. This is done by creating a respective APIExport with <a href="#exporting-cachedresources">CachedResource virtual resource</a>, and binding to it.</p>
+<p>The objects a ClusterCachedResource is watching are always replicated in the direction <strong>from</strong> ClusterCachedResource's workspace <strong>into</strong> cache. Note that this means the only way to modify the in-cache copies is to modify the original objects. In-cache objects can be then projected into a workspace as a read-only API. This is done by creating a respective APIExport with <a href="#exporting-clustercachedresources">ClusterCachedResource virtual resource</a>, and binding to it.</p>
 <pre class="mermaid"><code>flowchart TD
     cacheServer["Cache server"]
 
@@ -4251,24 +4255,24 @@
         cpuflavorsCRD["CPUFlavors CRD"]
         cpuflavorCRs["CPUFlavor objects..."]
 
-        cpuflavorsCachedResource["CPUFlavors CachedResource"]
+        cpuflavorsClusterCachedResource["CPUFlavors ClusterCachedResource"]
 
         cpuflavorCRs -."From".-&gt; cpuflavorsCRD
-        cpuflavorsCachedResource -.Watches.-&gt; cpuflavorCRs
+        cpuflavorsClusterCachedResource -.Watches.-&gt; cpuflavorCRs
     end
 
-    cpuflavorsCachedResource -."Replicates CPUFlavor objects into".-&gt; cacheServer</code></pre>
-<p>You can optionally configure the following additional aspects of a CachedResource:</p>
+    cpuflavorsClusterCachedResource -."Replicates CPUFlavor objects into".-&gt; cacheServer</code></pre>
+<p>You can optionally configure the following additional aspects of a ClusterCachedResource:</p>
 <ul>
 <li>its identity</li>
 <li>resource selector</li>
 </ul>
 <p>We'll talk about each of these next.</p>
-<h3 id="cachedresource-identity">CachedResource identity<a class="headerlink" href="#cachedresource-identity" title="Permanent link">&para;</a></h3>
-<p>Similar to the <a href="../exporting-apis/#apiexport-identity">APIExport identity</a> concept, there may be many CachedResources with the same group-version-resource triplet across the kcp installation. To differentiate between them and identify owners, a CachedResource object uses a unique identity key stored in a secret.</p>
+<h3 id="clustercachedresource-identity">ClusterCachedResource identity<a class="headerlink" href="#clustercachedresource-identity" title="Permanent link">&para;</a></h3>
+<p>Similar to the <a href="../exporting-apis/#apiexport-identity">APIExport identity</a> concept, there may be many ClusterCachedResources with the same group-version-resource triplet across the kcp installation. To differentiate between them and identify owners, a ClusterCachedResource object uses a unique identity key stored in a secret.</p>
 <p>The identity <strong>key</strong> is considered a private key and should not be shared.</p>
-<p><strong>Hash</strong> calculated from that key, found at <code>.status.identityHash</code>, is considered a public key. APIExport's virtual resource definition expects this identity hash to be supplied when exporting a CachedResource.</p>
-<p>By default, creating a CachedResource object triggers creation of an identity secret with a randomly generated key in its <code>key</code> data item. You can provide your own key by referencing your secret in the object's spec:</p>
+<p><strong>Hash</strong> calculated from that key, found at <code>.status.identityHash</code>, is considered a public key. APIExport's virtual resource definition expects this identity hash to be supplied when exporting a ClusterCachedResource.</p>
+<p>By default, creating a ClusterCachedResource object triggers creation of an identity secret with a randomly generated key in its <code>key</code> data item. You can provide your own key by referencing your secret in the object's spec:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -4278,7 +4282,7 @@
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;Your</span><span class="nv"> </span><span class="s">identity</span><span class="nv"> </span><span class="s">key&gt;&quot;</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nn">---</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterCachedResource</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nt">spec</span><span class="p">:</span>
@@ -4289,9 +4293,9 @@
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
 <h3 id="selectors">Selectors<a class="headerlink" href="#selectors" title="Permanent link">&para;</a></h3>
-<p>CachedResource spec has an optional <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors"><code>labelSelector</code></a> field which can be used to shape the set of objects it picks up.</p>
+<p>ClusterCachedResource spec has an optional <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors"><code>labelSelector</code></a> field which can be used to shape the set of objects it picks up.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResource</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterCachedResource</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
@@ -4301,51 +4305,51 @@
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">labelSelector</span><span class="p">:</span>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">cloud.example.com/visibility</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public</span>
 </code></pre></div>
-<h2 id="exporting-cachedresources">Exporting CachedResources<a class="headerlink" href="#exporting-cachedresources" title="Permanent link">&para;</a></h2>
-<p>You can project the replicated read-only objects of a CachedResource into a workspace using the standard APIExport-APIBinding relationship. Create an APIExport and define <a href="../exporting-apis/#virtual-resources">virtual resource</a> for the associated <a href="#cachedresourceendpointslice">CachedResourceEndpointSlice</a>. Consumers can then bind to it.</p>
+<h2 id="exporting-clustercachedresources">Exporting ClusterCachedResources<a class="headerlink" href="#exporting-clustercachedresources" title="Permanent link">&para;</a></h2>
+<p>You can project the replicated read-only objects of a ClusterCachedResource into a workspace using the standard APIExport-APIBinding relationship. Create an APIExport and define <a href="../exporting-apis/#virtual-resources">virtual resource</a> for the associated <a href="#clustercachedresourceendpointslice">ClusterCachedResourceEndpointSlice</a>. Consumers can then bind to it.</p>
 <p><strong>Example user story:</strong></p>
 <ul>
 <li>You, the <strong>service provider</strong>, run a cloud <em>Cloud Co.</em>, including a compute service.</li>
 <li>You offer a service of provisioning and running VM instances: users create an <code>Instance</code> object and voilà, they have a running VM!<ul>
 <li>But how do you design the API for configuring such a resource? How do you make your consumers know what configuration options are available, given the limited resources available in the cloud?</li>
 <li>You've decided to offer different packages for CPUs, memory, storage, GPUs; these are represented as CRDs, e.g. <code>cpuflavors.cloud.example.com</code>, <code>memflavors.cloud.example.com</code>, with <code>cpu-small</code>, <code>cpu-medium</code>, <code>cpu-large</code>, <code>mem-medium</code>, <code>mem-large</code>, <code>mem-xlarge</code> respectively.</li>
-<li>You've created a CachedResource for each flavor type.</li>
+<li>You've created a ClusterCachedResource for each flavor type.</li>
 <li>You offer the service through an APIExport containing the main <code>instances.cloud.example.com</code> resource, as well as all flavors. These are exported as <a href="../exporting-apis/#virtual-resources">virtual resources</a>.</li>
 </ul>
 </li>
 <li><strong>Consumers</strong> binding to your APIExport can list and get the available flavors from within their workspace (e.g. with <code>kubectl get cpuflavors</code>), and refer to them in their <code>Instance</code> spec. They cannot create, delete or otherwise modify the flavor objects in any way.</li>
 </ul>
 <p>See an example usage at <a href="https://github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources">github.com/kcp-dev/kcp/tree/main/config/examples/virtualresources</a>.</p>
-<h3 id="cachedresourceendpointslice">CachedResourceEndpointSlice<a class="headerlink" href="#cachedresourceendpointslice" title="Permanent link">&para;</a></h3>
-<p>The CachedResourceEndpointSlice tracks the consumers of the associated APIExport, and needs to be created when you want to export a CachedResource.</p>
+<h3 id="clustercachedresourceendpointslice">ClusterCachedResourceEndpointSlice<a class="headerlink" href="#clustercachedresourceendpointslice" title="Permanent link">&para;</a></h3>
+<p>The ClusterCachedResourceEndpointSlice tracks the consumers of the associated APIExport, and needs to be created when you want to export a ClusterCachedResource.</p>
 <pre class="mermaid"><code>flowchart TD
     cacheServer["Cache server"]
     replicationVW["Replication VW"]
 
     subgraph provider["API Provider Workspace"]
-        cpuflavorsCachedResource["CPUFlavors CachedResource"]
-        cpuflavorsCachedResourceEndpointSlice["CPUFlavors CachedResourceEndpointSlice"]
+        cpuflavorsClusterCachedResource["CPUFlavors ClusterCachedResource"]
+        cpuflavorsClusterCachedResourceEndpointSlice["CPUFlavors ClusterCachedResourceEndpointSlice"]
 
-        cpuflavorsCachedResourceEndpointSlice --&gt; cpuflavorsCachedResource
+        cpuflavorsClusterCachedResourceEndpointSlice --&gt; cpuflavorsClusterCachedResource
     end
 
     replicationVW -."Reads from".-&gt; cacheServer
-    cpuflavorsCachedResourceEndpointSlice -."Has an endpoint for".-&gt; replicationVW</code></pre>
+    cpuflavorsClusterCachedResourceEndpointSlice -."Has an endpoint for".-&gt; replicationVW</code></pre>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io/v1alpha1</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterCachedResourceEndpointSlice</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">cachedResource</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">clusterCachedResource</span><span class="p">:</span>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span><span class="w"> </span><span class="c1"># (1)</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">export</span><span class="p">:</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vm-provider</span><span class="w"> </span><span class="c1"># (2)</span>
 </code></pre></div>
 <ol>
-<li>Name (and optionally the cluster path) of the CachedResource this endpoint slice is referencing.</li>
+<li>Name (and optionally the cluster path) of the ClusterCachedResource this endpoint slice is referencing.</li>
 <li>Name (and optionally the cluster path) of the APIExport this endpoint slice is referenced by.</li>
 </ol>
-<p>Both the <code>cachedResource</code> and <code>export</code> references are immutable once set.</p>
+<p>Both the <code>clusterCachedResource</code> and <code>export</code> references are immutable once set.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apis.kcp.io/v1alpha2</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">APIExport</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -4359,25 +4363,25 @@
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">virtual</span><span class="p">:</span>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">        </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="c1"># (2)</span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">          </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.io</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">          </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CachedResourceEndpointSlice</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">          </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterCachedResourceEndpointSlice</span>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpuflavors-v1</span>
 <a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">        </span><span class="nt">identityHash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cd2eb0837...</span><span class="w"> </span><span class="c1"># (3)</span>
 </code></pre></div>
 <ol>
-<li>Resource schema must match the schema used by the resource in the associated CachedResource.</li>
-<li>Reference to the CachedResourceEndpointSlice endpoint slice <code>cpuflavors-v1</code>.</li>
-<li>Identity hash of the <code>cpuflavors-v1</code> CachedResource object.</li>
+<li>Resource schema must match the schema used by the resource in the associated ClusterCachedResource.</li>
+<li>Reference to the ClusterCachedResourceEndpointSlice endpoint slice <code>cpuflavors-v1</code>.</li>
+<li>Identity hash of the <code>cpuflavors-v1</code> ClusterCachedResource object.</li>
 </ol>
-<p>A <code>virtual</code> storage definition needs (1) a reference to an <a href="../exporting-apis/#endpoint-slices">endpoint slice</a> object, and (2) a virtual resource identity. In the case of CachedResources, the endpoint slice is provided by CachedResourceEndpointSlice. The identity hash must match the one set in CachedResource's <code>.status.identityHash</code>.</p>
+<p>A <code>virtual</code> storage definition needs (1) a reference to an <a href="../exporting-apis/#endpoint-slices">endpoint slice</a> object, and (2) a virtual resource identity. In the case of ClusterCachedResources, the endpoint slice is provided by ClusterCachedResourceEndpointSlice. The identity hash must match the one set in ClusterCachedResource's <code>.status.identityHash</code>.</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph provider["API Provider Workspace"]
         export["CPUFlavors APIExport"]
         schema["CPUFlavors APIResourceSchema"]
         crd["CPUFlavors CRD"]
-        cpuflavorsCachedResourceEndpointSlice["CPUFlavors CachedResourceEndpointSlice"]
+        cpuflavorsClusterCachedResourceEndpointSlice["CPUFlavors ClusterCachedResourceEndpointSlice"]
 
         export --&gt; schema
-        export --&gt; cpuflavorsCachedResourceEndpointSlice
+        export --&gt; cpuflavorsClusterCachedResourceEndpointSlice
         schema -."Is equivalent to".-&gt; crd
     end
 
