@@ -91,9 +91,9 @@ func newVirtualStorageVerbsProvider(
 	/*switch sliceKind {
 	case schema.GroupKind{
 		Group: "cache.kcp.io",
-		Kind:  "CachedResourceEndpointSlice",
+		Kind:  "ClusterCachedResourceEndpointSlice",
 	}:
-		return &virtualCachedResourceVerbsProvider{}, nil
+		return &virtualClusterCachedResourceVerbsProvider{}, nil
 	}*/
 
 	// Otherwise we need the VW url from an endpoint slice, where we

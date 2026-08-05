@@ -54,7 +54,7 @@ import (
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cache/cachedresources/replication"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources/replication"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -414,18 +414,18 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 	scenario.VerifyReplication(t.Context(), t)
 
 	t.Logf("Delete cached %s %s/%s and check if it was brought back by the replication controller", kind, clusterName, resourceName)
-	scenario.DeleteCachedResource(t.Context(), t)
+	scenario.DeleteClusterCachedResource(t.Context(), t)
 	scenario.VerifyReplication(t.Context(), t)
 
 	if resWithModifiedSpec != nil {
 		t.Logf("Update cached %s %s/%s so that it differs from the source resource", kind, clusterName, scenario.resourceName)
-		scenario.UpdateSpecCachedResource(t.Context(), t, resWithModifiedSpec)
+		scenario.UpdateSpecClusterCachedResource(t.Context(), t, resWithModifiedSpec)
 		t.Logf("Verify that the cached %s %s/%s was brought back by the replication controller after an update", kind, clusterName, resourceName)
 		scenario.VerifyReplication(t.Context(), t)
 	}
 
 	t.Logf("Update cached %s %s/%s so that it differs from the source resource", kind, clusterName, scenario.resourceName)
-	scenario.UpdateMetaCachedResource(t.Context(), t)
+	scenario.UpdateMetaClusterCachedResource(t.Context(), t)
 	t.Logf("Verify that the cached %s %s/%s was brought back by the replication controller after an update", kind, clusterName, resourceName)
 	scenario.VerifyReplication(t.Context(), t)
 }
@@ -562,7 +562,7 @@ func (b *replicateResourceScenario) UpdateSpecSourceResource(ctx context.Context
 	})
 }
 
-func (b *replicateResourceScenario) UpdateMetaCachedResource(ctx context.Context, t *testing.T) {
+func (b *replicateResourceScenario) UpdateMetaClusterCachedResource(ctx context.Context, t *testing.T) {
 	t.Helper()
 	b.resourceUpdateHelper(t.Context(), t, func(ctx context.Context) (*unstructured.Unstructured, error) {
 		return b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(cacheclient.WithShardInContext(t.Context(), shard.New("root")), b.resourceName, metav1.GetOptions{})
@@ -579,7 +579,7 @@ func (b *replicateResourceScenario) UpdateMetaCachedResource(ctx context.Context
 	})
 }
 
-func (b *replicateResourceScenario) UpdateSpecCachedResource(ctx context.Context, t *testing.T, resWithModifiedSpec runtime.Object) {
+func (b *replicateResourceScenario) UpdateSpecClusterCachedResource(ctx context.Context, t *testing.T, resWithModifiedSpec runtime.Object) {
 	t.Helper()
 	b.resourceUpdateHelper(t.Context(), t, func(ctx context.Context) (*unstructured.Unstructured, error) {
 		return b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(cacheclient.WithShardInContext(t.Context(), shard.New("root")), b.resourceName, metav1.GetOptions{})
@@ -627,7 +627,7 @@ func (b *replicateResourceScenario) DeleteSourceResourceAndVerify(ctx context.Co
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 }
 
-func (b *replicateResourceScenario) DeleteCachedResource(ctx context.Context, t *testing.T) {
+func (b *replicateResourceScenario) DeleteClusterCachedResource(ctx context.Context, t *testing.T) {
 	t.Helper()
 	err := b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Delete(cacheclient.WithShardInContext(t.Context(), shard.New("root")), b.resourceName, metav1.DeleteOptions{})
 	require.NoError(t, err)
@@ -679,7 +679,7 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 		if err != nil {
 			return false, err.Error()
 		}
-		cachedResource, err := b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(cacheclient.WithShardInContext(t.Context(), shard.New("root")), b.resourceName, metav1.GetOptions{})
+		clusterCachedResource, err := b.cacheKcpClusterDynamicClient.Resource(b.gvr).Cluster(b.cluster.Path()).Get(cacheclient.WithShardInContext(t.Context(), shard.New("root")), b.resourceName, metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return true, err.Error()
@@ -692,40 +692,40 @@ func (b *replicateResourceScenario) verifyResourceReplicationHelper(ctx context.
 			replication.AnnotationKeyOriginalResourceVersion,
 			replication.AnnotationKeyOriginalResourceUID,
 		)
-		cachedResourceMeta, err := meta.Accessor(cachedResource)
+		clusterCachedResourceMeta, err := meta.Accessor(clusterCachedResource)
 		if err != nil {
 			return false, err.Error()
 		}
-		if _, found := cachedResourceMeta.GetAnnotations()[genericapirequest.ShardAnnotationKey]; !found {
-			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), genericapirequest.ShardAnnotationKey)
+		if _, found := clusterCachedResourceMeta.GetAnnotations()[genericapirequest.ShardAnnotationKey]; !found {
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, clusterCachedResourceMeta.GetName(), genericapirequest.ShardAnnotationKey)
 		}
-		if _, found := cachedResourceMeta.GetAnnotations()[replication.AnnotationKeyOriginalResourceVersion]; !found {
-			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), replication.AnnotationKeyOriginalResourceVersion)
+		if _, found := clusterCachedResourceMeta.GetAnnotations()[replication.AnnotationKeyOriginalResourceVersion]; !found {
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, clusterCachedResourceMeta.GetName(), replication.AnnotationKeyOriginalResourceVersion)
 		}
-		if _, found := cachedResourceMeta.GetAnnotations()[replication.AnnotationKeyOriginalResourceUID]; !found {
-			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, cachedResourceMeta.GetName(), replication.AnnotationKeyOriginalResourceUID)
+		if _, found := clusterCachedResourceMeta.GetAnnotations()[replication.AnnotationKeyOriginalResourceUID]; !found {
+			t.Fatalf("replicated %s root|%s/%s, doesn't have %s annotation", b.gvr, cluster, clusterCachedResourceMeta.GetName(), replication.AnnotationKeyOriginalResourceUID)
 		}
 		unstructured.RemoveNestedField(originalResource.Object, "metadata", "resourceVersion")
-		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "resourceVersion")
+		unstructured.RemoveNestedField(clusterCachedResource.Object, "metadata", "resourceVersion")
 
 		// TODO(davidfestal): find out why the generation is not equal, specially for rbacv1.
 		// Is it a characteristic of all built-in kcp resources (which are not backed by CRDs) ?
 		// Issue opened: https://github.com/kcp-dev/kcp/issues/2935
 		if b.gvr.Group == rbacv1.SchemeGroupVersion.Group {
 			unstructured.RemoveNestedField(originalResource.Object, "metadata", "generation")
-			unstructured.RemoveNestedField(cachedResource.Object, "metadata", "generation")
+			unstructured.RemoveNestedField(clusterCachedResource.Object, "metadata", "generation")
 		}
 
-		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", genericapirequest.ShardAnnotationKey)
-		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", replication.AnnotationKeyOriginalResourceVersion)
-		unstructured.RemoveNestedField(cachedResource.Object, "metadata", "annotations", replication.AnnotationKeyOriginalResourceUID)
-		if cachedStatus, ok := cachedResource.Object["status"]; ok && cachedStatus == nil || (cachedStatus != nil && len(cachedStatus.(map[string]interface{})) == 0) {
+		unstructured.RemoveNestedField(clusterCachedResource.Object, "metadata", "annotations", genericapirequest.ShardAnnotationKey)
+		unstructured.RemoveNestedField(clusterCachedResource.Object, "metadata", "annotations", replication.AnnotationKeyOriginalResourceVersion)
+		unstructured.RemoveNestedField(clusterCachedResource.Object, "metadata", "annotations", replication.AnnotationKeyOriginalResourceUID)
+		if cachedStatus, ok := clusterCachedResource.Object["status"]; ok && cachedStatus == nil || (cachedStatus != nil && len(cachedStatus.(map[string]interface{})) == 0) {
 			// TODO: worth investigating:
 			// for some reason cached resources have an empty status set whereas the original resources don't
-			unstructured.RemoveNestedField(cachedResource.Object, "status")
+			unstructured.RemoveNestedField(clusterCachedResource.Object, "status")
 		}
-		if diff := cmp.Diff(cachedResource.Object, originalResource.Object); len(diff) > 0 {
-			return false, fmt.Sprintf("replicated %s root|%s/%s is different from the original: %s", b.gvr, cluster, cachedResourceMeta.GetName(), diff)
+		if diff := cmp.Diff(clusterCachedResource.Object, originalResource.Object); len(diff) > 0 {
+			return false, fmt.Sprintf("replicated %s root|%s/%s is different from the original: %s", b.gvr, cluster, clusterCachedResourceMeta.GetName(), diff)
 		}
 		return true, ""
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)

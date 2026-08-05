@@ -54,22 +54,22 @@ func fixupAnnotations(obj *unstructured.Unstructured, cluster logicalcluster.Nam
 	obj.SetAnnotations(annotations)
 }
 
-// withCachedResource returns a StorageWrapper that annotates each returned item
+// withClusterCachedResource returns a StorageWrapper that annotates each returned item
 // with the target cluster from the request context.
-func withCachedResource(
-	cachedResource *cachev1alpha1.CachedResource,
+func withClusterCachedResource(
+	clusterCachedResource *cachev1alpha1.ClusterCachedResource,
 	export *apisv1alpha2.APIExport,
 ) forwardingregistry.StorageWrapper {
-	// We're guaranteed to get shard name on the cachedResource obj because the APIReconciler uses
-	// only the global CachedResources informer, meaning we always go through cache, and the
+	// We're guaranteed to get shard name on the clusterCachedResource obj because the APIReconciler uses
+	// only the global ClusterCachedResources informer, meaning we always go through cache, and the
 	// objects are always decorated with shard annotation.
 	var shardName shard.Name
 	// But should the impossible happen, don't panic on nil annotations...
-	if ann := cachedResource.Annotations; ann != nil {
-		shardName = shard.Name(cachedResource.Annotations[shard.AnnotationKey])
+	if ann := clusterCachedResource.Annotations; ann != nil {
+		shardName = shard.Name(clusterCachedResource.Annotations[shard.AnnotationKey])
 	}
 
-	sourceCluster := logicalcluster.From(cachedResource)
+	sourceCluster := logicalcluster.From(clusterCachedResource)
 
 	return forwardingregistry.StorageWrapperFunc(func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) {
 		delegateGet := storage.GetterFunc

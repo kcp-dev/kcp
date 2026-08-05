@@ -29,12 +29,12 @@ type FakeCacheV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCacheV1alpha1) CachedResources() v1alpha1.CachedResourceInterface {
-	return newFakeCachedResources(c)
+func (c *FakeCacheV1alpha1) ClusterCachedResources() v1alpha1.ClusterCachedResourceInterface {
+	return newFakeClusterCachedResources(c)
 }
 
-func (c *FakeCacheV1alpha1) CachedResourceEndpointSlices() v1alpha1.CachedResourceEndpointSliceInterface {
-	return newFakeCachedResourceEndpointSlices(c)
+func (c *FakeCacheV1alpha1) ClusterCachedResourceEndpointSlices() v1alpha1.ClusterCachedResourceEndpointSliceInterface {
+	return newFakeClusterCachedResourceEndpointSlices(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

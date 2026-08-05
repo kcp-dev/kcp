@@ -1,0 +1,260 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: clustercachedresourceendpointslices.cache.kcp.io
+spec:
+  group: cache.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: ClusterCachedResourceEndpointSlice
+    listKind: ClusterCachedResourceEndpointSliceList
+    plural: clustercachedresourceendpointslices
+    singular: clustercachedresourceendpointslice
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clusterCachedResource.name
+      name: ClusterCachedResource
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterCachedResourceEndpointSlice is a sink for the endpoints
+          of ClusterCachedResource virtual workspaces.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              spec holds the desired state:
+              - the targeted ClusterCachedResource
+            properties:
+              clusterCachedResource:
+                description: ClusterCachedResource points to the real ClusterCachedResource
+                  the slice is created for.
+                properties:
+                  name:
+                    description: name is the name of the ClusterCachedResource the
+                      reference points to.
+                    type: string
+                  path:
+                    description: |-
+                      path is a logical cluster path where the ClusterCachedResource is defined. If empty,
+                      the ClusterCachedResource is assumed to be co-located with the referencing resource.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: ClusterCachedResource reference must not be changed
+                  rule: self == oldSelf
+              export:
+                description: export points to the APIExport that exports this ClusterCachedResourceEndpointSlice.
+                properties:
+                  name:
+                    description: name is the name of the APIExport that describes
+                      the API.
+                    type: string
+                  path:
+                    description: |-
+                      path is a logical cluster path where the APIExport is defined.
+                      If the path is unset, the logical cluster of the referencing object is used.
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: APIExport reference must not be changed
+                  rule: self == oldSelf
+              partition:
+                description: |-
+                  partition points to a partition that is used for filtering the endpoints
+                  of the ClusterCachedResource part of the slice.
+                type: string
+            required:
+            - clusterCachedResource
+            - export
+            type: object
+          status:
+            description: |-
+              status communicates the observed state:
+              the filtered list of endpoints for the Replication service.
+            properties:
+              conditions:
+                description: conditions is a list of conditions that apply to the
+                  ClusterCachedResourceEndpointSlice.
+                items:
+                  description: Condition defines an observation of a object operational
+                    state.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
+                      type: string
+                    reason:
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
+                      type: string
+                    severity:
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              endpoints:
+                description: endpoints contains all the URLs of the Replication service.
+                items:
+                  description: |-
+                    Endpoint is one URL an endpoint slice advertises, and the shards it is meant
+                    for.
+
+                    Endpoint slices are read unstructured where the kind is only known at runtime
+                    -- an APIExport may point at any kind that follows this shape -- so this is
+                    the contract those readers rely on: status.endpoints[] with a url, and
+                    optionally a shards selector saying which shards that url serves.
+                  properties:
+                    shards:
+                      description: |-
+                        shards says which shards this URL serves.
+
+                        Saying nothing -- the zero value -- means the URL was composed for one
+                        specific shard and is matched by URL prefix instead, which is what kcp's
+                        own controllers publish. A status should not mix the two: either every
+                        endpoint says which shards it is for, or none does.
+                      properties:
+                        matchAll:
+                          description: |-
+                            matchAll says this URL serves every shard: one virtual workspace for the
+                            whole installation, which is what a provider running a single virtual
+                            workspace publishes.
+                          type: boolean
+                        selector:
+                          description: |-
+                            selector picks the shards this URL serves by matching against shard
+                            labels. Every shard labels itself with its own name, so a single shard is
+                            selected with matchLabels: {name: <shard>}, and groupings such as a region
+                            use whatever labels the installation puts on its shards -- the same ones
+                            Partition and PartitionSet select by.
+
+                            The most specific selector that matches a shard wins, so a URL for a
+                            region overrides one for the whole installation where the region applies.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                      x-kubernetes-validations:
+                      - message: matchAll and selector are mutually exclusive
+                        rule: '!(has(self.matchAll) && self.matchAll && has(self.selector))'
+                    url:
+                      description: url is the virtual workspace URL serving this endpoint.
+                      minLength: 1
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - url
+                x-kubernetes-list-type: map
+              shardSelector:
+                description: |-
+                  shardSelector is the selector used to filter the shards. It is used to filter the shards
+                  when determining partition scope when deriving the endpoints. This is set by owning shard,
+                  and is used by follower shards to determine if its inscope or not.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

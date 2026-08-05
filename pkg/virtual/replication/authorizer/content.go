@@ -41,10 +41,10 @@ import (
 )
 
 type contentAuthorizer struct {
-	getCachedResourceEndpointSlice func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error)
-	getAPIExportByPath             func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	getAPIBinding                  func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
-	getLogicalCluster              func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	getClusterCachedResourceEndpointSlice func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error)
+	getAPIExportByPath                    func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIBinding                         func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
+	getLogicalCluster                     func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
 	newDelegatedAuthorizer func(cluster logicalcluster.Name) (authorizer.Authorizer, error)
 }
@@ -52,16 +52,16 @@ type contentAuthorizer struct {
 var readOnlyVerbs = sets.New("get", "list", "watch")
 
 // NewContentAuthorizer creates an authorizer that checks apiexports/content permission
-// on the APIExport referenced by the CachedResourceEndpointSlice in the request URL.
+// on the APIExport referenced by the ClusterCachedResourceEndpointSlice in the request URL.
 func NewContentAuthorizer(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	localKcpInformers kcpinformers.SharedInformerFactory,
 	globalKcpInformers kcpinformers.SharedInformerFactory,
 ) authorizer.Authorizer {
 	return &contentAuthorizer{
-		getCachedResourceEndpointSlice: informer.NewScopedGetterWithFallback(
-			localKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Lister(),
-			globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Lister(),
+		getClusterCachedResourceEndpointSlice: informer.NewScopedGetterWithFallback(
+			localKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Lister(),
+			globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Lister(),
 		),
 
 		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
@@ -103,7 +103,7 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting valid cluster from context: %w", err)
 	}
 
-	slice, err := a.getCachedResourceEndpointSlice(apiDomianKey.Cluster, apiDomianKey.Name)
+	slice, err := a.getClusterCachedResourceEndpointSlice(apiDomianKey.Cluster, apiDomianKey.Name)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", err
 	}
@@ -171,5 +171,5 @@ func (a *contentAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 		return authorizer.DecisionDeny, reason, nil
 	}
 
-	return authorizer.DecisionAllow, "found CachedResource reference", nil
+	return authorizer.DecisionAllow, "found ClusterCachedResource reference", nil
 }

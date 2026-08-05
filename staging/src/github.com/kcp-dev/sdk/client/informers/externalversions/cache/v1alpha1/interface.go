@@ -23,10 +23,10 @@ import (
 )
 
 type ClusterInterface interface {
-	// CachedResources returns a CachedResourceClusterInformer.
-	CachedResources() CachedResourceClusterInformer
-	// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceClusterInformer.
-	CachedResourceEndpointSlices() CachedResourceEndpointSliceClusterInformer
+	// ClusterCachedResources returns a ClusterCachedResourceClusterInformer.
+	ClusterCachedResources() ClusterCachedResourceClusterInformer
+	// ClusterCachedResourceEndpointSlices returns a ClusterCachedResourceEndpointSliceClusterInformer.
+	ClusterCachedResourceEndpointSlices() ClusterCachedResourceEndpointSliceClusterInformer
 }
 
 type version struct {
@@ -39,21 +39,21 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// CachedResources returns a CachedResourceClusterInformer.
-func (v *version) CachedResources() CachedResourceClusterInformer {
-	return &cachedResourceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterCachedResources returns a ClusterCachedResourceClusterInformer.
+func (v *version) ClusterCachedResources() ClusterCachedResourceClusterInformer {
+	return &clusterCachedResourceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceClusterInformer.
-func (v *version) CachedResourceEndpointSlices() CachedResourceEndpointSliceClusterInformer {
-	return &cachedResourceEndpointSliceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterCachedResourceEndpointSlices returns a ClusterCachedResourceEndpointSliceClusterInformer.
+func (v *version) ClusterCachedResourceEndpointSlices() ClusterCachedResourceEndpointSliceClusterInformer {
+	return &clusterCachedResourceEndpointSliceClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
-	// CachedResources returns a CachedResourceInformer.
-	CachedResources() CachedResourceInformer
-	// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceInformer.
-	CachedResourceEndpointSlices() CachedResourceEndpointSliceInformer
+	// ClusterCachedResources returns a ClusterCachedResourceInformer.
+	ClusterCachedResources() ClusterCachedResourceInformer
+	// ClusterCachedResourceEndpointSlices returns a ClusterCachedResourceEndpointSliceInformer.
+	ClusterCachedResourceEndpointSlices() ClusterCachedResourceEndpointSliceInformer
 }
 
 type scopedVersion struct {
@@ -67,12 +67,12 @@ func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace st
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// CachedResources returns a CachedResourceInformer.
-func (v *scopedVersion) CachedResources() CachedResourceInformer {
-	return &cachedResourceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterCachedResources returns a ClusterCachedResourceInformer.
+func (v *scopedVersion) ClusterCachedResources() ClusterCachedResourceInformer {
+	return &clusterCachedResourceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CachedResourceEndpointSlices returns a CachedResourceEndpointSliceInformer.
-func (v *scopedVersion) CachedResourceEndpointSlices() CachedResourceEndpointSliceInformer {
-	return &cachedResourceEndpointSliceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterCachedResourceEndpointSlices returns a ClusterCachedResourceEndpointSliceInformer.
+func (v *scopedVersion) ClusterCachedResourceEndpointSlices() ClusterCachedResourceEndpointSliceInformer {
+	return &clusterCachedResourceEndpointSliceScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

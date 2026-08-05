@@ -53,7 +53,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
-	"github.com/kcp-dev/kcp/pkg/admission/cachedresource"
+	"github.com/kcp-dev/kcp/pkg/admission/clustercachedresource"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
@@ -105,7 +105,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	objectcountlimit.PluginName,
 	kubequota.PluginName,
 	mutatingadmissionpolicy.PluginName,
-	cachedresource.PluginName,
+	clustercachedresource.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -147,7 +147,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	pathannotation.Register(plugins)
 	objectcountlimit.Register(plugins)
 	kubequota.Register(plugins)
-	cachedresource.Register(plugins)
+	clustercachedresource.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.New[string](
@@ -179,7 +179,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	pathannotation.PluginName,
 	objectcountlimit.PluginName,
 	kubequota.PluginName,
-	cachedresource.PluginName,
+	clustercachedresource.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.

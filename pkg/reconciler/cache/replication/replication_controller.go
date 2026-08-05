@@ -245,15 +245,15 @@ func InstallIndexers(
 			Local:  localKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
 			Global: globalKubeInformers.Admissionregistration().V1().ValidatingAdmissionPolicyBindings().Informer(),
 		},
-		cachev1alpha1.SchemeGroupVersion.WithResource("cachedresources"): {
-			Kind:   "CachedResource",
-			Local:  localKcpInformers.Cache().V1alpha1().CachedResources().Informer(),
-			Global: globalKcpInformers.Cache().V1alpha1().CachedResources().Informer(),
+		cachev1alpha1.SchemeGroupVersion.WithResource("clustercachedresources"): {
+			Kind:   "ClusterCachedResource",
+			Local:  localKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer(),
+			Global: globalKcpInformers.Cache().V1alpha1().ClusterCachedResources().Informer(),
 		},
-		cachev1alpha1.SchemeGroupVersion.WithResource("cachedresourceendpointslices"): {
-			Kind:   "CachedResourceEndpointSlice",
-			Local:  localKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer(),
-			Global: globalKcpInformers.Cache().V1alpha1().CachedResourceEndpointSlices().Informer(),
+		cachev1alpha1.SchemeGroupVersion.WithResource("clustercachedresourceendpointslices"): {
+			Kind:   "ClusterCachedResourceEndpointSlice",
+			Local:  localKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer(),
+			Global: globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 			Kind:   "Shard",

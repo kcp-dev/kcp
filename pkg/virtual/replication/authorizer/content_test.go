@@ -77,17 +77,17 @@ func TestContentAuthorizer(t *testing.T) {
 			expectedErrorStr: "invalid API domain key",
 		},
 		"missing target cluster in context": {
-			ctx: dynamiccontext.WithAPIDomainKey(context.Background(), "CachedResourceCluster/cachedresource-1"),
+			ctx: dynamiccontext.WithAPIDomainKey(context.Background(), "ClusterCachedResourceCluster/clustercachedresource-1"),
 			attr: authorizer.AttributesRecord{
 				Verb: "get",
 			},
 			expectedDecision: authorizer.DecisionNoOpinion,
 			expectedErrorStr: "error getting valid cluster from context: no cluster in the request context",
 		},
-		"missing CachedResourceEndpointSlice": {
+		"missing ClusterCachedResourceEndpointSlice": {
 			a: contentAuthorizer{
-				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-					return nil, apierrors.NewNotFound(cachev1alpha1.Resource("cachedresourceendpointslices"), name)
+				getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+					return nil, apierrors.NewNotFound(cachev1alpha1.Resource("clustercachedresourceendpointslices"), name)
 				},
 			},
 			attr: authorizer.AttributesRecord{
@@ -97,19 +97,19 @@ func TestContentAuthorizer(t *testing.T) {
 				genericapirequest.WithCluster(
 					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
-				"CachedResourceCluster/cachedresource-1",
+				"ClusterCachedResourceCluster/clustercachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionNoOpinion,
-			expectedErrorStr: `cachedresourceendpointslices.cache.kcp.io "cachedresource-1" not found`,
+			expectedErrorStr: `clustercachedresourceendpointslices.cache.kcp.io "clustercachedresource-1" not found`,
 		},
 		"wildcard request and deny": {
 			a: contentAuthorizer{
-				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-					return &cachev1alpha1.CachedResourceEndpointSlice{
+				getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
+							Name: "clustercachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+						Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
 							APIExport: cachev1alpha1.ExportBindingReference{
 								Path: "root:provider",
 								Name: "apiexport-1",
@@ -128,8 +128,8 @@ func TestContentAuthorizer(t *testing.T) {
 										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 											Reference: corev1.TypedLocalObjectReference{
 												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-												Kind:     "CachedResourceEndpointSlice",
-												Name:     "cachedresource-1",
+												Kind:     "ClusterCachedResourceEndpointSlice",
+												Name:     "clustercachedresource-1",
 											},
 										},
 									},
@@ -153,19 +153,19 @@ func TestContentAuthorizer(t *testing.T) {
 				genericapirequest.WithCluster(
 					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
-				"CachedResourceCluster/cachedresource-1",
+				"ClusterCachedResourceCluster/clustercachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionDeny,
 			expectedReason:   "alwaysDeny",
 		},
 		"wildcard request and allow": {
 			a: contentAuthorizer{
-				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-					return &cachev1alpha1.CachedResourceEndpointSlice{
+				getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
+							Name: "clustercachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+						Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
 							APIExport: cachev1alpha1.ExportBindingReference{
 								Path: "root:provider",
 								Name: "apiexport-1",
@@ -184,8 +184,8 @@ func TestContentAuthorizer(t *testing.T) {
 										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 											Reference: corev1.TypedLocalObjectReference{
 												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-												Kind:     "CachedResourceEndpointSlice",
-												Name:     "cachedresource-1",
+												Kind:     "ClusterCachedResourceEndpointSlice",
+												Name:     "clustercachedresource-1",
 											},
 										},
 									},
@@ -209,19 +209,19 @@ func TestContentAuthorizer(t *testing.T) {
 				genericapirequest.WithCluster(
 					context.Background(), genericapirequest.Cluster{Wildcard: true},
 				),
-				"CachedResourceCluster/cachedresource-1",
+				"ClusterCachedResourceCluster/clustercachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionAllow,
-			expectedReason:   "found CachedResource reference",
+			expectedReason:   "found ClusterCachedResource reference",
 		},
 		"cluster request and no APIBinding": {
 			a: contentAuthorizer{
-				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-					return &cachev1alpha1.CachedResourceEndpointSlice{
+				getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
+							Name: "clustercachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+						Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
 							APIExport: cachev1alpha1.ExportBindingReference{
 								Path: "root:provider",
 								Name: "apiexport-1",
@@ -240,8 +240,8 @@ func TestContentAuthorizer(t *testing.T) {
 										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 											Reference: corev1.TypedLocalObjectReference{
 												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-												Kind:     "CachedResourceEndpointSlice",
-												Name:     "cachedresource-1",
+												Kind:     "ClusterCachedResourceEndpointSlice",
+												Name:     "clustercachedresource-1",
 											},
 										},
 									},
@@ -272,19 +272,19 @@ func TestContentAuthorizer(t *testing.T) {
 				genericapirequest.WithCluster(
 					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
-				"CachedResourceCluster/cachedresource-1",
+				"ClusterCachedResourceCluster/clustercachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionDeny,
 			expectedReason:   "could not find suitable APIBinding in target logical cluster",
 		},
 		"cluster request and deny": {
 			a: contentAuthorizer{
-				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-					return &cachev1alpha1.CachedResourceEndpointSlice{
+				getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
+							Name: "clustercachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+						Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
 							APIExport: cachev1alpha1.ExportBindingReference{
 								Path: "root:provider",
 								Name: "apiexport-1",
@@ -303,8 +303,8 @@ func TestContentAuthorizer(t *testing.T) {
 										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 											Reference: corev1.TypedLocalObjectReference{
 												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-												Kind:     "CachedResourceEndpointSlice",
-												Name:     "cachedresource-1",
+												Kind:     "ClusterCachedResourceEndpointSlice",
+												Name:     "clustercachedresource-1",
 											},
 										},
 									},
@@ -353,19 +353,19 @@ func TestContentAuthorizer(t *testing.T) {
 				genericapirequest.WithCluster(
 					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
-				"CachedResourceCluster/cachedresource-1",
+				"ClusterCachedResourceCluster/clustercachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionDeny,
 			expectedReason:   "alwaysDeny",
 		},
 		"cluster request and allow": {
 			a: contentAuthorizer{
-				getCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.CachedResourceEndpointSlice, error) {
-					return &cachev1alpha1.CachedResourceEndpointSlice{
+				getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
+					return &cachev1alpha1.ClusterCachedResourceEndpointSlice{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "cachedresource-1",
+							Name: "clustercachedresource-1",
 						},
-						Spec: cachev1alpha1.CachedResourceEndpointSliceSpec{
+						Spec: cachev1alpha1.ClusterCachedResourceEndpointSliceSpec{
 							APIExport: cachev1alpha1.ExportBindingReference{
 								Path: "root:provider",
 								Name: "apiexport-1",
@@ -384,8 +384,8 @@ func TestContentAuthorizer(t *testing.T) {
 										Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{
 											Reference: corev1.TypedLocalObjectReference{
 												APIGroup: &cachev1alpha1.SchemeGroupVersion.Group,
-												Kind:     "CachedResourceEndpointSlice",
-												Name:     "cachedresource-1",
+												Kind:     "ClusterCachedResourceEndpointSlice",
+												Name:     "clustercachedresource-1",
 											},
 										},
 									},
@@ -434,10 +434,10 @@ func TestContentAuthorizer(t *testing.T) {
 				genericapirequest.WithCluster(
 					context.Background(), genericapirequest.Cluster{Name: "TargetCluster"},
 				),
-				"CachedResourceCluster/cachedresource-1",
+				"ClusterCachedResourceCluster/clustercachedresource-1",
 			),
 			expectedDecision: authorizer.DecisionAllow,
-			expectedReason:   "found CachedResource reference",
+			expectedReason:   "found ClusterCachedResource reference",
 		},
 	}
 	for tname, tt := range tests {
