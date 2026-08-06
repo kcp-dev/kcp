@@ -116,6 +116,7 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 				VWClientConfig:                     c.Extra.VWClientConfig,
 				ThisShardName:                      shard.Name(c.Extra.ShardName),
 				ThisShardVirtualWorkspaceURLGetter: c.Extra.ShardVirtualWorkspaceURLGetter,
+				ThisShardLabels:                    c.Extra.ThisShardLabels,
 				GetUnstructuredEndpointSlice: func(ctx context.Context, cluster logicalcluster.Name, shard shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error) {
 					// We assume the endpoint slice is cluster-scoped.
 					return c.Extra.DynamicClusterClient.
