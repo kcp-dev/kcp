@@ -28,12 +28,18 @@ cd "$(dirname "$0")"
 : "${NODEPOOL_SELECTOR:? must be set to indicate which label is used for pooling nodes (e.g. worker.gardener.cloud/pool). This depends on your infrastructure setup. Please refer to the architecture document to see which pools should exist}"
 : "${GATEWAY_BASE_URL:? must be set to indicate the base domain for the gateway. Needed to setup kcp correctly.}"
 
+# Must match the value used by setup.sh so we know whether an external
+# cache-server needs to be torn down and re-created alongside the shards.
+USE_EXTERNAL_CACHE="${USE_EXTERNAL_CACHE:-true}"
+
 echo "=== Resetting kcp and etcd data ==="
 
-echo "Deleting kcp shards and front-proxy"
+echo "Deleting kcp shards and front-proxy and external cache-server (if exists)"
 kubectl delete shard --all -n kcp --ignore-not-found
 kubectl delete frontproxy --all -n kcp --ignore-not-found
 kubectl delete rootshard --all -n kcp --ignore-not-found
+kubectl delete cacheserver --all -n kcp --ignore-not-found
+
 
 echo "Waiting for kcp pods to terminate"
 kubectl wait --for=delete pod -l app.kubernetes.io/managed-by=kcp-operator -n kcp --timeout=120s 2>/dev/null || true
@@ -61,8 +67,23 @@ kubectl wait --for=condition=Ready etcds/kcp-etcd-shard-1 --namespace etcd-syste
 kubectl wait --for=condition=Ready etcds/kcp-etcd-shard-2 --namespace etcd-system --timeout=200s
 kubectl wait --for=condition=Ready etcds/kcp-etcd-shard-3 --namespace etcd-system --timeout=200s
 
+if [ "$USE_EXTERNAL_CACHE" = "true" ]; then
+  echo "=== Re-creating external cache-server ==="
+  kubectl apply -f <(envsubst < manifests/cache-server.yaml)
+
+  echo "Waiting for cache-server deployment to become ready"
+  kubectl wait --for=create deployment/cache-cache-server -n kcp --timeout=120s
+  kubectl wait --for=condition=available deployment/cache-cache-server -n kcp --timeout=200s
+fi
+
 echo "=== Re-creating kcp shards ==="
-kubectl apply -f <(envsubst < manifests/kcp.yaml)
+if [ "$USE_EXTERNAL_CACHE" = "true" ]; then
+  envsubst < manifests/kcp.yaml \
+    | yq '(select(.kind == "RootShard" or .kind == "Shard") | .spec.cache) = {"ref": {"name": "cache"}}' \
+    | kubectl apply -f -
+else
+  kubectl apply -f <(envsubst < manifests/kcp.yaml)
+fi
 
 echo "Waiting for kcp shards to become ready"
 kubectl wait --for=jsonpath='{.status.phase}'=Running rootshard/root -n kcp --timeout=300s

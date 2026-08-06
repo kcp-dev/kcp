@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,6 +32,9 @@ var testConfig Config
 // Config is the top-level configuration structure unmarshalled from the
 // JSON config file passed via --config.
 type Config struct {
+	// add as field here so our example passes stric decoding
+	Comment string `json:"_comment,omitempty"`
+
 	Params Params `json:"params"`
 }
 
@@ -136,7 +140,9 @@ func parseConfig(configFile string) error {
 		return fmt.Errorf("failed to read config file %q: %w", configFile, err)
 	}
 
-	if err := json.Unmarshal(data, &testConfig); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&testConfig); err != nil {
 		return fmt.Errorf("failed to parse config file %q: %w", configFile, err)
 	}
 

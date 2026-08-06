@@ -4,6 +4,8 @@ metadata:
   name: root
   namespace: kcp
 spec:
+  image:
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   external:
     hostname: frontproxy.$GATEWAY_BASE_URL
     port: 443
@@ -31,8 +33,8 @@ spec:
       cpu: "2"
       memory: 3Gi
     limits:
-      cpu: "12"
-      memory: 48Gi
+      cpu: "14"
+      memory: 115Gi
   etcd:
     endpoints:
       - http://kcp-etcd-shard-1-client.etcd-system.svc.cluster.local:2379
@@ -64,6 +66,8 @@ metadata:
   name: frontproxy
   namespace: kcp
 spec:
+  image:
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   certificateTemplates:
     server:
       spec:
@@ -103,6 +107,8 @@ metadata:
   name: shard2
   namespace: kcp
 spec:
+  image:
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   shardBaseURL: "https://shard2.$GATEWAY_BASE_URL:443"
   certificateTemplates:
     server:
@@ -126,8 +132,8 @@ spec:
       cpu: "2"
       memory: 3Gi
     limits:
-      cpu: "12"
-      memory: 48Gi
+      cpu: "14"
+      memory: 115Gi
   deploymentTemplate:
     spec:
       template:
@@ -156,6 +162,8 @@ metadata:
   name: shard3
   namespace: kcp
 spec:
+  image:
+    tag: 4a47e3b43 # latest working version on release 0.32 branch
   shardBaseURL: "https://shard3.$GATEWAY_BASE_URL:443"
   certificateTemplates:
     server:
@@ -179,8 +187,8 @@ spec:
       cpu: "2"
       memory: 3Gi
     limits:
-      cpu: "12"
-      memory: 48Gi
+      cpu: "14"
+      memory: 115Gi
   deploymentTemplate:
     spec:
       template:
