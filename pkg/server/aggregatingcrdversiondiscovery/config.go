@@ -18,6 +18,7 @@ package aggregatingcrdversiondiscovery
 
 import (
 	apiextensionsapiserverkcp "k8s.io/apiextensions-apiserver/pkg/kcp"
+	"k8s.io/apimachinery/pkg/labels"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
@@ -51,6 +52,7 @@ type ExtraConfig struct {
 
 	ShardName                      string
 	ShardVirtualWorkspaceURLGetter func() string
+	ThisShardLabels                func() labels.Set
 }
 
 type completedConfig struct {
@@ -92,6 +94,7 @@ func NewConfig(
 	vwClientConfig *rest.Config,
 	shardName string,
 	shardVirtualWorkspaceURLGetter func() string,
+	thisShardLabels func() labels.Set,
 
 	crdLister kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	apiBindingAwareCRDLister apiextensionsapiserverkcp.ClusterAwareCRDClusterLister,
@@ -111,6 +114,7 @@ func NewConfig(
 			VWClientConfig:                 vwClientConfig,
 			ShardName:                      shardName,
 			ShardVirtualWorkspaceURLGetter: shardVirtualWorkspaceURLGetter,
+			ThisShardLabels:                thisShardLabels,
 
 			CRDLister:                  crdLister,
 			APIBindingAwareCRDLister:   apiBindingAwareCRDLister,

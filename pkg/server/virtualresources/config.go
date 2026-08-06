@@ -17,6 +17,7 @@ limitations under the License.
 package virtualresources
 
 import (
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -39,6 +40,7 @@ type ExtraConfig struct {
 
 	ShardName                      string
 	ShardVirtualWorkspaceURLGetter func() string
+	ThisShardLabels                func() labels.Set
 
 	CRDLister               kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer
 	APIBindingInformer      apisv1alpha2informers.APIBindingClusterInformer
@@ -87,6 +89,7 @@ func NewConfig(
 	dynamicClusterClient kcpdynamic.ClusterInterface,
 	shardName string,
 	shardVirtualWorkspaceURLGetter func() string,
+	thisShardLabels func() labels.Set,
 	crdLister kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	localAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
@@ -103,6 +106,7 @@ func NewConfig(
 
 			ShardName:                      shardName,
 			ShardVirtualWorkspaceURLGetter: shardVirtualWorkspaceURLGetter,
+			ThisShardLabels:                thisShardLabels,
 
 			CRDLister:               crdLister,
 			APIBindingInformer:      apiBindingInformer,

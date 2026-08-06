@@ -30,6 +30,7 @@ import (
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -59,6 +60,7 @@ import (
 	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -719,6 +721,22 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		}
 		return c.ShardBaseURL()
 	}
+	// thisShardLabels reports the labels of this shard's own Shard object, which
+	// is what an endpoint's shard selector is matched against. Every shard
+	// labels itself with its name when it registers, so a selector can name a
+	// shard without the installation having to label anything.
+	thisShardLabels := func() labels.Set {
+		shard, err := c.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().
+			Lister().Cluster(core.RootCluster).Get(opts.Extra.ShardName)
+		if err != nil {
+			// Before the Shard object exists or syncs there is nothing to match
+			// on. Selective endpoints will not match, which fails loudly, and
+			// endpoints without a selector are unaffected.
+			return nil
+		}
+		return labels.Set(shard.Labels)
+	}
+
 	c.ShardVirtualWorkspaceURL = func() string {
 		if opts.Extra.ShardVirtualWorkspaceURL != "" {
 			return opts.Extra.ShardVirtualWorkspaceURL
@@ -847,6 +865,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			vwClientConfig,
 			c.Options.Extra.ShardName,
 			c.ShardVirtualWorkspaceURL,
+			thisShardLabels,
 			c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 			apiBindingAwareCRDClusterLister,
 			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
@@ -867,6 +886,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			c.CacheDynamicClient,
 			c.Options.Extra.ShardName,
 			c.ShardVirtualWorkspaceURL,
+			thisShardLabels,
 			c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 			c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
