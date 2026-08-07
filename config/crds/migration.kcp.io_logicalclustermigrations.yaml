@@ -150,6 +150,7 @@ spec:
                 - Migrating
                 - OriginCleanup
                 - DestinationFinalize
+                - Aborting
                 - Completed
                 - Failed
                 type: string
