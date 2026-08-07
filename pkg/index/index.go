@@ -17,17 +17,31 @@ limitations under the License.
 package index
 
 import (
+	"context"
+	"fmt"
 	"maps"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/contextmanager"
 )
+
+// defaultMigrationGracePeriod is the period during which a cluster is considered "recently migrated".
+// Watches with a non-zero RV (so clients trying to reestablish watch) get a 410 returned while a
+// cluster is considered recently migrated to force the client to do a full relist.
+//
+// This is set to 90s since client-go reflectors, the most likely clients, may have started to backoff
+// trying to reconnect during the migration. The backoff ceiling is 60s, so 90s should be enough of a
+// window for all clients to receive a 410 and start a new watch.
+const defaultMigrationGracePeriod = 90 * time.Second
 
 // Index implements a mapping from logical cluster to (shard) URL.
 type Index interface {
@@ -73,6 +87,18 @@ type State struct {
 	shardClusterWorkspaceMount map[string]map[logicalcluster.Name]map[string]tenancyv1alpha1.WorkspaceSpec // (shard name, logical cluster, workspace name) -> WorkspaceSpec
 
 	shardClusterWorkspaceNameErrorCode map[string]map[logicalcluster.Name]map[string]int // (shard name, logical cluster, workspace name) -> error code
+
+	// now is overridable for testing.
+	now func() time.Time
+
+	// migrated at maps logicalcluster.Name to the timestamp it was migrated.
+	// The timestamp is cleared after the grace period on the next request.
+	migratedAt sync.Map
+	// migrationGracePeriod is the grace period for migratedAt.
+	migrationGracePeriod time.Duration
+
+	// clusterContexts allows deriving contexts from both a connection and a shared per-cluster context.
+	clusterContexts *contextmanager.Manager[logicalcluster.Name]
 }
 
 func New(rewriters []PathRewriter) *State {
@@ -93,6 +119,10 @@ func New(rewriters []PathRewriter) *State {
 		// shardClusterWorkspaceNameErrorCode is a map of shar,logical cluster, workspace to error code when we want to return an error code
 		// instead of a URL.
 		shardClusterWorkspaceNameErrorCode: map[string]map[logicalcluster.Name]map[string]int{},
+
+		migrationGracePeriod: defaultMigrationGracePeriod,
+		now:                  time.Now,
+		clusterContexts:      contextmanager.New[logicalcluster.Name](context.Background()),
 	}
 }
 
@@ -227,6 +257,16 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 		c.lock.Lock()
 		defer c.lock.Unlock()
 
+		// If got is not empty then the logical cluster was migrated from shard `got` to shard `shard`.
+		// Record the timestamp and delete the context from the manager.
+		// The timestamp is recorded so clients with a watch are getting a 410 sent back to trigger a full relist.
+		// The context is cancelled to force close watches, which will then cause them to get the aforementioned 410s to relist.
+		// The relist is important because the RV on the destination shard will be different, leading to erroneous watch results if no relist is done.
+		if got != "" {
+			c.migratedAt.Store(clusterName, c.now())
+			c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s migrated from shard %s to shard %s", clusterName, got, shard))
+		}
+
 		c.clusterShards[clusterName] = shard
 
 		// LogicalClusters are annotated with "path:name" of their workspace's type.
@@ -254,6 +294,7 @@ func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	defer c.lock.Unlock()
 	if got := c.clusterShards[clusterName]; got == shard {
 		delete(c.clusterShards, clusterName)
+		c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s deleted from shard %s", clusterName, shard))
 	}
 
 	// This LC keyed as the cluster being addressed.
@@ -456,4 +497,27 @@ func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
 		Type:    result.Type,
 		URL:     strings.TrimSuffix(baseURL, "/") + result.Cluster.Path().RequestPath(),
 	}, true
+}
+
+// RecentlyMigrated returns true if the given cluster was recently migrated.
+func (c *State) RecentlyMigrated(cluster logicalcluster.Name) bool {
+	loaded, stored := c.migratedAt.Load(cluster)
+	if !stored {
+		return false
+	}
+
+	t := loaded.(time.Time)
+	if c.now().Sub(t) < c.migrationGracePeriod {
+		return true
+	}
+
+	// Grace period is over, drop it
+	c.migratedAt.Delete(cluster)
+	return false
+}
+
+// ClusterContext returns a context derived from the parent that will be
+// cancelled when the cluster is deleted or migrated.
+func (c *State) ClusterContext(parent context.Context, cluster logicalcluster.Name) (context.Context, context.CancelFunc) {
+	return c.clusterContexts.Context(parent, cluster)
 }

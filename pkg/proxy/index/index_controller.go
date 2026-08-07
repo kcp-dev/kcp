@@ -50,6 +50,11 @@ const (
 
 type Index interface {
 	LookupURL(path logicalcluster.Path) (index.Result, bool)
+	// RecentlyMigrated returns true if the given cluster was recently migrated.
+	RecentlyMigrated(cluster logicalcluster.Name) bool
+	// ClusterContext returns a context derived from the parent that will be
+	// cancelled when the cluster is deleted or migrated.
+	ClusterContext(parent context.Context, cluster logicalcluster.Name) (context.Context, context.CancelFunc)
 }
 
 type ClusterClientGetter func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error)
@@ -293,4 +298,12 @@ func (c *Controller) stopShard(shardName string) {
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (index.Result, bool) {
 	return c.state.LookupURL(path)
+}
+
+func (c *Controller) RecentlyMigrated(cluster logicalcluster.Name) bool {
+	return c.state.RecentlyMigrated(cluster)
+}
+
+func (c *Controller) ClusterContext(parent context.Context, cluster logicalcluster.Name) (context.Context, context.CancelFunc) {
+	return c.state.ClusterContext(parent, cluster)
 }
