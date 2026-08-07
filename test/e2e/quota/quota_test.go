@@ -855,12 +855,32 @@ func TestKubeQuotaQuotaLifecycle(t *testing.T) {
 		got, err := kubeClusterClient.Cluster(wsPath).CoreV1().ResourceQuotas("default").Get(t.Context(), "quota", metav1.GetOptions{})
 		require.NoError(t, err)
 		used, ok := got.Status.Used["count/configmaps"]
-		return ok && used.Equal(resource.MustParse("2")), fmt.Sprintf("ok=%t used=%s want=2", ok, used.String())
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "Used never reached 2 after creating cm-1")
+		if ok && used.Equal(resource.MustParse("2")) {
+			return true, ""
+		}
+		// Creates are accounted by admission, which can race with the quota
+		// controller's initial status write and lose the increment for cm-1;
+		// nothing repairs that until the controller's full resync (5m, far
+		// beyond this wait). Deletes, however, trigger replenishment and force
+		// an immediate recalculation — so create and delete a canary configmap
+		// to nudge the controller into recounting.
+		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "nudge-"}}
+		created, cerr := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{})
+		if cerr == nil {
+			derr := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Delete(t.Context(), created.Name, metav1.DeleteOptions{})
+			if derr != nil && !apierrors.IsNotFound(derr) {
+				require.NoError(t, derr, "deleting nudge configmap %s", created.Name)
+			}
+		}
+		return false, fmt.Sprintf("ok=%t used=%s want=2", ok, used.String())
+	}, wait.ForeverTestTimeout, 500*time.Millisecond, "Used never reached 2 after creating cm-1")
 
+	// Dry-run creates still go through quota admission but persist nothing, so
+	// a probe that slips through the enforcement lag window cannot leave a
+	// configmap behind and skew the counts the rest of the test depends on.
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "forbidden-"}}
-		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{})
+		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		if err != nil {
 			return apierrors.IsForbidden(err), err.Error()
 		}
@@ -914,7 +934,7 @@ func TestKubeQuotaQuotaLifecycle(t *testing.T) {
 
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "forbidden-low-"}}
-		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{})
+		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		if err != nil {
 			return apierrors.IsForbidden(err), err.Error()
 		}
@@ -956,7 +976,7 @@ func TestKubeQuotaQuotaLifecycle(t *testing.T) {
 	t.Logf("Asserting the tighter (binding) quota now blocks creates even though the original quota has slack")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "forbidden-tight-"}}
-		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{})
+		_, err := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default").Create(t.Context(), cm, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 		if err != nil {
 			return apierrors.IsForbidden(err), err.Error()
 		}
