@@ -17,17 +17,9 @@ define additional types.
 - **Root Workspace** is a singleton. It holds some data that applies
   to all workspaces, such as the set of defined workspace types
   (objects of type `WorkspaceType`).
-- **HomeRoot Workspace** is normally a singleton, holding the branch
-  of workspaces that contains the user home workspaces as descendants.
-  Can only be a child of the root workspace, and can only have
-  HomeBucket children.
-- **HomeBucket Workspace** are intermediate vertices in the hierarchy
-  between the HomeRoot and the user home workspaces. Can be a child
-  of the root or another HomeBucket workspace. Allowed children are
-  home and HomeBucket workspaces.
-- **Home Workspace** is a user's home workspace. These hold user
-  resources such as applications with services, secrets, configmaps,
-  deployments, etc. Can only be a child of a HomeBucket workspace.
+- **Home Workspace** is a user's private workspace, created on first
+  access. It holds user resources such as secrets, configmaps,
+  deployments, etc. See [User Home Workspaces](#user-home-workspaces) below.
 - **Universal Workspace** is a basic type of workspace with no
   particular nature. Has no restrictions on parent or child workspace
   types.
@@ -47,66 +39,31 @@ applied).
 
 !!! note
     In order to create workspaces of a given type (including `Universal`)
-    you must have `use` permissions against the `workspacetypes` resources with the
-    lower-case name of the cluster workspace type (e.g. `universal`). All `system:authenticated`
+    you must have `use` permissions against the `workspacetypes` resource with the
+    lower-case name of the workspace type (e.g. `universal`). All `system:authenticated`
     users inherit this permission automatically for type `Universal`.
 
 The different workspace types are discussed below.
 
 ## User Home Workspaces
 
-User home workspaces are an optional feature of kcp. If enabled (through `--enable-home-workspaces`), there is a special
-virtual `Workspace` called `~` in the root workspace. It is used by `kubectl ws` to derive the full path to the user
-home workspace, similar to how Unix `cd ~` move the users to their home.
+User home workspaces are an optional feature of kcp, enabled with `--enable-home-workspaces`.
+Each user gets a private workspace where they are cluster-admin.
 
-The full path for a user's home workspace has a number of parts: `<prefix>(:<bucket>)+:<user-name>`. Buckets are used to
-ensure that at most ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
-derived from the user name (via some hash). Example for user `adam` when using default configuration:
-`root:users:a8:f1:adam`.
+There is a special virtual workspace called `~` in the root workspace. Accessing it
+(e.g. `kubectl ws ~`) resolves to the current user's home workspace. The home workspace
+is created on first access, so users only cost resources once they actually use it. Only
+users in the configured creator groups (`--home-workspaces-home-creator-groups`, default
+`system:authenticated`) get one.
 
-User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
-the system to only incur the cost of these workspaces when they are needed. Only users of the configured
-home-creator-groups (default `system:authenticated`) will have a home workspace.
+Home workspaces are not part of a `root:users:...` path hierarchy. Each one is a
+standalone logical cluster whose name is derived from the user name, reachable via the
+path `user:<user-name>`.
 
-### Bucket Configuration Options
-
-The `kcp` administrator can configure:
-
-- `<prefix>`, which defaults to `root:users`
-- bucket depth, which defaults to 2
-- bucket name length, in characters, which defaults to 2
-
-The following outlines valid configuration options. With the default setup, ~5 users or ~700 sub-buckets will be in
-any bucket.
-
-!!! warning
-    DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.
-
-User-names have `(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)` permutations, and buckets are made up of lowercase-alpha
-chars. Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
-having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.
-
-### Valid Configurations
-
-|length|depth|sub-buckets|users|
-|------|-----|-----------|-----|
-|1     |3    |26 * 1 = 26|2169648 / (26)^3 = 124 |
-|1     |4    |26 * 1 = 26|2169648 / (26)^4 = 5 |
-|2     |2    |26 * 26 = 676|2169648 / (26*26)^2 = 5 |
-
-### Invalid Configurations
-
-These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
-will be sufficient.
-
-|length|depth|sub-buckets|users|
-|------|-----|-----------|-----|
-|1     |1    |26 * 1 = 26|2169648 / (26) = 83448 |
-|1     |2    |26 * 1 = 26|2169648 / (26)^2 = 3209 |
-|2     |1    |26 * 26 = 676|2169648 / (26*26) = 3209 |
-|2     |3    |26 * 26 = 676|2169648 / (26*26)^3 = .007 |
-|3     |1    |26 *26* 26 = 17576|2169648 / (26*26*26) = 124 |
-|3     |2    |26 *26* 26 = 17576|2169648 / (26*26*26)^2 = .007 |
+!!! note
+    Older kcp versions arranged home workspaces under a bucketed path such as
+    `root:users:a8:f1:adam`. Those "bucket-style" home workspaces are still resolved if
+    they exist, but new ones are no longer created that way.
 
 ## Organization Workspaces
 
@@ -184,6 +141,12 @@ spec:
     - name: standard
       path: root:base
 ```
+
+!!! note
+    A type reference with a `path` points at a type in another workspace. To use it you
+    need `use` permission on that `workspacetypes` resource in the target workspace,
+    not just in your own. The same applies when a `Workspace`'s `spec.type` references a
+    type by path.
 
 ### Lifecycle Permissions
 
