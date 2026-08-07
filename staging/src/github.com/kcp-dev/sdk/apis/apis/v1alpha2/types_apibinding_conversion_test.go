@@ -218,6 +218,17 @@ func TestConvertV1Alpha2APIBindings(t *testing.T) {
 				}},
 			},
 		},
+		{
+			Spec: APIBindingSpec{
+				Reference: BindingReference{
+					Export: &ExportBindingReference{
+						Path: "foo",
+						Name: "bar",
+					},
+				},
+				DeletionPolicy: APIBindingDeletionPolicyWaitForSuccessor,
+			},
+		},
 	}
 
 	scheme := runtime.NewScheme()
