@@ -84,6 +84,31 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *tenancyv1alp
 			// set terminators during initializiation, as we want to show them to the user already
 			workspace.Status.Terminators = logicalCluster.Status.Terminators
 
+			// A LogicalCluster gets its initializers copied from spec to status by
+			// admission, and only on the transition of its own phase to Initializing.
+			// Before that transition lands, an empty status.initializers means "not
+			// assigned yet", not "none to wait for", and reading it as readiness
+			// declares the workspace ready while its default APIBindings are still
+			// being created -- so callers see the workspace ready and the APIs it
+			// promises missing.
+			switch logicalCluster.Status.Phase {
+			case "", corev1alpha1.LogicalClusterPhaseScheduling:
+				// This window is milliseconds wide in the normal case, so poll fast at
+				// first, but back off for a LogicalCluster that is genuinely stuck
+				// rather than spinning on it.
+				after := time.Since(logicalCluster.CreationTimestamp.Time) / 5
+				if minDuration := 100 * time.Millisecond; after < minDuration {
+					after = minDuration
+				}
+				if maxDuration := 10 * time.Second; after > maxDuration {
+					after = maxDuration
+				}
+				logger.V(3).Info("LogicalCluster has not reached Initializing yet, requeuing", "phase", logicalCluster.Status.Phase, "after", after)
+				conditions.MarkFalse(workspace, tenancyv1alpha1.WorkspaceInitialized, tenancyv1alpha1.WorkspaceInitializedInitializerExists, conditionsv1alpha1.ConditionSeverityInfo, "LogicalCluster is not initializing yet")
+				r.requeueAfter(workspace, after)
+				return reconcileStatusContinue, nil
+			}
+
 			workspace.Status.Initializers = logicalCluster.Status.Initializers
 
 			if initializers := workspace.Status.Initializers; len(initializers) > 0 {

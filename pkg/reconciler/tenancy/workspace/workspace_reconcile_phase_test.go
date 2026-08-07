@@ -170,11 +170,65 @@ func TestReconcilePhase(t *testing.T) {
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return &corev1alpha1.LogicalCluster{
 					Status: corev1alpha1.LogicalClusterStatus{
+						Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 						Initializers: []corev1alpha1.LogicalClusterInitializer{
 							"initializer-1",
 						},
 					},
 				}, nil
+			},
+			wantPhase:   corev1alpha1.LogicalClusterPhaseInitializing,
+			wantStatus:  reconcileStatusContinue,
+			wantRequeue: true,
+		},
+		{
+			// An empty status.initializers only means "none to wait for" once the
+			// LogicalCluster is past Scheduling: admission copies spec.initializers
+			// into status on that transition, so reading it earlier would make the
+			// workspace ready before its default APIBindings exist.
+			name: "workspace is initializing and logicalCluster has not left Scheduling",
+			input: &tenancyv1alpha1.Workspace{
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{
+					Status: corev1alpha1.LogicalClusterStatus{
+						Phase: corev1alpha1.LogicalClusterPhaseScheduling,
+					},
+				}, nil
+			},
+			wantPhase:   corev1alpha1.LogicalClusterPhaseInitializing,
+			wantStatus:  reconcileStatusContinue,
+			wantRequeue: true,
+			wantCondition: conditionsv1alpha1.Condition{
+				Type:     tenancyv1alpha1.WorkspaceInitialized,
+				Status:   corev1.ConditionFalse,
+				Severity: conditionsv1alpha1.ConditionSeverityInfo,
+				Reason:   tenancyv1alpha1.WorkspaceInitializedInitializerExists,
+				Message:  "LogicalCluster is not initializing yet",
+			},
+		},
+		{
+			// The same window, seen a moment earlier: the LogicalCluster exists but
+			// its own phase reconciler has not given it one yet.
+			name: "workspace is initializing and logicalCluster has no phase yet",
+			input: &tenancyv1alpha1.Workspace{
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
+				},
+			},
+			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
+				return &corev1alpha1.LogicalCluster{}, nil
 			},
 			wantPhase:   corev1alpha1.LogicalClusterPhaseInitializing,
 			wantStatus:  reconcileStatusContinue,
@@ -194,6 +248,7 @@ func TestReconcilePhase(t *testing.T) {
 			getLogicalCluster: func(ctx context.Context, cluster logicalcluster.Path) (*corev1alpha1.LogicalCluster, error) {
 				return &corev1alpha1.LogicalCluster{
 					Status: corev1alpha1.LogicalClusterStatus{
+						Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
 						Initializers: []corev1alpha1.LogicalClusterInitializer{},
 					},
 				}, nil
