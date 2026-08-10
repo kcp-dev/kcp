@@ -205,6 +205,115 @@ func TestPopulateBranch_MountWorkspaceWithClustersURL(t *testing.T) {
 		"expected mount workspace to be rendered as a '<name> [m]' leaf, not recursed into")
 }
 
+// TestPrintTree_FullPathsArePrefixedWithColon verifies that --full renders
+// absolute workspace paths with a leading ":", so they can be passed straight
+// to `kubectl ws <path>`.
+func TestPrintTree_FullPathsArePrefixedWithColon(t *testing.T) {
+	t.Parallel()
+	child := &tenancyv1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "child",
+			Annotations: map[string]string{logicalcluster.AnnotationKey: "root"},
+		},
+		Spec: tenancyv1alpha1.WorkspaceSpec{
+			URL: "https://test/clusters/root:child",
+		},
+	}
+
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	streams := genericclioptions.IOStreams{
+		In:     strings.NewReader(""),
+		Out:    out,
+		ErrOut: errOut,
+	}
+
+	o := newTreeOptions(streams, "https://test/clusters/root", child)
+	o.Full = true
+
+	err := o.printTree(context.Background(), logicalcluster.NewPath("root"))
+	require.NoError(t, err)
+
+	treeStr := out.String()
+	require.Contains(t, treeStr, ":root\n", "expected root to be rendered as ':root'")
+	require.Contains(t, treeStr, ":root:child", "expected child to be rendered as ':root:child'")
+}
+
+// TestPrintTree_ShortNamesUnprefixed verifies that without --full only the leaf
+// name is printed, with no leading ":".
+func TestPrintTree_ShortNamesUnprefixed(t *testing.T) {
+	t.Parallel()
+	child := &tenancyv1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "child",
+			Annotations: map[string]string{logicalcluster.AnnotationKey: "root"},
+		},
+		Spec: tenancyv1alpha1.WorkspaceSpec{
+			URL: "https://test/clusters/root:child",
+		},
+	}
+
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	streams := genericclioptions.IOStreams{
+		In:     strings.NewReader(""),
+		Out:    out,
+		ErrOut: errOut,
+	}
+
+	o := newTreeOptions(streams, "https://test/clusters/root", child)
+
+	err := o.printTree(context.Background(), logicalcluster.NewPath("root"))
+	require.NoError(t, err)
+
+	treeStr := out.String()
+	require.NotContains(t, treeStr, ":root", "expected no ':' prefix without --full")
+	require.Contains(t, treeStr, "child")
+}
+
+// TestRunWatch_StopsOnContextCancel verifies that watch mode renders the tree
+// and returns cleanly once the context is cancelled.
+func TestRunWatch_StopsOnContextCancel(t *testing.T) {
+	t.Parallel()
+
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	streams := genericclioptions.IOStreams{
+		In:     strings.NewReader(""),
+		Out:    out,
+		ErrOut: errOut,
+	}
+
+	o := newTreeOptions(streams, "https://test/clusters/root")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := o.runWatch(ctx, logicalcluster.NewPath("root"))
+	require.NoError(t, err, "runWatch should return cleanly when the context is cancelled")
+	require.Contains(t, out.String(), "root", "expected at least one tree render before exiting")
+}
+
+// TestTreeOptions_ValidateWatchInteractive verifies that --watch and
+// --interactive cannot be combined.
+func TestTreeOptions_ValidateWatchInteractive(t *testing.T) {
+	t.Parallel()
+
+	streams := genericclioptions.IOStreams{
+		In:     strings.NewReader(""),
+		Out:    &bytes.Buffer{},
+		ErrOut: &bytes.Buffer{},
+	}
+
+	o := newTreeOptions(streams, "https://test/clusters/root")
+	o.Watch = true
+	o.Interactive = true
+	require.Error(t, o.Validate())
+
+	o.Interactive = false
+	require.NoError(t, o.Validate())
+}
+
 // TestRun_MountContextURL verifies that when the kubeconfig host points to a
 // non-standard (mount) URL, Run does not return an error; instead it prints a
 // message to Out and returns immediately (no fallback to root).

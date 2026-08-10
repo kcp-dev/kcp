@@ -30,6 +30,9 @@ type Options struct {
 	OptOutOfDefaultKubectlFlags bool
 	// OptOutOfWorkspaceFlag indicates that the --workspace/-w flag should not be bound.
 	OptOutOfWorkspaceFlag bool
+	// OptOutOfWorkspaceFlagShorthand indicates that --workspace should be bound without its "-w"
+	// shorthand, freeing "-w" for a command-specific flag.
+	OptOutOfWorkspaceFlagShorthand bool
 	// Kubeconfig specifies kubeconfig file(s).
 	Kubeconfig string
 	// KubectlOverrides stores the extra client connection fields, such as context, user, etc.
@@ -61,7 +64,11 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to the kubeconfig file")
 
 	if !o.OptOutOfWorkspaceFlag {
-		cmd.Flags().StringVarP(&o.Workspace, "workspace", "w", o.Workspace,
+		shorthand := "w"
+		if o.OptOutOfWorkspaceFlagShorthand {
+			shorthand = ""
+		}
+		cmd.Flags().StringVarP(&o.Workspace, "workspace", shorthand, o.Workspace,
 			"Workspace path to target. If not specified, the current workspace from the kubeconfig will be used. "+
 				"Use a leading ':' for absolute paths (e.g. ':root:my-ws'), or omit it for relative paths (e.g. 'my-ws'). "+
 				"'.' stays in the current workspace, '..' navigates to the parent workspace.",
