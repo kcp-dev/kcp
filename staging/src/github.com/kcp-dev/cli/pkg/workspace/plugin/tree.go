@@ -18,9 +18,11 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -58,9 +60,13 @@ type TreeOptions struct {
 	Full        bool
 	Interactive bool
 	Wide        bool
+	Watch       bool
 
 	kcpClusterClient kcpclientset.ClusterInterface
 }
+
+// treeWatchInterval is how often the tree is re-rendered in watch mode.
+const treeWatchInterval = 2 * time.Second
 
 // NewTreeOptions returns a new TreeOptions.
 func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
@@ -71,10 +77,21 @@ func NewTreeOptions(streams genericclioptions.IOStreams) *TreeOptions {
 
 // BindFlags binds fields to cmd's flagset.
 func (o *TreeOptions) BindFlags(cmd *cobra.Command) {
+	// "-w" is the watch shorthand here, so --workspace is bound without a shorthand.
+	o.Options.OptOutOfWorkspaceFlagShorthand = true
 	o.Options.BindFlags(cmd)
 	cmd.Flags().BoolVarP(&o.Full, "full", "f", o.Full, "Show full workspace names")
 	cmd.Flags().BoolVarP(&o.Interactive, "interactive", "i", o.Interactive, "Interactive workspace tree browser")
 	cmd.Flags().BoolVar(&o.Wide, "wide", o.Wide, "Show workspace and logical cluster status for each node")
+	cmd.Flags().BoolVarP(&o.Watch, "watch", "w", o.Watch, "Re-render the workspace tree every "+treeWatchInterval.String()+" until interrupted")
+}
+
+// Validate validates the TreeOptions.
+func (o *TreeOptions) Validate() error {
+	if o.Watch && o.Interactive {
+		return errors.New("--watch and --interactive are mutually exclusive")
+	}
+	return o.Options.Validate()
 }
 
 // Complete ensures all dynamically populated fields are initialized.
@@ -113,11 +130,45 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 		return o.runInteractive(ctx, current)
 	}
 
+	if o.Watch {
+		return o.runWatch(ctx, current)
+	}
+
+	return o.printTree(ctx, current)
+}
+
+// runWatch re-renders the tree on a fixed interval until the context is cancelled.
+func (o *TreeOptions) runWatch(ctx context.Context, current logicalcluster.Path) error {
+	ticker := time.NewTicker(treeWatchInterval)
+	defer ticker.Stop()
+
+	for {
+		// Move the cursor home and clear the screen so each render replaces the previous one.
+		fmt.Fprint(o.Out, "\033[H\033[2J")
+		if err := o.printTree(ctx, current); err != nil {
+			return err
+		}
+		fmt.Fprintf(o.Out, "watching every %s, press Ctrl+C to exit\n", treeWatchInterval)
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
+// printTree renders the workspace tree rooted at current once.
+func (o *TreeOptions) printTree(ctx context.Context, current logicalcluster.Path) error {
 	tree := treeprint.New()
 	// NOTE(hasheddan): the cluster URL can be used for only the tree root as
 	// the friendly name is used in kubeconfig.
 	name := current.String()
-	if !o.Full {
+	if o.Full {
+		// Absolute workspace paths are prefixed with ":" so they can be passed
+		// straight to `kubectl ws <path>`.
+		name = ":" + name
+	} else {
 		name = name[strings.LastIndex(name, ":")+1:]
 	}
 	label := name
@@ -134,7 +185,7 @@ func (o *TreeOptions) Run(ctx context.Context) error {
 		fmt.Fprint(w, tree.String())
 		return w.Flush()
 	}
-	fmt.Println(tree.String())
+	fmt.Fprintln(o.Out, tree.String())
 	return nil
 }
 
@@ -166,7 +217,9 @@ func (o *TreeOptions) runInteractive(ctx context.Context, currentWorkspace logic
 	}
 
 	rootName := rootWorkspace.String()
-	if !o.Full {
+	if o.Full {
+		rootName = ":" + rootName
+	} else {
 		rootName = rootName[strings.LastIndex(rootName, ":")+1:]
 	}
 
