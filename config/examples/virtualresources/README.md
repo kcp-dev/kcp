@@ -23,8 +23,7 @@ in a scalable way.
    kubectl create -f config/examples/virtualresources/apiresourceschema-instances.yaml
    kubectl create -f config/examples/virtualresources/instances.yaml
 
-   # create caching for the resources with a pre-made ClusterCachedResources identity
-   kubectl create -f config/examples/virtualresources/cluster-cached-resource-identity.yaml
+   # create caching for the resources
    kubectl create -f config/examples/virtualresources/cluster-cached-resource-instances.yaml
    ```
 
