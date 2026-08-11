@@ -17,8 +17,10 @@ limitations under the License.
 package aggregatingcrdversiondiscovery
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -62,29 +64,27 @@ func (f *storageAwareResourceVerbsProviderFactory) newResourceVerbsProvider(ctx 
 		// Resources with virtual storage need the ResourceSchemaStorageVirtual from their parent APIExport.
 
 		fingerprint := strings.TrimPrefix(crd.Annotations[apisv1alpha1.AnnotationSchemaStorageKey], boundCRDVirtualStorageAnnotationPrefix)
-		apiExportIdentity := crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey]
 		apiExports, err := f.getAPIExportsByVirtualResourceFingerprint(fingerprint)
 		if err != nil {
 			return nil, err
 		}
-		var apiExport *apisv1alpha2.APIExport
-		for _, ae := range apiExports {
-			if ae.Status.IdentityHash == apiExportIdentity {
-				apiExport = ae
-				break
-			}
+		if len(apiExports) == 0 {
+			return nil, fmt.Errorf("no matching APIExport for virtual resource fingerprint %q", fingerprint)
 		}
-		if apiExport == nil {
-			return nil, fmt.Errorf("no matching APIExport for identity %s and virtual resource identity %s", apiExportIdentity, fingerprint)
-		}
+		// Pick a deterministic export. Multiple exports in different logical clusters
+		// may share the same fingerprint; sort for stable selection.
+		slices.SortFunc(apiExports, func(a, b *apisv1alpha2.APIExport) int {
+			return cmp.Or(
+				cmp.Compare(logicalcluster.From(a), logicalcluster.From(b)),
+				cmp.Compare(a.Name, b.Name),
+			)
+		})
 
-		gvr := schema.GroupVersionResource{
+		return newVirtualStorageVerbsProvider(ctx, schema.GroupVersionResource{
 			Group:    crd.Spec.Group,
 			Version:  requestedVersion,
 			Resource: crd.Status.AcceptedNames.Plural,
-		}
-
-		return newVirtualStorageVerbsProvider(ctx, gvr, fingerprint, apiExport, f.virtualStorageClientOptions)
+		}, apiExports[0], f.virtualStorageClientOptions)
 	}
 
 	// We don't support any non-CRD storages other than virtual.

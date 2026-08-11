@@ -358,7 +358,7 @@ func tryDecorateCRDWithSchemaStorage(in *apiextensionsv1.CustomResourceDefinitio
 	out := shallowCopyCRDAndDeepCopyAnnotations(in)
 
 	if resourceStorage.Virtual != nil {
-		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", resourceStorage.Virtual.IdentityHash)
+		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", resourceStorage.Virtual.Fingerprint(apiExport))
 	}
 
 	return out, nil

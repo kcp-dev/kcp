@@ -62,15 +62,12 @@ func newVirtualStorageVerbsProvider(
 	ctx context.Context,
 
 	vrResource schema.GroupVersionResource,
-	vrIdentity string,
-
 	apiExport *apisv1alpha2.APIExport,
 	opts *virtualStorageClientOptions,
 ) (*virtualStorageVerbsProvider, error) {
 	var virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual
 	for _, resourceSchema := range apiExport.Spec.Resources {
 		if resourceSchema.Storage.Virtual != nil &&
-			resourceSchema.Storage.Virtual.IdentityHash == vrIdentity &&
 			resourceSchema.Group == vrResource.Group &&
 			resourceSchema.Name == vrResource.Resource {
 			virtualStorage = resourceSchema.Storage.Virtual
@@ -78,7 +75,7 @@ func newVirtualStorageVerbsProvider(
 		}
 	}
 	if virtualStorage == nil {
-		return nil, fmt.Errorf("no APIExports for virtual resource %s with identity %s", vrResource, vrIdentity)
+		return nil, fmt.Errorf("APIExport %s|%s doesn't export virtual resource %s", logicalcluster.From(apiExport), apiExport.Name, vrResource)
 	}
 
 	sliceKind := schema.GroupKind{
