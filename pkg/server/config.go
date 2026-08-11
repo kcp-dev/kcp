@@ -786,10 +786,10 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		indexers.APIBindingByBoundResources:           indexers.IndexAPIBindingByBoundResources,
 	})
 	_ = c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer().AddIndexers(cache.Indexers{
-		indexers.APIExportByVirtualResourceIdentities: indexers.IndexAPIExportByVirtualResourceIdentities,
+		indexers.APIExportByVirtualResourceFingerprint: indexers.IndexAPIExportByVirtualResourceFingerprint,
 	})
 	_ = c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().GetIndexer().AddIndexers(cache.Indexers{
-		indexers.APIExportByVirtualResourceIdentities: indexers.IndexAPIExportByVirtualResourceIdentities,
+		indexers.APIExportByVirtualResourceFingerprint: indexers.IndexAPIExportByVirtualResourceFingerprint,
 	})
 
 	apiBindingAwareCRDClusterLister := &apiBindingAwareCRDClusterLister{

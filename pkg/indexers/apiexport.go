@@ -40,8 +40,7 @@ const (
 	// APIExportEndpointSliceByAPIExport is the indexer name for retrieving APIExportEndpointSlices by their APIExport's Reference Path and Name.
 	APIExportEndpointSliceByAPIExport = "APIExportEndpointSliceByAPIExport"
 
-	APIExportByVirtualResourceIdentities       = "APIExportByVirtualResourceIdentities"
-	APIExportByVirtualResourceIdentitiesAndGRs = "APIExportByVirtualResourceIdentitiesAndGRs"
+	APIExportByVirtualResourceFingerprint = "APIExportByVirtualResourceFingerprint"
 
 	// APIExportByAPIResourceSchema is the indexer name for retrieving APIExports by the
 	// cluster-aware key of one of their APIResourceSchemas (Spec.Resources[].Schema).
@@ -122,41 +121,21 @@ func IndexAPIExportEndpointSliceByAPIExport(obj interface{}) ([]string, error) {
 	return result, nil
 }
 
-// IndexAPIExportByVirtualResourceIdentities is an index function that indexes an APIExport by its
-// exported resources' virtual storage identity.
-func IndexAPIExportByVirtualResourceIdentities(obj interface{}) ([]string, error) {
+// IndexAPIExportByVirtualResourceFingerprint indexes an APIExport by the fingerprint of each
+// virtual storage resource (identity hash + endpoint slice reference).
+func IndexAPIExportByVirtualResourceFingerprint(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha2.APIExport)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
 	}
-
-	virtualResourceIdentities := sets.New[string]()
-
-	for _, res := range apiExport.Spec.Resources {
-		if res.Storage.Virtual != nil {
-			virtualResourceIdentities.Insert(res.Storage.Virtual.IdentityHash)
-		}
-	}
-
-	return sets.List[string](virtualResourceIdentities), nil
-}
-
-// IndexAPIExportByVirtualResourceIdentities is an index function that indexes an APIExport by its
-// exported resources' virtual storage identity and group resource.
-func IndexAPIExportByVirtualResourceIdentitiesAndGRs(obj interface{}) ([]string, error) {
-	apiExport, ok := obj.(*apisv1alpha2.APIExport)
-	if !ok {
-		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
+	if apiExport.Status.IdentityHash == "" {
+		return []string{}, nil
 	}
 
 	keys := sets.New[string]()
-
 	for _, res := range apiExport.Spec.Resources {
 		if res.Storage.Virtual != nil {
-			keys.Insert(VirtualResourceIdentityAndGRKey(res.Storage.Virtual.IdentityHash, schema.GroupResource{
-				Group:    res.Group,
-				Resource: res.Name,
-			}))
+			keys.Insert(res.Storage.Virtual.Fingerprint(apiExport))
 		}
 	}
 

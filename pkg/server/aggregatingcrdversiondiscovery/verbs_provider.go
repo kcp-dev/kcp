@@ -44,8 +44,8 @@ type resourceVerbsProvider interface {
 type storageAwareResourceVerbsProviderFactory struct {
 	*virtualStorageClientOptions
 
-	getAPIExportByPath                     func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
-	getAPIExportsByVirtualResourceIdentity func(vrIdentity string) ([]*apisv1alpha2.APIExport, error)
+	getAPIExportByPath                        func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIExportsByVirtualResourceFingerprint func(fingerprint string) ([]*apisv1alpha2.APIExport, error)
 }
 
 func (f *storageAwareResourceVerbsProviderFactory) newResourceVerbsProvider(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition, requestedVersion string) (resourceVerbsProvider, error) {
@@ -61,10 +61,9 @@ func (f *storageAwareResourceVerbsProviderFactory) newResourceVerbsProvider(ctx 
 	if strings.HasPrefix(crd.Annotations[apisv1alpha1.AnnotationSchemaStorageKey], boundCRDVirtualStorageAnnotationPrefix) {
 		// Resources with virtual storage need the ResourceSchemaStorageVirtual from their parent APIExport.
 
-		vrIdentity := strings.TrimPrefix(crd.Annotations[apisv1alpha1.AnnotationSchemaStorageKey], boundCRDVirtualStorageAnnotationPrefix)
+		fingerprint := strings.TrimPrefix(crd.Annotations[apisv1alpha1.AnnotationSchemaStorageKey], boundCRDVirtualStorageAnnotationPrefix)
 		apiExportIdentity := crd.Annotations[apisv1alpha1.AnnotationAPIIdentityKey]
-
-		apiExports, err := f.getAPIExportsByVirtualResourceIdentity(vrIdentity)
+		apiExports, err := f.getAPIExportsByVirtualResourceFingerprint(fingerprint)
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +75,7 @@ func (f *storageAwareResourceVerbsProviderFactory) newResourceVerbsProvider(ctx 
 			}
 		}
 		if apiExport == nil {
-			return nil, fmt.Errorf("no matching APIExport for identity %s and virtual resource identity %s", apiExportIdentity, vrIdentity)
+			return nil, fmt.Errorf("no matching APIExport for identity %s and virtual resource identity %s", apiExportIdentity, fingerprint)
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -85,7 +84,7 @@ func (f *storageAwareResourceVerbsProviderFactory) newResourceVerbsProvider(ctx 
 			Resource: crd.Status.AcceptedNames.Plural,
 		}
 
-		return newVirtualStorageVerbsProvider(ctx, gvr, vrIdentity, apiExport, f.virtualStorageClientOptions)
+		return newVirtualStorageVerbsProvider(ctx, gvr, fingerprint, apiExport, f.virtualStorageClientOptions)
 	}
 
 	// We don't support any non-CRD storages other than virtual.

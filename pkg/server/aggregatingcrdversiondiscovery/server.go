@@ -104,12 +104,12 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 
 		verbsProviderFactory: &storageAwareResourceVerbsProviderFactory{
 			getAPIExportByPath: getAPIExportByPath,
-			getAPIExportsByVirtualResourceIdentity: func(vrIdentity string) ([]*apisv1alpha2.APIExport, error) {
+			getAPIExportsByVirtualResourceFingerprint: func(fingerprint string) ([]*apisv1alpha2.APIExport, error) {
 				return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](
 					c.Extra.LocalAPIExportInformer.Informer().GetIndexer(),
 					c.Extra.GlobalAPIExportInformer.Informer().GetIndexer(),
-					indexers.APIExportByVirtualResourceIdentities,
-					vrIdentity,
+					indexers.APIExportByVirtualResourceFingerprint,
+					fingerprint,
 				)
 			},
 			virtualStorageClientOptions: &virtualStorageClientOptions{
