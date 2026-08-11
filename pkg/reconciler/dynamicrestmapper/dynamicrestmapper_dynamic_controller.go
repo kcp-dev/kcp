@@ -201,7 +201,10 @@ func diffResourceBindingsAnn(oldAnn, newAnn apibinding.ResourceBindingsAnnotatio
 
 func (c *DynamicTypesController) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinition) {
 	if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
-		// The CRD is not ready yet. Nothing to do, we'll get notified on the next update event.
+		// The CRD is not ready yet. Nothing to do, we'll get notified on the
+		// next Update event once the CRD's status changes (e.g. reaches
+		// Established), since that's itself an Update the informer delivers.
+		klog.Background().V(4).Info("CRD not yet Established, skipping enqueue for now", "crd", crd.Name)
 		return
 	}
 
