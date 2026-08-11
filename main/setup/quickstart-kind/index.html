@@ -6,18 +6,18 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How to authorize requests to kcp.
+        <meta name="description" content="A comprehensive guide to deploying kcp on a kind cluster using Helm, with multi-tenant workspace setup.
 ">
       
       
       
-        <link rel="canonical" href="https://docs.kcp.io/kcp/main/concepts/authorization/">
+        <link rel="canonical" href="https://docs.kcp.io/kcp/main/setup/quickstart-kind/">
       
       
-        <link rel="prev" href="../authentication/workspace/">
+        <link rel="prev" href="../quickstart/">
       
       
-        <link rel="next" href="authorizers/">
+        <link rel="next" href="../helm/">
       
       
       <link rel="icon" href="../../favicons/favicon.ico">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Authorization - docs.kcp.io</title>
+        <title>Quickstart with kind - docs.kcp.io</title>
       
     
     
@@ -81,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#authorization" class="md-skip">
+        <a href="#quickstart-with-kind" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Authorization
+              Quickstart with kind
             
           </span>
         </div>
@@ -253,11 +253,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../setup/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
     
@@ -273,13 +275,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../concepts/" class="md-tabs__link">
           
   
     
@@ -486,6 +486,8 @@
       
   
   
+    
+  
   
   
     
@@ -510,21 +512,22 @@
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../setup/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -535,13 +538,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Setup
@@ -557,7 +560,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/quickstart/" class="md-nav__link">
+      <a href="../quickstart/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -575,10 +578,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../setup/quickstart-kind/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Quickstart with kind
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -587,6 +610,257 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-create-a-kind-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Create a kind Cluster
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-install-cert-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Install cert-manager
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-configure-dns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Configure DNS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-deploy-kcp-with-helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Deploy kcp with Helm
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-configure-admin-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Configure Admin Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 5: Configure Admin Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extract-the-ca-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract the CA Certificate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-admin-kubeconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Admin Kubeconfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-admin-client-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate Admin Client Certificate
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-create-team-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 6: Create Team Workspaces
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-7-generate-team-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 7: Generate Team Certificates
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 7: Generate Team Certificates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#team-alpha" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Alpha
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#team-beta" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Beta
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-8-grant-workspace-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 8: Grant Workspace Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 8: Grant Workspace Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#team-alpha-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Alpha Access
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#team-beta-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Beta Access
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-9-create-team-kubeconfigs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 9: Create Team Kubeconfigs
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 9: Create Team Kubeconfigs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extract-team-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract Team Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-team-kubeconfigs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Team Kubeconfigs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-10-verify-team-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 10: Verify Team Access
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cleanup
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -599,7 +873,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/helm/" class="md-nav__link">
+      <a href="../helm/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -620,7 +894,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/kubectl-plugin/" class="md-nav__link">
+      <a href="../kubectl-plugin/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -641,7 +915,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/integrations/" class="md-nav__link">
+      <a href="../integrations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -699,7 +973,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../setup/production/" class="md-nav__link ">
+            <a href="../production/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -732,7 +1006,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/overview/" class="md-nav__link">
+      <a href="../production/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -753,7 +1027,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/prerequisites/" class="md-nav__link">
+      <a href="../production/prerequisites/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -774,7 +1048,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/kcp-dekker/" class="md-nav__link">
+      <a href="../production/kcp-dekker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -795,7 +1069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/kcp-vespucci/" class="md-nav__link">
+      <a href="../production/kcp-vespucci/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -816,7 +1090,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/kcp-comer/" class="md-nav__link">
+      <a href="../production/kcp-comer/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -837,7 +1111,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/audit-logging/" class="md-nav__link">
+      <a href="../production/audit-logging/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -858,7 +1132,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../setup/production/metrics/" class="md-nav__link">
+      <a href="../production/metrics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -891,8 +1165,6 @@
       
   
   
-    
-  
   
   
     
@@ -921,22 +1193,21 @@
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../concepts/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -947,13 +1218,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -969,7 +1240,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../terminology/" class="md-nav__link">
+      <a href="../../concepts/terminology/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -990,7 +1261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart-tenancy-and-apis/" class="md-nav__link">
+      <a href="../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1048,7 +1319,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../workspaces/" class="md-nav__link ">
+            <a href="../../concepts/workspaces/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1081,7 +1352,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-types/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1102,7 +1373,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-types-best-practices/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-types-best-practices/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1123,7 +1394,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/system-workspaces/" class="md-nav__link">
+      <a href="../../concepts/workspaces/system-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1144,7 +1415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/virtual-workspaces/" class="md-nav__link">
+      <a href="../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1165,7 +1436,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-initialization/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1186,7 +1457,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/workspace-termination/" class="md-nav__link">
+      <a href="../../concepts/workspaces/workspace-termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1207,7 +1478,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../workspaces/mounts/" class="md-nav__link">
+      <a href="../../concepts/workspaces/mounts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1269,7 +1540,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../apis/" class="md-nav__link ">
+            <a href="../../concepts/apis/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1302,7 +1573,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/admission-webhooks/" class="md-nav__link">
+      <a href="../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1323,7 +1594,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/built-in/" class="md-nav__link">
+      <a href="../../concepts/apis/built-in/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1344,7 +1615,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/cached-resources/" class="md-nav__link">
+      <a href="../../concepts/apis/cached-resources/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1365,7 +1636,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/exporting-apis/" class="md-nav__link">
+      <a href="../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1386,7 +1657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../apis/rest-access-patterns/" class="md-nav__link">
+      <a href="../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1442,7 +1713,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../authentication/" class="md-nav__link ">
+            <a href="../../concepts/authentication/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1475,7 +1746,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/oidc/" class="md-nav__link">
+      <a href="../../concepts/authentication/oidc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1496,7 +1767,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/workspace/" class="md-nav__link">
+      <a href="../../concepts/authentication/workspace/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1522,8 +1793,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1541,16 +1810,18 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_7" >
         
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../../concepts/authorization/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1561,13 +1832,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             Authorization
@@ -1583,7 +1854,7 @@
   
   
     <li class="md-nav__item">
-      <a href="authorizers/" class="md-nav__link">
+      <a href="../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1643,7 +1914,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../sharding/" class="md-nav__link ">
+            <a href="../../concepts/sharding/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1676,7 +1947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/shards/" class="md-nav__link">
+      <a href="../../concepts/sharding/shards/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1697,7 +1968,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/partitions/" class="md-nav__link">
+      <a href="../../concepts/sharding/partitions/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1718,7 +1989,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/migration/" class="md-nav__link">
+      <a href="../../concepts/sharding/migration/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1739,7 +2010,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sharding/cache-server/" class="md-nav__link">
+      <a href="../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1793,7 +2064,7 @@
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="../miscellaneous/" class="md-nav__link ">
+            <a href="../../concepts/miscellaneous/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1826,7 +2097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../miscellaneous/braindump/" class="md-nav__link">
+      <a href="../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -4049,19 +4320,82 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#pages" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
-      Pages
+      Prerequisites
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Pages">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-create-a-kind-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Create a kind Cluster
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-install-cert-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Install cert-manager
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-configure-dns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Configure DNS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-deploy-kcp-with-helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Deploy kcp with Helm
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-configure-admin-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Configure Admin Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 5: Configure Admin Access">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#authorizers" class="md-nav__link">
+  <a href="#extract-the-ca-certificate" class="md-nav__link">
     <span class="md-ellipsis">
-      Authorizers
+      Extract the CA Certificate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-admin-kubeconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Admin Kubeconfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-admin-client-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate Admin Client Certificate
     </span>
   </a>
   
@@ -4069,6 +4403,150 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-create-team-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 6: Create Team Workspaces
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-7-generate-team-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 7: Generate Team Certificates
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 7: Generate Team Certificates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#team-alpha" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Alpha
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#team-beta" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Beta
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-8-grant-workspace-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 8: Grant Workspace Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 8: Grant Workspace Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#team-alpha-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Alpha Access
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#team-beta-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Team Beta Access
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-9-create-team-kubeconfigs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 9: Create Team Kubeconfigs
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 9: Create Team Kubeconfigs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extract-team-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract Team Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-team-kubeconfigs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Team Kubeconfigs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-10-verify-team-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 10: Verify Team Access
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cleanup
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
   
 </li>
       
@@ -4090,25 +4568,344 @@
   
 
 
-<h1 id="authorization">Authorization<a class="headerlink" href="#authorization" title="Permanent link">&para;</a></h1>
-<p>Within workspaces, kcp implements the same RBAC-based authorization mechanism as Kubernetes.
-Other authorization schemes (i.e. ABAC) are not supported.
-Generally, the same (cluster) role and (cluster) role binding principles apply exactly as in Kubernetes.</p>
-<p>In addition, additional RBAC semantics is implemented cross-workspaces, namely the following:</p>
+<h1 id="quickstart-with-kind">Quickstart with kind<a class="headerlink" href="#quickstart-with-kind" title="Permanent link">&para;</a></h1>
+<p>This guide walks you through deploying kcp on a <a href="https://kind.sigs.k8s.io/">kind</a> (Kubernetes in Docker) cluster using Helm, setting up multiple workspaces, and configuring access for different teams using client certificates.</p>
+<p>This guide covers the Helm-based deployment. A kcp-operator-based walkthrough will be added in a follow-up.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Before starting, ensure you have the following tools installed:</p>
 <ul>
-<li><strong>Workspace Content</strong> access: the user needs <code>access</code> permissions to a workspace or be even admin.</li>
-<li>for some resources, additional permission checks are performed, not represented by local or Kubernetes standard RBAC rules; for example<ul>
-<li>workspace creation checks for organization membership (see above).</li>
-<li>workspace creation checks for <code>use</code> verb on the <code>WorkspaceType</code>.</li>
-<li>API binding via APIBinding objects requires verb <code>bind</code> access to the corresponding <code>APIExport</code>.</li>
+<li><a href="https://docs.docker.com/get-docker/">Docker</a></li>
+<li><a href="https://kind.sigs.k8s.io/docs/user/quick-start/#installation">kind</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/#kubectl">kubectl</a></li>
+<li><a href="https://helm.sh/docs/intro/install/">Helm</a> (v3.x)</li>
+<li><a href="../kubectl-plugin/">kubectl kcp plugin</a></li>
 </ul>
-</li>
-<li><strong>System Workspaces</strong> access: system workspaces are prefixed with <code>system:</code> and are not accessible by users.</li>
+<h2 id="step-1-create-a-kind-cluster">Step 1: Create a kind Cluster<a class="headerlink" href="#step-1-create-a-kind-cluster" title="Permanent link">&para;</a></h2>
+<p>Create a kind cluster with port mapping for kcp access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | kind create cluster --name kcp --config=-</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="s">kind: Cluster</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="s">apiVersion: kind.x-k8s.io/v1alpha4</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="s">nodes:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="s">- role: control-plane</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="s">  extraPortMappings:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="s">  - containerPort: 30443</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="s">    hostPort: 8443</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="s">    protocol: TCP</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>Verify the cluster is running:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>cluster-info<span class="w"> </span>--context<span class="w"> </span>kind-kcp
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>kind-kcp
+</code></pre></div>
+<h2 id="step-2-install-cert-manager">Step 2: Install cert-manager<a class="headerlink" href="#step-2-install-cert-manager" title="Permanent link">&para;</a></h2>
+<p>kcp requires cert-manager for TLS certificate management:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.yaml
+</code></pre></div>
+<p>Wait for cert-manager to be ready:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Available<span class="w"> </span>deployment<span class="w"> </span>--all<span class="w"> </span>-n<span class="w"> </span>cert-manager<span class="w"> </span>--timeout<span class="o">=</span>300s
+</code></pre></div>
+<h2 id="step-3-configure-dns">Step 3: Configure DNS<a class="headerlink" href="#step-3-configure-dns" title="Permanent link">&para;</a></h2>
+<p>For local development, add an entry to your hosts file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;127.0.0.1 kcp.local.test&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>-a<span class="w"> </span>/etc/hosts
+</code></pre></div>
+<h2 id="step-4-deploy-kcp-with-helm">Step 4: Deploy kcp with Helm<a class="headerlink" href="#step-4-deploy-kcp-with-helm" title="Permanent link">&para;</a></h2>
+<p>Add the kcp Helm repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>kcp<span class="w"> </span>https://kcp-dev.github.io/helm-charts
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+</code></pre></div>
+<p>Install kcp:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>kcp<span class="w"> </span>kcp/kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--namespace<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--set<span class="w"> </span><span class="nv">externalHostname</span><span class="o">=</span>kcp.local.test<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--set-string<span class="w"> </span><span class="nv">externalPort</span><span class="o">=</span><span class="m">8443</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>--set<span class="w"> </span>kcpFrontProxy.service.type<span class="o">=</span>NodePort<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>--set<span class="w"> </span>kcpFrontProxy.service.nodePort<span class="o">=</span><span class="m">30443</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>--set<span class="w"> </span>audit.enabled<span class="o">=</span><span class="nb">false</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span>--wait
+</code></pre></div>
+<p>Set up host aliases so in-cluster kcp components can resolve <code>kcp.local.test</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">KCP_FRONT_PROXY_IP</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>kcp-front-proxy<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.clusterIP}&#39;</span><span class="k">)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>kcp<span class="w"> </span>kcp/kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--namespace<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>--set<span class="w"> </span>kcp.hostAliases.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">&quot;kcp.hostAliases.values[0].ip=</span><span class="si">${</span><span class="nv">KCP_FRONT_PROXY_IP</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">&quot;kcp.hostAliases.values[0].hostnames[0]=kcp.local.test&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span>--set<span class="w"> </span>kcpFrontProxy.hostAliases.enabled<span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">&quot;kcpFrontProxy.hostAliases.values[0].ip=</span><span class="si">${</span><span class="nv">KCP_FRONT_PROXY_IP</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span>--set<span class="w"> </span><span class="s2">&quot;kcpFrontProxy.hostAliases.values[0].hostnames[0]=kcp.local.test&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span>--wait
+</code></pre></div>
+<p>Verify the deployment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kcp
+</code></pre></div>
+<p>All pods should reach the <code>Running</code> state.</p>
+<h2 id="step-5-configure-admin-access">Step 5: Configure Admin Access<a class="headerlink" href="#step-5-configure-admin-access" title="Permanent link">&para;</a></h2>
+<p>Set environment variables for easier access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KCP_EXTERNAL_HOSTNAME</span><span class="o">=</span>kcp.local.test
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KCP_PORT</span><span class="o">=</span><span class="m">8443</span>
+</code></pre></div>
+<h3 id="extract-the-ca-certificate">Extract the CA Certificate<a class="headerlink" href="#extract-the-ca-certificate" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>kcp-ca<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>-o<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.tls\.crt}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>ca.crt
+</code></pre></div>
+<h3 id="create-admin-kubeconfig">Create Admin Kubeconfig<a class="headerlink" href="#create-admin-kubeconfig" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>admin.kubeconfig<span class="w"> </span>config<span class="w"> </span>set-cluster<span class="w"> </span>base<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--server<span class="w"> </span>https://<span class="si">${</span><span class="nv">KCP_EXTERNAL_HOSTNAME</span><span class="si">}</span>:<span class="si">${</span><span class="nv">KCP_PORT</span><span class="si">}</span>/clusters/root<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>--certificate-authority<span class="o">=</span>ca.crt
+</code></pre></div>
+<h3 id="generate-admin-client-certificate">Generate Admin Client Certificate<a class="headerlink" href="#generate-admin-client-certificate" title="Permanent link">&para;</a></h3>
+<p>Create a certificate for the admin user:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="s">apiVersion: cert-manager.io/v1</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="s">kind: Certificate</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="s">metadata:</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="s">  name: cluster-admin-client-cert</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="s">spec:</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="s">  commonName: cluster-admin</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="s">  issuerRef:</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="s">    name: kcp-front-proxy-client-issuer</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="s">    kind: Issuer</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="s">  secretName: cluster-admin-client-cert</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="s">  privateKey:</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="s">    algorithm: RSA</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="s">    size: 2048</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="s">    rotationPolicy: Always</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="s">  usages:</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="s">    - client auth</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="s">  subject:</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="s">    organizations:</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="s">      - system:kcp:admin</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>Wait for the certificate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>certificate/cluster-admin-client-cert<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span>--timeout<span class="o">=</span>60s
+</code></pre></div>
+<p>Extract the credentials:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>cluster-admin-client-cert<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span>-o<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.tls\.crt}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>admin-client.crt
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>cluster-admin-client-cert<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span>-o<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.tls\.key}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>admin-client.key
+</code></pre></div>
+<p>Add credentials to kubeconfig:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>admin.kubeconfig<span class="w"> </span>config<span class="w"> </span>set-credentials<span class="w"> </span>kcp-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>--client-certificate<span class="o">=</span>admin-client.crt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span>--client-key<span class="o">=</span>admin-client.key
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>admin.kubeconfig<span class="w"> </span>config<span class="w"> </span>set-context<span class="w"> </span>base<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span>--cluster<span class="o">=</span>base<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span>--user<span class="o">=</span>kcp-admin
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>admin.kubeconfig<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>base
+</code></pre></div>
+<p>Verify admin access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>admin.kubeconfig
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>tree
+</code></pre></div>
+<h2 id="step-6-create-team-workspaces">Step 6: Create Team Workspaces<a class="headerlink" href="#step-6-create-team-workspaces" title="Permanent link">&para;</a></h2>
+<p>Create workspaces for the two teams:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>workspace<span class="w"> </span>team-alpha<span class="w"> </span>--enter
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>..
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>kubectl<span class="w"> </span>create<span class="w"> </span>workspace<span class="w"> </span>team-beta<span class="w"> </span>--enter
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> Steps 6 through 10 can be automated using the verification script (it reads your kind kubeconfig from <code>~/.kube/config</code> by default):
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>./docs/scripts/verify-docs-quickstart-kind.sh
+</code></pre></div></p>
+<p>To capture a verification log for troubleshooting or sharing with reviewers:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nv">KCP_VERIFY_LOG</span><span class="o">=</span>verify-kind-install.log<span class="w"> </span>./docs/scripts/verify-docs-quickstart-kind.sh
+</code></pre></div></p>
+</blockquote>
+<p>Verify the workspaces:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>tree
+</code></pre></div>
+<p>You should see:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>root
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>├── team-alpha
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>└── team-beta
+</code></pre></div>
+<h2 id="step-7-generate-team-certificates">Step 7: Generate Team Certificates<a class="headerlink" href="#step-7-generate-team-certificates" title="Permanent link">&para;</a></h2>
+<p>Create client certificates for each team with their respective groups.</p>
+<p>These certificates are managed by cert-manager running in the underlying kind cluster.
+If you exported <code>KUBECONFIG=admin.kubeconfig</code>, use your kind kubeconfig for the cert-manager steps:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KIND_KUBECONFIG</span><span class="o">=</span><span class="si">${</span><span class="nv">KIND_KUBECONFIG</span><span class="k">:-</span><span class="nv">$HOME</span><span class="p">/.kube/config</span><span class="si">}</span>
+</code></pre></div>
+<h3 id="team-alpha">Team Alpha<a class="headerlink" href="#team-alpha" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="si">${</span><span class="nv">KIND_KUBECONFIG</span><span class="si">}</span><span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="s">apiVersion: cert-manager.io/v1</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="s">kind: Certificate</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="s">metadata:</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="s">  name: team-alpha-cert</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="s">spec:</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="s">  commonName: team-alpha-admin</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="s">  issuerRef:</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="s">    name: kcp-front-proxy-client-issuer</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="s">    kind: Issuer</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="s">  secretName: team-alpha-cert</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="s">  privateKey:</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="s">    algorithm: RSA</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="s">    size: 2048</span>
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="s">    rotationPolicy: Always</span>
+<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a><span class="s">  usages:</span>
+<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a><span class="s">    - client auth</span>
+<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a><span class="s">  subject:</span>
+<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a><span class="s">    organizations:</span>
+<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a><span class="s">      - team-alpha</span>
+<a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a><span class="s">EOF</span>
+</code></pre></div>
+<h3 id="team-beta">Team Beta<a class="headerlink" href="#team-beta" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="si">${</span><span class="nv">KIND_KUBECONFIG</span><span class="si">}</span><span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="s">apiVersion: cert-manager.io/v1</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="s">kind: Certificate</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="s">metadata:</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="s">  name: team-beta-cert</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="s">spec:</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="s">  commonName: team-beta-admin</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="s">  issuerRef:</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="s">    name: kcp-front-proxy-client-issuer</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="s">    kind: Issuer</span>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a><span class="s">  secretName: team-beta-cert</span>
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a><span class="s">  privateKey:</span>
+<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="s">    algorithm: RSA</span>
+<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a><span class="s">    size: 2048</span>
+<a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a><span class="s">    rotationPolicy: Always</span>
+<a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a><span class="s">  usages:</span>
+<a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a><span class="s">    - client auth</span>
+<a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a><span class="s">  subject:</span>
+<a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a><span class="s">    organizations:</span>
+<a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a><span class="s">      - team-beta</span>
+<a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>Wait for all certificates:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="k">for</span><span class="w"> </span>team<span class="w"> </span><span class="k">in</span><span class="w"> </span>alpha<span class="w"> </span>beta<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="si">${</span><span class="nv">KIND_KUBECONFIG</span><span class="si">}</span><span class="w"> </span>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>certificate/team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>-cert<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span>--timeout<span class="o">=</span>60s
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="k">done</span>
+</code></pre></div>
+<h2 id="step-8-grant-workspace-access">Step 8: Grant Workspace Access<a class="headerlink" href="#step-8-grant-workspace-access" title="Permanent link">&para;</a></h2>
+<p>Grant each team access to their respective workspace using RBAC.</p>
+<h3 id="team-alpha-access">Team Alpha Access<a class="headerlink" href="#team-alpha-access" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root:team-alpha
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="s">apiVersion: rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="s">kind: ClusterRoleBinding</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="s">metadata:</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="s">  name: team-alpha-admin</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="s">subjects:</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="s">- kind: Group</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="s">  name: team-alpha</span>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="s">  apiGroup: rbac.authorization.k8s.io</span>
+<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a><span class="s">roleRef:</span>
+<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="s">  apiGroup: rbac.authorization.k8s.io</span>
+<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="s">  kind: ClusterRole</span>
+<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a><span class="s">  name: cluster-admin</span>
+<a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a><span class="s">EOF</span>
+</code></pre></div>
+<h3 id="team-beta-access">Team Beta Access<a class="headerlink" href="#team-beta-access" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root:team-beta
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="s">apiVersion: rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="s">kind: ClusterRoleBinding</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="s">metadata:</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="s">  name: team-beta-admin</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="s">subjects:</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="s">- kind: Group</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="s">  name: team-beta</span>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="s">  apiGroup: rbac.authorization.k8s.io</span>
+<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="s">roleRef:</span>
+<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="s">  apiGroup: rbac.authorization.k8s.io</span>
+<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="s">  kind: ClusterRole</span>
+<a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="s">  name: cluster-admin</span>
+<a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>Return to root workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
+</code></pre></div>
+<h2 id="step-9-create-team-kubeconfigs">Step 9: Create Team Kubeconfigs<a class="headerlink" href="#step-9-create-team-kubeconfigs" title="Permanent link">&para;</a></h2>
+<p>Extract team certificates and create kubeconfigs for each team.</p>
+<h3 id="extract-team-certificates">Extract Team Certificates<a class="headerlink" href="#extract-team-certificates" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="k">for</span><span class="w"> </span>team<span class="w"> </span><span class="k">in</span><span class="w"> </span>alpha<span class="w"> </span>beta<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="si">${</span><span class="nv">KIND_KUBECONFIG</span><span class="si">}</span><span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>-cert<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">    </span>-o<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.tls\.crt}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.crt
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="w">  </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="si">${</span><span class="nv">KIND_KUBECONFIG</span><span class="si">}</span><span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>-cert<span class="w"> </span>-n<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">    </span>-o<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.tls\.key}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.key
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="k">done</span>
+</code></pre></div>
+<h3 id="create-team-kubeconfigs">Create Team Kubeconfigs<a class="headerlink" href="#create-team-kubeconfigs" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="k">for</span><span class="w"> </span>team<span class="w"> </span><span class="k">in</span><span class="w"> </span>alpha<span class="w"> </span>beta<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">  </span>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>config<span class="w"> </span>set-cluster<span class="w"> </span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="w">    </span>--server<span class="w"> </span>https://<span class="si">${</span><span class="nv">KCP_EXTERNAL_HOSTNAME</span><span class="si">}</span>:<span class="si">${</span><span class="nv">KCP_PORT</span><span class="si">}</span>/clusters/root:team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="w">    </span>--certificate-authority<span class="o">=</span>ca.crt
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="w">  </span>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>config<span class="w"> </span>set-credentials<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="w">    </span>--client-certificate<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.crt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="w">    </span>--client-key<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.key
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a><span class="w">  </span>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>config<span class="w"> </span>set-context<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a><span class="w">    </span>--cluster<span class="o">=</span>kcp<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="w">    </span>--user<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>
+<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a><span class="w">  </span>kubectl<span class="w"> </span>--kubeconfig<span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>
+<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a><span class="k">done</span>
+</code></pre></div>
+<h2 id="step-10-verify-team-access">Step 10: Verify Team Access<a class="headerlink" href="#step-10-verify-team-access" title="Permanent link">&para;</a></h2>
+<p>Test that each team can access their workspace and is isolated from others:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">for</span><span class="w"> </span>team<span class="w"> </span><span class="k">in</span><span class="w"> </span>alpha<span class="w"> </span>beta<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;--- team-</span><span class="si">${</span><span class="nv">team</span><span class="si">}</span><span class="s2"> ---&quot;</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">  </span><span class="nv">KUBECONFIG</span><span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>namespaces
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="k">done</span>
+</code></pre></div>
+<p>Create a namespace in each team workspace to confirm write access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="k">for</span><span class="w"> </span>team<span class="w"> </span><span class="k">in</span><span class="w"> </span>alpha<span class="w"> </span>beta<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">  </span><span class="nv">KUBECONFIG</span><span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span>demo-<span class="si">${</span><span class="nv">team</span><span class="si">}</span><span class="w"> </span>&gt;/dev/null<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">    </span><span class="nv">KUBECONFIG</span><span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>kubectl<span class="w"> </span>create<span class="w"> </span>namespace<span class="w"> </span>demo-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">  </span><span class="nv">KUBECONFIG</span><span class="o">=</span>team-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>.kubeconfig<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span>demo-<span class="si">${</span><span class="nv">team</span><span class="si">}</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="k">done</span>
+</code></pre></div>
+<p>Verify workspace isolation — each team should be denied access to other workspaces:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="c1"># Team Alpha should NOT be able to access Team Beta&#39;s workspace</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="nv">KUBECONFIG</span><span class="o">=</span>team-alpha.kubeconfig<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>namespaces<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">  </span>--server<span class="w"> </span>https://<span class="si">${</span><span class="nv">KCP_EXTERNAL_HOSTNAME</span><span class="si">}</span>:<span class="si">${</span><span class="nv">KCP_PORT</span><span class="si">}</span>/clusters/root:team-beta<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;ERROR: Team Alpha can access Team Beta (isolation broken)&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;OK: Team Alpha cannot access Team Beta (isolation works)&quot;</span>
+</code></pre></div>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>You now have a fully functional kcp deployment on kind with:</p>
+<ul>
+<li><strong>kcp</strong> deployed via Helm with TLS certificates managed by cert-manager</li>
+<li><strong>2 team workspaces</strong>: team-alpha, team-beta</li>
+<li><strong>2 client certificates</strong>: One for each team with group membership</li>
+<li><strong>RBAC configuration</strong>: Each team has cluster-admin access to their workspace</li>
 </ul>
-<p>The details of the authorizer chain are documented in <a href="authorizers/">Authorizers</a>.</p>
-<h2 id="pages">Pages<a class="headerlink" href="#pages" title="Permanent link">&para;</a></h2>
-<h3 id="authorizers"><a href="authorizers/">Authorizers</a><a class="headerlink" href="#authorizers" title="Permanent link">&para;</a></h3>
-<p>How to authorize requests to kcp.</p>
+<p>Each team can independently:</p>
+<ul>
+<li>Create and manage resources in their workspace</li>
+<li>Deploy applications</li>
+<li>Configure their own RBAC policies within their workspace</li>
+</ul>
+<h2 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">&para;</a></h2>
+<p>To remove everything:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># Delete the kind cluster</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>kind<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="w"> </span>kcp
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="c1"># Remove generated files</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>rm<span class="w"> </span>-f<span class="w"> </span>ca.crt<span class="w"> </span>admin-client.crt<span class="w"> </span>admin-client.key<span class="w"> </span>admin.kubeconfig
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>rm<span class="w"> </span>-f<span class="w"> </span>team-*.crt<span class="w"> </span>team-*.key<span class="w"> </span>team-*.kubeconfig
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="c1"># Remove hosts entry (optional)</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="c1"># macOS:</span>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>sudo<span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="s1">&#39;/kcp.local.test/d&#39;</span><span class="w"> </span>/etc/hosts
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="c1"># Linux:</span>
+<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a><span class="c1"># sudo sed -i &#39;/kcp.local.test/d&#39; /etc/hosts</span>
+</code></pre></div>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../concepts/authorization/">Authorization</a> - Learn more about kcp's authorization model</li>
+<li><a href="../../concepts/workspaces/">Workspaces</a> - Deep dive into workspace concepts</li>
+<li><a href="../../concepts/apis/">APIs</a> - Learn how to export and bind APIs across workspaces</li>
+<li><a href="../production/">Production Setup</a> - Guidelines for production deployments</li>
+</ul>
 
 
 
