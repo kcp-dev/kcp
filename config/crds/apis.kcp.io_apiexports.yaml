@@ -544,10 +544,6 @@ spec:
                             a projection of the referenced resource inside the workspaces that
                             bind to the APIExport.
                           properties:
-                            identityHash:
-                              description: IdentityHash is the identity of the virtual
-                                resource.
-                              type: string
                             reference:
                               description: |-
                                 Reference points to another object that has a URL to a virtual workspace
@@ -573,7 +569,6 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                           required:
-                          - identityHash
                           - reference
                           type: object
                       type: object
