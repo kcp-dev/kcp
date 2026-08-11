@@ -75,16 +75,7 @@ func (o *Options) BindFlags(cmd *cobra.Command) {
 		)
 	}
 
-	// We add only a subset of kubeconfig-related flags to the plugin.
-	// All those with LongName == "" will be ignored.
 	kubectlConfigOverrideFlags := clientcmd.RecommendedConfigOverrideFlags("")
-	kubectlConfigOverrideFlags.AuthOverrideFlags.ClientCertificate.LongName = ""
-	kubectlConfigOverrideFlags.AuthOverrideFlags.ClientKey.LongName = ""
-	kubectlConfigOverrideFlags.AuthOverrideFlags.Impersonate.LongName = ""
-	kubectlConfigOverrideFlags.AuthOverrideFlags.ImpersonateGroups.LongName = ""
-	kubectlConfigOverrideFlags.ContextOverrideFlags.ClusterName.LongName = ""
-	kubectlConfigOverrideFlags.Timeout.LongName = ""
-
 	clientcmd.BindOverrideFlags(o.KubectlOverrides, cmd.PersistentFlags(), kubectlConfigOverrideFlags)
 }
 
