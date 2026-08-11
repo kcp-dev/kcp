@@ -168,7 +168,6 @@ func TestClusterCachedResources(t *testing.T) {
 								Kind:     "ClusterCachedResourceEndpointSlice",
 								Name:     "sheriffs.wildwest.dev",
 							},
-							IdentityHash: clusterCachedResourceIdentities["sheriffs"],
 						},
 					},
 				},
