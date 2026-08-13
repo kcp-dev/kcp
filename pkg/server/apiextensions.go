@@ -45,6 +45,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
+	vrhelpers "github.com/kcp-dev/kcp/pkg/server/virtualresources/helpers"
 
 	_ "net/http/pprof"
 )
@@ -358,7 +359,7 @@ func tryDecorateCRDWithSchemaStorage(in *apiextensionsv1.CustomResourceDefinitio
 	out := shallowCopyCRDAndDeepCopyAnnotations(in)
 
 	if resourceStorage.Virtual != nil {
-		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", resourceStorage.Virtual.IdentityHash)
+		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", vrhelpers.Fingerprint(apiExport, resourceStorage.Virtual))
 	}
 
 	return out, nil

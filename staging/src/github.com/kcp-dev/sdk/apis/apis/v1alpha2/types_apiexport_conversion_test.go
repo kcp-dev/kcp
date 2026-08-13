@@ -109,7 +109,6 @@ func TestConvertV1Alpha2APIExports(t *testing.T) {
 								Kind:     "MyEndpointSlice",
 								Name:     "my-virtual-resource",
 							},
-							IdentityHash: "123abc",
 						},
 					},
 				}},

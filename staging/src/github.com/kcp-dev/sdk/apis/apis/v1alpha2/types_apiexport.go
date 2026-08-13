@@ -200,9 +200,6 @@ type ResourceSchemaStorageVirtual struct {
 	// in a "url" field in its status. The object can be of any kind.
 	Reference corev1.TypedLocalObjectReference `json:"reference"`
 
-	// IdentityHash is the identity of the virtual resource.
-	IdentityHash string `json:"identityHash"`
-
 	// Resource selector TBD.
 	// We are not sure if it belongs here.
 }

@@ -170,7 +170,6 @@ func TestClusterCachedResourceVirtualWorkspace(t *testing.T) {
 								Kind:     "ClusterCachedResourceEndpointSlice",
 								Name:     gvr.GroupResource().String(),
 							},
-							IdentityHash: clusterCachedResource.Status.IdentityHash,
 						},
 					},
 				},
