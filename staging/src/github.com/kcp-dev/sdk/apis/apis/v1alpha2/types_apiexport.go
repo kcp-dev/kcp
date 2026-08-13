@@ -21,8 +21,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/sdk/apis/apis"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -204,11 +202,6 @@ type ResourceSchemaStorageVirtual struct {
 
 	// Resource selector TBD.
 	// We are not sure if it belongs here.
-}
-
-func (virtual *ResourceSchemaStorageVirtual) Fingerprint(o *APIExport) string {
-	gk := schema.GroupKind{Group: ptr.Deref(virtual.Reference.APIGroup, ""), Kind: virtual.Reference.Kind}
-	return fmt.Sprintf("%s|%s/%s", o.Status.IdentityHash, virtual.Reference.Name, gk)
 }
 
 // Identity defines the identity of an APIExport, i.e. determines the etcd prefix

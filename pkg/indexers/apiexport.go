@@ -27,6 +27,8 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	sdkclient "github.com/kcp-dev/sdk/client"
+
+	vrhelpers "github.com/kcp-dev/kcp/pkg/server/virtualresources/helpers"
 )
 
 const (
@@ -135,7 +137,7 @@ func IndexAPIExportByVirtualResourceFingerprint(obj interface{}) ([]string, erro
 	keys := sets.New[string]()
 	for _, res := range apiExport.Spec.Resources {
 		if res.Storage.Virtual != nil {
-			keys.Insert(res.Storage.Virtual.Fingerprint(apiExport))
+			keys.Insert(vrhelpers.Fingerprint(apiExport, res.Storage.Virtual))
 		}
 	}
 
