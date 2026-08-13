@@ -23,10 +23,14 @@ Workspaces are represented to the user via the `Workspace` kind, e.g.
 kind: Workspace
 apiVersion: tenancy.kcp.io/v1alpha1
 spec:
-  type: Universal
-status:
-  url: https://kcp.example.com/clusters/myapp
+  type:
+    name: universal
+    path: root
+  URL: https://kcp.example.com/clusters/myapp
 ```
+
+The `type` is a reference to a `WorkspaceType`, by lower-cased `name`, and
+optionally the `path` of the workspace that owns it.
 
 There are different [types of workspaces](./workspace-types.md), and workspaces are arranged
 in a tree.  Each type of workspace may restrict the types of its
