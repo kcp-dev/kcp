@@ -4147,39 +4147,45 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --add_dir_header                      If true, adds the file directory to the header of the log messages
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --alsologtostderr                     log to standard error as well as files (no effect when -logtostderr=true)
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --alsologtostderrthreshold severity   logs at or above this threshold go to stderr when -alsologtostderr=true (no effect when -logtostderr=true)
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --as-uid string                       UID to impersonate for the operation
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      --certificate-authority string        Path to a cert file for the certificate authority
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      --context string                      The name of the kubeconfig context to use
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --create-context string               Create a kubeconfig context for the new workspace with the given name.
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --disable-compression                 If true, opt-out of response compression for all requests to the server
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      --enter                               Immediately enter the created workspace
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  -h, --help                                help for workspace
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      --ignore-existing                     Ignore if the workspace already exists. Requires none or absolute type path. Overwrites the context if --create-context is set.
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      --insecure-skip-tls-verify            If true, the server&#39;s certificate will not be checked for validity. This will make your HTTPS connections insecure
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      --kubeconfig string                   Path to the kubeconfig file
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      --legacy_stderr_threshold_behavior    If true, stderrthreshold is ignored when logtostderr=true (legacy behavior). If false, stderrthreshold is honored even when logtostderr=true
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>      --location-selector string            A label selector to select the scheduling location of the created workspace.
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>      --log_backtrace_at traceLocation      when logging hits line file:N, emit a stack trace (default :0)
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>      --log_dir string                      If non-empty, write log files in this directory (no effect when -logtostderr=true)
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>      --log_file string                     If non-empty, use this log file (no effect when -logtostderr=true)
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>      --log_file_max_size uint              Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>      --logtostderr                         log to standard error instead of files (default true)
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>  -n, --namespace string                    If present, the namespace scope for this CLI request
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>      --one_output                          If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>      --password string                     Password for basic authentication to the API server
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>      --proxy-url string                    If provided, this URL will be used to connect via proxy
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>      --server string                       The address and port of the Kubernetes API server
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>      --skip_headers                        If true, avoid header prefixes in the log messages
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>      --skip_log_headers                    If true, avoid headers when opening log files (no effect when -logtostderr=true)
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>      --stderrthreshold severity            logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true unless -legacy_stderr_threshold_behavior=false)
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>      --tls-server-name string              If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
-<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>      --token string                        Bearer token for authentication to the API server
-<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>      --type string                         A workspace type. The default type depends on where this child workspace is created.
-<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>      --user string                         The name of the kubeconfig user to use
-<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>      --username string                     Username for basic authentication to the API server
-<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>  -v, --v Level                             number for the log level verbosity
-<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>      --vmodule moduleSpec                  comma-separated list of pattern=N settings for file-filtered logging
-<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>  -w, --workspace string                    Workspace path to target. If not specified, the current workspace from the kubeconfig will be used. Use a leading &#39;:&#39; for absolute paths (e.g. &#39;:root:my-ws&#39;), or omit it for relative paths (e.g. &#39;my-ws&#39;). &#39;.&#39; stays in the current workspace, &#39;..&#39; navigates to the parent workspace.
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --as string                           Username to impersonate for the operation
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      --as-group stringArray                Group to impersonate for the operation, this flag can be repeated to specify multiple groups.
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      --as-uid string                       UID to impersonate for the operation
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --certificate-authority string        Path to a cert file for the certificate authority
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --client-certificate string           Path to a client certificate file for TLS
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      --client-key string                   Path to a client key file for TLS
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>      --cluster string                      The name of the kubeconfig cluster to use
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>      --context string                      The name of the kubeconfig context to use
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>      --create-context string               Create a kubeconfig context for the new workspace with the given name.
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>      --disable-compression                 If true, opt-out of response compression for all requests to the server
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      --enter                               Immediately enter the created workspace
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>  -h, --help                                help for workspace
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>      --ignore-existing                     Ignore if the workspace already exists. Requires none or absolute type path. Overwrites the context if --create-context is set.
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>      --insecure-skip-tls-verify            If true, the server&#39;s certificate will not be checked for validity. This will make your HTTPS connections insecure
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>      --kubeconfig string                   Path to the kubeconfig file
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>      --legacy_stderr_threshold_behavior    If true, stderrthreshold is ignored when logtostderr=true (legacy behavior). If false, stderrthreshold is honored even when logtostderr=true
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>      --location-selector string            A label selector to select the scheduling location of the created workspace.
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>      --log_backtrace_at traceLocation      when logging hits line file:N, emit a stack trace (default :0)
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>      --log_dir string                      If non-empty, write log files in this directory (no effect when -logtostderr=true)
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>      --log_file string                     If non-empty, use this log file (no effect when -logtostderr=true)
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>      --log_file_max_size uint              Defines the maximum size a log file can grow to (no effect when -logtostderr=true). Unit is megabytes. If the value is 0, the maximum file size is unlimited. (default 1800)
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>      --logtostderr                         log to standard error instead of files (default true)
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>  -n, --namespace string                    If present, the namespace scope for this CLI request
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>      --one_output                          If true, only write logs to their native severity level (vs also writing to each lower severity level; no effect when -logtostderr=true)
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>      --password string                     Password for basic authentication to the API server
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>      --proxy-url string                    If provided, this URL will be used to connect via proxy
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>      --request-timeout string              The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don&#39;t timeout requests. (default &quot;0&quot;)
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>      --server string                       The address and port of the Kubernetes API server
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>      --skip_headers                        If true, avoid header prefixes in the log messages
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>      --skip_log_headers                    If true, avoid headers when opening log files (no effect when -logtostderr=true)
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>      --stderrthreshold severity            logs at or above this threshold go to stderr when writing to files and stderr (no effect when -logtostderr=true or -alsologtostderr=true unless -legacy_stderr_threshold_behavior=false)
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>      --tls-server-name string              If provided, this name will be used to validate server certificate. If this is not provided, hostname used to contact the server is used.
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>      --token string                        Bearer token for authentication to the API server
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>      --type string                         A workspace type. The default type depends on where this child workspace is created.
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>      --user string                         The name of the kubeconfig user to use
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>      --username string                     Username for basic authentication to the API server
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>  -v, --v Level                             number for the log level verbosity
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>      --vmodule moduleSpec                  comma-separated list of pattern=N settings for file-filtered logging
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>  -w, --workspace string                    Workspace path to target. If not specified, the current workspace from the kubeconfig will be used. Use a leading &#39;:&#39; for absolute paths (e.g. &#39;:root:my-ws&#39;), or omit it for relative paths (e.g. &#39;my-ws&#39;). &#39;.&#39; stays in the current workspace, &#39;..&#39; navigates to the parent workspace.
 </code></pre></div>
 
 

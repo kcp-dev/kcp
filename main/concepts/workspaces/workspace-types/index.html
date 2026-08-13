@@ -1133,39 +1133,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="User Home Workspaces">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#bucket-configuration-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Bucket Configuration Options
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#valid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Valid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#invalid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Invalid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -4197,39 +4164,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="User Home Workspaces">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#bucket-configuration-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      Bucket Configuration Options
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#valid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Valid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#invalid-configurations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Invalid Configurations
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
         <li class="md-nav__item">
@@ -4322,17 +4256,9 @@ define additional types.</p>
 <li><strong>Root Workspace</strong> is a singleton. It holds some data that applies
   to all workspaces, such as the set of defined workspace types
   (objects of type <code>WorkspaceType</code>).</li>
-<li><strong>HomeRoot Workspace</strong> is normally a singleton, holding the branch
-  of workspaces that contains the user home workspaces as descendants.
-  Can only be a child of the root workspace, and can only have
-  HomeBucket children.</li>
-<li><strong>HomeBucket Workspace</strong> are intermediate vertices in the hierarchy
-  between the HomeRoot and the user home workspaces. Can be a child
-  of the root or another HomeBucket workspace. Allowed children are
-  home and HomeBucket workspaces.</li>
-<li><strong>Home Workspace</strong> is a user's home workspace. These hold user
-  resources such as applications with services, secrets, configmaps,
-  deployments, etc. Can only be a child of a HomeBucket workspace.</li>
+<li><strong>Home Workspace</strong> is a user's private workspace, created on first
+  access. It holds user resources such as secrets, configmaps, etc.
+  See <a href="#user-home-workspaces">User Home Workspaces</a> below.</li>
 <li><strong>Universal Workspace</strong> is a basic type of workspace with no
   particular nature. Has no restrictions on parent or child workspace
   types.</li>
@@ -4352,120 +4278,28 @@ applied).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In order to create workspaces of a given type (including <code>Universal</code>)
-you must have <code>use</code> permissions against the <code>workspacetypes</code> resources with the
-lower-case name of the cluster workspace type (e.g. <code>universal</code>). All <code>system:authenticated</code>
+you must have <code>use</code> permissions against the <code>workspacetypes</code> resource with the
+lower-case name of the workspace type (e.g. <code>universal</code>). All <code>system:authenticated</code>
 users inherit this permission automatically for type <code>Universal</code>.</p>
 </div>
 <p>The different workspace types are discussed below.</p>
 <h2 id="user-home-workspaces">User Home Workspaces<a class="headerlink" href="#user-home-workspaces" title="Permanent link">&para;</a></h2>
-<p>User home workspaces are an optional feature of kcp. If enabled (through <code>--enable-home-workspaces</code>), there is a special
-virtual <code>Workspace</code> called <code>~</code> in the root workspace. It is used by <code>kubectl ws</code> to derive the full path to the user
-home workspace, similar to how Unix <code>cd ~</code> move the users to their home.</p>
-<p>The full path for a user's home workspace has a number of parts: <code>&lt;prefix&gt;(:&lt;bucket&gt;)+:&lt;user-name&gt;</code>. Buckets are used to
-ensure that at most ~1000 sub-buckets or users exist in any bucket, for scaling reasons. The bucket names are deterministically
-derived from the user name (via some hash). Example for user <code>adam</code> when using default configuration:
-<code>root:users:a8:f1:adam</code>.</p>
-<p>User home workspaces are created on-demand when they are first accessed, but this is not visible to the user, allowing
-the system to only incur the cost of these workspaces when they are needed. Only users of the configured
-home-creator-groups (default <code>system:authenticated</code>) will have a home workspace.</p>
-<h3 id="bucket-configuration-options">Bucket Configuration Options<a class="headerlink" href="#bucket-configuration-options" title="Permanent link">&para;</a></h3>
-<p>The <code>kcp</code> administrator can configure:</p>
-<ul>
-<li><code>&lt;prefix&gt;</code>, which defaults to <code>root:users</code></li>
-<li>bucket depth, which defaults to 2</li>
-<li>bucket name length, in characters, which defaults to 2</li>
-</ul>
-<p>The following outlines valid configuration options. With the default setup, ~5 users or ~700 sub-buckets will be in
-any bucket.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>DO NOT set the bucket size to be longer than 2, as this will adversely impact performance.</p>
+<p>User home workspaces are an optional feature of kcp, enabled with <code>--enable-home-workspaces</code>.
+Each user gets a private workspace where they are cluster-admin.</p>
+<p>There is a special virtual workspace called <code>~</code> in the root workspace. Accessing it
+(e.g. <code>kubectl ws ~</code>) resolves to the current user's home workspace. The home workspace
+is created on first access, so users only cost resources once they actually use it. Only
+users in the configured creator groups (<code>--home-workspaces-home-creator-groups</code>, default
+<code>system:authenticated</code>) get one.</p>
+<p>Home workspaces are not part of a <code>root:users:...</code> path hierarchy. Each one is a
+standalone logical cluster whose name is derived from the user name, reachable via the
+path <code>user:&lt;user-name&gt;</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Older kcp versions arranged home workspaces under a bucketed path such as
+<code>root:users:a8:f1:adam</code>. Those "bucket-style" home workspaces are still resolved if
+they exist, but new ones are no longer created that way.</p>
 </div>
-<p>User-names have <code>(26 * [(26 + 10 + 2) * 61] * 36 = 2169648)</code> permutations, and buckets are made up of lowercase-alpha
-chars. Invalid configurations break the scale limit in sub-buckets or users. Valid configurations should target
-having not more than ~1000 sub-buckets per bucket and at least 5 users per bucket.</p>
-<h3 id="valid-configurations">Valid Configurations<a class="headerlink" href="#valid-configurations" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>length</th>
-<th>depth</th>
-<th>sub-buckets</th>
-<th>users</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>3</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26)^3 = 124</td>
-</tr>
-<tr>
-<td>1</td>
-<td>4</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26)^4 = 5</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>26 * 26 = 676</td>
-<td>2169648 / (26*26)^2 = 5</td>
-</tr>
-</tbody>
-</table>
-<h3 id="invalid-configurations">Invalid Configurations<a class="headerlink" href="#invalid-configurations" title="Permanent link">&para;</a></h3>
-<p>These are examples of invalid configurations and are for illustrative purposes only. In nearly all cases, the default values
-will be sufficient.</p>
-<table>
-<thead>
-<tr>
-<th>length</th>
-<th>depth</th>
-<th>sub-buckets</th>
-<th>users</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>1</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26) = 83448</td>
-</tr>
-<tr>
-<td>1</td>
-<td>2</td>
-<td>26 * 1 = 26</td>
-<td>2169648 / (26)^2 = 3209</td>
-</tr>
-<tr>
-<td>2</td>
-<td>1</td>
-<td>26 * 26 = 676</td>
-<td>2169648 / (26*26) = 3209</td>
-</tr>
-<tr>
-<td>2</td>
-<td>3</td>
-<td>26 * 26 = 676</td>
-<td>2169648 / (26*26)^3 = .007</td>
-</tr>
-<tr>
-<td>3</td>
-<td>1</td>
-<td>26 <em>26</em> 26 = 17576</td>
-<td>2169648 / (26<em>26</em>26) = 124</td>
-</tr>
-<tr>
-<td>3</td>
-<td>2</td>
-<td>26 <em>26</em> 26 = 17576</td>
-<td>2169648 / (26<em>26</em>26)^2 = .007</td>
-</tr>
-</tbody>
-</table>
 <h2 id="organization-workspaces">Organization Workspaces<a class="headerlink" href="#organization-workspaces" title="Permanent link">&para;</a></h2>
 <p>Organization workspaces are workspaces of type <code>Organization</code>, defined in the
 root workspace. Organization workspaces are accessible at <code>/clusters/root:&lt;org-name&gt;</code>.</p>
@@ -4527,6 +4361,13 @@ field.</p>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">standard</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">root:base</span>
 </code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A type reference with a <code>path</code> points at a type in another workspace. To use it, you
+need <code>use</code> permission on that <code>workspacetypes</code> resource in the target workspace,
+not just in your own. The same applies when a <code>Workspace</code>'s <code>spec.type</code> references a
+type by path.</p>
+</div>
 <h3 id="lifecycle-permissions">Lifecycle Permissions<a class="headerlink" href="#lifecycle-permissions" title="Permanent link">&para;</a></h3>
 <p>A <code>WorkspaceType</code> can declare the RBAC rules its initializer and terminator controllers are
 allowed to use against the content of workspaces of this type:</p>
