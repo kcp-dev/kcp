@@ -19,6 +19,7 @@ package dynamicrestmapper
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -200,7 +201,10 @@ func diffResourceBindingsAnn(oldAnn, newAnn apibinding.ResourceBindingsAnnotatio
 
 func (c *DynamicTypesController) enqueueCRDUpdate(crd *apiextensionsv1.CustomResourceDefinition) {
 	if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
-		// The CRD is not ready yet. Nothing to do, we'll get notified on the next update event.
+		// The CRD is not ready yet. Nothing to do, we'll get notified on the
+		// next Update event once the CRD's status changes (e.g. reaches
+		// Established), since that's itself an Update the informer delivers.
+		klog.Background().V(4).Info("CRD not yet Established, skipping enqueue for now", "crd", crd.Name)
 		return
 	}
 
@@ -397,8 +401,16 @@ func (c *DynamicTypesController) processNextWorkItem(ctx context.Context) bool {
 		return true
 	}
 
-	if err := c.process(ctx, key, it); err != nil {
+	requeue, err := c.process(ctx, key, it)
+	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", DynamicTypesControllerName, key, err))
+		c.queue.AddRateLimited(key)
+		return true
+	}
+	if requeue {
+		// Some bound CRDs are not yet Established; retry with backoff
+		// instead of Forget, so repeated not-yet-established results keep
+		// escalating the per-item rate limiter delay rather than resetting it.
 		c.queue.AddRateLimited(key)
 		return true
 	}
@@ -406,11 +418,26 @@ func (c *DynamicTypesController) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *DynamicTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefinition) []typeMeta {
+// errCRDNotEstablished is returned via gatherGVKRsForBoundResource when a
+// CRD bound resource hasn't reached Established yet, so its Status.AcceptedNames
+// isn't populated. process() treats this as a per-resource skip-and-retry
+// (rather than failing the whole queue item), so one CRD that never
+// establishes (e.g. a permanent name conflict) can't block every other
+// resource in the same ToAdd batch.
+var errCRDNotEstablished = errors.New("CRD not yet Established")
+
+func (c *DynamicTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomResourceDefinition) (gvkrs []typeMeta, notEstablished bool) {
 	if crd == nil {
-		return nil
+		return nil, false
 	}
-	gvkrs := make([]typeMeta, 0, len(crd.Spec.Versions))
+	if !apiextensionshelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
+		// The CRD's Status.AcceptedNames may not be populated yet. Bail out
+		// instead of storing garbage mappings; the caller will re-queue with
+		// backoff so this is retried once the CRD becomes established.
+		klog.Background().V(4).Info("CRD not yet Established, skipping its mapping for now", "crd", crd.Name)
+		return nil, true
+	}
+	gvkrs = make([]typeMeta, 0, len(crd.Spec.Versions))
 	for _, version := range crd.Spec.Versions {
 		if !version.Served {
 			continue
@@ -425,7 +452,7 @@ func (c *DynamicTypesController) gatherGVKRsForCRD(crd *apiextensionsv1.CustomRe
 			resourceScopeToRESTScope(crd.Spec.Scope),
 		))
 	}
-	return gvkrs
+	return gvkrs, false
 }
 
 func (c *DynamicTypesController) gatherGVKRsForAPIBinding(apiBinding *apisv1alpha2.APIBinding) ([]typeMeta, error) {
@@ -473,7 +500,11 @@ func (c *DynamicTypesController) gatherGVKRsForBoundResource(clusterName logical
 			return nil, fmt.Errorf("failed to retrieve CRD %s: %v", resourceGroup, err)
 		}
 
-		return c.gatherGVKRsForCRD(crd), nil
+		gvkrs, notEstablished := c.gatherGVKRsForCRD(crd)
+		if notEstablished {
+			return nil, errCRDNotEstablished
+		}
+		return gvkrs, nil
 	}
 
 	apiBinding, err := c.getAPIBinding(clusterName, boundResourceLock.Name)
@@ -495,48 +526,60 @@ func (c *DynamicTypesController) gatherGVKRsForMappedBoundResource(clusterName l
 	return gvkrs, nil
 }
 
-func (c *DynamicTypesController) process(ctx context.Context, key string, item queueItem) error {
+// process applies the mapping changes described by item. The returned
+// requeue flag tells the caller to reschedule key with backoff (rather than
+// Forget it) because some bound CRDs are not yet Established; it is
+// distinct from err, which signals an actual failure.
+func (c *DynamicTypesController) process(ctx context.Context, key string, item queueItem) (requeue bool, err error) {
 	logger := logging.WithQueueKey(klog.FromContext(ctx), key)
 
 	if item.Op == opDelete {
 		logger.V(4).Info("LogicalCluster was removed, removing all its mappings")
 		c.state.deleteMappingsForCluster(item.ClusterName)
-		return nil
+		return false, nil
 	}
 
 	if _, err := c.getLogicalCluster(item.ClusterName, item.ClusterResourceName); err != nil {
 		if apierrors.IsNotFound(err) {
 			c.state.deleteMappingsForCluster(item.ClusterName)
 			logger.V(4).Info("LogicalCluster already deleted, skipping")
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
 
 	// Retrieve type meta for all detected changes in bound resources.
 
 	type gathererFunc func(clusterName logicalcluster.Name, resourceGroup string, boundResourceLock apibinding.Lock) ([]typeMeta, error)
 
-	gatherGVKRs := func(boundResources apibinding.ResourceBindingsAnnotation, gatherer gathererFunc) ([]typeMeta, error) {
-		gatheredGVKRs := make([]typeMeta, 0, len(boundResources))
+	// gatherGVKRs gathers mappings for every bound resource. A resource that
+	// signals errCRDNotEstablished is skipped (not fatal) and reported via
+	// the requeue return value, so a single not-yet-established CRD doesn't
+	// prevent the other resources in this batch from being applied.
+	gatherGVKRs := func(boundResources apibinding.ResourceBindingsAnnotation, gatherer gathererFunc) (gathered []typeMeta, requeue bool, err error) {
+		gathered = make([]typeMeta, 0, len(boundResources))
 		for resourceGroup, boundResourceLock := range boundResources {
 			gvkrs, err := gatherer(item.ClusterName, resourceGroup, boundResourceLock.Lock)
 			if err != nil {
-				return nil, err
+				if errors.Is(err, errCRDNotEstablished) {
+					requeue = true
+					continue
+				}
+				return nil, false, err
 			}
-			gatheredGVKRs = append(gatheredGVKRs, gvkrs...)
+			gathered = append(gathered, gvkrs...)
 		}
-		return gatheredGVKRs, nil
+		return gathered, requeue, nil
 	}
 
-	typeMetaToRemove, err := gatherGVKRs(item.ToRemove, c.gatherGVKRsForMappedBoundResource)
+	typeMetaToRemove, _, err := gatherGVKRs(item.ToRemove, c.gatherGVKRsForMappedBoundResource)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	typeMetaToAdd, err := gatherGVKRs(item.ToAdd, c.gatherGVKRsForBoundResource)
+	typeMetaToAdd, requeue, err := gatherGVKRs(item.ToAdd, c.gatherGVKRsForBoundResource)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Finally, store the new mappings in the RESTMapper for this LogicalCluster.
@@ -545,5 +588,9 @@ func (c *DynamicTypesController) process(ctx context.Context, key string, item q
 
 	c.state.ForCluster(item.ClusterName).apply(typeMetaToRemove, typeMetaToAdd)
 
-	return nil
+	if requeue {
+		logger.V(4).Info("some bound CRDs are not yet Established, will retry with backoff")
+	}
+
+	return requeue, nil
 }
