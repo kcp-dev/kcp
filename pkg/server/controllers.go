@@ -30,6 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -83,6 +84,7 @@ import (
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/apiexportreference"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresourceendpointslice"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresourceendpointsliceurls"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
@@ -1794,6 +1796,50 @@ func (s *Server) installReplicationController(ctx context.Context, config *rest.
 					}
 				}
 				return true, nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			controller.Start(ctx, 2)
+		},
+	})
+}
+
+// installAPIExportReferenceController keeps a ClusterCachedResource for every
+// object an APIExport points at, so that the shard can resolve the reference
+// through the cache server.
+//
+// Only relevant with CacheAPIs: virtual storage, which is what a reference
+// describes, is not served without it.
+func (s *Server) installAPIExportReferenceController(ctx context.Context, config *rest.Config) error {
+	if !kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.CacheAPIs) {
+		return nil
+	}
+
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, apiexportreference.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	controller, err := apiexportreference.NewController(
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources(),
+		func(cluster logicalcluster.Name, gk schema.GroupKind) (*meta.RESTMapping, error) {
+			return s.DynamicRESTMapper.ForCluster(cluster).RESTMapping(gk)
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: apiexportreference.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

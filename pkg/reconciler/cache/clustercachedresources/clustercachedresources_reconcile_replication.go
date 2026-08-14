@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -63,10 +62,7 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 	}
 	cluster := logicalcluster.From(clusterCachedResource)
 
-	var resourceLabelSelector labels.Selector
-	if clusterCachedResource.Spec.LabelSelector != nil {
-		resourceLabelSelector = labels.SelectorFromSet(clusterCachedResource.Spec.LabelSelector.MatchLabels)
-	}
+	selection := replicationcontroller.SelectionFor(clusterCachedResource)
 
 	clusterName := logicalcluster.From(clusterCachedResource)
 	controllerName := fmt.Sprintf("%s.%s.%s.%s.%s", clusterName, gvr.Version, gvr.Resource, gvr.Group, clusterCachedResource.Name)
@@ -124,7 +120,7 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 			gvr,
 			replicated,
 			requeueSelf,
-			resourceLabelSelector,
+			selection,
 		)
 		if err != nil {
 			cancel()
@@ -155,7 +151,7 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 
 		return reconcileStatusStopAndRequeue, nil // Once controller is started, we requeue to check if we need to delete it.
 	}
-	controller.SetLabelSelector(resourceLabelSelector)
+	controller.SetSelection(selection)
 
 	// Check if we need to wait for cleaning. This can be few cases:
 	// 1. We are in deleting phase, but nothing to delete - we are good.

@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v250920-de0c8484d.clustercachedresources.cache.kcp.io
+  name: v260814-239feb181.clustercachedresources.cache.kcp.io
 spec:
   group: cache.kcp.io
   names:
@@ -126,6 +126,21 @@ spec:
                   type: object
               type: object
               x-kubernetes-map-type: atomic
+            names:
+              description: |-
+                names narrows publishing to resources called exactly these.
+
+                Leaving it empty publishes every resource the label selector allows,
+                which is the usual case: a ClusterCachedResource normally stands for a
+                whole kind. Naming resources is for the case where something points at
+                one object in particular and only that object is worth caching.
+
+                Names and labelSelector both apply -- a resource has to satisfy each of
+                the ones that is set.
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: set
             resource:
               description: |-
                 resource is the name of the resource.

@@ -19,7 +19,6 @@ package indexers
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
@@ -124,14 +123,11 @@ func IndexAPIExportEndpointSliceByAPIExport(obj interface{}) ([]string, error) {
 }
 
 // IndexAPIExportByVirtualResourceFingerprint indexes an APIExport by the fingerprint of each
-// virtual storage resource (identity hash + endpoint slice reference).
+// virtual storage resource (owning APIExport + endpoint slice reference).
 func IndexAPIExportByVirtualResourceFingerprint(obj interface{}) ([]string, error) {
 	apiExport, ok := obj.(*apisv1alpha2.APIExport)
 	if !ok {
 		return []string{}, fmt.Errorf("obj %T is not an APIExport", obj)
-	}
-	if apiExport.Status.IdentityHash == "" {
-		return []string{}, nil
 	}
 
 	keys := sets.New[string]()
@@ -141,9 +137,5 @@ func IndexAPIExportByVirtualResourceFingerprint(obj interface{}) ([]string, erro
 		}
 	}
 
-	return sets.List[string](keys), nil
-}
-
-func VirtualResourceIdentityAndGRKey(identityHash string, gr schema.GroupResource) string {
-	return fmt.Sprintf("%s:%s", gr.String(), identityHash)
+	return sets.List(keys), nil
 }

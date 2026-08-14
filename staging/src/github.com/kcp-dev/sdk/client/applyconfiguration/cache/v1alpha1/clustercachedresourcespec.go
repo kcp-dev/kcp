@@ -41,6 +41,16 @@ type ClusterCachedResourceSpecApplyConfiguration struct {
 	Identity *IdentityApplyConfiguration `json:"identity,omitempty"`
 	// LabelSelector is used to filter which resources should be published
 	LabelSelector *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
+	// names narrows publishing to resources called exactly these.
+	//
+	// Leaving it empty publishes every resource the label selector allows,
+	// which is the usual case: a ClusterCachedResource normally stands for a
+	// whole kind. Naming resources is for the case where something points at
+	// one object in particular and only that object is worth caching.
+	//
+	// Names and labelSelector both apply -- a resource has to satisfy each of
+	// the ones that is set.
+	Names []string `json:"names,omitempty"`
 }
 
 // ClusterCachedResourceSpecApplyConfiguration constructs a declarative configuration of the ClusterCachedResourceSpec type for use with
@@ -86,5 +96,15 @@ func (b *ClusterCachedResourceSpecApplyConfiguration) WithIdentity(value *Identi
 // If called multiple times, the LabelSelector field is set to the value of the last call.
 func (b *ClusterCachedResourceSpecApplyConfiguration) WithLabelSelector(value *v1.LabelSelectorApplyConfiguration) *ClusterCachedResourceSpecApplyConfiguration {
 	b.LabelSelector = value
+	return b
+}
+
+// WithNames adds the given value to the Names field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Names field.
+func (b *ClusterCachedResourceSpecApplyConfiguration) WithNames(values ...string) *ClusterCachedResourceSpecApplyConfiguration {
+	for i := range values {
+		b.Names = append(b.Names, values[i])
+	}
 	return b
 }

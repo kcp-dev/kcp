@@ -17,10 +17,8 @@ limitations under the License.
 package aggregatingcrdversiondiscovery
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -71,14 +69,13 @@ func (f *storageAwareResourceVerbsProviderFactory) newResourceVerbsProvider(ctx 
 		if len(apiExports) == 0 {
 			return nil, fmt.Errorf("no matching APIExport for virtual resource fingerprint %q", fingerprint)
 		}
-		// Pick a deterministic export. Multiple exports in different logical clusters
-		// may share the same fingerprint; sort for stable selection.
-		slices.SortFunc(apiExports, func(a, b *apisv1alpha2.APIExport) int {
-			return cmp.Or(
-				cmp.Compare(logicalcluster.From(a), logicalcluster.From(b)),
-				cmp.Compare(a.Name, b.Name),
-			)
-		})
+		// A fingerprint carries the owning APIExport's logical cluster and name, so it
+		// identifies exactly one APIExport. More than one match means the index is
+		// keyed by something weaker than we think, and picking either one would serve
+		// another workspace's virtual workspace URL under this one's discovery.
+		if len(apiExports) > 1 {
+			return nil, fmt.Errorf("virtual resource fingerprint %q matches %d APIExports, expected exactly one", fingerprint, len(apiExports))
+		}
 
 		return newVirtualStorageVerbsProvider(ctx, schema.GroupVersionResource{
 			Group:    crd.Spec.Group,

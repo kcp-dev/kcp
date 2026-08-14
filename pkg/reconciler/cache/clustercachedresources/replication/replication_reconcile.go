@@ -24,7 +24,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
@@ -59,8 +58,8 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 	key := keyParts[1]
 
 	r := &replicationReconciler{
-		shardName:          c.shardName,
-		localLabelSelector: c.localLabelSelector,
+		shardName: c.shardName,
+		selection: c.selection,
 		getLocalPartialObjectMetadata: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			gvr := gvrFromKey
 			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
@@ -159,9 +158,9 @@ func (c *Controller) reconcile(ctx context.Context, gvrKey string) error {
 }
 
 type replicationReconciler struct {
-	shardName          string
-	deleted            bool
-	localLabelSelector labels.Selector
+	shardName string
+	deleted   bool
+	selection Selection
 
 	getLocalPartialObjectMetadata func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
 	getLocalCopy                  func(ctx context.Context, cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
@@ -199,9 +198,9 @@ func (r *replicationReconciler) reconcile(ctx context.Context, key string) error
 	}
 	localExists := !apierrors.IsNotFound(err)
 
-	if localExists && r.localLabelSelector != nil && !r.localLabelSelector.Matches(labels.Set(localPartialObjMeta.GetLabels())) {
-		// Exit early: the label selector doesn't match.
-		logger.V(2).WithValues("cluster", clusterName, "namespace", ns, "name", name).Info("Object does not match label selector, skipping")
+	if localExists && !r.selection.Matches(localPartialObjMeta) {
+		// Exit early: this is not one of the objects being published.
+		logger.V(2).WithValues("cluster", clusterName, "namespace", ns, "name", name).Info("Object is not selected, skipping")
 		return nil
 	}
 

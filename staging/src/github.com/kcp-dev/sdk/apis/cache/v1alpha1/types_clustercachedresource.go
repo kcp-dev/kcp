@@ -65,6 +65,20 @@ type ClusterCachedResourceSpec struct {
 	// LabelSelector is used to filter which resources should be published
 	// +optional
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// names narrows publishing to resources called exactly these.
+	//
+	// Leaving it empty publishes every resource the label selector allows,
+	// which is the usual case: a ClusterCachedResource normally stands for a
+	// whole kind. Naming resources is for the case where something points at
+	// one object in particular and only that object is worth caching.
+	//
+	// Names and labelSelector both apply -- a resource has to satisfy each of
+	// the ones that is set.
+	//
+	// +optional
+	// +listType=set
+	Names []string `json:"names,omitempty"`
 }
 
 // Identity defines the identity of a ClusterCachedResource, i.e. determines the cached resource access
