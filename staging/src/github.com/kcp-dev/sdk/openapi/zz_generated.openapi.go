@@ -3359,6 +3359,26 @@ func schema_sdk_apis_cache_v1alpha1_ClusterCachedResourceSpec(ref common.Referen
 							Ref:         ref(v1.LabelSelector{}.OpenAPIModelName()),
 						},
 					},
+					"names": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "names narrows publishing to resources called exactly these.\n\nLeaving it empty publishes every resource the label selector allows, which is the usual case: a ClusterCachedResource normally stands for a whole kind. Naming resources is for the case where something points at one object in particular and only that object is worth caching.\n\nNames and labelSelector both apply -- a resource has to satisfy each of the ones that is set.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"resource"},
 			},

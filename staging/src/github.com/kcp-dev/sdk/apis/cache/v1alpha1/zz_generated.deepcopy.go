@@ -230,6 +230,11 @@ func (in *ClusterCachedResourceSpec) DeepCopyInto(out *ClusterCachedResourceSpec
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Names != nil {
+		in, out := &in.Names, &out.Names
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

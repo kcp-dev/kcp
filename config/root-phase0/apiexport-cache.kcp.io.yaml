@@ -11,7 +11,7 @@ spec:
       crd: {}
   - group: cache.kcp.io
     name: clustercachedresources
-    schema: v250920-de0c8484d.clustercachedresources.cache.kcp.io
+    schema: v260814-239feb181.clustercachedresources.cache.kcp.io
     storage:
       crd: {}
 status: {}
