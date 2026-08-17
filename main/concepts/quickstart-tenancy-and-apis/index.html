@@ -4325,22 +4325,22 @@ in a <code>kubeconfig</code> file.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>.
 </code></pre></div>
 <p>Output should show that you are currently in the <code>root</code> workspace:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">Current workspace is &quot;root&quot;.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">Current workspace is "root".</span>
 </code></pre></div>
 <p>Next, let's create a new workspace in <code>root</code> and immediately switch to it (via <code>--enter</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>create-workspace<span class="w"> </span>a<span class="w"> </span>--enter
 </code></pre></div>
 <p>This will create the new workspace <code>a</code> and change the current workspace to it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">Workspace &quot;a&quot; (type root:organization) created. Waiting for it to be ready...</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">Workspace &quot;a&quot; (type root:organization) is ready to use.</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">Current workspace is &quot;root:a&quot;.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">Workspace "a" (type root:organization) created. Waiting for it to be ready...</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">Workspace "a" (type root:organization) is ready to use.</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">Current workspace is "root:a".</span>
 </code></pre></div>
 <p>Let's create another workspace but not change into it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>create-workspace<span class="w"> </span>b
 </code></pre></div>
 <p>Output will look similar to the previous workspace creation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">Workspace &quot;b&quot; (type root:universal) created. Waiting for it to be ready...</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">Workspace &quot;b&quot; (type root:universal) is ready to use.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">Workspace "b" (type root:universal) created. Waiting for it to be ready...</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">Workspace "b" (type root:universal) is ready to use.</span>
 </code></pre></div>
 <p>Since there was no switch to the newly created workspace, you are still in <code>root:a</code> and can look at child workspaces here:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspaces
@@ -4352,13 +4352,13 @@ in a <code>kubeconfig</code> file.</p>
 <p>Here is a quick collection of commands showing the navigation between the workspaces you've just created.
 Note the usage of <code>..</code> to switch to the parent workspace and <code>-</code> to the previously selected workspace.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gp">$ </span>kubectl<span class="w"> </span>ws<span class="w"> </span>b
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">Current workspace is &quot;root:a:b&quot;.</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="go">Current workspace is "root:a:b".</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="gp">$ </span>kubectl<span class="w"> </span>ws<span class="w"> </span>..
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="go">Current workspace is &quot;root:a&quot;.</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="go">Current workspace is "root:a".</span>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="gp">$ </span>kubectl<span class="w"> </span>ws<span class="w"> </span>-
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="go">Current workspace is &quot;root:a:b&quot;.</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="go">Current workspace is "root:a:b".</span>
 <a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gp">$ </span>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">Current workspace is &quot;root&quot;.</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">Current workspace is "root".</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -4429,15 +4429,15 @@ capabilities to service consumers in other workspaces.</p>
 <p>First we'll create an organization workspace in <code>root</code>, and then within that create a service provider workspace.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>kubectl<span class="w"> </span>create-workspace<span class="w"> </span>wildwest<span class="w"> </span>--enter
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">Workspace &quot;wildwest&quot; (type root:organization) created. Waiting for it to be ready...</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="go">Workspace &quot;wildwest&quot; (type root:organization) is ready to use.</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="go">Current workspace is &#39;root:wildwest&#39; (type root:organization).</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">Workspace "wildwest" (type root:organization) created. Waiting for it to be ready...</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="go">Workspace "wildwest" (type root:organization) is ready to use.</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="go">Current workspace is 'root:wildwest' (type root:organization).</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span>create-workspace<span class="w"> </span>cowboys-service<span class="w"> </span>--enter
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">Workspace &quot;cowboys-service&quot; (type root:universal) created. Waiting for it to be ready...</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="go">Workspace &quot;cowboys-service&quot; (type root:universal) is ready to use.</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="go">Current workspace is &#39;root:wildwest:cowboys-service&#39; (type root:universal).</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">Workspace "cowboys-service" (type root:universal) created. Waiting for it to be ready...</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="go">Workspace "cowboys-service" (type root:universal) is ready to use.</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="go">Current workspace is 'root:wildwest:cowboys-service' (type root:universal).</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -4468,13 +4468,13 @@ available to consumers.</p>
 Let's start by creating a new workspace under <code>root</code> and switch to it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>:root
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">Current workspace is &quot;root&quot;.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">Current workspace is "root".</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>kubectl<span class="w"> </span>create-workspace<span class="w"> </span>test-consumer<span class="w"> </span>--enter
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">Workspace &quot;test-consumer&quot; (type root:organization) created. Waiting for it to be ready...</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="go">Workspace &quot;test-consumer&quot; (type root:organization) is ready to use.</span>
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="go">Current workspace is &#39;root:test-consumer&#39; (type root:organization).</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">Workspace "test-consumer" (type root:organization) created. Waiting for it to be ready...</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="go">Workspace "test-consumer" (type root:organization) is ready to use.</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="go">Current workspace is 'root:test-consumer' (type root:organization).</span>
 </code></pre></div>
 <p>Now create an <code>APIBinding</code> that references the previously created <code>APIExport</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
@@ -4516,17 +4516,17 @@ let's create an instance!</p>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="nn">...</span>
 <a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="w">  </span><span class="nt">permissionClaims</span><span class="p">:</span>
-<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
-<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;configmaps&quot;</span>
-<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="w">      </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">""</span>
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"configmaps"</span>
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="w">      </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"*"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 Users can then authorize access to this resource type in their workspace by accepting the claim in the <code>APIBinding</code>, including the permitted verbs and a way to scope down object access by a selector of choice:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="nn">...</span>
 <a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="w">  </span><span class="nt">permissionClaims</span><span class="p">:</span>
-<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
-<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;configmaps&quot;</span>
-<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="w">      </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">""</span>
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"configmaps"</span>
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="w">      </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"*"</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="w">      </span><span class="nt">state</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
 <a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a><span class="w">      </span><span class="nt">selector</span><span class="p">:</span>
 <a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a><span class="w">        </span><span class="nt">matchAll</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -4537,7 +4537,7 @@ Users can then authorize access to this resource type in their workspace by acce
 <p>Switching back to the service provider persona:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>root:wildwest:cowboys-service
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">Current workspace is &quot;root:wildwest:cowboys-service&quot;.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">Current workspace is "root:wildwest:cowboys-service".</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>apiexport/wildwest.dev<span class="w"> </span>-o<span class="w"> </span>yaml
 </code></pre></div>
@@ -4572,7 +4572,7 @@ An <code>APIExportEndpointSlice</code> is created by a service provider, referen
 <a id="__codelineno-43-9" name="__codelineno-43-9" href="#__codelineno-43-9"></a><span class="nn">...</span>
 </code></pre></div>
 <p>We can use API discovery to see what resource types are available via the endpoint URL:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span><span class="s1">&#39;https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev/clusters/*/&#39;</span><span class="w"> </span>api-resources
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span><span class="s1">'https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev/clusters/*/'</span><span class="w"> </span>api-resources
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="go">NAME          SHORTNAMES   APIVERSION              NAMESPACED   KIND</span>
 <a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a><span class="go">apibindings                apis.kcp.io/v1alpha2    false        APIBinding</span>
@@ -4581,7 +4581,7 @@ An <code>APIExportEndpointSlice</code> is created by a service provider, referen
 </code></pre></div>
 <p>Every service provider sees the <code>APIBinding</code> resource so they can access the "contract" between API consumer and provider. <code>kubectl</code> gets a little confused about <code>v1</code> APIs missing, but the endpoint itself is fully functional.</p>
 <p>The question is, can we see the particular instance created by the consumer persona?</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span><span class="s1">&#39;https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev/clusters/*/&#39;</span><span class="w"> </span>get<span class="w"> </span>-A<span class="w"> </span>cowboys<span class="w"> </span>-o<span class="w"> </span>custom-columns<span class="o">=</span><span class="s1">&#39;LOGICAL CLUSTER:.metadata.annotations.kcp\.io/cluster,NAME:.metadata.name&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>kubectl<span class="w"> </span>--server<span class="o">=</span><span class="s1">'https://host1:6443/services/apiexport/ubjrrg1rhptt4f09/wildwest.dev/clusters/*/'</span><span class="w"> </span>get<span class="w"> </span>-A<span class="w"> </span>cowboys<span class="w"> </span>-o<span class="w"> </span>custom-columns<span class="o">=</span><span class="s1">'LOGICAL CLUSTER:.metadata.annotations.kcp\.io/cluster,NAME:.metadata.name'</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="go">LOGICAL CLUSTER    NAME</span>
 <a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a><span class="go">18hjcbxmhbq0k9y1   one</span>

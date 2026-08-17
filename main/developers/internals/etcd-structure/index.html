@@ -4205,7 +4205,7 @@ below for details.</p>
 </table>
 <h2 id="standard-custom-resource-instances">Standard custom resource instances<a class="headerlink" href="#standard-custom-resource-instances" title="Permanent link">&para;</a></h2>
 <p>Custom resource instances for a CustomResourceDefinition in a workspace use the following storage path structure:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>/etcd prefix/API group name/API resource name/&quot;customresources&quot;/logical cluster name/[namespace, if applicable]/name
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>/etcd prefix/API group name/API resource name/"customresources"/logical cluster name/[namespace, if applicable]/name
 </code></pre></div>
 <p>Let's break down the segments in the etcd path for this example APIBinding instance:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>/registry/apis.kcp.io/apibindings/customresources/2cynbfy2m0wtjqcs/scheduling.kcp.io-1mc2w

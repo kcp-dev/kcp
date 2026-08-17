@@ -4492,8 +4492,8 @@ enabling continued operation even when the provider's home shard is unavailable.
 </tbody>
 </table>
 <p><strong>Example: Accessing APIs during root shard outage:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Direct access to alpha shard&#39;s virtual API endpoint</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>-s<span class="w"> </span><span class="s1">&#39;https://alpha.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys/clusters/*&#39;</span><span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Direct access to alpha shard's virtual API endpoint</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>-s<span class="w"> </span><span class="s1">'https://alpha.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys/clusters/*'</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>get<span class="w"> </span>cowboys.wildwest.dev<span class="w"> </span>-A
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># Returns cowboys from alpha shard consumers only</span>

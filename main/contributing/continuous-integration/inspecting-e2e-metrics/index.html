@@ -4240,7 +4240,7 @@ and start a Prometheus instance as described above.</p>
 <p>To collect metrics locally, a convenience script is available to download and execute a Prometheus instance.
 Calling <code>... ./hack/run-in-prometheus make ...</code> will download, start, collect metrics, and stop Prometheus during the test run.</p>
 <p>Example:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span><span class="nv">WHAT</span><span class="o">=</span>./test/e2e/virtual/apiexport<span class="w"> </span><span class="nv">TEST_ARGS</span><span class="o">=</span><span class="s2">&quot;-v -run TestAPIExportAuthorizers&quot;</span><span class="w"> </span>./hack/run-with-prometheus.sh<span class="w"> </span>make<span class="w"> </span>test-e2e
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span><span class="nv">WHAT</span><span class="o">=</span>./test/e2e/virtual/apiexport<span class="w"> </span><span class="nv">TEST_ARGS</span><span class="o">=</span><span class="s2">"-v -run TestAPIExportAuthorizers"</span><span class="w"> </span>./hack/run-with-prometheus.sh<span class="w"> </span>make<span class="w"> </span>test-e2e
 </code></pre></div>
 A local Prometheus can then be started to inspect gathered metrics:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$<span class="w"> </span>./hack/tools/prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>.prometheus_data<span class="w"> </span>--config.file<span class="w"> </span>/dev/null

@@ -4399,8 +4399,8 @@ default</strong>. There are two practical ways to query pprof.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kcp start --debug-socket-path=/tmp/kcp-debug.sock ...
 </code></pre></div>
 <p>Then query the socket directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/goroutine?debug=2&#39; &gt; goroutines.txt
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/heap&#39; &gt; heap.pprof
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=2' &gt; goroutines.txt
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/heap' &gt; heap.pprof
 </code></pre></div>
 <p>Quote the URL — in zsh, <code>?</code> is a glob and an unquoted URL with a query string
 fails with <code>zsh: no matches found</code>.</p>
@@ -4408,7 +4408,7 @@ fails with <code>zsh: no matches found</code>.</p>
 <h3 id="in-cluster-setups">In-cluster setups<a class="headerlink" href="#in-cluster-setups" title="Permanent link">&para;</a></h3>
 <p>For Tilt/Kind/local-up setups where kcp runs in a pod, port-forward the secure
 port and use <code>kubectl get --raw</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl get --raw &#39;/debug/pprof/goroutine?debug=2&#39; &gt; goroutines.txt
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl get --raw '/debug/pprof/goroutine?debug=2' &gt; goroutines.txt
 </code></pre></div>
 <h3 id="with-prometheus-pprof-together">With Prometheus + pprof together<a class="headerlink" href="#with-prometheus-pprof-together" title="Permanent link">&para;</a></h3>
 <p><code>hack/run-with-prometheus.sh</code> brings up a local Prometheus on <code>localhost:9090</code>
@@ -4435,8 +4435,8 @@ Prometheus, drill into it with labeled pprof dumps:</p>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a># Watch http://localhost:9090/graph?g0.expr=go_goroutines and confirm slope
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a># When the count is clearly elevated, grab a labeled dump:
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/goroutine?debug=2&#39; &gt; after.txt
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>grep &#39;# labels:&#39; after.txt | sort | uniq -c | sort -rn
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=2' &gt; after.txt
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>grep '# labels:' after.txt | sort | uniq -c | sort -rn
 </code></pre></div>
 <h2 id="counting-goroutines">Counting goroutines<a class="headerlink" href="#counting-goroutines" title="Permanent link">&para;</a></h2>
 <p>The pprof goroutine endpoint comes in two formats:</p>
@@ -4446,15 +4446,15 @@ Prometheus, drill into it with labeled pprof dumps:</p>
   Much smaller; better for "where are all my goroutines coming from".</li>
 </ul>
 <p>Total live goroutines, from a <code>debug=2</code> dump:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>grep -c &#39;^goroutine &#39; goroutines.txt
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>grep -c '^goroutine ' goroutines.txt
 </code></pre></div>
 <p>Total live goroutines, from a <code>debug=1</code> dump:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/goroutine?debug=1&#39; \
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  | awk &#39;/^[0-9]+ @/ {sum+=$1} END {print sum}&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=1' \
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  | awk '/^[0-9]+ @/ {sum+=$1} END {print sum}'
 </code></pre></div>
 <p>Top 20 stack signatures by goroutine count:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/goroutine?debug=1&#39; \
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  | awk &#39;/^[0-9]+ @/ {n=$1; getline label; getline frame; print n&quot;\t&quot;frame}&#39; \
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=1' \
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  | awk '/^[0-9]+ @/ {n=$1; getline label; getline frame; print n"\t"frame}' \
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  | sort -rn | head -20
 </code></pre></div>
 <h2 id="reading-goroutine-labels">Reading goroutine labels<a class="headerlink" href="#reading-goroutine-labels" title="Permanent link">&para;</a></h2>
@@ -4466,7 +4466,7 @@ is invoked on an already-running shared informer.</p>
 <p>Important: pprof emits labels in the <strong><code>debug=1</code> (aggregated)</strong> format, not
 <code>debug=2</code>. A labeled stack in <code>goroutine?debug=1</code> looks like:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>29 @ 0x102437fb8 0x1023cc274 0x1023cbe44 ...
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a># labels: {&quot;controller&quot;:&quot;kcp-kube-quota&quot;, &quot;logicalcluster&quot;:&quot;2j5lsf4ydtnftsi3&quot;}
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a># labels: {"controller":"kcp-kube-quota", "logicalcluster":"2j5lsf4ydtnftsi3"}
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>#   github.com/kcp-dev/apimachinery/v2/third_party/informers.(*processorListener).run.func1+0x43
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>#   k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1+0x3f
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>...
@@ -4480,31 +4480,31 @@ cluster they belong to.</p>
 <h3 id="filtering-by-label">Filtering by label<a class="headerlink" href="#filtering-by-label" title="Permanent link">&para;</a></h3>
 <p>Work from the <code>debug=1</code> dump — that's where labels live.</p>
 <p>To count goroutines per (controller, cluster) label:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>awk &#39;/^[0-9]+ @/ {n=$1; getline label} label ~ /^# labels:/ {c[label]+=n} END {for(k in c) printf &quot;%6d %s\n&quot;, c[k], k}&#39; goroutine.summary | sort -rn
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>awk '/^[0-9]+ @/ {n=$1; getline label} label ~ /^# labels:/ {c[label]+=n} END {for(k in c) printf "%6d %s\n", c[k], k}' goroutine.summary | sort -rn
 </code></pre></div>
 <p>To count goroutines per controller alone (collapse across clusters):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>awk &#39;/^[0-9]+ @/ {n=$1; getline label} label ~ /^# labels:/ {
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  match(label, /&quot;controller&quot;:&quot;[^&quot;]+&quot;/); c[substr(label,RSTART,RLENGTH)]+=n
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>} END {for(k in c) printf &quot;%6d %s\n&quot;, c[k], k}&#39; goroutine.summary | sort -rn
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>awk '/^[0-9]+ @/ {n=$1; getline label} label ~ /^# labels:/ {
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  match(label, /"controller":"[^"]+"/); c[substr(label,RSTART,RLENGTH)]+=n
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>} END {for(k in c) printf "%6d %s\n", c[k], k}' goroutine.summary | sort -rn
 </code></pre></div>
 <p>To find every leaked stack owned by a specific cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>awk &#39;/^[0-9]+ @/ {block=$0; next} /^#/ {block=block&quot;\n&quot;$0; next} /^$/ {if (block ~ /&quot;logicalcluster&quot;:&quot;2j5lsf4ydtnftsi3&quot;/) print block; block=&quot;&quot;}&#39; goroutine.summary
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>awk '/^[0-9]+ @/ {block=$0; next} /^#/ {block=block"\n"$0; next} /^$/ {if (block ~ /"logicalcluster":"2j5lsf4ydtnftsi3"/) print block; block=""}' goroutine.summary
 </code></pre></div>
 <p>To diff before/after a known-clean baseline (the technique used in
 <a href="https://github.com/kcp-dev/kcp/issues/3350">#3350</a>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a># Baseline: kcp running, no churn. Use debug=1 — labels only appear in the
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a># aggregated format.
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/goroutine?debug=1&#39; &gt; before.txt
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=1' &gt; before.txt
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a># Run churn: create/delete N workspaces in a loop
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>kubectl-kcp quickstart --scenario workspaces --tree-depth 10 --tree-count 1000
 <a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
 <a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a># After churn
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>curl --unix-socket /tmp/kcp-debug.sock &#39;http://localhost/debug/pprof/goroutine?debug=1&#39; &gt; after.txt
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>curl --unix-socket /tmp/kcp-debug.sock 'http://localhost/debug/pprof/goroutine?debug=1' &gt; after.txt
 <a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>
 <a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a># Compare counts per controller label
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>diff &lt;(grep -oE &#39;&quot;controller&quot;:&quot;[^&quot;]+&quot;&#39; before.txt | sort | uniq -c) \
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>     &lt;(grep -oE &#39;&quot;controller&quot;:&quot;[^&quot;]+&quot;&#39; after.txt  | sort | uniq -c)
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>diff &lt;(grep -oE '"controller":"[^"]+"' before.txt | sort | uniq -c) \
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>     &lt;(grep -oE '"controller":"[^"]+"' after.txt  | sort | uniq -c)
 </code></pre></div>
 <p>Any controller whose count grew by ~N (or a multiple thereof) is leaking one or
 more handler registrations per cluster.</p>
@@ -4520,7 +4520,7 @@ labels.</p>
 <h2 id="wiring-labels-in-new-controllers">Wiring labels in new controllers<a class="headerlink" href="#wiring-labels-in-new-controllers" title="Permanent link">&para;</a></h2>
 <p>When introducing a per-cluster controller (anything bounded by a single logical
 cluster's lifecycle), wrap the goroutine spawn with <code>pproflabels.Cluster</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;github.com/kcp-dev/kcp/pkg/pproflabels&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">import</span><span class="w"> </span><span class="s">"github.com/kcp-dev/kcp/pkg/pproflabels"</span>
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">go</span><span class="w"> </span><span class="nx">pproflabels</span><span class="p">.</span><span class="nx">Cluster</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">ControllerName</span><span class="p">,</span><span class="w"> </span><span class="nx">clusterName</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="c1">// controller body: Run, Start, AddEventHandler, etc.</span>

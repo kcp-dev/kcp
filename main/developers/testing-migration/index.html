@@ -4399,7 +4399,7 @@
 </li>
 <li>
 <p><strong>Note the logical cluster name:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>test-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>test-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.cluster}'</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Example output: 1a2b3c4d5e6f7g8h</span>
 </code></pre></div>
 </li>
@@ -4420,7 +4420,7 @@
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="s">EOF</span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
 <a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1"># Wait for binding</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>apibinding<span class="w"> </span>migration<span class="w"> </span>--for<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.phase}&#39;</span><span class="o">=</span>Bound<span class="w"> </span>--timeout<span class="o">=</span>60s
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>apibinding<span class="w"> </span>migration<span class="w"> </span>--for<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.phase}'</span><span class="o">=</span>Bound<span class="w"> </span>--timeout<span class="o">=</span>60s
 </code></pre></div>
 <h2 id="running-a-migration">Running a Migration<a class="headerlink" href="#running-a-migration" title="Permanent link">&para;</a></h2>
 <ol>
@@ -4469,7 +4469,7 @@ migration:</p>
 <p>Before and after migration, you can verify which shard hosts the workspace by checking the
 <code>core.kcp.io/shard</code> annotation on the <code>LogicalCluster</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Check via the workspace</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>test-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.metadata.annotations.core\.kcp\.io/shard}&#39;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>test-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.annotations.core\.kcp\.io/shard}'</span>
 </code></pre></div>
 <h2 id="running-the-e2e-tests">Running the E2E Tests<a class="headerlink" href="#running-the-e2e-tests" title="Permanent link">&para;</a></h2>
 <p>The migration feature includes end-to-end tests that verify the complete migration flow:</p>
@@ -4493,7 +4493,7 @@ migration:</p>
 <li>The logical cluster exists and is not already migrating</li>
 </ul>
 <p>Inspect the migration conditions:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>logicalclustermigration<span class="w"> </span>test-migration<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.conditions}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>logicalclustermigration<span class="w"> </span>test-migration<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </code></pre></div>
 <h3 id="migration-stuck-in-migrating-phase">Migration Stuck in Migrating Phase<a class="headerlink" href="#migration-stuck-in-migrating-phase" title="Permanent link">&para;</a></h3>
 <p>Check that:</p>

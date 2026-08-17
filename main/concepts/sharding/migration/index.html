@@ -4360,7 +4360,7 @@ the <code>migration.kcp.io</code> API:</p>
 <p>The <code>logicalCluster</code> field must contain the logical cluster name (the value from
 <code>Workspace.spec.cluster</code>), not the workspace name or path.</p>
 <p>You can find the logical cluster name by examining the workspace:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.cluster}'</span>
 </code></pre></div>
 <h2 id="monitoring-migration-progress">Monitoring Migration Progress<a class="headerlink" href="#monitoring-migration-progress" title="Permanent link">&para;</a></h2>
 <p>Watch the migration status to track progress:</p>
@@ -4417,7 +4417,7 @@ handled automatically.</p>
 </li>
 <li>
 <p><strong>Get the logical cluster name:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.cluster}&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>my-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.cluster}'</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Returns something like: 2xj8f9k3m5n7p1q4</span>
 </code></pre></div>
 </li>
@@ -4445,7 +4445,7 @@ handled automatically.</p>
 </li>
 <li>
 <p><strong>Wait for the binding to be ready:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>apibinding<span class="w"> </span>migration<span class="w"> </span>--for<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.phase}&#39;</span><span class="o">=</span>Bound
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>apibinding<span class="w"> </span>migration<span class="w"> </span>--for<span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.phase}'</span><span class="o">=</span>Bound
 </code></pre></div>
 </li>
 <li>

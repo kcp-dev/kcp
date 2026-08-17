@@ -4270,7 +4270,7 @@ then the procedure is significantly different.</p>
 </code></pre></div></li>
 <li>Export the commits to cherry-pick them:
    <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git log --oneline --reverse --no-merges --no-decorate v1.32.3..HEAD \
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    | grep -v &#39;&lt;drop&gt;&#39; &gt; commits.txt
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    | grep -v '&lt;drop&gt;' &gt; commits.txt
 </code></pre></div>
    You will use this commits.txt to also note conflicts and changes
    you had to make, so reviewers know where to focus their
@@ -4288,8 +4288,8 @@ then the procedure is significantly different.</p>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># list_changed_files lists the files changed in the current commit</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>list_changed_files<span class="o">()</span><span class="w"> </span><span class="o">{</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span>changed_file<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>git<span class="w"> </span>diff<span class="w"> </span>--name-only<span class="w"> </span>@<span class="w"> </span>@~1<span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$changed_file</span><span class="s2">&quot;</span><span class="w"> </span>../changed_files.txt<span class="p">;</span><span class="w"> </span><span class="k">then</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">            </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;./</span><span class="nv">$changed_file</span><span class="s2">&quot;</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span>grep<span class="w"> </span>-q<span class="w"> </span><span class="s2">"</span><span class="nv">$changed_file</span><span class="s2">"</span><span class="w"> </span>../changed_files.txt<span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">            </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"./</span><span class="nv">$changed_file</span><span class="s2">"</span>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">        </span><span class="k">fi</span>
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="k">done</span>
 <a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="o">}</span>
@@ -4297,8 +4297,8 @@ then the procedure is significantly different.</p>
 <a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1"># view_changed_files shows the diff of the files changed in the current</span>
 <a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="c1"># commit</span>
 <a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>view_changed_files<span class="o">()</span><span class="w"> </span><span class="o">{</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="nb">local</span><span class="w"> </span><span class="nv">changed</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>list_changed_files<span class="k">)</span><span class="s2">&quot;</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="o">[[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$changed</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="m">0</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="nb">local</span><span class="w"> </span><span class="nv">changed</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>list_changed_files<span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="o">[[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">"</span><span class="nv">$changed</span><span class="s2">"</span><span class="w"> </span><span class="o">]]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="m">0</span>
 <a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span>git<span class="w"> </span>diff-tree<span class="w"> </span>-r<span class="w"> </span>-p<span class="w"> </span>@<span class="w">  </span>--<span class="w"> </span><span class="nv">$changed</span>
 <a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="o">}</span>
 </code></pre></div>
@@ -4342,14 +4342,14 @@ two kube versions.</p>
 <li>
 <p>Commit the dependency updates:
     <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>git add .
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>git commit -m &#39;CARRY: &lt;drop&gt;: Add kcp dependencies&#39;
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>git commit -m 'CARRY: &lt;drop&gt;: Add kcp dependencies'
 </code></pre></div></p>
 </li>
 <li>
 <p>Update the vendor directory:
    <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>hack/update-vendor.sh
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>git add .
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>git commit -m &#39;CARRY: &lt;drop&gt;: Update vendor&#39;
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>git commit -m 'CARRY: &lt;drop&gt;: Update vendor'
 </code></pre></div></p>
 </li>
 <li>
@@ -4365,17 +4365,17 @@ two kube versions.</p>
 <p>This step can pin kube dependencies to versions instead of v0.0.0,
    which can lead to opaque errors laters.
    To fix this run:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>gsed -e &#39;/k8s.io/ s#v0.33.3#v0.0.0#&#39; -i &quot;go.mod&quot;
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>gsed -e '/k8s.io/ s#v0.33.3#v0.0.0#' -i "go.mod"
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>find staging -iname go.mod \
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    | while read go_mod; do
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>        gsed -e &#39;/k8s.io/ s#v0.33.3#v0.0.0#&#39; -i &quot;$go_mod&quot;
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>        gsed -e '/k8s.io/ s#v0.33.3#v0.0.0#' -i "$go_mod"
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    done
 </code></pre></div></p>
 <ol>
 <li>
 <p>Commit the generated code changes:
     <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>git add .
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>git commit -m &#39;CARRY: &lt;drop&gt;: Update generated code&#39;
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>git commit -m 'CARRY: &lt;drop&gt;: Update generated code'
 </code></pre></div></p>
 </li>
 <li>
@@ -4408,7 +4408,7 @@ two kube versions.</p>
 <p>Point kcp at your local checkout of Kubernetes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a># Change KUBE per your local setup
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>KUBE=../../../go/src/k8s.io/kubernetes
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>gsed -i &quot;s,k8s.io/\(.*\) =&gt; .*/kubernetes/.*,k8s.io/\1 =&gt; $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes =&gt; .*,k8s.io/kubernetes =&gt; $KUBE,&quot; go.mod
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>gsed -i "s,k8s.io/\(.*\) =&gt; .*/kubernetes/.*,k8s.io/\1 =&gt; $KUBE/vendor/k8s.io/\1,;s,k8s.io/kubernetes =&gt; .*,k8s.io/kubernetes =&gt; $KUBE," go.mod
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>

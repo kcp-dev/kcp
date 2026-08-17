@@ -4510,8 +4510,8 @@
 </code></pre></div></p>
 <h3 id="7-update-dns-records-with-loadbalancer-ips">7. Update DNS Records with LoadBalancer IPs<a class="headerlink" href="#7-update-dns-records-with-loadbalancer-ips" title="Permanent link">&para;</a></h3>
 <p>Update your DNS records with the LoadBalancer IP addresses:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>frontproxy-front-proxy<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.loadBalancer}&#39;</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>root-kcp<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.loadBalancer}&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>frontproxy-front-proxy<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.loadBalancer}'</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>svc<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>root-kcp<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.loadBalancer}'</span>
 </code></pre></div>
 <p><strong>Verify DNS propagation</strong>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>nslookup<span class="w"> </span>api.zheng.example.com
@@ -4524,7 +4524,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>contrib/production/kcp-zheng/kubeconfig-kcp-admin.yaml
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
 <a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>-n<span class="w"> </span>kcp-zheng<span class="w"> </span>kcp-admin-frontproxy<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.kubeconfig}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>kcp-admin-kubeconfig-zheng.yaml
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.kubeconfig}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>kcp-admin-kubeconfig-zheng.yaml
 <a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nv">KUBECONFIG</span><span class="o">=</span>kcp-admin-kubeconfig-zheng.yaml<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shards
 </code></pre></div>
@@ -4932,13 +4932,13 @@
 <p><strong>Access the virtual API endpoint directly:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a><span class="c1"># Get the endpoint URL from the APIExportEndpointSlice</span>
 <a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:root:provider:alpha
-<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>apiexportendpointslice<span class="w"> </span>cowboys-alpha<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.endpoints[0].url}&#39;</span>
+<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>apiexportendpointslice<span class="w"> </span>cowboys-alpha<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.endpoints[0].url}'</span>
 </code></pre></div>
 <p><strong>Expected output:</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a>https://alpha.zheng.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys
 </code></pre></div></p>
 <p><strong>Query cowboys across all consumer workspaces on the alpha shard:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>kubectl<span class="w"> </span>-s<span class="w"> </span><span class="s1">&#39;https://alpha.zheng.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys/clusters/*&#39;</span><span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>kubectl<span class="w"> </span>-s<span class="w"> </span><span class="s1">'https://alpha.zheng.example.io:6443/services/apiexport/&lt;identity&gt;/cowboys/clusters/*'</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-67-2" name="__codelineno-67-2" href="#__codelineno-67-2"></a><span class="w">  </span>get<span class="w"> </span>cowboys.wildwest.dev<span class="w"> </span>-A
 </code></pre></div>
 <p><strong>Expected output:</strong>

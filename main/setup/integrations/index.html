@@ -4311,7 +4311,7 @@ minimumLimaVersion: 1.1.0</p>
 apt-get update
 apt-get install -y curl wget
 
-KCP_VERSION=$(curl -s https://api.github.com/repos/kcp-dev/kcp/releases/latest | grep tag_name | cut -d &#39;&quot;&#39; -f 4)
+KCP_VERSION=$(curl -s https://api.github.com/repos/kcp-dev/kcp/releases/latest | grep tag_name | cut -d '"' -f 4)
 KCP_VERSION_NO_V=${KCP_VERSION#v}
 
 wget https://github.com/kcp-dev/kcp/releases/download/${KCP_VERSION}/kcp_${KCP_VERSION_NO_V}_linux_arm64.tar.gz
@@ -4377,7 +4377,7 @@ Initialize the VM
 </div>
 <p>On macOS, Lima may default to vz (Apple Virtualization), while on Linux it defaults to qemu, and on Windows to wsl2. If you want consistency across environments, you can explicitly pass --vm-type=qemu when starting the VM.</p>
 <p>Export the kcp kubeconfig
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="s2">&quot;/Users/&lt;user&gt;/.lima/kcp/copied-from-guest/kubeconfig.yaml&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="s2">"/Users/&lt;user&gt;/.lima/kcp/copied-from-guest/kubeconfig.yaml"</span>
 </code></pre></div></p>
 <p>Verify API resources
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>api-resources<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>kcp

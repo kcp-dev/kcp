@@ -4178,7 +4178,7 @@
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># Convert a CRD in a yaml file to an APIResourceSchema. For a CRD named widgets.example.io, and a prefix value of
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a># &#39;today&#39;, the new APIResourceSchema&#39;s name will be today.widgets.example.io.
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a># 'today', the new APIResourceSchema's name will be today.widgets.example.io.
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>kubectl kcp crd snapshot -f crd.yaml --prefix 2022-05-07 &gt; api-resource-schema.yaml
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a># Convert a CRD from STDIN
@@ -4187,8 +4187,8 @@
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -f, --filename string   Path to a file containing the CRD to convert to an APIResourceSchema, or - for stdin
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  -h, --help              help for snapshot
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -o, --output string     Output format. Valid values are &#39;json&#39; and &#39;yaml&#39; (default &quot;yaml&quot;)
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --prefix string     Prefix to use for the APIResourceSchema&#39;s name, before &lt;resource&gt;.&lt;group&gt;
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -o, --output string     Output format. Valid values are 'json' and 'yaml' (default "yaml")
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --prefix string     Prefix to use for the APIResourceSchema's name, before &lt;resource&gt;.&lt;group&gt;
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>      --add_dir_header                      If true, adds the file directory to the header of the log messages
