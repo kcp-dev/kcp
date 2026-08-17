@@ -37,7 +37,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,6 +54,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	cachev1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/cache/v1alpha1"
+	metav1apply "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	cachev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/cache/v1alpha1"
@@ -81,12 +82,11 @@ func NewController(
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: ControllerName},
 		),
 		restMappingFor: restMappingFor,
-		createResource: func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1.ClusterCachedResource) error {
-			_, err := kcpClusterClient.Cluster(cluster.Path()).CacheV1alpha1().ClusterCachedResources().Create(ctx, ccr, metav1.CreateOptions{})
-			return err
-		},
-		updateResource: func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1.ClusterCachedResource) error {
-			_, err := kcpClusterClient.Cluster(cluster.Path()).CacheV1alpha1().ClusterCachedResources().Update(ctx, ccr, metav1.UpdateOptions{})
+		applyResource: func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1apply.ClusterCachedResourceApplyConfiguration) error {
+			_, err := kcpClusterClient.Cluster(cluster.Path()).CacheV1alpha1().ClusterCachedResources().Apply(ctx, ccr, metav1.ApplyOptions{
+				FieldManager: ControllerName,
+				Force:        true,
+			})
 			return err
 		},
 		deleteResource: func(ctx context.Context, cluster logicalcluster.Name, name string) error {
@@ -118,8 +118,11 @@ func NewController(
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIExport(obj) },
 	})
 
-	// A ClusterCachedResource that somebody deleted by hand has to come back
-	// while its APIExport still wants it.
+	// A ClusterCachedResource that somebody deleted or edited by hand has to
+	// come back while its APIExport still wants it. Reconciling applies only
+	// the fields this controller owns, so reacting to every update is safe:
+	// a write by someone else (the clustercachedresources controller
+	// defaulting spec.identity, say) resolves to a no-op apply, not a fight.
 	_, _ = clusterCachedResourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) { c.enqueueOwningAPIExport(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueOwningAPIExport(obj) },
@@ -134,8 +137,7 @@ type controller struct {
 	restMappingFor     func(cluster logicalcluster.Name, gk schema.GroupKind) (*meta.RESTMapping, error)
 	getAPIExport       func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error)
 	listOwnedResources func(cluster logicalcluster.Name, export string) ([]*cachev1alpha1.ClusterCachedResource, error)
-	createResource     func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1.ClusterCachedResource) error
-	updateResource     func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1.ClusterCachedResource) error
+	applyResource      func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1apply.ClusterCachedResourceApplyConfiguration) error
 	deleteResource     func(ctx context.Context, cluster logicalcluster.Name, name string) error
 
 	apiExportsSynced             cache.InformerSynced
@@ -205,34 +207,29 @@ func nameFor(export string, ref resolved) string {
 	return fmt.Sprintf("apiexport-%s-%s", prefix, suffix)
 }
 
-// desired builds the ClusterCachedResource that stands for a reference.
-func desired(export *apisv1alpha2.APIExport, ref resolved) *cachev1alpha1.ClusterCachedResource {
-	return &cachev1alpha1.ClusterCachedResource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nameFor(export.Name, ref),
-			// Owned by the APIExport, so that the whole thing goes away with it
-			// -- and its finalizer drains the cache on the way out.
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: apisv1alpha2.SchemeGroupVersion.String(),
-				Kind:       "APIExport",
-				Name:       export.Name,
-				UID:        export.UID,
-			}},
-			Annotations: map[string]string{
-				"cache.kcp.io/referenced-by": export.Name,
-			},
-		},
-		Spec: cachev1alpha1.ClusterCachedResourceSpec{
-			GroupVersionResource: cachev1alpha1.GroupVersionResource{
-				Group:    ref.gvr.Group,
-				Version:  ref.gvr.Version,
-				Resource: ref.gvr.Resource,
-			},
+// desired builds the apply configuration that stands for a reference. It
+// carries only the fields this controller owns; applying it with a field
+// manager leaves everything else -- spec.identity, most notably, which the
+// clustercachedresources controller defaults in place -- to its owners.
+func desired(export *apisv1alpha2.APIExport, ref resolved) *cachev1alpha1apply.ClusterCachedResourceApplyConfiguration {
+	return cachev1alpha1apply.ClusterCachedResource(nameFor(export.Name, ref)).
+		// Owned by the APIExport, so that the whole thing goes away with it
+		// -- and its finalizer drains the cache on the way out.
+		WithOwnerReferences(metav1apply.OwnerReference().
+			WithAPIVersion(apisv1alpha2.SchemeGroupVersion.String()).
+			WithKind("APIExport").
+			WithName(export.Name).
+			WithUID(export.UID)).
+		WithAnnotations(map[string]string{
+			"cache.kcp.io/referenced-by": export.Name,
+		}).
+		WithSpec(cachev1alpha1apply.ClusterCachedResourceSpec().
+			WithGroup(ref.gvr.Group).
+			WithVersion(ref.gvr.Version).
+			WithResource(ref.gvr.Resource).
 			// Only the object that was referenced. A ClusterCachedResource
 			// usually stands for a whole kind; here it stands for one object.
-			Names: []string{ref.name},
-		},
-	}
+			WithNames(ref.name))
 }
 
 func (c *controller) enqueueAPIExport(obj interface{}) {
@@ -332,10 +329,6 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 	// Anything this APIExport owns but no longer asks for goes. Deleting the
 	// ClusterCachedResource is what removes the copies: its finalizer drains
 	// them while the kind is still served.
-	byName := map[string]*cachev1alpha1.ClusterCachedResource{}
-	for _, ccr := range existing {
-		byName[ccr.Name] = ccr
-	}
 	for _, ccr := range existing {
 		if _, keep := wanted[ccr.Name]; keep {
 			continue
@@ -350,20 +343,12 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 		}
 	}
 
-	for name, want := range wanted {
-		have, ok := byName[name]
-		if !ok {
-			if err := c.createResource(ctx, cluster, want); err != nil && !apierrors.IsAlreadyExists(err) {
-				return err
-			}
-			continue
-		}
-		if equality.Semantic.DeepEqual(have.Spec, want.Spec) {
-			continue
-		}
-		updated := have.DeepCopy()
-		updated.Spec = want.Spec
-		if err := c.updateResource(ctx, cluster, updated); err != nil {
+	// Server-side apply what is wanted. The apply configuration names only the
+	// fields this controller owns, so an existing ClusterCachedResource keeps
+	// whatever others put on it -- the clustercachedresources controller
+	// defaults spec.identity in place, and that must survive this write.
+	for _, want := range wanted {
+		if err := c.applyResource(ctx, cluster, want); err != nil {
 			return err
 		}
 	}
@@ -372,15 +357,15 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 }
 
 // wantedFor resolves an APIExport's references to the ClusterCachedResources
-// that should exist for them, keyed by name.
-func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cachev1alpha1.ClusterCachedResource, error) {
+// that should exist for them, as apply configurations keyed by name.
+func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cachev1alpha1apply.ClusterCachedResourceApplyConfiguration, error) {
 	if !export.DeletionTimestamp.IsZero() {
 		// On its way out. The garbage collector handles what it owns.
 		return nil, nil
 	}
 
 	cluster := logicalcluster.From(export)
-	wanted := map[string]*cachev1alpha1.ClusterCachedResource{}
+	wanted := map[string]*cachev1alpha1apply.ClusterCachedResourceApplyConfiguration{}
 	seen := sets.New[resolved]()
 
 	for _, ref := range referencesFrom(export) {
@@ -401,8 +386,7 @@ func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cach
 		}
 		seen.Insert(r)
 
-		ccr := desired(export, r)
-		wanted[ccr.Name] = ccr
+		wanted[nameFor(export.Name, r)] = desired(export, r)
 	}
 
 	return wanted, nil
