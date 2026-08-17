@@ -288,6 +288,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installReplicationController(ctx, controllerConfig, gvrs); err != nil {
 		return err
 	}
+	if err := s.installAPIExportReferenceController(ctx, controllerConfig); err != nil {
+		return err
+	}
 
 	enabled := sets.New[string](s.Options.Controllers.IndividuallyEnabled...)
 	if len(enabled) > 0 {
