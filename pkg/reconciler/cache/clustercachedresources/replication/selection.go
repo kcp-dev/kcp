@@ -72,12 +72,9 @@ func (s Selection) ListOptions() metav1.ListOptions {
 
 // Filter drops the objects a selection does not publish.
 func (s Selection) Filter(items []unstructured.Unstructured) []unstructured.Unstructured {
-	if s.Names.Len() == 0 {
-		return items
-	}
-	out := items[:0]
+	out := make([]unstructured.Unstructured, 0, len(items))
 	for _, item := range items {
-		if s.Names.Has(item.GetName()) {
+		if s.Matches(&item) {
 			out = append(out, item)
 		}
 	}
