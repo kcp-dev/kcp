@@ -19,7 +19,6 @@ package apiexportreference
 import (
 	"context"
 	"errors"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,6 +83,8 @@ func sheriffMapper(t *testing.T) func(cluster logicalcluster.Name, gk schema.Gro
 }
 
 func TestReferencesFrom(t *testing.T) {
+	t.Parallel()
+
 	e := export("wildwest-provider", sheriffRef("one"))
 	e.Spec.Resources = append(e.Spec.Resources,
 		// Regular storage: not a reference.
@@ -103,6 +104,8 @@ func TestReferencesFrom(t *testing.T) {
 }
 
 func TestNameFor(t *testing.T) {
+	t.Parallel()
+
 	ref := resolved{
 		gvr:  schema.GroupVersionResource{Group: "wildwest.dev", Version: "v1alpha1", Resource: "sheriffs"},
 		name: "one",
@@ -110,7 +113,7 @@ func TestNameFor(t *testing.T) {
 
 	name := nameFor("wildwest-provider", ref)
 	require.Equal(t, name, nameFor("wildwest-provider", ref), "the name has to be stable")
-	require.Regexp(t, regexp.MustCompile(`^apiexport-sheriffs-[a-z0-9]+$`), name)
+	require.Regexp(t, `^apiexport-sheriffs-[a-z0-9]+$`, name)
 
 	require.NotEqual(t, name, nameFor("other-export", ref), "a different export must yield a different name")
 	require.NotEqual(t, name, nameFor("wildwest-provider", resolved{gvr: ref.gvr, name: "two"}),
@@ -124,6 +127,8 @@ func TestNameFor(t *testing.T) {
 }
 
 func TestOwnedBy(t *testing.T) {
+	t.Parallel()
+
 	ccr := &cachev1alpha1.ClusterCachedResource{
 		ObjectMeta: metav1.ObjectMeta{
 			OwnerReferences: []metav1.OwnerReference{{
@@ -143,6 +148,8 @@ func TestOwnedBy(t *testing.T) {
 }
 
 func TestDesired(t *testing.T) {
+	t.Parallel()
+
 	e := export("wildwest-provider")
 	ref := resolved{
 		gvr:  schema.GroupVersionResource{Group: "wildwest.dev", Version: "v1alpha1", Resource: "sheriffs"},
@@ -164,7 +171,11 @@ func TestDesired(t *testing.T) {
 }
 
 func TestWantedFor(t *testing.T) {
+	t.Parallel()
+
 	t.Run("a deleting export wants nothing", func(t *testing.T) {
+		t.Parallel()
+
 		c := &controller{restMappingFor: sheriffMapper(t)}
 		e := export("wildwest-provider", sheriffRef("one"))
 		e.DeletionTimestamp = ptr.To(metav1.Now())
@@ -175,6 +186,8 @@ func TestWantedFor(t *testing.T) {
 	})
 
 	t.Run("no references, nothing wanted", func(t *testing.T) {
+		t.Parallel()
+
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
 		wanted, err := c.wantedFor(export("wildwest-provider"))
@@ -183,6 +196,8 @@ func TestWantedFor(t *testing.T) {
 	})
 
 	t.Run("a reference resolves to one ClusterCachedResource", func(t *testing.T) {
+		t.Parallel()
+
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
 		wanted, err := c.wantedFor(export("wildwest-provider", sheriffRef("one")))
@@ -197,6 +212,8 @@ func TestWantedFor(t *testing.T) {
 	})
 
 	t.Run("duplicate references collapse", func(t *testing.T) {
+		t.Parallel()
+
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
 		wanted, err := c.wantedFor(export("wildwest-provider", sheriffRef("one"), sheriffRef("one")))
@@ -205,6 +222,8 @@ func TestWantedFor(t *testing.T) {
 	})
 
 	t.Run("a kind that is not served is skipped", func(t *testing.T) {
+		t.Parallel()
+
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
 		wanted, err := c.wantedFor(export("wildwest-provider", corev1.TypedLocalObjectReference{
@@ -217,6 +236,8 @@ func TestWantedFor(t *testing.T) {
 	})
 
 	t.Run("other mapper errors propagate", func(t *testing.T) {
+		t.Parallel()
+
 		boom := errors.New("boom")
 		c := &controller{restMappingFor: func(logicalcluster.Name, schema.GroupKind) (*meta.RESTMapping, error) {
 			return nil, boom
@@ -228,6 +249,8 @@ func TestWantedFor(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
+
 	key := kcpcache.ToClusterAwareKey(testCluster, "", "wildwest-provider")
 
 	owned := func(name string) *cachev1alpha1.ClusterCachedResource {
@@ -273,6 +296,8 @@ func TestReconcile(t *testing.T) {
 	})
 
 	t.Run("a gone export leaves everything to the garbage collector", func(t *testing.T) {
+		t.Parallel()
+
 		var applied, deleted []string
 		c := newController(nil, []*cachev1alpha1.ClusterCachedResource{owned("stale")}, &applied, &deleted)
 
@@ -282,6 +307,8 @@ func TestReconcile(t *testing.T) {
 	})
 
 	t.Run("what is referenced is applied, what is not goes", func(t *testing.T) {
+		t.Parallel()
+
 		var applied, deleted []string
 		c := newController(
 			export("wildwest-provider", sheriffRef("one")),
@@ -294,6 +321,8 @@ func TestReconcile(t *testing.T) {
 	})
 
 	t.Run("a wanted resource that already exists is still applied, not skipped", func(t *testing.T) {
+		t.Parallel()
+
 		var applied, deleted []string
 		c := newController(
 			export("wildwest-provider", sheriffRef("one")),
@@ -306,6 +335,8 @@ func TestReconcile(t *testing.T) {
 	})
 
 	t.Run("a resource already on its way out is not deleted again", func(t *testing.T) {
+		t.Parallel()
+
 		var applied, deleted []string
 		stale := owned("stale")
 		stale.DeletionTimestamp = ptr.To(metav1.Now())
