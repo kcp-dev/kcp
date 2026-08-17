@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -38,6 +37,7 @@ import (
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources/replication"
 )
 
 type reconcileStatus int
@@ -149,15 +149,14 @@ func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster log
 		Resource: clusterCachedResource.Spec.Resource,
 	}
 
-	listOpts := metav1.ListOptions{}
-	if clusterCachedResource.Spec.LabelSelector != nil {
-		listOpts.LabelSelector = labels.SelectorFromSet(clusterCachedResource.Spec.LabelSelector.MatchLabels).String()
-	}
+	selection := replicationcontroller.SelectionFor(clusterCachedResource)
 
-	resources, err := c.localDynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, listOpts)
+	resources, err := c.localDynamicClient.Cluster(cluster.Path()).Resource(gvr).List(ctx, selection.ListOptions())
 	if err != nil {
 		return nil, err
 	}
+	// Names cannot go into the list options, so they are applied here.
+	resources.Items = selection.Filter(resources.Items)
 
 	return resources, nil
 }

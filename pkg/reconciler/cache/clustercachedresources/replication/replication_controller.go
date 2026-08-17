@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -80,7 +79,7 @@ func NewController(
 	gvr schema.GroupVersionResource,
 	replicated *ReplicatedGVR,
 	requeueSelf func(),
-	localLabelSelector labels.Selector,
+	selection Selection,
 ) (*Controller, error) {
 	c := &Controller{
 		shardName: shardName,
@@ -96,7 +95,7 @@ func NewController(
 		replicated:                      replicated,
 		requeueSelf:                     requeueSelf,
 		onShutdownFuncs:                 make([]func(), 0),
-		localLabelSelector:              localLabelSelector,
+		selection:                       selection,
 	}
 
 	localHandler, err := c.replicated.Local.AddEventHandler(cache.FilteringResourceEventHandler{
@@ -177,8 +176,8 @@ func (c *Controller) Started() bool {
 	return c.started
 }
 
-func (c *Controller) SetLabelSelector(localLabelSelector labels.Selector) {
-	c.localLabelSelector = localLabelSelector
+func (c *Controller) SetSelection(selection Selection) {
+	c.selection = selection
 }
 
 func (c *Controller) startWorker(ctx context.Context) {
@@ -232,9 +231,9 @@ type Controller struct {
 	// onShutdownFuncs are cleanup functions that are called when the controller is stopped.
 	onShutdownFuncs []func()
 
-	// localLabelSelector is the label selector that we use to filter the objects that we want to replicate.
-	// It is set when the controller is created and can be changed by the parent controller.
-	localLabelSelector labels.Selector
+	// selection is which objects of the kind we replicate. It is set when the
+	// controller is created and can be changed by the parent controller.
+	selection Selection
 
 	started bool
 	deleted bool
