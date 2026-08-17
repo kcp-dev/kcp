@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -169,6 +170,12 @@ func TestReferenceReplication(t *testing.T) {
 	t.Logf("Waiting for the cached copy to be removed")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		names, err := cachedSheriffs()
+		if apierrors.IsNotFound(err) {
+			// The kind is served out of a synthetic CRD that exists only as
+			// long as some ClusterCachedResource wants it. With the last one
+			// gone the whole kind goes, which removes the copy and then some.
+			return true, ""
+		}
 		if err != nil {
 			return false, fmt.Sprintf("error listing sheriffs in the cache: %v", err)
 		}
