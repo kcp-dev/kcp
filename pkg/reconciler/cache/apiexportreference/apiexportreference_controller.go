@@ -108,8 +108,6 @@ func NewController(
 			}
 			return out, nil
 		},
-		apiExportsSynced:             apiExportInformer.Informer().HasSynced,
-		clusterCachedResourcesSynced: clusterCachedResourceInformer.Informer().HasSynced,
 	}
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -139,9 +137,6 @@ type controller struct {
 	listOwnedResources func(cluster logicalcluster.Name, export string) ([]*cachev1alpha1.ClusterCachedResource, error)
 	applyResource      func(ctx context.Context, cluster logicalcluster.Name, ccr *cachev1alpha1apply.ClusterCachedResourceApplyConfiguration) error
 	deleteResource     func(ctx context.Context, cluster logicalcluster.Name, name string) error
-
-	apiExportsSynced             cache.InformerSynced
-	clusterCachedResourcesSynced cache.InformerSynced
 }
 
 // reference is one object an APIExport points at. It names a kind, because
