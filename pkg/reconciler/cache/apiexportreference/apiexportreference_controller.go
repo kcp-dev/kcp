@@ -148,6 +148,11 @@ type reference struct {
 	name  string
 }
 
+// String renders a reference in human readable form, for logging and error messages. It is not a legal object name.
+func (r reference) String() string {
+	return fmt.Sprintf("%s.%s/%s", strings.ToLower(r.kind), r.group, r.name)
+}
+
 // resolved is a reference once its kind has been turned into a resource.
 type resolved struct {
 	gvr  schema.GroupVersionResource
@@ -311,7 +316,7 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 		return err
 	}
 
-	wanted, err := c.wantedFor(export)
+	wanted, unresolved, err := c.wantedFor(export)
 	if err != nil {
 		return err
 	}
@@ -324,17 +329,25 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 	// Anything this APIExport owns but no longer asks for goes. Deleting the
 	// ClusterCachedResource is what removes the copies: its finalizer drains
 	// them while the kind is still served.
-	for _, ccr := range existing {
-		if _, keep := wanted[ccr.Name]; keep {
-			continue
-		}
-		if !ccr.DeletionTimestamp.IsZero() {
-			continue
-		}
-		klog.FromContext(ctx).V(2).Info("dropping a ClusterCachedResource nothing references anymore",
-			"clusterCachedResource", ccr.Name)
-		if err := c.deleteResource(ctx, cluster, ccr.Name); err != nil && !apierrors.IsNotFound(err) {
-			return err
+	//
+	// Only when every reference resolved, though. With one still unresolved the
+	// wanted set is a partial answer, and pruning against it would delete a
+	// ClusterCachedResource the APIExport does in fact still ask for -- then
+	// recreate it on the next pass, draining and refilling the cache for a kind
+	// that never stopped being referenced.
+	if len(unresolved) == 0 {
+		for _, ccr := range existing {
+			if _, keep := wanted[ccr.Name]; keep {
+				continue
+			}
+			if !ccr.DeletionTimestamp.IsZero() {
+				continue
+			}
+			klog.FromContext(ctx).V(2).Info("dropping a ClusterCachedResource nothing references anymore",
+				"clusterCachedResource", ccr.Name)
+			if err := c.deleteResource(ctx, cluster, ccr.Name); err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 
@@ -342,37 +355,59 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 	// fields this controller owns, so an existing ClusterCachedResource keeps
 	// whatever others put on it -- the clustercachedresources controller
 	// defaults spec.identity in place, and that must survive this write.
+	//
+	// References that did resolve are applied even while others have not: an
+	// APIExport that mixes a settled reference with a brand-new one should not
+	// have the settled one held hostage.
 	for _, want := range wanted {
 		if err := c.applyResource(ctx, cluster, want); err != nil {
 			return err
 		}
 	}
 
+	if len(unresolved) > 0 {
+		// Requeue with backoff. The rate limiter starts at milliseconds, so the
+		// ordinary case -- a CRD applied moments before the APIExport that names
+		// it -- converges about as fast as an event would have delivered it. A
+		// reference to a kind that genuinely does not exist settles into a slow
+		// retry, which is the right price for a misconfiguration that would
+		// otherwise leave no trace anywhere.
+		return fmt.Errorf("APIExport %s|%s references %s: not resolvable (yet)", cluster, export.Name, unresolved)
+	}
+
 	return nil
 }
 
 // wantedFor resolves an APIExport's references to the ClusterCachedResources
-// that should exist for them, as apply configurations keyed by name.
-func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cachev1alpha1apply.ClusterCachedResourceApplyConfiguration, error) {
+// that should exist for them, as apply configurations keyed by name. It also
+// reports the references that could not be resolved.
+//
+// An unresolved reference is neither an error nor an absence. The RESTMapper
+// behind restMappingFor is per-replica, in-memory state fed asynchronously by
+// its own controller -- and one that deliberately withholds a CRD until it is
+// Established. A no-match from it means "this replica does not know that kind
+// yet", which is true of every kind for a short while after it is created, and
+// stays true forever for a kind that was never created. The two are
+// indistinguishable here, so this returns them and lets the caller retry.
+func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cachev1alpha1apply.ClusterCachedResourceApplyConfiguration, []reference, error) {
 	if !export.DeletionTimestamp.IsZero() {
 		// On its way out. The garbage collector handles what it owns.
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	cluster := logicalcluster.From(export)
 	wanted := map[string]*cachev1alpha1apply.ClusterCachedResourceApplyConfiguration{}
 	seen := sets.New[resolved]()
+	var unresolved []reference
 
 	for _, ref := range referencesFrom(export) {
 		mapping, err := c.restMappingFor(cluster, schema.GroupKind{Group: ref.group, Kind: ref.kind})
 		if err != nil {
 			if meta.IsNoMatchError(err) {
-				// The kind is not served in that workspace. Nothing to cache,
-				// and nothing this controller can do about it: the APIExport is
-				// pointing at something that does not exist.
+				unresolved = append(unresolved, ref)
 				continue
 			}
-			return nil, err
+			return nil, nil, err
 		}
 
 		r := resolved{gvr: mapping.Resource, name: ref.name}
@@ -384,5 +419,5 @@ func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cach
 		wanted[nameFor(export.Name, r)] = desired(export, r)
 	}
 
-	return wanted, nil
+	return wanted, unresolved, nil
 }

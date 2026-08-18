@@ -68,6 +68,17 @@ func sheriffRef(name string) corev1.TypedLocalObjectReference {
 	}
 }
 
+// ghostRef names a kind sheriffMapper does not know, which is what a CRD that
+// has not been created -- or has not been Established yet -- looks like from
+// here.
+func ghostRef(name string) corev1.TypedLocalObjectReference {
+	return corev1.TypedLocalObjectReference{
+		APIGroup: ptr.To("nowhere.dev"),
+		Kind:     "Ghost",
+		Name:     name,
+	}
+}
+
 func sheriffMapper(t *testing.T) func(cluster logicalcluster.Name, gk schema.GroupKind) (*meta.RESTMapping, error) {
 	return func(cluster logicalcluster.Name, gk schema.GroupKind) (*meta.RESTMapping, error) {
 		require.Equal(t, logicalcluster.Name(testCluster), cluster, "references must resolve in the APIExport's own cluster")
@@ -180,9 +191,10 @@ func TestWantedFor(t *testing.T) {
 		e := export("wildwest-provider", sheriffRef("one"))
 		e.DeletionTimestamp = ptr.To(metav1.Now())
 
-		wanted, err := c.wantedFor(e)
+		wanted, unresolved, err := c.wantedFor(e)
 		require.NoError(t, err)
 		require.Empty(t, wanted)
+		require.Empty(t, unresolved)
 	})
 
 	t.Run("no references, nothing wanted", func(t *testing.T) {
@@ -190,9 +202,10 @@ func TestWantedFor(t *testing.T) {
 
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
-		wanted, err := c.wantedFor(export("wildwest-provider"))
+		wanted, unresolved, err := c.wantedFor(export("wildwest-provider"))
 		require.NoError(t, err)
 		require.Empty(t, wanted)
+		require.Empty(t, unresolved)
 	})
 
 	t.Run("a reference resolves to one ClusterCachedResource", func(t *testing.T) {
@@ -200,8 +213,9 @@ func TestWantedFor(t *testing.T) {
 
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
-		wanted, err := c.wantedFor(export("wildwest-provider", sheriffRef("one")))
+		wanted, unresolved, err := c.wantedFor(export("wildwest-provider", sheriffRef("one")))
 		require.NoError(t, err)
+		require.Empty(t, unresolved)
 		require.Len(t, wanted, 1)
 		want := wanted[nameFor("wildwest-provider", resolved{
 			gvr:  schema.GroupVersionResource{Group: "wildwest.dev", Version: "v1alpha1", Resource: "sheriffs"},
@@ -216,23 +230,33 @@ func TestWantedFor(t *testing.T) {
 
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
-		wanted, err := c.wantedFor(export("wildwest-provider", sheriffRef("one"), sheriffRef("one")))
+		wanted, unresolved, err := c.wantedFor(export("wildwest-provider", sheriffRef("one"), sheriffRef("one")))
 		require.NoError(t, err)
+		require.Empty(t, unresolved)
 		require.Len(t, wanted, 1)
 	})
 
-	t.Run("a kind that is not served is skipped", func(t *testing.T) {
+	t.Run("a kind that is not served is reported, not dropped", func(t *testing.T) {
 		t.Parallel()
 
 		c := &controller{restMappingFor: sheriffMapper(t)}
 
-		wanted, err := c.wantedFor(export("wildwest-provider", corev1.TypedLocalObjectReference{
-			APIGroup: ptr.To("nowhere.dev"),
-			Kind:     "Ghost",
-			Name:     "one",
-		}))
+		wanted, unresolved, err := c.wantedFor(export("wildwest-provider", ghostRef("one")))
 		require.NoError(t, err)
 		require.Empty(t, wanted)
+		require.Equal(t, []reference{{group: "nowhere.dev", kind: "Ghost", name: "one"}}, unresolved,
+			"a no-match is 'not yet', and the caller has to hear about it to retry")
+	})
+
+	t.Run("a reference that resolves is kept while another does not", func(t *testing.T) {
+		t.Parallel()
+
+		c := &controller{restMappingFor: sheriffMapper(t)}
+
+		wanted, unresolved, err := c.wantedFor(export("wildwest-provider", sheriffRef("one"), ghostRef("two")))
+		require.NoError(t, err)
+		require.Len(t, wanted, 1, "a settled reference is not held hostage by an unsettled one")
+		require.Len(t, unresolved, 1)
 	})
 
 	t.Run("other mapper errors propagate", func(t *testing.T) {
@@ -243,7 +267,7 @@ func TestWantedFor(t *testing.T) {
 			return nil, boom
 		}}
 
-		_, err := c.wantedFor(export("wildwest-provider", sheriffRef("one")))
+		_, _, err := c.wantedFor(export("wildwest-provider", sheriffRef("one")))
 		require.ErrorIs(t, err, boom)
 	})
 }
@@ -347,5 +371,50 @@ func TestReconcile(t *testing.T) {
 
 		require.NoError(t, c.reconcile(context.Background(), key))
 		require.Empty(t, deleted)
+	})
+
+	// The bootstrap race: a CRD and the APIExport naming its kind applied in the
+	// same breath. The RESTMapper has not caught up, and if reconcile calls that
+	// a finished job the APIExport is wedged until something else touches it --
+	// no ClusterCachedResource, no replication, and discovery of the virtual
+	// resource fails on every shard from then on.
+	t.Run("an unresolved reference requeues instead of settling for nothing", func(t *testing.T) {
+		t.Parallel()
+
+		var applied, deleted []string
+		c := newController(
+			export("wildwest-provider", ghostRef("one")),
+			nil, &applied, &deleted)
+
+		err := c.reconcile(context.Background(), key)
+		require.Error(t, err, "returning nil here is what makes the race permanent")
+		require.Contains(t, err.Error(), "ghost.nowhere.dev/one")
+		require.Empty(t, applied)
+	})
+
+	t.Run("nothing is pruned while a reference is unresolved", func(t *testing.T) {
+		t.Parallel()
+
+		var applied, deleted []string
+		c := newController(
+			export("wildwest-provider", ghostRef("one")),
+			[]*cachev1alpha1.ClusterCachedResource{owned("not-actually-stale")},
+			&applied, &deleted)
+
+		require.Error(t, c.reconcile(context.Background(), key))
+		require.Empty(t, deleted,
+			"a partial wanted set is not evidence that a ClusterCachedResource is unreferenced")
+	})
+
+	t.Run("references that did resolve are applied even while others have not", func(t *testing.T) {
+		t.Parallel()
+
+		var applied, deleted []string
+		c := newController(
+			export("wildwest-provider", sheriffRef("one"), ghostRef("two")),
+			nil, &applied, &deleted)
+
+		require.Error(t, c.reconcile(context.Background(), key))
+		require.Equal(t, []string{wantedName}, applied)
 	})
 }
