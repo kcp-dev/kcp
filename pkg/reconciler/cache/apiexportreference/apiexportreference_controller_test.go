@@ -373,11 +373,6 @@ func TestReconcile(t *testing.T) {
 		require.Empty(t, deleted)
 	})
 
-	// The bootstrap race: a CRD and the APIExport naming its kind applied in the
-	// same breath. The RESTMapper has not caught up, and if reconcile calls that
-	// a finished job the APIExport is wedged until something else touches it --
-	// no ClusterCachedResource, no replication, and discovery of the virtual
-	// resource fails on every shard from then on.
 	t.Run("an unresolved reference requeues instead of settling for nothing", func(t *testing.T) {
 		t.Parallel()
 

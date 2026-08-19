@@ -329,12 +329,6 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 	// Anything this APIExport owns but no longer asks for goes. Deleting the
 	// ClusterCachedResource is what removes the copies: its finalizer drains
 	// them while the kind is still served.
-	//
-	// Only when every reference resolved, though. With one still unresolved the
-	// wanted set is a partial answer, and pruning against it would delete a
-	// ClusterCachedResource the APIExport does in fact still ask for -- then
-	// recreate it on the next pass, draining and refilling the cache for a kind
-	// that never stopped being referenced.
 	if len(unresolved) == 0 {
 		for _, ccr := range existing {
 			if _, keep := wanted[ccr.Name]; keep {
@@ -355,10 +349,6 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 	// fields this controller owns, so an existing ClusterCachedResource keeps
 	// whatever others put on it -- the clustercachedresources controller
 	// defaults spec.identity in place, and that must survive this write.
-	//
-	// References that did resolve are applied even while others have not: an
-	// APIExport that mixes a settled reference with a brand-new one should not
-	// have the settled one held hostage.
 	for _, want := range wanted {
 		if err := c.applyResource(ctx, cluster, want); err != nil {
 			return err
@@ -366,12 +356,6 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 	}
 
 	if len(unresolved) > 0 {
-		// Requeue with backoff. The rate limiter starts at milliseconds, so the
-		// ordinary case -- a CRD applied moments before the APIExport that names
-		// it -- converges about as fast as an event would have delivered it. A
-		// reference to a kind that genuinely does not exist settles into a slow
-		// retry, which is the right price for a misconfiguration that would
-		// otherwise leave no trace anywhere.
 		return fmt.Errorf("APIExport %s|%s references %s: not resolvable (yet)", cluster, export.Name, unresolved)
 	}
 
@@ -381,14 +365,6 @@ func (c *controller) reconcile(ctx context.Context, rawKey string) error {
 // wantedFor resolves an APIExport's references to the ClusterCachedResources
 // that should exist for them, as apply configurations keyed by name. It also
 // reports the references that could not be resolved.
-//
-// An unresolved reference is neither an error nor an absence. The RESTMapper
-// behind restMappingFor is per-replica, in-memory state fed asynchronously by
-// its own controller -- and one that deliberately withholds a CRD until it is
-// Established. A no-match from it means "this replica does not know that kind
-// yet", which is true of every kind for a short while after it is created, and
-// stays true forever for a kind that was never created. The two are
-// indistinguishable here, so this returns them and lets the caller retry.
 func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cachev1alpha1apply.ClusterCachedResourceApplyConfiguration, []reference, error) {
 	if !export.DeletionTimestamp.IsZero() {
 		// On its way out. The garbage collector handles what it owns.
