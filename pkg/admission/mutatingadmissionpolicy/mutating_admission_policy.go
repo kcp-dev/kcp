@@ -61,6 +61,8 @@ import (
 
 const PluginName = "KCPMutatingAdmissionPolicy"
 
+const systemBoundCRDsClusterName = logicalcluster.Name("system:bound-crds")
+
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(config io.Reader) (admission.Interface, error) {
@@ -205,6 +207,10 @@ func (k *KubeMutatingAdmissionPolicy) Admit(ctx context.Context, a admission.Att
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
 		return err
+	}
+
+	if cluster.Name == systemBoundCRDsClusterName {
+		return nil
 	}
 
 	sourceCluster, err := k.getSourceClusterForGroupResource(cluster.Name, a.GetResource().GroupResource())
