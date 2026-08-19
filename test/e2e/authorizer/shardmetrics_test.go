@@ -95,7 +95,7 @@ func TestShardMetricsEndpoint(t *testing.T) {
 				Name:     "user-1",
 			}},
 		}, metav1.CreateOptions{})
-		require.NoError(t, err)
+		require.NoError(c, err)
 	}, wait.ForeverTestTimeout, 200*time.Millisecond, "waiting to create ClusterRoleBinding for user-1")
 
 	workspaceMetricsPath := fmt.Sprintf("/clusters/%s/metrics", wsPath.String())
