@@ -56,6 +56,8 @@ const (
 
 	// TODO(sttts): move to central place in kube.
 	BoundAnnotationKey = "apis.kcp.io/bound-crd"
+
+	systemBoundCRDsClusterName = logicalcluster.Name("system:bound-crds")
 )
 
 // WithOpenAPIv3 returns a handler that serves OpenAPI v3 specs for CRDs, not
@@ -129,12 +131,27 @@ func (c *ServiceCache) RegisterStaticAPIs(cont *restful.Container) error {
 	return nil
 }
 
+func (c *ServiceCache) serveEmpty(w http.ResponseWriter, r *http.Request) {
+	m := mux.NewPathRecorderMux("cluster-aware-openapi-v3-empty")
+	service := handler3.NewOpenAPIService()
+	if err := service.RegisterOpenAPIV3VersionedService("/openapi/v3", m); err != nil {
+		responsewriters.InternalError(w, r, err)
+		return
+	}
+	m.ServeHTTP(w, r)
+}
+
 func (c *ServiceCache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	clusterName, err := request.ClusterNameFrom(r.Context())
 	if err != nil {
 		http.NotFound(w, r)
+		return
+	}
+
+	if clusterName == systemBoundCRDsClusterName {
+		c.serveEmpty(w, r)
 		return
 	}
 
