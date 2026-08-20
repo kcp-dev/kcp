@@ -96,22 +96,40 @@ func sheriffMapper(t *testing.T) func(cluster logicalcluster.Name, gk schema.Gro
 func TestReferencesFrom(t *testing.T) {
 	t.Parallel()
 
-	e := export("wildwest-provider", sheriffRef("one"))
-	e.Spec.Resources = append(e.Spec.Resources,
-		// Regular storage: not a reference.
-		apisv1alpha2.ResourceSchema{Group: "wildwest.dev", Name: "cowboys", Schema: "today.cowboys.wildwest.dev"},
-		// Virtual storage without kind or name: not a usable reference.
-		apisv1alpha2.ResourceSchema{
-			Group:   "wildwest.dev",
-			Name:    "cowboys",
-			Schema:  "today.cowboys.wildwest.dev",
-			Storage: apisv1alpha2.ResourceSchemaStorage{Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{}},
-		},
-	)
+	t.Run("consider only non-empty VR refs", func(t *testing.T) {
+		t.Parallel()
 
-	require.Equal(t,
-		[]reference{{group: "wildwest.dev", kind: "Sheriff", name: "one"}},
-		referencesFrom(e))
+		e := export("wildwest-provider", sheriffRef("one"))
+		e.Spec.Resources = append(e.Spec.Resources,
+			// Regular storage: not a reference.
+			apisv1alpha2.ResourceSchema{Group: "wildwest.dev", Name: "cowboys", Schema: "today.cowboys.wildwest.dev"},
+			// Virtual storage without kind or name: not a usable reference.
+			apisv1alpha2.ResourceSchema{
+				Group:   "wildwest.dev",
+				Name:    "cowboys",
+				Schema:  "today.cowboys.wildwest.dev",
+				Storage: apisv1alpha2.ResourceSchemaStorage{Virtual: &apisv1alpha2.ResourceSchemaStorageVirtual{}},
+			},
+		)
+
+		require.Equal(t,
+			[]reference{{group: "wildwest.dev", kind: "Sheriff", name: "one"}},
+			referencesFrom(e))
+	})
+
+	t.Run("ignore VR refs from ignoreBuiltinEndpointSlices", func(t *testing.T) {
+		t.Parallel()
+
+		e := export("wildwest-provider", corev1.TypedLocalObjectReference{
+			APIGroup: ptr.To("cache.kcp.io"),
+			Kind:     "ClusterCachedResourceEndpointSlice",
+			Name:     "instances",
+		})
+
+		require.Equal(t,
+			[]reference(nil),
+			referencesFrom(e))
+	})
 }
 
 func TestNameFor(t *testing.T) {
