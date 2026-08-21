@@ -27,6 +27,14 @@ import (
 // RootShard holds a name of the root shard.
 var RootShard = "root"
 
+// ShardRepresentationAnnotationKey marks a Shard object as a read-only
+// representation mirrored from the shard-owned authoritative object living in
+// the shard's local system:shard logical cluster. Representations exist for
+// discoverability (e.g. in the root workspace) and must not be edited; they
+// are continuously overwritten from the authoritative object and are excluded
+// from cache replication.
+const ShardRepresentationAnnotationKey = "core.kcp.io/shard-representation"
+
 // Shard describes a kcp instance on which a number of logical clusters will live
 //
 // +crd

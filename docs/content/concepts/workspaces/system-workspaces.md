@@ -103,6 +103,12 @@ Each bound CRD is:
 ## `system:shard`
 
 The `system:shard` workspace holds essential API bindings that every shard needs to function.
+It also holds the shard's own authoritative `Shard` object: each shard registers itself here
+at startup, the object is replicated to the cache server, and the root shard mirrors it into
+the root workspace as a read-only representation (marked with the
+`core.kcp.io/shard-representation` annotation). To change a shard's configuration (URLs,
+labels), change the shard's flags/deployment rather than editing the representation.
+
 During shard bootstrap, API bindings for the following API groups are created in this workspace:
 
 - `shards.core.kcp.io`

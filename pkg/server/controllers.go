@@ -96,6 +96,7 @@ import (
 	coresreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrole"
 	corereplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/shardmirror"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
@@ -619,6 +620,28 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 			},
 			Runner: func(ctx context.Context) {
 				workspaceShardController.Start(ctx, 2)
+			},
+		}); err != nil {
+			return err
+		}
+	}
+
+	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
+		shardMirrorController := shardmirror.NewController(
+			kcpClusterClient,
+			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+			s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		)
+		if err := s.registerController(&controllerWrapper{
+			Name: shardmirror.ControllerName,
+			Wait: func(ctx context.Context, s *Server) error {
+				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+					return s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+						s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+				})
+			},
+			Runner: func(ctx context.Context) {
+				shardMirrorController.Start(ctx, 2)
 			},
 		}); err != nil {
 			return err

@@ -60,7 +60,6 @@ import (
 	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -726,8 +725,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// labels itself with its name when it registers, so a selector can name a
 	// shard without the installation having to label anything.
 	thisShardLabels := func() labels.Set {
-		shard, err := c.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().
-			Lister().Cluster(core.RootCluster).Get(opts.Extra.ShardName)
+		shard, err := indexers.ShardByName(c.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Lister(), opts.Extra.ShardName)
 		if err != nil {
 			// Before the Shard object exists or syncs there is nothing to match
 			// on. Selective endpoints will not match, which fails loudly, and

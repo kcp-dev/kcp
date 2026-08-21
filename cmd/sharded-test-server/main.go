@@ -26,18 +26,12 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/sdk/apis/core"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
 	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
@@ -316,37 +310,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
-	// Label region of shards
-	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
-	if err != nil {
-		return err
-	}
-	config, err := clientConfig.ClientConfig()
-	if err != nil {
-		return err
-	}
-	client, err := kcpclientset.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	for i := range shards {
-		name := fmt.Sprintf("shard-%d", i)
-		if i == 0 {
-			name = "root"
-		}
-
-		if i >= len(regions) {
-			break
-		}
-		patch := fmt.Sprintf(`{"metadata":{"labels":{"region":%q,"shared": "true"}}}`, regions[i])
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			_, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Patch(ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-			return err
-		}); err != nil {
-			return err
-		}
-	}
-
 	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
 	if err != nil {
 		return fmt.Errorf("error creating ready-to-test file: %w", err)
@@ -378,23 +341,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 type indexErrTuple struct {
 	index int
 	error error
-}
-
-func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
-	fs, err := os.Stat(kubeconfigPath)
-	if err != nil {
-		return nil, err
-	}
-	if fs.Size() == 0 {
-		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
-	}
-
-	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
-	}
-
-	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
 }
 
 var regions = []string{

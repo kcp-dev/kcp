@@ -36,6 +36,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
@@ -45,6 +46,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -80,8 +82,13 @@ func NewController(
 	}
 
 	for gvr, info := range c.Gvrs {
+		eventFilter := IsNoSystemClusterName
+		if info.EventFilter != nil {
+			eventFilter = info.EventFilter
+		}
+
 		_, _ = info.Local.AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: IsNoSystemClusterName,
+			FilterFunc: eventFilter,
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr) },
 				UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr) },
@@ -90,7 +97,7 @@ func NewController(
 		})
 
 		_, _ = info.Global.AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: IsNoSystemClusterName, // not really needed, but cannot harm
+			FilterFunc: eventFilter, // not really needed, but cannot harm
 			Handler: cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { c.enqueueCacheObject(obj, gvr) },
 				UpdateFunc: func(_, obj interface{}) { c.enqueueCacheObject(obj, gvr) },
@@ -183,6 +190,28 @@ func IsNoSystemClusterName(obj interface{}) bool {
 	return true
 }
 
+// isNoSystemClusterNameExceptSystemShard is like IsNoSystemClusterName, but
+// additionally lets objects in the shard-local system:shard logical cluster
+// through. Used for resources whose authoritative copy is shard-owned, like
+// Shards.
+func isNoSystemClusterNameExceptSystemShard(obj interface{}) bool {
+	key, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return false
+	}
+
+	clusterName, _, _, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return false
+	}
+	if clusterName == configshard.SystemShardCluster {
+		return true
+	}
+	return !strings.HasPrefix(clusterName.String(), "system:")
+}
+
 type controller struct {
 	shardName string
 	queue     workqueue.TypedRateLimitingInterface[string]
@@ -193,8 +222,12 @@ type controller struct {
 }
 
 type ReplicatedGVR struct {
-	Kind          string
-	Filter        func(u *unstructured.Unstructured) bool
+	Kind   string
+	Filter func(u *unstructured.Unstructured) bool
+	// EventFilter overrides the default IsNoSystemClusterName event filter for
+	// this resource, e.g. to replicate objects living in a system logical
+	// cluster.
+	EventFilter   func(obj interface{}) bool
 	Global, Local cache.SharedIndexInformer
 }
 
@@ -256,9 +289,16 @@ func InstallIndexers(
 			Global: globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
-			Kind:   "Shard",
-			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
-			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Kind: "Shard",
+			Filter: func(u *unstructured.Unstructured) bool {
+				if logicalcluster.From(u) == configshard.SystemShardCluster {
+					return true
+				}
+				return u.GetAnnotations()[corev1alpha1.ShardRepresentationAnnotationKey] == ""
+			},
+			EventFilter: isNoSystemClusterNameExceptSystemShard,
+			Local:       localKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Global:      globalKcpInformers.Core().V1alpha1().Shards().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
 			Kind: "LogicalCluster",

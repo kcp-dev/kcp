@@ -62,6 +62,7 @@ type ExtraOptions struct {
 	ShardBaseURL                string
 	ShardExternalURL            string
 	ShardName                   string
+	ShardLabels                 map[string]string
 	ShardVirtualWorkspaceURL    string
 	ShardClientCertFile         string
 	ShardClientKeyFile          string
@@ -183,6 +184,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardExternalURL, "shard-external-url", o.Extra.ShardExternalURL, "URL used by outside clients to talk to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardName, "shard-name", o.Extra.ShardName, "A name of this kcp shard. Defaults to the \"root\" name.")
+	fs.StringToStringVar(&o.Extra.ShardLabels, "shard-labels", o.Extra.ShardLabels, "Additional labels to set on this shard's Shard object, e.g. region=us-east-1. The Shard object is owned by the shard; labels are part of its configuration.")
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceCAFile, "shard-virtual-workspace-ca-file", o.Extra.ShardVirtualWorkspaceCAFile, "Path to a CA certificate file that is valid for the virtual workspace server.")
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.Extra.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
 	fs.StringVar(&o.Extra.ShardClientCertFile, "shard-client-cert-file", o.Extra.ShardClientCertFile, "Path to a client certificate file the shard uses to communicate with other system components.")
