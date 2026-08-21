@@ -20,10 +20,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 
-	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
+
+	configshard "github.com/kcp-dev/kcp/config/shard"
 )
 
 // ShardByName returns the Shard with the given name, regardless of the logical

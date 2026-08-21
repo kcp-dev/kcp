@@ -223,10 +223,8 @@ func (c *Controller) reconcile(ctx context.Context, name string) error {
 		!equality.Semantic.DeepEqual(local.Annotations, updated.Annotations) ||
 		!equality.Semantic.DeepEqual(local.Spec, updated.Spec) {
 		logger.V(2).Info("updating Shard representation", "shard", name)
-		if err := c.updateShard(ctx, updated); err != nil {
-			return err
-		}
-		return nil // status is synced on the next reconcile triggered by the update
+		// status is synced on the next reconcile triggered by the update
+		return c.updateShard(ctx, updated)
 	}
 
 	if !equality.Semantic.DeepEqual(local.Status, source.Status) {

@@ -93,6 +93,7 @@ func newController(source, local *corev1alpha1.Shard, actions *fakeActions) *Con
 }
 
 func TestReconcileCreatesRepresentation(t *testing.T) {
+	t.Parallel()
 	actions := &fakeActions{}
 	c := newController(authoritativeShard("alpha"), nil, actions)
 	if err := c.reconcile(context.Background(), "alpha"); err != nil {
@@ -123,6 +124,7 @@ func TestReconcileCreatesRepresentation(t *testing.T) {
 }
 
 func TestReconcileStompsManualEdit(t *testing.T) {
+	t.Parallel()
 	edited := representation("alpha")
 	edited.Spec.BaseURL = "https://tampered"
 	actions := &fakeActions{}
@@ -139,6 +141,7 @@ func TestReconcileStompsManualEdit(t *testing.T) {
 }
 
 func TestReconcileAdoptsLegacyObject(t *testing.T) {
+	t.Parallel()
 	legacy := authoritativeShard("alpha").DeepCopy() // self-registered pre-upgrade, no representation annotation
 	legacy.Annotations = map[string]string{logicalcluster.AnnotationKey: "root"}
 	actions := &fakeActions{}
@@ -155,6 +158,7 @@ func TestReconcileAdoptsLegacyObject(t *testing.T) {
 }
 
 func TestReconcileInSync(t *testing.T) {
+	t.Parallel()
 	actions := &fakeActions{}
 	c := newController(authoritativeShard("alpha"), representation("alpha"), actions)
 	if err := c.reconcile(context.Background(), "alpha"); err != nil {
@@ -166,6 +170,7 @@ func TestReconcileInSync(t *testing.T) {
 }
 
 func TestReconcileSyncsStatus(t *testing.T) {
+	t.Parallel()
 	source := authoritativeShard("alpha")
 	source.Status.Capacity = corev1.ResourceList{
 		"workspaces": resource.MustParse("5"),
@@ -189,6 +194,7 @@ func TestReconcileSyncsStatus(t *testing.T) {
 }
 
 func TestReconcilePrunesOrphanedRepresentation(t *testing.T) {
+	t.Parallel()
 	actions := &fakeActions{}
 	c := newController(nil, representation("alpha"), actions)
 	if err := c.reconcile(context.Background(), "alpha"); err != nil {
@@ -200,6 +206,7 @@ func TestReconcilePrunesOrphanedRepresentation(t *testing.T) {
 }
 
 func TestReconcileLeavesUnmanagedObjectsAlone(t *testing.T) {
+	t.Parallel()
 	synthetic := authoritativeShard("fake") // e.g. created by an e2e test in the root workspace
 	synthetic.Annotations = map[string]string{logicalcluster.AnnotationKey: "root"}
 	actions := &fakeActions{}

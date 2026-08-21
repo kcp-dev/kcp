@@ -39,6 +39,7 @@ func shardInCluster(name, cluster string) *corev1alpha1.Shard {
 }
 
 func TestShardByName(t *testing.T) {
+	t.Parallel()
 	indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
 	for _, shard := range []*corev1alpha1.Shard{
 		shardInCluster("alpha", "system:shard"),
