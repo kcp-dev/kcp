@@ -41,6 +41,7 @@ import (
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -51,6 +52,10 @@ func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		kcptestingserver.RunningServer
 		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
+		// systemShardKcpClient is a privileged client to the root shard's
+		// system:shard logical cluster, where the shard-owned authoritative
+		// Shard object lives.
+		systemShardKcpClient kcpclientset.Interface
 	}
 	var testCases = []struct {
 		name        string
@@ -97,8 +102,8 @@ func TestWorkspaceController(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				t.Logf("Get the root shard")
-				shard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+				t.Logf("Get the root shard's authoritative Shard object from system:shard")
+				shard, err := server.systemShardKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Mark the root shard as unschedulable")
@@ -106,7 +111,7 @@ func TestWorkspaceController(t *testing.T) {
 					shard.Annotations = map[string]string{}
 				}
 				shard.Annotations["experimental.core.kcp.io/unschedulable"] = "true"
-				_, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
+				_, err = server.systemShardKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
 				require.NoError(t, err)
 
 				// Workspaces cannot become "unschedulable" - once they
@@ -157,10 +162,10 @@ func TestWorkspaceController(t *testing.T) {
 				})
 
 				t.Logf("Remove unschedulable annotation from the root shard")
-				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+				shard, err = server.systemShardKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err)
 				delete(shard.Annotations, "experimental.core.kcp.io/unschedulable")
-				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
+				shard, err = server.systemShardKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
@@ -200,10 +205,14 @@ func TestWorkspaceController(t *testing.T) {
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
+			systemShardClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
+			require.NoError(t, err)
+
 			testCase.work(ctx, t, runningServer{
 				RunningServer:          server,
 				rootWorkspaceKcpClient: kcpClient.Cluster(core.RootCluster.Path()),
 				orgWorkspaceKcpClient:  kcpClient.Cluster(orgPath),
+				systemShardKcpClient:   systemShardClient.Cluster(configshard.SystemShardCluster.Path()),
 			})
 		})
 	}
