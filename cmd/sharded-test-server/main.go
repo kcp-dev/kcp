@@ -26,12 +26,16 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
 	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
@@ -310,6 +314,32 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
+	// Wait for all shards' Shard objects to be mirrored into the root
+	// workspace as representations before declaring the environment ready, so
+	// tests can rely on listing Shards there.
+	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
+	if err != nil {
+		return err
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+	client, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		shardList, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			// the front-proxy or the root shard may not be fully ready yet, keep polling
+			return false, nil //nolint:nilerr
+		}
+		return len(shardList.Items) >= numberOfShards, nil
+	}); err != nil {
+		return fmt.Errorf("failed waiting for %d Shard representations in the root workspace: %w", numberOfShards, err)
+	}
+
 	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
 	if err != nil {
 		return fmt.Errorf("error creating ready-to-test file: %w", err)
@@ -341,6 +371,23 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 type indexErrTuple struct {
 	index int
 	error error
+}
+
+func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
+	fs, err := os.Stat(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	if fs.Size() == 0 {
+		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
+	}
+
+	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	}
+
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
 }
 
 var regions = []string{

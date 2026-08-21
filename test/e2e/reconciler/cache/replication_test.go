@@ -759,9 +759,12 @@ func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kc
 	require.NoError(t, err)
 	shards, err := kcpRootShardClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
 	require.NoError(t, err)
-	if len(shards.Items) == 1 {
+	if len(shards.Items) <= 1 {
 		// Single shard with embedded cache server — use the loopback
 		// bearer token which the embedded cache already trusts.
+		// Note that the count can be 0 right after startup: the Shard object
+		// in the root workspace is a representation mirrored from the cache
+		// server and appears asynchronously.
 		return kcpRootShardConfig
 	}
 

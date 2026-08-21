@@ -218,6 +218,12 @@ func (c *Controller) reconcile(ctx context.Context, name string) error {
 	updated := local.DeepCopy()
 	updated.Labels = desired.Labels
 	updated.Annotations = desired.Annotations
+	// the logical cluster annotation is stamped onto stored objects by the
+	// server; keep it so the comparison below converges instead of updating
+	// on every resync.
+	if cluster, ok := local.Annotations[logicalcluster.AnnotationKey]; ok {
+		updated.Annotations[logicalcluster.AnnotationKey] = cluster
+	}
 	updated.Spec = desired.Spec
 	if !equality.Semantic.DeepEqual(local.Labels, updated.Labels) ||
 		!equality.Semantic.DeepEqual(local.Annotations, updated.Annotations) ||

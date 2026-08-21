@@ -51,6 +51,9 @@ func authoritativeShard(name string) *corev1alpha1.Shard {
 
 func representation(name string) *corev1alpha1.Shard {
 	r := representationFor(authoritativeShard(name))
+	// stored objects carry the logical cluster annotation stamped by the
+	// server; mimic that so tests catch non-converging comparisons.
+	r.Annotations[logicalcluster.AnnotationKey] = "root"
 	return r
 }
 

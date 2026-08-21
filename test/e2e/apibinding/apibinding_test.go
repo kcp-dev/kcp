@@ -170,8 +170,13 @@ func TestAPIBinding(t *testing.T) {
 		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 		require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-		shards, err = kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
-		require.NoError(t, err, "failed to list shards")
+		// The Shard objects in the root workspace are representations mirrored
+		// from the cache server and appear asynchronously after shard startup.
+		require.Eventually(t, func() bool {
+			shards, err = kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
+			require.NoError(t, err, "failed to list shards")
+			return len(shards.Items) > 0
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected at least one Shard in the root workspace")
 	}
 
 	t.Logf("Shards: %v", shards.Items)
