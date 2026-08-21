@@ -68,6 +68,14 @@ const (
 	ControllerName = "kcp-apiexport-reference-controller"
 )
 
+// Don't create CCRs for builtin endpoint slice kinds that we are already replicating.
+var ignoreBuiltinEndpointSlices = sets.New[schema.GroupKind](
+	schema.GroupKind{
+		Group: "cache.kcp.io",
+		Kind:  "ClusterCachedResourceEndpointSlice",
+	},
+)
+
 // NewController returns a controller that keeps a ClusterCachedResource for
 // every object an APIExport references.
 func NewController(
@@ -153,6 +161,13 @@ func (r reference) String() string {
 	return fmt.Sprintf("%s.%s/%s", strings.ToLower(r.kind), r.group, r.name)
 }
 
+func (r reference) GroupKind() schema.GroupKind {
+	return schema.GroupKind{
+		Group: r.group,
+		Kind:  r.kind,
+	}
+}
+
 // resolved is a reference once its kind has been turned into a resource.
 type resolved struct {
 	gvr  schema.GroupVersionResource
@@ -168,15 +183,19 @@ func referencesFrom(export *apisv1alpha2.APIExport) []reference {
 		if resource.Storage.Virtual == nil {
 			continue
 		}
-		ref := resource.Storage.Virtual.Reference
-		if ref.Kind == "" || ref.Name == "" {
+		objRef := resource.Storage.Virtual.Reference
+		if objRef.Kind == "" || objRef.Name == "" {
 			continue
 		}
-		refs = append(refs, reference{
-			group: ptr.Deref(ref.APIGroup, ""),
-			kind:  ref.Kind,
-			name:  ref.Name,
-		})
+		ref := reference{
+			group: ptr.Deref(objRef.APIGroup, ""),
+			kind:  objRef.Kind,
+			name:  objRef.Name,
+		}
+		if ignoreBuiltinEndpointSlices.Has(ref.GroupKind()) {
+			continue
+		}
+		refs = append(refs, ref)
 	}
 	return refs
 }
