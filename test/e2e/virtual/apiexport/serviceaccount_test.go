@@ -147,13 +147,6 @@ func TestMintServiceAccountTokenThroughVW(t *testing.T) {
 						Resource: "serviceaccounts/token",
 					},
 					Verbs: []string{"create"},
-					DefaultSelector: &apisv1alpha2.PermissionClaimSelector{
-						LabelSelector: metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								providerSAClaimLabel: "true",
-							},
-						},
-					},
 				},
 			},
 		},
@@ -198,11 +191,6 @@ func TestMintServiceAccountTokenThroughVW(t *testing.T) {
 								Resource: "serviceaccounts/token",
 							},
 							Verbs: []string{"create"},
-						},
-						Selector: apisv1alpha2.PermissionClaimSelector{
-							LabelSelector: metav1.LabelSelector{
-								MatchLabels: map[string]string{providerSAClaimLabel: "true"},
-							},
 						},
 					},
 				},

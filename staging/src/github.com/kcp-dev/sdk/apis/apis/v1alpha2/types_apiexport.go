@@ -230,6 +230,8 @@ type LocalAPIExportPolicy struct{}
 // PermissionClaim identifies an object by GR and identity hash.
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
+//
+// +kubebuilder:validation:XValidation:rule="!self.resource.contains('/') || !has(self.defaultSelector)",message="defaultSelector is not allowed on subresource claims"
 type PermissionClaim struct {
 	GroupResource `json:",inline"`
 
