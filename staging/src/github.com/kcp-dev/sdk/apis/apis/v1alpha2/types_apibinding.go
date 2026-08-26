@@ -122,6 +122,8 @@ const (
 
 // ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
 // scope down access to objects of the claimed resource.
+//
+// +kubebuilder:validation:XValidation:rule="!self.resource.contains('/') || (has(self.selector.matchAll) && self.selector.matchAll)",message="subresource claims must use selector.matchAll"
 type ScopedPermissionClaim struct {
 	PermissionClaim `json:",inline"`
 
