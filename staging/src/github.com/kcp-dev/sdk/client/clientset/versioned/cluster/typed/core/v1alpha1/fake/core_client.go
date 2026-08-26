@@ -40,6 +40,10 @@ func (c *CoreV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) cor
 	return &CoreV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+func (c *CoreV1alpha1ClusterClient) Caches() kcpcorev1alpha1.CacheClusterInterface {
+	return newFakeCacheClusterClient(c)
+}
+
 func (c *CoreV1alpha1ClusterClient) LogicalClusters() kcpcorev1alpha1.LogicalClusterClusterInterface {
 	return newFakeLogicalClusterClusterClient(c)
 }
@@ -51,6 +55,10 @@ func (c *CoreV1alpha1ClusterClient) Shards() kcpcorev1alpha1.ShardClusterInterfa
 type CoreV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
+}
+
+func (c *CoreV1alpha1Client) Caches() corev1alpha1.CacheInterface {
+	return newFakeCacheClient(c.Fake, c.ClusterPath)
 }
 
 func (c *CoreV1alpha1Client) LogicalClusters() corev1alpha1.LogicalClusterInterface {
