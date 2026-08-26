@@ -40,6 +40,12 @@ type Options struct {
 	EmbeddedEtcd     etcdoptions.Options
 	Logs             *logs.Options
 	SyntheticDelay   time.Duration
+
+	Extra ExtraOptions
+}
+
+type ExtraOptions struct {
+	CacheName string
 }
 
 type completedOptions struct {
@@ -81,6 +87,10 @@ func NewOptions(rootDir string) *Options {
 		APIEnablement:    genericoptions.NewAPIEnablementOptions(),
 		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
 		Logs:             logs.NewOptions(),
+
+		Extra: ExtraOptions{
+			CacheName: "cache",
+		},
 	}
 
 	o.SecureServing.ServerCert.CertDirectory = rootDir
@@ -123,4 +133,5 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.Authorization.AddFlags(fs)
 	logsapiv1.AddFlags(o.Logs, fs)
 	fs.DurationVar(&o.SyntheticDelay, "synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests. Useful for testing.")
+	fs.StringVar(&o.Extra.CacheName, "cache-name", o.Extra.CacheName, "A name of this cache server instance. Defaults to \"cache\".")
 }
