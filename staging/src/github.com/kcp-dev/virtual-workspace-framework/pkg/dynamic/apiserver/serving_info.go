@@ -19,6 +19,8 @@ package apiserver
 import (
 	"fmt"
 
+	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
+
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -264,40 +266,79 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		return nil, fmt.Errorf("storage for resource %q should define GetResetFields", gvk.String())
 	}
 
-	var statusScope handlers.RequestScope
-	statusStorage, statusEnabled := subresourceStorages["status"]
-	if statusEnabled {
+	subresourceScopes := map[string]*handlers.RequestScope{}
+	for subresource, subresourceStorage := range subresourceStorages {
+		// A subresource may produce a gvk different from its parent (e.g. ServiceAccount and TokenRequest).
+		// Default to the gvk (e.g. status) but override with the gvk the storage builds.
+		subresourceGVK := gvk
+		if obj := subresourceStorage.New(); obj != nil {
+			if objGVK := obj.GetObjectKind().GroupVersionKind(); !objGVK.Empty() {
+				subresourceGVK = objGVK
+			}
+		}
+
 		// shallow copy
-		statusScope = *requestScope
-		statusScope.Subresource = "status"
-		statusScope.Namer = handlers.ContextBasedNaming{
+		subresourceScope := *requestScope
+		subresourceScope.Subresource = subresource
+		subresourceScope.Namer = handlers.ContextBasedNaming{
 			Namer:         runtime.Namer(meta.NewAccessor()),
 			ClusterScoped: clusterScoped,
 		}
 
-		if withResetFields, canGetResetFields := statusStorage.(rest.ResetFieldsStrategy); canGetResetFields {
-			resetFields := withResetFields.GetResetFields()
-			statusScope, err = apiextensionsapiserver.ScopeWithFieldManager(
-				typeConverter,
-				statusScope,
-				resetFields,
-				"status",
+		subresourceTypeConverter := typeConverter
+		if subresourceGVK != gvk {
+			// If the GKVs of resource and subresource differ the
+			// request scope needs to be adjusted to handle the
+			// subresource GVK correctly.
+			subresourceScope.Kind = subresourceGVK
+			subresourceScope.HubGroupVersion = subresourceGVK.GroupVersion()
+			subresourceScope.Serializer = apiextensionsapiserver.NewUnstructuredNegotiatedSerializer(
+				typer,
+				creator,
+				safeConverter,
+				nil,
+				subresourceGVK.GroupKind(),
+				true,
 			)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+			subresourceScope.Defaulter = apiextensionsapiserver.NewUnstructuredDefaulter(
+				parameterScheme,
+				nil,
+				subresourceGVK.GroupKind(),
+			)
+
+			// Register the subresource in the registry.
+			equivalentResourceRegistry.RegisterKindFor(gvr, subresource, subresourceGVK)
+			// And build a new type converter for the subresource.
+			subresourceTypeConverter = managedfields.NewDeducedTypeConverter()
+		}
+
+		var resetFields map[fieldpath.APIVersion]*fieldpath.Set
+		if withResetFields, canGetResetFields := subresourceStorage.(rest.ResetFieldsStrategy); canGetResetFields {
+			resetFields = withResetFields.GetResetFields()
+		} else if subresource == "status" {
 			return nil, fmt.Errorf("storage for resource %q status should define GetResetFields", gvk.String())
 		}
+
+		subresourceScope, err = apiextensionsapiserver.ScopeWithFieldManager(
+			subresourceTypeConverter,
+			subresourceScope,
+			resetFields,
+			subresource,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		subresourceScopes[subresource] = &subresourceScope
 	}
 
 	ret := &servingInfo{
-		apiResourceSchema:  apiResourceSchema,
-		storage:            storage,
-		statusStorage:      statusStorage,
-		requestScope:       requestScope,
-		statusRequestScope: &statusScope,
-		logicalClusterName: logicalcluster.From(apiResourceSchema),
+		apiResourceSchema:   apiResourceSchema,
+		storage:             storage,
+		subresourceStorages: subresourceStorages,
+		requestScope:        requestScope,
+		subresourceScopes:   subresourceScopes,
+		logicalClusterName:  logicalcluster.From(apiResourceSchema),
 	}
 
 	return ret, nil
@@ -308,11 +349,11 @@ type servingInfo struct {
 	logicalClusterName logicalcluster.Name
 	apiResourceSchema  *apisv1alpha1.APIResourceSchema
 
-	storage       rest.Storage
-	statusStorage rest.Storage
+	storage             rest.Storage
+	subresourceStorages map[string]rest.Storage
 
-	requestScope       *handlers.RequestScope
-	statusRequestScope *handlers.RequestScope
+	requestScope      *handlers.RequestScope
+	subresourceScopes map[string]*handlers.RequestScope
 }
 
 // Implement APIDefinition interface
@@ -327,19 +368,13 @@ func (apiDef *servingInfo) GetStorage() rest.Storage {
 	return apiDef.storage
 }
 func (apiDef *servingInfo) GetSubResourceStorage(subresource string) rest.Storage {
-	if subresource == "status" {
-		return apiDef.statusStorage
-	}
-	return nil
+	return apiDef.subresourceStorages[subresource]
 }
 func (apiDef *servingInfo) GetRequestScope() *handlers.RequestScope {
 	return apiDef.requestScope
 }
 func (apiDef *servingInfo) GetSubResourceRequestScope(subresource string) *handlers.RequestScope {
-	if subresource == "status" {
-		return apiDef.statusRequestScope
-	}
-	return nil
+	return apiDef.subresourceScopes[subresource]
 }
 func (apiDef *servingInfo) TearDown() {
 }
