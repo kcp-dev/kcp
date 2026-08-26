@@ -40,6 +40,7 @@ import (
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
 	"github.com/kcp-dev/embeddedetcd"
+	"github.com/kcp-dev/logicalcluster/v3"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
@@ -51,6 +52,8 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
+
+var SystemCacheCluster = logicalcluster.Name("system:cache")
 
 type Config struct {
 	Options       *cacheserveroptions.CompletedOptions
@@ -69,7 +72,11 @@ type completedConfig struct {
 }
 
 type ExtraConfig struct {
-	ApiExtensionsClusterClient         kcpapiextensionsclientset.ClusterInterface
+	// Clients.
+	ApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
+	KcpClusterClient           kcpclientset.ClusterInterface
+
+	// Informers.
 	ApiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory
 	KcpSharedInformerFactory           kcpinformers.SharedInformerFactory
 }
@@ -224,13 +231,13 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	)
 	_ = c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})
 
-	kcpClient, err := kcpclientset.NewForConfig(serverConfig.LoopbackClientConfig)
+	c.KcpClusterClient, err = kcpclientset.NewForConfig(serverConfig.LoopbackClientConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(
-		kcpClient,
+		c.KcpClusterClient,
 		resyncPeriod,
 	)
 

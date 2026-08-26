@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260826-6b47de65e.caches.core.kcp.io
+  name: v260826-9a0fa5322.caches.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -35,59 +35,11 @@ spec:
         metadata:
           type: object
         spec:
-          description: ShardSpec holds the desired state of the Shard.
-          properties:
-            baseURL:
-              description: |-
-                baseURL is the address of the kcp shard for direct connections, e.g. by some
-                front-proxy doing the fan-out to the shards.
-              format: uri
-              minLength: 1
-              type: string
-            externalURL:
-              description: |-
-                externalURL is the externally visible address presented to users in Workspace URLs.
-                Changing this will break all existing logical clusters on that shard, i.e. existing
-                kubeconfigs of clients will be invalid. Hence, when changing this value, the old
-                URL used by clients must keep working.
-
-                The external address will not be unique if a front-proxy does a fan-out to
-                shards, but all logical cluster clients will talk to the front-proxy. In that case,
-                put the address of the front-proxy here.
-
-                Note that movement of shards is only possible (in the future) between shards
-                that share a common external URL.
-
-                This will be defaulted to the value of the baseURL.
-              format: uri
-              minLength: 1
-              type: string
-            virtualWorkspaceURL:
-              description: |-
-                virtualWorkspaceURL is the address of the virtual workspace apiserver associated with this shard.
-                It can be a direct address, an address of a front-proxy or even an address of an LB.
-                As of today this address is assigned to APIExports.
-
-                This will be defaulted to the value of the baseURL.
-              format: uri
-              minLength: 1
-              type: string
-          required:
-          - baseURL
+          description: CacheSpec holds the desired state of the Cache.
           type: object
         status:
-          description: ShardStatus communicates the observed state of the Shard.
+          description: CacheStatus communicates the observed state of the Cache.
           properties:
-            capacity:
-              additionalProperties:
-                anyOf:
-                - type: integer
-                - type: string
-                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                x-kubernetes-int-or-string: true
-              description: Set of integer resources that logical clusters can be scheduled
-                into
-              type: object
             conditions:
               description: Current processing state of the Shard.
               items:
