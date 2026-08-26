@@ -288,9 +288,11 @@ type GroupResource struct {
 	Group string `json:"group,omitempty"`
 
 	// resource is the name of the resource.
+	// A subresource may be claimed as "resource/subresource",
+	// e.g. "serviceaccounts/token", in the style of RBAC rules.
 	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 	// not provided by an api export.
-	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$`
 	// +required
 	// +kubebuilder:validation:Required
 	Resource string `json:"resource"`
