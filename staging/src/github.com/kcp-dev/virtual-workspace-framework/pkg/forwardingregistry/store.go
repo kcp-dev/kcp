@@ -49,6 +49,7 @@ type StoreFuncs struct {
 
 	GetterFunc
 	CreaterFunc
+	NamedCreaterFunc
 	GracefulDeleterFunc
 	CollectionDeleterFunc
 	ListerFunc
@@ -109,6 +110,26 @@ func DefaultDynamicDelegatedStoreFuncs(
 		if err != nil {
 			return nil, err
 		}
+
+		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
+	}
+	s.NamedCreaterFunc = func(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+		unstructuredObj, ok := obj.(*unstructured.Unstructured)
+		if !ok {
+			return nil, fmt.Errorf("not an Unstructured: %T", obj)
+		}
+
+		if err := createValidation(ctx, obj); err != nil {
+			return nil, err
+		}
+
+		delegate, err := client(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		unstructuredObj = unstructuredObj.DeepCopy()
+		unstructuredObj.SetName(name)
 
 		return delegate.Create(ctx, unstructuredObj, *options, subResources...)
 	}

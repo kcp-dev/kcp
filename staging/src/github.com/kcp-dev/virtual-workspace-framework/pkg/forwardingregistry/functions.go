@@ -56,6 +56,17 @@ var _ rest.Creater = &struct {
 	CreaterFunc
 }{}
 
+type NamedCreaterFunc func(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error)
+
+func (f NamedCreaterFunc) Create(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+	return f(ctx, name, obj, createValidation, options)
+}
+
+var _ rest.NamedCreater = &struct {
+	FactoryFunc
+	NamedCreaterFunc
+}{}
+
 type GetterFunc func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error)
 
 func (f GetterFunc) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
