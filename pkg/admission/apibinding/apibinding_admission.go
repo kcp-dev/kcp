@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -175,6 +176,17 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 			exportName,
 		)
 		ab.SetLabels(lbls)
+	}
+
+	// subresource claims have no selector, set a matchAll so users
+	// don't have to repeat it for every subresource
+	if v2, ok := ab.(*apiBindingV1alpha2); ok {
+		for i := range v2.binding.Spec.PermissionClaims {
+			pc := &v2.binding.Spec.PermissionClaims[i]
+			if strings.Contains(pc.Resource, "/") {
+				pc.Selector.MatchAll = true
+			}
+		}
 	}
 
 	// write back
