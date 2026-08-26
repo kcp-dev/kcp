@@ -18,6 +18,8 @@ limitations under the License.
 
 package v1alpha1
 
+type CacheClusterExpansion interface{}
+
 type LogicalClusterClusterExpansion interface{}
 
 type ShardClusterExpansion interface{}

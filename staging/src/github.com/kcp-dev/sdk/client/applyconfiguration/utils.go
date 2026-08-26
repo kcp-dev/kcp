@@ -184,6 +184,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationconditionsv1alpha1.ConditionApplyConfiguration{}
 
 		// Group=core.kcp.io, Version=v1alpha1
+	case corev1alpha1.SchemeGroupVersion.WithKind("Cache"):
+		return &applyconfigurationcorev1alpha1.CacheApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("Endpoint"):
 		return &applyconfigurationcorev1alpha1.EndpointApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("EndpointSelector"):

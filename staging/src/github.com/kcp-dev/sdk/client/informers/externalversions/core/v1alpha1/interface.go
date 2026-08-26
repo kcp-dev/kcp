@@ -23,6 +23,8 @@ import (
 )
 
 type ClusterInterface interface {
+	// Caches returns a CacheClusterInformer.
+	Caches() CacheClusterInformer
 	// LogicalClusters returns a LogicalClusterClusterInformer.
 	LogicalClusters() LogicalClusterClusterInformer
 	// Shards returns a ShardClusterInformer.
@@ -39,6 +41,11 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
+// Caches returns a CacheClusterInformer.
+func (v *version) Caches() CacheClusterInformer {
+	return &cacheClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // LogicalClusters returns a LogicalClusterClusterInformer.
 func (v *version) LogicalClusters() LogicalClusterClusterInformer {
 	return &logicalClusterClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -50,6 +57,8 @@ func (v *version) Shards() ShardClusterInformer {
 }
 
 type Interface interface {
+	// Caches returns a CacheInformer.
+	Caches() CacheInformer
 	// LogicalClusters returns a LogicalClusterInformer.
 	LogicalClusters() LogicalClusterInformer
 	// Shards returns a ShardInformer.
@@ -65,6 +74,11 @@ type scopedVersion struct {
 // New returns a new Interface.
 func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
+}
+
+// Caches returns a CacheInformer.
+func (v *scopedVersion) Caches() CacheInformer {
+	return &cacheScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // LogicalClusters returns a LogicalClusterInformer.
