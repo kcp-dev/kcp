@@ -58,6 +58,8 @@ type completedOptions struct {
 	EmbeddedEtcd     etcdoptions.CompletedOptions
 	Logs             *logs.Options
 	SyntheticDelay   time.Duration
+
+	Extra ExtraOptions
 }
 
 type CompletedOptions struct {
@@ -122,6 +124,7 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		APIEnablement:    o.APIEnablement,
 		EmbeddedEtcd:     o.EmbeddedEtcd.Complete(o.Etcd),
 		Logs:             o.Logs,
+		Extra:            o.Extra,
 	}}, nil
 }
 

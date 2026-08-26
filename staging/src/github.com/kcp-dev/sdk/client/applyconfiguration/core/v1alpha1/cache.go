@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
@@ -32,8 +33,8 @@ import (
 type CacheApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *ShardSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *ShardStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                             *corev1alpha1.CacheSpec        `json:"spec,omitempty"`
+	Status                           *CacheStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // Cache constructs a declarative configuration of the Cache type for use with
@@ -209,15 +210,15 @@ func (b *CacheApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *CacheApplyConfiguration) WithSpec(value *ShardSpecApplyConfiguration) *CacheApplyConfiguration {
-	b.Spec = value
+func (b *CacheApplyConfiguration) WithSpec(value corev1alpha1.CacheSpec) *CacheApplyConfiguration {
+	b.Spec = &value
 	return b
 }
 
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *CacheApplyConfiguration) WithStatus(value *ShardStatusApplyConfiguration) *CacheApplyConfiguration {
+func (b *CacheApplyConfiguration) WithStatus(value *CacheStatusApplyConfiguration) *CacheApplyConfiguration {
 	b.Status = value
 	return b
 }

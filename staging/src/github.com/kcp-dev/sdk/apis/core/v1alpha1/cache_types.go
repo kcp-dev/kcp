@@ -37,10 +37,10 @@ type Cache struct {
 	v1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec ShardSpec `json:"spec,omitempty"`
+	Spec CacheSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status ShardStatus `json:"status,omitempty"`
+	Status CacheStatus `json:"status,omitempty"`
 }
 
 func (in *Cache) SetConditions(c v1alpha1.Conditions) {
