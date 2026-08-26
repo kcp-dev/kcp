@@ -3585,20 +3585,20 @@ func schema_sdk_apis_core_v1alpha1_Cache(ref common.ReferenceCallback) common.Op
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(corev1alpha1.ShardSpec{}.OpenAPIModelName()),
+							Ref:     ref(corev1alpha1.CacheSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(corev1alpha1.ShardStatus{}.OpenAPIModelName()),
+							Ref:     ref(corev1alpha1.CacheStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			corev1alpha1.ShardSpec{}.OpenAPIModelName(), corev1alpha1.ShardStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+			corev1alpha1.CacheSpec{}.OpenAPIModelName(), corev1alpha1.CacheStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 

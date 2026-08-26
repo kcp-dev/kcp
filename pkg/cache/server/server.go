@@ -21,10 +21,17 @@ import (
 	"time"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 )
 
@@ -73,17 +80,62 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 
 		go s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().Run(hookContext.Done())
 
 		logger.Info("starting CRD and ClusterCachedResource informers")
 		if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
 			crdsSynced := s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced()
 			clusterCachedResourcesSynced := s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().HasSynced()
-			return crdsSynced && clusterCachedResourcesSynced, nil
+			cachesSynced := s.KcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().HasSynced()
+			return crdsSynced && clusterCachedResourcesSynced && cachesSynced, nil
 		}); err != nil {
 			logger.Error(err, "failed to start some of CRD and ClusterCachedResource informers")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 		logger.Info("finished starting CRD and ClusterCachedResource informers")
+
+		cache := &corev1alpha1.Cache{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: s.Options.Extra.CacheName,
+				Labels: map[string]string{
+					"name": s.Options.Extra.CacheName,
+				},
+			},
+			Spec: corev1alpha1.CacheSpec{},
+		}
+		logger.Info("Creating or updating Cache", "cache", s.Options.Extra.CacheName)
+		if err := wait.PollUntilContextCancel(hookContext, time.Second, true, func(ctx context.Context) (bool, error) {
+			ctx = cacheclient.WithShardInContext(ctx, bootstrap.SystemCacheServerShard)
+			createOrUpdateCache := func(cl kcpclientset.ClusterInterface, cluster logicalcluster.Path) error {
+				existingCache, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Get(ctx, cache.Name, metav1.GetOptions{})
+				if err != nil && !apierrors.IsNotFound(err) {
+					logger.Error(err, "failed getting Cache", "cluster", cluster)
+					return err
+				} else if apierrors.IsNotFound(err) {
+					if _, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Create(ctx, cache, metav1.CreateOptions{}); err != nil {
+						logger.Error(err, "failed creating Shard", "cluster", cluster)
+						return err
+					}
+					createdShard, _ := cl.Cluster(cluster).CoreV1alpha1().Shards().Get(ctx, cache.Name, metav1.GetOptions{})
+					logger.Info("Created Shard", "shard", s.Options.Extra.CacheName, "cluster", cluster, "shard", createdShard)
+					return nil
+				}
+				if _, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Update(ctx, existingCache, metav1.UpdateOptions{}); err != nil {
+					logger.Error(err, "failed updating Shard", "cluster", cluster)
+					return err
+				}
+				logger.Info("Updated Cache", "cache", s.Options.Extra.CacheName, "cluster", cluster)
+				return nil
+			}
+			err := createOrUpdateCache(s.KcpClusterClient, SystemCacheCluster.Path())
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}); err != nil {
+			logger.Error(err, "failed reconciling Cache resource", "cluster", SystemCacheCluster)
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
 
 		select {
 		case <-hookContext.Done():
