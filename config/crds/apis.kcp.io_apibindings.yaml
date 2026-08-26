@@ -644,6 +644,12 @@ spec:
                   - state
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: subresource claims must use selector.matchAll
+                    rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
+                      && self.selector.matchAll)'
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group
@@ -848,6 +854,12 @@ spec:
                   - selector
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: subresource claims must use selector.matchAll
+                    rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
+                      && self.selector.matchAll)'
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group
@@ -1072,6 +1084,9 @@ spec:
                   - resource
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
               phase:
                 description: |-

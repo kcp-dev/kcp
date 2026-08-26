@@ -494,6 +494,9 @@ spec:
                   - resource
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group

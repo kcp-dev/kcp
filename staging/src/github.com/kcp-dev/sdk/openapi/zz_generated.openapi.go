@@ -1393,7 +1393,7 @@ func schema_sdk_apis_apis_v1alpha1_AcceptablePermissionClaim(ref common.Referenc
 					},
 					"resource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Description: "resource is the name of the resource. A subresource may be claimed as \"resource/subresource\", e.g. \"serviceaccounts/token\", in the style of RBAC rules. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -1636,7 +1636,7 @@ func schema_sdk_apis_apis_v1alpha1_GroupResource(ref common.ReferenceCallback) c
 					},
 					"resource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Description: "resource is the name of the resource. A subresource may be claimed as \"resource/subresource\", e.g. \"serviceaccounts/token\", in the style of RBAC rules. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -1718,7 +1718,7 @@ func schema_sdk_apis_apis_v1alpha1_PermissionClaim(ref common.ReferenceCallback)
 					},
 					"resource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "resource is the name of the resource. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
+							Description: "resource is the name of the resource. A subresource may be claimed as \"resource/subresource\", e.g. \"serviceaccounts/token\", in the style of RBAC rules. Note: it is worth noting that you can not ask for permissions for resource provided by a CRD not provided by an api export.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
