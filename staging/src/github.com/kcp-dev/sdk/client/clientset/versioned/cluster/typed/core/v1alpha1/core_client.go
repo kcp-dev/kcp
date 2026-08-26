@@ -32,6 +32,7 @@ import (
 
 type CoreV1alpha1ClusterInterface interface {
 	CoreV1alpha1ClusterScoper
+	CachesClusterGetter
 	LogicalClustersClusterGetter
 	ShardsClusterGetter
 }
@@ -50,6 +51,10 @@ func (c *CoreV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) kcp
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+func (c *CoreV1alpha1ClusterClient) Caches() CacheClusterInterface {
+	return &cachesClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *CoreV1alpha1ClusterClient) LogicalClusters() LogicalClusterClusterInterface {

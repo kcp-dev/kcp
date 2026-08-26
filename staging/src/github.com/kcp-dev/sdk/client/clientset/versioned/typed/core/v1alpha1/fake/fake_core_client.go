@@ -29,6 +29,10 @@ type FakeCoreV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeCoreV1alpha1) Caches() v1alpha1.CacheInterface {
+	return newFakeCaches(c)
+}
+
 func (c *FakeCoreV1alpha1) LogicalClusters() v1alpha1.LogicalClusterInterface {
 	return newFakeLogicalClusters(c)
 }
