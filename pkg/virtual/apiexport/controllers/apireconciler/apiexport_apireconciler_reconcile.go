@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -86,6 +87,11 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	for _, pc := range apiExport.Spec.PermissionClaims {
 		logger := logger.WithValues("claim", pc.String())
 		logger.V(4).Info("evaluating claim")
+
+		// claim references a subresource, the API comes from the parent resource claim
+		if strings.Contains(pc.Resource, "/") {
+			continue
+		}
 
 		// APIExport resources have priority over claimed resources
 		gr := schema.GroupResource{Group: pc.Group, Resource: pc.Resource}

@@ -18,6 +18,7 @@ package builtin
 
 import (
 	"fmt"
+	"strings"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -70,11 +71,34 @@ func init() {
 // IsBuiltInAPI indicates whether the API identified by group and resource is
 // built-in.
 func IsBuiltInAPI(gr apis.GroupResource) bool {
-	_, exists := builtInAPIResourceSchemas[apisv1alpha1.GroupResource{
+	resource, sub, hasSub := strings.Cut(gr.GetResource(), "/")
+	s, exists := builtInAPIResourceSchemas[apisv1alpha1.GroupResource{
 		Group:    gr.GetGroup(),
-		Resource: gr.GetResource(),
+		Resource: resource,
 	}]
+	if !exists || !hasSub {
+		return exists
+	}
+	if sub == "status" {
+		for _, v := range s.Spec.Versions {
+			if v.Subresources.Status != nil {
+				return true
+			}
+		}
+		return false
+	}
+	subresources, ok := BuiltInSubresources[schema.GroupResource{Group: gr.GetGroup(), Resource: resource}]
+	if !ok {
+		return false
+	}
+	_, exists = subresources[sub]
 	return exists
+}
+
+var BuiltInSubresources = map[schema.GroupResource]map[string]schema.GroupVersionKind{
+	{Group: "", Resource: "serviceaccounts"}: {
+		"token": authenticationv1.SchemeGroupVersion.WithKind("TokenRequest"),
+	},
 }
 
 // GetBuiltInAPISchema retrieves the APIResourceSchema for a built-in API.

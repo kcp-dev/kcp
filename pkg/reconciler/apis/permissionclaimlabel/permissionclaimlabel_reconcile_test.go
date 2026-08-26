@@ -43,7 +43,7 @@ func TestClaimSetKeys(t *testing.T) {
 				},
 				IdentityHash: "",
 			},
-			key: "configmaps//",
+			key: "configmaps||",
 		},
 		"non-core built-in gr": {
 			claim: apisv1alpha2.PermissionClaim{
@@ -53,7 +53,7 @@ func TestClaimSetKeys(t *testing.T) {
 				},
 				IdentityHash: "",
 			},
-			key: "roles/rbac.authorization.k8s.io/",
+			key: "roles|rbac.authorization.k8s.io|",
 		},
 		"3rd party gr + hash": {
 			claim: apisv1alpha2.PermissionClaim{
@@ -63,7 +63,7 @@ func TestClaimSetKeys(t *testing.T) {
 				},
 				IdentityHash: "hash",
 			},
-			key: "apibindings/apis.kcp.io/hash",
+			key: "apibindings|apis.kcp.io|hash",
 		},
 	}
 
