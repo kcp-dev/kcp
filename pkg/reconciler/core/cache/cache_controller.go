@@ -38,6 +38,7 @@ import (
 	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/tombstone"
@@ -66,12 +67,12 @@ func NewController(
 		getGlobalCacheObj: func(clusterName logicalcluster.Name, name string) (*corev1alpha1.Cache, error) {
 			// Normally, getting from cache won't work through the informer, because we're missing the shard.
 			// We'll list instead. There should be only one matching object anyway.
-			objs, err := globalCacheInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			objs, err := globalCacheInformer.Lister().List(labels.Everything())
 			if err != nil {
 				return nil, err
 			}
 			for _, obj := range objs {
-				if logicalcluster.From(obj) == clusterName && obj.Name == name {
+				if obj.Name == name {
 					return obj, nil
 				}
 			}
@@ -81,13 +82,13 @@ func NewController(
 			return localCacheInformer.Lister().Cluster(clusterName).Get(name)
 		},
 		createLocalCacheObj: func(ctx context.Context, cache *corev1alpha1.Cache) (*corev1alpha1.Cache, error) {
-			return kcpClusterClient.CoreV1alpha1().Caches().Cluster(logicalcluster.From(cache).Path()).Create(ctx, cache, metav1.CreateOptions{})
+			return kcpClusterClient.CoreV1alpha1().Caches().Cluster(configshard.SystemShardCluster.Path()).Create(ctx, cache, metav1.CreateOptions{})
 		},
 		updateLocalCacheObj: func(ctx context.Context, cache *corev1alpha1.Cache) (*corev1alpha1.Cache, error) {
-			return kcpClusterClient.CoreV1alpha1().Caches().Cluster(logicalcluster.From(cache).Path()).Update(ctx, cache, metav1.UpdateOptions{})
+			return kcpClusterClient.CoreV1alpha1().Caches().Cluster(configshard.SystemShardCluster.Path()).Update(ctx, cache, metav1.UpdateOptions{})
 		},
 		deleteLocalCacheObj: func(ctx context.Context, clusterName logicalcluster.Name, name string) error {
-			return kcpClusterClient.CoreV1alpha1().Caches().Cluster(clusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
+			return kcpClusterClient.CoreV1alpha1().Caches().Cluster(configshard.SystemShardCluster.Path()).Delete(ctx, name, metav1.DeleteOptions{})
 		},
 	}
 

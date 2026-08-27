@@ -18,10 +18,15 @@ package cache
 
 import (
 	"context"
+	"maps"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/logicalcluster/v3"
 )
 
@@ -39,33 +44,63 @@ func (c *Controller) reconcile(ctx context.Context, clusterName logicalcluster.N
 		}
 		shouldDeleteLocally = true
 	}
-	if !globalCacheObj.DeletionTimestamp.IsZero() {
+	if globalCacheObj != nil && !globalCacheObj.DeletionTimestamp.IsZero() {
 		shouldDeleteLocally = true
 	}
 	if shouldDeleteLocally {
 		logger.Info("Global Cache object deleted, deleting local copy")
-		err := c.deleteLocalCacheObj(ctx, clusterName, name)
+		err := c.deleteLocalCacheObj(ctx, configshard.SystemShardCluster, name)
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
 		return nil
 	}
 
-	localCacheObj, err := c.getLocalCacheObj(clusterName, name)
+	localCacheObj, err := c.getLocalCacheObj(configshard.SystemShardCluster, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Creating local copy of Cache object")
+			globalCacheObj = globalCacheObj.DeepCopy()
+			globalCacheObj.ResourceVersion = ""
 			_, err = c.createLocalCacheObj(ctx, globalCacheObj)
 			return err
 		}
 		return err
 	}
 
-	logger.Info("Updating local copy of Cache object")
+	if !isUpToDate(globalCacheObj, localCacheObj) {
+		logger.Info("Updating local copy of Cache object")
+		globalCacheObj = globalCacheObj.DeepCopy()
+		globalCacheObj.UID = localCacheObj.UID
+		globalCacheObj.ResourceVersion = localCacheObj.ResourceVersion
+		_, err = c.updateLocalCacheObj(ctx, globalCacheObj)
+		return err
+	}
 
-	globalCacheObj = globalCacheObj.DeepCopy()
-	globalCacheObj.UID = localCacheObj.UID
-	globalCacheObj.ResourceVersion = localCacheObj.ResourceVersion
-	_, err = c.updateLocalCacheObj(ctx, globalCacheObj)
-	return err
+	return nil
+}
+
+func isUpToDate(a, b *corev1alpha1.Cache) bool {
+	type visitFn func(obj *corev1alpha1.Cache) any
+	compareField := func(visit visitFn) bool {
+		return reflect.DeepEqual(visit(a), visit(b))
+	}
+
+	for _, visit := range []visitFn{
+		func(obj *corev1alpha1.Cache) any {
+			ann := make(map[string]string)
+			maps.Copy(ann, obj.Annotations)
+			delete(ann, logicalcluster.AnnotationKey)
+			return ann
+		},
+		func(obj *corev1alpha1.Cache) any { return obj.Labels },
+		func(obj *corev1alpha1.Cache) any { return obj.Spec },
+		func(obj *corev1alpha1.Cache) any { return obj.Status },
+	} {
+		if !compareField(visit) {
+			return false
+		}
+	}
+
+	return true
 }
