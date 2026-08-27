@@ -197,8 +197,10 @@ func TestMintServiceAccountTokenThroughVW(t *testing.T) {
 			},
 		},
 	}
-	_, err = kcpClients.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err = kcpClients.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("error creating APIBinding: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for VW URL in APIExportES")
 	apiExportVWCfg := rest.CopyConfig(cfg)
@@ -357,8 +359,10 @@ func TestMintServiceAccountTokenThroughVWFailsWithoutSubresoureClaim(t *testing.
 			},
 		},
 	}
-	_, err = kcpClients.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
-	require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err = kcpClients.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
+		return err == nil, fmt.Sprintf("error creating APIBinding: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Log("Wait for VW URL in APIExportES")
 	apiExportVWCfg := rest.CopyConfig(cfg)
