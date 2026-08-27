@@ -48,7 +48,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	virtualrootapiserver "github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	configroot "github.com/kcp-dev/kcp/config/root"
