@@ -3657,6 +3657,24 @@ func schema_sdk_apis_core_v1alpha1_CacheSpec(ref common.ReferenceCallback) commo
 			SchemaProps: spec.SchemaProps{
 				Description: "CacheSpec holds the desired state of the Cache.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"baseURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BaseURL is the internal address the front-proxy uses to reach this cache instance.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"externalURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExternalURL is the externally-visible address (optional).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"baseURL"},
 			},
 		},
 	}

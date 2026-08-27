@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260826-9a0fa5322.caches.core.kcp.io
+  name: v260826-b6dbc4ef3.caches.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -36,6 +36,16 @@ spec:
           type: object
         spec:
           description: CacheSpec holds the desired state of the Cache.
+          properties:
+            baseURL:
+              description: BaseURL is the internal address the front-proxy uses to
+                reach this cache instance.
+              type: string
+            externalURL:
+              description: ExternalURL is the externally-visible address (optional).
+              type: string
+          required:
+          - baseURL
           type: object
         status:
           description: CacheStatus communicates the observed state of the Cache.

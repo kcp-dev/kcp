@@ -40,6 +40,16 @@ spec:
             type: object
           spec:
             description: CacheSpec holds the desired state of the Cache.
+            properties:
+              baseURL:
+                description: BaseURL is the internal address the front-proxy uses
+                  to reach this cache instance.
+                type: string
+              externalURL:
+                description: ExternalURL is the externally-visible address (optional).
+                type: string
+            required:
+            - baseURL
             type: object
           status:
             description: CacheStatus communicates the observed state of the Cache.

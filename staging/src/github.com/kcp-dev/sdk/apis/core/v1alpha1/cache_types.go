@@ -56,6 +56,10 @@ var _ conditions.Setter = &Cache{}
 
 // CacheSpec holds the desired state of the Cache.
 type CacheSpec struct {
+	// BaseURL is the internal address the front-proxy uses to reach this cache instance.
+	BaseURL string `json:"baseURL"`
+	// ExternalURL is the externally-visible address (optional).
+	ExternalURL string `json:"externalURL,omitempty"`
 }
 
 // CacheStatus communicates the observed state of the Cache.
