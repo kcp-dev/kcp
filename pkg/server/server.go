@@ -454,6 +454,12 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("cacheregistration") {
+		if err := s.installCacheRegistrationController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -532,6 +538,8 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().Run(hookContext.Done())
+		go s.CacheKcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().Run(hookContext.Done())
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {

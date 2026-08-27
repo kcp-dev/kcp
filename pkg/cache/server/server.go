@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -101,7 +102,9 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 					"name": s.Options.Extra.CacheName,
 				},
 			},
-			Spec: corev1alpha1.CacheSpec{},
+			Spec: corev1alpha1.CacheSpec{
+				BaseURL: fmt.Sprintf("https://%s", s.ApiExtensions.GenericConfig.SecureServing.Listener.Addr().String()),
+			},
 		}
 		logger.Info("Creating or updating Cache", "cache", s.Options.Extra.CacheName)
 		if err := wait.PollUntilContextCancel(hookContext, time.Second, true, func(ctx context.Context) (bool, error) {

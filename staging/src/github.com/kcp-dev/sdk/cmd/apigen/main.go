@@ -384,8 +384,12 @@ func generateExports(outputDir string, ignoreExportSchemas []metav1.GroupResourc
 
 		exportName := gr.Group
 		if gr.Group == core.GroupName && gr.Resource == "shards" {
-			// we export shards by themselves, not with the rest of the tenancy group
+			// we export shards by themselves, not with the rest of the core group
 			exportName = "shards." + core.GroupName
+		}
+		if gr.Group == core.GroupName && gr.Resource == "caches" {
+			// we export caches by themselves, not with the rest of the core group
+			exportName = "caches." + core.GroupName
 		}
 
 		byExport[exportName] = append(byExport[exportName], grs{

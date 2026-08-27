@@ -1,12 +1,12 @@
 apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
 metadata:
-  name: core.kcp.io
+  name: caches.core.kcp.io
 spec:
   resources:
   - group: core.kcp.io
     name: caches
-    schema: v260826-9a0fa5322.caches.core.kcp.io
+    schema: v260826-b6dbc4ef3.caches.core.kcp.io
     storage:
       crd: {}
 status: {}

@@ -46,6 +46,7 @@ var fs embed.FS
 func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscoveryClient discovery.DiscoveryInterface, rootDynamicClient dynamic.Interface, batteriesIncluded sets.Set[string]) error {
 	coreAPIExports := []string{
 		"shards.core.kcp.io",
+		"caches.core.kcp.io",
 		"tenancy.kcp.io",
 		"topology.kcp.io",
 	}
