@@ -184,6 +184,21 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		subResourcesValidators["status"] = statusValidator
 	}
 
+	if scale := apiResourceVersion.Subresources.Scale; scale != nil {
+		var scaleValidator apiservervalidation.SchemaValidator
+		equivalentResourceRegistry.RegisterKindFor(gvr, "scale", gvk)
+		// for the scale subresource, validate only against the scale schema
+		if internalValidationSchema != nil && internalValidationSchema.OpenAPIV3Schema != nil && internalValidationSchema.OpenAPIV3Schema.Properties != nil {
+			if scaleSchema, ok := internalValidationSchema.OpenAPIV3Schema.Properties["scale"]; ok {
+				scaleValidator, _, err = apiservervalidation.NewSchemaValidator(&scaleSchema)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		subResourcesValidators["scale"] = scaleValidator
+	}
+
 	table, err := tableconvertor.New(apiResourceVersion.AdditionalPrinterColumns)
 	if err != nil {
 		klog.Background().V(2).WithValues("cluster", logicalcluster.From(apiResourceSchema), "gvk", gvk, "err", err).Info("the CRD has an invalid printer specification, falling back to default printing")
@@ -315,8 +330,8 @@ func CreateServingInfoFor(genericConfig genericapiserver.CompletedConfig, apiRes
 		var resetFields map[fieldpath.APIVersion]*fieldpath.Set
 		if withResetFields, canGetResetFields := subresourceStorage.(rest.ResetFieldsStrategy); canGetResetFields {
 			resetFields = withResetFields.GetResetFields()
-		} else if subresource == "status" {
-			return nil, fmt.Errorf("storage for resource %q status should define GetResetFields", gvk.String())
+		} else if subresource == "status" || subresource == "scale" {
+			return nil, fmt.Errorf("storage for resource %q status/scale should define GetResetFields", gvk.String())
 		}
 
 		subresourceScope, err = apiextensionsapiserver.ScopeWithFieldManager(
