@@ -55,7 +55,7 @@ import (
 
 var noxusGVR = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
 
-func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage rest.Storage) {
+func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage, scaleStorage rest.Storage) {
 	t.Helper()
 
 	gvr := noxusGVR
@@ -147,7 +147,7 @@ func createResource(namespace, name string) *unstructured.Unstructured {
 func TestGet(t *testing.T) {
 	t.Parallel()
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
-	storage, _ := newStorage(t, fakeClient, "", nil)
+	storage, _, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
@@ -167,7 +167,7 @@ func TestList(t *testing.T) {
 	t.Parallel()
 	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme(), resources...)
-	storage, _ := newStorage(t, fakeClient, "", nil)
+	storage, _, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
@@ -199,7 +199,7 @@ func TestWildcardListWithAPIExportIdentity(t *testing.T) {
 		_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Create(noxusGVRWithHash, resource, "default")
 	}
 
-	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
+	storage, _, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")
 	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
 
@@ -251,7 +251,7 @@ func TestWatch(t *testing.T) {
 	fakeWatcher := watch.NewFake()
 	t.Cleanup(fakeWatcher.Stop)
 	fakeClient.PrependWatchReactor("noxus", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
-	storage, _ := newStorage(t, fakeClient, "", nil)
+	storage, _, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 
@@ -296,7 +296,7 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 	fakeWatcher := watch.NewFake()
 	t.Cleanup(fakeWatcher.Stop)
 	fakeClient.PrependWatchReactor("noxus:apiExportIdentityHash", kcptesting.DefaultWatchReactor(fakeWatcher, nil))
-	storage, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
+	storage, _, _ := newStorage(t, fakeClient, "apiExportIdentityHash", nil)
 	ctx := request.WithNamespace(context.Background(), "")
 	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
 
@@ -358,7 +358,7 @@ func TestUpdate(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	storage, _ := newStorage(t, fakeClient, "", nil)
+	storage, _, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	updated := resource.DeepCopy()
@@ -405,7 +405,7 @@ func TestUpdateWithForceAllowCreate(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	storage, _ := newStorage(t, fakeClient, "", nil)
+	storage, _, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	updated := resource.DeepCopy()
@@ -448,7 +448,7 @@ func TestStatusUpdate(t *testing.T) {
 	fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme(), resource)
 	fakeClient.PrependReactor("update", "noxus", updateReactor(fakeClient))
 
-	_, statusStorage := newStorage(t, fakeClient, "", nil)
+	_, statusStorage, _ := newStorage(t, fakeClient, "", nil)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
 	statusUpdated := resource.DeepCopy()
@@ -478,7 +478,7 @@ func TestPatch(t *testing.T) {
 
 	backoff := retry.DefaultRetry
 	backoff.Steps = 5
-	storage, _ := newStorage(t, fakeClient, "", &backoff)
+	storage, _, _ := newStorage(t, fakeClient, "", &backoff)
 	ctx := request.WithNamespace(context.Background(), "default")
 	ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Verb: "patch"})
 	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})

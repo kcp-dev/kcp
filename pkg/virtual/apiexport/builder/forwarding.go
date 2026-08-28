@@ -64,8 +64,12 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
 		}
 
+		_, scaleEnabled := subresourcesSchemaValidator["scale"]
+
 		var scaleSpec *apiextensions.CustomResourceSubresourceScale
-		// TODO(sttts): implement scale subresource
+		if scaleEnabled {
+			scaleSpec = &apiextensions.CustomResourceSubresourceScale{}
+		}
 
 		strategy := customresource.NewStrategy(
 			typer,
@@ -80,7 +84,7 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, statusStorage := registry.NewStorage(
+		storage, statusStorage, scaleStorage := registry.NewStorage(
 			ctx,
 			resource,
 			apiExportIdentityHash,
@@ -122,7 +126,30 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			}
 		}
 
-		// TODO(sttts): add scale subresource
+		if scaleEnabled {
+			subresourceStorages["scale"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   scaleStorage.FactoryFunc,
+				DestroyerFunc: scaleStorage.DestroyerFunc,
+
+				GetterFunc:  scaleStorage.GetterFunc,
+				UpdaterFunc: scaleStorage.UpdaterFunc,
+
+				TableConvertorFunc:      scaleStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  scaleStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: scaleStorage.ResetFieldsStrategyFunc,
+			}
+		}
 
 		for name, subresourceGVK := range apiexportbuiltin.BuiltInSubresources[resource.GroupResource()] {
 			factory := func() runtime.Object {

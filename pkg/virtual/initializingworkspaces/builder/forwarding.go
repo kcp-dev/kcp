@@ -106,7 +106,11 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
 		}
 
+		_, scaleEnabled := subresourcesSchemaValidator["scale"]
 		var scaleSpec *apiextensions.CustomResourceSubresourceScale
+		if scaleEnabled {
+			scaleSpec = &apiextensions.CustomResourceSubresourceScale{}
+		}
 
 		strategy := customresource.NewStrategy(
 			typer,
@@ -121,7 +125,7 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, statusStorage := registry.NewStorage(
+		storage, statusStorage, scaleStorage := registry.NewStorage(
 			ctx,
 			resource,
 			"",
@@ -163,6 +167,31 @@ func delegatingLogicalClusterReadOnlyRestStorage(
 				TableConvertorFunc:      statusStorage.TableConvertorFunc,
 				CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
 				ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
+			}
+		}
+
+		if scaleEnabled {
+			subresourceStorages["scale"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   scaleStorage.FactoryFunc,
+				DestroyerFunc: scaleStorage.DestroyerFunc,
+
+				GetterFunc:  scaleStorage.GetterFunc,
+				UpdaterFunc: scaleStorage.UpdaterFunc,
+
+				TableConvertorFunc:      scaleStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  scaleStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: scaleStorage.ResetFieldsStrategyFunc,
 			}
 		}
 
