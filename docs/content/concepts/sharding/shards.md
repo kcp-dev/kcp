@@ -264,10 +264,19 @@ inferred only from request errors at the moment of access. Concretely:
   through the front-proxy until it returns.
 - **Workspace scheduling** continues to succeed for new workspaces as long as
   at least one valid shard is reachable; the random selector simply skips
-  shards annotated `experimental.core.kcp.io/unschedulable` (set on the
-  authoritative Shard object in the shard's `system:shard` logical cluster).
-  For now there is no way to mark shard unshedulable through the API, but
-  this is tracked in [kcp-dev/kcp#4336](https://github.com/kcp-dev/kcp/issues/4336)
+  shards annotated `experimental.core.kcp.io/unschedulable`. To cordon a
+  shard, set the annotation on its `Shard` representation in the `root`
+  workspace: the annotation is on a small allow-list that the shard mirror
+  syncs back onto the authoritative `Shard` object in the shard's
+  `system:shard` logical cluster (all other edits to a representation are
+  overwritten). Removing the annotation from the representation uncordons the
+  shard the same way. The kcp kubectl plugin wraps this, mirroring
+  `kubectl cordon`/`uncordon` for nodes: `kubectl kcp shard cordon <name>`
+  and `kubectl kcp shard uncordon <name>`. The owning shard acknowledges the signal node-style via
+  the `Schedulable` status condition on its `Shard` object — `False` with
+  reason `Cordoned` while cordoned, `True` otherwise — which is mirrored back
+  to the representation, so `kubectl get shard -o yaml` in `root` shows
+  whether the shard has actually applied the cordon.
 - **Bound APIs** on a workspace whose `APIExport` lives on an unavailable
   shard keep functioning: the CRD is materialized locally and the binding
   controller already has the schema cached. New bindings or schema updates

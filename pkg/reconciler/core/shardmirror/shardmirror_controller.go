@@ -22,11 +22,18 @@ limitations under the License.
 // the authoritative object, and pruned when the authoritative object
 // disappears. Shard objects in the root workspace without that annotation
 // (e.g. created by tests or old shards) are left alone.
+//
+// The one writable exception on a representation is the allow-list in
+// BackSyncedAnnotationKeys (e.g. cordoning a shard via the unschedulable
+// annotation): those annotations are owned by the representation, and the
+// mirror syncs them back onto the authoritative object through a direct
+// connection to the owning shard instead of overwriting them.
 package shardmirror
 
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -35,6 +42,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -55,13 +63,58 @@ const (
 	ControllerName = "kcp-shard-mirror"
 )
 
+// BackSyncedAnnotationKeys lists the annotations an admin may set on a Shard
+// representation in the root workspace to act on a shard centrally. The
+// mirror copies them back onto the shard-owned authoritative object instead
+// of overwriting them; every other part of a representation is read-only.
+var BackSyncedAnnotationKeys = []string{corev1alpha1.ShardUnschedulableAnnotationKey}
+
+// shardClientPool caches per-shard kcp clients that connect directly to a
+// shard's base URL with the given (logical-cluster-admin) credentials.
+type shardClientPool struct {
+	mu          sync.Mutex
+	adminConfig *rest.Config
+	clients     map[string]poolEntry
+}
+
+type poolEntry struct {
+	baseURL string
+	client  kcpclientset.ClusterInterface
+}
+
+func (p *shardClientPool) get(shardName, baseURL string) (kcpclientset.ClusterInterface, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if entry, ok := p.clients[shardName]; ok && entry.baseURL == baseURL {
+		return entry.client, nil
+	}
+	config := rest.CopyConfig(p.adminConfig)
+	config.Host = baseURL
+	client, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shard %q kcp client: %w", shardName, err)
+	}
+	p.clients[shardName] = poolEntry{baseURL: baseURL, client: client}
+	return client, nil
+}
+
 // NewController returns a controller mirroring authoritative Shard objects
 // from the cache server into the root workspace as read-only representations.
+// shardName is the name of the shard this controller runs on (the root
+// shard); shardAdminConfig holds credentials for direct connections to other
+// shards, used to back-sync allow-listed annotations onto their authoritative
+// Shard objects.
 func NewController(
+	shardName string,
+	shardAdminConfig *rest.Config,
 	kcpClusterClient kcpclientset.ClusterInterface,
 	localShardInformer corev1alpha1informers.ShardClusterInformer,
 	cacheShardInformer corev1alpha1informers.ShardClusterInformer,
 ) *Controller {
+	pool := &shardClientPool{
+		adminConfig: shardAdminConfig,
+		clients:     map[string]poolEntry{},
+	}
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -90,6 +143,44 @@ func NewController(
 		deleteShard: func(ctx context.Context, name string) error {
 			return kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Delete(ctx, name, metav1.DeleteOptions{})
 		},
+		backSyncAnnotations: func(ctx context.Context, source *corev1alpha1.Shard, values map[string]*string) error {
+			client := kcpClusterClient
+			if source.Name != shardName {
+				var err error
+				client, err = pool.get(source.Name, source.Spec.BaseURL)
+				if err != nil {
+					return err
+				}
+			}
+			shards := client.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards()
+			// the informer copy from the cache server may be stale; fetch the
+			// authoritative object from the owning shard and only write if it
+			// actually differs.
+			shard, err := shards.Get(ctx, source.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			changed := false
+			for key, value := range values {
+				current, ok := shard.Annotations[key]
+				switch {
+				case value == nil && ok:
+					delete(shard.Annotations, key)
+					changed = true
+				case value != nil && (!ok || current != *value):
+					if shard.Annotations == nil {
+						shard.Annotations = map[string]string{}
+					}
+					shard.Annotations[key] = *value
+					changed = true
+				}
+			}
+			if !changed {
+				return nil
+			}
+			_, err = shards.Update(ctx, shard, metav1.UpdateOptions{})
+			return err
+		},
 	}
 
 	_, _ = cacheShardInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -117,6 +208,11 @@ type Controller struct {
 	updateShard       func(ctx context.Context, shard *corev1alpha1.Shard) error
 	updateShardStatus func(ctx context.Context, shard *corev1alpha1.Shard) error
 	deleteShard       func(ctx context.Context, name string) error
+
+	// backSyncAnnotations writes the given allow-listed annotation values
+	// (nil meaning delete) onto the authoritative Shard object in the owning
+	// shard's system:shard logical cluster.
+	backSyncAnnotations func(ctx context.Context, source *corev1alpha1.Shard, values map[string]*string) error
 }
 
 // enqueue maps any Shard event (authoritative copy in the cache, or local copy
@@ -213,6 +309,34 @@ func (c *Controller) reconcile(ctx context.Context, name string) error {
 			return err
 		}
 		return nil
+	}
+
+	// Allow-listed annotations are owned by the representation: an admin sets
+	// them in the root workspace and the mirror copies them onto the
+	// authoritative object instead of overwriting them here. Absence on the
+	// representation means absence on the authoritative object (uncordon).
+	values := map[string]*string{}
+	backSyncNeeded := false
+	for _, key := range BackSyncedAnnotationKeys {
+		if value, ok := local.Annotations[key]; ok {
+			desired.Annotations[key] = value
+			values[key] = &value
+			if sourceValue, ok := source.Annotations[key]; !ok || sourceValue != value {
+				backSyncNeeded = true
+			}
+		} else {
+			delete(desired.Annotations, key)
+			values[key] = nil
+			if _, ok := source.Annotations[key]; ok {
+				backSyncNeeded = true
+			}
+		}
+	}
+	if backSyncNeeded {
+		logger.V(2).Info("back-syncing annotations to the authoritative Shard object", "shard", name)
+		if err := c.backSyncAnnotations(ctx, source, values); err != nil {
+			return err
+		}
 	}
 
 	updated := local.DeepCopy()

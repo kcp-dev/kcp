@@ -91,10 +91,22 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return DelegateAuthorization("shard-level path", a.delegate).Authorize(ctx, attr)
 	}
 
-	// empty or system workspaces have no meaning in the context of authorizing workspace content.
-	// To access system workspaces, the user must be privileged such that authorization is skipped completely.
-	if cluster == nil || cluster.Name.Empty() || strings.HasPrefix(cluster.Name.String(), "system:") {
-		return authorizer.DecisionNoOpinion, "empty or system workspace", nil
+	// empty workspaces have no meaning in the context of authorizing workspace content.
+	if cluster == nil || cluster.Name.Empty() {
+		return authorizer.DecisionNoOpinion, "empty workspace", nil
+	}
+
+	// System workspaces have no meaning in the context of authorizing workspace
+	// content either. To access them, the user must be privileged such that
+	// authorization is skipped completely, with one exception: the
+	// logical-cluster-admin identity used for direct shard-to-shard requests
+	// (e.g. the shard mirror back-syncing cordon annotations onto the
+	// shard-owned Shard object in system:shard) is delegated to RBAC.
+	if strings.HasPrefix(cluster.Name.String(), "system:") {
+		if rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser()).Has(bootstrap.SystemLogicalClusterAdmin) {
+			return DelegateAuthorization("logical cluster admin access to system workspace", a.delegate).Authorize(ctx, attr)
+		}
+		return authorizer.DecisionNoOpinion, "system workspace", nil
 	}
 
 	isServiceAccount := rbacregistryvalidation.IsServiceAccount(attr.GetUser())

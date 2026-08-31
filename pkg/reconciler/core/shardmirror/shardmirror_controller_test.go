@@ -60,6 +60,7 @@ func representation(name string) *corev1alpha1.Shard {
 type fakeActions struct {
 	created, updated, statusUpdated *corev1alpha1.Shard
 	deleted                         string
+	backSynced                      map[string]*string
 }
 
 func newController(source, local *corev1alpha1.Shard, actions *fakeActions) *Controller {
@@ -90,6 +91,10 @@ func newController(source, local *corev1alpha1.Shard, actions *fakeActions) *Con
 		},
 		deleteShard: func(_ context.Context, name string) error {
 			actions.deleted = name
+			return nil
+		},
+		backSyncAnnotations: func(_ context.Context, _ *corev1alpha1.Shard, values map[string]*string) error {
+			actions.backSynced = values
 			return nil
 		},
 	}
@@ -205,6 +210,61 @@ func TestReconcilePrunesOrphanedRepresentation(t *testing.T) {
 	}
 	if actions.deleted != "alpha" {
 		t.Errorf("expected the orphaned representation to be deleted, got %q", actions.deleted)
+	}
+}
+
+func TestReconcileBackSyncsCordon(t *testing.T) {
+	t.Parallel()
+	cordoned := representation("alpha")
+	cordoned.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey] = "true"
+	actions := &fakeActions{}
+	c := newController(authoritativeShard("alpha"), cordoned, actions)
+	if err := c.reconcile(context.Background(), "alpha"); err != nil {
+		t.Fatal(err)
+	}
+	if actions.updated != nil {
+		t.Error("the cordon annotation must not be stomped off the representation")
+	}
+	value, ok := actions.backSynced[corev1alpha1.ShardUnschedulableAnnotationKey]
+	if !ok || value == nil || *value != "true" {
+		t.Errorf("expected the cordon annotation to be back-synced with value %q, got %v", "true", actions.backSynced)
+	}
+}
+
+func TestReconcileBackSyncsUncordon(t *testing.T) {
+	t.Parallel()
+	source := authoritativeShard("alpha")
+	source.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey] = "true"
+	actions := &fakeActions{}
+	c := newController(source, representation("alpha"), actions)
+	if err := c.reconcile(context.Background(), "alpha"); err != nil {
+		t.Fatal(err)
+	}
+	if actions.updated != nil {
+		t.Error("expected no representation update, absence of the annotation is authoritative")
+	}
+	value, ok := actions.backSynced[corev1alpha1.ShardUnschedulableAnnotationKey]
+	if !ok || value != nil {
+		t.Errorf("expected the cordon annotation to be back-synced as a deletion, got %v", actions.backSynced)
+	}
+}
+
+func TestReconcileCordonInSync(t *testing.T) {
+	t.Parallel()
+	source := authoritativeShard("alpha")
+	source.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey] = "true"
+	local := representation("alpha")
+	local.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey] = "true"
+	actions := &fakeActions{}
+	c := newController(source, local, actions)
+	if err := c.reconcile(context.Background(), "alpha"); err != nil {
+		t.Fatal(err)
+	}
+	if actions.backSynced != nil {
+		t.Errorf("expected no back-sync when annotation values match, got %v", actions.backSynced)
+	}
+	if actions.updated != nil || actions.created != nil || actions.deleted != "" {
+		t.Errorf("expected no action, got %+v", actions)
 	}
 }
 

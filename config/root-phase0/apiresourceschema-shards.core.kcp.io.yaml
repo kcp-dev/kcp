@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260302-ae9fdd9c1.shards.core.kcp.io
+  name: v260831-6f00c2057.shards.core.kcp.io
 spec:
   group: core.kcp.io
   names:
@@ -25,6 +25,10 @@ spec:
     - description: The URL exposed in logical clusters created on that shard
       jsonPath: .spec.externalURL
       name: External URL
+      type: string
+    - description: Whether new workspaces are scheduled onto this shard
+      jsonPath: .status.conditions[?(@.type=="Schedulable")].status
+      name: Schedulable
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age

@@ -600,34 +600,37 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	var workspaceShardController *shard.Controller
-	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
-		workspaceShardController, err = shard.NewController(
-			kcpClusterClient,
-			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		)
-		if err != nil {
-			return err
-		}
+	// runs on every shard: maintains the status (e.g. the Schedulable
+	// condition) of this shard's own authoritative Shard object in the local
+	// system:shard logical cluster.
+	workspaceShardController, err := shard.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	)
+	if err != nil {
+		return err
 	}
-	if workspaceShardController != nil {
-		if err := s.registerController(&controllerWrapper{
-			Name: shard.ControllerName,
-			Wait: func(ctx context.Context, s *Server) error {
-				return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-					return s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
-				})
-			},
-			Runner: func(ctx context.Context) {
-				workspaceShardController.Start(ctx, 2)
-			},
-		}); err != nil {
-			return err
-		}
+	if err := s.registerController(&controllerWrapper{
+		Name: shard.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			workspaceShardController.Start(ctx, 2)
+		},
+	}); err != nil {
+		return err
 	}
 
 	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
+		shardMirrorAdminConfig := rest.CopyConfig(logicalClusterAdminConfig)
+		shardMirrorAdminConfig = rest.AddUserAgent(shardMirrorAdminConfig, shardmirror.ControllerName)
 		shardMirrorController := shardmirror.NewController(
+			s.Options.Extra.ShardName,
+			shardMirrorAdminConfig,
 			kcpClusterClient,
 			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
 			s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),

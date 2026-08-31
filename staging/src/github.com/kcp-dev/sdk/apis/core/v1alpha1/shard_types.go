@@ -29,11 +29,33 @@ var RootShard = "root"
 
 // ShardRepresentationAnnotationKey marks a Shard object as a read-only
 // representation mirrored from the shard-owned authoritative object living in
-// the shard's local system:shard logical cluster. Representations exist for
-// discoverability (e.g. in the root workspace) and must not be edited; they
-// are continuously overwritten from the authoritative object and are excluded
-// from cache replication.
+// the shard's local system:shard logical cluster. It is mostly read-only, with
+// only exception is a small allow-list of operational annotations (like
+// ShardUnschedulableAnnotationKey) that admins may set on the representation;
+// those are synced back to the authoritative object instead of being overwritten.
 const ShardRepresentationAnnotationKey = "core.kcp.io/shard-representation"
+
+// ShardUnschedulableAnnotationKey marks a single shard as unschedulable: the
+// workspace scheduler will not place new workspaces on it (cordoning). It
+// only affects the shard whose Shard object carries it.
+// Admins set it on that shard's representation in the root workspace; the
+// shard mirror syncs it back to the shard-owned authoritative object in the
+// owning shard's system:shard logical cluster, from where cache replication
+// makes it visible to the workspace schedulers running on every shard.
+const ShardUnschedulableAnnotationKey = "experimental.core.kcp.io/unschedulable"
+
+// ShardSchedulable is a condition on the Shard object reflecting the shard's
+// scheduling state, similar to a Kubernetes node: True when new workspaces
+// may be scheduled onto the shard, False with reason ShardReasonCordoned when
+// the shard observed the unschedulable annotation on its authoritative
+// object. It is set by the owning shard itself, so seeing it change on the
+// representation in the root workspace acknowledges that the shard received
+// and applied the cordon/uncordon signal.
+const ShardSchedulable v1alpha1.ConditionType = "Schedulable"
+
+// ShardReasonCordoned is the reason for ShardSchedulable=False when the
+// owning shard observed the unschedulable annotation on its Shard object.
+const ShardReasonCordoned = "Cordoned"
 
 // Shard describes a kcp instance on which a number of logical clusters will live
 //
@@ -46,6 +68,7 @@ const ShardRepresentationAnnotationKey = "core.kcp.io/shard-representation"
 // +kubebuilder:printcolumn:name="Region",type=string,JSONPath=`.metadata.labels['region']`,description="The region this workspace is in"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
 // +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in logical clusters created on that shard"
+// +kubebuilder:printcolumn:name="Schedulable",type=string,JSONPath=`.status.conditions[?(@.type=="Schedulable")].status`,description="Whether new workspaces are scheduled onto this shard"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Shard struct {
 	v1.TypeMeta `json:",inline"`

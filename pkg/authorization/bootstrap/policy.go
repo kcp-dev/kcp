@@ -108,6 +108,10 @@ func clusterRoles() []rbacv1.ClusterRole {
 			Rules: []rbacv1.PolicyRule{
 				rbacv1helpers.NewRule("*").Groups(core.GroupName).Resources("logicalclusters", "logicalclusters/status").RuleOrDie(),
 				rbacv1helpers.NewRule("delete", "update", "get").Groups(tenancy.GroupName).Resources("workspaces").RuleOrDie(),
+				// the shard mirror on the root shard back-syncs allow-listed
+				// annotations (e.g. cordoning) onto the shard-owned Shard
+				// object in each shard's system:shard logical cluster.
+				rbacv1helpers.NewRule("get", "update", "patch").Groups(core.GroupName).Resources("shards").RuleOrDie(),
 			},
 		},
 		{

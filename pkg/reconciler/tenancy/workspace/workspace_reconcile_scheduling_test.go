@@ -277,7 +277,7 @@ func TestReconcileScheduling(t *testing.T) {
 			name: "only an unschedulable shard is available, the ws is unscheduled",
 			initialShards: []*corev1alpha1.Shard{func() *corev1alpha1.Shard {
 				s := shard("amber")
-				s.Annotations[unschedulableAnnotationKey] = "true"
+				s.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey] = "true"
 				return s
 			}()},
 			targetWorkspace:      workspace("foo"),

@@ -31,6 +31,7 @@ import (
 	claimscmd "github.com/kcp-dev/cli/pkg/claims/cmd"
 	crdcmd "github.com/kcp-dev/cli/pkg/crd/cmd"
 	quickstartcmd "github.com/kcp-dev/cli/pkg/quickstart/cmd"
+	shardcmd "github.com/kcp-dev/cli/pkg/shard/cmd"
 	workspacecmd "github.com/kcp-dev/cli/pkg/workspace/cmd"
 	"github.com/kcp-dev/sdk/cmd/help"
 )
@@ -88,6 +89,9 @@ func KubectlKcpCommand() *cobra.Command {
 
 	quickstartCmd := quickstartcmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	root.AddCommand(quickstartCmd)
+
+	shardCmd := shardcmd.New(genericclioptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
+	root.AddCommand(shardCmd)
 
 	return root
 }
