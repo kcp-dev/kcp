@@ -23,7 +23,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
@@ -32,13 +34,18 @@ import (
 
 const (
 	PluginName = "tenancy.kcp.io/Shard"
+
+	// adminWorkspaceHint explains where shard information and management
+	// live for human users.
+	adminWorkspaceHint = "Shard objects are managed by kcp itself: shards register themselves and own their configuration. " +
+		"View shards via the Admin workspace (kubectl ws use :admin); change shard configuration via the shard's own flags/deployment"
 )
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
 			return &shard{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
+				Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
 			}, nil
 		})
 }
@@ -49,10 +56,14 @@ type shard struct {
 
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.MutationInterface(&shard{})
+var _ = admission.ValidationInterface(&shard{})
 
 // Admit sets.
 func (o *shard) Admit(_ context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	if a.GetResource().GroupResource() != corev1alpha1.Resource("shards") {
+		return nil
+	}
+	if a.GetOperation() != admission.Create && a.GetOperation() != admission.Update {
 		return nil
 	}
 
@@ -87,6 +98,27 @@ func (o *shard) Admit(_ context.Context, a admission.Attributes, _ admission.Obj
 		return err
 	}
 	u.Object = raw
+
+	return nil
+}
+
+// Validate protects Shard objects from direct management by users: shards
+// register themselves and own their objects, so all writes by non-system
+// users are denied with a pointer at the Admin workspace.
+func (o *shard) Validate(_ context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
+	if a.GetResource().GroupResource() != corev1alpha1.Resource("shards") {
+		return nil
+	}
+
+	// system components (shard self-registration, kcp controllers) are exempt.
+	if sets.New(a.GetUserInfo().GetGroups()...).Has(user.SystemPrivilegedGroup) {
+		return nil
+	}
+
+	switch a.GetOperation() {
+	case admission.Create, admission.Update, admission.Delete:
+		return admission.NewForbidden(a, fmt.Errorf("%s", adminWorkspaceHint))
+	}
 
 	return nil
 }

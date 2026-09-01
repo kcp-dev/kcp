@@ -310,14 +310,20 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err := writeShardKubeConfig(workDirPath); err != nil {
 		return err
 	}
+	// peers used by the front-proxy to discover Shards via the Admin workspace
+	if err := writePeersKubeConfig(workDirPath, numberOfShards); err != nil {
+		return err
+	}
 
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
 		return err
 	}
 
-	// Label region of shards
-	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
+	// Label region of shards. Shard objects are admission-protected against
+	// non-system writes, so use the privileged shard-admin identity directly
+	// against the root shard instead of kcp-admin through the front-proxy.
+	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "root.kubeconfig"), "shard-base")
 	if err != nil {
 		return err
 	}

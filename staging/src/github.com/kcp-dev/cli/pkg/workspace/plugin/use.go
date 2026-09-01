@@ -174,6 +174,19 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
 			return err
 		}
 		return o.commitConfig(ctx, currentContext, u, nil)
+	case name == ":admin":
+		// :admin is a reserved pseudo-workspace: the Admin workspace, an
+		// installation-wide administrative view served by the admin virtual
+		// workspace (/services/admin) identically on every shard and reached
+		// through the front-proxy. Its first resource is the aggregated,
+		// read-only view of all shards. Shard write operations go through
+		// `kubectl kcp shard`.
+		u, err := o.currentBaseURL()
+		if err != nil {
+			return err
+		}
+		u.Path = path.Join(u.Path, "services", "admin")
+		return o.commitConfig(ctx, currentContext, u, nil)
 	case name == ".":
 		cfg, err := o.ClientConfig.ClientConfig()
 		if err != nil {
@@ -190,7 +203,15 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
 
 	u, current, err := o.parseCurrentLogicalCluster()
 	if err != nil {
-		return err
+		// The current context may not point to a workspace at all, e.g.
+		// inside the :admin pseudo-workspace. Absolute paths can still be
+		// resolved against the base URL.
+		if name[0] != ':' {
+			return err
+		}
+		if u, err = o.currentBaseURL(); err != nil {
+			return err
+		}
 	}
 
 	// make relative paths absolute
@@ -399,6 +420,26 @@ func (o *UseWorkspaceOptions) currentRootURL() (*url.URL, error) {
 	return u, nil
 }
 
+// currentBaseURL returns the current context's server URL with any known kcp
+// path suffix (/clusters/<path> or /services/...) stripped.
+func (o *UseWorkspaceOptions) currentBaseURL() (*url.URL, error) {
+	config, err := o.ClientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	if u, _, err := pluginhelpers.ParseClusterURL(config.Host); err == nil {
+		return u, nil
+	}
+	u, err := url.Parse(config.Host)
+	if err != nil {
+		return nil, err
+	}
+	if i := strings.Index(u.Path, "/services/"); i >= 0 {
+		u.Path = u.Path[:i]
+	}
+	return u, nil
+}
+
 func (o *UseWorkspaceOptions) parseCurrentLogicalCluster() (*url.URL, *logicalcluster.Path, error) {
 	config, err := o.ClientConfig.ClientConfig()
 	if err != nil {
@@ -415,7 +456,8 @@ func (o *UseWorkspaceOptions) parseCurrentLogicalCluster() (*url.URL, *logicalcl
 func getAPIBindings(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, host string) ([]apisv1alpha2.APIBinding, error) {
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
-		return nil, err
+		// not a workspace URL (e.g. the :admin pseudo-workspace) - no bindings.
+		return nil, nil //nolint:nilerr
 	}
 
 	apiBindings, err := kcpClusterClient.Cluster(clusterName).ApisV1alpha2().APIBindings().List(ctx, metav1.ListOptions{})
@@ -501,6 +543,15 @@ func (o *CurrentWorkspaceOptions) Run(ctx context.Context) error {
 type shortWorkspaceOutput bool
 
 func printCurrentWorkspace(out io.Writer, host string, shortWorkspaceOutput shortWorkspaceOutput, workspaceType *tenancyv1alpha1.WorkspaceTypeReference) error {
+	if strings.HasSuffix(strings.TrimSuffix(host, "/"), "/services/admin") {
+		if shortWorkspaceOutput {
+			_, err := fmt.Fprintln(out, ":admin")
+			return err
+		}
+		_, err := fmt.Fprintln(out, "Current workspace is ':admin' (admin workspace).")
+		return err
+	}
+
 	_, clusterName, err := pluginhelpers.ParseClusterURL(host)
 	if err != nil {
 		if shortWorkspaceOutput {

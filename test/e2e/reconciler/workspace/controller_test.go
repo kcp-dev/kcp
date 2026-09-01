@@ -51,6 +51,10 @@ func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		kcptestingserver.RunningServer
 		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
+		// shardSystemKcpClient is a privileged (system:masters) client for the
+		// root workspace: Shard objects are admission-protected, so cordoning
+		// in this test requires a system identity.
+		shardSystemKcpClient kcpclientset.Interface
 	}
 	var testCases = []struct {
 		name        string
@@ -106,7 +110,7 @@ func TestWorkspaceController(t *testing.T) {
 					shard.Annotations = map[string]string{}
 				}
 				shard.Annotations["experimental.core.kcp.io/unschedulable"] = "true"
-				_, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
+				_, err = server.shardSystemKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
 				require.NoError(t, err)
 
 				// Workspaces cannot become "unschedulable" - once they
@@ -160,7 +164,7 @@ func TestWorkspaceController(t *testing.T) {
 				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
 				require.NoError(t, err)
 				delete(shard.Annotations, "experimental.core.kcp.io/unschedulable")
-				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
+				shard, err = server.shardSystemKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
 				require.NoError(t, err)
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
@@ -200,10 +204,14 @@ func TestWorkspaceController(t *testing.T) {
 			kcpClient, err := kcpclusterclientset.NewForConfig(cfg)
 			require.NoError(t, err)
 
+			shardSystemClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
+			require.NoError(t, err)
+
 			testCase.work(ctx, t, runningServer{
 				RunningServer:          server,
 				rootWorkspaceKcpClient: kcpClient.Cluster(core.RootCluster.Path()),
 				orgWorkspaceKcpClient:  kcpClient.Cluster(orgPath),
+				shardSystemKcpClient:   shardSystemClient.Cluster(core.RootCluster.Path()),
 			})
 		})
 	}
