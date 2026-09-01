@@ -32,13 +32,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
+	clientsethack "k8s.io/apiserver/pkg/clientsethack"
+	dynamichack "k8s.io/apiserver/pkg/dynamichack"
+	informerfactoryhack "k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/compatibility"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	basecompatibility "k8s.io/component-base/compatibility"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/embeddedetcd"
 	"github.com/kcp-dev/logicalcluster/v3"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -46,6 +55,7 @@ import (
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	"github.com/kcp-dev/kcp/pkg/cache/server/admission/cacheannotation"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -246,6 +256,31 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		clustercachedresources.ByGroupResource:            clustercachedresources.IndexByGroupResource,
 	}); err != nil {
 		return nil, err
+	}
+
+	// Build the admission chain. Minimal cluster-aware clients are created from
+	// the loopback config and wrapped with the hack adapters to satisfy ApplyTo's
+	// non-nil checks. Cache-server plugins receive dependencies via the kcp-specific
+	// initializers passed as varargs.
+	admissionKubeClient, err := kcpkubernetesclientset.NewForConfig(serverConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kube client for admission: %w", err)
+	}
+	admissionDynamicClient, err := kcpdynamic.NewForConfig(serverConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client for admission: %w", err)
+	}
+	admissionKubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(admissionKubeClient, resyncPeriod)
+	if err := opts.Admission.ApplyTo(
+		&serverConfig.Config,
+		informerfactoryhack.Wrap(admissionKubeInformers),
+		clientsethack.Wrap(admissionKubeClient),
+		dynamichack.Wrap(admissionDynamicClient),
+		utilfeature.DefaultFeatureGate,
+		compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent),
+		cacheannotation.NewCacheNameInitializer(opts.Extra.CacheName),
+	); err != nil {
+		return nil, fmt.Errorf("failed to apply admission: %w", err)
 	}
 
 	crdRESTOptionsGetter := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd, serverConfig.ResourceTransformers, serverConfig.StorageObjectCountTracker)

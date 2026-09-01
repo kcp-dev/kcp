@@ -57,6 +57,9 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
+	cachebootstrap "github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
@@ -633,6 +636,28 @@ func (s *Server) Run(ctx context.Context) error {
 		s.KcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 
+		// Get cache name from the cache-server.
+		logger.Info("Retrieving Cache info")
+		var thisCache *corev1alpha1.Cache
+		if err := wait.PollUntilContextCancel(hookCtx, time.Second, true, func(ctx context.Context) (bool, error) {
+			ctx = cacheclient.WithShardInContext(ctx, cachebootstrap.SystemCacheServerShard)
+			caches, err := s.KcpCacheClusterClient.Cluster(cacheserver.SystemCacheCluster.Path()).CoreV1alpha1().Caches().List(ctx, metav1.ListOptions{})
+			if err != nil {
+				logger.Error(err, "failed listing Cache objects on the cache server")
+				return false, nil
+			}
+			for _, cache := range caches.Items {
+				if cache.Annotations != nil && cache.Annotations["kcp.io/cache"] == ".self" {
+					thisCache = cache.DeepCopy()
+					break
+				}
+			}
+			return thisCache != nil, nil
+		}); err != nil {
+			logger.Error(err, "failed reconciling Cache resource on the cache server")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
 		// create or update the shard-owned Shard object in the local
 		// system:shard logical cluster. It replicates to the cache server and
 		// is served through the Admin workspace, so shard startup does not
@@ -645,9 +670,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		shard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        s.Options.Extra.ShardName,
-				Annotations: map[string]string{logicalcluster.AnnotationKey: configshard.SystemShardCluster.String()},
-				Labels:      labels,
+				Name: s.Options.Extra.ShardName,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: configshard.SystemShardCluster.String(),
+					"kcp.io/cache":               thisCache.Name,
+				},
+				Labels: labels,
 			},
 			Spec: corev1alpha1.ShardSpec{
 				BaseURL:             s.CompletedConfig.ShardBaseURL(),
