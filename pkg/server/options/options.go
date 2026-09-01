@@ -72,6 +72,7 @@ type ExtraOptions struct {
 	// front-proxy trust the forwarded identity headers instead of clearing them.
 	MountProxyClientCertFile              string
 	MountProxyClientKeyFile               string
+	ShardReplicaCount                     int
 	DiscoveryPollInterval                 time.Duration
 	ExperimentalBindFreePort              bool
 	LogicalClusterTotalObjectLimit        int64
@@ -127,6 +128,7 @@ func NewOptions(rootDir string) *Options {
 			ShardBaseURL:                       "",
 			ShardExternalURL:                   "",
 			ShardName:                          "root",
+			ShardReplicaCount:                  1,
 			DiscoveryPollInterval:              60 * time.Second,
 			ExperimentalBindFreePort:           false,
 			ConversionCELTransformationTimeout: time.Second,
@@ -183,6 +185,10 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.ShardBaseURL, "shard-base-url", o.Extra.ShardBaseURL, "Base URL to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardExternalURL, "shard-external-url", o.Extra.ShardExternalURL, "URL used by outside clients to talk to this kcp shard. Defaults to external address.")
 	fs.StringVar(&o.Extra.ShardName, "shard-name", o.Extra.ShardName, "A name of this kcp shard. Defaults to the \"root\" name.")
+	// https://github.com/kubernetes/kubernetes/blob/f28b4c9efbca5c5c0af716d9f2d5702667ee8a45/staging/src/k8s.io/apiextensions-apiserver/pkg/apiserver/customresource_handler.go#L491-L495
+	// The --shard-replica-count is passed along and lands as
+	// masterCount in upstream which then causes a 5s delay on startup.
+	fs.IntVar(&o.Extra.ShardReplicaCount, "shard-replica-count", o.Extra.ShardReplicaCount, "Number of kcp server replicas serving this shard. Values greater than 1 delay CRD establishment by 5 seconds so all replicas can warm their caches before the CRD is served.")
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceCAFile, "shard-virtual-workspace-ca-file", o.Extra.ShardVirtualWorkspaceCAFile, "Path to a CA certificate file that is valid for the virtual workspace server.")
 	fs.StringVar(&o.Extra.ShardVirtualWorkspaceURL, "shard-virtual-workspace-url", o.Extra.ShardVirtualWorkspaceURL, "An external URL address of a virtual workspace server associated with this shard. Defaults to shard's base address.")
 	fs.StringVar(&o.Extra.ShardClientCertFile, "shard-client-cert-file", o.Extra.ShardClientCertFile, "Path to a client certificate file the shard uses to communicate with other system components.")
@@ -242,6 +248,10 @@ func (o *CompletedOptions) Validate() []error {
 
 	if o.Extra.ShardName != corev1alpha1.RootShard && len(o.Cache.Client.KubeconfigFile) == 0 {
 		errs = append(errs, fmt.Errorf("--cache-kubeconfig is required for non-root shards"))
+	}
+
+	if o.Extra.ShardReplicaCount < 1 {
+		errs = append(errs, fmt.Errorf("--shard-replica-count must be at least 1"))
 	}
 
 	differential := false
