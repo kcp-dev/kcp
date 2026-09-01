@@ -1767,15 +1767,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-admin-workspace-admin" class="md-nav__link">
-    <span class="md-ellipsis">
-      The Admin Workspace (:admin)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#consistency-domain" class="md-nav__link">
     <span class="md-ellipsis">
       Consistency Domain
@@ -4353,15 +4344,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-admin-workspace-admin" class="md-nav__link">
-    <span class="md-ellipsis">
-      The Admin Workspace (:admin)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#consistency-domain" class="md-nav__link">
     <span class="md-ellipsis">
       Consistency Domain
@@ -4588,36 +4570,6 @@ proxy could alternative be backed by any kind of external database with the
 right scalability and availability properties.</p>
 <p>There can be one front-proxy in front of a kcp installation, or many, e.g. one
 or multiple per region or cloud provider.</p>
-<h2 id="the-admin-workspace-admin">The Admin Workspace (<code>:admin</code>)<a class="headerlink" href="#the-admin-workspace-admin" title="Permanent link">&para;</a></h2>
-<p>Every shard serves the <em>Admin workspace</em> at <code>/services/admin</code>: an
-installation-wide administrative view, reachable identically through any
-shard. Its first resource is a read-only, aggregated view of all <code>Shard</code>
-objects. The view is backed by the cache server, where every shard's <code>Shard</code>
-object is replicated, so all shards serve an identical view in a single
-<code>resourceVersion</code> space: consumers can fail over between shards and resume
-watches with the same resource version. Over time the Admin workspace is the
-home for further installation-wide admin surfaces.</p>
-<p>The kcp workspace plugin exposes it as the reserved pseudo-workspace
-<code>:admin</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:admin
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s1">':admin'</span><span class="w"> </span><span class="o">(</span>aggregated<span class="w"> </span>view<span class="w"> </span>of<span class="w"> </span>all<span class="w"> </span>shards<span class="o">)</span>.
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shards
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>NAME<span class="w">      </span>REGION<span class="w">      </span>URL<span class="w">                      </span>...
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>root<span class="w">      </span>us-east-2<span class="w">   </span>https://127.0.0.1:6444<span class="w">   </span>...
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>shard-1<span class="w">   </span>us-east-1<span class="w">   </span>https://127.0.0.1:6445<span class="w">   </span>...
-</code></pre></div>
-<p>Access requires the corresponding read verb on <code>shards.core.kcp.io</code> in the
-<code>root</code> workspace (checked via SubjectAccessReview), keeping permissions in
-one well-known place while the serving path does not depend on the root
-shard. To reach the view through a front-proxy, add a <code>/services/</code> path
-mapping; any shard can be the backend.</p>
-<p><code>Shard</code> objects in the <code>root</code> workspace are protected by admission: shards
-register themselves and own their objects, so all direct writes (create,
-update including annotations, delete) by non-system users are denied with a
-pointer at the Admin workspace. Shard configuration changes go through the
-shard's own flags/deployment; operational actions (e.g. cordoning via the
-<code>experimental.core.kcp.io/unschedulable</code> annotation) are reserved for system
-components until they are exposed through the Admin workspace.</p>
 <h2 id="consistency-domain">Consistency Domain<a class="headerlink" href="#consistency-domain" title="Permanent link">&para;</a></h2>
 <p>Every logical cluster provides a Kubernetes-compatible API root endpoint under
 <code>/cluster/&lt;path&gt;</code> including its own discovery endpoint and their own set of
