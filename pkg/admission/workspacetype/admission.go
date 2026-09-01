@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -182,61 +182,27 @@ func (o *workspacetype) checkDefaultAPIBindingsPermissions(ctx context.Context, 
 		}
 	}
 
+	// Skip grandfathered entries on Update; on Create the map is nil so nothing is
+	// skipped and every binding is checked.
+	toCheck := make([]tenancyv1alpha1.APIExportReference, 0, len(wt.Spec.DefaultAPIBindings))
 	for _, ref := range wt.Spec.DefaultAPIBindings {
-		// Skip grandfathered entries on Update; on Create the map is nil so this
-		// is always false and every entry falls through to the permission check.
 		if _, ok := grandfathered[ref]; ok {
 			continue
 		}
+		toCheck = append(toCheck, ref)
+	}
 
-		exportPath := ref.Path
-		exportName := ref.Export
+	newAuthorizer := func(exportClusterName logicalcluster.Name) (authorizer.Authorizer, error) {
+		return o.createAuthorizer(exportClusterName, o.deepSARClient, delegated.Options{})
+	}
 
-		// Single forbidden response for both "cannot resolve the workspace"
-		// and "user lacks bind on the export". Distinguishing the two would
-		// let a caller with WorkspaceType create/update permission probe
-		// for the existence of arbitrary workspaces by reading the error.
-		forbidden := admission.NewForbidden(a, fmt.Errorf("unable to create or update WorkspaceType: no permission to bind to export %s",
-			logicalcluster.NewPath(exportPath).Join(exportName).String()))
-
-		// Resolve the APIExport's cluster. An empty path means the same cluster
-		// as the WorkspaceType being admitted (matching the reconciler's
-		// behavior). Otherwise resolve via LogicalCluster lookup — not via
-		// the APIExport object itself, so that forward references to
-		// not-yet-existing APIExports are accepted as long as the user has
-		// pre-granted bind permission on the named resource (RBAC's
-		// resourceNames matches names that do not yet exist). See #4145.
-		var exportClusterName logicalcluster.Name
-		switch {
-		case exportPath == "":
-			exportClusterName = clusterName
-		case exportPath == core.RootCluster.String():
-			exportClusterName = core.RootCluster
-		default:
-			path := logicalcluster.NewPath(exportPath)
-			lc, err := o.getLogicalCluster(path)
-			if err != nil {
-				return forbidden
-			}
-			exportClusterName = logicalcluster.From(lc)
-		}
-
-		if err := o.checkAPIExportAccess(ctx, a, exportClusterName, exportName); err != nil {
-			return forbidden
-		}
+	if err := apibindingadmission.CheckDefaultAPIBindingsAccess(
+		ctx, a.GetUserInfo(), clusterName, toCheck, o.getLogicalCluster, newAuthorizer, true,
+	); err != nil {
+		return admission.NewForbidden(a, fmt.Errorf("unable to create or update WorkspaceType: %w", err))
 	}
 
 	return nil
-}
-
-func (o *workspacetype) checkAPIExportAccess(ctx context.Context, a admission.Attributes, apiExportClusterName logicalcluster.Name, apiExportName string) error {
-	logger := klog.FromContext(ctx)
-	authz, err := o.createAuthorizer(apiExportClusterName, o.deepSARClient, delegated.Options{})
-	if err != nil {
-		logger.Error(err, "error creating authorizer from delegating authorizer config")
-		return errors.New("unable to authorize request")
-	}
-	return apibindingadmission.CheckAPIExportAccess(ctx, a.GetUserInfo(), apiExportName, authz)
 }
 
 func (o *workspacetype) ValidateInitialization() error {
