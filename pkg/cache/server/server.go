@@ -101,14 +101,17 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 				Labels: map[string]string{
 					"name": s.Options.Extra.CacheName,
 				},
+				Annotations: map[string]string{
+					"kcp.io/cache": ".self",
+				},
 			},
 			Spec: corev1alpha1.CacheSpec{
 				BaseURL: fmt.Sprintf("https://%s", s.ApiExtensions.GenericConfig.SecureServing.Listener.Addr().String()),
 			},
 		}
 		logger.Info("Creating or updating Cache", "cache", s.Options.Extra.CacheName)
+		hookContext.Context = cacheclient.WithShardInContext(hookContext, bootstrap.SystemCacheServerShard)
 		if err := wait.PollUntilContextCancel(hookContext, time.Second, true, func(ctx context.Context) (bool, error) {
-			ctx = cacheclient.WithShardInContext(ctx, bootstrap.SystemCacheServerShard)
 			createOrUpdateCache := func(cl kcpclientset.ClusterInterface, cluster logicalcluster.Path) error {
 				existingCache, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Get(ctx, cache.Name, metav1.GetOptions{})
 				if err != nil && !apierrors.IsNotFound(err) {
