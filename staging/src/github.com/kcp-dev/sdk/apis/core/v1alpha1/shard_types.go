@@ -27,6 +27,26 @@ import (
 // RootShard holds a name of the root shard.
 var RootShard = "root"
 
+// ShardUnschedulableAnnotationKey marks a single shard as unschedulable: the
+// workspace scheduler will not place new workspaces on it (cordoning). It
+// only affects the shard whose Shard object carries it. Admins set it
+// through the Admin workspace (kubectl ws use :admin); direct edits of Shard
+// objects are denied by admission.
+const ShardUnschedulableAnnotationKey = "experimental.core.kcp.io/unschedulable"
+
+// ShardSchedulable is a condition on the Shard object reflecting the shard's
+// scheduling state, similar to a Kubernetes node: True when new workspaces
+// may be scheduled onto the shard, False with reason ShardReasonCordoned when
+// the shard observed the unschedulable annotation on its authoritative
+// object. It is set by the owning shard itself, so seeing it change in the
+// Admin workspace acknowledges that the shard received and applied the
+// cordon/uncordon signal.
+const ShardSchedulable v1alpha1.ConditionType = "Schedulable"
+
+// ShardReasonCordoned is the reason for ShardSchedulable=False when the
+// owning shard observed the unschedulable annotation on its Shard object.
+const ShardReasonCordoned = "Cordoned"
+
 // Shard describes a kcp instance on which a number of logical clusters will live
 //
 // +crd
@@ -38,6 +58,7 @@ var RootShard = "root"
 // +kubebuilder:printcolumn:name="Region",type=string,JSONPath=`.metadata.labels['region']`,description="The region this workspace is in"
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.baseURL`,description="Type URL to directly connect to the shard"
 // +kubebuilder:printcolumn:name="External URL",type=string,JSONPath=`.spec.externalURL`,description="The URL exposed in logical clusters created on that shard"
+// +kubebuilder:printcolumn:name="Schedulable",type=string,JSONPath=`.status.conditions[?(@.type=="Schedulable")].status`,description="Shard scheduling status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type Shard struct {
 	v1.TypeMeta `json:",inline"`

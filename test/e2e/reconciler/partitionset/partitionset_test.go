@@ -110,7 +110,11 @@ func TestPartitionSet(t *testing.T) {
 			BaseURL: "https://base.kcp.test.dev",
 		},
 	}
-	shardClient := kcpClusterClient.CoreV1alpha1().Shards()
+	// Shard objects are admission-protected against non-system writes; use a
+	// privileged (system:masters) client for the synthetic test shards.
+	shardSystemClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
+	require.NoError(t, err, "failed to construct privileged kcp client for server")
+	shardClient := shardSystemClient.CoreV1alpha1().Shards()
 	shard1a, err = shardClient.Cluster(core.RootCluster.Path()).Create(ctx, shard1a, metav1.CreateOptions{})
 	require.NoError(t, err, "error creating shard")
 	// Necessary for multiple runs.
@@ -284,7 +288,11 @@ func TestPartitionSetAdmission(t *testing.T) {
 	require.NoError(t, err, "failed to construct kcp cluster client for server")
 	partitionSetClient := kcpClusterClient.TopologyV1alpha1().PartitionSets()
 	partitionClient := kcpClusterClient.TopologyV1alpha1().Partitions()
-	shardClient := kcpClusterClient.CoreV1alpha1().Shards()
+	// Shard objects are admission-protected against non-system writes; use a
+	// privileged (system:masters) client for the synthetic test shards.
+	shardSystemClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
+	require.NoError(t, err, "failed to construct privileged kcp client for server")
+	shardClient := shardSystemClient.CoreV1alpha1().Shards()
 
 	errorPartitionSet := &topologyv1alpha1.PartitionSet{
 		ObjectMeta: metav1.ObjectMeta{

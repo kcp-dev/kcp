@@ -269,7 +269,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 					continue
 				}
 
-				targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, targetWorkspace, vwURLs)
+				targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, targetWorkspace, vwURLs)
 				require.NoError(t, err)
 				require.True(t, foundTargetVwURL)
 
@@ -1016,7 +1016,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 	}
 	require.NotEmpty(t, vwURLs, "expected at least one terminating VW URL on the workspacetype")
 
-	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 	require.NoError(t, err)
 	require.True(t, found, "no terminating VW URL matched the workspace shard")
 
@@ -1257,7 +1257,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceTerminatorPermissions(t *testing.T
 		}
 	}
 	require.NotEmpty(t, vwURLs, "expected at least one terminating VW URL on the workspacetype")
-	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 	require.NoError(t, err)
 	require.True(t, found)
 

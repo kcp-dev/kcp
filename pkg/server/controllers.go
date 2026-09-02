@@ -599,17 +599,18 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	var workspaceShardController *shard.Controller
-	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
-		workspaceShardController, err = shard.NewController(
-			kcpClusterClient,
-			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		)
-		if err != nil {
-			return err
-		}
+	// runs on every shard: maintains the status (e.g. the Schedulable
+	// condition) of this shard's own authoritative Shard object in the local
+	// system:shard logical cluster.
+	workspaceShardController, err := shard.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	)
+	if err != nil {
+		return err
 	}
-	if workspaceShardController != nil {
+	{
 		if err := s.registerController(&controllerWrapper{
 			Name: shard.ControllerName,
 			Wait: func(ctx context.Context, s *Server) error {
@@ -1781,7 +1782,7 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) error {
 	// TODO(sttts): set user agent
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, gvrs)
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.DynamicClusterClient, gvrs)
 	if err != nil {
 		return err
 	}

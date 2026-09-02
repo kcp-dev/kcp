@@ -84,7 +84,12 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// require deeper refactoring to make everything rely on the lookup middleware.
 	// If so, there will be also another middleware injected into the handler chain, which is responsible
 	// for resolving the incoming request and store the found cluster name in a context variable.
-	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
+	// Shards are discovered from the Admin workspace (/services/admin),
+	// served identically by every peer shard and backed by the cache server;
+	// the root workspace is not read for discovery. The Admin workspace
+	// accepts /clusters/<name>/ paths, so the standard scoped informer
+	// factory works against it unchanged.
+	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.PeersConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}

@@ -88,6 +88,7 @@ func TestAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
+	_ = kcpClient
 
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, orgPath, []string{"service-provider-1-admin", "service-provider-2-admin", "tenant-user"}, nil, false)
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, serviceProvider1Path, []string{"service-provider-1-admin"}, nil, true)
@@ -411,7 +412,7 @@ metadata:
 	serviceProvider2AdminApiExportVWCfg := rest.CopyConfig(serviceProvider2Admin)
 	serviceProvider2AdminClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
 	require.NoError(t, err)
-	serviceProvider2AdminApiExportVWCfg.Host = vwURL(t, serviceProvider2AdminClient, kcpClient, serviceProvider2Path, "today-cowboys", tenantWorkspace, tenantPath)
+	serviceProvider2AdminApiExportVWCfg.Host = vwURL(t, serviceProvider2AdminClient, cfg, serviceProvider2Path, "today-cowboys", tenantWorkspace, tenantPath)
 
 	serviceProvider2DynamicVWClientForTenantWorkspace, err := kcpdynamic.NewForConfig(serviceProvider2AdminApiExportVWCfg)
 	require.NoError(t, err)
@@ -474,7 +475,7 @@ metadata:
 	shadowVWCfg := rest.CopyConfig(serviceProvider2Admin)
 	shadowVWClient, err := kcpclientset.NewForConfig(serviceProvider2Admin)
 	require.NoError(t, err)
-	shadowVWCfg.Host = vwURL(t, shadowVWClient, kcpClient, serviceProvider2Path, "today-cowboys", tenantShadowCRDWorkspace, tenantShadowCRDPath)
+	shadowVWCfg.Host = vwURL(t, shadowVWClient, cfg, serviceProvider2Path, "today-cowboys", tenantShadowCRDWorkspace, tenantShadowCRDPath)
 
 	serviceProvider2DynamicVWClientForShadowTenantWorkspace, err := kcpdynamic.NewForConfig(shadowVWCfg)
 	require.NoError(t, err)
@@ -523,6 +524,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	require.NoError(t, err)
 	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
+	_ = kcpClient
 
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, orgPath, []string{"service-provider-admin", "tenant-user"}, nil, false)
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, serviceProviderPath, []string{"service-provider-admin"}, nil, true)
@@ -621,7 +623,7 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	serviceProviderAdminApiExportVWCfg := rest.CopyConfig(serviceProviderAdmin)
 	serviceProviderAdminClient, err := kcpclientset.NewForConfig(serviceProviderAdmin)
 	require.NoError(t, err)
-	serviceProviderAdminApiExportVWCfg.Host = vwURL(t, serviceProviderAdminClient, kcpClient, serviceProviderPath, "wild.wild.west", tenantWorkspace, tenantPath)
+	serviceProviderAdminApiExportVWCfg.Host = vwURL(t, serviceProviderAdminClient, cfg, serviceProviderPath, "wild.wild.west", tenantWorkspace, tenantPath)
 
 	serviceProviderDynamicVWClientForTenantWorkspace, err := kcpdynamic.NewForConfig(serviceProviderAdminApiExportVWCfg)
 	require.NoError(t, err)
@@ -910,6 +912,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
+	_ = kcpClient
 
 	providerUser := "user-1"
 	consumerUser := "user-2"
@@ -1024,7 +1027,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 
 	t.Logf("Get virtual workspace client for service APIExport in workspace %q", servicePath)
 	serviceAPIExportVWCfg := framework.StaticTokenUserConfig(providerUser, rest.CopyConfig(cfg))
-	serviceAPIExportVWCfg.Host = vwURL(t, kcpClient, kcpClient, servicePath, apiExport.Name, userWorkspace, userPath)
+	serviceAPIExportVWCfg.Host = vwURL(t, kcpClient, cfg, servicePath, apiExport.Name, userWorkspace, userPath)
 	serviceDynamicVWClient, err := kcpdynamic.NewForConfig(serviceAPIExportVWCfg)
 	require.NoError(t, err)
 
@@ -1057,7 +1060,7 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func vwURL(t *testing.T, providerClusterClient, kcpClusterClient kcpclientset.ClusterInterface, path logicalcluster.Path, export string, ws *tenancyv1alpha1.Workspace, wsPath logicalcluster.Path) string {
+func vwURL(t *testing.T, providerClusterClient kcpclientset.ClusterInterface, cfg *rest.Config, path logicalcluster.Path, export string, ws *tenancyv1alpha1.Workspace, wsPath logicalcluster.Path) string {
 	t.Helper()
 
 	var vwURL string
@@ -1068,7 +1071,7 @@ func vwURL(t *testing.T, providerClusterClient, kcpClusterClient kcpclientset.Cl
 		}
 		urls := framework.ExportVirtualWorkspaceURLs(exportEndpointSlice)
 		var found bool
-		vwURL, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, ws, urls)
+		vwURL, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, ws, urls)
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting on virtual workspace URL for workspace %s, found: %v", wsPath, urls)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")

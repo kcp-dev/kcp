@@ -322,7 +322,7 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 
 	// Scoped get in <B1's shard>:<B1 workspace>, no identity needed.
 
-	shardForB1, err := kcptesting.WorkspaceShard(t.Context(), kcpClusterClient, wsB1)
+	shardForB1, err := kcptesting.WorkspaceShard(t.Context(), cfg, wsB1)
 	b1ShardName := shard.Name(shardForB1.Name)
 	b1ClusterName := logicalcluster.NewPath(wsB1.Spec.Cluster)
 	require.NoError(t, err, "should be able to get shard for workspace")

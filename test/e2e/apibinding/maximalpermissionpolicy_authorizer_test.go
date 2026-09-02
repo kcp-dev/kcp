@@ -756,7 +756,7 @@ func TestMaximalPermissionPolicyServiceAccountClaimedTenancyResources(t *testing
 		}
 		urls := framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice)
 		var found bool
-		apiExportVWURL, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, urls)
+		apiExportVWURL, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, urls)
 		if err != nil {
 			return false, fmt.Sprintf("error getting virtual workspace URL: %v", err)
 		}
