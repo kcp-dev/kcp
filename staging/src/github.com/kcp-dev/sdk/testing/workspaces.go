@@ -266,6 +266,29 @@ func NewWorkspaceFixture(t TestingT, server kcptestingserver.RunningServer, pare
 	return parent.Join(ws.Name), ws
 }
 
+// AdminWorkspaceClient returns a client for the Admin workspace
+// (/services/admin) of the server behind cfg.
+func AdminWorkspaceClient(cfg *rest.Config) (kcpclient.Interface, error) {
+	adminCfg := rest.CopyConfig(cfg)
+	u, err := url.Parse(cfg.Host)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = "/services/admin"
+	adminCfg.Host = u.String()
+	return kcpclient.NewForConfig(adminCfg)
+}
+
+// ListShards lists all shards through the Admin workspace (/services/admin)
+// of the server behind cfg.
+func ListShards(ctx context.Context, cfg *rest.Config) (*corev1alpha1.ShardList, error) {
+	client, err := AdminWorkspaceClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return client.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+}
+
 // WorkspaceShard returns the shard that a workspace is scheduled on,
 // resolved through the Admin workspace (/services/admin) of the server
 // behind cfg.
@@ -275,14 +298,7 @@ func WorkspaceShard(ctx context.Context, cfg *rest.Config, ws *tenancyv1alpha1.W
 		return nil, fmt.Errorf("workspace %s does not have a shard name annotation", logicalcluster.From(ws).Path().Join(ws.Name))
 	}
 
-	adminCfg := rest.CopyConfig(cfg)
-	u, err := url.Parse(cfg.Host)
-	if err != nil {
-		return nil, err
-	}
-	u.Path = "/services/admin"
-	adminCfg.Host = u.String()
-	client, err := kcpclient.NewForConfig(adminCfg)
+	client, err := AdminWorkspaceClient(cfg)
 	if err != nil {
 		return nil, err
 	}
