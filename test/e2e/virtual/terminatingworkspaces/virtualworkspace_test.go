@@ -571,10 +571,13 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 		workspaceTypes[name] = wt
 	}
 
+	// Shards are served through the Admin workspace from the cache server
+	// and appear asynchronously after shard startup.
 	shards := []corev1alpha1.Shard{}
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		s, err := sourceKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		s, err := kcptesting.ListShards(ctx, sourceConfig)
 		require.NoError(c, err)
+		require.NotEmpty(c, s.Items, "expected at least one Shard in the admin workspace")
 		shards = s.Items
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 

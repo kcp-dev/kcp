@@ -20,6 +20,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -177,7 +178,7 @@ func TestReplicationWithWildcardListing(t *testing.T) {
 	extensionsClusterClient, err := kcpapiextensionsv1client.NewForConfig(cfg)
 	require.NoError(t, err, "error creating apiextensions cluster client")
 
-	cacheClientCfg := createCacheClientConfigForEnvironment(ctx, t, server.RootShardSystemMasterBaseConfig(t))
+	cacheClientCfg := createCacheClientConfigForEnvironment(t, server.RootShardSystemMasterBaseConfig(t))
 	cacheClientRT := cache2e.ClientRoundTrippersFor(cacheClientCfg)
 	cacheDynClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err, "failed to construct cache dynamic client")
@@ -373,23 +374,20 @@ func yamlMarshal(t *testing.T, obj interface{}) string {
 // createCacheClientConfigForEnvironment is a helper function
 // for creating a rest config for the cache server depending on
 // the underlying test environment.
-func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kcpRootShardConfig *rest.Config) *rest.Config {
+func createCacheClientConfigForEnvironment(t *testing.T, kcpRootShardConfig *rest.Config) *rest.Config {
 	// TODO: in the future we might associate a shard instance with a cache server
 	// via some field on Shard resources, in that case we could read the value of
 	// that field for creating a rest config.
 	t.Helper()
-	kcpRootShardClient, err := kcpclientset.NewForConfig(kcpRootShardConfig)
-	require.NoError(t, err)
-	shards, err := kcpRootShardClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
-	require.NoError(t, err)
-	if len(shards.Items) == 1 {
-		// Single shard with embedded cache server — use the loopback
-		// bearer token which the embedded cache already trusts.
+	cacheServerKubeConfigPath := filepath.Join(filepath.Dir(kcptesting.KubeconfigPath()), "..", ".kcp-cache", "cache.kubeconfig")
+	if _, err := os.Stat(cacheServerKubeConfigPath); err != nil {
+		// No standalone cache server (single shard with embedded cache) —
+		// use the loopback bearer token which the embedded cache already
+		// trusts.
 		return kcpRootShardConfig
 	}
 
-	// assume multi-shard env created by the sharded-test-server
-	cacheServerKubeConfigPath := filepath.Join(filepath.Dir(kcptesting.KubeconfigPath()), "..", ".kcp-cache", "cache.kubeconfig")
+	// multi-shard env created by the sharded-test-server
 	cacheServerKubeConfig, err := kcptestinghelpers.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
 	require.NoError(t, err)
 	cacheServerRestConfig, err := cacheServerKubeConfig.ClientConfig()

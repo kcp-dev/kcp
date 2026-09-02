@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -47,7 +48,6 @@ import (
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
@@ -440,7 +440,7 @@ func TestReplication(t *testing.T) {
 	kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 	kcpShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
 	require.NoError(t, err)
-	cacheClientConfig := createCacheClientConfigForEnvironment(t.Context(), t, kcpRootShardConfig)
+	cacheClientConfig := createCacheClientConfigForEnvironment(t, kcpRootShardConfig)
 	cacheClientRT := ClientRoundTrippersFor(cacheClientConfig)
 	cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 	require.NoError(t, err)
@@ -481,7 +481,7 @@ func TestReplicationDisruptive(t *testing.T) {
 			kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 			kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
 			require.NoError(t, err)
-			cacheClientConfig := createCacheClientConfigForEnvironment(t.Context(), t, kcpRootShardConfig)
+			cacheClientConfig := createCacheClientConfigForEnvironment(t, kcpRootShardConfig)
 			cacheClientRT := ClientRoundTrippersFor(cacheClientConfig)
 			cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 			require.NoError(t, err)
@@ -750,26 +750,20 @@ func withPseudoRandomSuffix(name string) string {
 // createCacheClientConfigForEnvironment is a helper function
 // for creating a rest config for the cache server depending on
 // the underlying test environment.
-func createCacheClientConfigForEnvironment(ctx context.Context, t *testing.T, kcpRootShardConfig *rest.Config) *rest.Config {
+func createCacheClientConfigForEnvironment(t *testing.T, kcpRootShardConfig *rest.Config) *rest.Config {
 	// TODO: in the future we might associate a shard instance with a cache server
 	// via some field on Shard resources, in that case we could read the value of
 	// that field for creating a rest config.
 	t.Helper()
-	kcpRootShardClient, err := kcpclientset.NewForConfig(kcpRootShardConfig)
-	require.NoError(t, err)
-	shards, err := kcpRootShardClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
-	require.NoError(t, err)
-	if len(shards.Items) <= 1 {
-		// Single shard with embedded cache server — use the loopback
-		// bearer token which the embedded cache already trusts.
-		// Note that the count can be 0 right after startup: the Shard object
-		// in the root workspace is a representation mirrored from the cache
-		// server and appears asynchronously.
+	cacheServerKubeConfigPath := filepath.Join(filepath.Dir(kcptesting.KubeconfigPath()), "..", ".kcp-cache", "cache.kubeconfig")
+	if _, err := os.Stat(cacheServerKubeConfigPath); err != nil {
+		// No standalone cache server (single shard with embedded cache) —
+		// use the loopback bearer token which the embedded cache already
+		// trusts.
 		return kcpRootShardConfig
 	}
 
-	// assume multi-shard env created by the sharded-test-server
-	cacheServerKubeConfigPath := filepath.Join(filepath.Dir(kcptesting.KubeconfigPath()), "..", ".kcp-cache", "cache.kubeconfig")
+	// multi-shard env created by the sharded-test-server
 	cacheServerKubeConfig, err := kcptestinghelpers.LoadKubeConfig(cacheServerKubeConfigPath, "cache")
 	require.NoError(t, err)
 	cacheServerRestConfig, err := cacheServerKubeConfig.ClientConfig()

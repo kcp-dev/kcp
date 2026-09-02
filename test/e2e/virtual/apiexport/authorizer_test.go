@@ -507,11 +507,14 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	t.Logf("Check if we can access shards")
 	var shards *corev1alpha1.ShardList
 	{
-		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
-		require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-		shards, err = kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
-		require.NoError(t, err, "failed to list shards")
+		// Shards are served through the Admin workspace from the cache server
+		// and appear asynchronously after shard startup.
+		require.Eventually(t, func() bool {
+			var err error
+			shards, err = kcptesting.ListShards(t.Context(), cfg)
+			require.NoError(t, err, "failed to list shards")
+			return len(shards.Items) > 0
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected at least one Shard in the admin workspace")
 	}
 
 	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider"))
@@ -1066,7 +1069,7 @@ func vwURL(t *testing.T, providerClusterClient kcpclientset.ClusterInterface, cf
 	var vwURL string
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		exportEndpointSlice, err := providerClusterClient.Cluster(path).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), export, metav1.GetOptions{})
-		if kcptestinghelpers.TolerateOrFail(t, err) {
+		if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsNotFound) {
 			return false, err.Error()
 		}
 		urls := framework.ExportVirtualWorkspaceURLs(exportEndpointSlice)

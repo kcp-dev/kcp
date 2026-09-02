@@ -87,7 +87,7 @@ func TestAPIExportPermissionClaimsVirtualWorkspaceAcrossShards(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client")
 
-	shards, err := kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
+	shards, err := kcptesting.ListShards(t.Context(), cfg)
 	require.NoError(t, err, "failed to list shards")
 	if len(shards.Items) < 2 {
 		t.Skipf("Need at least 2 shards to run this test, got %d", len(shards.Items))
