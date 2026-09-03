@@ -278,7 +278,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		dynamichack.Wrap(admissionDynamicClient),
 		utilfeature.DefaultFeatureGate,
 		compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent),
-		// cacheannotation.NewCacheNameInitializer(opts.Extra.CacheName),
+		cacheannotation.NewCacheNameInitializer(opts.Extra.CacheName),
 	); err != nil {
 		return nil, fmt.Errorf("failed to apply admission: %w", err)
 	}

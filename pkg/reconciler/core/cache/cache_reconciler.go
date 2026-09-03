@@ -24,10 +24,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 
 	configshard "github.com/kcp-dev/kcp/config/shard"
-	"github.com/kcp-dev/logicalcluster/v3"
 )
 
 func (c *Controller) reconcile(ctx context.Context, clusterName logicalcluster.Name, name string) error {
