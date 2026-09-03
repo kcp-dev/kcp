@@ -1,0 +1,420 @@
+/*
+Copyright 2022 The kcp Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
+	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/sdk/apis/core"
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
+
+	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+)
+
+func main() {
+	klog.InitFlags(flag.CommandLine)
+	logDirPath := flag.String("log-dir-path", "", "Path to the log files. If empty, log files are stored in the dot directories.")
+	workDirPath := flag.String("work-dir-path", "", "Path to the working directory where the .kcp* dot directories are created. If empty, the working directory is the current directory.")
+	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
+	cacheSyntheticDelay := flag.Duration("cache-synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests.")
+	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
+	cacheServerKubeconfig := flag.String("cache-kubeconfig", "", "Path to a kubeconfig of an external cache-server. If empty, a dedicated cache-server is started.")
+	externalEtcdServers := flag.String("external-etcd-servers", "", "Comma-separated list of etcd server URLs to use for shards and the cache-server instead of starting embedded etcds. Each component gets its own --etcd-prefix.")
+
+	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
+	// passed to the respective components.
+	var proxyFlags, shardFlags, genericFlags []string
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "--proxy-") {
+			proxyFlags = append(proxyFlags, "-"+strings.TrimPrefix(arg, "--proxy"))
+		} else if strings.HasPrefix(arg, "--shard-") {
+			shardFlags = append(shardFlags, "-"+strings.TrimPrefix(arg, "--shard"))
+		} else {
+			genericFlags = append(genericFlags, arg)
+		}
+	}
+	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
+
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, *cacheServerKubeconfig, *externalEtcdServers); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPath, externalEtcdServers string) error {
+	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
+	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
+	defer shutdownCancel()
+
+	// This context controls the life of the shards, proxy, etc.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// create request header CA and client cert for front-proxy to connect to shards
+	requestHeaderCA, _, err := crypto.EnsureCA(
+		filepath.Join(workDirPath, ".kcp", "requestheader-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "requestheader-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "requestheader-ca-serial.txt"),
+		"kcp-front-proxy-requestheader-ca",
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create requestheader-ca: %w", err)
+	}
+	_, _, err = requestHeaderCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
+		filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
+		&kuser.DefaultInfo{Name: "kcp-front-proxy"},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create requestheader client cert: %w", err)
+	}
+
+	// Client cert (signed by the requestheader CA) that a shard's local proxy presents
+	// when it forwards a request for a mounted workspace back to the front-proxy. The
+	// front-proxy's requestheader authenticator verifies this cert and then takes the
+	// identity from the forwarded X-Remote-* headers. The CN must be listed in the
+	// front-proxy's --requestheader-allowed-names (see frontproxy.go).
+	_, _, err = requestHeaderCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp", "mounts-proxy.crt"),
+		filepath.Join(workDirPath, ".kcp", "mounts-proxy.key"),
+		&kuser.DefaultInfo{Name: "kcp-mounts-proxy"},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create mounts proxy client cert: %w", err)
+	}
+
+	// create client CA and kcp-admin client cert to connect through front-proxy
+	clientCA, _, err := crypto.EnsureCA(
+		filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "client-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "client-ca-serial.txt"),
+		"kcp-client-ca",
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create client-ca: %w", err)
+	}
+	_, _, err = clientCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp", "kcp-admin.crt"),
+		filepath.Join(workDirPath, ".kcp", "kcp-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "kcp-admin",
+			Groups: []string{bootstrap.SystemKcpAdminGroup},
+		},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create kcp-admin client cert: %w", err)
+	}
+
+	// client cert for logical-cluster-admin
+	_, _, err = clientCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp", "logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp", "logical-cluster-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "logical-cluster-admin",
+			Groups: []string{bootstrap.SystemLogicalClusterAdmin},
+		},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create logical-cluster-admin client cert: %w", err)
+	}
+
+	// client cert for external-logical-cluster-admin
+	_, _, err = clientCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp", "external-logical-cluster-admin.crt"),
+		filepath.Join(workDirPath, ".kcp", "external-logical-cluster-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "external-logical-cluster-admin",
+			Groups: []string{bootstrap.SystemExternalLogicalClusterAdmin},
+		},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create external-logical-cluster-admin client cert: %w", err)
+	}
+
+	// TODO:(p0lyn0mial): in the future we need a separate group valid only for the proxy
+	// so that it can make wildcard requests against shards
+	// for now we will use the privileged system group to bypass the authz stack
+	// create privileged system user client cert to connect to shards
+	_, _, err = clientCA.EnsureClientCertificate(
+		filepath.Join(workDirPath, ".kcp-front-proxy", "shard-admin.crt"),
+		filepath.Join(workDirPath, ".kcp-front-proxy", "shard-admin.key"),
+		&kuser.DefaultInfo{
+			Name:   "shard-admin",
+			Groups: []string{kuser.SystemPrivilegedGroup},
+		},
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create front proxy shard admin client cert: %w", err)
+	}
+
+	// create server CA to be used to sign shard serving certs
+	servingCA, _, err := crypto.EnsureCA(
+		filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
+		filepath.Join(workDirPath, ".kcp", "serving-ca.key"),
+		filepath.Join(workDirPath, ".kcp", "serving-ca-serial.txt"),
+		"kcp-serving-ca",
+		365,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create serving-ca: %w", err)
+	}
+
+	// create service account signing and verification key
+	if _, _, err := crypto.EnsureCA(
+		filepath.Join(workDirPath, ".kcp", "service-account.crt"),
+		filepath.Join(workDirPath, ".kcp", "service-account.key"),
+		filepath.Join(workDirPath, ".kcp", "service-account-serial.txt"),
+		"kcp-service-account-signing-ca",
+		365,
+	); err != nil {
+		return fmt.Errorf("failed to create service-account-signing-ca: %w", err)
+	}
+
+	hostIP := net.IPv4(127, 0, 0, 1)
+
+	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
+
+	cacheServerErrCh := make(chan indexErrTuple)
+	if cacheServerConfigPath == "" {
+		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"), externalEtcdServers)
+		if err != nil {
+			return fmt.Errorf("error starting the cache server: %w", err)
+		}
+		cacheServerConfigPath = configPath
+		go func() {
+			err := <-cacheServerCh
+			cacheServerErrCh <- indexErrTuple{0, err}
+		}()
+	}
+
+	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+
+	if err := writeExternalLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+
+	// start shards
+	shards := make([]*testshard.Shard, numberOfShards)
+	for i := range numberOfShards {
+		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA, externalEtcdServers)
+		if err != nil {
+			return err
+		}
+		if err := shard.Start(ctx, quiet); err != nil {
+			return err
+		}
+		shards[i] = shard
+	}
+
+	// Wait for shards to be ready before starting virtual workspaces.
+	// Virtual workspaces depend on shards for token authentication (TokenReview),
+	// so shards must be fully ready before VWs can accept authenticated requests.
+	shardsErrCh := make(chan indexErrTuple)
+	for i, s := range shards {
+		terminatedCh, err := s.WaitForReady(ctx)
+		if err != nil {
+			return err
+		}
+		err = testshard.ScrapeMetrics(ctx, s, workDirPath)
+		if err != nil {
+			return err
+		}
+		go func(i int, terminatedCh <-chan error) {
+			err := <-terminatedCh
+			shardsErrCh <- indexErrTuple{i, err}
+		}(i, terminatedCh)
+	}
+
+	// Start virtual-workspace servers after shards are ready
+	vwPort := "6444"
+	var virtualWorkspaces []*VirtualWorkspace
+	if standaloneVW {
+		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
+		vwPort = "7444"
+
+		for i := range numberOfShards {
+			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheServerConfigPath)
+			if err != nil {
+				return err
+			}
+			if err := vw.start(ctx); err != nil {
+				return err
+			}
+			virtualWorkspaces = append(virtualWorkspaces, vw)
+		}
+	}
+
+	// Wait for virtual workspaces to be ready
+	virtualWorkspacesErrCh := make(chan indexErrTuple)
+	if standaloneVW {
+		for i, vw := range virtualWorkspaces {
+			terminatedCh, err := vw.waitForReady(ctx)
+			if err != nil {
+				return err
+			}
+			go func(i int, terminatedCh <-chan error) {
+				err := <-terminatedCh
+				virtualWorkspacesErrCh <- indexErrTuple{i, err}
+			}(i, terminatedCh)
+		}
+	}
+
+	// write kcp-admin kubeconfig talking to the front-proxy with a client-cert
+	if err := writeAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+	// this is system-master kubeconfig used by the front-proxy to talk to shards
+	if err := writeShardKubeConfig(workDirPath); err != nil {
+		return err
+	}
+
+	// start front-proxy
+	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
+		return err
+	}
+
+	// Wait for all shards' Shard objects to be mirrored into the root
+	// workspace as representations before declaring the environment ready, so
+	// tests can rely on listing Shards there.
+	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
+	if err != nil {
+		return err
+	}
+	config, err := clientConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
+	client, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		shardList, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			// the front-proxy or the root shard may not be fully ready yet, keep polling
+			return false, nil //nolint:nilerr
+		}
+		return len(shardList.Items) >= numberOfShards, nil
+	}); err != nil {
+		return fmt.Errorf("failed waiting for %d Shard representations in the root workspace: %w", numberOfShards, err)
+	}
+
+	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
+	if err != nil {
+		return fmt.Errorf("error creating ready-to-test file: %w", err)
+	}
+	defer readyToTestFile.Close()
+
+	// Wait for either a premature termination error from the shards/proxy/etc, or for the test server process to shut down
+	select {
+	case shardIndexErr := <-shardsErrCh:
+		return fmt.Errorf("shard %d exited: %w", shardIndexErr.index, shardIndexErr.error)
+	case vwIndexErr := <-virtualWorkspacesErrCh:
+		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
+	case cacheErr := <-cacheServerErrCh:
+		return fmt.Errorf("cache server exited: %w", cacheErr.error)
+	case <-shutdownCtx.Done():
+	}
+
+	// We've received the notice to shut down, so try to gather metrics. Use a new context with a fixed timeout.
+	metricxCtx, metricsCancel := context.WithTimeout(ctx, wait.ForeverTestTimeout)
+	defer metricsCancel()
+
+	for _, shard := range shards {
+		shard.GatherMetrics(metricxCtx)
+	}
+
+	return nil
+}
+
+type indexErrTuple struct {
+	index int
+	error error
+}
+
+func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
+	fs, err := os.Stat(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	if fs.Size() == 0 {
+		return nil, fmt.Errorf("%s points to an empty file", kubeconfigPath)
+	}
+
+	rawConfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load admin kubeconfig: %w", err)
+	}
+
+	return clientcmd.NewNonInteractiveClientConfig(*rawConfig, contextName, nil, nil), nil
+}
+
+var regions = []string{
+	"us-east-2",
+	"us-east-1",
+	"us-west-1",
+	"us-west-2",
+	"af-south-1",
+	"ap-east-1",
+	"ap-south-2",
+	"ap-southeast-3",
+	"ap-south-1",
+	"ap-northeast-3",
+	"ap-northeast-2",
+	"ap-southeast-1",
+	"ap-southeast-2",
+	"ap-northeast-1",
+	"ca-central-1",
+	"eu-central-1",
+	"eu-west-1",
+	"eu-west-2",
+	"eu-south-1",
+	"eu-west-3",
+	"eu-south-2",
+	"eu-north-1",
+	"eu-central-2",
+	"me-south-1",
+	"me-central-1",
+	"sa-east-1",
+}
