@@ -71,6 +71,7 @@ func init() {
 // constructing a /shards/<sh>/ prefix.
 func WithShardScope(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		fmt.Printf("### kcp/pkg/cache/server/handler.go WithShardScope path=%q ua=%q\n", req.URL.String(), req.UserAgent())
 		if path := req.URL.Path; path == "/livez" || path == "/readyz" || path == "/healthz" || shardpaths.Paths.Has(path) {
 			handler.ServeHTTP(w, req)
 			return
@@ -105,6 +106,7 @@ func WithShardScope(handler http.Handler) http.Handler {
 		case shardName == "*":
 			shard = "*"
 		case len(shardName) == 0:
+			fmt.Printf("### kcp/pkg/cache/server/handler.go WithShardScope REJECT no-shard path=%q ua=%q\n", req.URL.String(), req.UserAgent())
 			responsewriters.ErrorNegotiated(
 				apierrors.NewBadRequest("a shard name is required"),
 				errorCodecs, schema.GroupVersion{},
