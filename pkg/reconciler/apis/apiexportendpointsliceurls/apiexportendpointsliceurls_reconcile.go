@@ -42,7 +42,7 @@ type endpointsReconciler struct {
 	getAPIExport                func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	patchAPIExportEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error
-	shardName                   string
+	thisShard                   string
 }
 
 type result struct {
@@ -55,7 +55,7 @@ func (c *controller) reconcile(ctx context.Context, apiExportEndpointSlice *apis
 		getMyShard:                  c.getMyShard,
 		getAPIExport:                c.getAPIExport,
 		listAPIBindingsByAPIExport:  c.listAPIBindingsByAPIExport,
-		shardName:                   c.shardName,
+		thisShard:                   c.thisShard,
 		patchAPIExportEndpointSlice: c.patchAPIExportEndpointSlice,
 	}
 

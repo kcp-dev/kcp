@@ -51,7 +51,8 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 	info := c.Gvrs[gvr]
 
 	r := &reconciler{
-		shardName: c.shardName,
+		shardName:             c.shardName,
+		cacheOwnedAnnotations: info.CacheOwnedAnnotations,
 		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
 			obj, exists, err := info.Local.GetIndexer().GetByKey(key)
@@ -111,12 +112,16 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 		deleteObject: func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error {
 			return c.dynamicCacheClient.Cluster(cluster.Path()).Resource(gvr).Namespace(ns).Delete(ctx, name, metav1.DeleteOptions{})
 		},
+		updateLocalObject: func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			return c.dynamicLocalClient.Cluster(cluster.Path()).Resource(gvr).Namespace(obj.GetNamespace()).Update(ctx, obj, metav1.UpdateOptions{})
+		},
 	}
 	return r.reconcile(ctx, key)
 }
 
 type reconciler struct {
-	shardName string
+	shardName             string
+	cacheOwnedAnnotations []string
 
 	getLocalCopy  func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
 	getGlobalCopy func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
@@ -124,6 +129,8 @@ type reconciler struct {
 	createObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error)
 	updateObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error)
 	deleteObject func(ctx context.Context, cluster logicalcluster.Name, ns, name string) error
+
+	updateLocalObject func(ctx context.Context, cluster logicalcluster.Name, obj *unstructured.Unstructured) (*unstructured.Unstructured, error)
 }
 
 // reconcile makes sure that the object under the given key from the local shard is replicated to the cache server.
@@ -197,6 +204,20 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
+	// Cache-owned annotations carry admin intent written through the Admin
+	// workspace: they flow cache -> local. Apply them to the local
+	// (authoritative) object first; the update retriggers reconciliation and
+	// the regular local -> cache sync below then sees converged values.
+	if len(r.cacheOwnedAnnotations) > 0 && localCopy.GetDeletionTimestamp().IsZero() {
+		if syncCacheOwnedAnnotations(globalCopy, localCopy, r.cacheOwnedAnnotations) {
+			logger.V(2).Info("applying cache-owned annotations to the local object")
+			if _, err := r.updateLocalObject(ctx, clusterName, localCopy); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+
 	// update global copy and compare
 	metaChanged, err := ensureMeta(globalCopy, localCopy)
 	if err != nil {
@@ -214,4 +235,31 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 	logger.V(2).WithValues("kind", globalCopy.GetKind(), "namespace", globalCopy.GetNamespace(), "name", globalCopy.GetName()).Info("Updating object in global cache")
 	_, err = r.updateObject(ctx, clusterName, globalCopy) // no need for patch because there is only this actor
 	return err
+}
+
+// syncCacheOwnedAnnotations copies the given annotation keys from the cache
+// copy onto the local copy (absence meaning removal) and reports whether the
+// local copy changed.
+func syncCacheOwnedAnnotations(globalCopy, localCopy *unstructured.Unstructured, keys []string) bool {
+	changed := false
+	annotations := localCopy.GetAnnotations()
+	for _, key := range keys {
+		globalValue, globalOK := globalCopy.GetAnnotations()[key]
+		localValue, localOK := annotations[key]
+		switch {
+		case globalOK && (!localOK || localValue != globalValue):
+			if annotations == nil {
+				annotations = map[string]string{}
+			}
+			annotations[key] = globalValue
+			changed = true
+		case !globalOK && localOK:
+			delete(annotations, key)
+			changed = true
+		}
+	}
+	if changed {
+		localCopy.SetAnnotations(annotations)
+	}
+	return changed
 }

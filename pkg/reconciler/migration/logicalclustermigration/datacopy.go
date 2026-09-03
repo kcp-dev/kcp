@@ -26,10 +26,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kcp-dev/sdk/apis/core"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
 
@@ -101,7 +101,7 @@ func (c *Controller) acquireOriginClient(lcName logicalcluster.Name, originShard
 
 	entry, ok := c.originClients[originShardName]
 	if !ok {
-		originShard, err := c.shardLister.Cluster(core.RootCluster).Get(originShardName)
+		originShard, err := indexers.ShardByName(c.shardLister, originShardName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get origin shard %q: %w", originShardName, err)
 		}

@@ -58,7 +58,7 @@ const (
 // NewController returns a new controller for APIExportEndpointSlices.
 // Shards and APIExports are read from the cache server.
 func NewController(
-	shardName string,
+	thisShard string,
 	apiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	globalAPIExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
@@ -67,7 +67,7 @@ func NewController(
 	clusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
 	c := &controller{
-		shardName:     shardName,
+		thisShard:     thisShard,
 		clusterClient: clusterClient,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -76,7 +76,7 @@ func NewController(
 			},
 		),
 		getMyShard: func() (*corev1alpha1.Shard, error) {
-			return globalShardClusterInformer.Cluster(core.RootCluster).Lister().Get(shardName)
+			return indexers.ShardByName(globalShardClusterInformer.Lister(), thisShard)
 		},
 		getAPIExportEndpointSlice: func(path logicalcluster.Path, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
 			obj, err := indexers.ByPathAndNameWithFallback[*apisv1alpha1.APIExportEndpointSlice](apisv1alpha1.Resource("apiexportendpointslices"), apiExportEndpointSliceClusterInformer.Informer().GetIndexer(), globalAPIExportEndpointSliceClusterInformer.Informer().GetIndexer(), path, name)
@@ -121,7 +121,7 @@ func NewController(
 		},
 		patchAPIExportEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error {
 			_, err := clusterClient.ApisV1alpha1().APIExportEndpointSlices().Cluster(cluster).ApplyStatus(ctx, patch, metav1.ApplyOptions{
-				FieldManager: shardName,
+				FieldManager: thisShard,
 			})
 			return err
 		},
@@ -174,7 +174,7 @@ func NewController(
 // in the status of every APIExportEndpointSlices.
 type controller struct {
 	queue         workqueue.TypedRateLimitingInterface[string]
-	shardName     string
+	thisShard     string
 	clusterClient kcpclientset.ClusterInterface
 
 	getMyShard                  func() (*corev1alpha1.Shard, error)

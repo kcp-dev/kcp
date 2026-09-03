@@ -19,23 +19,27 @@ package testing
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	kcpclient "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
@@ -245,7 +249,7 @@ func NewLowLevelWorkspaceFixture[O WorkspaceOption](t TestingT, createClusterCli
 		}
 	}
 
-	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, WorkspaceShardOrDie(t, clusterClient, ws).Name)
+	t.Logf("Created %s workspace %s as /clusters/%s on shard %q", ws.Spec.Type, parent.Join(ws.Name), ws.Spec.Cluster, ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey])
 	return ws
 }
 
@@ -262,37 +266,59 @@ func NewWorkspaceFixture(t TestingT, server kcptestingserver.RunningServer, pare
 	return parent.Join(ws.Name), ws
 }
 
-// WorkspaceShard returns the shard that a workspace is scheduled on.
-func WorkspaceShard(ctx context.Context, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) (*corev1alpha1.Shard, error) {
-	shards, err := kcpClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+// AdminWorkspaceClient returns a client for the Admin workspace
+// (/services/admin) of the server behind cfg.
+func AdminWorkspaceClient(cfg *rest.Config) (kcpclient.Interface, error) {
+	adminCfg := rest.CopyConfig(cfg)
+	u, err := url.Parse(cfg.Host)
 	if err != nil {
 		return nil, err
 	}
+	u.Path = "/services/admin"
+	adminCfg.Host = u.String()
+	return kcpclient.NewForConfig(adminCfg)
+}
 
+// ListShards lists all shards through the Admin workspace (/services/admin)
+// of the server behind cfg.
+func ListShards(ctx context.Context, cfg *rest.Config) (*corev1alpha1.ShardList, error) {
+	client, err := AdminWorkspaceClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return client.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+}
+
+// WorkspaceShard returns the shard that a workspace is scheduled on,
+// resolved through the Admin workspace (/services/admin) of the server
+// behind cfg.
+func WorkspaceShard(ctx context.Context, cfg *rest.Config, ws *tenancyv1alpha1.Workspace) (*corev1alpha1.Shard, error) {
 	shardName := ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
 	if shardName == "" {
 		return nil, fmt.Errorf("workspace %s does not have a shard name annotation", logicalcluster.From(ws).Path().Join(ws.Name))
 	}
 
-	for _, shard := range shards.Items {
-		if shardName == shard.Name {
-			return &shard, nil
-		}
+	client, err := AdminWorkspaceClient(cfg)
+	if err != nil {
+		return nil, err
 	}
-
-	return nil, fmt.Errorf("failed to determine shard for workspace %s", ws.Name)
+	return client.CoreV1alpha1().Shards().Get(ctx, shardName, metav1.GetOptions{})
 }
 
 // WorkspaceShardOrDie returns the shard that a workspace is scheduled on, or
 // fails the test on error.
-func WorkspaceShardOrDie(t TestingT, kcpClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace) *corev1alpha1.Shard {
+func WorkspaceShardOrDie(t TestingT, cfg *rest.Config, ws *tenancyv1alpha1.Workspace) *corev1alpha1.Shard {
 	t.Helper()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
 
-	shard, err := WorkspaceShard(ctx, kcpClient, ws)
-	require.NoError(t, err, "failed to determine shard for workspace %s", ws.Name)
+	var shard *corev1alpha1.Shard
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		var err error
+		shard, err = WorkspaceShard(ctx, cfg, ws)
+		require.NoError(c, err, "failed to determine shard for workspace %s", ws.Name)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	return shard
 }
 

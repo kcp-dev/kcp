@@ -83,7 +83,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -188,7 +188,7 @@ func TestAPIExportOpenAPI_MultipleKinds(t *testing.T) {
 			return false, fmt.Sprintf("waiting for APIExportEndpointSlice: %v", err)
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(slice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(slice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for VW URL: %v", slice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)

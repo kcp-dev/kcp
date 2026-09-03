@@ -269,7 +269,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 					continue
 				}
 
-				targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, targetWorkspace, vwURLs)
+				targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, targetWorkspace, vwURLs)
 				require.NoError(t, err)
 				require.True(t, foundTargetVwURL)
 
@@ -571,10 +571,13 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 		workspaceTypes[name] = wt
 	}
 
+	// Shards are served through the Admin workspace from the cache server
+	// and appear asynchronously after shard startup.
 	shards := []corev1alpha1.Shard{}
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		s, err := sourceKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		s, err := kcptesting.ListShards(ctx, sourceConfig)
 		require.NoError(c, err)
+		require.NotEmpty(c, s.Items, "expected at least one Shard in the admin workspace")
 		shards = s.Items
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
@@ -1016,7 +1019,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 	}
 	require.NotEmpty(t, vwURLs, "expected at least one terminating VW URL on the workspacetype")
 
-	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 	require.NoError(t, err)
 	require.True(t, found, "no terminating VW URL matched the workspace shard")
 
@@ -1257,7 +1260,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceTerminatorPermissions(t *testing.T
 		}
 	}
 	require.NotEmpty(t, vwURLs, "expected at least one terminating VW URL on the workspacetype")
-	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 	require.NoError(t, err)
 	require.True(t, found)
 

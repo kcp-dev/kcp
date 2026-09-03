@@ -166,7 +166,7 @@ func TestBinding(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
-		serviceProviderVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		serviceProviderVirtualWorkspaceConfig.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting on virtual workspace to be ready")
@@ -314,7 +314,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -495,7 +495,7 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -669,7 +669,7 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
