@@ -102,7 +102,7 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 					"name": s.Options.Extra.CacheName,
 				},
 				Annotations: map[string]string{
-					"kcp.io/cache": ".self",
+					"kcp.io/cache": s.Options.Extra.CacheName,
 				},
 			},
 			Spec: corev1alpha1.CacheSpec{

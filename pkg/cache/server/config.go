@@ -31,9 +31,9 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/generated/openapi"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	clientsethack "k8s.io/apiserver/pkg/clientsethack"
 	dynamichack "k8s.io/apiserver/pkg/dynamichack"
+	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
 	informerfactoryhack "k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/util/compatibility"
@@ -278,7 +278,7 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		dynamichack.Wrap(admissionDynamicClient),
 		utilfeature.DefaultFeatureGate,
 		compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent),
-		cacheannotation.NewCacheNameInitializer(opts.Extra.CacheName),
+		// cacheannotation.NewCacheNameInitializer(opts.Extra.CacheName),
 	); err != nil {
 		return nil, fmt.Errorf("failed to apply admission: %w", err)
 	}

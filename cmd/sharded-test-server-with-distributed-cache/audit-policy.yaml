@@ -1,0 +1,30 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages:
+- RequestReceived
+omitManagedFields: true
+rules:
+- level: None
+  nonResourceURLs:
+  - "/api*"
+  - "/version"
+
+- level: Metadata
+  resources:
+  - group: ""
+    resources: ["secrets", "configmaps"]
+  - group: "authorization.k8s.io"
+    resources: ["subjectaccessreviews"]
+
+- level: Metadata
+  verbs: ["list", "watch"]
+
+- level: Metadata
+  verbs: ["get", "delete"]
+  omitStages:
+  - ResponseStarted
+
+- level: RequestResponse
+  verbs: ["create", "update", "patch"]
+  omitStages:
+  - ResponseStarted
