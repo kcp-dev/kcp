@@ -300,8 +300,14 @@ func InstallIndexers(
 			// lands on the cache copy and flows cache -> local.
 			CacheOwnedAnnotations: []string{corev1alpha1.ShardUnschedulableAnnotationKey},
 			EventFilter:           isNoSystemClusterNameExceptSystemShard,
-			Local:                 localKcpInformers.Core().V1alpha1().Shards().Informer(),
-			Global:                globalKcpInformers.Core().V1alpha1().Shards().Informer(),
+			// read-only representations mirrored into the root workspace are
+			// themselves sourced from the cache; replicating them back would
+			// present every shard twice to global informer consumers.
+			Filter: func(u *unstructured.Unstructured) bool {
+				return u.GetAnnotations()[corev1alpha1.ShardRepresentationAnnotationKey] != "true"
+			},
+			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
 			Kind: "LogicalCluster",

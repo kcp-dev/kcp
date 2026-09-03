@@ -168,17 +168,17 @@ func (c *Controller) reconcile(ctx context.Context) error {
 		return err
 	}
 
-	// one source object per shard name; the shard-owned copy wins over a
-	// legacy copy in the root workspace (mixed-version windows).
+	// only the shard-owned authoritative copies (system:shard logical
+	// clusters) are mirrored. Cache copies from other logical clusters -
+	// legacy self-registrations in root during mixed-version windows, or
+	// test-created Shard objects - already live where they live; mirroring
+	// them would only fight their owners.
 	desired := map[string]*corev1alpha1.Shard{}
 	for _, shard := range global {
-		existing, seen := desired[shard.Name]
-		if seen && logicalcluster.From(existing) == configshard.SystemShardCluster {
+		if logicalcluster.From(shard) != configshard.SystemShardCluster {
 			continue
 		}
-		if !seen || logicalcluster.From(shard) == configshard.SystemShardCluster {
-			desired[shard.Name] = shard
-		}
+		desired[shard.Name] = shard
 	}
 
 	current, err := c.listRootShards()
@@ -242,8 +242,14 @@ func (c *Controller) reconcile(ctx context.Context) error {
 		}
 	}
 
-	for name := range currentByName {
+	for name, existing := range currentByName {
 		if _, ok := desired[name]; ok {
+			continue
+		}
+		// only representations are removed; Shard objects in root that were
+		// not created by this controller (legacy self-registrations, test
+		// objects) are left to their owners.
+		if existing.Annotations[corev1alpha1.ShardRepresentationAnnotationKey] != "true" {
 			continue
 		}
 		logger.V(2).Info("deleting Shard representation from the root workspace", "shard", name)
@@ -257,12 +263,19 @@ func (c *Controller) reconcile(ctx context.Context) error {
 
 // representationFor projects a cache-server Shard object onto the shape of
 // its representation in the root workspace: same name, labels, spec and
-// status; annotations minus the logical cluster and cache bookkeeping.
+// status; annotations minus the logical cluster and cache bookkeeping, plus
+// the representation marker. The marker both identifies the objects this
+// controller owns and excludes them from replication back to the cache
+// server (consumers of the global shard informers must see every shard
+// exactly once).
 func representationFor(source *corev1alpha1.Shard) *corev1alpha1.Shard {
 	representation := &corev1alpha1.Shard{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   source.Name,
 			Labels: source.Labels,
+			Annotations: map[string]string{
+				corev1alpha1.ShardRepresentationAnnotationKey: "true",
+			},
 		},
 		Spec:   source.Spec,
 		Status: source.Status,
@@ -272,9 +285,6 @@ func representationFor(source *corev1alpha1.Shard) *corev1alpha1.Shard {
 		case logicalcluster.AnnotationKey, cacheshard.AnnotationKey,
 			replication.AnnotationKeyOriginalResourceUID, replication.AnnotationKeyOriginalResourceVersion:
 			continue
-		}
-		if representation.Annotations == nil {
-			representation.Annotations = map[string]string{}
 		}
 		representation.Annotations[key] = value
 	}

@@ -34,6 +34,13 @@ var RootShard = "root"
 // objects are denied by admission.
 const ShardUnschedulableAnnotationKey = "experimental.core.kcp.io/unschedulable"
 
+// ShardRepresentationAnnotationKey marks a Shard object in the root
+// workspace as a read-only representation mirrored from the cache server.
+// Representations are managed by kcp (created, updated and removed to track
+// the authoritative shard-owned objects) and are excluded from replication
+// back to the cache server. Managed by kcp; not meant to be set by users.
+const ShardRepresentationAnnotationKey = "core.kcp.io/shard-representation"
+
 // ShardSchedulable is a condition on the Shard object reflecting the shard's
 // scheduling state, similar to a Kubernetes node: True when new workspaces
 // may be scheduled onto the shard, False with reason ShardReasonCordoned when
