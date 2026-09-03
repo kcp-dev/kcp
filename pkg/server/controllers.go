@@ -96,6 +96,7 @@ import (
 	coresreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrole"
 	corereplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/shardrepresentation"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
@@ -1772,6 +1773,43 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() && s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 1)
+		},
+	})
+}
+
+// installShardRepresentationController mirrors the cache server's Shard
+// objects into the root workspace as read-only representations, so
+// `kubectl get shards` keeps working in root. It only runs on the shard
+// hosting the root workspace; the writes are local to it.
+func (s *Server) installShardRepresentationController(_ context.Context, config *rest.Config) error {
+	if s.Options.Extra.ShardName != corev1alpha1.RootShard {
+		return nil
+	}
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, shardrepresentation.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	c, err := shardrepresentation.NewController(
+		kcpClusterClient,
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: shardrepresentation.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

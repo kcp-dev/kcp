@@ -113,6 +113,13 @@ shards leave it, so with short-lived shards the discovery channel keeps
 working as long as any currently registered shard is reachable, even after
 all seeds are gone.
 
+The `root` workspace keeps a familiar read-only view: the shard hosting the
+root workspace runs a controller that mirrors the cache server's Shard
+objects into `root` as representations, so `kubectl get shards` in `root`
+continues to work. The representations are eventually consistent and
+informational; the Admin workspace remains the authoritative surface and the
+only place operational writes (cordoning) are accepted.
+
 `Shard` objects in the `root` workspace are protected by admission: shards
 register themselves and own their objects, so all direct writes (create,
 update including annotations, delete) by non-system users are denied with a

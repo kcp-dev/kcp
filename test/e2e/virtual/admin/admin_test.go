@@ -27,6 +27,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
@@ -83,6 +84,17 @@ func TestAdminWorkspaceShards(t *testing.T) {
 		}
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
+	t.Logf("Read-only Shard representations are mirrored into the root workspace")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		representations, err := rootClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		require.NoError(c, err)
+		require.NotEmpty(c, representations.Items, "expected the root shard's representation in the root workspace")
+		for _, shard := range representations.Items {
+			require.NotContains(c, shard.Annotations, "kcp.io/shard", "cache bookkeeping annotations must be stripped")
+			require.NotEmpty(c, shard.Spec.BaseURL)
+		}
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
 	t.Logf("Changing the spec through the Admin workspace is forbidden")
 	shard, err := adminClient.CoreV1alpha1().Shards().Get(ctx, corev1alpha1.RootShard, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -97,6 +109,22 @@ func TestAdminWorkspaceShards(t *testing.T) {
 		Spec:       corev1alpha1.ShardSpec{BaseURL: "https://fake.kcp.test.dev"},
 	}, metav1.CreateOptions{})
 	require.True(t, apierrors.IsForbidden(err), "expected forbidden, got: %v", err)
+
+	t.Logf("The Shard representations in the root workspace are read-only: update, patch and delete are forbidden")
+	// the mirror controller may write to the representation concurrently, so
+	// retry conflicts until admission's forbidden is observed.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		representation, err := rootClient.CoreV1alpha1().Shards().Get(ctx, corev1alpha1.RootShard, metav1.GetOptions{})
+		require.NoError(c, err)
+		tamperedRepresentation := representation.DeepCopy()
+		tamperedRepresentation.Spec.ExternalURL = "https://tampered.kcp.test.dev"
+		_, err = rootClient.CoreV1alpha1().Shards().Update(ctx, tamperedRepresentation, metav1.UpdateOptions{})
+		require.True(c, apierrors.IsForbidden(err), "expected update of the representation to be forbidden, got: %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+	_, err = rootClient.CoreV1alpha1().Shards().Patch(ctx, corev1alpha1.RootShard, types.MergePatchType, []byte(`{"metadata":{"annotations":{"tampered":"true"}}}`), metav1.PatchOptions{})
+	require.True(t, apierrors.IsForbidden(err), "expected patch of the representation to be forbidden, got: %v", err)
+	err = rootClient.CoreV1alpha1().Shards().Delete(ctx, corev1alpha1.RootShard, metav1.DeleteOptions{})
+	require.True(t, apierrors.IsForbidden(err), "expected delete of the representation to be forbidden, got: %v", err)
 
 	t.Logf("Cordon the shard through the Admin workspace")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {

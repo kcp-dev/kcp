@@ -285,6 +285,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}
+	if err := s.installShardRepresentationController(ctx, controllerConfig); err != nil {
+		return err
+	}
 	if err := s.installReplicationController(ctx, controllerConfig, gvrs); err != nil {
 		return err
 	}
