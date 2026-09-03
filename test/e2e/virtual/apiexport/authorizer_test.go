@@ -86,9 +86,6 @@ func TestAPIExportAuthorizers(t *testing.T) {
 
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
-	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
-	require.NoError(t, err)
-	_ = kcpClient
 
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, orgPath, []string{"service-provider-1-admin", "service-provider-2-admin", "tenant-user"}, nil, false)
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, serviceProvider1Path, []string{"service-provider-1-admin"}, nil, true)

@@ -481,8 +481,10 @@ func TestReplicationDisruptive(t *testing.T) {
 			kcpRootShardConfig := server.RootShardSystemMasterBaseConfig(t)
 			kcpRootShardDynamicClient, err := kcpdynamic.NewForConfig(kcpRootShardConfig)
 			require.NoError(t, err)
-			cacheClientConfig := createCacheClientConfigForEnvironment(t, kcpRootShardConfig)
-			cacheClientRT := ClientRoundTrippersFor(cacheClientConfig)
+			// The private server always runs with an embedded cache server, so
+			// use its own loopback config; the environment-derived config would
+			// point at the shared external cache server in sharded setups.
+			cacheClientRT := ClientRoundTrippersFor(kcpRootShardConfig)
 			cacheKcpClusterDynamicClient, err := kcpdynamic.NewForConfig(cacheClientRT)
 			require.NoError(t, err)
 
