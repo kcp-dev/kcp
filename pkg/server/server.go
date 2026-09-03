@@ -646,15 +646,22 @@ func (s *Server) Run(ctx context.Context) error {
 				logger.Error(err, "failed listing Cache objects on the cache server")
 				return false, nil
 			}
-			for _, cache := range caches.Items {
-				if cache.Annotations != nil && cache.Annotations["kcp.io/cache"] == ".self" {
-					thisCache = cache.DeepCopy()
-					break
-				}
+			if len(caches.Items) == 0 {
+				logger.Error(err, "cache server has not yet registered itself")
+				return false, nil
 			}
-			return thisCache != nil, nil
+			if len(caches.Items) != 1 {
+				names := make([]string, 0, len(caches.Items))
+				for i := range caches.Items {
+					names = append(names, caches.Items[i].Name)
+				}
+				logger.Error(err, "cache server registration not ready, got %v", names)
+				return false, nil
+			}
+			thisCache = &caches.Items[0]
+			return true, nil
 		}); err != nil {
-			logger.Error(err, "failed reconciling Cache resource on the cache server")
+			logger.Error(err, "failed reconciling cache server registration")
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
