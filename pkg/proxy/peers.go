@@ -18,9 +18,11 @@ package proxy
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -37,25 +39,135 @@ const adminWorkspacePath = "/services/admin"
 // failure before it is tried again.
 const peerCooldown = 30 * time.Second
 
+// Peers is the failover set of shard endpoints serving the Admin workspace.
+// It starts with the seed peers from the peer kubeconfigs and is extended at
+// runtime with every discovered shard (UpsertShard/RemoveShard), so the
+// discovery channel keeps working as long as any shard from the last
+// observed state is reachable, even when every seed is gone. Seeds are
+// permanent: they anchor bootstrapping and recovery from a fully stale
+// dynamic set.
+type Peers struct {
+	cooldown time.Duration
+	now      func() time.Time
+
+	mu       sync.Mutex
+	seeds    []*url.URL
+	dynamic  map[string]*url.URL // shard name -> Admin workspace endpoint
+	next     int
+	failedAt map[string]time.Time // URL string -> last transport failure
+}
+
+func newPeers(seeds []*url.URL, cooldown time.Duration, now func() time.Time) *Peers {
+	return &Peers{
+		cooldown: cooldown,
+		now:      now,
+		seeds:    seeds,
+		dynamic:  map[string]*url.URL{},
+		failedAt: map[string]time.Time{},
+	}
+}
+
+// UpsertShard adds or replaces the discovered shard's endpoint in the
+// dynamic peer set. Endpoints that duplicate a seed are not tracked twice.
+// Endpoints with a path cannot be failover targets - the round tripper only
+// swaps scheme and host - and are rejected.
+func (p *Peers) UpsertShard(name, endpoint string) error {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint %q for shard %q: %w", endpoint, name, err)
+	}
+	if u.Path != "" && u.Path != "/" {
+		return fmt.Errorf("endpoint %q for shard %q must not have a path", endpoint, name)
+	}
+	u.Path = ""
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, seed := range p.seeds {
+		if seed.String() == u.String() {
+			delete(p.dynamic, name)
+			return nil
+		}
+	}
+	p.dynamic[name] = u
+	return nil
+}
+
+// RemoveShard drops the shard's endpoint from the dynamic peer set.
+func (p *Peers) RemoveShard(name string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if u, ok := p.dynamic[name]; ok {
+		delete(p.failedAt, u.String())
+	}
+	delete(p.dynamic, name)
+}
+
+// pickOrder returns the current peers in round-robin order starting from
+// the next slot, with peers inside the cooldown window moved to the back.
+// Seeds come before dynamic peers in the underlying ring; the ring changes
+// as shards come and go.
+func (p *Peers) pickOrder() []*url.URL {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	ring := make([]*url.URL, 0, len(p.seeds)+len(p.dynamic))
+	ring = append(ring, p.seeds...)
+	for _, name := range slices.Sorted(maps.Keys(p.dynamic)) {
+		ring = append(ring, p.dynamic[name])
+	}
+	if len(ring) == 0 {
+		return nil
+	}
+
+	start := p.next % len(ring)
+	p.next = (start + 1) % len(ring)
+
+	healthy := make([]*url.URL, 0, len(ring))
+	var coolingDown []*url.URL
+	for i := range ring {
+		u := ring[(start+i)%len(ring)]
+		if failed, ok := p.failedAt[u.String()]; ok && p.now().Sub(failed) < p.cooldown {
+			coolingDown = append(coolingDown, u)
+			continue
+		}
+		healthy = append(healthy, u)
+	}
+	return append(healthy, coolingDown...)
+}
+
+func (p *Peers) markFailed(u *url.URL) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.failedAt[u.String()] = p.now()
+}
+
+func (p *Peers) markHealthy(u *url.URL) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.failedAt, u.String())
+}
+
 // NewPeersConfig loads one or more peer kubeconfigs and returns a
 // rest.Config that talks to the Admin workspace (/services/admin) of the
 // peer shards, distributing requests round-robin and failing over between
-// them.
+// them, together with the Peers set for extending the peers at runtime with
+// discovered shards.
 //
-// Every named cluster across all kubeconfigs is a peer (duplicates by URL
-// are collapsed); the first kubeconfig's current context supplies
+// Every named cluster across all kubeconfigs is a seed peer (duplicates by
+// URL are collapsed); the first kubeconfig's current context supplies
 // credentials and TLS settings, which must be valid for all peers. Because
 // all peers serve the identical, cache-backed view in a single
 // resourceVersion space, failover is exact: a watch broken by a peer outage
 // can resume against another peer with the same resourceVersion.
-func NewPeersConfig(kubeconfigPaths []string) (*rest.Config, error) {
-	var peers []*url.URL
+func NewPeersConfig(kubeconfigPaths []string) (*rest.Config, *Peers, error) {
+	var seeds []*url.URL
 	seen := map[string]bool{}
 
 	for _, kubeconfigPath := range kubeconfigPaths {
 		raw, err := clientcmd.LoadFromFile(kubeconfigPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load shard peer kubeconfig %q: %w", kubeconfigPath, err)
+			return nil, nil, fmt.Errorf("failed to load shard peer kubeconfig %q: %w", kubeconfigPath, err)
 		}
 
 		names := make([]string, 0, len(raw.Clusters))
@@ -67,35 +179,38 @@ func NewPeersConfig(kubeconfigPaths []string) (*rest.Config, error) {
 			server := raw.Clusters[name].Server
 			u, err := url.Parse(server)
 			if err != nil {
-				return nil, fmt.Errorf("invalid server URL %q for peer %q in %q: %w", server, name, kubeconfigPath, err)
+				return nil, nil, fmt.Errorf("invalid server URL %q for peer %q in %q: %w", server, name, kubeconfigPath, err)
 			}
 			if u.Path != "" && u.Path != "/" {
-				return nil, fmt.Errorf("peer %q server URL %q in %q must not have a path", name, server, kubeconfigPath)
+				return nil, nil, fmt.Errorf("peer %q server URL %q in %q must not have a path", name, server, kubeconfigPath)
 			}
+			u.Path = ""
 			if seen[u.String()] {
 				continue
 			}
 			seen[u.String()] = true
-			peers = append(peers, u)
+			seeds = append(seeds, u)
 		}
 	}
-	if len(peers) == 0 {
-		return nil, fmt.Errorf("shard peer kubeconfigs %v contain no clusters", kubeconfigPaths)
+	if len(seeds) == 0 {
+		return nil, nil, fmt.Errorf("shard peer kubeconfigs %v contain no clusters", kubeconfigPaths)
 	}
 
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPaths[0]}, nil).ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to build shard peer client config: %w", err)
+		return nil, nil, fmt.Errorf("failed to build shard peer client config: %w", err)
 	}
 
-	first := *peers[0]
+	peers := newPeers(seeds, peerCooldown, time.Now)
+
+	first := *seeds[0]
 	first.Path = path.Join(first.Path, adminWorkspacePath)
 	config.Host = first.String()
 	config.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return &peerFailoverRoundTripper{delegate: rt, peers: peers, cooldown: peerCooldown, now: time.Now}
+		return &peerFailoverRoundTripper{delegate: rt, peers: peers}
 	})
-	return config, nil
+	return config, peers, nil
 }
 
 // peerFailoverRoundTripper distributes requests round-robin across the
@@ -105,71 +220,31 @@ func NewPeersConfig(kubeconfigPaths []string) (*rest.Config, error) {
 // requests with a body get a single attempt.
 type peerFailoverRoundTripper struct {
 	delegate http.RoundTripper
-	peers    []*url.URL
-	cooldown time.Duration
-	now      func() time.Time
-
-	mu       sync.Mutex
-	next     int
-	failedAt map[int]time.Time
-}
-
-// pickOrder returns peer indices in round-robin order starting from the
-// next slot, with peers inside the cooldown window moved to the back.
-func (rt *peerFailoverRoundTripper) pickOrder() []int {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-
-	start := rt.next
-	rt.next = (rt.next + 1) % len(rt.peers)
-
-	healthy := make([]int, 0, len(rt.peers))
-	var coolingDown []int
-	for i := range rt.peers {
-		idx := (start + i) % len(rt.peers)
-		if failed, ok := rt.failedAt[idx]; ok && rt.now().Sub(failed) < rt.cooldown {
-			coolingDown = append(coolingDown, idx)
-			continue
-		}
-		healthy = append(healthy, idx)
-	}
-	return append(healthy, coolingDown...)
-}
-
-func (rt *peerFailoverRoundTripper) markFailed(idx int) {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	if rt.failedAt == nil {
-		rt.failedAt = map[int]time.Time{}
-	}
-	rt.failedAt[idx] = rt.now()
-}
-
-func (rt *peerFailoverRoundTripper) markHealthy(idx int) {
-	rt.mu.Lock()
-	defer rt.mu.Unlock()
-	delete(rt.failedAt, idx)
+	peers    *Peers
 }
 
 func (rt *peerFailoverRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	order := rt.pickOrder()
+	order := rt.peers.pickOrder()
+	if len(order) == 0 {
+		return nil, fmt.Errorf("no shard peers available")
+	}
 	if req.Body != nil && req.Body != http.NoBody {
 		order = order[:1]
 	}
 
 	var lastErr error
-	for _, idx := range order {
+	for _, u := range order {
 		r := req.Clone(req.Context())
-		r.URL.Scheme = rt.peers[idx].Scheme
-		r.URL.Host = rt.peers[idx].Host
+		r.URL.Scheme = u.Scheme
+		r.URL.Host = u.Host
 		r.Host = ""
 
 		resp, err := rt.delegate.RoundTrip(r)
 		if err == nil {
-			rt.markHealthy(idx)
+			rt.peers.markHealthy(u)
 			return resp, nil
 		}
-		rt.markFailed(idx)
+		rt.peers.markFailed(u)
 		lastErr = err
 		if req.Context().Err() != nil {
 			break

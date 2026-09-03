@@ -101,11 +101,17 @@ root      us-east-2   https://127.0.0.1:6444   ...
 shard-1   us-east-1   https://127.0.0.1:6445   ...
 ```
 
-Access requires the corresponding read verb on `shards.core.kcp.io` in the
-`root` workspace (checked via SubjectAccessReview), keeping permissions in
-one well-known place while the serving path does not depend on the root
-shard. To reach the view through a front-proxy, add a `/services/` path
-mapping; any shard can be the backend.
+Access requires membership in the `system:kcp:admin` group; the serving
+path does not depend on the root shard. To reach the view through a
+front-proxy, add a `/services/` path mapping; any shard can be the backend.
+
+The front-proxy itself discovers shards through the Admin workspace: the
+kubeconfigs given via `--shard-peer-kubeconfig` (falling back to the
+`--root-kubeconfig` server) are boot-time seeds only. Every shard observed
+through the view joins the failover peer set at runtime and decommissioned
+shards leave it, so with short-lived shards the discovery channel keeps
+working as long as any currently registered shard is reachable, even after
+all seeds are gone.
 
 `Shard` objects in the `root` workspace are protected by admission: shards
 register themselves and own their objects, so all direct writes (create,

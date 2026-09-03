@@ -54,6 +54,10 @@ type ExtraConfig struct {
 	// source for Shard discovery. When no peers are configured, the root
 	// kubeconfig's server acts as the seed peer.
 	PeersConfig *rest.Config
+	// Peers is the failover set behind PeersConfig: the configured seed
+	// peers plus every discovered shard, fed at runtime from the shard
+	// informer so discovery survives seed peers going away.
+	Peers *Peers
 
 	AuthenticationInfo    genericapiserver.AuthenticationInfo
 	ServingInfo           *genericapiserver.SecureServingInfo
@@ -117,7 +121,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		//nolint:staticcheck // the deprecated root kubeconfig doubles as the default seed peer for deployments that predate --shard-peer-kubeconfig.
 		peerKubeconfigs = []string{c.Options.RootKubeconfig}
 	}
-	c.PeersConfig, err = NewPeersConfig(peerKubeconfigs)
+	c.PeersConfig, c.Peers, err = NewPeersConfig(peerKubeconfigs)
 	if err != nil {
 		return nil, err
 	}
