@@ -18,25 +18,41 @@ package server
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/kcp-dev/kcp/pkg/reconciler/cache/syncer/authoritativeshards"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/syncer/replication"
 )
 
 func (s *Server) installControllers(ctx context.Context) error {
-	if s.Options.CacheSyncer.Enabled {
-		if err := s.installAuthoritativeShardsController(ctx); err != nil {
-			return err
-		}
+	if !s.Options.CacheSyncer.Enabled {
+		return nil
 	}
 
-	return nil
-}
+	logger := klog.FromContext(ctx).WithValues("controller", replication.ControllerName)
 
-func (s *Server) installAuthoritativeShardsController(ctx context.Context) error {
-	c, err := authoritativeshards.NewController()
+	syncer := s.Options.CacheSyncer.Syncer
+	peerTLSConfig := rest.TLSClientConfig{
+		CAFile:   syncer.PeerCAFile,
+		CertFile: syncer.PeerCertFile,
+		KeyFile:  syncer.PeerKeyFile,
+	}
+
+	ctrl, err := replication.NewRootController(
+		s.Options.Extra.CacheName,
+		s.SyncerSourceConfig,
+		peerTLSConfig,
+		syncer.InitialPeerURLs,
+		s.KcpSharedInformerFactory,
+		s.ApiExtensionsSharedInformerFactory,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create cache-syncer root controller: %w", err)
 	}
-	go c.Start(ctx, 2)
+
+	logger.Info("starting cache-syncer root controller")
+	go ctrl.Start(ctx)
 	return nil
 }
