@@ -127,7 +127,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1alpha1.ShardList{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
 		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		corev1alpha1.ShardStatus{}.OpenAPIModelName():                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
+		migrationv1alpha1.APIExportIdentityRotation{}.OpenAPIModelName():              schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotation(ref),
+		migrationv1alpha1.APIExportIdentityRotationList{}.OpenAPIModelName():          schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationList(ref),
+		migrationv1alpha1.APIExportIdentityRotationSpec{}.OpenAPIModelName():          schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationSpec(ref),
+		migrationv1alpha1.APIExportIdentityRotationStatus{}.OpenAPIModelName():        schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationStatus(ref),
+		migrationv1alpha1.AliasRetirement{}.OpenAPIModelName():                        schema_sdk_apis_migration_v1alpha1_AliasRetirement(ref),
 		migrationv1alpha1.EtcdEntry{}.OpenAPIModelName():                              schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref),
+		migrationv1alpha1.ExportReference{}.OpenAPIModelName():                        schema_sdk_apis_migration_v1alpha1_ExportReference(ref),
 		migrationv1alpha1.LogicalClusterDump{}.OpenAPIModelName():                     schema_sdk_apis_migration_v1alpha1_LogicalClusterDump(ref),
 		migrationv1alpha1.LogicalClusterDumpSpec{}.OpenAPIModelName():                 schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref),
 		migrationv1alpha1.LogicalClusterDumpStatus{}.OpenAPIModelName():               schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref),
@@ -2307,9 +2313,29 @@ func schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"identityHash": {
 						SchemaProps: spec.SchemaProps{
-							Description: "identityHash is the hash of the API identity key of this APIExport. This value is immutable as soon as it is set.",
+							Description: "identityHash is the hash of the API identity key of this APIExport. This value is only changed by the identity rotation controller, as part of a tracked rotation; it is immutable for users.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"identityAliasHashes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "identityAliasHashes lists previous identity hashes of this APIExport that are still honored as equivalents of the current identityHash while a rotation's alias window is active. Permission claims and wildcard consumers referencing an alias hash keep resolving to this export until the alias is retired. Managed by the identity rotation controller.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"conditions": {
@@ -2484,6 +2510,26 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 						},
 						SchemaProps: spec.SchemaProps{
 							Description: "storageVersions lists all versions of a resource that were ever persisted. Tracking these versions allows a migration path for stored versions in etcd. The field is mutable so a migration controller can finish a migration to another version (ensuring no old objects are left in storage), and then remove the rest of the versions from this list.\n\nVersions may not be removed while they exist in this list.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"identityHashes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "identityHashes lists every identity hash under which instances of this resource may exist in storage. It mirrors storageVersions for identity rotation: the drain target is always the schema's current identityHash; every other entry is a drain source that the identity migrator empties and then prunes from this list. Normally it contains exactly the schema's current identityHash.\n\nHashes may not be removed while instances exist under them in storage.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4144,6 +4190,240 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportIdentityRotation is a one-shot request to rotate an APIExport's identity onto a fresh identity secret. It lives next to the APIExport in the provider workspace and is served through the platform-owned migration APIExport: possessing the type requires binding that export, which is how the platform delegates the rotation capability.\n\nRotation is a tracked, resumable procedure: every consumer workspace's bound instances are drained storage-level from the old identity prefix to the new one (preserving UIDs, status and ownerReferences), then the old identity survives only as an alias for permission claims until it is retired per spec.aliasRetirement.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.APIExportIdentityRotationSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.APIExportIdentityRotationStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.APIExportIdentityRotationSpec{}.OpenAPIModelName(), migrationv1alpha1.APIExportIdentityRotationStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportIdentityRotationList is a list of APIExportIdentityRotation resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(migrationv1alpha1.APIExportIdentityRotation{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.APIExportIdentityRotation{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportIdentityRotationSpec is the request: which export, which new identity, and when the old identity's alias is retired.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"export": {
+						SchemaProps: spec.SchemaProps{
+							Description: "export references the APIExport whose identity is rotated. The referenced export may live in another workspace (and on another shard): rotation is a platform capability, delegated by binding the migration.kcp.io APIExport, and does not require exposing that capability in the workspaces owning the rotated exports. Immutable.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(migrationv1alpha1.ExportReference{}.OpenAPIModelName()),
+						},
+					},
+					"newIdentity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "newIdentity references the pre-created secret holding the new identity key. Immutable.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha2.Identity{}.OpenAPIModelName()),
+						},
+					},
+					"aliasRetirement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "aliasRetirement decides when the old identity hash stops being honored as an equivalent of the new one:\n\n  - Manual (default): the alias lives until the provider retires it by\n    updating this field to Immediate (or After with an elapsed\n    duration).\n  - After: the alias is retired the given duration after the rotation\n    entered AliasActive.\n  - Immediate: no alias window; stale references break the moment the\n    drain completes. This is the leaked-secret remediation mode.\n\nThe field is mutable while the rotation is in AliasActive, but only toward earlier retirement. Retirement is irreversible.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(migrationv1alpha1.AliasRetirement{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"export", "newIdentity"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.Identity{}.OpenAPIModelName(), migrationv1alpha1.AliasRetirement{}.OpenAPIModelName(), migrationv1alpha1.ExportReference{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportIdentityRotationStatus reports rotation progress.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "phase is the current lifecycle phase of the rotation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"oldIdentityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "oldIdentityHash is the identity hash the export had when the rotation started.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"newIdentityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "newIdentityHash is the identity hash derived from the new identity secret.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"migratedBindings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "migratedBindings is the number of APIBindings whose bound instances are fully drained onto the new identity.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalBindings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "totalBindings is the number of APIBindings bound to the rotating export.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"aliasActiveTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "aliasActiveTimestamp records when the rotation entered AliasActive, the reference point for the After retirement policy.",
+							Ref:         ref(v1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "conditions is a list of conditions that apply to the rotation.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			conditionsv1alpha1.Condition{}.OpenAPIModelName(), v1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_AliasRetirement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AliasRetirement configures when the pre-rotation identity alias is retired.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "policy selects the retirement mode.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"after": {
+						SchemaProps: spec.SchemaProps{
+							Description: "after is the deprecation window for the After policy, measured from the rotation entering AliasActive.",
+							Ref:         ref(v1.Duration{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"policy"},
+			},
+		},
+		Dependencies: []string{
+			v1.Duration{}.OpenAPIModelName()},
+	}
+}
+
 func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4168,6 +4448,35 @@ func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) 
 					},
 				},
 				Required: []string{"key", "value"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_ExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ExportReference identifies the APIExport being rotated.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "path is the workspace path of the APIExport (e.g. root:org:provider, or a logical cluster name). Empty means the rotation's own workspace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the APIExport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}

@@ -43,6 +43,7 @@ import (
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -68,6 +69,7 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
@@ -79,6 +81,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitymigrator"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identityrotation"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/logicalclustercleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
@@ -1158,6 +1162,117 @@ func (s *Server) installLogicalClusterCleanupController(ctx context.Context, con
 				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
 					s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+// installIdentityRotationController installs the controller driving
+// APIExportIdentityRotation objects (enhancements KEP 0005): validation, the
+// export-side identity flip with alias publication, drain progress tracking
+// and alias retirement.
+func (s *Server) installIdentityRotationController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, identityrotation.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	// the rotated export may live on another shard; reach it by workspace
+	// path through the external logical cluster admin endpoint.
+	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
+	externalConfig = rest.AddUserAgent(externalConfig, identityrotation.ControllerName)
+	externalKcpClusterClient, err := kcpclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+	externalKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	})
+	c, err := identityrotation.NewController(
+		kcpClusterClient,
+		externalKcpClusterClient,
+		externalKubeClusterClient,
+		s.KcpSharedInformerFactory.Migration().V1alpha1().APIExportIdentityRotations(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: identityrotation.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Migration().V1alpha1().APIExportIdentityRotations().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+// installIdentityMigratorController installs the per-shard storage-level
+// identity migrator (enhancements KEP 0005): it drains bound resource
+// instances from old identity etcd prefixes onto the current one for any
+// APIBinding on this shard whose boundResources carry more than one identity
+// hash.
+func (s *Server) installIdentityMigratorController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, identitymigrator.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	etcdClient, err := s.newEtcdClient()
+	if err != nil {
+		return err
+	}
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	c, err := identitymigrator.NewController(
+		kcpClusterClient,
+		crdClusterClient,
+		etcdClient,
+		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: identitymigrator.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

@@ -19,6 +19,7 @@ package permissionclaimlabel
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -90,6 +91,33 @@ func NewController(
 		},
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 	})
+
+	// Claim labels embed the claimed identity hash, normalized to the
+	// export's canonical identity. When an export's identity is rotated or
+	// an alias is registered/retired, every binding claiming its resources
+	// must be re-reconciled so claimed objects are relabeled with the newly
+	// canonical hash.
+	exportIdentityHandler := cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldExport, ok := oldObj.(*apisv1alpha2.APIExport)
+			if !ok {
+				return
+			}
+			newExport, ok := newObj.(*apisv1alpha2.APIExport)
+			if !ok {
+				return
+			}
+			if oldExport.Status.IdentityHash == newExport.Status.IdentityHash &&
+				slices.Equal(oldExport.Status.IdentityAliasHashes, newExport.Status.IdentityAliasHashes) {
+				return
+			}
+			for _, resource := range newExport.Spec.Resources {
+				c.enqueueByGroupResource(schema.GroupResource{Group: resource.Group, Resource: resource.Name}, logger)
+			}
+		},
+	}
+	_, _ = apiExportInformer.Informer().AddEventHandler(exportIdentityHandler)
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(exportIdentityHandler)
 
 	return c, nil
 }

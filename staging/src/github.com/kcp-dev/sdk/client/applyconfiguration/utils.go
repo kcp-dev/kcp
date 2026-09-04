@@ -224,6 +224,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 
 		// Group=migration.kcp.io, Version=v1alpha1
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("AliasRetirement"):
+		return &applyconfigurationmigrationv1alpha1.AliasRetirementApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("APIExportIdentityRotation"):
+		return &applyconfigurationmigrationv1alpha1.APIExportIdentityRotationApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("APIExportIdentityRotationSpec"):
+		return &applyconfigurationmigrationv1alpha1.APIExportIdentityRotationSpecApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("APIExportIdentityRotationStatus"):
+		return &applyconfigurationmigrationv1alpha1.APIExportIdentityRotationStatusApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("ExportReference"):
+		return &applyconfigurationmigrationv1alpha1.ExportReferenceApplyConfiguration{}
 	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigration"):
 		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationApplyConfiguration{}
 	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigrationSpec"):
