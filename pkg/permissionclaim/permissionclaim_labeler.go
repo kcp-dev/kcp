@@ -55,6 +55,7 @@ type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha2.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 	getAPIExport                                 func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	canonicalIdentityHash                        func(hash string) string
 }
 
 // NewLabeler returns a new Labeler.
@@ -73,6 +74,9 @@ func NewLabeler(
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		},
+		canonicalIdentityHash: func(hash string) string {
+			return indexers.CanonicalIdentityHash(apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), hash)
 		},
 	}
 }
@@ -136,7 +140,12 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				}
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
+			// normalize a pre-rotation identity alias to the canonical hash
+			// before hashing, so claims on either side of a rotation produce
+			// identical labels.
+			normalizedClaim := claim.PermissionClaim
+			normalizedClaim.IdentityHash = l.canonicalIdentityHash(normalizedClaim.IdentityHash)
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, normalizedClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
 				logger.Error(err, "error calculating permission claim label key and value",

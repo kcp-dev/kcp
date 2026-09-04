@@ -854,6 +854,20 @@ spec:
                       description: group is the group of the bound API. Empty string
                         for the core API group.
                       type: string
+                    identityHashes:
+                      description: |-
+                        identityHashes lists every identity hash under which instances of this
+                        resource may exist in storage. It mirrors storageVersions for identity
+                        rotation: the drain target is always the schema's current identityHash;
+                        every other entry is a drain source that the identity migrator empties
+                        and then prunes from this list. Normally it contains exactly the
+                        schema's current identityHash.
+
+                        Hashes may not be removed while instances exist under them in storage.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
                     resource:
                       description: |-
                         resource is the resource of the bound API.

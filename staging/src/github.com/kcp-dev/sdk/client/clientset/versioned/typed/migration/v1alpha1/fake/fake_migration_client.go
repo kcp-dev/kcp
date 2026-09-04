@@ -29,6 +29,10 @@ type FakeMigrationV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeMigrationV1alpha1) APIExportIdentityRotations() v1alpha1.APIExportIdentityRotationInterface {
+	return newFakeAPIExportIdentityRotations(c)
+}
+
 func (c *FakeMigrationV1alpha1) LogicalClusterDumps() v1alpha1.LogicalClusterDumpInterface {
 	return newFakeLogicalClusterDumps(c)
 }

@@ -28,8 +28,16 @@ import (
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatusApplyConfiguration struct {
 	// identityHash is the hash of the API identity key of this APIExport. This value
-	// is immutable as soon as it is set.
+	// is only changed by the identity rotation controller, as part of a tracked
+	// rotation; it is immutable for users.
 	IdentityHash *string `json:"identityHash,omitempty"`
+	// identityAliasHashes lists previous identity hashes of this APIExport
+	// that are still honored as equivalents of the current identityHash
+	// while a rotation's alias window is active. Permission claims and
+	// wildcard consumers referencing an alias hash keep resolving to this
+	// export until the alias is retired. Managed by the identity rotation
+	// controller.
+	IdentityAliasHashes []string `json:"identityAliasHashes,omitempty"`
 	// conditions is a list of conditions that apply to the APIExport.
 	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
 	// virtualWorkspaces contains all APIExport virtual workspace URLs.
@@ -52,6 +60,16 @@ func APIExportStatus() *APIExportStatusApplyConfiguration {
 // If called multiple times, the IdentityHash field is set to the value of the last call.
 func (b *APIExportStatusApplyConfiguration) WithIdentityHash(value string) *APIExportStatusApplyConfiguration {
 	b.IdentityHash = &value
+	return b
+}
+
+// WithIdentityAliasHashes adds the given value to the IdentityAliasHashes field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the IdentityAliasHashes field.
+func (b *APIExportStatusApplyConfiguration) WithIdentityAliasHashes(values ...string) *APIExportStatusApplyConfiguration {
+	for i := range values {
+		b.IdentityAliasHashes = append(b.IdentityAliasHashes, values[i])
+	}
 	return b
 }
 
