@@ -451,10 +451,11 @@ test-e2e-sharded-embedded-vw: build-e2e
 test-run-sharded-server: WORK_DIR ?= $(PWD)
 test-run-sharded-server: LOG_DIR ?= $(WORK_DIR)/.kcp
 test-run-sharded-server: EXTERNAL_ETCD ?=
+test-run-sharded-server: SHARDS ?= 2
 test-run-sharded-server:
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=2 --external-etcd-servers=$(EXTERNAL_ETCD) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) --external-etcd-servers=$(EXTERNAL_ETCD) 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Server started' && \
