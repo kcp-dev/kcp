@@ -49,7 +49,8 @@ func main() {
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
 	cacheSyntheticDelay := flag.Duration("cache-synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
-	cacheServerKubeconfig := flag.String("cache-kubeconfig", "", "Path to a kubeconfig of an external cache-server. If empty, a dedicated cache-server is started.")
+	var cacheServerKubeconfigs stringSliceFlag
+	flag.Var(&cacheServerKubeconfigs, "cache-kubeconfig", "Path to a kubeconfig of an external cache-server. May be repeated; number of paths must not exceed --number-of-shards. Shard i gets paths[min(i, len-1)]. If omitted, dedicated cache-servers are started.")
 	externalEtcdServers := flag.String("external-etcd-servers", "", "Comma-separated list of etcd server URLs to use for shards and the cache-server instead of starting embedded etcds. Each component gets its own --etcd-prefix.")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
@@ -66,13 +67,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, *cacheServerKubeconfig, *externalEtcdServers); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, cacheServerKubeconfigs, *externalEtcdServers); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPath, externalEtcdServers string) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPaths []string, externalEtcdServers string) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -213,17 +214,37 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
-	cacheServerErrCh := make(chan indexErrTuple)
-	if cacheServerConfigPath == "" {
-		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"), externalEtcdServers)
-		if err != nil {
-			return fmt.Errorf("error starting the cache server: %w", err)
+	cacheServerErrCh := make(chan indexErrTuple, numberOfShards)
+	cacheKubeconfigPaths := make([]string, numberOfShards)
+	if len(cacheServerConfigPaths) > 0 {
+		if len(cacheServerConfigPaths) > numberOfShards {
+			return fmt.Errorf("--cache-kubeconfig passed %d times but --number-of-shards is %d; number of paths must not exceed number of shards", len(cacheServerConfigPaths), numberOfShards)
 		}
-		cacheServerConfigPath = configPath
-		go func() {
-			err := <-cacheServerCh
-			cacheServerErrCh <- indexErrTuple{0, err}
-		}()
+		for i := range numberOfShards {
+			idx := i
+			if idx >= len(cacheServerConfigPaths) {
+				idx = len(cacheServerConfigPaths) - 1
+			}
+			cacheKubeconfigPaths[i] = cacheServerConfigPaths[idx]
+		}
+	} else {
+		for i := range numberOfShards {
+			peerURL := ""
+			if i > 0 {
+				peerURL = fmt.Sprintf("https://%s:%d", hostIP, cacheServerPort(0))
+			}
+			ch, path, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(),
+				cacheSyntheticDelay, clientCA, servingCA,
+				filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
+				externalEtcdServers, i, peerURL)
+			if err != nil {
+				return fmt.Errorf("error starting cache server %d: %w", i, err)
+			}
+			cacheKubeconfigPaths[i] = path
+			go func(i int, ch <-chan error) {
+				cacheServerErrCh <- indexErrTuple{i, <-ch}
+			}(i, ch)
+		}
 	}
 
 	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
@@ -237,7 +258,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// start shards
 	shards := make([]*testshard.Shard, numberOfShards)
 	for i := range numberOfShards {
-		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA, externalEtcdServers)
+		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheKubeconfigPaths[i], clientCA, externalEtcdServers)
 		if err != nil {
 			return err
 		}
@@ -274,7 +295,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		vwPort = "7444"
 
 		for i := range numberOfShards {
-			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheServerConfigPath)
+			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheKubeconfigPaths[i])
 			if err != nil {
 				return err
 			}
@@ -364,7 +385,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	case vwIndexErr := <-virtualWorkspacesErrCh:
 		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
 	case cacheErr := <-cacheServerErrCh:
-		return fmt.Errorf("cache server exited: %w", cacheErr.error)
+		return fmt.Errorf("cache server %d exited: %w", cacheErr.index, cacheErr.error)
 	case <-shutdownCtx.Done():
 	}
 
@@ -382,6 +403,15 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 type indexErrTuple struct {
 	index int
 	error error
+}
+
+// stringSliceFlag is a repeatable string flag (--foo=a --foo=b → ["a","b"]).
+type stringSliceFlag []string
+
+func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
+func (s *stringSliceFlag) Set(v string) error {
+	*s = append(*s, v)
+	return nil
 }
 
 func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
