@@ -83,6 +83,8 @@ type APIBindingSpec struct {
 
 // ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
 // scope down access to objects of the claimed resource.
+//
+// +kubebuilder:validation:XValidation:rule="!self.resource.contains('/') || (has(self.selector.matchAll) && self.selector.matchAll)",message="for subresource claims the selector is ignored, scope is inherited from the parent resource claim"
 type ScopedPermissionClaim struct {
 	PermissionClaim `json:",inline"`
 

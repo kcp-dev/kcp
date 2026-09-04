@@ -171,9 +171,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     resourceSelector:
                       description: resourceSelector is a list of claimed resource
@@ -472,10 +475,17 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
+                      x-kubernetes-validations:
+                      - message: status is granted implicitly with parent resource
+                          claim
+                        rule: '!self.endsWith(''/status'')'
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes
@@ -490,6 +500,9 @@ spec:
                   - resource
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group

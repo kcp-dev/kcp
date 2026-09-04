@@ -230,6 +230,8 @@ type LocalAPIExportPolicy struct{}
 // PermissionClaim identifies an object by GR and identity hash.
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
+//
+// +kubebuilder:validation:XValidation:rule="!self.resource.contains('/') || !has(self.defaultSelector)",message="defaultSelector is not allowed on subresource claims"
 type PermissionClaim struct {
 	GroupResource `json:",inline"`
 
@@ -319,10 +321,14 @@ type GroupResource struct {
 	Group string `json:"group,omitempty"`
 
 	// resource is the name of the resource.
+	// A subresource may be claimed as "resource/subresource",
+	// e.g. "serviceaccounts/token", in the style of RBAC rules.
 	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 	// not provided by an api export.
 	//
-	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9]$`
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="!self.endsWith('/status')",message="status is granted implicitly with parent resource claim"
+	// +kubebuilder:validation:MaxLength=127
 	// +required
 	// +kubebuilder:validation:Required
 	Resource string `json:"resource"`

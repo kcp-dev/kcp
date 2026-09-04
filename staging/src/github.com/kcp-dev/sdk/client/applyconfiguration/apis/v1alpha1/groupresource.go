@@ -27,6 +27,8 @@ type GroupResourceApplyConfiguration struct {
 	// For core groups this is the empty string '""'.
 	Group *string `json:"group,omitempty"`
 	// resource is the name of the resource.
+	// A subresource may be claimed as "resource/subresource",
+	// e.g. "serviceaccounts/token", in the style of RBAC rules.
 	// Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 	// not provided by an api export.
 	Resource *string `json:"resource,omitempty"`
