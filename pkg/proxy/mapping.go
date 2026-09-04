@@ -23,6 +23,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
+	"sync/atomic"
+
+	"github.com/fsnotify/fsnotify"
 
 	"sigs.k8s.io/yaml"
 
@@ -33,8 +37,17 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
+// loadMappings reads path mappings from filename.
+// Empty filename or a missing file yields nil mappings.
 func loadMappings(filename string) ([]types.PathMapping, error) {
+	if filename == "" {
+		return nil, nil
+	}
+
 	mappingData, err := os.ReadFile(filename)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +60,7 @@ func loadMappings(filename string) ([]types.PathMapping, error) {
 	return mapping, nil
 }
 
-func isShardMapping(m types.PathMapping) bool {
-	return m.Path == "/clusters/"
-}
-
+// NewHandler builds the additional-routes proxy handler from the configured mappings.
 func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler, error) {
 	handlers := proxy.HttpHandler{
 		Mappings: types.HttpHandlerMappings{},
@@ -70,19 +80,10 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
 		}
 
-		var handler http.Handler
-		if isShardMapping(m) {
-			clusterProxy := newShardReverseProxy()
-			clusterProxy.Transport = transport
-			clusterProxy.ErrorHandler = metrics.NewProxyErrorHandler()
-			handler = clusterProxy
-		} else {
-			// TODO: handle virtual workspace apiservers per shard
-			proxy := httputil.NewSingleHostReverseProxy(u)
-			proxy.Transport = transport
-			proxy.ErrorHandler = metrics.NewProxyErrorHandler()
-			handler = proxy
-		}
+		reverseProxy := httputil.NewSingleHostReverseProxy(u)
+		reverseProxy.Transport = transport
+		reverseProxy.ErrorHandler = metrics.NewProxyErrorHandler()
+		var handler http.Handler = reverseProxy
 
 		userHeader := "X-Remote-User"
 		groupHeader := "X-Remote-Group"
@@ -114,4 +115,62 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 	handlers.Mappings.Sort()
 
 	return &handlers, nil
+}
+
+// reloadableHandler delegates to an atomically swappable handler.
+type reloadableHandler struct {
+	handler atomic.Pointer[http.Handler]
+}
+
+func (h *reloadableHandler) store(handler http.Handler) {
+	h.handler.Store(&handler)
+}
+
+func (h *reloadableHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	(*h.handler.Load()).ServeHTTP(w, r)
+}
+
+// watchMappingFile calls reload when filename is created or written until ctx is done.
+// The parent directory is watched to catch late creation, deletion and atomic updates.
+// Reload errors are logged and the previous state is kept.
+func watchMappingFile(ctx context.Context, filename string, reload func() error) error {
+	logger := klog.FromContext(ctx).WithValues("file", filename)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create mapping file watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(filepath.Dir(filename)); err != nil {
+		return fmt.Errorf("failed to watch mapping file directory: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
+			logger.Error(err, "mapping file watch error")
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+			if event.Name != filename || !event.Op.Has(fsnotify.Create) && !event.Op.Has(fsnotify.Write) {
+				continue
+			}
+			// file may be gone mid atomic-swap; the create of the new file follows
+			if _, err := os.Stat(filename); err != nil {
+				continue
+			}
+			if err := reload(); err != nil {
+				logger.Error(err, "failed to reload mapping file, keeping previous mappings")
+				continue
+			}
+			logger.V(2).Info("reloaded mapping file")
+		}
+	}
 }
