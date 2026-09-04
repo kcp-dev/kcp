@@ -572,6 +572,10 @@ spec:
                       maxLength: 127
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
+                      x-kubernetes-validations:
+                      - message: status is granted implicitly with parent resource
+                          claim
+                        rule: '!self.endsWith(''/status'')'
                     selector:
                       description: |-
                         PermissionClaimSelector configures scoped access to objects
@@ -649,7 +653,8 @@ spec:
                   - verbs
                   type: object
                   x-kubernetes-validations:
-                  - message: subresource claims must use selector.matchAll
+                  - message: for subresource claims the selector is ignored, scope
+                      is inherited from the parent resource claim
                     rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
                       && self.selector.matchAll)'
                   - message: defaultSelector is not allowed on subresource claims
@@ -789,6 +794,10 @@ spec:
                       maxLength: 127
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
+                      x-kubernetes-validations:
+                      - message: status is granted implicitly with parent resource
+                          claim
+                        rule: '!self.endsWith(''/status'')'
                     selector:
                       description: |-
                         PermissionClaimSelector configures scoped access to objects
@@ -860,7 +869,8 @@ spec:
                   - verbs
                   type: object
                   x-kubernetes-validations:
-                  - message: subresource claims must use selector.matchAll
+                  - message: for subresource claims the selector is ignored, scope
+                      is inherited from the parent resource claim
                     rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
                       && self.selector.matchAll)'
                   - message: defaultSelector is not allowed on subresource claims
@@ -1076,6 +1086,10 @@ spec:
                       maxLength: 127
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
+                      x-kubernetes-validations:
+                      - message: status is granted implicitly with parent resource
+                          claim
+                        rule: '!self.endsWith(''/status'')'
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes

@@ -482,6 +482,10 @@ spec:
                       maxLength: 127
                       pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
+                      x-kubernetes-validations:
+                      - message: status is granted implicitly with parent resource
+                          claim
+                        rule: '!self.endsWith(''/status'')'
                     verbs:
                       description: |-
                         verbs is a list of supported API operation types (this includes
