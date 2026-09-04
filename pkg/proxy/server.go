@@ -62,17 +62,12 @@ type Server struct {
 	IndexController          *index.Controller
 	AuthController           *authentication.Controller
 	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
+	reloadMappings           func() error
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
-	}
-
-	// load the configured path mappings
-	mappings, err := loadMappings(c.Options.MappingFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load mappings from %q: %w", c.Options.MappingFile, err)
 	}
 
 	// Built an index of which shard hosts which workspaces and logicalclusters, so
@@ -104,13 +99,29 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		return s, fmt.Errorf("failed to create shards transport: %w", err)
 	}
 
-	handler, err := NewHandler(ctx, mappings)
-	if err != nil {
+	mappingHandler := &reloadableHandler{}
+	s.reloadMappings = func() error {
+		mappings, err := loadMappings(c.Options.MappingFile)
+		if err != nil {
+			return fmt.Errorf("failed to load mappings from %q: %w", c.Options.MappingFile, err)
+		}
+
+		handler, err := NewHandler(ctx, mappings)
+		if err != nil {
+			return err
+		}
+
+		mappingHandler.store(handler)
+		return nil
+	}
+
+	// fail fast on an invalid mapping file at startup, a missing file is fine
+	if err := s.reloadMappings(); err != nil {
 		return s, err
 	}
 
 	// /clusters/ requests are always routed to the shards, before any mapping.
-	handler = WithShardRouting(handler, shardsTransport)
+	var handler http.Handler = WithShardRouting(mappingHandler, shardsTransport)
 
 	// The optional auth handler will call the underlying authenticator only if
 	// auth methods are configured directly on the front-proxy *or* if there is
@@ -231,6 +242,14 @@ func (s preparedServer) Run(ctx context.Context) error {
 
 	// start indexes
 	go s.IndexController.Start(ctx, 2)
+
+	if s.CompletedConfig.Options.MappingFile != "" {
+		go func() {
+			if err := watchMappingFile(ctx, s.CompletedConfig.Options.MappingFile, s.reloadMappings); err != nil {
+				logger.Error(err, "failed to watch mapping file")
+			}
+		}()
+	}
 
 	if s.AuthController != nil {
 		go s.AuthController.Start(ctx, 2)

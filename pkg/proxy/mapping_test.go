@@ -17,13 +17,18 @@ limitations under the License.
 package proxy
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/cert"
 
 	serverproxy "github.com/kcp-dev/kcp/pkg/server/proxy"
@@ -143,4 +148,83 @@ func TestNewHandler_buildsConfiguredMappings(t *testing.T) {
 	require.Len(t, httpHandler.Mappings, 1, "the / mapping must become the default handler, not a route")
 	assert.Equal(t, "/services/", httpHandler.Mappings[0].Path)
 	assert.NotNil(t, httpHandler.DefaultHandler, "the / mapping must become the default handler")
+}
+
+func TestReloadableHandler(t *testing.T) {
+	t.Parallel()
+
+	handler := &reloadableHandler{}
+	handler.store(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	}))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+	require.Equal(t, http.StatusTeapot, rec.Code)
+
+	handler.store(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+	assert.Equal(t, http.StatusOK, rec.Code, "swapped handler must serve subsequent requests")
+}
+
+func TestWatchMappingFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "mappings.yaml")
+
+	reloads := make(chan struct{}, 16)
+	reload := func() error {
+		reloads <- struct{}{}
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- watchMappingFile(ctx, file, reload)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		require.NoError(t, <-done)
+	})
+
+	expectReload := func(t *testing.T, msg string) {
+		t.Helper()
+		select {
+		case <-reloads:
+		case <-time.After(wait.ForeverTestTimeout):
+			t.Fatal(msg)
+		}
+	}
+	expectNoReload := func(t *testing.T, msg string) {
+		t.Helper()
+		select {
+		case <-reloads:
+			t.Fatal(msg)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	// watcher needs to be established before the first write
+	time.Sleep(100 * time.Millisecond)
+
+	require.NoError(t, os.WriteFile(file, []byte("[]"), 0o600))
+	expectReload(t, "late create must trigger a reload")
+
+	require.NoError(t, os.WriteFile(file, []byte("[]"), 0o600))
+	expectReload(t, "write must trigger a reload")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "other.yaml"), []byte("[]"), 0o600))
+	expectNoReload(t, "unrelated file must not trigger a reload")
+
+	require.NoError(t, os.Remove(file))
+	expectNoReload(t, "delete must not trigger a reload")
+
+	require.NoError(t, os.WriteFile(file, []byte("[]"), 0o600))
+	expectReload(t, "re-create must trigger a reload")
 }

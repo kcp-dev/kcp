@@ -23,6 +23,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
+	"sync/atomic"
+
+	"github.com/fsnotify/fsnotify"
 
 	"sigs.k8s.io/yaml"
 
@@ -111,4 +115,62 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 	handlers.Mappings.Sort()
 
 	return &handlers, nil
+}
+
+// reloadableHandler delegates to an atomically swappable handler.
+type reloadableHandler struct {
+	handler atomic.Pointer[http.Handler]
+}
+
+func (h *reloadableHandler) store(handler http.Handler) {
+	h.handler.Store(&handler)
+}
+
+func (h *reloadableHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	(*h.handler.Load()).ServeHTTP(w, r)
+}
+
+// watchMappingFile calls reload when filename is created or written until ctx is done.
+// The parent directory is watched to catch late creation, deletion and atomic updates.
+// Reload errors are logged and the previous state is kept.
+func watchMappingFile(ctx context.Context, filename string, reload func() error) error {
+	logger := klog.FromContext(ctx).WithValues("file", filename)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create mapping file watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(filepath.Dir(filename)); err != nil {
+		return fmt.Errorf("failed to watch mapping file directory: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
+			logger.Error(err, "mapping file watch error")
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+			if event.Name != filename || !event.Op.Has(fsnotify.Create) && !event.Op.Has(fsnotify.Write) {
+				continue
+			}
+			// file may be gone mid atomic-swap; the create of the new file follows
+			if _, err := os.Stat(filename); err != nil {
+				continue
+			}
+			if err := reload(); err != nil {
+				logger.Error(err, "failed to reload mapping file, keeping previous mappings")
+				continue
+			}
+			logger.V(2).Info("reloaded mapping file")
+		}
+	}
 }
