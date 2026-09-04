@@ -327,6 +327,7 @@ type GroupResource struct {
 	// not provided by an api export.
 	//
 	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="!self.endsWith('/status')",message="status is granted implicitly with parent resource claim"
 	// +kubebuilder:validation:MaxLength=127
 	// +required
 	// +kubebuilder:validation:Required
