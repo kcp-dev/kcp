@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	cachesync "github.com/kcp-dev/kcp/pkg/cache/syncer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/syncer/replication"
 )
 
@@ -38,6 +39,12 @@ func (s *Server) installControllers(ctx context.Context) error {
 		CAFile:   syncer.PeerCAFile,
 		CertFile: syncer.PeerCertFile,
 		KeyFile:  syncer.PeerKeyFile,
+	}
+
+	if len(syncer.InitialPeerURLs) > 0 {
+		if err := cachesync.BootstrapFromPeer(ctx, s.ApiExtensionsClusterClient, s.SyncerSourceConfig, peerTLSConfig, syncer.InitialPeerURLs); err != nil {
+			return fmt.Errorf("bootstrap cache from peer: %w", err)
+		}
 	}
 
 	ctrl, err := replication.NewRootController(
