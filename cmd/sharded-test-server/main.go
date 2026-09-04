@@ -218,12 +218,16 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return fmt.Errorf("--external-etcd-servers and --cache-kubeconfig are mutually exclusive: when an external etcd is provided the test server must manage all cache-servers to guarantee they use the same etcd cluster")
 	}
 
+	if len(cacheServerConfigPaths) > numberOfShards {
+		return fmt.Errorf("--cache-kubeconfig passed %d times but --number-of-shards is %d; number of paths must not exceed number of shards", len(cacheServerConfigPaths), numberOfShards)
+	}
+
 	cacheServerErrCh := make(chan indexErrTuple, numberOfShards)
 	cacheKubeconfigPaths := make([]string, numberOfShards)
+
+	// Pre-fill kubeconfig paths for externally-managed cache servers so the
+	// per-shard loop below can use cacheKubeconfigPaths[i] uniformly.
 	if len(cacheServerConfigPaths) > 0 {
-		if len(cacheServerConfigPaths) > numberOfShards {
-			return fmt.Errorf("--cache-kubeconfig passed %d times but --number-of-shards is %d; number of paths must not exceed number of shards", len(cacheServerConfigPaths), numberOfShards)
-		}
 		for i := range numberOfShards {
 			idx := i
 			if idx >= len(cacheServerConfigPaths) {
@@ -231,8 +235,29 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 			}
 			cacheKubeconfigPaths[i] = cacheServerConfigPaths[idx]
 		}
-	} else {
-		for i := range numberOfShards {
+	}
+
+	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+
+	if err := writeExternalLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
+		return err
+	}
+
+	// Start cache and shard in pairs: cache-0 → shard-0 (wait ready) →
+	// cache-1 → shard-1 (wait ready) → …
+	//
+	// This ordering ensures that when cache-i+1 starts its peer-bootstrap
+	// (pulling root-phase0 objects from cache-0), cache-0 has already
+	// received those objects from shard-0 which finished root-phase0 before
+	// we advanced to the next pair.
+	shards := make([]*testshard.Shard, numberOfShards)
+	shardsErrCh := make(chan indexErrTuple)
+
+	for i := range numberOfShards {
+		// Start cache server i (skipped when using external cache servers).
+		if len(cacheServerConfigPaths) == 0 {
 			peerURL := ""
 			if i > 0 {
 				peerURL = fmt.Sprintf("https://%s:%d", hostIP, cacheServerPort(0))
@@ -249,19 +274,8 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 				cacheServerErrCh <- indexErrTuple{i, <-ch}
 			}(i, ch)
 		}
-	}
 
-	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
-		return err
-	}
-
-	if err := writeExternalLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
-		return err
-	}
-
-	// start shards
-	shards := make([]*testshard.Shard, numberOfShards)
-	for i := range numberOfShards {
+		// Start shard i and wait for it to be ready before moving to i+1.
 		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheKubeconfigPaths[i], clientCA, externalEtcdServers)
 		if err != nil {
 			return err
@@ -270,24 +284,19 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 			return err
 		}
 		shards[i] = shard
-	}
 
-	// Wait for shards to be ready before starting virtual workspaces.
-	// Virtual workspaces depend on shards for token authentication (TokenReview),
-	// so shards must be fully ready before VWs can accept authenticated requests.
-	shardsErrCh := make(chan indexErrTuple)
-	for i, s := range shards {
-		terminatedCh, err := s.WaitForReady(ctx)
+		// Virtual workspaces depend on shards for token authentication
+		// (TokenReview), so each shard must be fully ready before the next
+		// cache/shard pair starts.
+		terminatedCh, err := shard.WaitForReady(ctx)
 		if err != nil {
 			return err
 		}
-		err = testshard.ScrapeMetrics(ctx, s, workDirPath)
-		if err != nil {
+		if err = testshard.ScrapeMetrics(ctx, shard, workDirPath); err != nil {
 			return err
 		}
 		go func(i int, terminatedCh <-chan error) {
-			err := <-terminatedCh
-			shardsErrCh <- indexErrTuple{i, err}
+			shardsErrCh <- indexErrTuple{i, <-terminatedCh}
 		}(i, terminatedCh)
 	}
 
