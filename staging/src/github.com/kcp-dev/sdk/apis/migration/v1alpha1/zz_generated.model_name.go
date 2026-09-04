@@ -22,8 +22,38 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportIdentityRotation) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportIdentityRotation"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportIdentityRotationList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportIdentityRotationList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportIdentityRotationSpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportIdentityRotationSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportIdentityRotationStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportIdentityRotationStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AliasRetirement) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.AliasRetirement"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EtcdEntry) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.EtcdEntry"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ExportReference) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.ExportReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

@@ -101,6 +101,13 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 	return Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(&in.Status, &out.Status, s)
 }
 
+// Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus drops
+// identityAliasHashes on down-conversion: v1alpha1 has no notion of identity
+// aliases and sees only the current identity hash.
+func Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(in *APIExportStatus, out *apisv1alpha1.APIExportStatus, s kubeconversion.Scope) error {
+	return autoConvert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(in, out, s)
+}
+
 func Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in APIExportSpec) ([]string, []ResourceSchema) {
 	hubSchemas := []string{}
 	nonCRDSchemas := []ResourceSchema{}

@@ -246,6 +246,17 @@ const (
 	// successfully when the APIBinding is deleting.
 	BindingResourceDeleteSuccess conditionsv1alpha1.ConditionType = "BindingResourceDeleteSuccess"
 
+	// IdentityMigrationCompleted is a condition for APIBinding that is False
+	// while an identity rotation drain is in progress for any bound resource
+	// of this binding (a boundResources entry lists more than one identity
+	// hash), and True when all old identity prefixes are verified empty and
+	// pruned.
+	IdentityMigrationCompleted conditionsv1alpha1.ConditionType = "IdentityMigrationCompleted"
+
+	// IdentityMigrationInProgressReason indicates that the identity migrator
+	// is still draining instances from an old identity prefix.
+	IdentityMigrationInProgressReason = "IdentityMigrationInProgress"
+
 	// PermissionClaimsValid is a condition for APIBinding that indicates that the permission claims were valid or not.
 	PermissionClaimsValid conditionsv1alpha1.ConditionType = "PermissionClaimsValid"
 
@@ -291,6 +302,19 @@ type BoundAPIResource struct {
 	// +optional
 	// +listType=set
 	StorageVersions []string `json:"storageVersions,omitempty"`
+
+	// identityHashes lists every identity hash under which instances of this
+	// resource may exist in storage. It mirrors storageVersions for identity
+	// rotation: the drain target is always the schema's current identityHash;
+	// every other entry is a drain source that the identity migrator empties
+	// and then prunes from this list. Normally it contains exactly the
+	// schema's current identityHash.
+	//
+	// Hashes may not be removed while instances exist under them in storage.
+	//
+	// +optional
+	// +listType=set
+	IdentityHashes []string `json:"identityHashes,omitempty"`
 }
 
 // BoundAPIResourceSchema is a reference to an APIResourceSchema.

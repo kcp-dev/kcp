@@ -172,6 +172,13 @@ func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *api
 // Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims converts v1alpha2.AcceptablePermissionClaims
 // to v1alpha1.AcceptablePermissionClaims. This is not a lossless conversion, verbs and selectors are lost in this conversion.
 // For lossless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
+// Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource drops
+// identityHashes on down-conversion: v1alpha1 clients see only the current
+// identity hash; the drain bookkeeping is v1alpha2-only status.
+func Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPIResource, out *apisv1alpha1.BoundAPIResource, s kubeconversion.Scope) error {
+	return autoConvert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in, out, s)
+}
+
 func Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims(in []AcceptablePermissionClaim, s kubeconversion.Scope) (out []apisv1alpha1.AcceptablePermissionClaim, overhanging []AcceptablePermissionClaim, err error) {
 	for _, apc := range in {
 		if len(apc.PermissionClaim.Verbs) == 1 && apc.PermissionClaim.Verbs[0] == "*" && apc.Selector.MatchAll {

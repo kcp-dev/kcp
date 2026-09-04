@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -67,7 +68,35 @@ func IndexAPIExportByAPIResourceSchema(obj interface{}) ([]string, error) {
 // IndexAPIExportByIdentity is an index function that indexes an APIExport by its identity hash.
 func IndexAPIExportByIdentity(obj interface{}) ([]string, error) {
 	apiExport := obj.(*apisv1alpha2.APIExport)
-	return []string{apiExport.Status.IdentityHash}, nil
+	// alias hashes of an in-progress identity rotation resolve to the same
+	// export, so permission claims and wildcard consumers referencing a
+	// pre-rotation identity keep working until the alias is retired.
+	return append([]string{apiExport.Status.IdentityHash}, apiExport.Status.IdentityAliasHashes...), nil
+}
+
+// CanonicalIdentityHash normalizes an identity hash to its canonical value:
+// if the hash is an alias of exactly one rotated APIExport, that export's
+// current identity hash is returned; otherwise the hash itself. Everything
+// that hashes permission claims must normalize through this first, so a
+// claim still referencing a pre-rotation identity and one already updated
+// produce identical label keys and values - otherwise claimed objects
+// silently disappear from the claiming export's view.
+//
+// An ambiguous hash (several exports resolve to it, i.e. a shared identity)
+// is returned unchanged: normalization is only safe when the alias maps to
+// one export.
+func CanonicalIdentityHash(local, global cache.Indexer, hash string) string {
+	if hash == "" {
+		return hash
+	}
+	exports, err := ByIndexWithFallback[*apisv1alpha2.APIExport](local, global, APIExportByIdentity, hash)
+	if err != nil || len(exports) != 1 {
+		return hash
+	}
+	if canonical := exports[0].Status.IdentityHash; canonical != "" {
+		return canonical
+	}
+	return hash
 }
 
 // IndexAPIExportBySecret is an index function that indexes an APIExport by its identity secret references. Index values
