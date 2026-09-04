@@ -129,13 +129,15 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 		)
 	}
 	commandLine = append(commandLine, fmt.Sprintf("--etcd-prefix=/cache-%d", n))
+	commandLine = append(commandLine,
+		"--run-cache-syncer",
+		fmt.Sprintf("--cache-syncer-peer-ca-file=%s", filepath.Join(workingDir, ".kcp", "serving-ca.crt")),
+		fmt.Sprintf("--cache-syncer-peer-cert-file=%s", absCacheClientCert),
+		fmt.Sprintf("--cache-syncer-peer-key-file=%s", absCacheClientKey),
+	)
 	if peerURL != "" {
 		commandLine = append(commandLine,
-			"--run-cache-syncer",
 			fmt.Sprintf("--cache-syncer-initial-peer-urls=%s", peerURL),
-			fmt.Sprintf("--cache-syncer-peer-ca-file=%s", filepath.Join(workingDir, ".kcp", "serving-ca.crt")),
-			fmt.Sprintf("--cache-syncer-peer-cert-file=%s", absCacheClientCert),
-			fmt.Sprintf("--cache-syncer-peer-key-file=%s", absCacheClientKey),
 		)
 	}
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
