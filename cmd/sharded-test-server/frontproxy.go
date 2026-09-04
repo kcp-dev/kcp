@@ -77,14 +77,6 @@ func startFrontProxy(
 			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
 			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
 		},
-		{
-			Path: "/clusters/",
-			// this path is not actually used, since shard URLs are determined based on the Shard
-			Backend:         "https://localhost:6444",
-			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
-			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
-			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
-		},
 	}
 
 	mappingsYAML, err := yaml.Marshal(mappings)
