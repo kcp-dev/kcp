@@ -214,6 +214,10 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
+	if externalEtcdServers != "" && len(cacheServerConfigPaths) > 0 {
+		return fmt.Errorf("--external-etcd-servers and --cache-kubeconfig are mutually exclusive: when an external etcd is provided the test server must manage all cache-servers to guarantee they use the same etcd cluster")
+	}
+
 	cacheServerErrCh := make(chan indexErrTuple, numberOfShards)
 	cacheKubeconfigPaths := make([]string, numberOfShards)
 	if len(cacheServerConfigPaths) > 0 {
