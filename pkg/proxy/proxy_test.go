@@ -35,6 +35,47 @@ const (
 	clusterNameEncodedK = "authentication.kcp.io/cluster-name"
 )
 
+// roundTripperFunc adapts a function to http.RoundTripper.
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// TestWithShardRouting ensures /clusters/ requests hit the built-in shard
+// route and everything else falls through to the delegate.
+func TestWithShardRouting(t *testing.T) {
+	t.Parallel()
+
+	var shardHit, delegateHit bool
+	transport := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		shardHit = true
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Header: http.Header{}}, nil
+	})
+	delegate := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		delegateHit = true
+	})
+
+	handler := WithShardRouting(delegate, transport)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://front-proxy/clusters/root/api/v1/secrets", http.NoBody)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if !shardHit {
+		t.Error("expected /clusters/ request to hit the shard route")
+	}
+	if delegateHit {
+		t.Error("expected /clusters/ request not to hit the delegate")
+	}
+
+	shardHit = false
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "https://front-proxy/services/foo", http.NoBody)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if shardHit {
+		t.Error("expected non-/clusters/ request not to hit the shard route")
+	}
+	if !delegateHit {
+		t.Error("expected non-/clusters/ request to hit the delegate")
+	}
+}
+
 // forwardThroughProxy runs WithProxyAuthHeaders with the given authenticated
 // user (or none, if user is nil) over a request carrying the given inbound
 // client headers, and returns the headers as they would be forwarded to the

@@ -99,10 +99,18 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// interface.
 	s.IndexController = index.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc)
 
+	shardsTransport, err := newShardsTransport(c.ShardsConfig)
+	if err != nil {
+		return s, fmt.Errorf("failed to create shards transport: %w", err)
+	}
+
 	handler, err := NewHandler(ctx, mappings)
 	if err != nil {
 		return s, err
 	}
+
+	// /clusters/ requests are always routed to the shards, before any mapping.
+	handler = WithShardRouting(handler, shardsTransport)
 
 	// The optional auth handler will call the underlying authenticator only if
 	// auth methods are configured directly on the front-proxy *or* if there is

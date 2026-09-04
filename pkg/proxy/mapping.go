@@ -33,8 +33,17 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
+// loadMappings reads path mappings from filename.
+// Empty filename or a missing file yields nil mappings.
 func loadMappings(filename string) ([]types.PathMapping, error) {
+	if filename == "" {
+		return nil, nil
+	}
+
 	mappingData, err := os.ReadFile(filename)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +56,7 @@ func loadMappings(filename string) ([]types.PathMapping, error) {
 	return mapping, nil
 }
 
-func isShardMapping(m types.PathMapping) bool {
-	return m.Path == "/clusters/"
-}
-
+// NewHandler builds the additional-routes proxy handler from the configured mappings.
 func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler, error) {
 	handlers := proxy.HttpHandler{
 		Mappings: types.HttpHandlerMappings{},
@@ -70,19 +76,10 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 			return nil, fmt.Errorf("failed to create path mapping for path %q: %w", m.Path, err)
 		}
 
-		var handler http.Handler
-		if isShardMapping(m) {
-			clusterProxy := newShardReverseProxy()
-			clusterProxy.Transport = transport
-			clusterProxy.ErrorHandler = metrics.NewProxyErrorHandler()
-			handler = clusterProxy
-		} else {
-			// TODO: handle virtual workspace apiservers per shard
-			proxy := httputil.NewSingleHostReverseProxy(u)
-			proxy.Transport = transport
-			proxy.ErrorHandler = metrics.NewProxyErrorHandler()
-			handler = proxy
-		}
+		reverseProxy := httputil.NewSingleHostReverseProxy(u)
+		reverseProxy.Transport = transport
+		reverseProxy.ErrorHandler = metrics.NewProxyErrorHandler()
+		var handler http.Handler = reverseProxy
 
 		userHeader := "X-Remote-User"
 		groupHeader := "X-Remote-Group"
