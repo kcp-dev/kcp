@@ -28,9 +28,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
@@ -112,34 +110,28 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 		logger.Info("Creating or updating Cache", "cache", s.Options.Extra.CacheName)
 		hookContext.Context = cacheclient.WithShardInContext(hookContext, bootstrap.SystemCacheServerShard)
 		if err := wait.PollUntilContextCancel(hookContext, time.Second, true, func(ctx context.Context) (bool, error) {
-			createOrUpdateCache := func(cl kcpclientset.ClusterInterface, cluster logicalcluster.Path) error {
-				existingCache, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Get(ctx, cache.Name, metav1.GetOptions{})
-				if err != nil && !apierrors.IsNotFound(err) {
-					logger.Error(err, "failed getting Cache", "cluster", cluster)
-					return err
-				} else if apierrors.IsNotFound(err) {
-					if _, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Create(ctx, cache, metav1.CreateOptions{}); err != nil {
-						logger.Error(err, "failed creating Shard", "cluster", cluster)
-						return err
-					}
-					createdShard, _ := cl.Cluster(cluster).CoreV1alpha1().Shards().Get(ctx, cache.Name, metav1.GetOptions{})
-					logger.Info("Created Shard", "shard", s.Options.Extra.CacheName, "cluster", cluster, "shard", createdShard)
-					return nil
+			existingCache, err := s.KcpClusterClient.Cluster(SystemCacheCluster.Path()).CoreV1alpha1().Caches().Get(ctx, cache.Name, metav1.GetOptions{})
+			if err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed getting Cache", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+				return false, nil
+			} else if apierrors.IsNotFound(err) {
+				if _, err := s.KcpClusterClient.Cluster(SystemCacheCluster.Path()).CoreV1alpha1().Caches().Create(ctx, cache, metav1.CreateOptions{}); err != nil {
+					logger.Error(err, "failed creating Cache", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+					return false, nil
 				}
-				if _, err := cl.Cluster(cluster).CoreV1alpha1().Caches().Update(ctx, existingCache, metav1.UpdateOptions{}); err != nil {
-					logger.Error(err, "failed updating Shard", "cluster", cluster)
-					return err
-				}
-				logger.Info("Updated Cache", "cache", s.Options.Extra.CacheName, "cluster", cluster)
-				return nil
+				logger.Info("Created Cache", "cache", s.Options.Extra.CacheName, "cluster", SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+				return true, nil
 			}
-			err := createOrUpdateCache(s.KcpClusterClient, SystemCacheCluster.Path())
-			if err != nil {
-				return false, err
+			existingCache.Labels = cache.Labels
+			existingCache.Spec.BaseURL = cache.Spec.BaseURL
+			if _, err := s.KcpClusterClient.Cluster(SystemCacheCluster.Path()).CoreV1alpha1().Caches().Update(ctx, existingCache, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed updating Cache", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+				return false, nil
 			}
+			logger.Info("Updated Cache", "cache", s.Options.Extra.CacheName, "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
 			return true, nil
 		}); err != nil {
-			logger.Error(err, "failed reconciling Cache resource", "cluster", SystemCacheCluster)
+			logger.Error(err, "failed reconciling Cache resource", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 
@@ -154,6 +146,12 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 	}); err != nil {
 		return preparedServer{}, err
 	}
+	if err := s.apiextensions.GenericAPIServer.AddPostStartHook("cache-server-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
+		return s.installControllers(hookContext)
+	}); err != nil {
+		return preparedServer{}, err
+	}
+
 	return preparedServer{s, s.apiextensions.GenericAPIServer.Handler}, nil
 }
 
