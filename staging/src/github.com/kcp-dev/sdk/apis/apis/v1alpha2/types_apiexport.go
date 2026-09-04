@@ -38,6 +38,22 @@ const (
 	IdentityVerificationFailedReason = "IdentityVerificationFailed"
 	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
 
+	// IdentityShared is an informational condition set when this export's
+	// identity secret is referenced by more than one APIExport, listing the
+	// co-owners in the message. Shared identities are rotation candidates.
+	IdentityShared conditionsv1alpha1.ConditionType = "IdentityShared"
+
+	// IdentityRotationInProgress is an informational condition set while an
+	// APIExportIdentityRotation is active for this export, pointing at the
+	// rotation object in the message.
+	IdentityRotationInProgress conditionsv1alpha1.ConditionType = "IdentityRotationInProgress"
+
+	// ClaimIdentityRotated is an informational condition set on a claiming
+	// APIExport whose permission claims reference an alias (pre-rotation)
+	// identity hash of another export; the message names the canonical hash
+	// to migrate to and, if set, the alias retirement deadline.
+	ClaimIdentityRotated conditionsv1alpha1.ConditionType = "ClaimIdentityRotated"
+
 	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
 
 	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
@@ -339,10 +355,22 @@ func (p GroupResource) GetResource() string {
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {
 	// identityHash is the hash of the API identity key of this APIExport. This value
-	// is immutable as soon as it is set.
+	// is only changed by the identity rotation controller, as part of a tracked
+	// rotation; it is immutable for users.
 	//
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// identityAliasHashes lists previous identity hashes of this APIExport
+	// that are still honored as equivalents of the current identityHash
+	// while a rotation's alias window is active. Permission claims and
+	// wildcard consumers referencing an alias hash keep resolving to this
+	// export until the alias is retired. Managed by the identity rotation
+	// controller.
+	//
+	// +optional
+	// +listType=set
+	IdentityAliasHashes []string `json:"identityAliasHashes,omitempty"`
 
 	// conditions is a list of conditions that apply to the APIExport.
 	//
