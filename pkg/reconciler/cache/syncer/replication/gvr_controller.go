@@ -490,7 +490,6 @@ func (c *GVRController) createOnPeer(ctx context.Context, handle *peerInformerHa
 	cluster := logicalcluster.From(src)
 	toCreate := src.DeepCopy()
 	toCreate.SetResourceVersion("")
-	toCreate.SetUID("")
 
 	writeCtx := cacheclient.WithShardInContext(ctx, clientshard.New(shardName))
 	_, err := handle.dynamicClient.Cluster(cluster.Path()).Resource(c.gvr).Namespace(src.GetNamespace()).Create(writeCtx, toCreate, metav1.CreateOptions{})
@@ -507,7 +506,6 @@ func (c *GVRController) updateOnPeer(ctx context.Context, handle *peerInformerHa
 	cluster := logicalcluster.From(src)
 	toUpdate := src.DeepCopy()
 	toUpdate.SetResourceVersion(peer.GetResourceVersion())
-	toUpdate.SetUID("")
 
 	writeCtx := cacheclient.WithShardInContext(ctx, clientshard.New(shardName))
 	_, err := handle.dynamicClient.Cluster(cluster.Path()).Resource(c.gvr).Namespace(src.GetNamespace()).Update(writeCtx, toUpdate, metav1.UpdateOptions{})

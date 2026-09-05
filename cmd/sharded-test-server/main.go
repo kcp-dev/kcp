@@ -245,15 +245,22 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
-	// Start cache and shard in pairs: cache-0 → shard-0 (wait ready) →
-	// cache-1 → shard-1 (wait ready) → …
+	// Start cache, shard, and virtual workspace in sequence per index:
+	// cache-i → shard-i (wait ready) → VW-i (wait ready) → i+1
 	//
-	// This ordering ensures that when cache-i+1 starts its peer-bootstrap
-	// (pulling root-phase0 objects from cache-0), cache-0 has already
-	// received those objects from shard-0 which finished root-phase0 before
-	// we advanced to the next pair.
+	// This ordering ensures each cache has root-phase0 objects before the
+	// next cache starts its peer-bootstrap, and that VWs (which need
+	// TokenReview from their shard) are confirmed ready before the next
+	// index starts.
 	shards := make([]*testshard.Shard, numberOfShards)
 	shardsErrCh := make(chan indexErrTuple)
+	virtualWorkspacesErrCh := make(chan indexErrTuple)
+
+	vwPort := "6444"
+	if standaloneVW {
+		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
+		vwPort = "7444"
+	}
 
 	for i := range numberOfShards {
 		// Start cache server i (skipped when using external cache servers).
@@ -285,9 +292,6 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		}
 		shards[i] = shard
 
-		// Virtual workspaces depend on shards for token authentication
-		// (TokenReview), so each shard must be fully ready before the next
-		// cache/shard pair starts.
 		terminatedCh, err := shard.WaitForReady(ctx)
 		if err != nil {
 			return err
@@ -298,16 +302,11 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		go func(i int, terminatedCh <-chan error) {
 			shardsErrCh <- indexErrTuple{i, <-terminatedCh}
 		}(i, terminatedCh)
-	}
 
-	// Start virtual-workspace servers after shards are ready
-	vwPort := "6444"
-	var virtualWorkspaces []*VirtualWorkspace
-	if standaloneVW {
-		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
-		vwPort = "7444"
-
-		for i := range numberOfShards {
+		// Start virtual workspace i and wait for it to be ready before moving
+		// to i+1. VWs need TokenReview from their shard, so the shard must be
+		// fully ready first.
+		if standaloneVW {
 			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheKubeconfigPaths[i])
 			if err != nil {
 				return err
@@ -315,22 +314,13 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 			if err := vw.start(ctx); err != nil {
 				return err
 			}
-			virtualWorkspaces = append(virtualWorkspaces, vw)
-		}
-	}
-
-	// Wait for virtual workspaces to be ready
-	virtualWorkspacesErrCh := make(chan indexErrTuple)
-	if standaloneVW {
-		for i, vw := range virtualWorkspaces {
-			terminatedCh, err := vw.waitForReady(ctx)
+			vwTerminatedCh, err := vw.waitForReady(ctx)
 			if err != nil {
 				return err
 			}
 			go func(i int, terminatedCh <-chan error) {
-				err := <-terminatedCh
-				virtualWorkspacesErrCh <- indexErrTuple{i, err}
-			}(i, terminatedCh)
+				virtualWorkspacesErrCh <- indexErrTuple{i, <-terminatedCh}
+			}(i, vwTerminatedCh)
 		}
 	}
 

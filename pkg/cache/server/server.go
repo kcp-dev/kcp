@@ -38,11 +38,16 @@ type Server struct {
 	CompletedConfig
 
 	apiextensions *apiextensionsapiserver.CustomResourceDefinitions
+
+	controllers                      map[string]*controllerWrapper
+	controllersWithoutLeaderElection map[string]*controllerWrapper
 }
 
 func NewServer(c CompletedConfig) (*Server, error) {
 	s := &Server{
-		CompletedConfig: c,
+		CompletedConfig:                  c,
+		controllers:                      make(map[string]*controllerWrapper),
+		controllersWithoutLeaderElection: make(map[string]*controllerWrapper),
 	}
 
 	var err error
