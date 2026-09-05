@@ -919,7 +919,7 @@ func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice: %v", err)
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWs, framework.ExportVirtualWorkspaceURLs(slice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWs, framework.ExportVirtualWorkspaceURLs(slice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for VW URL: %v", slice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)

@@ -91,11 +91,13 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterrolebindings"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	cacheregistration "github.com/kcp-dev/kcp/pkg/reconciler/core/cache"
 	logicalclusterctrl "github.com/kcp-dev/kcp/pkg/reconciler/core/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/logicalclusterdeletion"
 	coresreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrole"
 	corereplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/shardrepresentation"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
@@ -599,17 +601,18 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		return err
 	}
 
-	var workspaceShardController *shard.Controller
-	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
-		workspaceShardController, err = shard.NewController(
-			kcpClusterClient,
-			s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
-		)
-		if err != nil {
-			return err
-		}
+	// runs on every shard: maintains the status (e.g. the Schedulable
+	// condition) of this shard's own authoritative Shard object in the local
+	// system:shard logical cluster.
+	workspaceShardController, err := shard.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	)
+	if err != nil {
+		return err
 	}
-	if workspaceShardController != nil {
+	{
 		if err := s.registerController(&controllerWrapper{
 			Name: shard.ControllerName,
 			Wait: func(ctx context.Context, s *Server) error {
@@ -1779,9 +1782,46 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	})
 }
 
+// installShardRepresentationController mirrors the cache server's Shard
+// objects into the root workspace as read-only representations, so
+// `kubectl get shards` keeps working in root. It only runs on the shard
+// hosting the root workspace; the writes are local to it.
+func (s *Server) installShardRepresentationController(_ context.Context, config *rest.Config) error {
+	if s.Options.Extra.ShardName != corev1alpha1.RootShard {
+		return nil
+	}
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, shardrepresentation.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	c, err := shardrepresentation.NewController(
+		kcpClusterClient,
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: shardrepresentation.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 1)
+		},
+	})
+}
+
 func (s *Server) installReplicationController(ctx context.Context, config *rest.Config, gvrs map[schema.GroupVersionResource]replication.ReplicatedGVR) error {
 	// TODO(sttts): set user agent
-	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, gvrs)
+	controller, err := replication.NewController(s.Options.Extra.ShardName, s.CacheDynamicClient, s.DynamicClusterClient, gvrs)
 	if err != nil {
 		return err
 	}
@@ -2108,6 +2148,37 @@ func (s *Server) installClusterCachedResourceEndpointSliceURLsController(_ conte
 			c.Start(ctx, 2)
 		},
 	})
+}
+
+func (s *Server) installCacheRegistrationController(ctx context.Context, config *rest.Config) error {
+	config = rest.AddUserAgent(rest.CopyConfig(config), cacheregistration.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := cacheregistration.NewController(
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().Caches(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Caches(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: cacheregistration.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 1)
+		},
+	})
+
 }
 
 func (s *Server) WaitForSync(stop <-chan struct{}) error {

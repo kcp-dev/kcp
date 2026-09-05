@@ -185,10 +185,8 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 	t.Logf("Check if we can access shards")
 	var shards *v1alpha1.ShardList
 	{
-		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
-		require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-		shards, err = kcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(t.Context(), metav1.ListOptions{})
+		var err error
+		shards, err = kcptesting.ListShards(t.Context(), cfg)
 		require.NoError(t, err, "failed to list shards")
 
 		if len(shards.Items) < 2 {

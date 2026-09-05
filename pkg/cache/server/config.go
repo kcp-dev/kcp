@@ -31,26 +31,40 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/generated/openapi"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientsethack "k8s.io/apiserver/pkg/clientsethack"
+	dynamichack "k8s.io/apiserver/pkg/dynamichack"
 	apiopenapi "k8s.io/apiserver/pkg/endpoints/openapi"
+	informerfactoryhack "k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/util/compatibility"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	basecompatibility "k8s.io/component-base/compatibility"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
+	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/embeddedetcd"
+	"github.com/kcp-dev/logicalcluster/v3"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	"github.com/kcp-dev/kcp/pkg/cache/server/admission/cacheannotation"
 	cacheserveroptions "github.com/kcp-dev/kcp/pkg/cache/server/options"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/syncer/authoritativeshards"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
 const resyncPeriod = 10 * time.Hour
+
+var SystemCacheCluster = logicalcluster.Name("system:cache")
 
 type Config struct {
 	Options       *cacheserveroptions.CompletedOptions
@@ -69,9 +83,19 @@ type completedConfig struct {
 }
 
 type ExtraConfig struct {
-	ApiExtensionsClusterClient         kcpapiextensionsclientset.ClusterInterface
+	// Clients.
+	ApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
+	KcpClusterClient           kcpclientset.ClusterInterface
+
+	// Informers.
 	ApiExtensionsSharedInformerFactory kcpapiextensionsinformers.SharedInformerFactory
 	KcpSharedInformerFactory           kcpinformers.SharedInformerFactory
+
+	// SyncerSourceConfig is the loopback REST config wrapped with the three cache
+	// round-trippers (WithCacheServiceRoundTripper, WithShardNameFromContextRoundTripper,
+	// WithDefaultShardRoundTripper(Wildcard)). It is the config the cache-syncer uses to
+	// read from this cache-server. Set by NewConfig; nil when the syncer is disabled.
+	SyncerSourceConfig *rest.Config
 }
 
 type CompletedConfig struct {
@@ -183,6 +207,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	rt := cacheclient.WithCacheServiceRoundTripper(serverConfig.LoopbackClientConfig)
 	rt = cacheclient.WithShardNameFromContextRoundTripper(rt)
 	rt = cacheclient.WithDefaultShardRoundTripper(rt, shard.Wildcard)
+	if opts.CacheSyncer.Enabled {
+		c.SyncerSourceConfig = rest.CopyConfig(rt)
+	}
 	rt = cacheclient.WithShardNameFromObjectRoundTripper(
 		rt,
 		func(rq *http.Request) (string, string, error) {
@@ -224,13 +251,13 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 	)
 	_ = c.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().GetIndexer().AddIndexers(cache.Indexers{byGroupResourceName: indexCRDByGroupResourceName})
 
-	kcpClient, err := kcpclientset.NewForConfig(serverConfig.LoopbackClientConfig)
+	c.KcpClusterClient, err = kcpclientset.NewForConfig(serverConfig.LoopbackClientConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	c.KcpSharedInformerFactory = kcpinformers.NewSharedInformerFactory(
-		kcpClient,
+		c.KcpClusterClient,
 		resyncPeriod,
 	)
 
@@ -239,6 +266,36 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		clustercachedresources.ByGroupResource:            clustercachedresources.IndexByGroupResource,
 	}); err != nil {
 		return nil, err
+	}
+	if err := c.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().GetIndexer().AddIndexers(cache.Indexers{
+		authoritativeshards.ByAuthoritativeShardName: authoritativeshards.IndexByAuthoritativeShardName(c.Options.Extra.CacheName),
+	}); err != nil {
+		return nil, err
+	}
+
+	// Build the admission chain. Minimal cluster-aware clients are created from
+	// the loopback config and wrapped with the hack adapters to satisfy ApplyTo's
+	// non-nil checks. Cache-server plugins receive dependencies via the kcp-specific
+	// initializers passed as varargs.
+	admissionKubeClient, err := kcpkubernetesclientset.NewForConfig(serverConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kube client for admission: %w", err)
+	}
+	admissionDynamicClient, err := kcpdynamic.NewForConfig(serverConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client for admission: %w", err)
+	}
+	admissionKubeInformers := kcpkubernetesinformers.NewSharedInformerFactory(admissionKubeClient, resyncPeriod)
+	if err := opts.Admission.ApplyTo(
+		&serverConfig.Config,
+		informerfactoryhack.Wrap(admissionKubeInformers),
+		clientsethack.Wrap(admissionKubeClient),
+		dynamichack.Wrap(admissionDynamicClient),
+		utilfeature.DefaultFeatureGate,
+		compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent),
+		cacheannotation.NewCacheNameInitializer(opts.Extra.CacheName),
+	); err != nil {
+		return nil, fmt.Errorf("failed to apply admission: %w", err)
 	}
 
 	crdRESTOptionsGetter := apiextensionsoptions.NewCRDRESTOptionsGetter(*opts.Etcd, serverConfig.ResourceTransformers, serverConfig.StorageObjectCountTracker)

@@ -124,6 +124,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer()}, nil
 
 		// Group=core.kcp.io, Version=v1alpha1
+	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("caches"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().Caches().Informer()}, nil
 	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().LogicalClusters().Informer()}, nil
 	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("shards"):
@@ -190,6 +192,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 		// Group=core.kcp.io, Version=v1alpha1
+	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("caches"):
+		informer := f.Core().V1alpha1().Caches().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case kcpcorev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"):
 		informer := f.Core().V1alpha1().LogicalClusters().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil

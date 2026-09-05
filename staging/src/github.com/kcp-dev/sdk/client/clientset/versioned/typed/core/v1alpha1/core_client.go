@@ -29,6 +29,7 @@ import (
 
 type CoreV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	CachesGetter
 	LogicalClustersGetter
 	ShardsGetter
 }
@@ -36,6 +37,10 @@ type CoreV1alpha1Interface interface {
 // CoreV1alpha1Client is used to interact with features provided by the core.kcp.io group.
 type CoreV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *CoreV1alpha1Client) Caches() CacheInterface {
+	return newCaches(c)
 }
 
 func (c *CoreV1alpha1Client) LogicalClusters() LogicalClusterInterface {

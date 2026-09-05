@@ -21,23 +21,21 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/sdk/apis/core"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcpclient "github.com/kcp-dev/sdk/client/clientset/versioned"
 	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
 	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
@@ -51,7 +49,8 @@ func main() {
 	numberOfShards := flag.Int("number-of-shards", 1, "The number of shards to create. The first created is assumed root.")
 	cacheSyntheticDelay := flag.Duration("cache-synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests.")
 	quiet := flag.Bool("quiet", false, "Suppress output of the subprocesses")
-	cacheServerKubeconfig := flag.String("cache-kubeconfig", "", "Path to a kubeconfig of an external cache-server. If empty, a dedicated cache-server is started.")
+	var cacheServerKubeconfigs stringSliceFlag
+	flag.Var(&cacheServerKubeconfigs, "cache-kubeconfig", "Path to a kubeconfig of an external cache-server. May be repeated; number of paths must not exceed --number-of-shards. Shard i gets paths[min(i, len-1)]. If omitted, dedicated cache-servers are started.")
 	externalEtcdServers := flag.String("external-etcd-servers", "", "Comma-separated list of etcd server URLs to use for shards and the cache-server instead of starting embedded etcds. Each component gets its own --etcd-prefix.")
 
 	// split flags into --proxy-*, --shard-* and everything else (generic). The former are
@@ -68,13 +67,13 @@ func main() {
 	}
 	flag.CommandLine.Parse(genericFlags) //nolint:errcheck
 
-	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, *cacheServerKubeconfig, *externalEtcdServers); err != nil {
+	if err := start(proxyFlags, shardFlags, *logDirPath, *workDirPath, *numberOfShards, *quiet, *cacheSyntheticDelay, cacheServerKubeconfigs, *externalEtcdServers); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
-func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPath, externalEtcdServers string) error {
+func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numberOfShards int, quiet bool, cacheSyntheticDelay time.Duration, cacheServerConfigPaths []string, externalEtcdServers string) error {
 	// We use a shutdown context to know that it's time to gather metrics, before stopping the shards, proxy, etc.
 	shutdownCtx, shutdownCancel := context.WithCancel(genericapiserver.SetupSignalContext())
 	defer shutdownCancel()
@@ -215,17 +214,27 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
-	cacheServerErrCh := make(chan indexErrTuple)
-	if cacheServerConfigPath == "" {
-		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"), externalEtcdServers)
-		if err != nil {
-			return fmt.Errorf("error starting the cache server: %w", err)
+	if externalEtcdServers != "" && len(cacheServerConfigPaths) > 0 {
+		return fmt.Errorf("--external-etcd-servers and --cache-kubeconfig are mutually exclusive: when an external etcd is provided the test server must manage all cache-servers to guarantee they use the same etcd cluster")
+	}
+
+	if len(cacheServerConfigPaths) > numberOfShards {
+		return fmt.Errorf("--cache-kubeconfig passed %d times but --number-of-shards is %d; number of paths must not exceed number of shards", len(cacheServerConfigPaths), numberOfShards)
+	}
+
+	cacheServerErrCh := make(chan indexErrTuple, numberOfShards)
+	cacheKubeconfigPaths := make([]string, numberOfShards)
+
+	// Pre-fill kubeconfig paths for externally-managed cache servers so the
+	// per-shard loop below can use cacheKubeconfigPaths[i] uniformly.
+	if len(cacheServerConfigPaths) > 0 {
+		for i := range numberOfShards {
+			idx := i
+			if idx >= len(cacheServerConfigPaths) {
+				idx = len(cacheServerConfigPaths) - 1
+			}
+			cacheKubeconfigPaths[i] = cacheServerConfigPaths[idx]
 		}
-		cacheServerConfigPath = configPath
-		go func() {
-			err := <-cacheServerCh
-			cacheServerErrCh <- indexErrTuple{0, err}
-		}()
 	}
 
 	if err := writeLogicalClusterAdminKubeConfig(hostIP.String(), workDirPath); err != nil {
@@ -236,10 +245,45 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		return err
 	}
 
-	// start shards
+	// Start cache, shard, and virtual workspace in sequence per index:
+	// cache-i → shard-i (wait ready) → VW-i (wait ready) → i+1
+	//
+	// This ordering ensures each cache has root-phase0 objects before the
+	// next cache starts its peer-bootstrap, and that VWs (which need
+	// TokenReview from their shard) are confirmed ready before the next
+	// index starts.
 	shards := make([]*testshard.Shard, numberOfShards)
+	shardsErrCh := make(chan indexErrTuple)
+	virtualWorkspacesErrCh := make(chan indexErrTuple)
+
+	vwPort := "6444"
+	if standaloneVW {
+		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
+		vwPort = "7444"
+	}
+
 	for i := range numberOfShards {
-		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheServerConfigPath, clientCA, externalEtcdServers)
+		// Start cache server i (skipped when using external cache servers).
+		if len(cacheServerConfigPaths) == 0 {
+			peerURL := ""
+			if i > 0 {
+				peerURL = fmt.Sprintf("https://%s:%d", hostIP, cacheServerPort(0))
+			}
+			ch, path, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(),
+				cacheSyntheticDelay, clientCA, servingCA,
+				filepath.Join(workDirPath, ".kcp", "client-ca.crt"),
+				externalEtcdServers, i, peerURL)
+			if err != nil {
+				return fmt.Errorf("error starting cache server %d: %w", i, err)
+			}
+			cacheKubeconfigPaths[i] = path
+			go func(i int, ch <-chan error) {
+				cacheServerErrCh <- indexErrTuple{i, <-ch}
+			}(i, ch)
+		}
+
+		// Start shard i and wait for it to be ready before moving to i+1.
+		shard, err := newShard(ctx, i, shardFlags, standaloneVW, servingCA, hostIP.String(), logDirPath, workDirPath, cacheKubeconfigPaths[i], clientCA, externalEtcdServers)
 		if err != nil {
 			return err
 		}
@@ -247,58 +291,36 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 			return err
 		}
 		shards[i] = shard
-	}
 
-	// Wait for shards to be ready before starting virtual workspaces.
-	// Virtual workspaces depend on shards for token authentication (TokenReview),
-	// so shards must be fully ready before VWs can accept authenticated requests.
-	shardsErrCh := make(chan indexErrTuple)
-	for i, s := range shards {
-		terminatedCh, err := s.WaitForReady(ctx)
+		terminatedCh, err := shard.WaitForReady(ctx)
 		if err != nil {
 			return err
 		}
-		err = testshard.ScrapeMetrics(ctx, s, workDirPath)
-		if err != nil {
+		if err = testshard.ScrapeMetrics(ctx, shard, workDirPath); err != nil {
 			return err
 		}
 		go func(i int, terminatedCh <-chan error) {
-			err := <-terminatedCh
-			shardsErrCh <- indexErrTuple{i, err}
+			shardsErrCh <- indexErrTuple{i, <-terminatedCh}
 		}(i, terminatedCh)
-	}
 
-	// Start virtual-workspace servers after shards are ready
-	vwPort := "6444"
-	var virtualWorkspaces []*VirtualWorkspace
-	if standaloneVW {
-		// TODO: support multiple virtual workspace servers (i.e. multiple ports)
-		vwPort = "7444"
-
-		for i := range numberOfShards {
-			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheServerConfigPath)
+		// Start virtual workspace i and wait for it to be ready before moving
+		// to i+1. VWs need TokenReview from their shard, so the shard must be
+		// fully ready first.
+		if standaloneVW {
+			vw, err := newVirtualWorkspace(ctx, i, servingCA, hostIP.String(), logDirPath, workDirPath, clientCA, cacheKubeconfigPaths[i])
 			if err != nil {
 				return err
 			}
 			if err := vw.start(ctx); err != nil {
 				return err
 			}
-			virtualWorkspaces = append(virtualWorkspaces, vw)
-		}
-	}
-
-	// Wait for virtual workspaces to be ready
-	virtualWorkspacesErrCh := make(chan indexErrTuple)
-	if standaloneVW {
-		for i, vw := range virtualWorkspaces {
-			terminatedCh, err := vw.waitForReady(ctx)
+			vwTerminatedCh, err := vw.waitForReady(ctx)
 			if err != nil {
 				return err
 			}
 			go func(i int, terminatedCh <-chan error) {
-				err := <-terminatedCh
-				virtualWorkspacesErrCh <- indexErrTuple{i, err}
-			}(i, terminatedCh)
+				virtualWorkspacesErrCh <- indexErrTuple{i, <-terminatedCh}
+			}(i, vwTerminatedCh)
 		}
 	}
 
@@ -310,13 +332,20 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err := writeShardKubeConfig(workDirPath); err != nil {
 		return err
 	}
+	// peers used by the front-proxy to discover Shards via the Admin workspace
+	if err := writePeersKubeConfig(workDirPath, numberOfShards); err != nil {
+		return err
+	}
 
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
 		return err
 	}
 
-	// Label region of shards
+	// Shard labels come from --shard-labels on each shard. Wait for all
+	// shards to be visible in the Admin workspace (through the front-proxy)
+	// before declaring the environment ready, so tests can rely on the
+	// aggregated view.
 	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
 	if err != nil {
 		return err
@@ -325,26 +354,25 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err != nil {
 		return err
 	}
-	client, err := kcpclientset.NewForConfig(config)
+	baseURL, err := url.Parse(config.Host)
 	if err != nil {
 		return err
 	}
-	for i := range shards {
-		name := fmt.Sprintf("shard-%d", i)
-		if i == 0 {
-			name = "root"
+	baseURL.Path = "/services/admin"
+	config.Host = baseURL.String()
+	adminClient, err := kcpclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		shardList, err := adminClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			// the front-proxy or the shards may not be fully ready yet, keep polling
+			return false, nil //nolint:nilerr
 		}
-
-		if i >= len(regions) {
-			break
-		}
-		patch := fmt.Sprintf(`{"metadata":{"labels":{"region":%q,"shared": "true"}}}`, regions[i])
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			_, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Patch(ctx, name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
-			return err
-		}); err != nil {
-			return err
-		}
+		return len(shardList.Items) >= numberOfShards, nil
+	}); err != nil {
+		return fmt.Errorf("failed waiting for %d shards in the Admin workspace: %w", numberOfShards, err)
 	}
 
 	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
@@ -360,7 +388,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	case vwIndexErr := <-virtualWorkspacesErrCh:
 		return fmt.Errorf("virtual workspaces %d exited: %w", vwIndexErr.index, vwIndexErr.error)
 	case cacheErr := <-cacheServerErrCh:
-		return fmt.Errorf("cache server exited: %w", cacheErr.error)
+		return fmt.Errorf("cache server %d exited: %w", cacheErr.index, cacheErr.error)
 	case <-shutdownCtx.Done():
 	}
 
@@ -378,6 +406,15 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 type indexErrTuple struct {
 	index int
 	error error
+}
+
+// stringSliceFlag is a repeatable string flag (--foo=a --foo=b → ["a","b"]).
+type stringSliceFlag []string
+
+func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
+func (s *stringSliceFlag) Set(v string) error {
+	*s = append(*s, v)
+	return nil
 }
 
 func loadKubeConfig(kubeconfigPath, contextName string) (clientcmd.ClientConfig, error) {
