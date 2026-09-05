@@ -158,6 +158,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			conditionsv1alpha1.ConditionSeverityError,
 			"Missing APIExport reference",
 		)
+		fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), fmt.Errorf("Missing APIExport reference"))
 		return reconcileStatusContinue, nil
 	}
 	apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
@@ -175,6 +176,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			apiExportPath,
 			workspaceRef.Name,
 		)
+		fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), err)
 		return reconcileStatusContinue, nil
 	}
 	if err != nil {
@@ -188,6 +190,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			workspaceRef.Name,
 			err,
 		)
+		fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), err)
 		return reconcileStatusContinue, err
 	}
 	logger = logging.WithObject(logger, apiExport)
@@ -206,6 +209,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			apiExportPath,
 			workspaceRef.Name,
 		)
+		fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), err)
 		return reconcileStatusContinue, nil
 	}
 
@@ -324,11 +328,13 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		return nil
 	}); err != nil {
 		logger.Error(err, "error updating LogicalCluster")
+		fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), err)
 		return reconcileStatusContinue, err
 	}
 
 	checker, err := newConflictChecker(logicalcluster.From(apiBinding), r.listAPIBindings, r.getAPIResourceSchema, r.getCRD, r.listCRDs)
 	if err != nil {
+		fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), err)
 		return reconcileStatusContinue, err
 	}
 	var needToWaitForRequeueWhenEstablished []string
@@ -364,6 +370,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					err,
 				)
 			}
+			fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), err)
 			return reconcileStatusStopAndRequeue, err
 		}
 
@@ -376,7 +383,14 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				conditionsv1alpha1.ConditionSeverityError,
 				"Invalid APIExport. Please contact the APIExport owner to resolve",
 			)
-
+			fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), fmt.Errorf(
+				"conversion strategy not specified %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+				apiExportPath, resourceSchema.Schema,
+				logicalcluster.From(apiBinding), apiBinding.Name,
+				apiExportPath, apiExport.Name,
+				apiExportPath, resourceSchema.Schema,
+				err,
+			))
 			return reconcileStatusContinue, fmt.Errorf(
 				"conversion strategy not specified %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
 				apiExportPath, resourceSchema.Schema,
@@ -397,7 +411,14 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				conditionsv1alpha1.ConditionSeverityError,
 				"Invalid APIExport. Please contact the APIExport owner to resolve",
 			)
-
+			fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), fmt.Errorf(
+				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
+				SystemBoundCRDsClusterName, BoundCRDName(sch),
+				logicalcluster.From(apiBinding), apiBinding.Name,
+				apiExportPath, apiExport.Name,
+				apiExportPath, resourceSchema.Schema,
+				err,
+			))
 			return reconcileStatusContinue, fmt.Errorf(
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
 				SystemBoundCRDsClusterName, BoundCRDName(sch),
@@ -432,7 +453,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					conditionsv1alpha1.ConditionSeverityError,
 					"Invalid APIExport. Please contact the APIExport owner to resolve",
 				)
-
+				fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q sch=%q sch.UID=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), sch.Name, sch.UID, err)
 				return reconcileStatusContinue, nil
 			}
 			logger = logging.WithObject(logger, crd).WithValues(
@@ -475,7 +496,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					}
 
 					logger.Error(err, "error creating CRD")
-
+					fmt.Printf("XXX apibinding NOT successfull! name=%q cluster=%q sch=%q sch.UID=%q err=%v\n", apiBinding.Name, logicalcluster.From(apiBinding), sch.Name, sch.UID, err)
 					return reconcileStatusContinue, nil
 				}
 
@@ -600,6 +621,8 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		conditions.MarkTrue(apiBinding, apisv1alpha2.BindingUpToDate)
 		apiBinding.Status.Phase = apisv1alpha2.APIBindingPhaseBound
 	}
+
+	fmt.Printf("XXX apibinding successfull! name=%q cluster=%q\n", apiBinding.Name, logicalcluster.From(apiBinding))
 
 	return reconcileStatusContinue, nil
 }

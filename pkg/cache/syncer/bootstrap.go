@@ -226,8 +226,6 @@ func pullSystemGVRsFromPeer(
 		for i := range list.Items {
 			obj := list.Items[i].DeepCopy()
 			obj.SetResourceVersion("")
-			obj.SetUID("")
-			obj.SetManagedFields(nil)
 
 			shardName := obj.GetAnnotations()[clientshard.AnnotationKey]
 			cluster := logicalcluster.From(obj)
