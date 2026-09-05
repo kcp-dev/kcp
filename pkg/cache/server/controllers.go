@@ -27,11 +27,26 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/syncer/replication"
 )
 
-func (s *Server) installControllers(ctx context.Context) error {
-	if !s.Options.CacheSyncer.Enabled {
-		return nil
-	}
+type RunFunc func(ctx context.Context)
+type WaitFunc func(ctx context.Context, s *Server) error
 
+type controllerWrapper struct {
+	Name   string
+	Runner RunFunc
+	Wait   WaitFunc
+}
+
+func (s *Server) installControllers(ctx context.Context) error {
+	if s.Options.CacheSyncer.Enabled {
+		if err := s.installCacheSyncerController(ctx); err != nil {
+			return err
+		}
+	}
+	s.startControllers(ctx)
+	return nil
+}
+
+func (s *Server) installCacheSyncerController(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("controller", replication.ControllerName)
 
 	syncer := s.Options.CacheSyncer.Syncer
@@ -59,7 +74,46 @@ func (s *Server) installControllers(ctx context.Context) error {
 		return fmt.Errorf("failed to create cache-syncer root controller: %w", err)
 	}
 
-	logger.Info("starting cache-syncer root controller")
-	go ctrl.Start(ctx)
+	logger.Info("registering cache-syncer root controller")
+	return s.registerController(&controllerWrapper{
+		Name: replication.ControllerName,
+		Runner: func(ctx context.Context) {
+			ctrl.Start(ctx)
+		},
+	})
+}
+
+func (s *Server) startControllers(ctx context.Context) {
+	for _, controller := range s.controllers {
+		go s.runController(ctx, controller)
+	}
+}
+
+// startControllersWithoutLeaderElection starts controllers that must run on every replica
+// regardless of leader election.
+func (s *Server) startControllersWithoutLeaderElection(ctx context.Context) {
+	for _, controller := range s.controllersWithoutLeaderElection {
+		go s.runController(ctx, controller)
+	}
+}
+
+func (s *Server) runController(ctx context.Context, controller *controllerWrapper) {
+	log := klog.FromContext(ctx).WithValues("controller", controller.Name)
+	if controller.Wait != nil {
+		log.Info("waiting for sync")
+		if err := controller.Wait(ctx, s); err != nil {
+			log.Error(err, "failed to wait for sync")
+			return
+		}
+	}
+	log.Info("starting controller")
+	controller.Runner(ctx)
+}
+
+func (s *Server) registerController(controller *controllerWrapper) error {
+	if s.controllers[controller.Name] != nil {
+		return fmt.Errorf("controller %s is already registered", controller.Name)
+	}
+	s.controllers[controller.Name] = controller
 	return nil
 }
