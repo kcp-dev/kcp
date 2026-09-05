@@ -22,6 +22,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -184,22 +185,13 @@ func waitForSystemCRDsEstablished(ctx context.Context, client kcpapiextensionscl
 				logger.V(4).Info("CRD not yet available, retrying", "crd", name, "err", err)
 				return false, nil
 			}
-			if !isCRDEstablished(crd) {
+			if !apihelpers.IsCRDConditionTrue(crd, apiextensionsv1.Established) {
 				logger.V(4).Info("CRD not yet Established, retrying", "crd", name)
 				return false, nil
 			}
 		}
 		return true, nil
 	})
-}
-
-func isCRDEstablished(crd *apiextensionsv1.CustomResourceDefinition) bool {
-	for _, cond := range crd.Status.Conditions {
-		if cond.Type == apiextensionsv1.Established {
-			return cond.Status == apiextensionsv1.ConditionTrue
-		}
-	}
-	return false
 }
 
 func pullSystemGVRsFromPeer(
