@@ -103,6 +103,9 @@ func NewResourceController(
 				slices.Equal(oldExport.Status.IdentityAliasHashes, newExport.Status.IdentityAliasHashes) {
 				return
 			}
+			logger.V(2).Info("APIExport identity changed, re-enqueueing claimed resources",
+				"apiexport", newExport.Name, "cluster", logicalcluster.From(newExport),
+				"identityHash", newExport.Status.IdentityHash, "aliases", newExport.Status.IdentityAliasHashes)
 			for _, resource := range newExport.Spec.Resources {
 				c.enqueueClaimedResources(logger, schema.GroupResource{Group: resource.Group, Resource: resource.Name})
 			}
@@ -163,10 +166,24 @@ func (c *resourceController) enqueueClaimedResources(logger logr.Logger, gr sche
 				count++
 			}
 		}
-		logger.V(4).Info("re-enqueueing claimed resources after identity change", "groupResource", gr.String(), "count", count)
+		logger.V(2).Info("re-enqueued claimed resources after identity change", "groupResource", gr.String(), "gvr", gvr.String(), "clusters", clusters.Len(), "count", count)
 		return // one served version is enough, labels are version-agnostic
 	}
+
+	// No synced informer for the resource right now. This happens when the
+	// bound CRD serving the resource was just rebuilt (e.g. by the identity
+	// migrator) and the dynamic informer is resyncing. Retry shortly rather
+	// than dropping the relabel: nothing else will trigger it.
+	logger.V(2).Info("no synced informer for claimed group resource yet, retrying", "groupResource", gr.String(), "bindings", len(bindings))
+	c.queue.AddAfter(relabelKeyPrefix+gr.String(), relabelRetryDelay)
 }
+
+const (
+	// relabelKeyPrefix marks queue keys that ask for a re-evaluation of all
+	// claimed objects of a group resource (rather than one object).
+	relabelKeyPrefix  = "relabel::"
+	relabelRetryDelay = 2 * time.Second
+)
 
 // enqueueForResource adds the resource (gvr + obj) to the queue.
 func (c *resourceController) enqueueForResource(logger logr.Logger, gvr schema.GroupVersionResource, obj interface{}) {
@@ -232,6 +249,11 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 
 func (c *resourceController) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
+
+	if gr, ok := strings.CutPrefix(key, relabelKeyPrefix); ok {
+		c.enqueueClaimedResources(logger, schema.ParseGroupResource(gr))
+		return nil
+	}
 
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {
