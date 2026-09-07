@@ -4827,6 +4827,13 @@ func schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref common.Refere
 							Format:      "",
 						},
 					},
+					"identityHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "identityHash is the target identity the counts were evaluated against. Reports for any other hash than the rotation's new identity are ignored by the rotation controller.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"totalBindings": {
 						SchemaProps: spec.SchemaProps{
 							Description: "totalBindings is the number of APIBindings of the rotating export hosted on this shard. Zero is meaningful (\"this shard has nothing to drain\") and always serialized.",

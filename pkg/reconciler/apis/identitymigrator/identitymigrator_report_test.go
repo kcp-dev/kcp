@@ -46,10 +46,12 @@ func TestReportProgress(t *testing.T) {
 			Name: "cowboys",
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey:                  "provider",
-				migrationv1alpha1.ActiveRotationAnnotationKey: "ops|rot-1",
+				migrationv1alpha1.ActiveRotationAnnotationKey: "ops|rot-1|new",
 			},
 		},
-		Status: apisv1alpha2.APIExportStatus{IdentityHash: "new"},
+		// the replicated export status may still carry the old identity when
+		// the annotation shows up; the target must come from the annotation.
+		Status: apisv1alpha2.APIExportStatus{IdentityHash: "old"},
 	}
 
 	var appliedCluster logicalcluster.Path
@@ -84,8 +86,8 @@ func TestReportProgress(t *testing.T) {
 	if appliedCluster.String() != "ops" || appliedName != "rot-1" {
 		t.Errorf("report went to %s|%s, expected ops|rot-1", appliedCluster, appliedName)
 	}
-	if applied[0] != (shardCounts{total: 3, migrated: 1}) {
-		t.Errorf("expected counts 1/3, got %d/%d", applied[0].migrated, applied[0].total)
+	if applied[0] != (shardCounts{identityHash: "new", total: 3, migrated: 1}) {
+		t.Errorf("expected counts 1/3 against identity \"new\", got %d/%d against %q", applied[0].migrated, applied[0].total, applied[0].identityHash)
 	}
 
 	// unchanged counts must not produce a second write.

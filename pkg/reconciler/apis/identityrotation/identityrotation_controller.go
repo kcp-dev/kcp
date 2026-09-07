@@ -301,7 +301,7 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 	if updatedExport.Annotations == nil {
 		updatedExport.Annotations = map[string]string{}
 	}
-	updatedExport.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] = clusterName.String() + "|" + rotation.Name
+	updatedExport.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] = clusterName.String() + "|" + rotation.Name + "|" + newHash
 	if updatedExport, err = c.updateAPIExport(ctx, exportCluster, updatedExport); err != nil {
 		return err
 	}
@@ -338,12 +338,14 @@ func (c *Controller) reconcileMigrating(ctx context.Context, clusterName logical
 	// status.shards entries are owned by the per-shard migrators (written
 	// via server-side apply); this controller only reads them. Entries of
 	// shards that no longer exist are ignored, so a removed shard does not
-	// block the drain forever.
+	// block the drain forever. Entries evaluated against any identity other
+	// than this rotation's new one are stale (a shard counting against a
+	// not-yet-replicated export status) and are ignored too.
 	reported := sets.New[string]()
 	var total, migrated int32
 	drained := true
 	for _, entry := range rotation.Status.Shards {
-		if !known.Has(entry.Shard) {
+		if !known.Has(entry.Shard) || entry.IdentityHash != rotation.Status.NewIdentityHash {
 			continue
 		}
 		reported.Insert(entry.Shard)

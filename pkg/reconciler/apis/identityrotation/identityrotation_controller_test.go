@@ -29,8 +29,12 @@ import (
 
 func TestReconcileMigratingAggregation(t *testing.T) {
 	t.Parallel()
+	const newHash = "new"
 	entry := func(shard string, total, migrated int32) migrationv1alpha1.ShardMigrationProgress {
-		return migrationv1alpha1.ShardMigrationProgress{Shard: shard, TotalBindings: total, MigratedBindings: migrated}
+		return migrationv1alpha1.ShardMigrationProgress{Shard: shard, IdentityHash: newHash, TotalBindings: total, MigratedBindings: migrated}
+	}
+	staleEntry := func(shard string, total, migrated int32) migrationv1alpha1.ShardMigrationProgress {
+		return migrationv1alpha1.ShardMigrationProgress{Shard: shard, IdentityHash: "old", TotalBindings: total, MigratedBindings: migrated}
 	}
 	scenarios := []struct {
 		name             string
@@ -86,6 +90,18 @@ func TestReconcileMigratingAggregation(t *testing.T) {
 			expectedMigrated: 0,
 			expectedEntries:  2,
 		},
+		{
+			// a shard that counted against the pre-rotation identity (stale
+			// replicated export status) reports everything as migrated; that
+			// report must not satisfy the gate.
+			name:             "reports against a stale identity are ignored",
+			shards:           []string{"root", "alpha"},
+			entries:          []migrationv1alpha1.ShardMigrationProgress{entry("root", 2, 2), staleEntry("alpha", 3, 3)},
+			expectedPhase:    migrationv1alpha1.APIExportIdentityRotationMigrating,
+			expectedTotal:    2,
+			expectedMigrated: 2,
+			expectedEntries:  2,
+		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
@@ -103,8 +119,9 @@ func TestReconcileMigratingAggregation(t *testing.T) {
 			rotation := &migrationv1alpha1.APIExportIdentityRotation{
 				ObjectMeta: metav1.ObjectMeta{Name: "rot"},
 				Status: migrationv1alpha1.APIExportIdentityRotationStatus{
-					Phase:  migrationv1alpha1.APIExportIdentityRotationMigrating,
-					Shards: scenario.entries,
+					Phase:           migrationv1alpha1.APIExportIdentityRotationMigrating,
+					NewIdentityHash: newHash,
+					Shards:          scenario.entries,
 				},
 			}
 			if err := c.reconcileMigrating(context.Background(), "root", rotation); err != nil {
