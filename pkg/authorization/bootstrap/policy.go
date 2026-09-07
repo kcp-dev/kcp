@@ -171,6 +171,21 @@ func clusterRoles() []rbacv1.ClusterRole {
 				rbacv1helpers.NewRule("get", "create").Groups(apiextensions.GroupName).Resources("customresourcedefinitions").RuleOrDie(),
 			},
 		},
+		{
+			// apiexport identity rotation
+			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				// the rotation controller flips the rotated export's identity
+				// secret ref, hash and alias, and maintains the
+				// active-rotation annotation; the export may live on another
+				// shard than the rotation object.
+				rbacv1helpers.NewRule("get", "update", "patch").Groups(apis.GroupName).Resources("apiexports", "apiexports/status").RuleOrDie(),
+				// per-shard identity migrators report drain progress into the
+				// rotation object's status via server-side apply, wherever the
+				// rotation lives.
+				rbacv1helpers.NewRule("get", "update", "patch").Groups(migration.GroupName).Resources("apiexportidentityrotations", "apiexportidentityrotations/status").RuleOrDie(),
+			},
+		},
 	}
 }
 

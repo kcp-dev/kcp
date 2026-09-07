@@ -61,6 +61,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
@@ -165,13 +166,25 @@ func NewController(
 			})
 		},
 		listBindingsForExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
-			path := logicalcluster.From(export).Path()
-			keys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+			// bindings are indexed under the path they referenced the
+			// export by: usually the canonical workspace path, but the
+			// cluster name works too, so look up both.
+			keys := sets.New[string]()
+			if path := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !path.Empty() {
+				pathKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+				if err != nil {
+					return nil, err
+				}
+				keys.Insert(pathKeys...)
+			}
+			clusterKeys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, logicalcluster.From(export).Path().Join(export.Name).String())
 			if err != nil {
 				return nil, err
 			}
-			bindings := make([]*apisv1alpha2.APIBinding, 0, len(keys))
-			for _, key := range keys {
+			keys.Insert(clusterKeys...)
+
+			bindings := make([]*apisv1alpha2.APIBinding, 0, keys.Len())
+			for _, key := range sets.List(keys) {
 				obj, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
 				if err != nil || !exists {
 					continue

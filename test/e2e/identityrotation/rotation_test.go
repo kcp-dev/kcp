@@ -41,7 +41,9 @@ import (
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/apis/v1alpha2/permissionclaims"
 	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
@@ -242,6 +244,9 @@ func waitForRotationPhase(ctx context.Context, t *testing.T, c rotationClients, 
 			}
 			require.Equal(collect, total, rotation.Status.TotalBindings, "totalBindings should be the sum of the shard entries")
 			require.Equal(collect, migrated, rotation.Status.MigratedBindings, "migratedBindings should be the sum of the shard entries")
+			// every rotation test binds consumers before rotating; a zero
+			// total means the migrators failed to find the bindings.
+			require.Positive(collect, total, "expected the shard entries to actually count the consumers' bindings")
 		}
 		newHash = rotation.Status.NewIdentityHash
 	}, wait.ForeverTestTimeout, 250*time.Millisecond)
@@ -294,11 +299,31 @@ func TestAPIExportIdentityRotation(t *testing.T) {
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider"), kcptesting.WithRootShard())
 	opsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("ops"), kcptesting.WithRootShard())
+	// pin the third consumer to a non-root shard when one exists, so sharded
+	// environments deterministically exercise a cross-shard drain and the
+	// migrator's cross-shard progress report through the front-proxy.
+	var nonRootShard string
+	shards, err := c.kcp.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	for _, shard := range shards.Items {
+		if shard.Name != corev1alpha1.RootShard {
+			nonRootShard = shard.Name
+			break
+		}
+	}
+	consumer3Opts := []kcptesting.UnprivilegedWorkspaceOption{kcptesting.WithName("consumer-3")}
+	if nonRootShard != "" {
+		t.Logf("Pinning consumer-3 to shard %q for a cross-shard drain", nonRootShard)
+		consumer3Opts = append(consumer3Opts, kcptesting.WithLocation(tenancyv1alpha1.WorkspaceLocation{Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"name": nonRootShard},
+		}}))
+	}
+
 	consumerPaths := make([]logicalcluster.Path, 0, 3)
 	for _, opts := range [][]kcptesting.UnprivilegedWorkspaceOption{
 		{kcptesting.WithName("consumer-1"), kcptesting.WithRootShard()},
 		{kcptesting.WithName("consumer-2"), kcptesting.WithRootShard()},
-		{kcptesting.WithName("consumer-3")}, // unpinned: may land on another shard in sharded setups
+		consumer3Opts,
 	} {
 		path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, opts...)
 		consumerPaths = append(consumerPaths, path)
@@ -333,6 +358,21 @@ func TestAPIExportIdentityRotation(t *testing.T) {
 	t.Logf("Every consumer's binding is fully on the new identity and every cowboy survived")
 	for i, consumerPath := range consumerPaths {
 		requireConsumerMigrated(ctx, t, c, consumerPath, newHash, fmt.Sprintf("woody-%d", i+1), cowboyUIDs[i])
+	}
+
+	if nonRootShard != "" {
+		t.Logf("The non-root shard %q drained and reported its own binding", nonRootShard)
+		rotation, err := c.kcp.Cluster(opsPath).MigrationV1alpha1().APIExportIdentityRotations().Get(ctx, "rotate-today-cowboys", metav1.GetOptions{})
+		require.NoError(t, err)
+		found := false
+		for _, entry := range rotation.Status.Shards {
+			if entry.Shard == nonRootShard {
+				found = true
+				require.Positive(t, entry.TotalBindings, "consumer-3 is pinned to shard %q; its binding must be counted there", nonRootShard)
+				require.Equal(t, entry.TotalBindings, entry.MigratedBindings, "shard %q must be fully drained", nonRootShard)
+			}
+		}
+		require.True(t, found, "expected a drain report from shard %q", nonRootShard)
 	}
 
 	t.Logf("A second rotation within the cooldown is rejected by admission")

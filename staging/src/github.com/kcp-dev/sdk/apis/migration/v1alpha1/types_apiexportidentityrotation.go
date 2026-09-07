@@ -237,16 +237,17 @@ type ShardMigrationProgress struct {
 	Shard string `json:"shard"`
 
 	// totalBindings is the number of APIBindings of the rotating export
-	// hosted on this shard.
+	// hosted on this shard. Zero is meaningful ("this shard has nothing to
+	// drain") and always serialized.
 	//
-	// +optional
-	TotalBindings int32 `json:"totalBindings,omitempty"`
+	// +required
+	TotalBindings int32 `json:"totalBindings"`
 
 	// migratedBindings is the number of those bindings fully drained onto
 	// the new identity.
 	//
-	// +optional
-	MigratedBindings int32 `json:"migratedBindings,omitempty"`
+	// +required
+	MigratedBindings int32 `json:"migratedBindings"`
 
 	// lastUpdateTime is when this shard last refreshed its entry.
 	//
