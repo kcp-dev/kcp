@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260907-dd0ed9212.apiexportidentityrotations.migration.kcp.io
+  name: v260907-aa846dd50.apiexportidentityrotations.migration.kcp.io
 spec:
   group: migration.kcp.io
   names:
@@ -248,11 +248,14 @@ spec:
                   totalBindings:
                     description: |-
                       totalBindings is the number of APIBindings of the rotating export
-                      hosted on this shard.
+                      hosted on this shard. Zero is meaningful ("this shard has nothing to
+                      drain") and always serialized.
                     format: int32
                     type: integer
                 required:
+                - migratedBindings
                 - shard
+                - totalBindings
                 type: object
               type: array
               x-kubernetes-list-map-keys:

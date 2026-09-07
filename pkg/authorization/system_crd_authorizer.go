@@ -18,12 +18,15 @@ package authorization
 
 import (
 	"context"
+	"slices"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 // SystemCRDAuthorizer protects the system CRDs from users who are admins in their workspaces.
@@ -48,6 +51,15 @@ func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Att
 		case attr.GetResource() == "apibindings" && attr.GetSubresource() == "status":
 			return authorizer.DecisionDeny, "apibinding status updates not permitted", nil
 		case attr.GetResource() == "apiexports" && attr.GetSubresource() == "status":
+			// shards legitimately write APIExport status across shards
+			// during identity rotation (identity hash and alias flips),
+			// using the external logical cluster admin identity. That group
+			// cannot be self-asserted by users (the front-proxy strips
+			// system:kcp:* groups), so delegate it to RBAC instead of
+			// hard-denying.
+			if slices.Contains(attr.GetUser().GetGroups(), bootstrap.SystemExternalLogicalClusterAdmin) {
+				break
+			}
 			return authorizer.DecisionDeny, "apiexport status updates not permitted", nil
 		}
 	}

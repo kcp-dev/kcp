@@ -4822,7 +4822,8 @@ func schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref common.Refere
 					},
 					"totalBindings": {
 						SchemaProps: spec.SchemaProps{
-							Description: "totalBindings is the number of APIBindings of the rotating export hosted on this shard.",
+							Description: "totalBindings is the number of APIBindings of the rotating export hosted on this shard. Zero is meaningful (\"this shard has nothing to drain\") and always serialized.",
+							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -4830,6 +4831,7 @@ func schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref common.Refere
 					"migratedBindings": {
 						SchemaProps: spec.SchemaProps{
 							Description: "migratedBindings is the number of those bindings fully drained onto the new identity.",
+							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -4841,7 +4843,7 @@ func schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"shard"},
+				Required: []string{"shard", "totalBindings", "migratedBindings"},
 			},
 		},
 		Dependencies: []string{
