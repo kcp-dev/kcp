@@ -34,7 +34,9 @@ package identitymigrator
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
+	"sync"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -60,7 +62,9 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+	migrationv1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/migration/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
@@ -88,7 +92,9 @@ const (
 
 // NewController returns the per-shard identity migrator.
 func NewController(
+	shardName string,
 	kcpClusterClient kcpclientset.ClusterInterface,
+	externalKcpClusterClient kcpclientset.ClusterInterface,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	etcdClient *clientv3.Client,
 	etcdStoragePrefix string,
@@ -111,6 +117,14 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
+		reportQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[string](5*time.Millisecond, 2*time.Second),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: ControllerName + "-report",
+			},
+		),
+		shardName:         shardName,
+		lastReported:      map[string]shardCounts{},
 		etcdClient:        etcdClient,
 		etcdStoragePrefix: strings.TrimSuffix(etcdStoragePrefix, "/"),
 		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
@@ -150,19 +164,78 @@ func NewController(
 				Preconditions: &metav1.Preconditions{UID: &uid},
 			})
 		},
+		listBindingsForExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
+			path := logicalcluster.From(export).Path()
+			keys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+			if err != nil {
+				return nil, err
+			}
+			bindings := make([]*apisv1alpha2.APIBinding, 0, len(keys))
+			for _, key := range keys {
+				obj, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
+				if err != nil || !exists {
+					continue
+				}
+				bindings = append(bindings, obj.(*apisv1alpha2.APIBinding))
+			}
+			return bindings, nil
+		},
+		applyShardProgress: func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error {
+			entry := migrationv1alpha1apply.ShardMigrationProgress().
+				WithShard(shardName).
+				WithTotalBindings(counts.total).
+				WithMigratedBindings(counts.migrated).
+				WithLastUpdateTime(metav1.Now())
+			rotation := migrationv1alpha1apply.APIExportIdentityRotation(rotationName).
+				WithStatus(migrationv1alpha1apply.APIExportIdentityRotationStatus().WithShards(entry))
+			_, err := externalKcpClusterClient.Cluster(cluster).MigrationV1alpha1().APIExportIdentityRotations().
+				ApplyStatus(ctx, rotation, metav1.ApplyOptions{FieldManager: ControllerName + "-" + shardName, Force: true})
+			return err
+		},
 	}
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.enqueue(obj) },
-		UpdateFunc: func(_, obj interface{}) { c.enqueue(obj) },
+		AddFunc: func(obj interface{}) {
+			c.enqueue(obj)
+			c.enqueueReportForBinding(obj)
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueue(obj)
+			c.enqueueReportForBinding(obj)
+		},
+		DeleteFunc: func(obj interface{}) { c.enqueueReportForBinding(obj) },
+	})
+
+	// exports carry the active-rotation annotation while a drain is in
+	// progress; it is how this shard learns it has to report progress, even
+	// when it hosts no binding of the export at all.
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueReportForExport(obj) },
+		UpdateFunc: func(_, obj interface{}) { c.enqueueReportForExport(obj) },
 	})
 
 	return c, nil
 }
 
+// shardCounts is one shard's binding tally for a rotating export.
+type shardCounts struct {
+	total, migrated int32
+}
+
 // Controller drains bound resource instances from old identity prefixes.
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
+
+	// reportQueue drives per-shard drain-progress reports to
+	// APIExportIdentityRotation objects, keyed by "<export path>|<name>".
+	reportQueue workqueue.TypedRateLimitingInterface[string]
+
+	shardName string
+
+	// lastReported caches the last applied counts per rotation
+	// ("<cluster>|<name>") so unchanged progress does not produce writes.
+	mu           sync.Mutex
+	lastReported map[string]shardCounts
 
 	etcdClient        *clientv3.Client
 	etcdStoragePrefix string
@@ -177,6 +250,8 @@ type Controller struct {
 	getBoundCRD            func(name string) (*apiextensionsv1.CustomResourceDefinition, error)
 	createBoundCRD         func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) error
 	deleteBoundCRD         func(ctx context.Context, name string, uid types.UID) error
+	listBindingsForExport  func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
+	applyShardProgress     func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -196,6 +271,38 @@ func (c *Controller) enqueue(obj interface{}) {
 	c.queue.Add(key)
 }
 
+// enqueueReportForBinding enqueues a drain-progress report for the export the
+// binding is bound to. Unlike enqueue, this is not filtered on needsDrain:
+// fully drained (and freshly deleted) bindings change the counts too.
+func (c *Controller) enqueueReportForBinding(obj interface{}) {
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = tombstone.Obj
+	}
+	binding, ok := obj.(*apisv1alpha2.APIBinding)
+	if !ok {
+		return
+	}
+	path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+	if path.Empty() {
+		path = logicalcluster.From(binding).Path()
+	}
+	c.reportQueue.Add(path.String() + "|" + binding.Spec.Reference.Export.Name)
+}
+
+// enqueueReportForExport enqueues a drain-progress report for an export with
+// an active identity rotation. This covers shards that host no binding of the
+// export: they still have to report a zero count so the drain is decidable.
+func (c *Controller) enqueueReportForExport(obj interface{}) {
+	export, ok := obj.(*apisv1alpha2.APIExport)
+	if !ok {
+		return
+	}
+	if export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] == "" {
+		return
+	}
+	c.reportQueue.Add(logicalcluster.From(export).String() + "|" + export.Name)
+}
+
 // needsDrain reports whether any bound resource of the binding lists an
 // identity hash besides its current schema identity.
 func needsDrain(binding *apisv1alpha2.APIBinding) bool {
@@ -212,6 +319,7 @@ func needsDrain(binding *apisv1alpha2.APIBinding) bool {
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
+	defer c.reportQueue.ShutDown()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
@@ -221,8 +329,103 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	for range numThreads {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
+	go wait.UntilWithContext(ctx, c.startReportWorker, time.Second)
 
 	<-ctx.Done()
+}
+
+func (c *Controller) startReportWorker(ctx context.Context) {
+	for c.processNextReportItem(ctx) {
+	}
+}
+
+func (c *Controller) processNextReportItem(ctx context.Context) bool {
+	key, quit := c.reportQueue.Get()
+	if quit {
+		return false
+	}
+	defer c.reportQueue.Done(key)
+
+	if err := c.reportProgress(ctx, key); err != nil {
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to report drain progress for %q, err: %w", ControllerName, key, err))
+		c.reportQueue.AddRateLimited(key)
+		return true
+	}
+	c.reportQueue.Forget(key)
+	return true
+}
+
+// reportProgress publishes this shard's binding tally for a rotating export
+// into the rotation object's status.shards, via server-side apply with a
+// per-shard field manager. The key is "<export path>|<name>". Unchanged
+// counts are not re-applied.
+func (c *Controller) reportProgress(ctx context.Context, key string) error {
+	exportPath, exportName, found := strings.Cut(key, "|")
+	if !found {
+		return nil
+	}
+	export, err := c.getAPIExport(logicalcluster.NewPath(exportPath), exportName)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	rotationRef := export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey]
+	if rotationRef == "" {
+		return nil // no active rotation, nothing to report
+	}
+	rotationCluster, rotationName, found := strings.Cut(rotationRef, "|")
+	if !found {
+		return nil
+	}
+
+	bindings, err := c.listBindingsForExport(export)
+	if err != nil {
+		return err
+	}
+	counts := shardCounts{total: int32(min(len(bindings), math.MaxInt32))} //nolint:gosec // capped above
+	for _, binding := range bindings {
+		if bindingFullyOn(binding, export.Status.IdentityHash) {
+			counts.migrated++
+		}
+	}
+
+	cacheKey := rotationCluster + "|" + rotationName
+	c.mu.Lock()
+	last, ok := c.lastReported[cacheKey]
+	c.mu.Unlock()
+	if ok && last == counts {
+		return nil
+	}
+
+	if err := c.applyShardProgress(ctx, logicalcluster.NewPath(rotationCluster), rotationName, counts); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil // rotation is gone; nothing to report to
+		}
+		return err
+	}
+	c.mu.Lock()
+	c.lastReported[cacheKey] = counts
+	c.mu.Unlock()
+	klog.FromContext(ctx).V(3).Info("reported drain progress", "rotation", cacheKey, "total", counts.total, "migrated", counts.migrated)
+	return nil
+}
+
+// bindingFullyOn reports whether every bound resource of the binding serves
+// the given identity with no drain sources left.
+func bindingFullyOn(binding *apisv1alpha2.APIBinding, hash string) bool {
+	for _, br := range binding.Status.BoundResources {
+		if br.Schema.IdentityHash != hash {
+			return false
+		}
+		for _, h := range br.IdentityHashes {
+			if h != hash {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (c *Controller) startWorker(ctx context.Context) {

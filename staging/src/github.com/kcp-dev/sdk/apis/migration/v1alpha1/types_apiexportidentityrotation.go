@@ -23,6 +23,14 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+// ActiveRotationAnnotationKey is set on an APIExport while an identity
+// rotation is draining its bindings. The value is
+// "<logical cluster name>|<rotation name>" of the APIExportIdentityRotation.
+// The export is replicated to the cache server, so the annotation is how the
+// per-shard identity migrators find the rotation object to report their
+// drain progress to. Cleared when the rotation's alias is retired.
+const ActiveRotationAnnotationKey = "migration.kcp.io/active-rotation"
+
 // APIExportIdentityRotation is a one-shot request to rotate an APIExport's
 // identity onto a fresh identity secret. It lives next to the APIExport in
 // the provider workspace and is served through the platform-owned
@@ -183,16 +191,28 @@ type APIExportIdentityRotationStatus struct {
 	NewIdentityHash string `json:"newIdentityHash,omitempty"`
 
 	// migratedBindings is the number of APIBindings whose bound instances
-	// are fully drained onto the new identity.
+	// are fully drained onto the new identity, summed over all shards that
+	// have reported in status.shards.
 	//
 	// +optional
 	MigratedBindings int32 `json:"migratedBindings,omitempty"`
 
 	// totalBindings is the number of APIBindings bound to the rotating
-	// export.
+	// export, summed over all shards that have reported in status.shards.
 	//
 	// +optional
 	TotalBindings int32 `json:"totalBindings,omitempty"`
+
+	// shards reports drain progress per shard. Each shard's identity
+	// migrator maintains its own entry (including shards with zero
+	// bindings, so completeness is decidable). The drain is only considered
+	// complete once every shard has reported and every entry is fully
+	// migrated.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=shard
+	Shards []ShardMigrationProgress `json:"shards,omitempty"`
 
 	// aliasActiveTimestamp records when the rotation entered AliasActive,
 	// the reference point for the After retirement policy.
@@ -204,6 +224,34 @@ type APIExportIdentityRotationStatus struct {
 	//
 	// +optional
 	Conditions conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
+}
+
+// ShardMigrationProgress is one shard's self-reported drain progress for a
+// rotation. It is written by the identity migrator running on that shard via
+// server-side apply, with a per-shard field manager, so shards never conflict
+// with each other or with the rotation controller.
+type ShardMigrationProgress struct {
+	// shard is the name of the reporting shard.
+	//
+	// +required
+	Shard string `json:"shard"`
+
+	// totalBindings is the number of APIBindings of the rotating export
+	// hosted on this shard.
+	//
+	// +optional
+	TotalBindings int32 `json:"totalBindings,omitempty"`
+
+	// migratedBindings is the number of those bindings fully drained onto
+	// the new identity.
+	//
+	// +optional
+	MigratedBindings int32 `json:"migratedBindings,omitempty"`
+
+	// lastUpdateTime is when this shard last refreshed its entry.
+	//
+	// +optional
+	LastUpdateTime *metav1.Time `json:"lastUpdateTime,omitempty"`
 }
 
 func (in *APIExportIdentityRotation) GetConditions() conditionsv1alpha1.Conditions {

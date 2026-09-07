@@ -240,6 +240,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationSpecApplyConfiguration{}
 	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigrationStatus"):
 		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationStatusApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("ShardMigrationProgress"):
+		return &applyconfigurationmigrationv1alpha1.ShardMigrationProgressApplyConfiguration{}
 
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):

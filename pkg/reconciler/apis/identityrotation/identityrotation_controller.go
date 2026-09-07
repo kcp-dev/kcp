@@ -52,6 +52,7 @@ import (
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	migrationv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/migration/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/identity"
@@ -76,7 +77,7 @@ func NewController(
 	rotationInformer migrationv1alpha1informers.APIExportIdentityRotationClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
-	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
+	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
 		// rotations spend most of their life waiting on per-shard drains;
@@ -92,7 +93,24 @@ func NewController(
 			return rotationInformer.Cluster(cluster).Lister().Get(name)
 		},
 		updateRotationStatus: func(ctx context.Context, cluster logicalcluster.Path, rotation *migrationv1alpha1.APIExportIdentityRotation) (*migrationv1alpha1.APIExportIdentityRotation, error) {
-			return kcpClusterClient.Cluster(cluster).MigrationV1alpha1().APIExportIdentityRotations().UpdateStatus(ctx, rotation, metav1.UpdateOptions{})
+			// per-shard migrators concurrently server-side-apply their
+			// entries into status.shards, so plain updates conflict. Retry
+			// with a fresh read, carrying over the migrator-owned shard
+			// entries — this controller never writes them.
+			client := kcpClusterClient.Cluster(cluster).MigrationV1alpha1().APIExportIdentityRotations()
+			updated, err := client.UpdateStatus(ctx, rotation, metav1.UpdateOptions{})
+			for apierrors.IsConflict(err) {
+				var fresh *migrationv1alpha1.APIExportIdentityRotation
+				fresh, err = client.Get(ctx, rotation.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				shards := fresh.Status.Shards
+				fresh.Status = rotation.Status
+				fresh.Status.Shards = shards
+				updated, err = client.UpdateStatus(ctx, fresh, metav1.UpdateOptions{})
+			}
+			return updated, err
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
@@ -110,21 +128,16 @@ func NewController(
 			}
 			return identity.IdentityHash(secret)
 		},
-		listBindingsForExport: func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
-			path := logicalcluster.From(export).Path()
-			keys, err := apiBindingInformer.Informer().GetIndexer().IndexKeys(indexers.APIBindingsByAPIExport, path.Join(export.Name).String())
+		listShardNames: func() ([]string, error) {
+			shards, err := globalShardInformer.Lister().List(labels.Everything())
 			if err != nil {
 				return nil, err
 			}
-			bindings := make([]*apisv1alpha2.APIBinding, 0, len(keys))
-			for _, key := range keys {
-				obj, exists, err := apiBindingInformer.Informer().GetIndexer().GetByKey(key)
-				if err != nil || !exists {
-					continue
-				}
-				bindings = append(bindings, obj.(*apisv1alpha2.APIBinding))
+			names := make([]string, 0, len(shards))
+			for _, shard := range shards {
+				names = append(names, shard.Name)
 			}
-			return bindings, nil
+			return names, nil
 		},
 	}
 
@@ -134,10 +147,6 @@ func NewController(
 	})
 	// binding drains complete asynchronously; re-evaluate rotations when
 	// bindings change.
-	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(_, obj interface{}) { c.enqueueForBinding(obj, rotationInformer) },
-	})
-
 	return c, nil
 }
 
@@ -146,12 +155,12 @@ type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
 	getRotation           func(cluster logicalcluster.Name, name string) (*migrationv1alpha1.APIExportIdentityRotation, error)
+	listShardNames        func() ([]string, error)
 	updateRotationStatus  func(ctx context.Context, cluster logicalcluster.Path, rotation *migrationv1alpha1.APIExportIdentityRotation) (*migrationv1alpha1.APIExportIdentityRotation, error)
 	getAPIExport          func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	updateAPIExport       func(ctx context.Context, path logicalcluster.Path, export *apisv1alpha2.APIExport) (*apisv1alpha2.APIExport, error)
 	updateAPIExportStatus func(ctx context.Context, path logicalcluster.Path, export *apisv1alpha2.APIExport) (*apisv1alpha2.APIExport, error)
 	getSecretHash         func(ctx context.Context, path logicalcluster.Path, namespace, name string) (string, error)
-	listBindingsForExport func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 }
 
 // exportPath is the workspace path the rotation's export reference resolves
@@ -170,27 +179,6 @@ func (c *Controller) enqueue(obj interface{}) {
 		return
 	}
 	c.queue.Add(key)
-}
-
-// enqueueForBinding requeues every non-terminal rotation on this shard when
-// a binding changes: binding drains complete asynchronously and rotations may
-// reference exports in other workspaces, so a cheap broad requeue beats
-// resolving the export reference in the event handler. Rotations are rare.
-func (c *Controller) enqueueForBinding(obj interface{}, rotationInformer migrationv1alpha1informers.APIExportIdentityRotationClusterInformer) {
-	if _, ok := obj.(*apisv1alpha2.APIBinding); !ok {
-		return
-	}
-	rotations, err := rotationInformer.Lister().List(labels.Everything())
-	if err != nil {
-		return
-	}
-	for _, rotation := range rotations {
-		switch rotation.Status.Phase {
-		case migrationv1alpha1.APIExportIdentityRotationCompleted, migrationv1alpha1.APIExportIdentityRotationFailed:
-		default:
-			c.enqueue(rotation)
-		}
-	}
 }
 
 func (c *Controller) Start(ctx context.Context, numThreads int) {
@@ -305,8 +293,15 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 	}
 
 	// flip the export: secret ref (spec), identity hash + alias (status).
+	// The active-rotation annotation travels with the (cache-replicated)
+	// export and tells every shard's identity migrator where to report its
+	// drain progress.
 	updatedExport := export.DeepCopy()
 	updatedExport.Spec.Identity = &apisv1alpha2.Identity{SecretRef: ref}
+	if updatedExport.Annotations == nil {
+		updatedExport.Annotations = map[string]string{}
+	}
+	updatedExport.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] = clusterName.String() + "|" + rotation.Name
 	if updatedExport, err = c.updateAPIExport(ctx, exportCluster, updatedExport); err != nil {
 		return err
 	}
@@ -327,53 +322,54 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 	return err
 }
 
-// reconcileMigrating tracks per-binding drain progress. Note: progress is
-// tracked for bindings observable on this shard; drains on other shards
-// complete independently through their own migrators. Cross-shard progress
-// aggregation is an alpha limitation.
+// reconcileMigrating aggregates per-shard drain progress. Every shard's
+// identity migrator reports its own bindings of the rotating export into
+// status.shards (including shards with zero bindings). The drain is complete
+// only when every shard known to the cache server has reported and every
+// entry is fully migrated — this gates alias retirement, so a shard that is
+// still draining can never have the alias pulled out from under it.
 func (c *Controller) reconcileMigrating(ctx context.Context, clusterName logicalcluster.Name, rotation *migrationv1alpha1.APIExportIdentityRotation) error {
-	export, err := c.getAPIExport(exportPath(clusterName, rotation), rotation.Spec.Export.Name)
+	shardNames, err := c.listShardNames()
 	if err != nil {
 		return err
 	}
+	known := sets.New(shardNames...)
 
-	bindings, err := c.listBindingsForExport(export)
-	if err != nil {
-		return err
-	}
-
-	migrated := 0
-	for _, binding := range bindings {
-		if bindingFullyOn(binding, rotation.Status.NewIdentityHash) {
-			migrated++
+	// status.shards entries are owned by the per-shard migrators (written
+	// via server-side apply); this controller only reads them. Entries of
+	// shards that no longer exist are ignored, so a removed shard does not
+	// block the drain forever.
+	reported := sets.New[string]()
+	var total, migrated int32
+	drained := true
+	for _, entry := range rotation.Status.Shards {
+		if !known.Has(entry.Shard) {
+			continue
+		}
+		reported.Insert(entry.Shard)
+		total += entry.TotalBindings
+		migrated += entry.MigratedBindings
+		if entry.MigratedBindings != entry.TotalBindings {
+			drained = false
 		}
 	}
+	rotation.Status.TotalBindings = total
+	rotation.Status.MigratedBindings = migrated
 
-	rotation.Status.TotalBindings = int32(len(bindings))
-	rotation.Status.MigratedBindings = int32(migrated)
-	if migrated == len(bindings) {
+	if missing := known.Difference(reported); missing.Len() > 0 {
+		conditions.MarkFalse(rotation, migrationv1alpha1.IdentityRotationDrained, "AwaitingShardReports", conditionsv1alpha1.ConditionSeverityInfo,
+			"waiting for drain reports from shards: %v", sets.List(missing))
+		_, err = c.updateRotationStatus(ctx, clusterName.Path(), rotation)
+		return err
+	}
+
+	if drained {
 		rotation.Status.Phase = migrationv1alpha1.APIExportIdentityRotationAliasActive
 		rotation.Status.AliasActiveTimestamp = &metav1.Time{Time: time.Now()}
 		conditions.MarkTrue(rotation, migrationv1alpha1.IdentityRotationDrained)
 	}
 	_, err = c.updateRotationStatus(ctx, clusterName.Path(), rotation)
 	return err
-}
-
-// bindingFullyOn reports whether every bound resource of the binding serves
-// the given identity with no drain sources left.
-func bindingFullyOn(binding *apisv1alpha2.APIBinding, hash string) bool {
-	for _, br := range binding.Status.BoundResources {
-		if br.Schema.IdentityHash != hash {
-			return false
-		}
-		for _, h := range br.IdentityHashes {
-			if h != hash {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // reconcileAliasActive retires the alias per the requested policy.
@@ -407,6 +403,14 @@ func (c *Controller) reconcileAliasActive(ctx context.Context, clusterName logic
 		export.Status.IdentityAliasHashes = sets.List(sets.New(export.Status.IdentityAliasHashes...).Delete(rotation.Status.OldIdentityHash))
 		conditions.Delete(export, apisv1alpha2.IdentityRotationInProgress)
 		if _, err := c.updateAPIExportStatus(ctx, logicalcluster.From(export).Path(), export); err != nil {
+			return 0, err
+		}
+	}
+	// the drain is over; stop the per-shard migrators from reporting.
+	if _, ok := export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey]; ok {
+		export = export.DeepCopy()
+		delete(export.Annotations, migrationv1alpha1.ActiveRotationAnnotationKey)
+		if _, err := c.updateAPIExport(ctx, logicalcluster.From(export).Path(), export); err != nil {
 			return 0, err
 		}
 	}

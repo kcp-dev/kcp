@@ -141,6 +141,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		migrationv1alpha1.LogicalClusterMigrationList{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationList(ref),
 		migrationv1alpha1.LogicalClusterMigrationSpec{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationSpec(ref),
 		migrationv1alpha1.LogicalClusterMigrationStatus{}.OpenAPIModelName():          schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref),
+		migrationv1alpha1.ShardMigrationProgress{}.OpenAPIModelName():                 schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref),
 		tenancyv1alpha1.APIExportReference{}.OpenAPIModelName():                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
 		tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName():     schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref),
 		tenancyv1alpha1.ClaimMappings{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
@@ -4354,16 +4355,38 @@ func schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationStatus(ref comm
 					},
 					"migratedBindings": {
 						SchemaProps: spec.SchemaProps{
-							Description: "migratedBindings is the number of APIBindings whose bound instances are fully drained onto the new identity.",
+							Description: "migratedBindings is the number of APIBindings whose bound instances are fully drained onto the new identity, summed over all shards that have reported in status.shards.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 					"totalBindings": {
 						SchemaProps: spec.SchemaProps{
-							Description: "totalBindings is the number of APIBindings bound to the rotating export.",
+							Description: "totalBindings is the number of APIBindings bound to the rotating export, summed over all shards that have reported in status.shards.",
 							Type:        []string{"integer"},
 							Format:      "int32",
+						},
+					},
+					"shards": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"shard",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "shards reports drain progress per shard. Each shard's identity migrator maintains its own entry (including shards with zero bindings, so completeness is decidable). The drain is only considered complete once every shard has reported and every entry is fully migrated.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(migrationv1alpha1.ShardMigrationProgress{}.OpenAPIModelName()),
+									},
+								},
+							},
 						},
 					},
 					"aliasActiveTimestamp": {
@@ -4390,7 +4413,7 @@ func schema_sdk_apis_migration_v1alpha1_APIExportIdentityRotationStatus(ref comm
 			},
 		},
 		Dependencies: []string{
-			conditionsv1alpha1.Condition{}.OpenAPIModelName(), v1.Time{}.OpenAPIModelName()},
+			migrationv1alpha1.ShardMigrationProgress{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName(), v1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -4779,6 +4802,50 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref common
 		},
 		Dependencies: []string{
 			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ShardMigrationProgress is one shard's self-reported drain progress for a rotation. It is written by the identity migrator running on that shard via server-side apply, with a per-shard field manager, so shards never conflict with each other or with the rotation controller.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"shard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shard is the name of the reporting shard.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"totalBindings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "totalBindings is the number of APIBindings of the rotating export hosted on this shard.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"migratedBindings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "migratedBindings is the number of those bindings fully drained onto the new identity.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"lastUpdateTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "lastUpdateTime is when this shard last refreshed its entry.",
+							Ref:         ref(v1.Time{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"shard"},
+			},
+		},
+		Dependencies: []string{
+			v1.Time{}.OpenAPIModelName()},
 	}
 }
 
