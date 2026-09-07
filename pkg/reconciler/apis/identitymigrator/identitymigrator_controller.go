@@ -196,6 +196,7 @@ func NewController(
 		applyShardProgress: func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error {
 			entry := migrationv1alpha1apply.ShardMigrationProgress().
 				WithShard(shardName).
+				WithIdentityHash(counts.identityHash).
 				WithTotalBindings(counts.total).
 				WithMigratedBindings(counts.migrated).
 				WithLastUpdateTime(metav1.Now())
@@ -230,8 +231,10 @@ func NewController(
 	return c, nil
 }
 
-// shardCounts is one shard's binding tally for a rotating export.
+// shardCounts is one shard's binding tally for a rotating export, evaluated
+// against the rotation's target identity.
 type shardCounts struct {
+	identityHash    string
 	total, migrated int32
 }
 
@@ -388,18 +391,22 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 	if rotationRef == "" {
 		return nil // no active rotation, nothing to report
 	}
-	rotationCluster, rotationName, found := strings.Cut(rotationRef, "|")
-	if !found {
+	// "<cluster>|<name>|<target hash>": the target comes from the
+	// annotation, not from export.status.identityHash, which may still be
+	// the pre-rotation value on this shard's replicated copy.
+	parts := strings.Split(rotationRef, "|")
+	if len(parts) != 3 {
 		return nil
 	}
+	rotationCluster, rotationName, target := parts[0], parts[1], parts[2]
 
 	bindings, err := c.listBindingsForExport(export)
 	if err != nil {
 		return err
 	}
-	counts := shardCounts{total: int32(min(len(bindings), math.MaxInt32))} //nolint:gosec // capped above
+	counts := shardCounts{identityHash: target, total: int32(min(len(bindings), math.MaxInt32))} //nolint:gosec // capped above
 	for _, binding := range bindings {
-		if bindingFullyOn(binding, export.Status.IdentityHash) {
+		if bindingFullyOn(binding, target) {
 			counts.migrated++
 		}
 	}

@@ -236,6 +236,12 @@ spec:
                     server-side apply, with a per-shard field manager, so shards never conflict
                     with each other or with the rotation controller.
                   properties:
+                    identityHash:
+                      description: |-
+                        identityHash is the target identity the counts were evaluated
+                        against. Reports for any other hash than the rotation's new identity
+                        are ignored by the rotation controller.
+                      type: string
                     lastUpdateTime:
                       description: lastUpdateTime is when this shard last refreshed
                         its entry.

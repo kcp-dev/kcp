@@ -96,10 +96,16 @@ rotation through the `migration.kcp.io/active-rotation` annotation the
 rotation controller places on the export, which is replicated to every shard
 with it) and maintains its own entry via server-side apply. Shards without
 any binding of the export report a `0/0` entry, so the rotation controller
-can tell "not reported yet" from "nothing to drain". `status.migratedBindings`
-/ `status.totalBindings` are the sums over all shard entries, and the
+can tell "not reported yet" from "nothing to drain". Each entry also records
+the identity hash it was evaluated against (`identityHash`): the export's
+spec and status replicate as separate updates, so a shard can briefly see the
+annotation next to the pre-rotation `status.identityHash`; the annotation
+therefore carries the target hash, and the rotation controller ignores
+entries evaluated against any other hash. `status.migratedBindings` /
+`status.totalBindings` are the sums over all valid shard entries, and the
 `Drained` condition — which gates alias retirement — only becomes true once
-every shard known to the cache server has reported a fully migrated entry.
+every shard known to the cache server has reported a fully migrated entry for
+the new identity.
 Per-binding progress lives in each `APIBinding`'s `IdentityMigrationCompleted`
 condition and `status.boundResources[].identityHashes` bookkeeping (which
 lists every hash still holding data for that resource until the drain is

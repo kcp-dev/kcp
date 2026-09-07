@@ -25,10 +25,15 @@ import (
 
 // ActiveRotationAnnotationKey is set on an APIExport while an identity
 // rotation is draining its bindings. The value is
-// "<logical cluster name>|<rotation name>" of the APIExportIdentityRotation.
-// The export is replicated to the cache server, so the annotation is how the
-// per-shard identity migrators find the rotation object to report their
-// drain progress to. Cleared when the rotation's alias is retired.
+// "<logical cluster name>|<rotation name>|<new identity hash>" of the
+// APIExportIdentityRotation. The export is replicated to the cache server,
+// so the annotation is how the per-shard identity migrators find the
+// rotation object to report their drain progress to. The target hash travels
+// in the annotation on purpose: the export's spec and status are replicated
+// as separate updates, so a shard may briefly see the annotation next to the
+// pre-rotation status.identityHash; counting bindings against that stale hash
+// would report a complete drain before it started. Cleared when the
+// rotation's alias is retired.
 const ActiveRotationAnnotationKey = "migration.kcp.io/active-rotation"
 
 // APIExportIdentityRotation is a one-shot request to rotate an APIExport's
@@ -235,6 +240,13 @@ type ShardMigrationProgress struct {
 	//
 	// +required
 	Shard string `json:"shard"`
+
+	// identityHash is the target identity the counts were evaluated
+	// against. Reports for any other hash than the rotation's new identity
+	// are ignored by the rotation controller.
+	//
+	// +optional
+	IdentityHash string `json:"identityHash,omitempty"`
 
 	// totalBindings is the number of APIBindings of the rotating export
 	// hosted on this shard. Zero is meaningful ("this shard has nothing to

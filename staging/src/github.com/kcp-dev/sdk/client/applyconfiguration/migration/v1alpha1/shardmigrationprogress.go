@@ -32,6 +32,10 @@ import (
 type ShardMigrationProgressApplyConfiguration struct {
 	// shard is the name of the reporting shard.
 	Shard *string `json:"shard,omitempty"`
+	// identityHash is the target identity the counts were evaluated
+	// against. Reports for any other hash than the rotation's new identity
+	// are ignored by the rotation controller.
+	IdentityHash *string `json:"identityHash,omitempty"`
 	// totalBindings is the number of APIBindings of the rotating export
 	// hosted on this shard. Zero is meaningful ("this shard has nothing to
 	// drain") and always serialized.
@@ -54,6 +58,14 @@ func ShardMigrationProgress() *ShardMigrationProgressApplyConfiguration {
 // If called multiple times, the Shard field is set to the value of the last call.
 func (b *ShardMigrationProgressApplyConfiguration) WithShard(value string) *ShardMigrationProgressApplyConfiguration {
 	b.Shard = &value
+	return b
+}
+
+// WithIdentityHash sets the IdentityHash field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IdentityHash field is set to the value of the last call.
+func (b *ShardMigrationProgressApplyConfiguration) WithIdentityHash(value string) *ShardMigrationProgressApplyConfiguration {
+	b.IdentityHash = &value
 	return b
 }
 
