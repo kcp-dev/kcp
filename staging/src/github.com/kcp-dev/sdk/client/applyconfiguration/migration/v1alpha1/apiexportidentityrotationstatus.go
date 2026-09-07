@@ -39,11 +39,18 @@ type APIExportIdentityRotationStatusApplyConfiguration struct {
 	// secret.
 	NewIdentityHash *string `json:"newIdentityHash,omitempty"`
 	// migratedBindings is the number of APIBindings whose bound instances
-	// are fully drained onto the new identity.
+	// are fully drained onto the new identity, summed over all shards that
+	// have reported in status.shards.
 	MigratedBindings *int32 `json:"migratedBindings,omitempty"`
 	// totalBindings is the number of APIBindings bound to the rotating
-	// export.
+	// export, summed over all shards that have reported in status.shards.
 	TotalBindings *int32 `json:"totalBindings,omitempty"`
+	// shards reports drain progress per shard. Each shard's identity
+	// migrator maintains its own entry (including shards with zero
+	// bindings, so completeness is decidable). The drain is only considered
+	// complete once every shard has reported and every entry is fully
+	// migrated.
+	Shards []ShardMigrationProgressApplyConfiguration `json:"shards,omitempty"`
 	// aliasActiveTimestamp records when the rotation entered AliasActive,
 	// the reference point for the After retirement policy.
 	AliasActiveTimestamp *v1.Time `json:"aliasActiveTimestamp,omitempty"`
@@ -94,6 +101,19 @@ func (b *APIExportIdentityRotationStatusApplyConfiguration) WithMigratedBindings
 // If called multiple times, the TotalBindings field is set to the value of the last call.
 func (b *APIExportIdentityRotationStatusApplyConfiguration) WithTotalBindings(value int32) *APIExportIdentityRotationStatusApplyConfiguration {
 	b.TotalBindings = &value
+	return b
+}
+
+// WithShards adds the given value to the Shards field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Shards field.
+func (b *APIExportIdentityRotationStatusApplyConfiguration) WithShards(values ...*ShardMigrationProgressApplyConfiguration) *APIExportIdentityRotationStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithShards")
+		}
+		b.Shards = append(b.Shards, *values[i])
+	}
 	return b
 }
 

@@ -90,3 +90,8 @@ func (in LogicalClusterMigrationSpec) OpenAPIModelName() string {
 func (in LogicalClusterMigrationStatus) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.LogicalClusterMigrationStatus"
 }
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ShardMigrationProgress) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.ShardMigrationProgress"
+}

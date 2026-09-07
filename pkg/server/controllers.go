@@ -1197,9 +1197,6 @@ func (s *Server) installIdentityRotationController(_ context.Context, config *re
 	if err != nil {
 		return err
 	}
-	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer(), cache.Indexers{
-		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
-	})
 	c, err := identityrotation.NewController(
 		kcpClusterClient,
 		externalKcpClusterClient,
@@ -1207,7 +1204,7 @@ func (s *Server) installIdentityRotationController(_ context.Context, config *re
 		s.KcpSharedInformerFactory.Migration().V1alpha1().APIExportIdentityRotations(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
-		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 	)
 	if err != nil {
 		return err
@@ -1220,7 +1217,7 @@ func (s *Server) installIdentityRotationController(_ context.Context, config *re
 				return s.KcpSharedInformerFactory.Migration().V1alpha1().APIExportIdentityRotations().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced(), nil
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -1249,8 +1246,22 @@ func (s *Server) installIdentityMigratorController(_ context.Context, config *re
 	if err != nil {
 		return err
 	}
+	// drain-progress reports go to the rotation object, which may live on
+	// another shard; reach it by workspace path through the external logical
+	// cluster admin endpoint. Don't abuse this client for anything else :)
+	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
+	externalConfig = rest.AddUserAgent(externalConfig, identitymigrator.ControllerName)
+	externalKcpClusterClient, err := kcpclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	})
 	c, err := identitymigrator.NewController(
+		s.Options.Extra.ShardName,
 		kcpClusterClient,
+		externalKcpClusterClient,
 		crdClusterClient,
 		etcdClient,
 		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,

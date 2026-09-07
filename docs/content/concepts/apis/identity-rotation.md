@@ -86,12 +86,21 @@ The rotation controller drives `status.phase` through
       Object UIDs, resourceVersions semantics, status, and ownerReferences
       survive unchanged; consumers observe a short unavailability window
       while their workspace is fenced.
-3. **AliasActive**: all bindings tracked by the rotation have migrated. The
-   alias remains honored per `spec.aliasRetirement`.
+3. **AliasActive**: every shard has reported all of its bindings migrated.
+   The alias remains honored per `spec.aliasRetirement`.
 4. **Completed**: the alias is retired; the old identity is fully invalid.
 
-Progress is reported in `status.migratedBindings` / `status.totalBindings`,
-and per-binding in each `APIBinding`'s `IdentityMigrationCompleted`
+Progress is reported per shard in `status.shards`: each shard's identity
+migrator counts the bindings of the rotating export it hosts (finding the
+rotation through the `migration.kcp.io/active-rotation` annotation the
+rotation controller places on the export, which is replicated to every shard
+with it) and maintains its own entry via server-side apply. Shards without
+any binding of the export report a `0/0` entry, so the rotation controller
+can tell "not reported yet" from "nothing to drain". `status.migratedBindings`
+/ `status.totalBindings` are the sums over all shard entries, and the
+`Drained` condition — which gates alias retirement — only becomes true once
+every shard known to the cache server has reported a fully migrated entry.
+Per-binding progress lives in each `APIBinding`'s `IdentityMigrationCompleted`
 condition and `status.boundResources[].identityHashes` bookkeeping (which
 lists every hash still holding data for that resource until the drain is
 verified, making the migrator crash-resumable).
@@ -107,9 +116,10 @@ Admission enforces:
 
 ## Alpha limitations
 
-- `status.migratedBindings`/`totalBindings` only counts bindings on the
-  shard hosting the rotation (each shard's migrator acts independently and
-  correctly, but cross-shard progress is not aggregated yet).
+- Shard entries in `status.shards` are trusted as reported and carry no
+  staleness detection: a shard that stops reporting mid-drain (e.g. it went
+  down) blocks the rotation in `Migrating` until it returns or is removed
+  from the fleet. `lastUpdateTime` on each entry makes this observable.
 - The bound CRD serving rebuild is per shard and shared by all bindings of a
   schema; bindings of the same export on one shard migrate sequentially, and
   a not-yet-migrated binding may observe a brief `NotFound` window while the

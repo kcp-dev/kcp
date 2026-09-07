@@ -205,7 +205,8 @@ spec:
               migratedBindings:
                 description: |-
                   migratedBindings is the number of APIBindings whose bound instances
-                  are fully drained onto the new identity.
+                  are fully drained onto the new identity, summed over all shards that
+                  have reported in status.shards.
                 format: int32
                 type: integer
               newIdentityHash:
@@ -221,10 +222,51 @@ spec:
               phase:
                 description: phase is the current lifecycle phase of the rotation.
                 type: string
+              shards:
+                description: |-
+                  shards reports drain progress per shard. Each shard's identity
+                  migrator maintains its own entry (including shards with zero
+                  bindings, so completeness is decidable). The drain is only considered
+                  complete once every shard has reported and every entry is fully
+                  migrated.
+                items:
+                  description: |-
+                    ShardMigrationProgress is one shard's self-reported drain progress for a
+                    rotation. It is written by the identity migrator running on that shard via
+                    server-side apply, with a per-shard field manager, so shards never conflict
+                    with each other or with the rotation controller.
+                  properties:
+                    lastUpdateTime:
+                      description: lastUpdateTime is when this shard last refreshed
+                        its entry.
+                      format: date-time
+                      type: string
+                    migratedBindings:
+                      description: |-
+                        migratedBindings is the number of those bindings fully drained onto
+                        the new identity.
+                      format: int32
+                      type: integer
+                    shard:
+                      description: shard is the name of the reporting shard.
+                      type: string
+                    totalBindings:
+                      description: |-
+                        totalBindings is the number of APIBindings of the rotating export
+                        hosted on this shard.
+                      format: int32
+                      type: integer
+                  required:
+                  - shard
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - shard
+                x-kubernetes-list-type: map
               totalBindings:
                 description: |-
                   totalBindings is the number of APIBindings bound to the rotating
-                  export.
+                  export, summed over all shards that have reported in status.shards.
                 format: int32
                 type: integer
             type: object

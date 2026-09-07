@@ -6,7 +6,7 @@ spec:
   resources:
   - group: migration.kcp.io
     name: apiexportidentityrotations
-    schema: v260904-0069551c9.apiexportidentityrotations.migration.kcp.io
+    schema: v260907-dd0ed9212.apiexportidentityrotations.migration.kcp.io
     storage:
       crd: {}
   - group: migration.kcp.io

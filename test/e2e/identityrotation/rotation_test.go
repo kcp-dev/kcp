@@ -230,6 +230,19 @@ func waitForRotationPhase(ctx context.Context, t *testing.T, c rotationClients, 
 		require.NoError(collect, err)
 		require.Equal(collect, phase, rotation.Status.Phase,
 			"rotation phase %s, migrated %d/%d", rotation.Status.Phase, rotation.Status.MigratedBindings, rotation.Status.TotalBindings)
+		if phase == migrationv1alpha1.APIExportIdentityRotationAliasActive || phase == migrationv1alpha1.APIExportIdentityRotationCompleted {
+			// the drain is only over once every shard reported in and is
+			// fully migrated; the top-level counters are the sums.
+			require.NotEmpty(collect, rotation.Status.Shards, "expected per-shard drain reports")
+			var total, migrated int32
+			for _, shard := range rotation.Status.Shards {
+				total += shard.TotalBindings
+				migrated += shard.MigratedBindings
+				require.Equal(collect, shard.TotalBindings, shard.MigratedBindings, "shard %s should be fully drained", shard.Shard)
+			}
+			require.Equal(collect, total, rotation.Status.TotalBindings, "totalBindings should be the sum of the shard entries")
+			require.Equal(collect, migrated, rotation.Status.MigratedBindings, "migratedBindings should be the sum of the shard entries")
+		}
 		newHash = rotation.Status.NewIdentityHash
 	}, wait.ForeverTestTimeout, 250*time.Millisecond)
 	return newHash
@@ -281,7 +294,7 @@ func TestAPIExportIdentityRotation(t *testing.T) {
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 	providerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("provider"), kcptesting.WithRootShard())
 	opsPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("ops"), kcptesting.WithRootShard())
-	consumerPaths := []logicalcluster.Path{}
+	consumerPaths := make([]logicalcluster.Path, 0, 3)
 	for _, opts := range [][]kcptesting.UnprivilegedWorkspaceOption{
 		{kcptesting.WithName("consumer-1"), kcptesting.WithRootShard()},
 		{kcptesting.WithName("consumer-2"), kcptesting.WithRootShard()},
