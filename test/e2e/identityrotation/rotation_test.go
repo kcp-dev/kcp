@@ -461,6 +461,17 @@ func TestAPIExportIdentityRotationAliasWindow(t *testing.T) {
 	oldHash := installCowboysExport(ctx, t, c, providerPath)
 	cowboyUID := bindCowboysAndCreate(ctx, t, c, providerPath, consumerPath, "woody")
 
+	// A second, unrelated cowboys export (own schema, hence own bound CRD) on
+	// the same shard keeps the server's wildcard partial-metadata storage for
+	// cowboys.wildwest.dev alive across the drain's bound-CRD rebuild. Without
+	// it that storage is torn down and rebuilt together with the CRD, and the
+	// wildcard informers behind the claim labeler get refreshed by accident
+	// rather than by the drain itself.
+	bystanderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("bystander"), kcptesting.WithRootShard())
+	installCowboysSchema(ctx, t, c, bystanderPath, "bystander.cowboys.wildwest.dev")
+	createCowboysExport(ctx, t, c, bystanderPath, "bystander-cowboys", "bystander.cowboys.wildwest.dev")
+	bindExportAndCreateCowboy(ctx, t, c, bystanderPath, bystanderPath, "bystander-cowboys", "bystander")
+
 	claim := apisv1alpha2.PermissionClaim{
 		GroupResource: apisv1alpha2.GroupResource{Group: "wildwest.dev", Resource: "cowboys"},
 		Verbs:         []string{"*"},

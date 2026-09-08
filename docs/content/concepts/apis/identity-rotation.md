@@ -82,7 +82,10 @@ The rotation controller drives `status.phase` through
         prefix onto the new one and the copy is verified,
       - the binding's serving identity is flipped and the bound CRD is
         recreated so serving storage is rebuilt against the new prefix,
-      - the old prefix is deleted and the fence lifted.
+      - the old prefix is deleted, every instance is rewritten in place once
+        under the new prefix (so wildcard watchers, which see all identities
+        of a resource as one keyspace, observe the move as an update rather
+        than an add followed by a delete), and the fence lifted.
       Object UIDs, resourceVersions semantics, status, and ownerReferences
       survive unchanged; consumers observe a short unavailability window
       while their workspace is fenced.
