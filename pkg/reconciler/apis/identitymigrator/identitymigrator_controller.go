@@ -588,6 +588,10 @@ func (c *Controller) process(ctx context.Context, key string) error {
 			}
 		}
 		if len(errs) == 0 {
+			if err := c.touchPrefix(ctx, br.Group, br.Resource, target, clusterName); err != nil {
+				errs = append(errs, err)
+				continue
+			}
 			br.IdentityHashes = []string{target}
 			pruned = true
 		}
@@ -771,6 +775,45 @@ func (c *Controller) deletePrefix(ctx context.Context, group, resource, source s
 	sourcePrefix := c.identityPrefix(group, resource, source, clusterName)
 	if _, err := c.etcdClient.Delete(ctx, sourcePrefix, clientv3.WithPrefix()); err != nil {
 		return fmt.Errorf("failed to delete drained source prefix %q: %w", sourcePrefix, err)
+	}
+	return nil
+}
+
+// touchPrefix rewrites every key of the target identity prefix with its
+// current value, after the source prefixes are gone. Wildcard partial-metadata
+// storage (what every server-side wildcard informer, e.g. the permission claim
+// labeler's, watches) spans all identities of a resource under one prefix and
+// keys objects by cluster, namespace and name. To it the drain's copy and
+// delete are an add and a delete of the same object, leaving the object
+// missing from every such cache until something else writes it. The rewrite
+// is that write: one final update, ordered after the deletes. Keys modified
+// since they were read are left alone; that modification already emitted the
+// event.
+func (c *Controller) touchPrefix(ctx context.Context, group, resource, identityHash string, clusterName logicalcluster.Name) error {
+	prefix := c.identityPrefix(group, resource, identityHash, clusterName)
+	startKey := prefix
+	for {
+		resp, err := c.etcdClient.Get(ctx, startKey,
+			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
+			clientv3.WithLimit(copyPageSize),
+			clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to page target prefix %q: %w", prefix, err)
+		}
+		for _, kv := range resp.Kvs {
+			key := string(kv.Key)
+			if _, err := c.etcdClient.Txn(ctx).
+				If(clientv3.Compare(clientv3.ModRevision(key), "=", kv.ModRevision)).
+				Then(clientv3.OpPut(key, string(kv.Value))).
+				Commit(); err != nil {
+				return fmt.Errorf("failed to rewrite %q: %w", key, err)
+			}
+		}
+		if !resp.More || len(resp.Kvs) == 0 {
+			break
+		}
+		startKey = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 	}
 	return nil
 }
