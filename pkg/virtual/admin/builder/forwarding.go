@@ -349,26 +349,96 @@ func withShardsView(cacheDynamicClusterClient kcpdynamic.ClusterInterface) forwa
 			if err != nil {
 				return nil, err
 			}
-			return newFixupWatch(ctx, w), nil
+
+			// Seed the stream with the copies currently in the cache so that
+			// the first event for a shard can be resolved against its other
+			// copies. The watch is established before the list, so events
+			// racing the seed are buffered by the delegate and applied on
+			// top of it.
+			result, err := delegateList(sourceContext(ctx), &metainternalversion.ListOptions{})
+			if err != nil {
+				w.Stop()
+				return nil, err
+			}
+			list, ok := result.(*unstructured.UnstructuredList)
+			if !ok {
+				w.Stop()
+				return nil, fmt.Errorf("expected *unstructured.UnstructuredList when seeding the shards watch, got %T", result)
+			}
+
+			return newFixupWatch(ctx, w, list.Items), nil
 		}
 	})
 }
 
+// shardCopies holds the cache copies of a single Shard, keyed by the logical
+// cluster the copy lives in.
+type shardCopies map[logicalcluster.Name]*unstructured.Unstructured
+
+// preferShardCopy reports whether a copy in 'cluster a' should be preferred
+// over one in 'cluster b'. The shard-owned copy in system:shard wins, matching
+// dedupeShards on the list path; among equals the lowest cluster name keeps
+// the choice stable as events arrive in arbitrary order.
+func preferShardCopy(a, b logicalcluster.Name) bool {
+	if (a == configshard.SystemShardCluster) != (b == configshard.SystemShardCluster) {
+		return a == configshard.SystemShardCluster
+	}
+	return a < b
+}
+
+// winner returns the copy that represents the shard, or false when no copy
+// is left.
+func (c shardCopies) winner() (*unstructured.Unstructured, bool) {
+	var best *unstructured.Unstructured
+	var bestCluster logicalcluster.Name
+	for cluster, obj := range c {
+		if best == nil || preferShardCopy(cluster, bestCluster) {
+			best, bestCluster = obj, cluster
+		}
+	}
+	return best, best != nil
+}
+
 // fixupWatch wraps a watch.Interface, stripping cache bookkeeping
-// annotations from every event object. Deduplication is not applied to the
-// stream: during mixed-version windows a consumer may see events for both
-// copies of a shard and must key on the object name.
+// annotations from every event object and collapsing the stream to one
+// object per Shard name, the same way dedupeShards collapses a list.
+//
+// During mixed-version windows a shard is present in the cache twice: once
+// as the shard-owned authoritative object in the shard-local system:shard
+// logical cluster, and once as a legacy object in the root workspace.
+// Forwarding both copies verbatim breaks every consumer that keys on the
+// object name - deleting the legacy copy, as the replication controller does
+// while a shard migrates, is then indistinguishable from the shard going
+// away, and the shard disappears from the consumer's cache even though the
+// authoritative copy is alive. Instead, an event for a losing copy is
+// translated into the state of the winning copy, and DELETED is emitted only
+// once no copy is left.
 type fixupWatch struct {
 	delegate   watch.Interface
 	resultChan chan watch.Event
 	stopOnce   sync.Once
+
+	// copies tracks every cache copy per shard name, and emitted the object
+	// last published for that name, so that changes to a losing copy do not
+	// reach the client.
+	copies  map[string]shardCopies
+	emitted map[string]*unstructured.Unstructured
 }
 
-func newFixupWatch(ctx context.Context, delegate watch.Interface) *fixupWatch {
+func newFixupWatch(ctx context.Context, delegate watch.Interface, seed []unstructured.Unstructured) *fixupWatch {
 	w := &fixupWatch{
 		delegate:   delegate,
 		resultChan: make(chan watch.Event, 100), // Matches outgoingBufSize=100 in k8s.io/apiserver/pkg/storage/etcd3/watcher.go.
+		copies:     map[string]shardCopies{},
+		emitted:    map[string]*unstructured.Unstructured{},
 	}
+	for i := range seed {
+		w.put(&seed[i])
+	}
+	// emitted is deliberately left empty: the client listed at its own
+	// resourceVersion, so the first event for a shard republishes the
+	// winning copy instead of being suppressed as unchanged.
+
 	go func() {
 		defer close(w.resultChan)
 		for {
@@ -377,12 +447,16 @@ func newFixupWatch(ctx context.Context, delegate watch.Interface) *fixupWatch {
 				if !ok {
 					return
 				}
-				if u, ok := event.Object.(*unstructured.Unstructured); ok {
-					obj := u.DeepCopy()
-					fixupShard(obj)
-					event.Object = obj
+				out, send := w.process(event)
+				if !send {
+					continue
 				}
-				w.resultChan <- event
+				select {
+				case w.resultChan <- out:
+				case <-ctx.Done():
+					delegate.Stop()
+					return
+				}
 			case <-ctx.Done():
 				delegate.Stop()
 				return
@@ -390,6 +464,73 @@ func newFixupWatch(ctx context.Context, delegate watch.Interface) *fixupWatch {
 		}
 	}()
 	return w
+}
+
+// put records obj as the copy of its shard in its logical cluster, with the
+// cache bookkeeping annotations stripped.
+func (w *fixupWatch) put(obj *unstructured.Unstructured) {
+	cluster := logicalcluster.From(obj)
+	stored := obj.DeepCopy()
+	fixupShard(stored)
+
+	name := stored.GetName()
+	copies, found := w.copies[name]
+	if !found {
+		copies = shardCopies{}
+		w.copies[name] = copies
+	}
+	copies[cluster] = stored
+}
+
+// process folds one delegate event into the copy state and returns the event
+// to forward, if any.
+func (w *fixupWatch) process(event watch.Event) (watch.Event, bool) {
+	switch event.Type {
+	case watch.Bookmark, watch.Error:
+		// A bookmark carries only a resourceVersion and an error carries a
+		// Status: neither is a Shard copy, and both must reach the client
+		// untouched so that resumption and error reporting keep working.
+		return event, true
+	}
+
+	obj, ok := event.Object.(*unstructured.Unstructured)
+	if !ok {
+		return event, true
+	}
+
+	name := obj.GetName()
+	if event.Type == watch.Deleted {
+		if copies, found := w.copies[name]; found {
+			delete(copies, logicalcluster.From(obj))
+		}
+	} else {
+		w.put(obj)
+	}
+
+	winner, alive := w.copies[name].winner()
+	previous, published := w.emitted[name]
+
+	switch {
+	case !alive:
+		delete(w.copies, name)
+		delete(w.emitted, name)
+		if !published {
+			return watch.Event{}, false
+		}
+		// Report the object the client was last given: the copy that was
+		// actually removed may never have been published to it.
+		return watch.Event{Type: watch.Deleted, Object: previous}, true
+	case !published:
+		w.emitted[name] = winner
+		return watch.Event{Type: watch.Added, Object: winner}, true
+	case equality.Semantic.DeepEqual(previous, winner):
+		// Only a losing copy changed - the shard, as this view presents it,
+		// did not.
+		return watch.Event{}, false
+	default:
+		w.emitted[name] = winner
+		return watch.Event{Type: watch.Modified, Object: winner}, true
+	}
 }
 
 func (w *fixupWatch) Stop() {

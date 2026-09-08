@@ -17,9 +17,11 @@ limitations under the License.
 package builder
 
 import (
+	"context"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 )
@@ -120,5 +122,137 @@ func TestFixupShardStripsCacheBookkeeping(t *testing.T) {
 	}
 	if anns[logicalcluster.AnnotationKey] != "system:shard" {
 		t.Error("the kcp.io/cluster annotation must be kept")
+	}
+}
+
+// collectFixupWatch drains a fixupWatch until it goes quiet, returning the
+// events it forwarded.
+func collectFixupWatch(t *testing.T, w *fixupWatch, source *watch.FakeWatcher, events []watch.Event) []watch.Event {
+	t.Helper()
+
+	for _, event := range events {
+		source.Action(event.Type, event.Object)
+	}
+	source.Stop()
+
+	var got []watch.Event
+	for event := range w.ResultChan() {
+		got = append(got, event)
+	}
+	return got
+}
+
+func newTestFixupWatch(t *testing.T, seed []unstructured.Unstructured) (*fixupWatch, *watch.FakeWatcher) {
+	t.Helper()
+
+	source := watch.NewFake()
+	// NewFake blocks senders until a receiver is ready, which deadlocks a
+	// single-goroutine test; the fixupWatch pump is that receiver.
+	return newFixupWatch(context.Background(), source, seed), source
+}
+
+// TestFixupWatchKeepsShardOnLegacyCopyDelete covers the front-proxy failure
+// mode: while a shard migrates, the replication controller prunes the legacy
+// root copy from the cache. A name-keyed consumer must not conclude that the
+// shard is gone, because the shard-owned copy is still there.
+func TestFixupWatchKeepsShardOnLegacyCopyDelete(t *testing.T) {
+	t.Parallel()
+
+	legacy := shardObj("alpha", "root", nil)
+	owned := shardObj("alpha", "system:shard", nil)
+
+	w, source := newTestFixupWatch(t, []unstructured.Unstructured{legacy, owned})
+	got := collectFixupWatch(t, w, source, []watch.Event{
+		{Type: watch.Deleted, Object: &legacy},
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("expected 1 forwarded event, got %d: %v", len(got), got)
+	}
+	if got[0].Type == watch.Deleted {
+		t.Fatalf("legacy copy deletion was forwarded as DELETED; the shard-owned copy is still present")
+	}
+	obj, ok := got[0].Object.(*unstructured.Unstructured)
+	if !ok {
+		t.Fatalf("expected an *unstructured.Unstructured, got %T", got[0].Object)
+	}
+	if cluster := logicalcluster.From(obj).String(); cluster != "system:shard" {
+		t.Errorf("expected the shard-owned copy to be published, got cluster %q", cluster)
+	}
+}
+
+// TestFixupWatchDeletesShardWhenLastCopyGoes checks the other half: once no
+// copy is left the shard really is gone and DELETED must be forwarded.
+func TestFixupWatchDeletesShardWhenLastCopyGoes(t *testing.T) {
+	t.Parallel()
+
+	legacy := shardObj("alpha", "root", nil)
+	owned := shardObj("alpha", "system:shard", nil)
+
+	w, source := newTestFixupWatch(t, []unstructured.Unstructured{legacy, owned})
+	got := collectFixupWatch(t, w, source, []watch.Event{
+		{Type: watch.Deleted, Object: &legacy},
+		{Type: watch.Deleted, Object: &owned},
+	})
+
+	if len(got) == 0 {
+		t.Fatalf("expected events, got none")
+	}
+	last := got[len(got)-1]
+	if last.Type != watch.Deleted {
+		t.Fatalf("expected the final event to be DELETED, got %s", last.Type)
+	}
+}
+
+// TestFixupWatchIgnoresLosingCopyChange makes sure updates to the legacy copy
+// do not overwrite the shard-owned content in the consumer's cache.
+func TestFixupWatchIgnoresLosingCopyChange(t *testing.T) {
+	t.Parallel()
+
+	legacy := shardObj("alpha", "root", nil)
+	owned := shardObj("alpha", "system:shard", nil)
+
+	w, source := newTestFixupWatch(t, []unstructured.Unstructured{legacy, owned})
+
+	changed := legacy.DeepCopy()
+	changed.SetLabels(map[string]string{"stale": "true"})
+
+	got := collectFixupWatch(t, w, source, []watch.Event{
+		{Type: watch.Modified, Object: changed},
+	})
+
+	for _, event := range got {
+		obj, ok := event.Object.(*unstructured.Unstructured)
+		if !ok {
+			continue
+		}
+		if cluster := logicalcluster.From(obj).String(); cluster != "system:shard" {
+			t.Errorf("published the losing copy from cluster %q", cluster)
+		}
+	}
+}
+
+// TestFixupWatchPassesBookmarksThrough keeps watch resumption working: a
+// bookmark carries only a resourceVersion and must not be folded into the
+// shard state.
+func TestFixupWatchPassesBookmarksThrough(t *testing.T) {
+	t.Parallel()
+
+	w, source := newTestFixupWatch(t, nil)
+
+	bookmark := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "core.kcp.io/v1alpha1",
+		"kind":       "Shard",
+		"metadata":   map[string]interface{}{"resourceVersion": "42"},
+	}}
+	got := collectFixupWatch(t, w, source, []watch.Event{
+		{Type: watch.Bookmark, Object: bookmark},
+	})
+
+	if len(got) != 1 || got[0].Type != watch.Bookmark {
+		t.Fatalf("expected the bookmark to be forwarded unchanged, got %v", got)
+	}
+	if len(w.copies) != 0 {
+		t.Errorf("bookmark was folded into the shard state: %v", w.copies)
 	}
 }
