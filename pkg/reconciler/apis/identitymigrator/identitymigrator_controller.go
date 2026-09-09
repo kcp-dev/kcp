@@ -391,11 +391,13 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 	if rotationRef == "" {
 		return nil // no active rotation, nothing to report
 	}
-	// "<cluster>|<name>|<target hash>": the target comes from the
-	// annotation, not from export.status.identityHash, which may still be
-	// the pre-rotation value on this shard's replicated copy.
+	// "<cluster>|<name>|<target hash>|<old hash>": the target comes from
+	// the annotation, not from export.status.identityHash, which may still
+	// be the pre-rotation value on this shard's replicated copy. The old
+	// hash trailing the value is for the rotation controller's own retry
+	// recovery and is not needed here.
 	parts := strings.Split(rotationRef, "|")
-	if len(parts) != 3 {
+	if len(parts) < 3 {
 		return nil
 	}
 	rotationCluster, rotationName, target := parts[0], parts[1], parts[2]

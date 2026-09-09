@@ -31,6 +31,7 @@ package identityrotation
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -165,6 +166,18 @@ type Controller struct {
 
 // exportPath is the workspace path the rotation's export reference resolves
 // in: the referenced path, or the rotation's own workspace when empty.
+// activeRotationOldHash reports whether the given active-rotation annotation
+// value ("<cluster>|<rotation name>|<new hash>|<old hash>") records a flip
+// performed for exactly this rotation onto exactly this new hash, and if so
+// returns the pre-rotation identity hash it preserved.
+func activeRotationOldHash(value string, clusterName logicalcluster.Name, rotationName, newHash string) (string, bool) {
+	parts := strings.Split(value, "|")
+	if len(parts) != 4 || parts[0] != clusterName.String() || parts[1] != rotationName || parts[2] != newHash || parts[3] == "" {
+		return "", false
+	}
+	return parts[3], true
+}
+
 func exportPath(clusterName logicalcluster.Name, rotation *migrationv1alpha1.APIExportIdentityRotation) logicalcluster.Path {
 	if path := logicalcluster.NewPath(rotation.Spec.Export.Path); !path.Empty() {
 		return path
@@ -288,7 +301,18 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 		return err
 	}
 	oldHash := export.Status.IdentityHash
-	if newHash == oldHash {
+	if annOldHash, flipped := activeRotationOldHash(export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey], clusterName, rotation.Name, newHash); flipped {
+		// A previous reconcile attempt already flipped this export for this
+		// rotation but failed before recording Migrating on the rotation
+		// object (the spec update also wakes the apiexport identity
+		// reconciler, which re-derives status.identityHash concurrently — a
+		// conflict on the status write is enough to get here). The export's
+		// current identity is then already the new hash, and re-validating
+		// against it would terminally fail the rotation with the fresh-secret
+		// error. Recover the pre-rotation hash from the annotation instead
+		// and redo the (idempotent) flip below.
+		oldHash = annOldHash
+	} else if newHash == oldHash {
 		return c.fail(ctx, clusterName, rotation, "the new identity secret hashes to the export's current identity; rotation requires a fresh secret")
 	}
 
@@ -301,7 +325,7 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 	if updatedExport.Annotations == nil {
 		updatedExport.Annotations = map[string]string{}
 	}
-	updatedExport.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] = clusterName.String() + "|" + rotation.Name + "|" + newHash
+	updatedExport.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] = clusterName.String() + "|" + rotation.Name + "|" + newHash + "|" + oldHash
 	if updatedExport, err = c.updateAPIExport(ctx, exportCluster, updatedExport); err != nil {
 		return err
 	}

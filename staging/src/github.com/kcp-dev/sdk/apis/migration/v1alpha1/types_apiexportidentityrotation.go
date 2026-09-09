@@ -25,15 +25,18 @@ import (
 
 // ActiveRotationAnnotationKey is set on an APIExport while an identity
 // rotation is draining its bindings. The value is
-// "<logical cluster name>|<rotation name>|<new identity hash>" of the
-// APIExportIdentityRotation. The export is replicated to the cache server,
-// so the annotation is how the per-shard identity migrators find the
+// "<logical cluster name>|<rotation name>|<new identity hash>|<old identity hash>"
+// of the APIExportIdentityRotation. The export is replicated to the cache
+// server, so the annotation is how the per-shard identity migrators find the
 // rotation object to report their drain progress to. The target hash travels
 // in the annotation on purpose: the export's spec and status are replicated
 // as separate updates, so a shard may briefly see the annotation next to the
 // pre-rotation status.identityHash; counting bindings against that stale hash
-// would report a complete drain before it started. Cleared when the
-// rotation's alias is retired.
+// would report a complete drain before it started. The old hash travels with
+// it so the rotation controller can retry the Pending reconcile idempotently
+// after the export has already flipped (by then status.identityHash no longer
+// records the pre-rotation identity). Cleared when the rotation's alias is
+// retired.
 const ActiveRotationAnnotationKey = "migration.kcp.io/active-rotation"
 
 // APIExportIdentityRotation is a one-shot request to rotate an APIExport's
