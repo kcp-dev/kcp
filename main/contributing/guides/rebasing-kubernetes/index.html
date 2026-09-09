@@ -59,7 +59,16 @@
     
     
     
-  </head>
+   <link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="../../../assets/javascripts/glightbox.min.js"></script></head>
   
   
     
@@ -4245,7 +4254,7 @@ then the procedure is significantly different.</p>
 <li>To check if a given commit is included in the upstream branch, open the referenced
     upstream PR and check any of its commits for the release tag (e.g. <code>v.1.26.3</code>)
     targeted by the new rebase branch. For example:
-    <img src="commit-tag.png"></li>
+    <a class="glightbox" href="commit-tag.png" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img src="commit-tag.png"></a></li>
 <li><code>UPSTREAM: &lt;carry&gt;:</code></li>
 <li>A persistent carry that should probably be picked for the subsequent rebase branch.</li>
 <li>In general, these commits are used to modify behavior for consistency or
@@ -4554,5 +4563,7 @@ two kube versions.</p>
         <script src="../../../scripts/version_banner.js"></script>
       
     
-  </body>
+  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script></body>
 </html>

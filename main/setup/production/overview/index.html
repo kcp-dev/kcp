@@ -62,7 +62,16 @@
     
     
     
-  </head>
+   <link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="../../../assets/javascripts/glightbox.min.js"></script></head>
   
   
     
@@ -4427,14 +4436,14 @@ This means that clients like <code>kubectl</code> or <code>kcp</code> CLI can ac
 <li><strong>Private network</strong>: Shards communicate via cluster-internal DNS</li>
 <li><strong>Certificate trust</strong>: Clients need CA certificate in trust store</li>
 </ul>
-<p><img alt="" src="../self-signed.svg" /></p>
+<p><a class="glightbox" href="../self-signed.svg" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="" src="../self-signed.svg" /></a></p>
 <h3 id="kcp-vespucci-external-certs">kcp-vespucci (External Certs)<a class="headerlink" href="#kcp-vespucci-external-certs" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Public access</strong>: Front-proxy and shards</li>
 <li><strong>External DNS</strong>: Public DNS records for all endpoints</li>
 <li><strong>Certificate validation</strong>: Automatic via Let's Encrypt</li>
 </ul>
-<p><img alt="" src="../public.svg" /></p>
+<p><a class="glightbox" href="../public.svg" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="" src="../public.svg" /></a></p>
 <h3 id="kcp-comer-dual-front-proxy">kcp-comer (Dual Front-Proxy)<a class="headerlink" href="#kcp-comer-dual-front-proxy" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Public access</strong>: CDN edge and front-proxy</li>
@@ -4443,7 +4452,7 @@ This means that clients like <code>kubectl</code> or <code>kcp</code> CLI can ac
 </ul>
 <p>In this scenario we have two front-proxy. One secured by CloudFlare, but working only with OIDC auth, and another internal front-proxy
 secured by an internal CA for internal clients.</p>
-<p><img alt="" src="../dual-proxy.svg" /></p>
+<p><a class="glightbox" href="../dual-proxy.svg" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="" src="../dual-proxy.svg" /></a></p>
 <p>Understanding these patterns will help you choose the appropriate deployment strategy and configure networking correctly for your environment.</p>
 
 
@@ -4545,5 +4554,7 @@ secured by an internal CA for internal clients.</p>
         <script src="../../../scripts/version_banner.js"></script>
       
     
-  </body>
+  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script></body>
 </html>

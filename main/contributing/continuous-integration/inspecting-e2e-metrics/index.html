@@ -62,7 +62,16 @@
     
     
     
-  </head>
+   <link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="../../../assets/javascripts/glightbox.min.js"></script></head>
   
   
     
@@ -4223,16 +4232,16 @@ for the given Prometheus URL environment variable.</p>
 <h2 id="inspecting-metrics-of-e2e-runs">Inspecting Metrics of e2e Runs<a class="headerlink" href="#inspecting-metrics-of-e2e-runs" title="Permanent link">&para;</a></h2>
 <h3 id="github">GitHub<a class="headerlink" href="#github" title="Permanent link">&para;</a></h3>
 <p>To inspect metrics from GitHub e2e test runs, download the metrics from the GitHub summary page:</p>
-<p><img alt="GitHub summary page" src="../github_summary.png" /></p>
+<p><a class="glightbox" href="../github_summary.png" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="GitHub summary page" src="../github_summary.png" /></a></p>
 <p>And execute Prometheus locally to inspect metrics:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>metrics<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>unzip<span class="w"> </span>-p<span class="w"> </span>e2e-sharded-metrics.zip<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>xvzf<span class="w"> </span>-<span class="w"> </span>-C<span class="w"> </span>metrics
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>$<span class="w"> </span>prometheus<span class="w"> </span>--storage.tsdb.path<span class="o">=</span>metrics<span class="w"> </span>--config.file<span class="w"> </span>/dev/null
 </code></pre></div></p>
 <h3 id="prow">Prow<a class="headerlink" href="#prow" title="Permanent link">&para;</a></h3>
 <p>To inspect e2e metrics from prow runs, just copy-paste the prow link from the pull request:</p>
-<p><img alt="PR prow link" src="../prow_link.png" /></p>
+<p><a class="glightbox" href="../prow_link.png" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="PR prow link" src="../prow_link.png" /></a></p>
 <p>And paste it into <a href="https://promecieus.dptools.openshift.org/">PromeCIeus</a>:</p>
-<p><img alt="promecieus" src="../promecieus.png" /></p>
+<p><a class="glightbox" href="../promecieus.png" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="promecieus" src="../promecieus.png" /></a></p>
 <p>Once the Prometheus pod is ready, the provisioned link can be called to inspect gathered metrics.
 Alternatively, download the prometheus tarball from the gcsweb frontend locally
 and start a Prometheus instance as described above.</p>
@@ -4345,5 +4354,7 @@ A local Prometheus can then be started to inspect gathered metrics:
         <script src="../../../scripts/version_banner.js"></script>
       
     
-  </body>
+  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script></body>
 </html>
