@@ -46,7 +46,7 @@ func TestReportProgress(t *testing.T) {
 			Name: "cowboys",
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey:                  "provider",
-				migrationv1alpha1.ActiveRotationAnnotationKey: "ops|rot-1|new",
+				migrationv1alpha1.ActiveRotationAnnotationKey: "ops|rot-1|new|old",
 			},
 		},
 		// the replicated export status may still carry the old identity when
