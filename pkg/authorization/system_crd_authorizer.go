@@ -51,12 +51,19 @@ func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Att
 		case attr.GetResource() == "apibindings" && attr.GetSubresource() == "status":
 			return authorizer.DecisionDeny, "apibinding status updates not permitted", nil
 		case attr.GetResource() == "apiexports" && attr.GetSubresource() == "status":
-			// shards legitimately write APIExport status across shards
-			// during identity rotation (identity hash and alias flips),
-			// using the external logical cluster admin identity. That group
-			// cannot be self-asserted by users (the front-proxy strips
-			// system:kcp:* groups), so delegate it to RBAC instead of
-			// hard-denying.
+			// The identity rotation controller legitimately writes
+			// APIExport status (identity hash and alias flips). It
+			// addresses the rotated export by workspace path, so the
+			// request travels through the front-proxy with the external
+			// logical cluster admin client cert and arrives here as an
+			// external request subject to the full authorizer chain —
+			// regardless of whether the export's workspace is hosted on
+			// this or another shard (an in-process write via the owning
+			// shard's loopback would come in as system:masters and never
+			// reach this authorizer). The group cannot be self-asserted:
+			// the front-proxy strips system:kcp:* groups from user
+			// identities, only the shard client cert carries it. So
+			// delegate to RBAC instead of hard-denying.
 			if slices.Contains(attr.GetUser().GetGroups(), bootstrap.SystemExternalLogicalClusterAdmin) {
 				break
 			}
