@@ -307,23 +307,14 @@ func (c *Controller) reconcileDestinationFinalize(ctx context.Context, migration
 	// objects for the migrating cluster, so the LogicalCluster that was
 	// just written to etcd via the dump is not yet visible through the
 	// lister. Read it directly from the API instead.
-	//
-	// Use the shard-local client, not the front-proxy: the origin has just
-	// deleted its copy, and the proxy's index may have dropped the route
-	// for this cluster with it (it keys routes by cluster name across
-	// shards, so the origin's last update wins and its delete removes the
-	// entry). Going through the proxy here would 403 until something on
-	// this shard writes the LogicalCluster again - which is this very
-	// update. The migrating filter lets this shard's own controllers
-	// through by design (system:masters).
-	lc, err := c.localKcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(lcName.Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
+	lc, err := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(lcName.Path()).Get(ctx, corev1alpha1.LogicalClusterName, metav1.GetOptions{})
 	if err != nil {
 		return true, fmt.Errorf("failed to get LogicalCluster %s: %w", lcName, err)
 	}
 	if lc.Annotations[MigratingAnnotationKey] != "" {
 		lcCopy := lc.DeepCopy()
 		delete(lcCopy.Annotations, MigratingAnnotationKey)
-		if _, err := c.localKcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(lcName.Path()).Update(ctx, lcCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.kcpClusterClient.CoreV1alpha1().LogicalClusters().Cluster(lcName.Path()).Update(ctx, lcCopy, metav1.UpdateOptions{}); err != nil {
 			return true, fmt.Errorf("failed to remove migrating annotation from LogicalCluster %s: %w", lcName, err)
 		}
 	}

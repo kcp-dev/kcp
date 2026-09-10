@@ -71,7 +71,6 @@ const (
 func NewController(
 	shardName string,
 	kcpClusterClient kcpclientset.ClusterInterface,
-	localKcpClusterClient kcpclientset.ClusterInterface,
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	externalLogicalClusterAdminConfig *rest.Config,
 	etcdClient *clientv3.Client,
@@ -95,7 +94,6 @@ func NewController(
 		),
 		shardName:                         shardName,
 		kcpClusterClient:                  kcpClusterClient,
-		localKcpClusterClient:             localKcpClusterClient,
 		crdClusterClient:                  crdClusterClient,
 		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
 		etcdClient:                        etcdClient,
@@ -148,21 +146,7 @@ type Controller struct {
 
 	shardName string
 
-	// kcpClusterClient goes through the front-proxy as the external
-	// logical-cluster admin. Use it for objects that may live on any shard:
-	// the LogicalClusterMigration itself, and the origin's LogicalCluster
-	// while the origin still owns it.
-	kcpClusterClient kcpclientset.ClusterInterface
-	// localKcpClusterClient talks to this shard directly. Use it for objects
-	// this shard owns, in particular the migrated LogicalCluster and its
-	// APIBindings on the destination once the origin has been cleaned up:
-	// at that point the front-proxy may not route the cluster at all. The
-	// origin's copy is updated by its controllers right before it is
-	// deleted, and the proxy's index (last writer wins across shards)
-	// then drops the route until the destination writes the object again
-	// - which is exactly what DestinationFinalize does, but only if that
-	// write does not itself depend on the route.
-	localKcpClusterClient             kcpclientset.ClusterInterface
+	kcpClusterClient                  kcpclientset.ClusterInterface
 	crdClusterClient                  kcpapiextensionsclientset.ClusterInterface
 	externalLogicalClusterAdminConfig *rest.Config
 	etcdClient                        *clientv3.Client

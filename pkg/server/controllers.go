@@ -1175,13 +1175,9 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context, c
 		return err
 	}
 
-	localConfig := rest.CopyConfig(config)
-	localConfig = rest.AddUserAgent(localConfig, logicalclustermigration.ControllerName)
-	localKcpClusterClient, err := kcpclientset.NewForConfig(localConfig)
-	if err != nil {
-		return err
-	}
-	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(localConfig)
+	crdConfig := rest.CopyConfig(config)
+	crdConfig = rest.AddUserAgent(crdConfig, logicalclustermigration.ControllerName)
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(crdConfig)
 	if err != nil {
 		return err
 	}
@@ -1194,7 +1190,6 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context, c
 	c, err := logicalclustermigration.NewController(
 		s.Options.Extra.ShardName,
 		kcpClusterClient,
-		localKcpClusterClient,
 		crdClusterClient,
 		s.ExternalLogicalClusterAdminConfig,
 		etcdClient,
