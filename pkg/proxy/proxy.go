@@ -23,13 +23,36 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strings"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
+	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
 )
+
+// clustersPathPrefix is the built-in shard route.
+const clustersPathPrefix = "/clusters/"
+
+// WithShardRouting serves /clusters/ requests via the shard reverse proxy using shardsTransport and delegates everything else.
+func WithShardRouting(delegate http.Handler, shardsTransport http.RoundTripper) http.HandlerFunc {
+	clusterProxy := newShardReverseProxy()
+	clusterProxy.Transport = shardsTransport
+	clusterProxy.ErrorHandler = metrics.NewProxyErrorHandler()
+	shardHandler := WithProxyAuthHeaders(clusterProxy, "X-Remote-User", "X-Remote-Group", "X-Remote-Extra-")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, clustersPathPrefix) {
+			shardHandler.ServeHTTP(w, r)
+			return
+		}
+
+		delegate.ServeHTTP(w, r)
+	}
+}
 
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
 	caCert, err := os.ReadFile(caFile)
@@ -50,6 +73,19 @@ func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, er
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 	}
+
+	return transport, nil
+}
+
+// newShardsTransport builds a transport with only the TLS material from the shards rest.Config, deliberately without identity or token wrappers that would conflict with the X-Remote-* requestheader authentication.
+func newShardsTransport(config *rest.Config) (*http.Transport, error) {
+	tlsConfig, err := rest.TLSConfigFor(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS config for shards: %w", err)
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = tlsConfig
 
 	return transport, nil
 }
