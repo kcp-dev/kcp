@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -76,8 +77,17 @@ type PathRewriter func(segments []string) []string
 type State struct {
 	rewriters []PathRewriter
 
-	lock                             sync.RWMutex
-	clusterShards                    map[logicalcluster.Name]string                                    // logical cluster -> shard name
+	lock          sync.RWMutex
+	clusterShards map[logicalcluster.Name]string // logical cluster -> shard name
+	// clusterCopies records every shard currently holding a copy of a
+	// logical cluster and whether that copy is mid-migration. During a
+	// logical cluster migration the origin and the destination both hold
+	// the object for a while and their events arrive on independent watch
+	// streams, so the order in which they reach the index is arbitrary.
+	// clusterShards is derived from this map: it must never point at a
+	// shard that has no copy, and it must never lose the cluster while
+	// some shard still holds it.
+	clusterCopies                    map[logicalcluster.Name]map[string]bool                           // logical cluster -> shard name -> migrating
 	shardClusterWorkspaceNameCluster map[string]map[logicalcluster.Name]map[string]logicalcluster.Name // (shard name, logical cluster, workspace name) -> logical cluster
 	shardClusterWorkspaceName        map[string]map[logicalcluster.Name]string                         // (shard name, logical cluster) -> workspace name
 	shardClusterWorkspaceType        map[string]map[logicalcluster.Name]logicalcluster.Path            // (shard name, logical cluster) -> workspace type
@@ -106,6 +116,7 @@ func New(rewriters []PathRewriter) *State {
 		rewriters: rewriters,
 
 		clusterShards:                    map[logicalcluster.Name]string{},
+		clusterCopies:                    map[logicalcluster.Name]map[string]bool{},
 		shardClusterWorkspaceNameCluster: map[string]map[logicalcluster.Name]map[string]logicalcluster.Name{},
 		shardClusterWorkspaceName:        map[string]map[logicalcluster.Name]string{},
 		shardClusterWorkspaceType:        map[string]map[logicalcluster.Name]logicalcluster.Path{},
@@ -246,56 +257,130 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
 }
 
+// migratingAnnotationKey marks a LogicalCluster that is part of an ongoing
+// logical cluster migration. It mirrors
+// logicalclustermigration.MigratingAnnotationKey; the reconciler package is
+// not imported here to keep the index free of controller dependencies.
+// TODO: Move this to sdk.
+const migratingAnnotationKey = "internal.kcp.io/migrating"
+
 func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
 	clusterName := logicalcluster.From(logicalCluster)
+	migrating := logicalCluster.Annotations[migratingAnnotationKey] != ""
 
 	c.lock.RLock()
 	got := c.clusterShards[clusterName]
+	known, seen := c.clusterCopies[clusterName][shard]
 	c.lock.RUnlock()
 
-	if got != shard {
-		c.lock.Lock()
-		defer c.lock.Unlock()
-
-		// If got is not empty then the logical cluster was migrated from shard `got` to shard `shard`.
-		// Record the timestamp and delete the context from the manager.
-		// The timestamp is recorded so clients with a watch are getting a 410 sent back to trigger a full relist.
-		// The context is cancelled to force close watches, which will then cause them to get the aforementioned 410s to relist.
-		// The relist is important because the RV on the destination shard will be different, leading to erroneous watch results if no relist is done.
-		if got != "" {
-			c.migratedAt.Store(clusterName, c.now())
-			c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s migrated from shard %s to shard %s", clusterName, got, shard))
-		}
-
-		c.clusterShards[clusterName] = shard
-
-		// LogicalClusters are annotated with "path:name" of their workspace's type.
-		typeIdent := logicalcluster.NewPath(logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey])
-
-		if c.shardClusterWorkspaceType[shard] == nil {
-			c.shardClusterWorkspaceType[shard] = map[logicalcluster.Name]logicalcluster.Path{}
-		}
-		c.shardClusterWorkspaceType[shard][clusterName] = typeIdent
+	if got == shard && seen && known == migrating {
+		return
 	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.clusterCopies[clusterName] == nil {
+		c.clusterCopies[clusterName] = map[string]bool{}
+	}
+	c.clusterCopies[clusterName][shard] = migrating
+
+	// LogicalClusters are annotated with "path:name" of their workspace's type.
+	typeIdent := logicalcluster.NewPath(logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey])
+	if c.shardClusterWorkspaceType[shard] == nil {
+		c.shardClusterWorkspaceType[shard] = map[logicalcluster.Name]logicalcluster.Path{}
+	}
+	c.shardClusterWorkspaceType[shard][clusterName] = typeIdent
+
+	current, mapped := c.clusterShards[clusterName]
+	switch {
+	case !mapped, current == shard:
+		c.routeLocked(clusterName, shard)
+	case migrating && !c.clusterCopies[clusterName][current]:
+		// A copy that is still migrating never displaces a settled one.
+		// This is the origin's stale copy being touched by its
+		// controllers right before it is deleted, delivered after the
+		// destination already finished: routing must stay where the
+		// data is.
+	default:
+		// Either both copies are settled (the object moved between
+		// shards outside of a migration), or both are migrating: the
+		// latest write wins, as it always has.
+		c.routeLocked(clusterName, shard)
+	}
+}
+
+// routeLocked points clusterName at shard. If the cluster was previously
+// routed to a different shard it was migrated: the timestamp is recorded so
+// clients with a watch get a 410 sent back to trigger a full relist, and the
+// cluster context is cancelled to force close in-flight watches, which will
+// then get the aforementioned 410s to relist. The relist is important because
+// the RV on the destination shard will be different, leading to erroneous
+// watch results if no relist is done. The caller must hold the write lock.
+func (c *State) routeLocked(clusterName logicalcluster.Name, shard string) {
+	if got := c.clusterShards[clusterName]; got != "" && got != shard {
+		c.migratedAt.Store(clusterName, c.now())
+		c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s migrated from shard %s to shard %s", clusterName, got, shard))
+	}
+	c.clusterShards[clusterName] = shard
+}
+
+// pickShardLocked chooses the shard to route clusterName to from the copies
+// still present, preferring one that is not mid-migration. The caller must
+// hold the write lock.
+func (c *State) pickShardLocked(clusterName logicalcluster.Name) (string, bool) {
+	copies := c.clusterCopies[clusterName]
+	if len(copies) == 0 {
+		return "", false
+	}
+	shards := slices.Sorted(maps.Keys(copies))
+	for _, shard := range shards {
+		if !copies[shard] {
+			return shard, true
+		}
+	}
+	return shards[0], true
 }
 
 func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
 	clusterName := logicalcluster.From(logicalCluster)
 
 	c.lock.RLock()
-	got := c.clusterShards[clusterName]
+	_, seen := c.clusterCopies[clusterName][shard]
 	c.lock.RUnlock()
 
-	if got != shard {
+	if !seen {
 		return
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if got := c.clusterShards[clusterName]; got == shard {
-		delete(c.clusterShards, clusterName)
-		c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s deleted from shard %s", clusterName, shard))
+
+	if copies := c.clusterCopies[clusterName]; copies != nil {
+		delete(copies, shard)
+		if len(copies) == 0 {
+			delete(c.clusterCopies, clusterName)
+		}
 	}
+	if remaining := c.clusterCopies[clusterName]; len(remaining) > 0 {
+		// Another shard still holds the cluster: this is the origin of a
+		// migration being cleaned up, not the cluster going away. Route to
+		// a remaining copy and drop only what is specific to this shard's
+		// copy. The parent Workspace still points at the same cluster
+		// name, so the workspace-derived edges below must survive.
+		if c.clusterShards[clusterName] == shard {
+			if next, ok := c.pickShardLocked(clusterName); ok {
+				c.routeLocked(clusterName, next)
+			}
+		}
+		delete(c.shardClusterWorkspaceType[shard], clusterName)
+		if len(c.shardClusterWorkspaceType[shard]) == 0 {
+			delete(c.shardClusterWorkspaceType, shard)
+		}
+		return
+	}
+	delete(c.clusterShards, clusterName)
+	c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s deleted from shard %s", clusterName, shard))
 
 	// This LC keyed as the cluster being addressed.
 	delete(c.shardClusterWorkspaceType[shard], clusterName)
@@ -391,9 +476,23 @@ func (c *State) DeleteShard(shardName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	maps.DeleteFunc(c.clusterShards, func(_ logicalcluster.Name, shard string) bool {
-		return shardName == shard
-	})
+	for clusterName, copies := range c.clusterCopies {
+		if _, ok := copies[shardName]; !ok {
+			continue
+		}
+		delete(copies, shardName)
+		if len(copies) == 0 {
+			delete(c.clusterCopies, clusterName)
+		}
+		if c.clusterShards[clusterName] != shardName {
+			continue
+		}
+		if next, ok := c.pickShardLocked(clusterName); ok {
+			c.routeLocked(clusterName, next)
+		} else {
+			delete(c.clusterShards, clusterName)
+		}
+	}
 
 	delete(c.shardClusterWorkspaceNameCluster, shardName)
 	delete(c.shardBaseURLs, shardName)

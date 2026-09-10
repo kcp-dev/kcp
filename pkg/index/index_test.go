@@ -817,3 +817,120 @@ func TestMigrationForceClosesInflightWatches(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func withMigrating(lc *corev1alpha1.LogicalCluster) *corev1alpha1.LogicalCluster {
+	lc.Annotations[migratingAnnotationKey] = "root:org:migration"
+	return lc
+}
+
+// A logical cluster migration leaves the origin's copy in place, annotated,
+// until origin cleanup deletes it, and the origin's controllers may still
+// update that copy after the destination has already finished. The proxy
+// receives each shard's events on its own watch stream, so those origin
+// events can arrive last. Routing must stay on the destination throughout.
+func TestUpsertLogicalCluster_MigrationStaleOriginDoesNotDisplaceDestination(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertShard("amber", "https://amber.io")
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+
+	// origin marks the cluster as migrating
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	// destination receives the dump (still annotated)
+	target.UpsertLogicalCluster("amber", withMigrating(newLogicalCluster("34")))
+	// destination finalizes: annotation removed
+	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
+
+	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+
+	// the origin's controllers touch the stale copy, delivered late
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+
+	// origin cleanup deletes its copy
+	target.DeleteLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+	r, found = target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+}
+
+// If the origin's late update is delivered before the destination's final
+// write, routing may briefly point at the origin, but the origin's delete
+// must then fall back to the destination instead of forgetting the cluster.
+func TestDeleteLogicalCluster_FallsBackToRemainingCopy(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertShard("amber", "https://amber.io")
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	target.UpsertLogicalCluster("amber", withMigrating(newLogicalCluster("34")))
+	// both copies are migrating: latest write wins, here the origin
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	r, found := target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+
+	// origin cleanup: the destination still holds the cluster
+	target.DeleteLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	r, found = target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+
+	// the destination finalizes afterwards
+	target.UpsertLogicalCluster("amber", newLogicalCluster("34"))
+	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
+
+	// deleting the last copy forgets the cluster
+	target.DeleteLogicalCluster("amber", newLogicalCluster("34"))
+	_, found = target.Lookup(logicalcluster.NewPath("34"))
+	if found {
+		t.Fatal("cluster still routable after its last copy was deleted")
+	}
+	if _, ok := target.clusterCopies[logicalcluster.Name("34")]; ok {
+		t.Fatal("clusterCopies leaked after the last copy was deleted")
+	}
+}
+
+// A delete from a shard that never held the routed copy must not affect
+// routing, but must still scrub that shard's own bookkeeping.
+func TestDeleteLogicalCluster_IgnoresUnknownShard(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+	target.DeleteLogicalCluster("amber", newLogicalCluster("34"))
+
+	r, found := target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+}
+
+func TestDeleteShard_FallsBackToRemainingCopy(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertShard("amber", "https://amber.io")
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	target.UpsertLogicalCluster("amber", withMigrating(newLogicalCluster("34")))
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	target.UpsertLogicalCluster("root", newLogicalCluster("55"))
+
+	target.DeleteShard("root")
+
+	r, found := target.LookupURL(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "https://amber.io/clusters/34", true)
+	_, found = target.Lookup(logicalcluster.NewPath("55"))
+	if found {
+		t.Fatal("cluster hosted only on the deleted shard is still routable")
+	}
+}
