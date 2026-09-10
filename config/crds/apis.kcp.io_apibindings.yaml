@@ -673,7 +673,8 @@ spec:
                   - verbs
                   type: object
                   x-kubernetes-validations:
-                  - message: subresource claims must use selector.matchAll
+                  - message: for subresource claims the selector is ignored, scope
+                      is inherited from the parent resource claim
                     rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
                       && self.selector.matchAll)'
                   - message: defaultSelector is not allowed on subresource claims
@@ -884,7 +885,8 @@ spec:
                   - verbs
                   type: object
                   x-kubernetes-validations:
-                  - message: subresource claims must use selector.matchAll
+                  - message: for subresource claims the selector is ignored, scope
+                      is inherited from the parent resource claim
                     rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
                       && self.selector.matchAll)'
                   - message: defaultSelector is not allowed on subresource claims
