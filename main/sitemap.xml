@@ -325,6 +325,12 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/loadtest-report-apr-2026/"/>
     </url>
     <url>
+        <loc>https://docs.kcp.io/kcp/main/developers/investigations/loadtest-report-sep-2026/</loc>
+        <lastmod>2026-09-11</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kcp.io/kcp/main/developers/investigations/loadtest-report-sep-2026/"/>
+    </url>
+    <url>
         <loc>https://docs.kcp.io/kcp/main/developers/investigations/logical-clusters/</loc>
         <lastmod>2026-09-11</lastmod>
         <changefreq>daily</changefreq>
