@@ -30,7 +30,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	testing2 "github.com/kcp-dev/sdk/testing"
 
 	"github.com/kcp-dev/kcp/pkg/admission/workspace"
@@ -69,8 +68,8 @@ func UniqueGroup(suffix string) string {
 
 // VirtualWorkspaceURL returns the virtual workspace URL base URL of the shard
 // the workspace is scheduled on.
-func VirtualWorkspaceURL(ctx context.Context, kcpClusterClient kcpclientset.ClusterInterface, ws *tenancyv1alpha1.Workspace, urls []string) (string, bool, error) {
-	shard, err := testing2.WorkspaceShard(ctx, kcpClusterClient, ws)
+func VirtualWorkspaceURL(ctx context.Context, cfg *rest.Config, ws *tenancyv1alpha1.Workspace, urls []string) (string, bool, error) {
+	shard, err := testing2.WorkspaceShard(ctx, cfg, ws)
 	if err != nil {
 		return "", false, err
 	}

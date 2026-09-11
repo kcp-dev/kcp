@@ -167,7 +167,7 @@ func TestCRDVirtualWorkspace(t *testing.T) {
 			return false
 		}
 		var found bool
-		vwURL, found, err = framework.VirtualWorkspaceURL(ctx, kcpClient, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(endpointSlice))
+		vwURL, found, err = framework.VirtualWorkspaceURL(ctx, cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(endpointSlice))
 		if err != nil {
 			t.Logf("Error getting virtual workspace URL: %v", err)
 			return false
