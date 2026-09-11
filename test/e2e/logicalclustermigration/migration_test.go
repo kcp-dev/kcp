@@ -573,6 +573,22 @@ func TestFullMigrationAPIBindings(t *testing.T) {
 		return binding.Status.Phase == apisv1alpha2.APIBindingPhaseBound
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "Cowboys APIBinding never reached Bound phase")
 
+	// Bound means the bound CRD is established, but the shard serves the
+	// resource only once its API handlers pick the CRD up. Wait for the
+	// resource to appear in discovery before creating objects, otherwise
+	// the first create can still fail with a 404.
+	t.Logf("Waiting for cowboys to be served in consumer workspace %s", consumerPath)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		resources, err := kcpClusterClient.Cluster(consumerPath).Discovery().ServerResourcesForGroupVersion(wildwestv1alpha1.SchemeGroupVersion.String())
+		if err != nil {
+			return false, fmt.Sprintf("error retrieving %s discovery in %s: %v", wildwestv1alpha1.SchemeGroupVersion, consumerPath, err)
+		}
+		served := slices.ContainsFunc(resources.APIResources, func(r metav1.APIResource) bool {
+			return r.Name == "cowboys"
+		})
+		return served, "cowboys resource not yet in discovery"
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "cowboys never showed up in consumer workspace %s discovery", consumerPath)
+
 	t.Logf("Creating test Cowboys objects in consumer workspace %s", consumerPath)
 	numCowboys := 5
 	cowboyClient := wildwestClusterClient.Cluster(consumerPath).WildwestV1alpha1().Cowboys("default")
