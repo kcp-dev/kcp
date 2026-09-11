@@ -819,7 +819,7 @@ func TestMigrationForceClosesInflightWatches(t *testing.T) {
 }
 
 func withMigrating(lc *corev1alpha1.LogicalCluster) *corev1alpha1.LogicalCluster {
-	lc.Annotations[migratingAnnotationKey] = "root:org:migration"
+	lc.Annotations[corev1alpha1.LogicalClusterMigratingAnnotationKey] = "root:org:migration"
 	return lc
 }
 
@@ -933,4 +933,31 @@ func TestDeleteShard_FallsBackToRemainingCopy(t *testing.T) {
 	if found {
 		t.Fatal("cluster hosted only on the deleted shard is still routable")
 	}
+}
+
+// The destination's copy may reach the proxy before the origin's annotated
+// update does. A migrating copy must not take the route away from a settled
+// one, and the origin's delete must then hand the route to the destination.
+func TestUpsertLogicalCluster_MigratingCopyDoesNotTakeRouteFromSettledCopy(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertShard("amber", "https://amber.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+
+	// destination receives the dump before the origin's annotate event
+	target.UpsertLogicalCluster("amber", withMigrating(newLogicalCluster("34")))
+	r, found := target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+
+	// origin's annotate event arrives: still routed to the origin
+	target.UpsertLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	r, found = target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+
+	// origin cleanup hands the route to the destination
+	target.DeleteLogicalCluster("root", withMigrating(newLogicalCluster("34")))
+	r, found = target.Lookup(logicalcluster.NewPath("34"))
+	validateLookupOutput(t, logicalcluster.NewPath("34"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
 }

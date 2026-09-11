@@ -71,6 +71,14 @@ const (
 	// Deprecated: use LogicalClusterInactiveAnnotationKey.
 	LogicalClusterInactiveAnnotationKeyLegacy = "internal.kcp.io/inactive"
 
+	// LogicalClusterMigratingAnnotationKey marks a LogicalCluster that is part
+	// of an ongoing logical cluster migration. Its value is the path of the
+	// LogicalClusterMigration driving it. It is set on the origin shard's copy
+	// when the migration starts, travels to the destination shard with the
+	// copied data, and is removed from the destination's copy once the
+	// migration completes.
+	LogicalClusterMigratingAnnotationKey = "internal.kcp.io/migrating"
+
 	// LogicalClusterShardAnnotationKey is the shard name the LogicalCluster is scheduled on.
 	// This annotation is set on both the LogicalCluster and its owner, if the owner is set.
 	LogicalClusterShardAnnotationKey = "core.kcp.io/shard"

@@ -257,16 +257,9 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
 }
 
-// migratingAnnotationKey marks a LogicalCluster that is part of an ongoing
-// logical cluster migration. It mirrors
-// logicalclustermigration.MigratingAnnotationKey; the reconciler package is
-// not imported here to keep the index free of controller dependencies.
-// TODO: Move this to sdk.
-const migratingAnnotationKey = "internal.kcp.io/migrating"
-
 func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
 	clusterName := logicalcluster.From(logicalCluster)
-	migrating := logicalCluster.Annotations[migratingAnnotationKey] != ""
+	migrating := logicalCluster.Annotations[corev1alpha1.LogicalClusterMigratingAnnotationKey] != ""
 
 	c.lock.RLock()
 	got := c.clusterShards[clusterName]
@@ -292,20 +285,15 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	}
 	c.shardClusterWorkspaceType[shard][clusterName] = typeIdent
 
-	current, mapped := c.clusterShards[clusterName]
-	switch {
-	case !mapped, current == shard:
-		c.routeLocked(clusterName, shard)
-	case migrating && !c.clusterCopies[clusterName][current]:
-		// A copy that is still migrating never displaces a settled one.
-		// This is the origin's stale copy being touched by its
-		// controllers right before it is deleted, delivered after the
-		// destination already finished: routing must stay where the
-		// data is.
-	default:
-		// Either both copies are settled (the object moved between
-		// shards outside of a migration), or both are migrating: the
-		// latest write wins, as it always has.
+	// A settled copy always takes the route: this is the destination
+	// finalizing a migration, or the object moving between shards outside
+	// of one. A copy that is still migrating only takes the route when
+	// there is none, so the origin's stale copy, touched by its controllers
+	// right before it is deleted, cannot displace the destination when it
+	// is delivered late. Until the origin's copy is deleted the route stays
+	// on the origin, which rejects requests with a retryable error, exactly
+	// as the destination does until it finalizes.
+	if _, mapped := c.clusterShards[clusterName]; !mapped || !migrating {
 		c.routeLocked(clusterName, shard)
 	}
 }
@@ -325,21 +313,31 @@ func (c *State) routeLocked(clusterName logicalcluster.Name, shard string) {
 	c.clusterShards[clusterName] = shard
 }
 
-// pickShardLocked chooses the shard to route clusterName to from the copies
-// still present, preferring one that is not mid-migration. The caller must
-// hold the write lock.
-func (c *State) pickShardLocked(clusterName logicalcluster.Name) (string, bool) {
+// dropCopyLocked forgets shard's copy of clusterName. If the cluster was
+// routed to that shard, the route moves to one of the remaining copies,
+// preferring one that is not mid-migration. It returns false once no copy
+// remains, in which case the caller owns forgetting the cluster. The caller
+// must hold the write lock.
+func (c *State) dropCopyLocked(clusterName logicalcluster.Name, shard string) bool {
 	copies := c.clusterCopies[clusterName]
+	delete(copies, shard)
 	if len(copies) == 0 {
-		return "", false
+		delete(c.clusterCopies, clusterName)
+		return false
+	}
+	if c.clusterShards[clusterName] != shard {
+		return true
 	}
 	shards := slices.Sorted(maps.Keys(copies))
-	for _, shard := range shards {
-		if !copies[shard] {
-			return shard, true
+	next := shards[0]
+	for _, s := range shards {
+		if !copies[s] {
+			next = s
+			break
 		}
 	}
-	return shards[0], true
+	c.routeLocked(clusterName, next)
+	return true
 }
 
 func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
@@ -356,23 +354,12 @@ func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if copies := c.clusterCopies[clusterName]; copies != nil {
-		delete(copies, shard)
-		if len(copies) == 0 {
-			delete(c.clusterCopies, clusterName)
-		}
-	}
-	if remaining := c.clusterCopies[clusterName]; len(remaining) > 0 {
+	if c.dropCopyLocked(clusterName, shard) {
 		// Another shard still holds the cluster: this is the origin of a
-		// migration being cleaned up, not the cluster going away. Route to
-		// a remaining copy and drop only what is specific to this shard's
-		// copy. The parent Workspace still points at the same cluster
-		// name, so the workspace-derived edges below must survive.
-		if c.clusterShards[clusterName] == shard {
-			if next, ok := c.pickShardLocked(clusterName); ok {
-				c.routeLocked(clusterName, next)
-			}
-		}
+		// migration being cleaned up, not the cluster going away. Drop only
+		// what is specific to this shard's copy. The parent Workspace still
+		// points at the same cluster name, so the workspace-derived edges
+		// below must survive.
 		delete(c.shardClusterWorkspaceType[shard], clusterName)
 		if len(c.shardClusterWorkspaceType[shard]) == 0 {
 			delete(c.shardClusterWorkspaceType, shard)
@@ -480,16 +467,7 @@ func (c *State) DeleteShard(shardName string) {
 		if _, ok := copies[shardName]; !ok {
 			continue
 		}
-		delete(copies, shardName)
-		if len(copies) == 0 {
-			delete(c.clusterCopies, clusterName)
-		}
-		if c.clusterShards[clusterName] != shardName {
-			continue
-		}
-		if next, ok := c.pickShardLocked(clusterName); ok {
-			c.routeLocked(clusterName, next)
-		} else {
+		if !c.dropCopyLocked(clusterName, shardName) {
 			delete(c.clusterShards, clusterName)
 		}
 	}

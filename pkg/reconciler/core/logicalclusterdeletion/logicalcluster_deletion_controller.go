@@ -255,7 +255,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	// If the LC is currently being migrated, skip reconciliation. The
 	// migration controller handles etcd cleanup directly for migrating
 	// clusters via its Aborting phase.
-	if logicalCluster.Annotations["internal.kcp.io/migrating"] != "" {
+	if logicalCluster.Annotations[corev1alpha1.LogicalClusterMigratingAnnotationKey] != "" {
 		logger.V(4).Info("logical cluster is migrating, skipping deletion reconciliation")
 		return nil
 	}

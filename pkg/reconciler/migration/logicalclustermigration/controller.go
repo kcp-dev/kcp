@@ -65,7 +65,7 @@ const (
 	// MigratingAnnotationKey is the annotation set on the LogicalCluster object to
 	// indicate it is currently being migrated. The value is the cluster path
 	// of the LogicalClusterMigration object that triggered the migration.
-	MigratingAnnotationKey = "internal.kcp.io/migrating"
+	MigratingAnnotationKey = corev1alpha1.LogicalClusterMigratingAnnotationKey
 )
 
 func NewController(
