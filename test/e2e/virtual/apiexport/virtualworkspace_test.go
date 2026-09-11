@@ -112,7 +112,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
 		}
 		var found bool
-		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClients, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		apiExportVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -623,7 +623,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 		apiExportEndpointSlice, err := kcpClusterClient.Cluster(claimerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		consumer1VWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumer1, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		consumer1VWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumer1, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -904,7 +904,7 @@ func TestAPIExportPermissionClaimsDefaultSelector(t *testing.T) {
 		apiExportEndpointSlice, err := kcpClusterClient.Cluster(claimerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		consumerVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumer, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
+		consumerVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumer, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)

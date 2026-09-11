@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -109,7 +110,7 @@ func TestAPIExportAuthDelegation(t *testing.T) {
 		slice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(ctx, "today-cowboys", metav1.GetOptions{})
 		require.NoError(t, err)
 		var found bool
-		consumerVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumer, framework.ExportVirtualWorkspaceURLs(slice))
+		consumerVWCfg.Host, found, err = framework.VirtualWorkspaceURL(ctx, cfg, consumer, framework.ExportVirtualWorkspaceURLs(slice))
 		require.NoError(t, err)
 		return found, fmt.Sprintf("waiting for virtual workspace URL: %v", slice.Status.APIExportEndpoints)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
@@ -135,9 +136,15 @@ func TestAPIExportAuthDelegation(t *testing.T) {
 				Groups: []string{"system:authenticated"},
 			},
 		}
-		result, err := kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer.Spec.Cluster)).
-			AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		require.NoError(t, err, "SubjectAccessReview should be served on the APIExport virtual workspace")
+		// the virtual workspace installs its API set asynchronously; retry
+		// until the resource is served.
+		var result *authorizationv1.SubjectAccessReview
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			var err error
+			result, err = kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer.Spec.Cluster)).
+				AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+			require.NoError(c, err, "SubjectAccessReview should be served on the APIExport virtual workspace")
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		// The review was evaluated against the consumer workspace (status is populated),
 		// which is exactly the delegated-authz decision the provider needs.
 		t.Logf("SubjectAccessReview evaluated: allowed=%v reason=%q", result.Status.Allowed, result.Status.Reason)
@@ -159,9 +166,15 @@ func TestAPIExportAuthDelegation(t *testing.T) {
 				Groups: []string{"system:authenticated"},
 			},
 		}
-		result, err := kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer.Spec.Cluster)).
-			AuthorizationV1().LocalSubjectAccessReviews("default").Create(ctx, lsar, metav1.CreateOptions{})
-		require.NoError(t, err, "LocalSubjectAccessReview should be served on the APIExport virtual workspace")
+		// the virtual workspace installs its API set asynchronously; retry
+		// until the resource is served.
+		var result *authorizationv1.LocalSubjectAccessReview
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			var err error
+			result, err = kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer.Spec.Cluster)).
+				AuthorizationV1().LocalSubjectAccessReviews("default").Create(ctx, lsar, metav1.CreateOptions{})
+			require.NoError(c, err, "LocalSubjectAccessReview should be served on the APIExport virtual workspace")
+		}, wait.ForeverTestTimeout, 100*time.Millisecond)
 		t.Logf("LocalSubjectAccessReview evaluated: allowed=%v reason=%q", result.Status.Allowed, result.Status.Reason)
 	})
 

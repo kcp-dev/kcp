@@ -268,7 +268,7 @@ func TestClusterCachedResourceVirtualWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	clusterCachedResourceVWCfg := rest.CopyConfig(cfg)
 	var found bool
-	clusterCachedResourceVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), kcpClusterClient, consumerWorkspace,
+	clusterCachedResourceVWCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace,
 		framework.ReplicationVirtualWorkspaceURLs(cres))
 	require.NoError(t, err)
 	require.True(t, found, "expected to have found a suitable VW url for in %v endpoint slice", cres.Status.ClusterCachedResourceEndpoints)
