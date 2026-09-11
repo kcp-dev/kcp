@@ -29,6 +29,10 @@ spec:
       jsonPath: .spec.externalURL
       name: External URL
       type: string
+    - description: Shard scheduling status
+      jsonPath: .status.conditions[?(@.type=="Schedulable")].status
+      name: Schedulable
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date

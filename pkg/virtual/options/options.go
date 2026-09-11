@@ -27,6 +27,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
+	adminoptions "github.com/kcp-dev/kcp/pkg/virtual/admin/options"
 	apiexportoptions "github.com/kcp-dev/kcp/pkg/virtual/apiexport/options"
 	apiresourceschemaoptions "github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema/options"
 	initializingworkspacesoptions "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/options"
@@ -116,6 +117,15 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
+	adminVW, err := adminoptions.New().NewAdmin(
+		rootPathPrefix,
+		config,
+		cacheConfig,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	terminatingworkspaces, err := o.TerminatingWorkspaces.NewVirtualWorkspaces(rootPathPrefix, config, externalLogicalClusterAdminConfig, wildcardKcpInformers, cachedKcpInformers)
 	if err != nil {
 		return nil, err
@@ -126,7 +136,7 @@ func (o *Options) NewVirtualWorkspaces(
 		return nil, err
 	}
 
-	all, err := Merge(apiexports, apiresourceschemas, initializingworkspaces, replications, terminatingworkspaces, migratingworkspaces)
+	all, err := Merge(apiexports, apiresourceschemas, initializingworkspaces, replications, adminVW, terminatingworkspaces, migratingworkspaces)
 	if err != nil {
 		return nil, err
 	}

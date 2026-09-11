@@ -57,6 +57,9 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	systemcrds "github.com/kcp-dev/kcp/config/system-crds"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	cacheserver "github.com/kcp-dev/kcp/pkg/cache/server"
+	cachebootstrap "github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
@@ -285,6 +288,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}
+	if err := s.installShardRepresentationController(ctx, controllerConfig); err != nil {
+		return err
+	}
 	if err := s.installReplicationController(ctx, controllerConfig, gvrs); err != nil {
 		return err
 	}
@@ -449,6 +455,12 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
+	if s.Options.Controllers.EnableAll || enabled.Has("cacheregistration") {
+		if err := s.installCacheRegistrationController(ctx, controllerConfig); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -527,6 +539,8 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer().Run(hookContext.Done())
+		go s.KcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().Run(hookContext.Done())
+		go s.CacheKcpSharedInformerFactory.Core().V1alpha1().Caches().Informer().Run(hookContext.Done())
 
 		logger.Info("starting APIExport, APIBinding and LogicalCluster informers")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*100, true, func(ctx context.Context) (bool, error) {
@@ -622,14 +636,53 @@ func (s *Server) Run(ctx context.Context) error {
 		s.KcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 
-		// create or update shard
+		// Get cache name from the cache-server.
+		logger.Info("Retrieving Cache info")
+		var thisCache *corev1alpha1.Cache
+		if err := wait.PollUntilContextCancel(hookCtx, time.Second, true, func(ctx context.Context) (bool, error) {
+			ctx = cacheclient.WithShardInContext(ctx, cachebootstrap.SystemCacheServerShard)
+			caches, err := s.KcpCacheClusterClient.Cluster(cacheserver.SystemCacheCluster.Path()).CoreV1alpha1().Caches().List(ctx, metav1.ListOptions{})
+			if err != nil {
+				logger.Error(err, "failed listing Cache objects on the cache server")
+				return false, nil
+			}
+			if len(caches.Items) == 0 {
+				logger.Error(err, "cache server has not yet registered itself")
+				return false, nil
+			}
+			if len(caches.Items) != 1 {
+				names := make([]string, 0, len(caches.Items))
+				for i := range caches.Items {
+					names = append(names, caches.Items[i].Name)
+				}
+				logger.Error(err, "cache server registration not ready, got %v", names)
+				return false, nil
+			}
+			thisCache = &caches.Items[0]
+			return true, nil
+		}); err != nil {
+			logger.Error(err, "failed reconciling cache server registration")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+
+		// create or update the shard-owned Shard object in the local
+		// system:shard logical cluster. It replicates to the cache server and
+		// is served through the Admin workspace, so shard startup does not
+		// depend on the root shard being reachable.
+		labels := map[string]string{
+			"name": s.Options.Extra.ShardName,
+		}
+		for k, v := range s.Options.Extra.ShardLabels {
+			labels[k] = v
+		}
 		shard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        s.Options.Extra.ShardName,
-				Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				Labels: map[string]string{
-					"name": s.Options.Extra.ShardName,
+				Name: s.Options.Extra.ShardName,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: configshard.SystemShardCluster.String(),
+					"kcp.io/cache":               thisCache.Name,
 				},
+				Labels: labels,
 			},
 			Spec: corev1alpha1.ShardSpec{
 				BaseURL:             s.CompletedConfig.ShardBaseURL(),
@@ -639,22 +692,23 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("Creating or updating Shard", "shard", s.Options.Extra.ShardName)
 		if err := wait.PollUntilContextCancel(hookCtx, time.Second, true, func(ctx context.Context) (bool, error) {
-			existingShard, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shard.Name, metav1.GetOptions{})
+			existingShard, err := s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shard.Name, metav1.GetOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Error(err, "failed getting Shard from the root workspace")
 				return false, nil
 			} else if errors.IsNotFound(err) {
-				if _, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
+				if _, err := s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
 					logger.Error(err, "failed creating Shard in the root workspace")
 					return false, nil
 				}
 				logger.Info("Created Shard", "shard", s.Options.Extra.ShardName)
 				return true, nil
 			}
+			existingShard.Labels = shard.Labels
 			existingShard.Spec.BaseURL = shard.Spec.BaseURL
 			existingShard.Spec.ExternalURL = shard.Spec.ExternalURL
 			existingShard.Spec.VirtualWorkspaceURL = shard.Spec.VirtualWorkspaceURL
-			if _, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Update(hookCtx, existingShard, metav1.UpdateOptions{}); err != nil {
+			if _, err := s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards().Update(hookCtx, existingShard, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed updating Shard in the root workspace")
 				return false, nil
 			}

@@ -89,7 +89,7 @@ func listAPIBindingsByAPIExport(apiBindingInformer apisv1alpha2informers.APIBind
 }
 
 func NewController(
-	shardName string,
+	thisShard string,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	localClusterCachedResourceEndpointSliceClusterInformer, globalClusterCachedResourceEndpointSliceClusterInformer cachev1alpha1informers.ClusterCachedResourceEndpointSliceClusterInformer,
 	globalShardClusterInformer corev1alpha1informers.ShardClusterInformer,
@@ -98,7 +98,7 @@ func NewController(
 	clusterClient kcpclientset.ClusterInterface,
 ) (*controller, error) {
 	c := &controller{
-		shardName: shardName,
+		thisShard: thisShard,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{
@@ -106,7 +106,7 @@ func NewController(
 			},
 		),
 		getMyShard: func() (*corev1alpha1.Shard, error) {
-			return globalShardClusterInformer.Cluster(core.RootCluster).Lister().Get(shardName)
+			return indexers.ShardByName(globalShardClusterInformer.Lister(), thisShard)
 		},
 		getClusterCachedResourceEndpointSlice: func(cluster logicalcluster.Name, name string) (*cachev1alpha1.ClusterCachedResourceEndpointSlice, error) {
 			obj, err := indexers.ByPathAndNameWithFallback[*cachev1alpha1.ClusterCachedResourceEndpointSlice](cachev1alpha1.Resource("clustercachedresourceendpointslices"), localClusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), globalClusterCachedResourceEndpointSliceClusterInformer.Informer().GetIndexer(), cluster.Path(), name)
@@ -123,7 +123,7 @@ func NewController(
 		},
 		patchClusterCachedResourceEndpointSlice: func(ctx context.Context, cluster logicalcluster.Path, patch *cachev1alpha1apply.ClusterCachedResourceEndpointSliceApplyConfiguration) error {
 			_, err := clusterClient.CacheV1alpha1().ClusterCachedResourceEndpointSlices().Cluster(cluster).ApplyStatus(ctx, patch, metav1.ApplyOptions{
-				FieldManager: shardName,
+				FieldManager: thisShard,
 			})
 			return err
 		},
@@ -251,7 +251,7 @@ func (c *controller) enqueueClusterCachedResourceEndpointSlice(obj *cachev1alpha
 
 type controller struct {
 	queue     workqueue.TypedRateLimitingInterface[string]
-	shardName string
+	thisShard string
 
 	getAPIExport                            func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	listAPIBindingsByAPIExport              func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)

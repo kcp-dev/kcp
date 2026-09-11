@@ -270,7 +270,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 			}
 		}
 
-		targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+		targetVwURL, foundTargetVwURL, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 		require.NoError(t, err)
 		require.True(t, foundTargetVwURL, "didn't find a VirtualWorkspace URL for %v initializer and %v workspace", initializer, ws.Name)
 
@@ -418,7 +418,7 @@ func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 		require.True(t, ok, "didn't find WorkspaceType for %s initializer", initializer)
 		initializerWs, ok := workspacesByType[wt.Name]
 		require.True(t, ok, "didn't find Workspace for %v type", wt.Name)
-		initializerWsShard := kcptesting.WorkspaceShardOrDie(t, sourceKcpClusterClient, &initializerWs)
+		initializerWsShard := kcptesting.WorkspaceShardOrDie(t, sourceConfig, &initializerWs)
 
 		ws, err := sourceKcpClusterClient.TenancyV1alpha1().Cluster(wsPath).Workspaces().Create(ctx, func() *tenancyv1alpha1.Workspace {
 			w := workspaceForType(workspacetypes["gamma"], testLabelSelector)
@@ -757,7 +757,7 @@ func TestInitializingWorkspacesVirtualWorkspaceInitializerPermissions(t *testing
 		}
 	}
 	require.NotEmpty(t, vwURLs, "expected at least one initializing VW URL on the workspacetype")
-	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 	require.NoError(t, err)
 	require.True(t, found)
 
@@ -844,7 +844,7 @@ func workspacesStuckInInitializing(t *testing.T, kcpClient kcpclientset.ClusterI
 			t.Logf("workspace %s has no initializers", workspace.Name)
 			return false
 		}
-		t.Logf("Workspace %s (accessible via /clusters/%s) on %s shard is stuck in initializing", workspace.Name, workspace.Spec.Cluster, kcptesting.WorkspaceShardOrDie(t, kcpClient, &workspace).Name)
+		t.Logf("Workspace %s (accessible via /clusters/%s) on %s shard is stuck in initializing", workspace.Name, workspace.Spec.Cluster, workspace.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey])
 	}
 	return true
 }

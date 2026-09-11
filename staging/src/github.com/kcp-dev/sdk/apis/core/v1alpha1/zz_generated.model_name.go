@@ -22,6 +22,26 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Cache) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.Cache"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CacheList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.CacheList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CacheSpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.CacheSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CacheStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.CacheStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Endpoint) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.Endpoint"
 }

@@ -35,6 +35,7 @@ import (
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
 	"k8s.io/apiserver/pkg/server/healthz"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
@@ -84,11 +85,48 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// require deeper refactoring to make everything rely on the lookup middleware.
 	// If so, there will be also another middleware injected into the handler chain, which is responsible
 	// for resolving the incoming request and store the found cluster name in a context variable.
-	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
+	// Shards are discovered from the Admin workspace (/services/admin),
+	// served identically by every peer shard and backed by the cache server;
+	// the root workspace is not read for discovery. The Admin workspace
+	// accepts /clusters/<name>/ paths, so the standard scoped informer
+	// factory works against it unchanged.
+	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.PeersConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
+
+	// Feed every discovered shard into the peer failover set: the configured
+	// peers are only boot-time seeds, and afterwards the set follows the
+	// shards observed through the Admin workspace, so discovery keeps
+	// working when seeds go away (e.g. short-lived shards). The Admin
+	// workspace is a virtual workspace, so the shard's virtual workspace URL
+	// is the peer endpoint.
+	upsertPeer := func(obj interface{}) {
+		shard, ok := obj.(*corev1alpha1.Shard)
+		if !ok {
+			return
+		}
+		endpoint := shard.Spec.VirtualWorkspaceURL
+		if endpoint == "" {
+			endpoint = shard.Spec.BaseURL
+		}
+		if err := s.CompletedConfig.Peers.UpsertShard(shard.Name, endpoint); err != nil {
+			klog.FromContext(ctx).V(2).Info("not adding shard as a discovery peer", "shard", shard.Name, "reason", err)
+		}
+	}
+	_, _ = s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    upsertPeer,
+		UpdateFunc: func(_, obj interface{}) { upsertPeer(obj) },
+		DeleteFunc: func(obj interface{}) {
+			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = final.Obj
+			}
+			if shard, ok := obj.(*corev1alpha1.Shard); ok {
+				s.CompletedConfig.Peers.RemoveShard(shard.Name)
+			}
+		},
+	})
 
 	getClientFunc := func(shard *corev1alpha1.Shard) (kcpclientset.ClusterInterface, error) {
 		shardConfig := restclient.CopyConfig(s.CompletedConfig.ShardsConfig)

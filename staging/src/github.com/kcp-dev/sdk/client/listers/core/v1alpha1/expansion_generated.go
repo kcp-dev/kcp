@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// CacheClusterListerExpansion allows custom methods to be added to
+// CacheClusterLister.
+type CacheClusterListerExpansion interface{}
+
+// CacheListerExpansion allows custom methods to be added to
+// CacheLister.
+type CacheListerExpansion interface{}
+
 // LogicalClusterClusterListerExpansion allows custom methods to be added to
 // LogicalClusterClusterLister.
 type LogicalClusterClusterListerExpansion interface{}

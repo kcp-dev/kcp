@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -44,6 +46,19 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+// adminWorkspaceClient returns a client against the Admin workspace
+// (/services/admin) of the server behind cfg.
+func adminWorkspaceClient(cfg *rest.Config) (kcpclientset.Interface, error) {
+	vwCfg := rest.CopyConfig(cfg)
+	u, err := url.Parse(cfg.Host)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = "/services/admin"
+	vwCfg.Host = u.String()
+	return kcpclientset.NewForConfig(vwCfg)
+}
+
 func TestWorkspaceController(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -51,6 +66,10 @@ func TestWorkspaceController(t *testing.T) {
 	type runningServer struct {
 		kcptestingserver.RunningServer
 		rootWorkspaceKcpClient, orgWorkspaceKcpClient kcpclientset.Interface
+		// cfg carries the client credentials, used to build a client against
+		// the Admin workspace (/services/admin): the unschedulable annotation
+		// is cache-owned and can only be changed through it.
+		cfg *rest.Config
 	}
 	var testCases = []struct {
 		name        string
@@ -62,8 +81,13 @@ func TestWorkspaceController(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				wShard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
-				require.NoError(t, err, "did not see root workspace shard")
+				adminClient, err := adminWorkspaceClient(server.cfg)
+				require.NoError(t, err)
+				var wShard *corev1alpha1.Shard
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					wShard, err = adminClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+					require.NoError(c, err, "did not see root shard in the Admin workspace")
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				require.True(t, strings.HasPrefix(wShard.Spec.BaseURL, "https://"), "expected https:// root shard base URL, got=%q", wShard.Spec.BaseURL)
 				require.True(t, strings.HasPrefix(wShard.Spec.ExternalURL, "https://"), "expected https:// root shard external URL, got=%q", wShard.Spec.ExternalURL)
@@ -97,17 +121,24 @@ func TestWorkspaceController(t *testing.T) {
 			work: func(ctx context.Context, t *testing.T, server runningServer) {
 				t.Helper()
 
-				t.Logf("Get the root shard")
-				shard, err := server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+				t.Logf("Mark the root shard as unschedulable through the Admin workspace")
+				adminClient, err := adminWorkspaceClient(server.cfg)
 				require.NoError(t, err)
-
-				t.Logf("Mark the root shard as unschedulable")
-				if shard.Annotations == nil {
-					shard.Annotations = map[string]string{}
-				}
-				shard.Annotations["experimental.core.kcp.io/unschedulable"] = "true"
-				_, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
-				require.NoError(t, err)
+				var shard *corev1alpha1.Shard
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					shard, err = adminClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+					require.NoError(c, err)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					adminShard, err := adminClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+					require.NoError(c, err)
+					if adminShard.Annotations == nil {
+						adminShard.Annotations = map[string]string{}
+					}
+					adminShard.Annotations["experimental.core.kcp.io/unschedulable"] = "true"
+					_, err = adminClient.CoreV1alpha1().Shards().Update(ctx, adminShard, metav1.UpdateOptions{})
+					require.NoError(c, err)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				// Workspaces cannot become "unschedulable" - once they
 				// are scheduled on a shard this state does not change.
@@ -156,12 +187,14 @@ func TestWorkspaceController(t *testing.T) {
 					return server.orgWorkspaceKcpClient.TenancyV1alpha1().Workspaces().Get(ctx, workspaceName, metav1.GetOptions{})
 				})
 
-				t.Logf("Remove unschedulable annotation from the root shard")
-				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
-				require.NoError(t, err)
-				delete(shard.Annotations, "experimental.core.kcp.io/unschedulable")
-				shard, err = server.rootWorkspaceKcpClient.CoreV1alpha1().Shards().Update(ctx, shard, metav1.UpdateOptions{})
-				require.NoError(t, err)
+				t.Logf("Remove unschedulable annotation from the root shard through the Admin workspace")
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					adminShard, err := adminClient.CoreV1alpha1().Shards().Get(ctx, "root", metav1.GetOptions{})
+					require.NoError(c, err)
+					delete(adminShard.Annotations, "experimental.core.kcp.io/unschedulable")
+					_, err = adminClient.CoreV1alpha1().Shards().Update(ctx, adminShard, metav1.UpdateOptions{})
+					require.NoError(c, err)
+				}, wait.ForeverTestTimeout, 100*time.Millisecond)
 
 				t.Logf("Expect workspace to be scheduled to the shard and show the external URL")
 				kcptestinghelpers.EventuallyCondition(t, func() (utilconditions.Getter, error) {
@@ -204,6 +237,7 @@ func TestWorkspaceController(t *testing.T) {
 				RunningServer:          server,
 				rootWorkspaceKcpClient: kcpClient.Cluster(core.RootCluster.Path()),
 				orgWorkspaceKcpClient:  kcpClient.Cluster(orgPath),
+				cfg:                    cfg,
 			})
 		})
 	}
