@@ -29,7 +29,9 @@ var RootShard = "root"
 
 // ShardUnschedulableAnnotationKey marks a single shard as unschedulable: the
 // workspace scheduler will not place new workspaces on it (cordoning). It
-// only affects the shard whose Shard object carries it.
+// only affects the shard whose Shard object carries it. Admins set it
+// through the Admin workspace (kubectl ws use :admin); direct edits of Shard
+// objects are denied by admission.
 const ShardUnschedulableAnnotationKey = "experimental.core.kcp.io/unschedulable"
 
 // ShardSchedulable is a condition on the Shard object reflecting the shard's

@@ -73,8 +73,8 @@ or multiple per region or cloud provider.
 
 Every shard serves the *Admin workspace* at `/services/admin`: an
 installation-wide administrative view, reachable identically through any
-shard. Its first resource is an aggregated, read-only view of all `Shard`
-objects. The view is backed by the cache server, where every shard's `Shard`
+shard. Its first resource is an aggregated view of all `Shard` objects. The
+view is backed by the cache server, where every shard's `Shard`
 object is replicated, so all shards serve an identical view in a single
 `resourceVersion` space: consumers can fail over between shards and resume
 watches with the same resource version. Over time the Admin workspace is the
@@ -92,9 +92,26 @@ root      us-east-2   https://127.0.0.1:6444   ...
 shard-1   us-east-1   https://127.0.0.1:6445   ...
 ```
 
+The view is writable for exactly one purpose: the allow-listed operational
+annotations (currently `experimental.core.kcp.io/unschedulable` for
+cordoning). Such a write is validated, applied to the cache copy of the
+target shard, and flows from the cache to the shard hosting the
+authoritative object, which applies it - no component ever connects to
+another shard directly, and intent for a temporarily unavailable shard
+parks in the cache until it reconnects. Everything else on a `Shard` is
+read-only through the Admin workspace.
+
 Access requires membership in the `system:kcp:admin` group; the serving
 path does not depend on the root shard. To reach the view through a
 front-proxy, add a `/services/` path mapping; any shard can be the backend.
+
+`Shard` objects in the `root` workspace are protected by admission: shards
+register themselves and own their objects, so all direct writes (create,
+update including annotations, delete) by non-system users are denied with a
+pointer at the Admin workspace. Shard configuration changes go through the
+shard's own flags/deployment; operational actions (e.g. cordoning via the
+`experimental.core.kcp.io/unschedulable` annotation) are reserved for system
+components until they are exposed through the Admin workspace.
 
 ## Consistency Domain
 
