@@ -145,7 +145,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			endpointsReconciler: &endpointsReconciler{
-				shardName: "shard2",
+				thisShard: "shard2",
 				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					return &apisv1alpha2.APIExport{}, nil
 				},
@@ -183,7 +183,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			endpointsReconciler: &endpointsReconciler{
-				shardName: "shard1",
+				thisShard: "shard1",
 				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					return &apisv1alpha2.APIExport{}, nil
 				},
@@ -232,7 +232,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			endpointsReconciler: &endpointsReconciler{
-				shardName: "shard1",
+				thisShard: "shard1",
 				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					return &apisv1alpha2.APIExport{}, nil
 				},
@@ -276,7 +276,7 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 			endpointsReconciler: &endpointsReconciler{
-				shardName: "shard1",
+				thisShard: "shard1",
 				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 					return &apisv1alpha2.APIExport{
 						ObjectMeta: metav1.ObjectMeta{
@@ -325,7 +325,7 @@ func TestReconcile(t *testing.T) {
 				getAPIExport:                tc.endpointsReconciler.getAPIExport,
 				listAPIBindingsByAPIExport:  tc.endpointsReconciler.listAPIBindingsByAPIExport,
 				patchAPIExportEndpointSlice: tc.endpointsReconciler.patchAPIExportEndpointSlice,
-				shardName:                   tc.endpointsReconciler.shardName,
+				thisShard:                   tc.endpointsReconciler.thisShard,
 			}
 			input := tc.input.DeepCopy()
 			_, err := c.reconcile(context.Background(), input)

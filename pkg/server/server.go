@@ -623,13 +623,17 @@ func (s *Server) Run(ctx context.Context) error {
 		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 
 		// create or update shard
+		labels := map[string]string{
+			"name": s.Options.Extra.ShardName,
+		}
+		for k, v := range s.Options.Extra.ShardLabels {
+			labels[k] = v
+		}
 		shard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        s.Options.Extra.ShardName,
 				Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				Labels: map[string]string{
-					"name": s.Options.Extra.ShardName,
-				},
+				Labels:      labels,
 			},
 			Spec: corev1alpha1.ShardSpec{
 				BaseURL:             s.CompletedConfig.ShardBaseURL(),
@@ -651,6 +655,7 @@ func (s *Server) Run(ctx context.Context) error {
 				logger.Info("Created Shard", "shard", s.Options.Extra.ShardName)
 				return true, nil
 			}
+			existingShard.Labels = shard.Labels
 			existingShard.Spec.BaseURL = shard.Spec.BaseURL
 			existingShard.Spec.ExternalURL = shard.Spec.ExternalURL
 			existingShard.Spec.VirtualWorkspaceURL = shard.Spec.VirtualWorkspaceURL
