@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -623,12 +624,10 @@ func (s *Server) Run(ctx context.Context) error {
 		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 
 		// create or update shard
-		labels := map[string]string{
-			"name": s.Options.Extra.ShardName,
-		}
-		for k, v := range s.Options.Extra.ShardLabels {
-			labels[k] = v
-		}
+		labels := make(map[string]string, len(s.Options.Extra.ShardLabels)+1)
+		maps.Copy(labels, s.Options.Extra.ShardLabels)
+		// The name label always reflects the shard name and cannot be overridden via --shard-labels.
+		labels["name"] = s.Options.Extra.ShardName
 		shard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        s.Options.Extra.ShardName,
