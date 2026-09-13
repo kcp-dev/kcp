@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package shard maintains the status of Shard objects. It mimics a
+// Kubernetes node reporting its state: currently it keeps the Schedulable
+// condition in sync with the unschedulable (cordon) annotation, acknowledging
+// that the cordon/uncordon signal was observed and applied.
 package shard
 
 import (
@@ -32,6 +36,8 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
@@ -45,7 +51,7 @@ const (
 )
 
 func NewController(
-	rootKcpClient kcpclientset.ClusterInterface,
+	kcpClient kcpclientset.ClusterInterface,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
@@ -55,8 +61,8 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
-		kcpClient: rootKcpClient,
-		commit:    committer.NewCommitter[*Shard, Patcher, *ShardSpec, *ShardStatus](rootKcpClient.CoreV1alpha1().Shards()),
+		kcpClient: kcpClient,
+		commit:    committer.NewCommitter[*Shard, Patcher, *ShardSpec, *ShardStatus](kcpClient.CoreV1alpha1().Shards()),
 		getShard: func(clusterName logicalcluster.Name, name string) (*corev1alpha1.Shard, error) {
 			return shardInformer.Cluster(clusterName).Lister().Get(name)
 		},
@@ -70,8 +76,8 @@ func NewController(
 	return c, nil
 }
 
-// Controller watches WorkspaceShards and Secrets in order to make sure every Shard
-// has its URL exposed when a valid kubeconfig is connected to it.
+// Controller maintains the status of Shard objects, e.g. the Schedulable
+// condition acknowledging cordon/uncordon signals.
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
@@ -182,6 +188,20 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-func (c *Controller) reconcile(ctx context.Context, workspaceShard *corev1alpha1.Shard) error {
+// reconcile keeps the Schedulable condition in sync with the cordon
+// annotation, acknowledging that this shard observed and applied the signal.
+func (c *Controller) reconcile(_ context.Context, shard *corev1alpha1.Shard) error {
+	if _, cordoned := shard.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey]; cordoned {
+		conditions.MarkFalse(
+			shard,
+			corev1alpha1.ShardSchedulable,
+			corev1alpha1.ShardReasonCordoned,
+			conditionsv1alpha1.ConditionSeverityInfo,
+			"shard is cordoned via the %s annotation, no new workspaces are scheduled onto it",
+			corev1alpha1.ShardUnschedulableAnnotationKey,
+		)
+	} else {
+		conditions.MarkTrue(shard, corev1alpha1.ShardSchedulable)
+	}
 	return nil
 }

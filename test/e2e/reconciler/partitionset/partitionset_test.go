@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -180,10 +181,19 @@ func TestPartitionSet(t *testing.T) {
 			reflect.DeepEqual(partitions.Items[1].Spec.Selector.MatchLabels, map[string]string{"partition-test-region": "partition-test-region-1"})), "selectors not as expected")
 
 	t.Logf("Moving the second shard to the same region as the first one")
-	shard2.Labels = map[string]string{
-		"partition-test-region": "partition-test-region-1",
-	}
-	_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard2, metav1.UpdateOptions{})
+	// The shard controller updates the Shard status after creation, so re-fetch
+	// before updating instead of reusing the object returned by Create.
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		shard, err := shardClient.Cluster(core.RootCluster.Path()).Get(ctx, shard2.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		shard.Labels = map[string]string{
+			"partition-test-region": "partition-test-region-1",
+		}
+		_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard, metav1.UpdateOptions{})
+		return err
+	})
 	require.NoError(t, err, "error updating shard")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
@@ -241,11 +251,18 @@ func TestPartitionSet(t *testing.T) {
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected 2 partitions")
 
 	t.Logf("Excluding the shard of the third region")
-	shard3.Labels = map[string]string{
-		"partition-test-region": "partition-test-region-3",
-		"excluded":              "true",
-	}
-	_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard3, metav1.UpdateOptions{})
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		shard, err := shardClient.Cluster(core.RootCluster.Path()).Get(ctx, shard3.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		shard.Labels = map[string]string{
+			"partition-test-region": "partition-test-region-3",
+			"excluded":              "true",
+		}
+		_, err = shardClient.Cluster(core.RootCluster.Path()).Update(ctx, shard, metav1.UpdateOptions{})
+		return err
+	})
 	require.NoError(t, err, "error updating shard")
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		partitionSet, err = partitionSetClient.Cluster(partitionClusterPath).Get(ctx, partitionSet.Name, metav1.GetOptions{})
