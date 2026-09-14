@@ -247,8 +247,41 @@ func updateTerminalConditionPhase(workspace *tenancyv1alpha1.Workspace) bool {
 		return true
 	}
 	if !notReady && workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseUnavailable {
-		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
+		workspace.Status.Phase = recoveredPhase(workspace)
 		return true
 	}
 	return false
+}
+
+// recoveredPhase returns the phase an Unavailable workspace goes back to once no
+// condition holds it there anymore.
+//
+// The regular lifecycle of a (non-mounted) workspace is:
+//
+//	Scheduling ──(spec.URL+spec.Cluster set)──> Initializing ──(no initializers left)──> Ready
+//
+// Any phase can drop to Unavailable when a Workspace* condition turns False, and
+// that can happen before the workspace was ever initialized, e.g. when no shard is
+// schedulable yet right after startup:
+//
+//	Scheduling ──(WorkspaceScheduled=False)──> Unavailable ──(WorkspaceScheduled=True)──> ?
+//
+// Going straight to Ready there skips Initializing and reports the workspace ready
+// while its LogicalCluster still has initializers, i.e. before its default
+// APIBindings exist. So the workspace resumes the lifecycle where it left off, and
+// only a workspace that already passed Initializing returns to Ready directly:
+//
+//	Unavailable ──(mounted, or WorkspaceInitialized=True)──> Ready
+//	Unavailable ──(spec.URL or spec.Cluster empty)─────────> Scheduling
+//	Unavailable ──(scheduled, not initialized yet)─────────> Initializing ──> Ready
+func recoveredPhase(workspace *tenancyv1alpha1.Workspace) corev1alpha1.LogicalClusterPhaseType {
+	// mounted workspaces have no LogicalCluster to initialize; their readiness is
+	// driven by the mount.
+	if workspace.Spec.Mount != nil || conditions.IsTrue(workspace, tenancyv1alpha1.WorkspaceInitialized) {
+		return corev1alpha1.LogicalClusterPhaseReady
+	}
+	if workspace.Spec.URL == "" || workspace.Spec.Cluster == "" {
+		return corev1alpha1.LogicalClusterPhaseScheduling
+	}
+	return corev1alpha1.LogicalClusterPhaseInitializing
 }

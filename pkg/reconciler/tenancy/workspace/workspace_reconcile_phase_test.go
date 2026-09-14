@@ -315,6 +315,10 @@ func TestReconcilePhase(t *testing.T) {
 					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
 					Conditions: []conditionsv1alpha1.Condition{
 						{
+							Type:   tenancyv1alpha1.WorkspaceInitialized,
+							Status: corev1.ConditionTrue,
+						},
+						{
 							Type:   tenancyv1alpha1.MountConditionReady,
 							Status: corev1.ConditionTrue,
 						},
@@ -342,6 +346,10 @@ func TestReconcilePhase(t *testing.T) {
 					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
 					Conditions: []conditionsv1alpha1.Condition{
 						{
+							Type:   tenancyv1alpha1.WorkspaceInitialized,
+							Status: corev1.ConditionTrue,
+						},
+						{
 							Type:   conditionsv1alpha1.ConditionType("UpdateIsNeeded"),
 							Status: corev1.ConditionFalse,
 						},
@@ -354,6 +362,62 @@ func TestReconcilePhase(t *testing.T) {
 						Initializers: []corev1alpha1.LogicalClusterInitializer{},
 					},
 				}, nil
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseReady,
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "workspace was unavailable before it was initialized and is scheduled now - resumes Initializing instead of Ready",
+			input: &tenancyv1alpha1.Workspace{
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://example.com",
+					Cluster: "cluster-1",
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
+					Conditions: []conditionsv1alpha1.Condition{
+						{
+							Type:   tenancyv1alpha1.WorkspaceScheduled,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseInitializing,
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "workspace was unavailable before it was scheduled and no condition blocks it anymore - resumes Scheduling instead of Ready",
+			input: &tenancyv1alpha1.Workspace{
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
+				},
+			},
+			wantPhase:  corev1alpha1.LogicalClusterPhaseScheduling,
+			wantStatus: reconcileStatusStopAndRequeue,
+		},
+		{
+			name: "mounted workspace is unavailable and mount is ready again - Ready",
+			input: &tenancyv1alpha1.Workspace{
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL: "http://example.com",
+					Mount: &tenancyv1alpha1.Mount{
+						Reference: tenancyv1alpha1.ObjectReference{
+							APIVersion: "proxy.example.com/v1alpha1",
+							Kind:       "KubeCluster",
+							Name:       "cluster-1",
+						},
+					},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseUnavailable,
+					Conditions: []conditionsv1alpha1.Condition{
+						{
+							Type:   tenancyv1alpha1.MountConditionReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
 			},
 			wantPhase:  corev1alpha1.LogicalClusterPhaseReady,
 			wantStatus: reconcileStatusStopAndRequeue,
