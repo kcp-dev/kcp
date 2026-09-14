@@ -33,10 +33,9 @@ import (
 func ForbidSystemUsernames(delegate authenticator.Request) authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
 		result, authenticated, err := delegate.AuthenticateRequest(req)
-		if err == nil {
-			if strings.HasPrefix(result.User.GetName(), "system:") {
-				return nil, false, errors.New("system usernames are not admitted")
-			}
+		if err == nil && authenticated && result != nil && result.User != nil &&
+			strings.HasPrefix(result.User.GetName(), "system:") {
+			return nil, false, errors.New("system usernames are not admitted")
 		}
 
 		return result, authenticated, err
