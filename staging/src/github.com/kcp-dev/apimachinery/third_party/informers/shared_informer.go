@@ -97,7 +97,7 @@ func NewSharedIndexInformerWithOptions(lw cache.ListerWatcher, exampleObject run
 
 	return &sharedIndexInformer{
 		// kcp modification: We changed the keyfunction passed to NewIndexer
-		indexer:                         cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, options.Indexers, cache.WithStoreMetrics(options.Identifier, options.InformerMetricsProvider)),
+		indexer:                         cache.NewIndexer(kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc, options.Indexers, cache.WithStoreMetrics(options.Identifier, options.InformerMetricsProvider)),
 		processor:                       processor,
 		synced:                          make(chan struct{}),
 		listerWatcher:                   lw,
