@@ -184,9 +184,18 @@ func withShardsView() forwardingregistry.StorageWrapper {
 
 		storage.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 			// Shard objects live in different logical clusters across shards;
-			// a name-only GET cannot be routed to one cluster. List and pick
-			// instead - installations have few shards.
-			result, err := storage.ListerFunc(ctx, &metainternalversion.ListOptions{})
+			// a name-only GET cannot be routed to one cluster, and the cache
+			// server cannot serve single-key reads across the shard wildcard.
+			// That rules out the delegate getter and also a metadata.name
+			// field selector, which the generic store turns into a single-key
+			// read. List and pick instead - installations have few shards -
+			// honouring the requested resource version (GET and LIST share
+			// "not older than" semantics).
+			listOptions := &metainternalversion.ListOptions{}
+			if options != nil {
+				listOptions.ResourceVersion = options.ResourceVersion
+			}
+			result, err := storage.ListerFunc(ctx, listOptions)
 			if err != nil {
 				return nil, err
 			}

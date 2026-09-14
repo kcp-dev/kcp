@@ -178,8 +178,7 @@ func (o *UseWorkspaceOptions) Run(ctx context.Context) (err error) {
 		// :admin is a reserved pseudo-workspace: the Admin workspace, an
 		// installation-wide administrative view served by the admin virtual
 		// workspace (/services/admin) identically on every shard and reached
-		// through the front-proxy. Its first resource is the aggregated,
-		// read-only view of all shards.
+		// through the front-proxy.
 		u, err := o.currentBaseURL()
 		if err != nil {
 			return err

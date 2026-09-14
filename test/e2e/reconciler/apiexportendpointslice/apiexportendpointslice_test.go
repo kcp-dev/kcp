@@ -37,7 +37,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
-	"github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/apis/topology/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -183,16 +182,11 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 	cfg := server.BaseConfig(t)
 
 	t.Logf("Check if we can access shards")
-	var shards *v1alpha1.ShardList
-	{
-		var err error
-		shards, err = kcptesting.ListShards(t.Context(), cfg)
-		require.NoError(t, err, "failed to list shards")
-
-		if len(shards.Items) < 2 {
-			t.Skipf("Need at least 2 shards to run this test, got %d", len(shards.Items))
-			return
-		}
+	shards, err := kcptesting.ListShards(t.Context(), cfg)
+	require.NoError(t, err, "failed to list shards")
+	if len(shards.Items) < 2 {
+		t.Skipf("Need at least 2 shards to run this test, got %d", len(shards.Items))
+		return
 	}
 
 	t.Logf("Setup provider workspace")

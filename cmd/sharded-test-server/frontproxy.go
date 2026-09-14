@@ -86,10 +86,7 @@ func startFrontProxy(
 			ProxyClientKey:  filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.key"),
 		},
 		{
-			Path: "/services/",
-			// virtual workspace apiservers. The shards VW serves an
-			// identical, cache-backed view on every shard, so a static
-			// backend suffices.
+			Path:            "/services/admin",
 			Backend:         "https://localhost:6444",
 			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
 			ProxyClientCert: filepath.Join(workDirPath, ".kcp-front-proxy", "requestheader.crt"),
