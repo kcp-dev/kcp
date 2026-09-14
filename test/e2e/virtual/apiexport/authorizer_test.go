@@ -503,16 +503,14 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	// And we can replace logicalcluster in the url and test other workspaces for authorization leaking.
 	t.Logf("Check if we can access shards")
 	var shards *corev1alpha1.ShardList
-	{
-		// Shards are served through the Admin workspace from the cache server
-		// and appear asynchronously after shard startup.
-		require.Eventually(t, func() bool {
-			var err error
-			shards, err = kcptesting.ListShards(t.Context(), cfg)
-			require.NoError(t, err, "failed to list shards")
-			return len(shards.Items) > 0
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected at least one Shard in the admin workspace")
-	}
+	// Shards are served through the Admin workspace from the cache server
+	// and appear asynchronously after shard startup.
+	require.Eventually(t, func() bool {
+		var err error
+		shards, err = kcptesting.ListShards(t.Context(), cfg)
+		require.NoError(t, err, "failed to list shards")
+		return len(shards.Items) > 0
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected at least one Shard in the admin workspace")
 
 	serviceProviderPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("service-provider"))
 	tenantPath, tenantWorkspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("tenant"))
@@ -524,7 +522,6 @@ func TestAPIExportBindingAuthorizer(t *testing.T) {
 	require.NoError(t, err)
 	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
-	_ = kcpClient
 
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, orgPath, []string{"service-provider-admin", "tenant-user"}, nil, false)
 	framework.AdmitWorkspaceAccess(t.Context(), t, kubeClient, serviceProviderPath, []string{"service-provider-admin"}, nil, true)
@@ -912,7 +909,6 @@ func TestRootAPIExportAuthorizers(t *testing.T) {
 	require.NoError(t, err)
 	kcpClient, err := kcpclientset.NewForConfig(rest.CopyConfig(cfg))
 	require.NoError(t, err)
-	_ = kcpClient
 
 	providerUser := "user-1"
 	consumerUser := "user-2"

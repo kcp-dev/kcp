@@ -289,9 +289,7 @@ func ListShards(ctx context.Context, cfg *rest.Config) (*corev1alpha1.ShardList,
 	return client.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 }
 
-// WorkspaceShard returns the shard that a workspace is scheduled on,
-// resolved through the Admin workspace (/services/admin) of the server
-// behind cfg.
+// WorkspaceShard returns the shard that a workspace is scheduled on.
 func WorkspaceShard(ctx context.Context, cfg *rest.Config, ws *tenancyv1alpha1.Workspace) (*corev1alpha1.Shard, error) {
 	shardName := ws.Annotations[corev1alpha1.LogicalClusterShardAnnotationKey]
 	if shardName == "" {

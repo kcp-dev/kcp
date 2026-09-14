@@ -166,16 +166,14 @@ func TestAPIBinding(t *testing.T) {
 
 	t.Logf("Check if we can access shards")
 	var shards *corev1alpha1.ShardList
-	{
-		// Shards are served through the Admin workspace from the cache server
-		// and appear asynchronously after shard startup.
-		require.Eventually(t, func() bool {
-			var err error
-			shards, err = kcptesting.ListShards(t.Context(), cfg)
-			require.NoError(t, err, "failed to list shards")
-			return len(shards.Items) > 0
-		}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected at least one Shard in the admin workspace")
-	}
+	// Shards are served through the Admin workspace from the cache server
+	// and appear asynchronously after shard startup.
+	require.Eventually(t, func() bool {
+		var err error
+		shards, err = kcptesting.ListShards(t.Context(), cfg)
+		require.NoError(t, err, "failed to list shards")
+		return len(shards.Items) > 0
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected at least one Shard in the admin workspace")
 
 	t.Logf("Shards: %v", shards.Items)
 

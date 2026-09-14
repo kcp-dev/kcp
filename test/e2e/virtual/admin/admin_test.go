@@ -25,10 +25,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
@@ -57,12 +59,26 @@ func TestAdminWorkspaceShards(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("List shards through the Admin workspace at %s", vwCfg.Host)
+	var shards *corev1alpha1.ShardList
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		shards, err := adminClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		shards, err = adminClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 		require.NoError(c, err)
 		require.NotEmpty(c, shards.Items, "expected at least the root shard in the admin view")
 		for _, shard := range shards.Items {
 			require.NotContains(c, shard.Annotations, "kcp.io/shard", "cache bookkeeping annotations must be stripped")
 		}
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Get every listed shard by name through the Admin workspace")
+	for _, listed := range shards.Items {
+		for _, rv := range []string{"", "0", shards.ResourceVersion} {
+			shard, err := adminClient.CoreV1alpha1().Shards().Get(ctx, listed.Name, metav1.GetOptions{ResourceVersion: rv})
+			require.NoError(t, err, "failed to get shard %q with resourceVersion %q", listed.Name, rv)
+			require.Equal(t, listed.Name, shard.Name)
+			require.NotContains(t, shard.Annotations, "kcp.io/shard", "cache bookkeeping annotations must be stripped")
+		}
+	}
+
+	_, err = adminClient.CoreV1alpha1().Shards().Get(ctx, "does-not-exist", metav1.GetOptions{})
+	require.True(t, apierrors.IsNotFound(err), "expected NotFound for an unknown shard, got %v", err)
 }
