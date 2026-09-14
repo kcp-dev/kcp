@@ -312,13 +312,18 @@ func claimFromSetKey(key string) apisv1alpha2.PermissionClaim {
 }
 
 func (c *controller) getInformerForGroupResource(group, resource string) (kcpkubernetesinformers.GenericClusterInformer, schema.GroupVersionResource, error) {
-	informers, _ := c.ddsif.Informers()
+	informers, notSynced := c.ddsif.Informers()
 
 	for gvr := range informers {
 		if gvr.Group == group && gvr.Resource == resource {
 			informer, err := c.ddsif.ForResource(gvr)
 			// once we find one, return.
 			return informer, gvr, err
+		}
+	}
+	for _, gvr := range notSynced {
+		if gvr.Group == group && gvr.Resource == resource {
+			return nil, schema.GroupVersionResource{}, fmt.Errorf("informer for %s.%s has not synced yet", group, resource)
 		}
 	}
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("unable to find informer for %s.%s", group, resource)

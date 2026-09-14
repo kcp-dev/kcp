@@ -19,6 +19,7 @@ package permissionclaimlabel
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -146,7 +147,16 @@ func (c *controller) Start(ctx context.Context, numThreads int) {
 	// informer that just appeared (e.g. a bound CRD landing on this shard) and
 	// re-runs them when a backing informer goes away.
 	c.ddsif.AddGVRLifecycleHandler(ctx, informer.GVRLifecycleHandlerFuncs{
-		AddedFunc:   func(gvr schema.GroupVersionResource) { c.enqueueByGroupResource(gvr.GroupResource(), logger) },
+		AddedFunc: func(gvr schema.GroupVersionResource) {
+			// Wait for the informer to sync before enqueueing APIBindings that reference it.
+			// This ensures that the informer is ready to list/watch the resources when
+			// the APIBinding is reconciled.
+			go func() {
+				if waitForInformerSynced(ctx, gvr, c.ddsif.Informers) {
+					c.enqueueByGroupResource(gvr.GroupResource(), logger)
+				}
+			}()
+		},
 		RemovedFunc: func(gvr schema.GroupVersionResource) { c.enqueueByGroupResource(gvr.GroupResource(), logger) },
 	})
 
@@ -177,6 +187,21 @@ func (c *controller) enqueueByGroupResource(gr schema.GroupResource, logger logr
 		}
 		c.queue.Add(key)
 	}
+}
+
+// waitForInformerSynced blocks until informers reports gvr as synced, and returns
+// true. It returns false if gvr disappears from informers first (the informer was
+// removed before syncing) or ctx is done.
+func waitForInformerSynced[T any](ctx context.Context, gvr schema.GroupVersionResource, informers func() (map[schema.GroupVersionResource]T, []schema.GroupVersionResource)) bool {
+	var synced bool
+	err := wait.PollUntilContextCancel(ctx, 100*time.Millisecond, true, func(context.Context) (bool, error) {
+		syncedInformers, notSynced := informers()
+		if _, synced = syncedInformers[gvr]; synced {
+			return true, nil
+		}
+		return !slices.Contains(notSynced, gvr), nil
+	})
+	return err == nil && synced
 }
 
 func (c *controller) startWorker(ctx context.Context) {
