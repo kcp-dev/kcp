@@ -150,5 +150,13 @@ func start(shardFlags []string, workDirPath, logDirPath string, quiet bool) erro
 
 	s.GatherMetrics(metricsCtx)
 
+	// Stop the shard and wait for its process to actually exit before we
+	// return, instead of relying on the deferred cancel() above, which
+	// only asynchronously triggers termination. Without this, main() can
+	// return - and the process running it can exit - while the shard is
+	// still shutting down and flushing its log/audit files.
+	cancel()
+	<-errCh
+
 	return nil
 }
