@@ -635,10 +635,23 @@ spec:
                   - type
                   type: object
                 type: array
+              identityAliasHashes:
+                description: |-
+                  identityAliasHashes lists previous identity hashes of this APIExport
+                  that are still honored as equivalents of the current identityHash
+                  while a rotation's alias window is active. Permission claims and
+                  wildcard consumers referencing an alias hash keep resolving to this
+                  export until the alias is retired. Managed by the identity rotation
+                  controller.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               identityHash:
                 description: |-
                   identityHash is the hash of the API identity key of this APIExport. This value
-                  is immutable as soon as it is set.
+                  is only changed by the identity rotation controller, as part of a tracked
+                  rotation; it is immutable for users.
                 type: string
               virtualWorkspaces:
                 description: |-

@@ -31,6 +31,10 @@ const (
 	StatusAppliedClaimsAnnotation            = "apis.v1alpha2.kcp.io/status-applied-permission-claims"
 	StatusPermissionClaimsV1Alpha1Annotation = "apis.v1alpha2.kcp.io/v1alpha1-status-export-permission-claims"
 	StatusAppliedClaimsV1Alpha1Annotation    = "apis.v1alpha2.kcp.io/v1alpha1-status-applied-permission-claims"
+	// StatusBoundResourceIdentityHashesAnnotation retains the per-bound-resource
+	// identityHashes drain bookkeeping across a v1alpha1 round-trip, as a
+	// JSON list aligned with status.boundResources.
+	StatusBoundResourceIdentityHashesAnnotation = "apis.v1alpha2.kcp.io/status-bound-resource-identity-hashes"
 )
 
 // v1alpha2 -> v1alpha1 conversions.
@@ -161,6 +165,27 @@ func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *api
 		delete(out.Annotations, StatusAppliedClaimsV1Alpha1Annotation)
 	}
 
+	// v1alpha1 bound resources carry no identityHashes drain bookkeeping;
+	// retain it via an annotation, index-aligned with status.boundResources.
+	hashesPerResource := make([][]string, len(in.Status.BoundResources))
+	retain := false
+	for i, br := range in.Status.BoundResources {
+		if len(br.IdentityHashes) > 0 {
+			hashesPerResource[i] = br.IdentityHashes
+			retain = true
+		}
+	}
+	if retain {
+		encoded, err := json.Marshal(hashesPerResource)
+		if err != nil {
+			return fmt.Errorf("failed to encode bound resource identity hashes as JSON: %w", err)
+		}
+		if out.Annotations == nil {
+			out.Annotations = map[string]string{}
+		}
+		out.Annotations[StatusBoundResourceIdentityHashesAnnotation] = string(encoded)
+	}
+
 	// make tests for equality easier to write by turning []string into nil.
 	if len(out.Annotations) == 0 {
 		out.Annotations = nil
@@ -172,6 +197,13 @@ func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *api
 // Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims converts v1alpha2.AcceptablePermissionClaims
 // to v1alpha1.AcceptablePermissionClaims. This is not a lossless conversion, verbs and selectors are lost in this conversion.
 // For lossless conversion use Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding.
+// Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource drops
+// identityHashes on down-conversion: v1alpha1 clients see only the current
+// identity hash; the drain bookkeeping is v1alpha2-only status.
+func Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPIResource, out *apisv1alpha1.BoundAPIResource, s kubeconversion.Scope) error {
+	return autoConvert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in, out, s)
+}
+
 func Convert_v1alpha2_AcceptablePermissionClaims_To_v1alpha1_AcceptablePermissionClaims(in []AcceptablePermissionClaim, s kubeconversion.Scope) (out []apisv1alpha1.AcceptablePermissionClaim, overhanging []AcceptablePermissionClaim, err error) {
 	for _, apc := range in {
 		if len(apc.PermissionClaim.Verbs) == 1 && apc.PermissionClaim.Verbs[0] == "*" && apc.Selector.MatchAll {
@@ -297,6 +329,24 @@ func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBind
 
 	if err := Convert_v1alpha1_APIBindingStatus_To_v1alpha2_APIBindingStatus(&in.Status, &out.Status, s); err != nil {
 		return err
+	}
+
+	if encoded, ok := in.Annotations[StatusBoundResourceIdentityHashesAnnotation]; ok {
+		hashesPerResource := [][]string{}
+		if err := json.Unmarshal([]byte(encoded), &hashesPerResource); err != nil {
+			return fmt.Errorf("failed to decode bound resource identity hashes from JSON: %w", err)
+		}
+		for i, hashes := range hashesPerResource {
+			if i < len(out.Status.BoundResources) && len(hashes) > 0 {
+				out.Status.BoundResources[i].IdentityHashes = hashes
+			}
+		}
+		delete(out.Annotations, StatusBoundResourceIdentityHashesAnnotation)
+
+		// make tests for equality easier to write by turning []string into nil.
+		if len(out.Annotations) == 0 {
+			out.Annotations = nil
+		}
 	}
 
 	// Store permission claims in annotation. This is necessary for a clean conversion of

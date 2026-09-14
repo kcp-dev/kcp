@@ -282,13 +282,19 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 			errsToDisplay,
 		)
 
-		return fmt.Errorf("%d error(s) applying permission claims for APIBinding %s|%s (showing the first %d): %w",
+		err := fmt.Errorf("%d error(s) applying permission claims for APIBinding %s|%s (showing the first %d): %w",
 			len(allErrs),
 			clusterName,
 			apiBinding.Name,
 			len(errsToDisplay.Errors()),
 			errsToDisplay,
 		)
+		if onlyInformerNotReady(allErrs) {
+			// nothing went wrong, the informers just aren't there yet:
+			// let the controller wait rather than back off.
+			return &informerNotReadyError{err: err}
+		}
+		return err
 	} else {
 		conditions.MarkTrue(apiBinding, apisv1alpha2.PermissionClaimsApplied)
 	}
@@ -321,7 +327,7 @@ func (c *controller) getInformerForGroupResource(group, resource string) (kcpkub
 			return informer, gvr, err
 		}
 	}
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("unable to find informer for %s.%s", group, resource)
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("%w for %s.%s", errInformerNotReady, group, resource)
 }
 
 func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Path) error {

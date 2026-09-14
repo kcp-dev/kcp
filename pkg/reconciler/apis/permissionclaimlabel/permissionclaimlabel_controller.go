@@ -18,7 +18,9 @@ package permissionclaimlabel
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -49,7 +51,67 @@ import (
 
 const (
 	ControllerName = "kcp-permissionclaimlabel"
+
+	// informerRetryDelay is how long a binding waits before it is retried
+	// when a claimed resource has no synced dynamic informer yet.
+	informerRetryDelay = 2 * time.Second
 )
+
+// errInformerNotReady is wrapped by getInformerForGroupResource when no synced
+// dynamic informer exists for a claimed resource. That is normal right after
+// the resource is first bound on a shard: the informer is created from
+// discovery and needs a moment to list.
+var errInformerNotReady = errors.New("unable to find informer")
+
+// informerNotReadyError is returned by reconcile when every failure was a
+// missing informer. It tells the queue to wait on a fixed delay instead of
+// counting a failure: a burst of unrelated updates to the binding (status
+// patches, claim labels) otherwise stacks up per-item exponential backoff
+// within a second and parks the binding for up to the 1000s cap - long after
+// the informer has synced - until something else happens to touch it.
+type informerNotReadyError struct {
+	err error
+}
+
+func (e *informerNotReadyError) Error() string { return e.err.Error() }
+func (e *informerNotReadyError) Unwrap() error { return e.err }
+
+// onlyInformerNotReady reports whether errs is non-empty and every entry is
+// a missing-informer error.
+func onlyInformerNotReady(errs []error) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, err := range errs {
+		if !errors.Is(err, errInformerNotReady) {
+			return false
+		}
+	}
+	return true
+}
+
+// waitingForInformer reports whether err, as returned by process, consists
+// solely of reconcile waiting for dynamic informers - i.e. no real failure
+// (including the status commit) is mixed in.
+func waitingForInformer(err error) bool {
+	if err == nil {
+		return false
+	}
+	if agg, ok := err.(utilerrors.Aggregate); ok {
+		errs := agg.Errors()
+		if len(errs) == 0 {
+			return false
+		}
+		for _, e := range errs {
+			if !waitingForInformer(e) {
+				return false
+			}
+		}
+		return true
+	}
+	var notReady *informerNotReadyError
+	return errors.As(err, &notReady)
+}
 
 // NewController returns a new controller for handling permission claims for an APIBinding.
 // it will own the AppliedPermissionClaims and will own the accepted permission claim condition.
@@ -90,6 +152,33 @@ func NewController(
 		},
 		DeleteFunc: func(obj interface{}) { c.enqueueAPIBinding(obj, logger) },
 	})
+
+	// Claim labels embed the claimed identity hash, normalized to the
+	// export's canonical identity. When an export's identity is rotated or
+	// an alias is registered/retired, every binding claiming its resources
+	// must be re-reconciled so claimed objects are relabeled with the newly
+	// canonical hash.
+	exportIdentityHandler := cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldExport, ok := oldObj.(*apisv1alpha2.APIExport)
+			if !ok {
+				return
+			}
+			newExport, ok := newObj.(*apisv1alpha2.APIExport)
+			if !ok {
+				return
+			}
+			if oldExport.Status.IdentityHash == newExport.Status.IdentityHash &&
+				slices.Equal(oldExport.Status.IdentityAliasHashes, newExport.Status.IdentityAliasHashes) {
+				return
+			}
+			for _, resource := range newExport.Spec.Resources {
+				c.enqueueByGroupResource(schema.GroupResource{Group: resource.Group, Resource: resource.Name}, logger)
+			}
+		},
+	}
+	_, _ = apiExportInformer.Informer().AddEventHandler(exportIdentityHandler)
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(exportIdentityHandler)
 
 	return c, nil
 }
@@ -201,6 +290,12 @@ func (c *controller) processNextWorkItem(ctx context.Context) bool {
 	defer c.queue.Done(key)
 
 	if err := c.process(ctx, key); err != nil {
+		if waitingForInformer(err) {
+			logger.V(2).Info("waiting for the dynamic informer of a claimed resource", "reason", err.Error(), "retryIn", informerRetryDelay)
+			c.queue.Forget(key)
+			c.queue.AddAfter(key, informerRetryDelay)
+			return true
+		}
 		utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", ControllerName, key, err))
 		c.queue.AddRateLimited(key)
 		return true
