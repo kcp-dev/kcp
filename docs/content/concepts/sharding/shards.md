@@ -69,6 +69,33 @@ right scalability and availability properties.
 There can be one front-proxy in front of a kcp installation, or many, e.g. one
 or multiple per region or cloud provider.
 
+## The Admin Workspace (`:admin`)
+
+Every shard serves the *Admin workspace* at `/services/admin`: an
+installation-wide administrative view, reachable identically through any
+shard. Its first resource is an aggregated, read-only view of all `Shard`
+objects. The view is backed by the cache server, where every shard's `Shard`
+object is replicated, so all shards serve an identical view in a single
+`resourceVersion` space: consumers can fail over between shards and resume
+watches with the same resource version. Over time the Admin workspace is the
+home for further installation-wide admin surfaces.
+
+The kcp workspace plugin exposes it as the reserved pseudo-workspace
+`:admin`:
+
+```sh
+$ kubectl ws use :admin
+Current workspace is ':admin' (aggregated view of all shards).
+$ kubectl get shards
+NAME      REGION      URL                      ...
+root      us-east-2   https://127.0.0.1:6444   ...
+shard-1   us-east-1   https://127.0.0.1:6445   ...
+```
+
+Access requires membership in the `system:kcp:admin` group; the serving
+path does not depend on the root shard. To reach the view through a
+front-proxy, add a `/services/` path mapping; any shard can be the backend.
+
 ## Consistency Domain
 
 Every logical cluster provides a Kubernetes-compatible API root endpoint under

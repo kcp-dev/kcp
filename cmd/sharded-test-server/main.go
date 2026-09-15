@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,8 +35,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/sdk/apis/core"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcpclient "github.com/kcp-dev/sdk/client/clientset/versioned"
 	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
 	testshard "github.com/kcp-dev/kcp/cmd/test-server/kcp"
@@ -315,7 +315,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// Shard labels come from --shard-labels on each shard. Wait for all
-	// shards to have registered before declaring the environment ready.
+	// shards to be visible in the Admin workspace (through the front-proxy)
+	// before declaring the environment ready, so tests can rely on the
+	// aggregated view.
 	clientConfig, err := loadKubeConfig(filepath.Join(workDirPath, ".kcp", "admin.kubeconfig"), "base")
 	if err != nil {
 		return err
@@ -324,19 +326,25 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err != nil {
 		return err
 	}
-	client, err := kcpclientset.NewForConfig(config)
+	baseURL, err := url.Parse(config.Host)
+	if err != nil {
+		return err
+	}
+	baseURL.Path = "/services/admin"
+	config.Host = baseURL.String()
+	adminClient, err := kcpclient.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 	if err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
-		shardList, err := client.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		shardList, err := adminClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			// the front-proxy or the shards may not be fully ready yet, keep polling
 			return false, nil //nolint:nilerr
 		}
 		return len(shardList.Items) >= numberOfShards, nil
 	}); err != nil {
-		return fmt.Errorf("failed waiting for %d shards to register: %w", numberOfShards, err)
+		return fmt.Errorf("failed waiting for %d shards in the Admin workspace: %w", numberOfShards, err)
 	}
 
 	readyToTestFile, err := os.Create(filepath.Join(workDirPath, ".kcp", "ready-to-test"))
