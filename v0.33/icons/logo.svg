@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg x="158.6pt" y="152.313pt" width="265.186pt" height="302.244pt" viewBox="158.6 152.313 265.186 302.244" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g id="1">
+    <title>Group</title>
+    <g id="2">
+      <title>Group</title>
+      <linearGradient x1="419.787" y1="379.981" x2="295.191" y2="302.451" gradientUnits="userSpaceOnUse" id="5">
+        <stop offset="0.527429" style="stop-color:#3cd3f6;stop-opacity:1;"/>
+        <stop offset="1" style="stop-color:#aaedff;stop-opacity:1;"/>
+      </linearGradient>
+      <defs>
+        <title>Shape 27</title>
+        <g id="3">
+          <defs>
+            <path id="4" d="M423.785,227.874 C423.785,227.874,291.192,303.435,291.192,303.435 C291.192,303.435,291.192,454.557,291.192,454.557 C291.192,454.557,423.785,378.854,423.785,378.854 C423.785,378.854,423.785,227.874,423.785,227.874"/>
+          </defs>
+          <use xlink:href="#4" style="fill:url(#5);fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#3"/>
+      <linearGradient x1="158.6" y1="341.216" x2="291.192" y2="341.216" gradientUnits="userSpaceOnUse" id="8">
+        <stop style="stop-color:#54ff85;stop-opacity:1;"/>
+        <stop offset="1" style="stop-color:#aff456;stop-opacity:1;"/>
+      </linearGradient>
+      <defs>
+        <title>Shape 28</title>
+        <g id="6">
+          <defs>
+            <path id="7" d="M291.192,303.435 C291.192,303.435,158.6,227.874,158.6,227.874 C158.6,227.874,158.6,378.996,158.6,378.996 C158.6,378.996,291.192,454.557,291.192,454.557 C291.192,454.557,291.192,303.435,291.192,303.435"/>
+          </defs>
+          <use xlink:href="#7" style="fill:url(#8);fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#6"/>
+      <linearGradient x1="293.506" y1="152.325" x2="288.878" y2="303.424" gradientUnits="userSpaceOnUse" id="11">
+        <stop offset="0.0024966" style="stop-color:#3d50ff;stop-opacity:1;"/>
+        <stop offset="0.40625" style="stop-color:#3d97ff;stop-opacity:1;"/>
+        <stop offset="1" style="stop-color:#e1d2ff;stop-opacity:1;"/>
+      </linearGradient>
+      <defs>
+        <title>Shape 29</title>
+        <g id="9">
+          <defs>
+            <path id="10" d="M291.192,303.435 C291.192,303.435,158.6,227.874,158.6,227.874 C158.6,227.874,291.192,152.313,291.192,152.313 C291.192,152.313,423.785,227.874,423.785,227.874 C423.785,227.874,291.192,303.435,291.192,303.435"/>
+          </defs>
+          <use xlink:href="#10" style="fill:url(#11);fill-opacity:1;fill-rule:evenodd;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#9"/>
+    </g>
+    <g id="12">
+      <title>White Overlay</title>
+      <defs>
+        <title>Smart Polygon Copy Copy</title>
+        <g id="13">
+          <defs>
+            <path id="14" d="M291.192,227.874 C291.192,227.874,357.489,265.655,357.489,265.655 C357.489,265.655,357.489,341.216,357.489,341.216 C357.489,341.216,291.192,378.996,291.192,378.996 C291.192,378.996,224.896,341.216,224.896,341.216 C224.896,341.216,224.896,265.655,224.896,265.655 C224.896,265.655,291.192,227.874,291.192,227.874 z"/>
+          </defs>
+          <use xlink:href="#14" style="fill:#ffffff;fill-opacity:0.853805;fill-rule:nonzero;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#13"/>
+      <defs>
+        <title>Shape 49</title>
+        <g id="15">
+          <defs>
+            <path id="16" d="M224.896,341.216 C224.896,341.216,224.896,331.877,224.896,331.877 C224.896,331.877,158.6,369.349,158.6,369.349 C158.6,369.349,158.6,378.996,158.6,378.996 C158.6,378.996,166.82,383.681,166.82,383.681 C166.82,383.681,233.817,346.3,233.817,346.3 C233.817,346.3,224.896,341.216,224.896,341.216 z"/>
+          </defs>
+          <use xlink:href="#16" style="fill:#ffffff;fill-opacity:0.895489;fill-rule:evenodd;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#15"/>
+      <defs>
+        <title>Shape 49 Copy</title>
+        <g id="17">
+          <defs>
+            <path id="18" d="M291.192,227.874 C291.192,227.874,299.714,232.713,299.714,232.713 C299.714,232.713,299.714,157.169,299.714,157.169 C299.714,157.169,291.192,152.313,291.192,152.313 C291.192,152.313,282.672,157.169,282.672,157.169 C282.672,157.169,282.702,232.713,282.702,232.713 C282.702,232.713,291.192,227.874,291.192,227.874 z"/>
+          </defs>
+          <use xlink:href="#18" style="fill:#ffffff;fill-opacity:0.895489;fill-rule:evenodd;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#17"/>
+      <defs>
+        <title>Shape 49 Copy</title>
+        <g id="19">
+          <defs>
+            <path id="20" d="M357.489,341.216 C357.489,341.216,357.489,331.877,357.489,331.877 C357.489,331.877,423.785,369.689,423.785,369.689 C423.785,369.689,423.785,378.854,423.785,378.854 C423.785,378.854,415.368,383.66,415.368,383.66 C415.368,383.66,349.048,346.026,349.048,346.026 C349.048,346.026,357.489,341.216,357.489,341.216 z"/>
+          </defs>
+          <use xlink:href="#20" style="fill:#ffffff;fill-opacity:0.895489;fill-rule:evenodd;opacity:1;stroke:none;"/>
+        </g>
+      </defs>
+      <use xlink:href="#19"/>
+    </g>
+  </g>
+</svg>
