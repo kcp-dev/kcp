@@ -5397,6 +5397,40 @@ More info: <a href="https://git.k8s.io/community/contributors/devel/sig-architec
 
 <div class="property depth-1">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha2-.spec.deletionPolicy">.spec.deletionPolicy</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+<div class="property-description">
+<p>deletionPolicy controls what happens to instances of bound resources when
+this APIBinding is deleted and no other APIBinding adopts them.</p>
+
+<p>&ldquo;Delete&rdquo; (the default) deletes all instances of all bound resources.
+&ldquo;WaitForSuccessor&rdquo; holds the APIBinding&rsquo;s finalizer until every bound
+group/resource that still has instances gains a successor APIBinding to
+adopt them: the binding stays in deletion with condition
+BindingResourceDeleteSuccess=False, reason WaitingForSuccessor, and the
+instances remain in storage, covered by this binding, until the handover
+completes. Patch the policy back to &ldquo;Delete&rdquo; to let deletion proceed
+destructively.</p>
+
+<p>Independent of this policy, instances of a bound group/resource are never
+deleted if, at deletion time, another APIBinding in the workspace
+references an APIExport serving the same group/resource with the same
+APIResourceSchema (by UID) and the same identity: that binding adopts the
+instances instead.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha2-.spec.permissionClaims">.spec.permissionClaims</h3>
 </div>
 <div class="property-body">
