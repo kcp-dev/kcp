@@ -105,6 +105,14 @@ func (rc *rootCtx) delete(key string, reason error) {
 	stored.(*entry).cancel(reason)
 }
 
+func (rc *rootCtx) isCancelled(key string) bool {
+	stored, loaded := rc.entries.Load(key)
+	if !loaded {
+		return false
+	}
+	return stored.(*entry).ctx.Err() != nil
+}
+
 func (rc *rootCtx) cancelAll(reason error) {
 	rc.rootCancel(reason)
 }

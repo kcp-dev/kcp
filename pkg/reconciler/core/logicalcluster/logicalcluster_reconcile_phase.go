@@ -76,22 +76,32 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 		conditions.MarkTrue(workspace, tenancyv1alpha1.WorkspaceInitialized)
 	case corev1alpha1.LogicalClusterPhaseReady:
 		if corev1alpha1.IsLogicalClusterInactive(workspace.Annotations) {
+			// Connections are cancelled only once the Inactive phase has been
+			// persisted, see below. Cancelling here would leak the cancelled
+			// contexts if the status update fails, e.g. because the annotation
+			// was removed in the meantime: the next reconcile would find the
+			// logical cluster Ready and never drop them, failing every request
+			// to this logical cluster and every wildcard request on the shard.
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInactive
-			// Cancel active connections for this LC as well as wildcard
-			// connections, as they may watch objects in this LC.
-			lcPath := logicalcluster.From(workspace).Path()
-			reason := fmt.Errorf("logical cluster %s inactive", lcPath)
-			r.clusterContextManager.Cancel(lcPath, reason)
-			r.clusterContextManager.Cancel(logicalcluster.Wildcard, reason)
 		}
 	case corev1alpha1.LogicalClusterPhaseInactive:
-		if !corev1alpha1.IsLogicalClusterInactive(workspace.Annotations) {
+		lcPath := logicalcluster.From(workspace).Path()
+		if corev1alpha1.IsLogicalClusterInactive(workspace.Annotations) {
+			if !r.clusterContextManager.IsCancelled(lcPath) {
+				// Cancel active connections for this LC and keep its context
+				// cancelled until it is reactivated.
+				reason := fmt.Errorf("logical cluster %s inactive", lcPath)
+				r.clusterContextManager.Cancel(lcPath, reason)
+				// Terminate wildcard connections too, as they may watch objects
+				// in this LC. The wildcard entry is deleted rather than
+				// cancelled so that new wildcard requests are not blocked for
+				// as long as this LC is inactive.
+				r.clusterContextManager.Delete(logicalcluster.Wildcard, reason)
+			}
+		} else {
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
-			// Drop the cancelled entries so the next request creates fresh live contexts.
-			lcPath := logicalcluster.From(workspace).Path()
-			reason := fmt.Errorf("logical cluster %s reactivated", lcPath)
-			r.clusterContextManager.Delete(lcPath, reason)
-			r.clusterContextManager.Delete(logicalcluster.Wildcard, reason)
+			// Drop the cancelled entry so the next request creates a fresh live context.
+			r.clusterContextManager.Delete(lcPath, fmt.Errorf("logical cluster %s reactivated", lcPath))
 		}
 	}
 
