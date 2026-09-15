@@ -21,7 +21,9 @@ versions and schemas can be entirely different. kcp makes this possible because 
 
 There are currently some limitations to be aware of with CRDs in kcp:
 
-- Conversion webhooks are not supported
+- Conversion webhooks are not supported. For multi-version APIs shared via
+  `APIResourceSchema`/`APIExport`, use [`APIConversion`](./api-conversion.md) instead
+  (CEL field rules; alpha, feature-gated).
 - `service`-based validating/mutating webhooks are not supported; you must use `url`-based  `clientConfigs` instead.
 
 CRDs are a fantastic way to add new APIs to a workspace, but if you want to share a CRD with other workspaces, you have

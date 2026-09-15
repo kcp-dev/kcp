@@ -66,6 +66,11 @@ const (
 	// alpha: v0.1
 	// Enables migrating logical clusters between shards.
 	LogicalClusterMigration featuregate.Feature = "LogicalClusterMigration"
+
+	// owner: @mjudeikis, @olamilekan000
+	// alpha: v0.1
+	// Enables native API conversion rules for Custom Resources.
+	APIConversion featuregate.Feature = "APIConversion"
 )
 
 // Re-export upstream feature gates used by kcp server logic so callers import
@@ -166,6 +171,9 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 	// Must be listed here so kcp's feature gate machinery tracks it and exposes it via --feature-gates.
 	genericfeatures.StorageVersionAPI: {
 		{Version: version.MustParse("1.20"), Default: false, PreRelease: featuregate.Alpha},
+	},
+	APIConversion: {
+		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
 	// unintentionally on either side:
