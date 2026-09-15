@@ -202,12 +202,11 @@ func (r *resourceHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var handlerFunc http.HandlerFunc
-	subresources := apiResourceVersion.Subresources
 	switch {
-	case subresource == "status" && subresources.Status != nil:
-		handlerFunc = r.serveStatus(w, req, requestInfo, apiDef, supportedTypes)
 	case len(subresource) == 0:
 		handlerFunc = r.serveResource(w, req, requestInfo, apiDef, supportedTypes)
+	case apiDef.GetSubResourceStorage(subresource) != nil:
+		handlerFunc = r.serveSubResource(w, req, requestInfo, apiDef, supportedTypes)
 	default:
 		responsewriters.ErrorNegotiated(
 			apierrors.NewNotFound(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Name),
@@ -275,14 +274,19 @@ func (r *resourceHandler) serveResource(w http.ResponseWriter, req *http.Request
 	return nil
 }
 
-func (r *resourceHandler) serveStatus(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
-	requestScope := apiDef.GetSubResourceRequestScope("status")
-	storage := apiDef.GetSubResourceStorage("status")
+func (r *resourceHandler) serveSubResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, apiDef apidefinition.APIDefinition, supportedTypes []string) http.HandlerFunc {
+	requestScope := apiDef.GetSubResourceRequestScope(requestInfo.Subresource)
+	storage := apiDef.GetSubResourceStorage(requestInfo.Subresource)
 
 	switch requestInfo.Verb {
 	case "get":
 		if storage, isAble := storage.(rest.Getter); isAble {
 			return handlers.GetResource(storage, requestScope)
+		}
+	case "create":
+		if storage, isAble := storage.(rest.NamedCreater); isAble {
+			// Using CreateNamedResource since a subresource is created against a named parent and CreateResource would drop the name passed to .Create.
+			return handlers.CreateNamedResource(storage, requestScope, r.admission)
 		}
 	case "update":
 		if storage, isAble := storage.(rest.Updater); isAble {
