@@ -39,12 +39,14 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	apisv1alpha1listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -72,6 +74,11 @@ const (
 	// ResourceFinalizersRemainReason is the reason for condition BindingResourceDeleteSuccess that finalizers on some
 	// CRs still exist.
 	ResourceFinalizersRemainReason = "SomeFinalizersRemain"
+
+	// WaitingForSuccessorReason is the reason for condition BindingResourceDeleteSuccess that instances of some
+	// bound resources are intentionally kept per deletionPolicy=WaitForSuccessor, holding the finalizer until a
+	// successor APIBinding adopts them.
+	WaitingForSuccessorReason = "WaitingForSuccessor"
 )
 
 func NewController(
@@ -80,6 +87,7 @@ func NewController(
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	apiResourceSchemaInformer, globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
+	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 ) *Controller {
 	c := &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -106,7 +114,10 @@ func NewController(
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
 		getAPIResourceSchema: informer.NewScopedGetterWithFallback[*apisv1alpha1.APIResourceSchema, apisv1alpha1listers.APIResourceSchemaLister](apiResourceSchemaInformer.Lister(), globalAPIResourceSchemaInformer.Lister()),
-		commit:               committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
+		getLogicalCluster: func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return logicalClusterInformer.Lister().Cluster(cluster).Get(corev1alpha1.LogicalClusterName)
+		},
+		commit: committer.NewCommitter[*APIBinding, Patcher, *APIBindingSpec, *APIBindingStatus](kcpClusterClient.ApisV1alpha2().APIBindings()),
 	}
 
 	// Ensure the index used by getAPIExportByPath exists. AddIfNotPresentOrDie is
@@ -153,6 +164,7 @@ type Controller struct {
 	listAPIBindings      func(cluster logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 	getAPIExportByPath   func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	getAPIResourceSchema func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getLogicalCluster    func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 
 	commit CommitFunc
 }
@@ -339,6 +351,30 @@ func (c *Controller) mutateResourceRemainingStatus(resourceRemaining gvrDeletion
 		return apibinding, &deletion.ResourcesRemainingError{
 			Estimate: DeletionRecheckEstimateSeconds,
 			Message:  fmt.Sprintf("finalizers %s remaining", strings.Join(remainingByFinalizer, ", ")),
+		}
+	}
+
+	if resourceRemaining.gvrsWaitingForSuccessor.Len() != 0 {
+		// requeue until a successor APIBinding adopts the retained resources
+		waiting := []string{}
+		for gvr := range resourceRemaining.gvrsWaitingForSuccessor {
+			waiting = append(waiting, fmt.Sprintf("%s.%s has %d resource instances", gvr.Resource, gvr.Group, resourceRemaining.gvrToNumRemaining[gvr]))
+		}
+		// sort for stable updates
+		sort.Strings(waiting)
+
+		conditions.MarkFalse(
+			apibinding,
+			apisv1alpha2.BindingResourceDeleteSuccess,
+			WaitingForSuccessorReason,
+			conditionsv1alpha1.ConditionSeverityInfo,
+			"Per deletionPolicy=WaitForSuccessor, instances are kept until a successor APIBinding adopts them: %s",
+			strings.Join(waiting, ", "),
+		)
+
+		return apibinding, &deletion.ResourcesRemainingError{
+			Estimate: DeletionRecheckEstimateSeconds,
+			Message:  fmt.Sprintf("waiting for successor to adopt %s", strings.Join(waiting, ", ")),
 		}
 	}
 

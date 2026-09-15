@@ -17,28 +17,54 @@ limitations under the License.
 package apibindingdeletion
 
 import (
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
-// adoptedResources returns, per bound group/resource of the deleting
-// APIBinding, the name of another APIBinding in the same workspace that will
-// take the instances over. Instances of an adopted resource must not be
-// deleted when this APIBinding is deleted: the successor serves them
-// unchanged.
+// retentionReason explains why instances of a bound resource are not deleted
+// when their APIBinding is deleted.
+type retentionReason string
+
+const (
+	// retainedAdopted means another APIBinding in the workspace references an
+	// APIExport serving the same group/resource with the same APIResourceSchema
+	// (by UID) and the same identity. That binding takes the instances over;
+	// they are served again as soon as it binds.
+	retainedAdopted retentionReason = "Adopted"
+
+	// retainedWaiting means spec.deletionPolicy is WaitForSuccessor and no
+	// successor exists yet. Instances stay in storage, covered by the deleting
+	// binding, and the binding's finalizer is held until a successor appears
+	// (or the policy is changed back to Delete).
+	retainedWaiting retentionReason = "WaitingForSuccessor"
+)
+
+type retention struct {
+	reason retentionReason
+	// successor is the name of the adopting APIBinding, set for retainedAdopted.
+	successor string
+}
+
+// retainedResources decides, per bound group/resource, whether instances must
+// be kept in storage when the given APIBinding is deleted. Resources with a
+// verified successor are retained regardless of deletionPolicy; resources
+// without one are retained (and block finalization) under
+// deletionPolicy=WaitForSuccessor.
 //
-// A binding is a successor for a bound resource only if its referenced
-// APIExport serves the same group/resource through the same APIResourceSchema
-// (by UID) with the same identity hash. That guarantees identical storage
-// (same etcd prefix) and identical served API (same bound CRD), so the
-// handover moves no data.
+// WaitForSuccessor degrades to Delete when the LogicalCluster itself is
+// deleting (or already gone): workspace teardown removes bindings as part of
+// removing all content, and waiting for a successor that can never come would
+// deadlock the workspace in Terminating.
 //
-// Lookups go through (possibly lagging) informers. A just-created successor
-// can be missed on one pass; the deleting binding is requeued and re-evaluated
-// while its instances remain, so a transient miss only delays the handover.
-func (c *Controller) adoptedResources(clusterName logicalcluster.Name, apibinding *apisv1alpha2.APIBinding) (map[schema.GroupResource]string, error) {
+// Successor verification is same-storage only: the successor's APIExport must
+// serve the group/resource through the same APIResourceSchema (by UID) with
+// the same identity hash.
+func (c *Controller) retainedResources(clusterName logicalcluster.Name, apibinding *apisv1alpha2.APIBinding) (map[schema.GroupResource]retention, error) {
+	retained := map[schema.GroupResource]retention{}
+
 	bindings, err := c.listAPIBindings(clusterName)
 	if err != nil {
 		return nil, err
@@ -51,14 +77,31 @@ func (c *Controller) adoptedResources(clusterName logicalcluster.Name, apibindin
 		candidates = append(candidates, b)
 	}
 
-	adopted := map[schema.GroupResource]string{}
-	for _, br := range apibinding.Status.BoundResources {
-		if successor, ok := c.successorFor(clusterName, candidates, br); ok {
-			adopted[schema.GroupResource{Group: br.Group, Resource: br.Resource}] = successor
+	wait := apibinding.Spec.DeletionPolicy == apisv1alpha2.APIBindingDeletionPolicyWaitForSuccessor
+	if wait {
+		lc, err := c.getLogicalCluster(clusterName)
+		switch {
+		case apierrors.IsNotFound(err):
+			wait = false
+		case err != nil:
+			return nil, err
+		case !lc.DeletionTimestamp.IsZero():
+			wait = false
 		}
 	}
 
-	return adopted, nil
+	for _, br := range apibinding.Status.BoundResources {
+		gr := schema.GroupResource{Group: br.Group, Resource: br.Resource}
+		if successor, ok := c.successorFor(clusterName, candidates, br); ok {
+			retained[gr] = retention{reason: retainedAdopted, successor: successor}
+			continue
+		}
+		if wait {
+			retained[gr] = retention{reason: retainedWaiting}
+		}
+	}
+
+	return retained, nil
 }
 
 // successorFor returns the name of an APIBinding among candidates whose
@@ -76,8 +119,8 @@ func (c *Controller) successorFor(clusterName logicalcluster.Name, candidates []
 		export, err := c.getAPIExportByPath(path, b.Spec.Reference.Export.Name)
 		if err != nil {
 			// A candidate whose export cannot be resolved cannot be verified as
-			// same-storage; skip it rather than block deletion on a dangling
-			// reference.
+			// same-storage; with WaitForSuccessor the binding keeps waiting and
+			// re-evaluates, so a transient cache miss only delays the handover.
 			continue
 		}
 		if export.Status.IdentityHash != br.Schema.IdentityHash {
