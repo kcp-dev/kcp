@@ -63,6 +63,12 @@ func (m *Manager[K]) Delete(key K, reason error) {
 	m.rc.delete(key.String(), reason)
 }
 
+// IsCancelled reports whether an entry exists for the given key and its
+// context has been cancelled. It does not create an entry.
+func (m *Manager[K]) IsCancelled(key K) bool {
+	return m.rc.isCancelled(key.String())
+}
+
 // Shutdown cancels the root context, which propagates to all contexts.
 func (m *Manager[K]) Shutdown() {
 	m.rc.cancelAll(errShutdown)

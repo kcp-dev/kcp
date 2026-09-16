@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -763,39 +764,64 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 	err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Delete(t.Context(), secret2.Name, metav1.DeleteOptions{})
 	require.NoError(t, err, "error deleting secret with label")
 
+	// The permissionclaimlabel controller patches claimed objects whenever it
+	// (re)applies the claims of an APIBinding, which can bump their
+	// resourceVersion at any time. Always update the latest version and retry
+	// on conflicts.
+	updateConfigMap := func(name string, mutate func(*corev1.ConfigMap)) (*corev1.ConfigMap, error) {
+		var updated *corev1.ConfigMap
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			cm, err := vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Get(t.Context(), name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			mutate(cm)
+			updated, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(t.Context(), cm, metav1.UpdateOptions{})
+			return err
+		})
+		return updated, err
+	}
+	updateSecret := func(name string, mutate func(*corev1.Secret)) (*corev1.Secret, error) {
+		var updated *corev1.Secret
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			secret, err := vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Get(t.Context(), name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			mutate(secret)
+			updated, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(t.Context(), secret, metav1.UpdateOptions{})
+			return err
+		})
+		return updated, err
+	}
+
 	t.Logf("Update configmap with a new label")
-	configMap3.Labels["tier"] = "random1"
-	configMap3, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(t.Context(), configMap3, metav1.UpdateOptions{})
+	configMap3, err = updateConfigMap(configMap3.Name, func(cm *corev1.ConfigMap) { cm.Labels["tier"] = "random1" })
 	require.NoError(t, err, "error updating configmap with new label")
 	require.Equal(t, "random1", configMap3.Labels["tier"], "expected label tier to equal random1")
 	require.Equal(t, "test", configMap3.Labels["test"], "expected label test to equal test")
 
 	t.Logf("Update configmap to drop the selector label") // no-op because of mutation
-	delete(configMap3.Labels, "test")
-	configMap3, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(t.Context(), configMap3, metav1.UpdateOptions{})
+	configMap3, err = updateConfigMap(configMap3.Name, func(cm *corev1.ConfigMap) { delete(cm.Labels, "test") })
 	require.NoError(t, err, "error updating configmap with new label")
 	require.Equal(t, "test", configMap3.Labels["test"], "expected label test to equal test")
 
 	t.Logf("Update configmap to modifty the selector label") // error because selector label is a protected label
-	configMap3.Labels["test"] = "test1"
-	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().ConfigMaps("default").Update(t.Context(), configMap3, metav1.UpdateOptions{})
+	_, err = updateConfigMap(configMap3.Name, func(cm *corev1.ConfigMap) { cm.Labels["test"] = "test1" })
 	require.Error(t, err, "expected error updating configmap with new label")
 
 	t.Logf("Update secret with a new label")
-	secret4.Labels["tier"] = "random1"
-	secret4, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(t.Context(), secret4, metav1.UpdateOptions{})
+	secret4, err = updateSecret(secret4.Name, func(s *corev1.Secret) { s.Labels["tier"] = "random1" })
 	require.NoError(t, err, "error updating secret with new label")
 	require.Equal(t, "random1", secret4.Labels["tier"], "expected label tier to equal random1")
 	require.Equal(t, "test1", secret4.Labels["test"], "expected label test to equal test1")
 
 	t.Logf("Update secret to drop the selector label") // error because no mutation for matchExpressions
-	delete(secret4.Labels, "test")
-	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(t.Context(), secret4, metav1.UpdateOptions{})
+	_, err = updateSecret(secret4.Name, func(s *corev1.Secret) { delete(s.Labels, "test") })
 	require.Error(t, err, "error updating secret with new label")
 
 	t.Logf("Update secret to modifty the selector label") // error because selector label is a protected label
-	secret4.Labels["test"] = "test3"
-	_, err = vwKubeClient.Cluster(consumerClusterName.Path()).CoreV1().Secrets("default").Update(t.Context(), secret4, metav1.UpdateOptions{})
+	_, err = updateSecret(secret4.Name, func(s *corev1.Secret) { s.Labels["test"] = "test3" })
 	require.Error(t, err, "expected error updating secret with new label")
 
 	t.Logf("List configmaps after operations via VW")

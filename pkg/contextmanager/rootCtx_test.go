@@ -121,6 +121,33 @@ func TestRootCtx_Delete(t *testing.T) {
 	rc.delete("missing", errors.New("nope"))
 }
 
+func TestRootCtx_IsCancelled(t *testing.T) {
+	t.Parallel()
+	rc := newRootCtx(context.Background())
+
+	if rc.isCancelled("k") {
+		t.Fatalf("missing key must not be reported as cancelled")
+	}
+	if _, loaded := rc.entries.Load("k"); loaded {
+		t.Fatalf("isCancelled must not create an entry")
+	}
+
+	rc.context("k")
+	if rc.isCancelled("k") {
+		t.Fatalf("live context must not be reported as cancelled")
+	}
+
+	rc.cancel("k", errors.New("inactive"))
+	if !rc.isCancelled("k") {
+		t.Fatalf("cancelled context must be reported as cancelled")
+	}
+
+	rc.delete("k", errors.New("reactivated"))
+	if rc.isCancelled("k") {
+		t.Fatalf("deleted key must not be reported as cancelled")
+	}
+}
+
 func TestRootCtx_CancelAll(t *testing.T) {
 	t.Parallel()
 	rc := newRootCtx(context.Background())
