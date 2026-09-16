@@ -279,7 +279,7 @@ func TestClusterCachedResources(t *testing.T) {
 			}
 
 			var found bool
-			vwURL, found, err = framework.VirtualWorkspaceURL(ctx, kcpClusterClient, consumerWS,
+			vwURL, found, err = framework.VirtualWorkspaceURL(ctx, cfg, consumerWS,
 				framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
 			if err != nil {
 				return false, err.Error()

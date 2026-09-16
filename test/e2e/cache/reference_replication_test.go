@@ -75,7 +75,7 @@ func TestReferenceReplication(t *testing.T) {
 	apiExtensionsClient, err := kcpapiextensionsclientset.NewForConfig(cfg)
 	require.NoError(t, err, "error creating apiextensions cluster client")
 
-	cacheClientCfg := createCacheClientConfigForEnvironment(ctx, t, server.RootShardSystemMasterBaseConfig(t))
+	cacheClientCfg := createCacheClientConfigForEnvironment(t, server.RootShardSystemMasterBaseConfig(t))
 	cacheDynClient, err := kcpdynamic.NewForConfig(cache2e.ClientRoundTrippersFor(cacheClientCfg))
 	require.NoError(t, err, "error creating cache dynamic client")
 
