@@ -18,11 +18,13 @@ package builder
 
 import (
 	"context"
+	"fmt"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +37,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
@@ -47,7 +50,10 @@ import (
 
 // provideShardsRestStorage builds the REST storage for the shards view:
 // GET/LIST/WATCH forwarded to the cache server with shard-wildcard scope, so
-// a single request returns/streams every shard's Shard object.
+// a single request returns/streams every shard's Shard object, plus UPDATE
+// restricted to the allow-listed operational annotations (cordoning), which
+// is applied to the cache copy of the target shard and picked up from there
+// by the shard hosting the authoritative object.
 func provideShardsRestStorage(
 	mainConfig genericapiserver.CompletedConfig,
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface,
@@ -58,7 +64,7 @@ func provideShardsRestStorage(
 		return cacheDynamicClusterClient, nil
 	})
 
-	restProvider := shardsRestProvider(ctx, clientFunc, withShardsView())
+	restProvider := shardsRestProvider(ctx, clientFunc, withShardsView(cacheDynamicClusterClient))
 
 	def, err := apiserver.CreateServingInfoFor(mainConfig, ShardsSchema, corev1alpha1.SchemeGroupVersion.Version, restProvider)
 	if err != nil {
@@ -72,9 +78,9 @@ func provideShardsRestStorage(
 	}, nil
 }
 
-// shardsRestProvider is forwardingregistry.ProvideReadOnlyRestStorage
-// without APIExport identities: get, list and watch only; everything else
-// stays unexposed.
+// shardsRestProvider is forwardingregistry.ProvideReadOnlyRestStorage plus
+// the Updater endpoint (needed for kubectl annotate/patch of the
+// allow-listed annotations); everything else stays unexposed.
 func shardsRestProvider(ctx context.Context, dynamicClusterClientFunc forwardingregistry.DynamicClusterClientFunc, wrapper forwardingregistry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator validation.SchemaValidator, subresourcesSchemaValidator map[string]validation.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		strategy := customresource.NewStrategy(
@@ -113,6 +119,7 @@ func shardsRestProvider(ctx context.Context, dynamicClusterClientFunc forwarding
 			forwardingregistry.GetterFunc
 			forwardingregistry.ListerFunc
 			forwardingregistry.WatcherFunc
+			forwardingregistry.UpdaterFunc
 
 			forwardingregistry.TableConvertorFunc
 			forwardingregistry.CategoriesProviderFunc
@@ -125,6 +132,7 @@ func shardsRestProvider(ctx context.Context, dynamicClusterClientFunc forwarding
 			GetterFunc:  storage.GetterFunc,
 			ListerFunc:  storage.ListerFunc,
 			WatcherFunc: storage.WatcherFunc,
+			UpdaterFunc: storage.UpdaterFunc,
 
 			TableConvertorFunc:      storage.TableConvertorFunc,
 			CategoriesProviderFunc:  storage.CategoriesProviderFunc,
@@ -164,11 +172,119 @@ func fixupShard(obj *unstructured.Unstructured) {
 	obj.SetAnnotations(annotations)
 }
 
+// stripAnnotation removes the given annotation key from the object, dropping
+// the annotations map entirely when it ends up empty so that comparisons of
+// normalized objects converge.
+func stripAnnotation(obj *unstructured.Unstructured, key string) {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return
+	}
+	delete(annotations, key)
+	if len(annotations) == 0 {
+		unstructured.RemoveNestedField(obj.Object, "metadata", "annotations")
+		return
+	}
+	obj.SetAnnotations(annotations)
+}
+
+// MutableAnnotations are the annotations that may be changed on a Shard
+// through the Admin workspace. Everything else on a Shard is read-only:
+// shards register themselves and own their configuration.
+var MutableAnnotations = []string{corev1alpha1.ShardUnschedulableAnnotationKey}
+
 // withShardsView decorates the StoreFuncs so that every read is served from
-// the cache server across all shards, presented as one flat collection.
-func withShardsView() forwardingregistry.StorageWrapper {
+// the cache server across all shards, presented as one flat collection, and
+// updates - restricted to MutableAnnotations - are applied to the cache copy
+// of the target shard, from where the shard hosting the authoritative object
+// picks them up.
+func withShardsView(cacheDynamicClusterClient kcpdynamic.ClusterInterface) forwardingregistry.StorageWrapper {
 	return forwardingregistry.StorageWrapperFunc(func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) {
 		delegateList := storage.ListerFunc
+
+		// rawShardByName returns the cache copy of the named Shard with its
+		// bookkeeping annotations intact, so a write can be routed to the
+		// exact cluster and shard the copy lives under.
+		rawShardByName := func(ctx context.Context, name string) (*unstructured.Unstructured, error) {
+			result, err := delegateList(sourceContext(ctx), &metainternalversion.ListOptions{})
+			if err != nil {
+				return nil, err
+			}
+			list := result.(*unstructured.UnstructuredList)
+			for i := range list.Items {
+				if list.Items[i].GetName() == name {
+					return &list.Items[i], nil
+				}
+			}
+			return nil, apierrors.NewNotFound(corev1alpha1.Resource("shards"), name)
+		}
+
+		storage.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, _ bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+			raw, err := rawShardByName(ctx, name)
+			if err != nil {
+				return nil, false, err
+			}
+			current := raw.DeepCopy()
+			fixupShard(current)
+
+			updatedObj, err := objInfo.UpdatedObject(ctx, current)
+			if err != nil {
+				return nil, false, err
+			}
+			desired, ok := updatedObj.(*unstructured.Unstructured)
+			if !ok {
+				return nil, false, apierrors.NewBadRequest(fmt.Sprintf("unexpected object type %T", updatedObj))
+			}
+			if updateValidation != nil {
+				if err := updateValidation(ctx, desired, current); err != nil {
+					return nil, false, err
+				}
+			}
+
+			// everything except the mutable annotations must be unchanged.
+			values := map[string]*string{}
+			normalizedDesired := desired.DeepCopy()
+			normalizedCurrent := current.DeepCopy()
+			for _, key := range MutableAnnotations {
+				if v, ok := desired.GetAnnotations()[key]; ok {
+					value := v
+					values[key] = &value
+				} else {
+					values[key] = nil
+				}
+				stripAnnotation(normalizedDesired, key)
+				stripAnnotation(normalizedCurrent, key)
+			}
+			// managedFields bookkeeping is stamped by the request's field
+			// manager and is not a user-intended change.
+			unstructured.RemoveNestedField(normalizedDesired.Object, "metadata", "managedFields")
+			unstructured.RemoveNestedField(normalizedCurrent.Object, "metadata", "managedFields")
+			if !equality.Semantic.DeepEqual(normalizedDesired.Object, normalizedCurrent.Object) {
+				return nil, false, apierrors.NewForbidden(corev1alpha1.Resource("shards"), name,
+					fmt.Errorf("only the %v annotations may be changed through the Admin workspace; Shard objects are owned by the shards themselves", MutableAnnotations))
+			}
+
+			// apply the change to the cache copy of the target shard.
+			annotations := raw.GetAnnotations()
+			for key, value := range values {
+				if value == nil {
+					delete(annotations, key)
+				} else {
+					annotations[key] = *value
+				}
+			}
+			raw.SetAnnotations(annotations)
+
+			targetCtx := cacheclient.WithShardInContext(ctx, shard.Name(raw.GetAnnotations()[shard.AnnotationKey]))
+			result, err := cacheDynamicClusterClient.Cluster(logicalcluster.From(raw).Path()).
+				Resource(corev1alpha1.SchemeGroupVersion.WithResource("shards")).
+				Update(targetCtx, raw, *options)
+			if err != nil {
+				return nil, false, err
+			}
+			fixupShard(result)
+			return result, false, nil
+		}
 		storage.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 			result, err := delegateList(sourceContext(ctx), options)
 			if err != nil {

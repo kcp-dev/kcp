@@ -27,7 +27,9 @@ import (
 
 // adminAuthorizer authorizes access to the Admin workspace. Access is
 // granted only to members of the system:kcp:admin group, keeping the serving
-// path free of any dependency on the root shard.
+// path free of any dependency on the root shard. What can actually be
+// written is further restricted by the storage (e.g. only allow-listed Shard
+// annotations).
 type adminAuthorizer struct{}
 
 // NewAdminAuthorizer creates an authorizer for the Admin workspace. Access
@@ -38,7 +40,7 @@ func NewAdminAuthorizer() authorizer.Authorizer {
 
 func (a *adminAuthorizer) Authorize(_ context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	switch attr.GetVerb() {
-	case "get", "list", "watch":
+	case "get", "list", "watch", "update", "patch":
 	default:
 		return authorizer.DecisionDeny, "verb not supported by the admin workspace", nil
 	}

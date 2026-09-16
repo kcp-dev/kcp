@@ -65,6 +65,7 @@ const (
 func NewController(
 	shardName string,
 	dynamicCacheClient kcpdynamic.ClusterInterface,
+	dynamicLocalClient kcpdynamic.ClusterInterface,
 	gvrs map[schema.GroupVersionResource]ReplicatedGVR,
 ) (*controller, error) {
 	c := &controller{
@@ -76,6 +77,7 @@ func NewController(
 			},
 		),
 		dynamicCacheClient: dynamicCacheClient,
+		dynamicLocalClient: dynamicLocalClient,
 		Gvrs:               gvrs,
 	}
 
@@ -188,14 +190,19 @@ type controller struct {
 	queue     workqueue.TypedRateLimitingInterface[string]
 
 	dynamicCacheClient kcpdynamic.ClusterInterface
+	dynamicLocalClient kcpdynamic.ClusterInterface
 
 	Gvrs map[schema.GroupVersionResource]ReplicatedGVR
 }
 
 type ReplicatedGVR struct {
-	Kind          string
-	Filter        func(u *unstructured.Unstructured) bool
-	Global, Local cache.SharedIndexInformer
+	Kind   string
+	Filter func(u *unstructured.Unstructured) bool
+	// CacheOwnedAnnotations lists annotation keys owned by the cache copy:
+	// they carry admin intent written through the Admin workspace and are
+	// applied cache -> local instead of being overwritten local -> cache.
+	CacheOwnedAnnotations []string
+	Global, Local         cache.SharedIndexInformer
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
@@ -256,9 +263,12 @@ func InstallIndexers(
 			Global: globalKcpInformers.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
-			Kind:   "Shard",
-			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
-			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Kind: "Shard",
+			// admin intent (cordoning) written through the Admin workspace
+			// lands on the cache copy and flows cache -> local.
+			CacheOwnedAnnotations: []string{corev1alpha1.ShardUnschedulableAnnotationKey},
+			Local:                 localKcpInformers.Core().V1alpha1().Shards().Informer(),
+			Global:                globalKcpInformers.Core().V1alpha1().Shards().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
 			Kind: "LogicalCluster",
