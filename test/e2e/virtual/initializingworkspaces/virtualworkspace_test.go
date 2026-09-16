@@ -990,7 +990,7 @@ func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, vwURLs, "expected at least one initializing VW URL on the workspacetype")
-	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceKcpClusterClient, ws, vwURLs)
+	targetVwURL, found, err := framework.VirtualWorkspaceURL(ctx, sourceConfig, ws, vwURLs)
 	require.NoError(t, err)
 	require.True(t, found)
 
