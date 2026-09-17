@@ -33,10 +33,21 @@ import (
 func ForbidSystemUsernames(delegate authenticator.Request) authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
 		result, authenticated, err := delegate.AuthenticateRequest(req)
-		if err == nil {
-			if strings.HasPrefix(result.User.GetName(), "system:") {
-				return nil, false, errors.New("system usernames are not admitted")
-			}
+		// No username was asserted, so there is nothing to forbid. Leave the
+		// result for the next authenticator in the chain to decide on.
+		if err != nil || !authenticated {
+			return result, authenticated, err
+		}
+
+		// An authenticated result must carry a user. Reject a delegate that
+		// breaks that contract instead of forwarding it, so a nil user cannot
+		// reach the handlers downstream.
+		if result == nil || result.User == nil {
+			return nil, false, errors.New("authenticated request without user")
+		}
+
+		if strings.HasPrefix(result.User.GetName(), "system:") {
+			return nil, false, errors.New("system usernames are not admitted")
 		}
 
 		return result, authenticated, err
