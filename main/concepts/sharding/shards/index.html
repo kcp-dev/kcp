@@ -4649,6 +4649,15 @@ read-only through the Admin workspace.</p>
 <p>Access requires membership in the <code>system:kcp:admin</code> group; the serving
 path does not depend on the root shard. To reach the view through a
 front-proxy, add a <code>/services/</code> path mapping; any shard can be the backend.</p>
+<p>The front-proxy itself discovers shards through the Admin workspace: the
+kubeconfigs given via <code>--shard-peer-kubeconfig</code> (falling back to the
+<code>--root-kubeconfig</code> server) are seeds, used to bootstrap discovery and as a
+last-resort fallback only. Every shard observed through the view joins the
+failover peer set at runtime and decommissioned shards leave it; requests are
+distributed across the discovered shards, not the seeds. With short-lived
+shards the discovery channel therefore keeps working as long as any currently
+registered shard is reachable, even after all seeds are gone, and stale seeds
+do not receive traffic.</p>
 <p><code>Shard</code> objects in the <code>root</code> workspace are protected by admission: shards
 register themselves and own their objects, so all direct writes (create,
 update including annotations, delete) by non-system users are denied with a
