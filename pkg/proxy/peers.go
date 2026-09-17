@@ -40,12 +40,16 @@ const adminWorkspacePath = "/services/admin"
 const peerCooldown = 30 * time.Second
 
 // Peers is the failover set of shard endpoints serving the Admin workspace.
-// It starts with the seed peers from the peer kubeconfigs and is extended at
-// runtime with every discovered shard (UpsertShard/RemoveShard), so the
-// discovery channel keeps working as long as any shard from the last
-// observed state is reachable, even when every seed is gone. Seeds are
-// permanent: they anchor bootstrapping and recovery from a fully stale
-// dynamic set.
+// It consists of two tiers:
+//
+//   - dynamic peers: every discovered shard (UpsertShard/RemoveShard). This
+//     is the primary tier and follows the observed shards, so decommissioned
+//     or moved shards stop receiving traffic.
+//   - seed peers: the endpoints from the peer kubeconfigs. They bootstrap
+//     discovery while no shard has been observed yet, and are a last-resort
+//     fallback when every dynamic peer fails (e.g. a fully stale dynamic set
+//     after a partition). They are never part of the round-robin ring while
+//     dynamic peers exist, so stale seeds do not attract traffic.
 type Peers struct {
 	cooldown time.Duration
 	now      func() time.Time
@@ -68,9 +72,8 @@ func newPeers(seeds []*url.URL, cooldown time.Duration, now func() time.Time) *P
 }
 
 // UpsertShard adds or replaces the discovered shard's endpoint in the
-// dynamic peer set. Endpoints that duplicate a seed are not tracked twice.
-// Endpoints with a path cannot be failover targets - the round tripper only
-// swaps scheme and host - and are rejected.
+// dynamic peer set. Endpoints with a path cannot be failover targets - the
+// round tripper only swaps scheme and host - and are rejected.
 func (p *Peers) UpsertShard(name, endpoint string) error {
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -83,13 +86,11 @@ func (p *Peers) UpsertShard(name, endpoint string) error {
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for _, seed := range p.seeds {
-		if seed.String() == u.String() {
-			delete(p.dynamic, name)
-			return nil
-		}
-	}
+	old, ok := p.dynamic[name]
 	p.dynamic[name] = u
+	if ok && old.String() != u.String() {
+		p.forgetFailureLocked(old)
+	}
 	return nil
 }
 
@@ -97,24 +98,60 @@ func (p *Peers) UpsertShard(name, endpoint string) error {
 func (p *Peers) RemoveShard(name string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if u, ok := p.dynamic[name]; ok {
-		delete(p.failedAt, u.String())
+	old, ok := p.dynamic[name]
+	if !ok {
+		return
 	}
 	delete(p.dynamic, name)
+	p.forgetFailureLocked(old)
 }
 
-// pickOrder returns the current peers in round-robin order starting from
-// the next slot, with peers inside the cooldown window moved to the back.
-// Seeds come before dynamic peers in the underlying ring; the ring changes
-// as shards come and go.
+// forgetFailureLocked drops the failure record of an endpoint that is no
+// longer used by any peer.
+func (p *Peers) forgetFailureLocked(u *url.URL) {
+	key := u.String()
+	for _, d := range p.dynamic {
+		if d.String() == key {
+			return
+		}
+	}
+	for _, s := range p.seeds {
+		if s.String() == key {
+			return
+		}
+	}
+	delete(p.failedAt, key)
+}
+
+// pickOrder returns the peers to attempt, in order: the primary tier in
+// round-robin order starting from the next slot, followed by the seeds as
+// fallback. The primary tier is the dynamic peers, or the seeds while no
+// shard has been discovered. Within that order, peers inside the cooldown
+// window are moved to the back.
 func (p *Peers) pickOrder() []*url.URL {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	ring := make([]*url.URL, 0, len(p.seeds)+len(p.dynamic))
-	ring = append(ring, p.seeds...)
+	seen := map[string]bool{}
+	ring := make([]*url.URL, 0, len(p.dynamic))
 	for _, name := range slices.Sorted(maps.Keys(p.dynamic)) {
-		ring = append(ring, p.dynamic[name])
+		u := p.dynamic[name]
+		if seen[u.String()] {
+			continue
+		}
+		seen[u.String()] = true
+		ring = append(ring, u)
+	}
+	var fallback []*url.URL
+	for _, u := range p.seeds {
+		if seen[u.String()] {
+			continue
+		}
+		seen[u.String()] = true
+		fallback = append(fallback, u)
+	}
+	if len(ring) == 0 {
+		ring, fallback = fallback, nil
 	}
 	if len(ring) == 0 {
 		return nil
@@ -123,10 +160,15 @@ func (p *Peers) pickOrder() []*url.URL {
 	start := p.next % len(ring)
 	p.next = (start + 1) % len(ring)
 
-	healthy := make([]*url.URL, 0, len(ring))
-	var coolingDown []*url.URL
+	ordered := make([]*url.URL, 0, len(ring)+len(fallback))
 	for i := range ring {
-		u := ring[(start+i)%len(ring)]
+		ordered = append(ordered, ring[(start+i)%len(ring)])
+	}
+	ordered = append(ordered, fallback...)
+
+	healthy := make([]*url.URL, 0, len(ordered))
+	var coolingDown []*url.URL
+	for _, u := range ordered {
 		if failed, ok := p.failedAt[u.String()]; ok && p.now().Sub(failed) < p.cooldown {
 			coolingDown = append(coolingDown, u)
 			continue
@@ -155,7 +197,8 @@ func (p *Peers) markHealthy(u *url.URL) {
 // discovered shards.
 //
 // Every named cluster across all kubeconfigs is a seed peer (duplicates by
-// URL are collapsed); the first kubeconfig's current context supplies
+// URL are collapsed), used until shards are discovered and as a fallback
+// afterwards; the first kubeconfig's current context supplies
 // credentials and TLS settings, which must be valid for all peers. Because
 // all peers serve the identical, cache-backed view in a single
 // resourceVersion space, failover is exact: a watch broken by a peer outage
@@ -214,7 +257,7 @@ func NewPeersConfig(kubeconfigPaths []string) (*rest.Config, *Peers, error) {
 }
 
 // peerFailoverRoundTripper distributes requests round-robin across the
-// peers, skipping peers that failed within the cooldown window, and
+// discovered peers (or the seeds, before any shard is discovered), skipping peers that failed within the cooldown window, and
 // advancing to the next peer on transport-level errors. Only body-less
 // requests (informer GETs, WATCHes) are retried against further peers;
 // requests with a body get a single attempt.

@@ -97,8 +97,8 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
 
 	// Feed every discovered shard into the peer failover set: the configured
-	// peers are only boot-time seeds, and afterwards the set follows the
-	// shards observed through the Admin workspace, so discovery keeps
+	// peers are seeds for bootstrapping and last-resort fallback only, and
+	// requests otherwise go to the shards observed through the Admin workspace, so discovery keeps
 	// working when seeds go away (e.g. short-lived shards). The Admin
 	// workspace is a virtual workspace, so the shard's virtual workspace URL
 	// is the peer endpoint.

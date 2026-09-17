@@ -23,10 +23,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 type fakeTransport struct {
@@ -42,22 +43,36 @@ func (f *fakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: http.StatusOK, Request: req, Body: http.NoBody}, nil
 }
 
-func mustURL(t *testing.T, s string) *url.URL {
-	t.Helper()
-	u, err := url.Parse(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return u
-}
-
 func testPeers(t *testing.T, seeds ...string) *Peers {
 	t.Helper()
 	urls := make([]*url.URL, 0, len(seeds))
 	for _, s := range seeds {
-		urls = append(urls, mustURL(t, s))
+		u, err := url.Parse(s)
+		require.NoError(t, err)
+		urls = append(urls, u)
 	}
 	return newPeers(urls, peerCooldown, time.Now)
+}
+
+// roundTrip sends a body-less GET through rt and returns the host that
+// served it.
+func roundTrip(t *testing.T, rt http.RoundTripper) (string, error) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/services/admin/apis/core.kcp.io/v1alpha1/shards", http.NoBody)
+	require.NoError(t, err)
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
+		return "", err
+	}
+	resp.Body.Close()
+	return resp.Request.URL.Host, nil
+}
+
+func writeKubeconfig(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
+	return p
 }
 
 func TestPeerFailoverAdvancesOnConnectionError(t *testing.T) {
@@ -68,26 +83,15 @@ func TestPeerFailoverAdvancesOnConnectionError(t *testing.T) {
 		peers:    testPeers(t, "https://a:6443", "https://b:6443"),
 	}
 
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/services/admin/apis/core.kcp.io/v1alpha1/shards", http.NoBody)
-	resp, err := rt.RoundTrip(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.Request.URL.Host != "b:6443" {
-		t.Errorf("expected failover to b:6443, got %q", resp.Request.URL.Host)
-	}
+	host, err := roundTrip(t, rt)
+	require.NoError(t, err)
+	require.Equal(t, "b:6443", host, "expected failover to b:6443")
 
 	// the next request must go straight to the healthy peer.
 	transport.seen = nil
-	resp2, err := rt.RoundTrip(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp2.Body.Close()
-	if len(transport.seen) != 1 || transport.seen[0] != "b:6443" {
-		t.Errorf("expected a single attempt against b:6443, got %v", transport.seen)
-	}
+	_, err = roundTrip(t, rt)
+	require.NoError(t, err)
+	require.Equal(t, []string{"b:6443"}, transport.seen, "expected a single attempt against b:6443")
 }
 
 func TestPeerFailoverAllPeersDown(t *testing.T) {
@@ -97,14 +101,8 @@ func TestPeerFailoverAllPeersDown(t *testing.T) {
 		delegate: transport,
 		peers:    testPeers(t, "https://a:6443", "https://b:6443"),
 	}
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/x", http.NoBody)
-	resp, err := rt.RoundTrip(req)
-	if err == nil {
-		resp.Body.Close()
-		t.Fatal("expected an error when all peers are down")
-	} else if !strings.Contains(err.Error(), "all 2 attempted shard peers failed") {
-		t.Errorf("unexpected error: %v", err)
-	}
+	_, err := roundTrip(t, rt)
+	require.ErrorContains(t, err, "all 2 attempted shard peers failed")
 }
 
 const peersKubeconfig = `
@@ -133,34 +131,36 @@ current-context: peers
 
 func TestNewPeersConfig(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	kubeconfigPath := filepath.Join(dir, "peers.kubeconfig")
-	if err := os.WriteFile(kubeconfigPath, []byte(peersKubeconfig), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	kubeconfigPath := writeKubeconfig(t, t.TempDir(), "peers.kubeconfig", peersKubeconfig)
 
 	config, _, err := NewPeersConfig([]string{kubeconfigPath})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	// peers are sorted by cluster name; the Host points the client at the
 	// Admin workspace of the first one.
-	if config.Host != "https://a:6444/services/admin" {
-		t.Errorf("unexpected host %q", config.Host)
-	}
+	require.Equal(t, "https://a:6444/services/admin", config.Host)
 }
 
 func TestNewPeersConfigRejectsServerWithPath(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	kubeconfigPath := filepath.Join(dir, "peers.kubeconfig")
 	bad := strings.Replace(peersKubeconfig, "https://a:6444", "https://a:6444/base", 1)
-	if err := os.WriteFile(kubeconfigPath, []byte(bad), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := NewPeersConfig([]string{kubeconfigPath}); err == nil {
-		t.Fatal("expected an error for a peer server URL with a path")
-	}
+	kubeconfigPath := writeKubeconfig(t, t.TempDir(), "peers.kubeconfig", bad)
+
+	_, _, err := NewPeersConfig([]string{kubeconfigPath})
+	require.Error(t, err, "expected an error for a peer server URL with a path")
+}
+
+func TestNewPeersConfigMergesMultipleFiles(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	first := writeKubeconfig(t, dir, "one.kubeconfig", peersKubeconfig)
+	more := strings.ReplaceAll(peersKubeconfig, "https://a:6444", "https://c:6446")
+	more = strings.ReplaceAll(more, "https://b:6445", "https://a:6444") // duplicate of first file
+	second := writeKubeconfig(t, dir, "two.kubeconfig", more)
+
+	config, peers, err := NewPeersConfig([]string{first, second})
+	require.NoError(t, err)
+	require.Equal(t, "https://a:6444/services/admin", config.Host)
+	require.Len(t, peers.pickOrder(), 3, "expected duplicate seeds to be collapsed")
 }
 
 func TestPeerRoundRobinDistribution(t *testing.T) {
@@ -171,40 +171,59 @@ func TestPeerRoundRobinDistribution(t *testing.T) {
 		peers:    testPeers(t, "https://a:6443", "https://b:6443"),
 	}
 	for range 4 {
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/x", http.NoBody)
-		resp, err := rt.RoundTrip(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp.Body.Close()
+		_, err := roundTrip(t, rt)
+		require.NoError(t, err)
 	}
-	want := []string{"a:6443", "b:6443", "a:6443", "b:6443"}
-	if !slices.Equal(transport.seen, want) {
-		t.Errorf("expected round-robin distribution %v, got %v", want, transport.seen)
-	}
+	require.Equal(t, []string{"a:6443", "b:6443", "a:6443", "b:6443"}, transport.seen, "expected round-robin distribution")
 }
 
-func TestNewPeersConfigMergesMultipleFiles(t *testing.T) {
+func TestPeersSeedsAreNotUsedOnceShardsAreDiscovered(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	first := filepath.Join(dir, "one.kubeconfig")
-	if err := os.WriteFile(first, []byte(peersKubeconfig), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	second := filepath.Join(dir, "two.kubeconfig")
-	more := strings.ReplaceAll(peersKubeconfig, "https://a:6444", "https://c:6446")
-	more = strings.ReplaceAll(more, "https://b:6445", "https://a:6444") // duplicate of first file
-	if err := os.WriteFile(second, []byte(more), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	transport := &fakeTransport{}
+	peers := testPeers(t, "https://seed:6443")
+	rt := &peerFailoverRoundTripper{delegate: transport, peers: peers}
 
-	config, _, err := NewPeersConfig([]string{first, second})
-	if err != nil {
-		t.Fatal(err)
+	require.NoError(t, peers.UpsertShard("shard-1", "https://shard-1:6443"))
+	require.NoError(t, peers.UpsertShard("shard-2", "https://shard-2:6443"))
+
+	for range 4 {
+		_, err := roundTrip(t, rt)
+		require.NoError(t, err)
 	}
-	if config.Host != "https://a:6444/services/admin" {
-		t.Errorf("unexpected host %q", config.Host)
+	require.Equal(t, []string{"shard-1:6443", "shard-2:6443", "shard-1:6443", "shard-2:6443"}, transport.seen,
+		"expected round-robin across discovered shards only, never the seed")
+}
+
+func TestPeersSeedsAreFallbackWhenAllShardsFail(t *testing.T) {
+	t.Parallel()
+	transport := &fakeTransport{downHosts: map[string]bool{"shard-1:6443": true, "shard-2:6443": true}}
+	peers := testPeers(t, "https://seed:6443")
+	rt := &peerFailoverRoundTripper{delegate: transport, peers: peers}
+
+	require.NoError(t, peers.UpsertShard("shard-1", "https://shard-1:6443"))
+	require.NoError(t, peers.UpsertShard("shard-2", "https://shard-2:6443"))
+
+	host, err := roundTrip(t, rt)
+	require.NoError(t, err)
+	require.Equal(t, "seed:6443", host, "expected the seed to serve when every discovered shard is down")
+	require.Equal(t, []string{"shard-1:6443", "shard-2:6443", "seed:6443"}, transport.seen)
+}
+
+func TestPeersStaleSeedIsNotAttempted(t *testing.T) {
+	t.Parallel()
+	// the seed shard moved to a new endpoint; the old seed URL is dead.
+	transport := &fakeTransport{downHosts: map[string]bool{"seed:6443": true}}
+	peers := testPeers(t, "https://seed:6443")
+	rt := &peerFailoverRoundTripper{delegate: transport, peers: peers}
+
+	require.NoError(t, peers.UpsertShard("shard-0", "https://moved:6443"))
+
+	for range 3 {
+		host, err := roundTrip(t, rt)
+		require.NoError(t, err)
+		require.Equal(t, "moved:6443", host)
 	}
+	require.NotContains(t, transport.seen, "seed:6443", "a stale seed must not receive traffic while discovered shards are healthy")
 }
 
 func TestPeersDynamicShardBecomesFailoverTarget(t *testing.T) {
@@ -213,19 +232,11 @@ func TestPeersDynamicShardBecomesFailoverTarget(t *testing.T) {
 	peers := testPeers(t, "https://seed:6443")
 	rt := &peerFailoverRoundTripper{delegate: transport, peers: peers}
 
-	if err := peers.UpsertShard("shard-1", "https://shard-1:6443"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, peers.UpsertShard("shard-1", "https://shard-1:6443"))
 
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/x", http.NoBody)
-	resp, err := rt.RoundTrip(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.Request.URL.Host != "shard-1:6443" {
-		t.Errorf("expected failover to the discovered shard, got %q", resp.Request.URL.Host)
-	}
+	host, err := roundTrip(t, rt)
+	require.NoError(t, err)
+	require.Equal(t, "shard-1:6443", host, "expected the discovered shard to serve")
 }
 
 func TestPeersRemoveShardDropsFailoverTarget(t *testing.T) {
@@ -234,38 +245,23 @@ func TestPeersRemoveShardDropsFailoverTarget(t *testing.T) {
 	peers := testPeers(t, "https://seed:6443")
 	rt := &peerFailoverRoundTripper{delegate: transport, peers: peers}
 
-	if err := peers.UpsertShard("shard-1", "https://shard-1:6443"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, peers.UpsertShard("shard-1", "https://shard-1:6443"))
 	peers.RemoveShard("shard-1")
 
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/x", http.NoBody)
-	if resp, err := rt.RoundTrip(req); err == nil {
-		resp.Body.Close()
-		t.Fatal("expected an error with the seed down and the shard removed")
-	}
-	for _, host := range transport.seen {
-		if host == "shard-1:6443" {
-			t.Errorf("removed shard must not be attempted, attempts: %v", transport.seen)
-		}
-	}
+	_, err := roundTrip(t, rt)
+	require.Error(t, err, "expected an error with the seed down and the shard removed")
+	require.NotContains(t, transport.seen, "shard-1:6443", "removed shard must not be attempted")
 }
 
 func TestPeersUpsertShardRejectsPathAndDuplicatesSeed(t *testing.T) {
 	t.Parallel()
 	peers := testPeers(t, "https://seed:6443")
 
-	if err := peers.UpsertShard("bad", "https://shard:6443/base"); err == nil {
-		t.Error("expected an error for an endpoint with a path")
-	}
+	require.Error(t, peers.UpsertShard("bad", "https://shard:6443/base"), "expected an error for an endpoint with a path")
 
-	// a shard whose endpoint equals a seed must not create a second ring slot.
-	if err := peers.UpsertShard("seed-twin", "https://seed:6443"); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(peers.pickOrder()); got != 1 {
-		t.Errorf("expected a single peer in the ring, got %d", got)
-	}
+	// a shard whose endpoint equals a seed must not be attempted twice.
+	require.NoError(t, peers.UpsertShard("seed-twin", "https://seed:6443"))
+	require.Len(t, peers.pickOrder(), 1)
 }
 
 func TestPeersUpsertShardReplacesEndpoint(t *testing.T) {
@@ -274,25 +270,31 @@ func TestPeersUpsertShardReplacesEndpoint(t *testing.T) {
 	peers := testPeers(t, "https://seed:6443")
 	rt := &peerFailoverRoundTripper{delegate: transport, peers: peers}
 
-	if err := peers.UpsertShard("shard-1", "https://old:6443"); err != nil {
-		t.Fatal(err)
-	}
-	if err := peers.UpsertShard("shard-1", "https://new:6443"); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, peers.UpsertShard("shard-1", "https://old:6443"))
+	require.NoError(t, peers.UpsertShard("shard-1", "https://new:6443"))
 
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://placeholder/x", http.NoBody)
-	resp, err := rt.RoundTrip(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.Request.URL.Host != "new:6443" {
-		t.Errorf("expected the replaced endpoint to serve, got %q", resp.Request.URL.Host)
-	}
-	for _, host := range transport.seen {
-		if host == "old:6443" {
-			t.Errorf("replaced endpoint must not be attempted, attempts: %v", transport.seen)
-		}
-	}
+	host, err := roundTrip(t, rt)
+	require.NoError(t, err)
+	require.Equal(t, "new:6443", host, "expected the replaced endpoint to serve")
+	require.NotContains(t, transport.seen, "old:6443", "replaced endpoint must not be attempted")
+}
+
+func TestPeersForgetFailuresOfUnusedEndpoints(t *testing.T) {
+	t.Parallel()
+	peers := testPeers(t, "https://seed:6443")
+	old, err := url.Parse("https://old:6443")
+	require.NoError(t, err)
+	seed, err := url.Parse("https://seed:6443")
+	require.NoError(t, err)
+
+	require.NoError(t, peers.UpsertShard("shard-1", old.String()))
+	require.NoError(t, peers.UpsertShard("shard-2", seed.String()))
+	peers.markFailed(old)
+	peers.markFailed(seed)
+
+	require.NoError(t, peers.UpsertShard("shard-1", "https://new:6443"))
+	peers.RemoveShard("shard-2")
+
+	require.NotContains(t, peers.failedAt, old.String(), "failure of a replaced endpoint must be forgotten")
+	require.Contains(t, peers.failedAt, seed.String(), "failure of an endpoint still used by a seed must be kept")
 }
