@@ -29,6 +29,10 @@ type FakeAdminV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeAdminV1alpha1) APIExportHistories() v1alpha1.APIExportHistoryInterface {
+	return newFakeAPIExportHistories(c)
+}
+
 func (c *FakeAdminV1alpha1) APIIdentities() v1alpha1.APIIdentityInterface {
 	return newFakeAPIIdentities(c)
 }

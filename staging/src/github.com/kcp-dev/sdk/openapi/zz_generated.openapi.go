@@ -41,11 +41,15 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		v1alpha1.APIExportHistory{}.OpenAPIModelName():                                schema_sdk_apis_admin_v1alpha1_APIExportHistory(ref),
+		v1alpha1.APIExportHistoryList{}.OpenAPIModelName():                            schema_sdk_apis_admin_v1alpha1_APIExportHistoryList(ref),
+		v1alpha1.APIExportHistoryStatus{}.OpenAPIModelName():                          schema_sdk_apis_admin_v1alpha1_APIExportHistoryStatus(ref),
 		v1alpha1.APIIdentity{}.OpenAPIModelName():                                     schema_sdk_apis_admin_v1alpha1_APIIdentity(ref),
 		v1alpha1.APIIdentityList{}.OpenAPIModelName():                                 schema_sdk_apis_admin_v1alpha1_APIIdentityList(ref),
 		v1alpha1.APIIdentityStatus{}.OpenAPIModelName():                               schema_sdk_apis_admin_v1alpha1_APIIdentityStatus(ref),
 		v1alpha1.ExportReference{}.OpenAPIModelName():                                 schema_sdk_apis_admin_v1alpha1_ExportReference(ref),
 		v1alpha1.Holder{}.OpenAPIModelName():                                          schema_sdk_apis_admin_v1alpha1_Holder(ref),
+		v1alpha1.ResourceHistory{}.OpenAPIModelName():                                 schema_sdk_apis_admin_v1alpha1_ResourceHistory(ref),
 		apisv1alpha1.APIBinding{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha1_APIBinding(ref),
 		apisv1alpha1.APIBindingList{}.OpenAPIModelName():                              schema_sdk_apis_apis_v1alpha1_APIBindingList(ref),
 		apisv1alpha1.APIBindingSpec{}.OpenAPIModelName():                              schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref),
@@ -232,6 +236,135 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		runtime.TypeMeta{}.OpenAPIModelName():                                         schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
 		runtime.Unknown{}.OpenAPIModelName():                                          schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
 		version.Info{}.OpenAPIModelName():                                             schema_k8sio_apimachinery_pkg_version_Info(ref),
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_APIExportHistory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistory records what an APIExport has served in the past, so that a schema cannot be swapped for one that changes a property of an already existing group resource. Today only the resource scope is recorded.\n\nIts name is the SHA256 of \"<cluster>|<name>\" of the APIExport it belongs to and it is maintained by kcp in the system:bound-crds logical cluster. It is not meant to be created or edited by users.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status communicates the observed state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha1.APIExportHistoryStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.APIExportHistoryStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_APIExportHistoryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistoryList is a list of APIExportHistory resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.APIExportHistory{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.APIExportHistory{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_APIExportHistoryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistoryStatus communicates the observed state of APIExportHistory.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resources": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources lists every group resource ever served by the APIExport, together with the properties it was first served with.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.ResourceHistory{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.ResourceHistory{}.OpenAPIModelName()},
 	}
 }
 
@@ -471,6 +604,44 @@ func schema_sdk_apis_admin_v1alpha1_Holder(ref common.ReferenceCallback) common.
 		},
 		Dependencies: []string{
 			v1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_ResourceHistory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceHistory records what a single group resource has been served with.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Group is the API group of the recorded resource. Empty string means the core group.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource is the plural name of the recorded resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is the resource scope this group resource was first served with.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"group", "resource", "scope"},
+			},
+		},
 	}
 }
 

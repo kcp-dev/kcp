@@ -23,6 +23,8 @@ import (
 )
 
 type ClusterInterface interface {
+	// APIExportHistories returns a APIExportHistoryClusterInformer.
+	APIExportHistories() APIExportHistoryClusterInformer
 	// APIIdentities returns a APIIdentityClusterInformer.
 	APIIdentities() APIIdentityClusterInformer
 }
@@ -37,12 +39,19 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
+// APIExportHistories returns a APIExportHistoryClusterInformer.
+func (v *version) APIExportHistories() APIExportHistoryClusterInformer {
+	return &aPIExportHistoryClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // APIIdentities returns a APIIdentityClusterInformer.
 func (v *version) APIIdentities() APIIdentityClusterInformer {
 	return &aPIIdentityClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
+	// APIExportHistories returns a APIExportHistoryInformer.
+	APIExportHistories() APIExportHistoryInformer
 	// APIIdentities returns a APIIdentityInformer.
 	APIIdentities() APIIdentityInformer
 }
@@ -56,6 +65,11 @@ type scopedVersion struct {
 // New returns a new Interface.
 func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
+}
+
+// APIExportHistories returns a APIExportHistoryInformer.
+func (v *scopedVersion) APIExportHistories() APIExportHistoryInformer {
+	return &aPIExportHistoryScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // APIIdentities returns a APIIdentityInformer.
