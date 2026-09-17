@@ -4624,11 +4624,19 @@ or multiple per region or cloud provider.</p>
 <p>Every shard serves the <em>Admin workspace</em> at <code>/services/admin</code>: an
 installation-wide administrative view, reachable identically through any
 shard. Its first resource is an aggregated view of all <code>Shard</code> objects. The
-view is backed by the cache server, where every shard's <code>Shard</code>
-object is replicated, so all shards serve an identical view in a single
+view is backed by the cache server, where every shard's <code>Shard</code> object is
+replicated, so all shards serve an identical view in a single
 <code>resourceVersion</code> space: consumers can fail over between shards and resume
 watches with the same resource version. Over time the Admin workspace is the
 home for further installation-wide admin surfaces.</p>
+<p>The view is writable for exactly one purpose: the allow-listed operational
+annotations (currently <code>experimental.core.kcp.io/unschedulable</code> for
+cordoning). Such a write is validated, applied to the cache copy of the
+target shard, and flows from the cache to the shard hosting the
+authoritative object, which applies it - no component ever connects to
+another shard directly, and intent for a temporarily unavailable shard
+parks in the cache until it reconnects. Everything else on a <code>Shard</code> is
+read-only through the Admin workspace.</p>
 <p>The kcp workspace plugin exposes it as the reserved pseudo-workspace
 <code>:admin</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:admin
@@ -4638,14 +4646,6 @@ home for further installation-wide admin surfaces.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>root<span class="w">      </span>us-east-2<span class="w">   </span>https://127.0.0.1:6444<span class="w">   </span>...
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>shard-1<span class="w">   </span>us-east-1<span class="w">   </span>https://127.0.0.1:6445<span class="w">   </span>...
 </code></pre></div>
-<p>The view is writable for exactly one purpose: the allow-listed operational
-annotations (currently <code>experimental.core.kcp.io/unschedulable</code> for
-cordoning). Such a write is validated, applied to the cache copy of the
-target shard, and flows from the cache to the shard hosting the
-authoritative object, which applies it - no component ever connects to
-another shard directly, and intent for a temporarily unavailable shard
-parks in the cache until it reconnects. Everything else on a <code>Shard</code> is
-read-only through the Admin workspace.</p>
 <p>Access requires membership in the <code>system:kcp:admin</code> group; the serving
 path does not depend on the root shard. To reach the view through a
 front-proxy, add a <code>/services/</code> path mapping; any shard can be the backend.</p>
@@ -4658,6 +4658,12 @@ distributed across the discovered shards, not the seeds. With short-lived
 shards the discovery channel therefore keeps working as long as any currently
 registered shard is reachable, even after all seeds are gone, and stale seeds
 do not receive traffic.</p>
+<p>The <code>root</code> workspace keeps a familiar read-only view: the shard hosting the
+root workspace runs a controller that mirrors the cache server's Shard
+objects into <code>root</code> as representations, so <code>kubectl get shards</code> in <code>root</code>
+continues to work. The representations are eventually consistent and
+informational; the Admin workspace remains the authoritative surface and the
+only place operational writes (cordoning) are accepted.</p>
 <p><code>Shard</code> objects in the <code>root</code> workspace are protected by admission: shards
 register themselves and own their objects, so all direct writes (create,
 update including annotations, delete) by non-system users are denied with a
