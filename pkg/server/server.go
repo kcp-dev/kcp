@@ -332,6 +332,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		if err := s.installCRDCleanupController(ctx, controllerConfig); err != nil {
 			return err
 		}
+		if err := s.installAPIExportHistoryController(ctx, controllerConfig); err != nil {
+			return err
+		}
 		if err := s.installLogicalClusterCleanupController(ctx, controllerConfig); err != nil {
 			return err
 		}
