@@ -323,6 +323,14 @@ COMPLETE_SUITES_ARG = -args $(SUITES_ARG)
 endif
 TEST_FEATURE_GATES ?= WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true
 PROXY_FEATURE_GATES ?= $(TEST_FEATURE_GATES)
+# Per-file log verbosity (klog --vmodule) for the kcp shards started by the e2e
+# targets, on top of the default --v=2. Patterns match source file base names
+# without the .go suffix. The garbage collector only logs some of its retry
+# errors (e.g. REST mapping failures) at V(5), which makes GC flakes hard to
+# debug otherwise. Set E2E_SHARD_VMODULE= to turn this off.
+E2E_SHARD_VMODULE ?= garbagecollector=5
+E2E_SHARD_VMODULE_ARG = $(if $(E2E_SHARD_VMODULE),--vmodule=$(E2E_SHARD_VMODULE))
+E2E_SHARDED_VMODULE_ARG = $(if $(E2E_SHARD_VMODULE),--shard-vmodule=$(E2E_SHARD_VMODULE))
 
 .PHONY: test-e2e
 ifdef USE_GOTESTSUM
@@ -351,7 +359,7 @@ test-e2e-shared-minimal: build-e2e
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
 	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 \
-		./bin/test-server --quiet --work-dir-path="$(WORK_DIR)" --log-dir-path="$(LOG_DIR)" $(TEST_SERVER_ARGS) -- --feature-gates=$(TEST_FEATURE_GATES) 2>&1 & PID=$$! && echo "PID $$PID" && \
+		./bin/test-server --quiet --work-dir-path="$(WORK_DIR)" --log-dir-path="$(LOG_DIR)" $(TEST_SERVER_ARGS) -- --feature-gates=$(TEST_FEATURE_GATES) $(E2E_SHARD_VMODULE_ARG) 2>&1 & PID=$$! && echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
@@ -376,7 +384,7 @@ endif
 test-e2e-sharded-minimal: build-e2e
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(E2E_SHARDED_VMODULE_ARG) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
@@ -405,7 +413,7 @@ endif
 test-e2e-sharded-controller-runtime: build-e2e
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(E2E_SHARDED_VMODULE_ARG) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
@@ -436,7 +444,7 @@ endif
 test-e2e-sharded-embedded-vw: build-e2e
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=true --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=true --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(E2E_SHARDED_VMODULE_ARG) $(TEST_SERVER_ARGS) --number-of-shards=$(SHARDS) 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Starting test(s)' && \
@@ -453,7 +461,7 @@ test-run-sharded-server: LOG_DIR ?= $(WORK_DIR)/.kcp
 test-run-sharded-server:
 	mkdir -p "$(LOG_DIR)" "$(WORK_DIR)/.kcp"
 	rm -f "$(WORK_DIR)/.kcp/ready-to-test"
-	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
+	UNSAFE_E2E_HACK_DISABLE_ETCD_FSYNC=true NO_GORUN=1 ./bin/sharded-test-server --quiet --v=2 --log-dir-path="$(LOG_DIR)" --work-dir-path="$(WORK_DIR)" --shard-run-virtual-workspaces=false --shard-feature-gates=$(TEST_FEATURE_GATES) --proxy-feature-gates=$(PROXY_FEATURE_GATES) $(E2E_SHARDED_VMODULE_ARG) $(TEST_SERVER_ARGS) --number-of-shards=2 2>&1 & PID=$$!; echo "PID $$PID" && \
 	trap 'kill -TERM $$PID && wait $$PID' TERM INT EXIT && \
 	while [ ! -f "$(WORK_DIR)/.kcp/ready-to-test" ]; do sleep 1; done && \
 	echo 'Server started' && \
