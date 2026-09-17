@@ -52,6 +52,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apibindingfinalizer"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexport"
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
+	"github.com/kcp-dev/kcp/pkg/admission/apiexportidentityrotation"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clustercachedresource"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
@@ -91,6 +92,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
+	apiexportidentityrotation.PluginName,
 	kcpmutatingwebhook.PluginName,
 	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
@@ -131,6 +133,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	apiresourceschema.Register(plugins)
 	apiexport.Register(plugins)
 	apibinding.Register(plugins)
+	apiexportidentityrotation.Register(plugins)
 	apibindingfinalizer.Register(plugins)
 	apiexportendpointslice.Register(plugins)
 	workspacenamespacelifecycle.Register(plugins)
@@ -168,6 +171,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	apibinding.PluginName,
 	apibindingfinalizer.PluginName,
 	apiexportendpointslice.PluginName,
+	apiexportidentityrotation.PluginName,
 	kcpmutatingwebhook.PluginName,
 	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
