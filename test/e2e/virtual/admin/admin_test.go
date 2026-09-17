@@ -37,6 +37,7 @@ import (
 	kcpclusterclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -59,11 +60,11 @@ func TestAdminWorkspaceShards(t *testing.T) {
 	require.NoError(t, err)
 	rootClient := kcpClusterClient.Cluster(core.RootCluster.Path())
 
-	// the authoritative Shard object lives in the root workspace; reading it
-	// requires a privileged client.
+	// the authoritative Shard object lives in the shard-local system:shard
+	// logical cluster; reading it requires a privileged client.
 	systemClusterClient, err := kcpclusterclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 	require.NoError(t, err)
-	authoritativeClient := systemClusterClient.Cluster(core.RootCluster.Path())
+	authoritativeClient := systemClusterClient.Cluster(configshard.SystemShardCluster.Path())
 
 	vwCfg := rest.CopyConfig(cfg)
 	vwURL, err := url.Parse(cfg.Host)
@@ -97,6 +98,17 @@ func TestAdminWorkspaceShards(t *testing.T) {
 	_, err = adminClient.CoreV1alpha1().Shards().Get(ctx, "does-not-exist", metav1.GetOptions{})
 	require.True(t, apierrors.IsNotFound(err), "expected NotFound for an unknown shard, got %v", err)
 
+	t.Logf("Read-only Shard representations are mirrored into the root workspace")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		representations, err := rootClient.CoreV1alpha1().Shards().List(ctx, metav1.ListOptions{})
+		require.NoError(c, err)
+		require.NotEmpty(c, representations.Items, "expected the root shard's representation in the root workspace")
+		for _, shard := range representations.Items {
+			require.NotContains(c, shard.Annotations, "kcp.io/shard", "cache bookkeeping annotations must be stripped")
+			require.NotEmpty(c, shard.Spec.BaseURL)
+		}
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
 	t.Logf("Changing the spec through the Admin workspace is forbidden")
 	shard, err := adminClient.CoreV1alpha1().Shards().Get(ctx, corev1alpha1.RootShard, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -112,21 +124,21 @@ func TestAdminWorkspaceShards(t *testing.T) {
 	}, metav1.CreateOptions{})
 	require.True(t, apierrors.IsForbidden(err), "expected forbidden, got: %v", err)
 
-	t.Logf("The Shard objects in the root workspace are read-only for users: update, patch and delete are forbidden")
-	// the shard may write to its object concurrently, so retry conflicts
-	// until admission's forbidden is observed.
+	t.Logf("The Shard representations in the root workspace are read-only: update, patch and delete are forbidden")
+	// the mirror controller may write to the representation concurrently, so
+	// retry conflicts until admission's forbidden is observed.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		existing, err := rootClient.CoreV1alpha1().Shards().Get(ctx, corev1alpha1.RootShard, metav1.GetOptions{})
+		representation, err := rootClient.CoreV1alpha1().Shards().Get(ctx, corev1alpha1.RootShard, metav1.GetOptions{})
 		require.NoError(c, err)
-		tamperedExisting := existing.DeepCopy()
-		tamperedExisting.Spec.ExternalURL = "https://tampered.kcp.test.dev"
-		_, err = rootClient.CoreV1alpha1().Shards().Update(ctx, tamperedExisting, metav1.UpdateOptions{})
-		require.True(c, apierrors.IsForbidden(err), "expected update of the Shard to be forbidden, got: %v", err)
+		tamperedRepresentation := representation.DeepCopy()
+		tamperedRepresentation.Spec.ExternalURL = "https://tampered.kcp.test.dev"
+		_, err = rootClient.CoreV1alpha1().Shards().Update(ctx, tamperedRepresentation, metav1.UpdateOptions{})
+		require.True(c, apierrors.IsForbidden(err), "expected update of the representation to be forbidden, got: %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
 	_, err = rootClient.CoreV1alpha1().Shards().Patch(ctx, corev1alpha1.RootShard, types.MergePatchType, []byte(`{"metadata":{"annotations":{"tampered":"true"}}}`), metav1.PatchOptions{})
-	require.True(t, apierrors.IsForbidden(err), "expected patch of the Shard to be forbidden, got: %v", err)
+	require.True(t, apierrors.IsForbidden(err), "expected patch of the representation to be forbidden, got: %v", err)
 	err = rootClient.CoreV1alpha1().Shards().Delete(ctx, corev1alpha1.RootShard, metav1.DeleteOptions{})
-	require.True(t, apierrors.IsForbidden(err), "expected delete of the Shard to be forbidden, got: %v", err)
+	require.True(t, apierrors.IsForbidden(err), "expected delete of the representation to be forbidden, got: %v", err)
 
 	t.Logf("Cordon the shard through the Admin workspace")
 	require.EventuallyWithT(t, func(c *assert.CollectT) {

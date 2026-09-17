@@ -74,11 +74,20 @@ or multiple per region or cloud provider.
 Every shard serves the *Admin workspace* at `/services/admin`: an
 installation-wide administrative view, reachable identically through any
 shard. Its first resource is an aggregated view of all `Shard` objects. The
-view is backed by the cache server, where every shard's `Shard`
-object is replicated, so all shards serve an identical view in a single
+view is backed by the cache server, where every shard's `Shard` object is
+replicated, so all shards serve an identical view in a single
 `resourceVersion` space: consumers can fail over between shards and resume
 watches with the same resource version. Over time the Admin workspace is the
 home for further installation-wide admin surfaces.
+
+The view is writable for exactly one purpose: the allow-listed operational
+annotations (currently `experimental.core.kcp.io/unschedulable` for
+cordoning). Such a write is validated, applied to the cache copy of the
+target shard, and flows from the cache to the shard hosting the
+authoritative object, which applies it - no component ever connects to
+another shard directly, and intent for a temporarily unavailable shard
+parks in the cache until it reconnects. Everything else on a `Shard` is
+read-only through the Admin workspace.
 
 The kcp workspace plugin exposes it as the reserved pseudo-workspace
 `:admin`:
@@ -91,15 +100,6 @@ NAME      REGION      URL                      ...
 root      us-east-2   https://127.0.0.1:6444   ...
 shard-1   us-east-1   https://127.0.0.1:6445   ...
 ```
-
-The view is writable for exactly one purpose: the allow-listed operational
-annotations (currently `experimental.core.kcp.io/unschedulable` for
-cordoning). Such a write is validated, applied to the cache copy of the
-target shard, and flows from the cache to the shard hosting the
-authoritative object, which applies it - no component ever connects to
-another shard directly, and intent for a temporarily unavailable shard
-parks in the cache until it reconnects. Everything else on a `Shard` is
-read-only through the Admin workspace.
 
 Access requires membership in the `system:kcp:admin` group; the serving
 path does not depend on the root shard. To reach the view through a
@@ -114,6 +114,13 @@ distributed across the discovered shards, not the seeds. With short-lived
 shards the discovery channel therefore keeps working as long as any currently
 registered shard is reachable, even after all seeds are gone, and stale seeds
 do not receive traffic.
+
+The `root` workspace keeps a familiar read-only view: the shard hosting the
+root workspace runs a controller that mirrors the cache server's Shard
+objects into `root` as representations, so `kubectl get shards` in `root`
+continues to work. The representations are eventually consistent and
+informational; the Admin workspace remains the authoritative surface and the
+only place operational writes (cordoning) are accepted.
 
 `Shard` objects in the `root` workspace are protected by admission: shards
 register themselves and own their objects, so all direct writes (create,

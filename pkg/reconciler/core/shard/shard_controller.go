@@ -14,10 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package shard maintains the status of Shard objects. It mimics a
-// Kubernetes node reporting its state: currently it keeps the Schedulable
-// condition in sync with the unschedulable (cordon) annotation, acknowledging
-// that the cordon/uncordon signal was observed and applied.
+// Package shard runs on every shard and maintains the status of the shard's
+// own authoritative Shard object in the local system:shard logical cluster.
+// It mimics a Kubernetes node reporting its state: currently it keeps the
+// Schedulable condition in sync with the unschedulable (cordon) annotation,
+// acknowledging that the shard observed and applied the signal. The status
+// replicates to the cache server and is mirrored onto the shard's
+// representation in the root workspace, where admins can see the ack.
 package shard
 
 import (
@@ -42,6 +45,7 @@ import (
 	corev1alpha1client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/core/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 )
@@ -51,6 +55,7 @@ const (
 )
 
 func NewController(
+	shardName string,
 	kcpClient kcpclientset.ClusterInterface,
 	shardInformer corev1alpha1informers.ShardClusterInformer,
 ) (*Controller, error) {
@@ -61,6 +66,7 @@ func NewController(
 				Name: ControllerName,
 			},
 		),
+		shardName: shardName,
 		kcpClient: kcpClient,
 		commit:    committer.NewCommitter[*Shard, Patcher, *ShardSpec, *ShardStatus](kcpClient.CoreV1alpha1().Shards()),
 		getShard: func(clusterName logicalcluster.Name, name string) (*corev1alpha1.Shard, error) {
@@ -76,11 +82,13 @@ func NewController(
 	return c, nil
 }
 
-// Controller maintains the status of Shard objects, e.g. the Schedulable
+// Controller maintains the status of this shard's own authoritative Shard
+// object in the local system:shard logical cluster, e.g. the Schedulable
 // condition acknowledging cordon/uncordon signals.
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
+	shardName string
 	kcpClient kcpclientset.ClusterInterface
 
 	getShard func(clusterName logicalcluster.Name, name string) (*corev1alpha1.Shard, error)
@@ -98,6 +106,16 @@ func (c *Controller) enqueue(obj interface{}) {
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
+		return
+	}
+	clusterName, _, name, err := kcpcache.SplitMetaClusterNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	// only this shard's own authoritative object is of interest; leave
+	// representations and legacy objects in other logical clusters alone.
+	if clusterName != configshard.SystemShardCluster || name != c.shardName {
 		return
 	}
 	logger := logging.WithQueueKey(logging.WithReconciler(klog.Background(), ControllerName), key)
