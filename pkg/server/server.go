@@ -286,6 +286,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}
+	if err := s.installShardRepresentationController(ctx, controllerConfig); err != nil {
+		return err
+	}
 	if err := s.installReplicationController(ctx, controllerConfig, gvrs); err != nil {
 		return err
 	}
@@ -623,7 +626,10 @@ func (s *Server) Run(ctx context.Context) error {
 		s.KcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 
-		// create or update shard
+		// create or update the shard-owned Shard object in the local
+		// system:shard logical cluster. It replicates to the cache server and
+		// is served through the Admin workspace, so shard startup does not
+		// depend on the root shard being reachable.
 		labels := make(map[string]string, len(s.Options.Extra.ShardLabels)+1)
 		maps.Copy(labels, s.Options.Extra.ShardLabels)
 		// The name label always reflects the shard name and cannot be overridden via --shard-labels.
@@ -631,7 +637,7 @@ func (s *Server) Run(ctx context.Context) error {
 		shard := &corev1alpha1.Shard{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        s.Options.Extra.ShardName,
-				Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
+				Annotations: map[string]string{logicalcluster.AnnotationKey: configshard.SystemShardCluster.String()},
 				Labels:      labels,
 			},
 			Spec: corev1alpha1.ShardSpec{
@@ -642,12 +648,12 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		logger.Info("Creating or updating Shard", "shard", s.Options.Extra.ShardName)
 		if err := wait.PollUntilContextCancel(hookCtx, time.Second, true, func(ctx context.Context) (bool, error) {
-			existingShard, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shard.Name, metav1.GetOptions{})
+			existingShard, err := s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards().Get(ctx, shard.Name, metav1.GetOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Error(err, "failed getting Shard from the root workspace")
 				return false, nil
 			} else if errors.IsNotFound(err) {
-				if _, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
+				if _, err := s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards().Create(ctx, shard, metav1.CreateOptions{}); err != nil {
 					logger.Error(err, "failed creating Shard in the root workspace")
 					return false, nil
 				}
@@ -658,7 +664,7 @@ func (s *Server) Run(ctx context.Context) error {
 			existingShard.Spec.BaseURL = shard.Spec.BaseURL
 			existingShard.Spec.ExternalURL = shard.Spec.ExternalURL
 			existingShard.Spec.VirtualWorkspaceURL = shard.Spec.VirtualWorkspaceURL
-			if _, err := s.RootShardKcpClusterClient.Cluster(core.RootCluster.Path()).CoreV1alpha1().Shards().Update(hookCtx, existingShard, metav1.UpdateOptions{}); err != nil {
+			if _, err := s.KcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Shards().Update(hookCtx, existingShard, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed updating Shard in the root workspace")
 				return false, nil
 			}
