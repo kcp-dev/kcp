@@ -420,6 +420,16 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				continue
 			}
 		} else {
+			// While the binding is mid identity-migration the identity migrator
+			// owns the bound CRD lifecycle: it recreates the CRD to force the
+			// serving storage to be rebuilt against the rotated identity.
+			// Creating it here would race that rebuild.
+			if conditions.IsFalse(apiBinding, apisv1alpha2.IdentityMigrationCompleted) {
+				logger.V(4).Info("not creating bound CRD: binding is mid identity-migration", "schema", resourceSchema.Schema)
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
+				continue
+			}
+
 			// Need to create bound CRD
 			crd, err := GenerateBoundCRD(sch)
 			if err != nil {
@@ -536,11 +546,33 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				IdentityHash: apiExport.Status.IdentityHash,
 			},
 			StorageVersions: sortedStorageVersions,
+			IdentityHashes:  []string{apiExport.Status.IdentityHash},
 		}
 
 		found := false
 		for i, r := range apiBinding.Status.BoundResources {
 			if r.Group == sch.Spec.Group && r.Resource == sch.Spec.Names.Plural {
+				// The identity hash keys the etcd prefix of the bound
+				// instances, so an identity change (rotation) must never flip
+				// serving in place: existing data lives under the old prefix.
+				// Keep serving the previous identity and record both hashes;
+				// the identity migrator drains the storage, flips and prunes.
+				if r.Schema.IdentityHash != "" && r.Schema.IdentityHash != apiExport.Status.IdentityHash {
+					newBoundResource.Schema.IdentityHash = r.Schema.IdentityHash
+					newBoundResource.IdentityHashes = sets.List(sets.New(r.IdentityHashes...).
+						Insert(r.Schema.IdentityHash, apiExport.Status.IdentityHash))
+					conditions.MarkFalse(
+						apiBinding,
+						apisv1alpha2.IdentityMigrationCompleted,
+						apisv1alpha2.IdentityMigrationInProgressReason,
+						conditionsv1alpha1.ConditionSeverityInfo,
+						"bound resources are being drained onto the rotated identity of APIExport %s",
+						apiExport.Name,
+					)
+				} else if len(r.IdentityHashes) > 0 {
+					// preserve drain bookkeeping written by the migrator.
+					newBoundResource.IdentityHashes = sets.List(sets.New(r.IdentityHashes...).Insert(apiExport.Status.IdentityHash))
+				}
 				apiBinding.Status.BoundResources[i] = newBoundResource
 				found = true
 				break

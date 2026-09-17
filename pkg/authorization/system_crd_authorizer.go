@@ -18,12 +18,15 @@ package authorization
 
 import (
 	"context"
+	"slices"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 // SystemCRDAuthorizer protects the system CRDs from users who are admins in their workspaces.
@@ -48,6 +51,22 @@ func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Att
 		case attr.GetResource() == "apibindings" && attr.GetSubresource() == "status":
 			return authorizer.DecisionDeny, "apibinding status updates not permitted", nil
 		case attr.GetResource() == "apiexports" && attr.GetSubresource() == "status":
+			// The identity rotation controller legitimately writes
+			// APIExport status (identity hash and alias flips). It
+			// addresses the rotated export by workspace path, so the
+			// request travels through the front-proxy with the external
+			// logical cluster admin client cert and arrives here as an
+			// external request subject to the full authorizer chain —
+			// regardless of whether the export's workspace is hosted on
+			// this or another shard (an in-process write via the owning
+			// shard's loopback would come in as system:masters and never
+			// reach this authorizer). The group cannot be self-asserted:
+			// the front-proxy strips system:kcp:* groups from user
+			// identities, only the shard client cert carries it. So
+			// delegate to RBAC instead of hard-denying.
+			if slices.Contains(attr.GetUser().GetGroups(), bootstrap.SystemExternalLogicalClusterAdmin) {
+				break
+			}
 			return authorizer.DecisionDeny, "apiexport status updates not permitted", nil
 		}
 	}
