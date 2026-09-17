@@ -36,11 +36,16 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/apis"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 )
+
+const apiExportHistoryResource = "apiexporthistories"
 
 var (
 	errorScheme = runtime.NewScheme()
@@ -139,6 +144,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if nextContinue == "" {
+		histories, err := scanAPIExportHistoryEntries(ctx, h.etcdClient, h.etcdStoragePrefix, cluster.Name)
+		if err != nil {
+			writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to dump APIExport histories: %w", err)))
+			return
+		}
+		entries = append(entries, histories...)
+	}
+
 	resp := &migrationv1alpha1.LogicalClusterDump{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: migrationv1alpha1.SchemeGroupVersion.String(),
@@ -228,6 +242,57 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 
 		if !resp.More {
 			return entries, "", nil
+		}
+		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
+	}
+}
+
+// scanAPIExportHistoryEntries returns the APIExportHistory entries recorded for the
+// APIExports of the given logical cluster. They live in the shard-local
+// system:bound-crds cluster, which is not part of the dumped keyspace, so they are
+// appended to the last page to reach the destination shard before access is restored.
+func scanAPIExportHistoryEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, target logicalcluster.Name) ([]migrationv1alpha1.EtcdEntry, error) {
+	prefix := storagePrefix
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	resourcePrefix := prefix + apis.GroupName + "/" + apiExportHistoryResource + "/"
+
+	var entries []migrationv1alpha1.EtcdEntry
+	key := resourcePrefix
+	for {
+		resp, err := kv.Get(ctx, key,
+			clientv3.WithRange(clientv3.GetPrefixRangeEnd(resourcePrefix)),
+			clientv3.WithLimit(kcpetcd.ScanPageSize),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list etcd keys: %w", err)
+		}
+
+		for _, entry := range resp.Kvs {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if !kcpetcd.BelongsToCluster(prefix, string(entry.Key), apibinding.SystemBoundCRDsClusterName) {
+				continue
+			}
+
+			var history apisv1alpha2.APIExportHistory
+			if err := json.Unmarshal(entry.Value, &history); err != nil {
+				continue
+			}
+			if history.Spec.APIExport.Cluster != target.String() {
+				continue
+			}
+
+			entries = append(entries, migrationv1alpha1.EtcdEntry{
+				Key:   strings.TrimPrefix(string(entry.Key), prefix),
+				Value: append([]byte(nil), entry.Value...),
+			})
+		}
+
+		if !resp.More {
+			return entries, nil
 		}
 		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 	}

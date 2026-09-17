@@ -47,6 +47,31 @@ func (in APIExport) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistory) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportHistory"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistoryList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportHistoryList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistoryRef) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportHistoryRef"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistorySpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportHistorySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistoryStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportHistoryStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIExportList) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.APIExportList"
 }
@@ -114,6 +139,11 @@ func (in PermissionClaim) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PermissionClaimSelector) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.PermissionClaimSelector"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ResourceHistory) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.apis.v1alpha2.ResourceHistory"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

@@ -56,6 +56,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: apis.GroupName, Resource: "apibindings"},
 		{Group: apis.GroupName, Resource: "apiresourceschemas"},
 		{Group: apis.GroupName, Resource: "apiexportendpointslices"},
+		{Group: apis.GroupName, Resource: "apiexporthistories"},
 		{Group: core.GroupName, Resource: "logicalclusters"},
 		{Group: apis.GroupName, Resource: "apiconversions"},
 		{Group: cache.GroupName, Resource: "clustercachedresources"},

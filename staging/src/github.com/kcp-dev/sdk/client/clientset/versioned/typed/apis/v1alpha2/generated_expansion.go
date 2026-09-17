@@ -21,3 +21,5 @@ package v1alpha2
 type APIBindingExpansion interface{}
 
 type APIExportExpansion interface{}
+
+type APIExportHistoryExpansion interface{}
