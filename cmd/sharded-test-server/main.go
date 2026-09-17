@@ -308,6 +308,10 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	if err := writeShardKubeConfig(workDirPath); err != nil {
 		return err
 	}
+	// peers used by the front-proxy to discover Shards via the Admin workspace
+	if err := writePeersKubeConfig(workDirPath, numberOfShards); err != nil {
+		return err
+	}
 
 	// start front-proxy
 	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
