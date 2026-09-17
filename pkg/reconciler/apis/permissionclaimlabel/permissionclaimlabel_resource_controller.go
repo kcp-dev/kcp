@@ -20,23 +20,30 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/permissionclaim"
@@ -64,6 +71,7 @@ func NewResourceController(
 		kcpClusterClient:       kcpClusterClient,
 		dynamicClusterClient:   dynamicClusterClient,
 		ddsif:                  dynamicDiscoverySharedInformerFactory,
+		apiBindingsIndexer:     apiBindingInformer.Informer().GetIndexer(),
 		permissionClaimLabeler: permissionclaim.NewLabeler(apiBindingInformer, apiExportInformer, globalAPIExportInformer),
 	}
 
@@ -73,6 +81,38 @@ func NewResourceController(
 		UpdateFunc: func(gvr schema.GroupVersionResource, _, obj interface{}) { c.enqueueForResource(logger, gvr, obj) },
 		DeleteFunc: nil, // Nothing to do.
 	})
+
+	// Claim labels embed the claimed identity hash, normalized to the
+	// export's canonical identity. When an export's identity is rotated or
+	// an alias is registered/retired, the correct labels of every object
+	// claimed under that identity change without any event on the objects
+	// themselves, so re-enqueue them explicitly. (Re-reconciling the claiming
+	// APIBindings is not enough: they only touch objects when their set of
+	// applied claims changes, which an identity change does not.)
+	exportIdentityHandler := cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldExport, ok := oldObj.(*apisv1alpha2.APIExport)
+			if !ok {
+				return
+			}
+			newExport, ok := newObj.(*apisv1alpha2.APIExport)
+			if !ok {
+				return
+			}
+			if oldExport.Status.IdentityHash == newExport.Status.IdentityHash &&
+				slices.Equal(oldExport.Status.IdentityAliasHashes, newExport.Status.IdentityAliasHashes) {
+				return
+			}
+			logger.V(2).Info("APIExport identity changed, re-enqueueing claimed resources",
+				"apiexport", newExport.Name, "cluster", logicalcluster.From(newExport),
+				"identityHash", newExport.Status.IdentityHash, "aliases", newExport.Status.IdentityAliasHashes)
+			for _, resource := range newExport.Spec.Resources {
+				c.enqueueClaimedResources(logger, schema.GroupResource{Group: resource.Group, Resource: resource.Name})
+			}
+		},
+	}
+	_, _ = apiExportInformer.Informer().AddEventHandler(exportIdentityHandler)
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(exportIdentityHandler)
 
 	return c, nil
 }
@@ -84,8 +124,66 @@ type resourceController struct {
 	kcpClusterClient       kcpclientset.ClusterInterface
 	dynamicClusterClient   kcpdynamic.ClusterInterface
 	ddsif                  *informer.DiscoveringDynamicSharedInformerFactory
+	apiBindingsIndexer     cache.Indexer
 	permissionClaimLabeler *permissionclaim.Labeler
 }
+
+// enqueueClaimedResources enqueues every object of the group resource in
+// every logical cluster holding an APIBinding that accepts a claim on it.
+func (c *resourceController) enqueueClaimedResources(logger logr.Logger, gr schema.GroupResource) {
+	bindings, err := indexers.ListAPIBindingsByAcceptedClaimedGroupResource(c.apiBindingsIndexer, gr)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to list APIBindings by claimed group resource %q: %w", gr, err))
+		return
+	}
+	if len(bindings) == 0 {
+		return
+	}
+	clusters := sets.New[logicalcluster.Name]()
+	for _, binding := range bindings {
+		clusters.Insert(logicalcluster.From(binding))
+	}
+
+	informers, _ := c.ddsif.Informers()
+	for gvr := range informers {
+		if gvr.Group != gr.Group || gvr.Resource != gr.Resource {
+			continue
+		}
+		inf, err := c.ddsif.ForResource(gvr)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("failed to get informer for %q: %w", gvr, err))
+			return
+		}
+		count := 0
+		for _, cluster := range sets.List(clusters) {
+			objs, err := inf.Lister().ByCluster(cluster).List(labels.Everything())
+			if err != nil {
+				utilruntime.HandleError(fmt.Errorf("failed to list %q in %q: %w", gvr, cluster, err))
+				continue
+			}
+			for _, obj := range objs {
+				c.enqueueForResource(logger, gvr, obj)
+				count++
+			}
+		}
+		logger.V(2).Info("re-enqueued claimed resources after identity change", "groupResource", gr.String(), "gvr", gvr.String(), "clusters", clusters.Len(), "count", count)
+		return // one served version is enough, labels are version-agnostic
+	}
+
+	// No synced informer for the resource right now. This happens when the
+	// bound CRD serving the resource was just rebuilt (e.g. by the identity
+	// migrator) and the dynamic informer is resyncing. Retry shortly rather
+	// than dropping the relabel: nothing else will trigger it.
+	logger.V(2).Info("no synced informer for claimed group resource yet, retrying", "groupResource", gr.String(), "bindings", len(bindings))
+	c.queue.AddAfter(relabelKeyPrefix+gr.String(), relabelRetryDelay)
+}
+
+const (
+	// relabelKeyPrefix marks queue keys that ask for a re-evaluation of all
+	// claimed objects of a group resource (rather than one object).
+	relabelKeyPrefix  = "relabel::"
+	relabelRetryDelay = 2 * time.Second
+)
 
 // enqueueForResource adds the resource (gvr + obj) to the queue.
 func (c *resourceController) enqueueForResource(logger logr.Logger, gvr schema.GroupVersionResource, obj interface{}) {
@@ -151,6 +249,11 @@ func (c *resourceController) processNextWorkItem(ctx context.Context) bool {
 
 func (c *resourceController) process(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
+
+	if gr, ok := strings.CutPrefix(key, relabelKeyPrefix); ok {
+		c.enqueueClaimedResources(logger, schema.ParseGroupResource(gr))
+		return nil
+	}
 
 	parts := strings.SplitN(key, "::", 2)
 	if len(parts) != 2 {
