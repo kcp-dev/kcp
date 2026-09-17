@@ -46,6 +46,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/kcp-dev/sdk/apis/admin"
 	"github.com/kcp-dev/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -215,7 +216,7 @@ func loadCustomResourceDefinitions(logger logr.Logger, baseDir string) (map[meta
 			Resource: parts[1],
 		}
 
-		if gr.Group == apis.GroupName || gr.Group == rbacv1.GroupName || gr.Group == admissionregistrationv1.GroupName {
+		if gr.Group == apis.GroupName || gr.Group == admin.GroupName || gr.Group == rbacv1.GroupName || gr.Group == admissionregistrationv1.GroupName {
 			logger.Info(fmt.Sprintf("Skipping CustomResourceDefinition %s from %s", gr.String(), path))
 			return nil
 		}
